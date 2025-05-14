@@ -3,17 +3,18 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
   const [formData, setFormData] = useState({
+    name: "",
     email: "",
     password: "",
+    confirmPassword: "",
   });
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -25,22 +26,34 @@ export default function LoginPage() {
     setIsLoading(true);
     setError(null);
 
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords don't match");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const result = await signIn("credentials", {
-        email: formData.email,
-        password: formData.password,
-        redirect: false,
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
       });
 
-      if (result?.error) {
-        setError("Invalid email or password");
-        return;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Something went wrong");
       }
 
-      // Redirect to dashboard or home page on success
-      router.push("/dashboard");
-    } catch (err) {
-      setError("An error occurred during sign in");
+      // Redirect to login page on success
+      router.push("/");
+    } catch (err: any) {
+      setError(err.message || "Failed to create account");
     } finally {
       setIsLoading(false);
     }
@@ -51,10 +64,10 @@ export default function LoginPage() {
       <div className="w-full max-w-[1200px] flex flex-col justify-center items-center space-y-6">
         <div className="flex flex-col space-y-2 text-center">
           <h1 className="text-3xl font-semibold tracking-tight">
-            Welcome to Charpstar
+            Create your Charpstar account
           </h1>
           <p className="text-sm text-muted-foreground">
-            Enter your credentials to sign in to your account
+            Enter your details to create a new account
           </p>
         </div>
 
@@ -66,6 +79,28 @@ export default function LoginPage() {
                   {error}
                 </div>
               )}
+
+              <div className="grid gap-2">
+                <label
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  htmlFor="name"
+                >
+                  Full Name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  className={cn(
+                    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  )}
+                  placeholder="John Doe"
+                  disabled={isLoading}
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
 
               <div className="grid gap-2">
                 <label
@@ -88,6 +123,7 @@ export default function LoginPage() {
                   required
                 />
               </div>
+
               <div className="grid gap-2">
                 <label
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -108,6 +144,28 @@ export default function LoginPage() {
                   required
                 />
               </div>
+
+              <div className="grid gap-2">
+                <label
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  htmlFor="confirmPassword"
+                >
+                  Confirm Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  className={cn(
+                    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  )}
+                  disabled={isLoading}
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
               <button
                 className={cn(
                   "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full",
@@ -138,17 +196,18 @@ export default function LoginPage() {
                     ></path>
                   </svg>
                 )}
-                Sign In
+                Create Account
               </button>
-              <div className="mt-4 text-center text-sm">
-                Don't have an account?{" "}
-                <Link
-                  href="/signup"
-                  className="text-primary underline hover:text-primary/90"
-                >
-                  Sign up
-                </Link>
-              </div>
+            </div>
+
+            <div className="mt-4 text-center text-sm">
+              Already have an account?{" "}
+              <Link
+                href="/"
+                className="text-primary underline hover:text-primary/90"
+              >
+                Sign in
+              </Link>
             </div>
           </form>
         </div>
