@@ -7,6 +7,7 @@ import { LayoutDashboard, Users, Settings, LogOut } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { ROLES, useHasPermission } from "@/lib/auth";
 import Image from "next/image";
+import { useFeaturePermission } from "@/lib/useFeaturePermission";
 
 // To more easily add new menu items, and not make it an array likke before, sometimes messes up the routing and navigation.
 // So we'll use a more dynamic approach.
@@ -39,6 +40,14 @@ export function Sidebar() {
   // Filter menu items based on user role
   const visibleMenuItems = menuItems.filter((item) =>
     useHasPermission(item.requiredRole)
+  );
+
+  const role = session?.user?.role;
+
+  const { hasAccess: canEditUser } = useFeaturePermission(role, "edit_user");
+  const { hasAccess: canDeleteUser } = useFeaturePermission(
+    role,
+    "delete_user"
   );
 
   return (
@@ -90,18 +99,32 @@ export function Sidebar() {
         })}
         {/* Permissions link for admin only */}
         {session?.user?.role === "admin" && (
-          <Link
-            href="/admin/permissions"
-            className={cn(
-              "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors mt-4",
-              pathname === "/admin/permissions"
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/10"
-            )}
-          >
-            <span className="w-5 h-5 inline-block">🔒</span>
-            <span>Page Permissions</span>
-          </Link>
+          <>
+            <Link
+              href="/admin/permissions"
+              className={cn(
+                "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors mt-4",
+                pathname === "/admin/permissions"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/10"
+              )}
+            >
+              <span className="w-5 h-5 inline-block">🔒</span>
+              <span>Permissions</span>
+            </Link>
+            <Link
+              href="/admin/feature-permissions"
+              className={cn(
+                "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
+                pathname === "/admin/feature-permissions"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/10"
+              )}
+            >
+              <span className="w-5 h-5 inline-block">🛠️</span>
+              <span>Feature Permissions</span>
+            </Link>
+          </>
         )}
       </nav>
 

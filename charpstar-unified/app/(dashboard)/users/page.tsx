@@ -58,6 +58,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/components/ui/use-toast";
 import type { UserFormValues } from "@/app/components/UserForm";
 import { usePagePermission } from "@/lib/usePagePermission";
+import { useFeaturePermission } from "@/lib/useFeaturePermission";
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -142,12 +143,12 @@ export default function UsersPage() {
   const { toast } = useToast();
   const role = session?.user?.role;
   const { hasAccess, loading: permLoading } = usePagePermission(role, "/users");
-
-  // Debug log
-  if (typeof window !== "undefined") {
-    console.log("[DEBUG] session.user.role:", role);
-    console.log("[DEBUG] hasAccess for /users:", hasAccess);
-  }
+  const { hasAccess: canAddUser, loading: addUserLoading } =
+    useFeaturePermission(role, "add_user");
+  const { hasAccess: canEditUser, loading: editUserLoading } =
+    useFeaturePermission(role, "edit_user");
+  const { hasAccess: canDeleteUser, loading: deleteUserLoading } =
+    useFeaturePermission(role, "delete_user");
 
   // Sort function
   const sortData = (data: User[]) => {
@@ -388,26 +389,28 @@ export default function UsersPage() {
         <h1 className="text-2xl font-semibold flex items-center gap-2">
           <Users className="w-6 h-6" /> Users
         </h1>
-        <Dialog
-          open={isAddUserDialogOpen}
-          onOpenChange={setIsAddUserDialogOpen}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add User
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New User</DialogTitle>
-              <DialogDescription>
-                Create a new user account with specified role and permissions.
-              </DialogDescription>
-            </DialogHeader>
-            <UserForm onSubmit={handleAddUser} isLoading={isAddingUser} />
-          </DialogContent>
-        </Dialog>
+        {canAddUser && (
+          <Dialog
+            open={isAddUserDialogOpen}
+            onOpenChange={setIsAddUserDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button disabled={addUserLoading}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add User
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New User</DialogTitle>
+                <DialogDescription>
+                  Create a new user account with specified role and permissions.
+                </DialogDescription>
+              </DialogHeader>
+              <UserForm onSubmit={handleAddUser} isLoading={isAddingUser} />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="flex gap-4 items-center">
@@ -495,13 +498,17 @@ export default function UsersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditUser(user.id)}>
+                      <DropdownMenuItem
+                        onClick={() => handleEditUser(user.id)}
+                        disabled={!canEditUser || editUserLoading}
+                      >
                         <Pencil className="w-4 h-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
                         onClick={() => handleDeleteClick(user)}
+                        disabled={!canDeleteUser || deleteUserLoading}
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
                         Delete
