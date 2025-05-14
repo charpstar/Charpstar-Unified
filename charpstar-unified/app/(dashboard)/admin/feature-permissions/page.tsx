@@ -36,6 +36,7 @@ const roles = [
 export default function FeaturePermissionsPage() {
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
 
   const getKey = (role: string, feature: string) => `${role}:${feature}`;
 
@@ -69,16 +70,18 @@ export default function FeaturePermissionsPage() {
     feature: string,
     value: boolean
   ) => {
-    setPermissions((prev) => ({ ...prev, [getKey(role, feature)]: value }));
-    const { error } = await supabase.from("role_feature_permissions").upsert(
-      {
-        role,
-        feature,
-        can_access: value,
-      },
-      { onConflict: "role,feature" }
-    );
+    const key = getKey(role, feature);
+    setPermissions((prev) => ({ ...prev, [key]: value }));
+    setPending(key);
+    const { error } = await supabase
+      .from("role_feature_permissions")
+      .upsert(
+        { role, feature, can_access: value },
+        { onConflict: "role,feature" }
+      );
+    setPending(null);
     if (error) {
+      setPermissions((prev) => ({ ...prev, [key]: !value }));
       toast({
         title: "Error",
         description: "Failed to update feature permission",
@@ -120,8 +123,11 @@ export default function FeaturePermissionsPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleToggle(role, feature.key, e.target.checked)
                     }
-                    disabled={loading}
+                    disabled={loading || pending === getKey(role, feature.key)}
                   />
+                  {pending === getKey(role, feature.key) && (
+                    <span className="ml-2 animate-spin">⏳</span>
+                  )}
                 </TableCell>
               ))}
             </TableRow>

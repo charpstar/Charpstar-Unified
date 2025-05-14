@@ -37,6 +37,7 @@ const roles = [
 export default function PermissionsPage() {
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
 
   // Helper to get permission key
   const getKey = (role: string, page: string) => `${role}:${page}`;
@@ -65,17 +66,15 @@ export default function PermissionsPage() {
   }, []);
 
   const handleToggle = async (role: string, page: string, value: boolean) => {
-    setPermissions((prev) => ({ ...prev, [getKey(role, page)]: value }));
-    // Upsert the permission
-    const { error } = await supabase.from("role_permissions").upsert(
-      {
-        role,
-        page,
-        can_access: value,
-      },
-      { onConflict: "role,page" }
-    );
+    const key = getKey(role, page);
+    setPermissions((prev) => ({ ...prev, [key]: value }));
+    setPending(key);
+    const { error } = await supabase
+      .from("role_permissions")
+      .upsert({ role, page, can_access: value }, { onConflict: "role,page" });
+    setPending(null);
     if (error) {
+      setPermissions((prev) => ({ ...prev, [key]: !value }));
       toast({
         title: "Error",
         description: "Failed to update permission",
@@ -117,8 +116,11 @@ export default function PermissionsPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleToggle(role, page.key, e.target.checked)
                     }
-                    disabled={loading}
+                    disabled={loading || pending === getKey(role, page.key)}
                   />
+                  {pending === getKey(role, page.key) && (
+                    <span className="ml-2 animate-spin">⏳</span>
+                  )}
                 </TableCell>
               ))}
             </TableRow>

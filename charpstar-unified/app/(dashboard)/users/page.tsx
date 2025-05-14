@@ -59,6 +59,7 @@ import { useToast } from "@/components/ui/use-toast";
 import type { UserFormValues } from "@/app/components/UserForm";
 import { usePagePermission } from "@/lib/usePagePermission";
 import { useFeaturePermission } from "@/lib/useFeaturePermission";
+import { useUsers } from "@/lib/useUsers";
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -125,20 +126,11 @@ const roleBadgeClasses: Record<string, string> = {
 export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState("all");
-  const [users, setUsers] = useState<User[]>([]);
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: "name",
-    direction: "asc",
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [isAddingUser, setIsAddingUser] = useState(false);
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
-  const router = useRouter();
   const { data: session } = useSession();
   const { toast } = useToast();
   const role = session?.user?.role;
@@ -150,7 +142,32 @@ export default function UsersPage() {
   const { hasAccess: canDeleteUser, loading: deleteUserLoading } =
     useFeaturePermission(role, "delete_user");
 
-  // Sort function
+  // Use the new useUsers hook
+  const {
+    users,
+    loading: isLoading,
+    error,
+    addUser,
+    updateUser,
+    deleteUser,
+    refetch,
+    isAddingUser,
+    isDeletingUser,
+    pendingUserId,
+  } = useUsers(!!role && hasAccess);
+
+  // Fetch users only when role and hasAccess are ready
+  useEffect(() => {
+    if (role && hasAccess) {
+      refetch();
+    }
+  }, [role, hasAccess, refetch]);
+
+  // Sort and filter logic
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: "name",
+    direction: "asc",
+  });
   const sortData = (data: User[]) => {
     return [...data].sort((a, b) => {
       if (a[sortConfig.key] < b[sortConfig.key]) {
@@ -162,8 +179,6 @@ export default function UsersPage() {
       return 0;
     });
   };
-
-  // Filter function
   const filterData = (data: User[]) => {
     return data.filter(
       (user) =>
@@ -172,8 +187,6 @@ export default function UsersPage() {
         (selectedRole === "all" || user.role === selectedRole)
     );
   };
-
-  // Handle sort
   const handleSort = (key: keyof User) => {
     setSortConfig((current) => ({
       key,
@@ -181,192 +194,13 @@ export default function UsersPage() {
         current.key === key && current.direction === "asc" ? "desc" : "asc",
     }));
   };
-
-  // Get filtered and sorted data
   const filteredAndSortedUsers = sortData(filterData(users));
-
-  const handleAddUser = async (formData: any) => {
-    setIsAddingUser(true);
-    try {
-      const response = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to create user");
-      }
-
-      // Add the new user to the list
-      setUsers((prevUsers) => [
-        {
-          id: data.user.id,
-          name: data.user.name,
-          email: data.user.email,
-          role: data.user.role,
-        },
-        ...prevUsers,
-      ]);
-
-      setIsAddUserDialogOpen(false);
-      toast({
-        title: "Success",
-        description: "User created successfully",
-      });
-    } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err.message || "Failed to create user",
-        variant: "destructive",
-      });
-    } finally {
-      setIsAddingUser(false);
-    }
-  };
-
-  const handleEditUser = (userId: string) => {
-    const user = users.find((u) => u.id === userId);
-    if (user) {
-      setUserToEdit(user);
-      setIsEditUserDialogOpen(true);
-    }
-  };
-
-  const handleUpdateUser = async (formData: any) => {
-    if (!userToEdit) return;
-    try {
-      // Update user info
-      const { error: userError } = await supabase
-        .from("users")
-        .update({
-          name: formData.name,
-          email: formData.email,
-        })
-        .eq("id", userToEdit.id);
-      if (userError) throw userError;
-
-      // Update profile/role (convert to lowercase)
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ role: formData.role.toLowerCase() })
-        .eq("user_id", userToEdit.id);
-      if (profileError) throw profileError;
-
-      // Update local state
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userToEdit.id
-            ? {
-                ...u,
-                name: formData.name,
-                email: formData.email,
-                role: formData.role,
-              }
-            : u
-        )
-      );
-      setIsEditUserDialogOpen(false);
-      setUserToEdit(null);
-      toast({
-        title: "Success",
-        description: "User updated successfully",
-      });
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to update user. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteClick = (user: User) => {
-    setUserToDelete(user);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!userToDelete) return;
-
-    try {
-      // First delete the profile
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("user_id", userToDelete.id);
-
-      if (profileError) throw profileError;
-
-      // Then delete the user
-      const { error: userError } = await supabase
-        .from("users")
-        .delete()
-        .eq("id", userToDelete.id);
-
-      if (userError) throw userError;
-
-      // Update the local state
-      setUsers(users.filter((u) => u.id !== userToDelete.id));
-      setIsDeleteDialogOpen(false);
-      setUserToDelete(null);
-      toast({
-        title: "Success",
-        description: "User deleted successfully",
-      });
-    } catch (err) {
-      console.error("Error deleting user:", err);
-      toast({
-        title: "Error",
-        description: "Failed to delete user. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (!role) return;
-    async function fetchUsers() {
-      try {
-        // Fetch users with their roles using a join
-        const { data: usersData, error: usersError } = await supabase
-          .from("users")
-          .select("id, name, email, profiles!profiles_user_id_fkey(role)")
-          .order("created_at", { ascending: false });
-
-        if (usersError) throw usersError;
-
-        // Combine the data
-        const transformedUsers: User[] = (usersData as any[]).map((user) => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: Array.isArray(user.profiles)
-            ? user.profiles[0]?.role || "User"
-            : user.profiles?.role || "User",
-        }));
-
-        setUsers(transformedUsers);
-      } catch (err) {
-        console.error("Error fetching users:", err);
-        setError("Failed to load users");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchUsers();
-  }, [hasAccess, router, role]);
 
   if (permLoading) {
     return (
       <div className="flex justify-center items-center h-64">Loading...</div>
     );
   }
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -374,7 +208,6 @@ export default function UsersPage() {
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="p-4 bg-destructive/10 text-destructive rounded-md">
@@ -407,12 +240,29 @@ export default function UsersPage() {
                   Create a new user account with specified role and permissions.
                 </DialogDescription>
               </DialogHeader>
-              <UserForm onSubmit={handleAddUser} isLoading={isAddingUser} />
+              <UserForm
+                onSubmit={async (formData) => {
+                  const result = await addUser(formData);
+                  if (result.success) {
+                    setIsAddUserDialogOpen(false);
+                    toast({
+                      title: "Success",
+                      description: "User created successfully",
+                    });
+                  } else {
+                    toast({
+                      title: "Error",
+                      description: result.error || "Failed to create user",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                isLoading={isAddingUser}
+              />
             </DialogContent>
           </Dialog>
         )}
       </div>
-
       <div className="flex gap-4 items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -435,7 +285,6 @@ export default function UsersPage() {
           ))}
         </select>
       </div>
-
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
@@ -499,18 +348,38 @@ export default function UsersPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
-                        onClick={() => handleEditUser(user.id)}
-                        disabled={!canEditUser || editUserLoading}
+                        onClick={() => {
+                          setUserToEdit(user);
+                          setIsEditUserDialogOpen(true);
+                        }}
+                        disabled={
+                          !canEditUser ||
+                          editUserLoading ||
+                          pendingUserId === user.id
+                        }
                       >
                         <Pencil className="w-4 h-4 mr-2" />
+                        {pendingUserId === user.id && (
+                          <span className="animate-spin">⏳</span>
+                        )}
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
-                        onClick={() => handleDeleteClick(user)}
-                        disabled={!canDeleteUser || deleteUserLoading}
+                        onClick={() => {
+                          setUserToDelete(user);
+                          setIsDeleteDialogOpen(true);
+                        }}
+                        disabled={
+                          !canDeleteUser ||
+                          deleteUserLoading ||
+                          pendingUserId === user.id
+                        }
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
+                        {pendingUserId === user.id && (
+                          <span className="animate-spin">⏳</span>
+                        )}
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -521,7 +390,6 @@ export default function UsersPage() {
           </TableBody>
         </Table>
       </div>
-
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -541,13 +409,33 @@ export default function UsersPage() {
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm}>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!userToDelete) return;
+                const result = await deleteUser(userToDelete);
+                if (result.success) {
+                  setUserToDelete(null);
+                  setIsDeleteDialogOpen(false);
+                  toast({
+                    title: "Success",
+                    description: "User deleted successfully",
+                  });
+                } else {
+                  toast({
+                    title: "Error",
+                    description: result.error || "Failed to delete user",
+                    variant: "destructive",
+                  });
+                }
+              }}
+              disabled={isDeletingUser}
+            >
               Delete
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       <Dialog
         open={isEditUserDialogOpen}
         onOpenChange={setIsEditUserDialogOpen}
@@ -561,7 +449,23 @@ export default function UsersPage() {
           </DialogHeader>
           {userToEdit && (
             <UserForm
-              onSubmit={handleUpdateUser}
+              onSubmit={async (formData) => {
+                const result = await updateUser(userToEdit.id, formData);
+                if (result.success) {
+                  setIsEditUserDialogOpen(false);
+                  setUserToEdit(null);
+                  toast({
+                    title: "Success",
+                    description: "User updated successfully",
+                  });
+                } else {
+                  toast({
+                    title: "Error",
+                    description: result.error || "Failed to update user",
+                    variant: "destructive",
+                  });
+                }
+              }}
               isLoading={false}
               defaultValues={{
                 ...userToEdit,
@@ -572,7 +476,6 @@ export default function UsersPage() {
           )}
         </DialogContent>
       </Dialog>
-
       <Toaster />
     </div>
   );

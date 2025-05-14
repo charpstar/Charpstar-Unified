@@ -1,81 +1,146 @@
 "use client";
 
-import { usePagePermission } from "@/lib/usePagePermission";
 import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+
+// Mock data functions (replace with real API calls later)
+function fetchAdminDashboardData() {
+  return Promise.resolve({
+    totalUsers: 1234,
+    totalSales: 987,
+    revenue: "$45,000",
+    recentSales: [
+      { product: "Widget Pro", amount: "$1,200", date: "2024-03-22" },
+      { product: "Gadget X", amount: "$800", date: "2024-03-21" },
+    ],
+    systemHealth: "All systems operational",
+  });
+}
+
+function fetchClientDashboardData() {
+  return Promise.resolve({
+    products: [
+      { name: "Widget Pro", status: "Active", sales: 12 },
+      { name: "Gadget X", status: "Inactive", sales: 0 },
+    ],
+    sales: [
+      { product: "Widget Pro", amount: "$1,200", date: "2024-03-22" },
+      { product: "Widget Pro", amount: "$1,000", date: "2024-03-20" },
+    ],
+    supportContact: "support@charpstar.com",
+  });
+}
 
 export default function DashboardPage() {
   const { data: session } = useSession();
   const role = session?.user?.role;
-  const { hasAccess, loading } = usePagePermission(role, "/dashboard");
+  const [adminData, setAdminData] = useState<any>(null);
+  const [clientData, setClientData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    if (role === "admin") {
+      fetchAdminDashboardData().then((data) => {
+        setAdminData(data);
+        setLoading(false);
+      });
+    } else if (role === "client") {
+      fetchClientDashboardData().then((data) => {
+        setClientData(data);
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
+    }
+  }, [role]);
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">Loading...</div>
+      <div className="flex justify-center items-center h-64">
+        Loading dashboard...
+      </div>
     );
   }
-  if (!hasAccess) {
-    return <div className="p-6 text-center text-destructive">No Access</div>;
+
+  if (role === "admin" && adminData) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-sm">
+            <h3 className="font-semibold text-gray-900">Total Users</h3>
+            <p className="text-3xl font-bold mt-2">{adminData.totalUsers}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-sm">
+            <h3 className="font-semibold text-gray-900">Total Sales</h3>
+            <p className="text-3xl font-bold mt-2">{adminData.totalSales}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-sm">
+            <h3 className="font-semibold text-gray-900">Revenue</h3>
+            <p className="text-3xl font-bold mt-2">{adminData.revenue}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-sm">
+            <h3 className="font-semibold text-gray-900">System Health</h3>
+            <p className="text-lg mt-2">{adminData.systemHealth}</p>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h3 className="font-semibold text-gray-900 mb-2">Recent Sales</h3>
+          <ul className="space-y-1">
+            {adminData.recentSales.map((s: any, i: number) => (
+              <li key={i} className="text-gray-700">
+                {s.product} - <span className="font-semibold">{s.amount}</span>{" "}
+                <span className="text-xs text-gray-400">({s.date})</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
+  if (role === "client" && clientData) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Client Dashboard</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-sm">
+            <h3 className="font-semibold text-gray-900">Your Products</h3>
+            <ul className="mt-2 space-y-1">
+              {clientData.products.map((p: any, i: number) => (
+                <li key={i} className="text-gray-700">
+                  {p.name}{" "}
+                  <span className="text-xs text-gray-400">({p.status})</span> -
+                  Sales: <span className="font-semibold">{p.sales}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-sm">
+            <h3 className="font-semibold text-gray-900">Your Sales</h3>
+            <ul className="mt-2 space-y-1">
+              {clientData.sales.map((s: any, i: number) => (
+                <li key={i} className="text-gray-700">
+                  {s.product} -{" "}
+                  <span className="font-semibold">{s.amount}</span>{" "}
+                  <span className="text-xs text-gray-400">({s.date})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h3 className="font-semibold text-gray-900">Support</h3>
+          <p className="mt-2">Contact: {clientData.supportContact}</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">
-          Welcome back, {session?.user?.name}
-        </h1>
-        <p className="text-gray-500">
-          Here's what's happening with your account today.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Sample dashboard cards */}
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="font-semibold text-gray-900">Total Users</h3>
-          <p className="text-3xl font-bold mt-2">1,234</p>
-          <p className="text-sm text-gray-500 mt-1">+12% from last month</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="font-semibold text-gray-900">Active Projects</h3>
-          <p className="text-3xl font-bold mt-2">56</p>
-          <p className="text-sm text-gray-500 mt-1">+3 new this week</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="font-semibold text-gray-900">Total Revenue</h3>
-          <p className="text-3xl font-bold mt-2">$45,678</p>
-          <p className="text-sm text-gray-500 mt-1">+8% from last month</p>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800">
-            Recent Activity
-          </h2>
-        </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center space-x-4">
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                  {i}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    Activity {i} Title
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Some description about the activity
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+    <div className="p-6 text-center text-gray-500">
+      No dashboard data available for your role.
     </div>
   );
 }
