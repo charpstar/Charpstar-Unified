@@ -11,6 +11,9 @@ import useSWR from "swr";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
 import type { DateRange } from "react-day-picker";
+import { StatCard } from "@/components/ui/stat-card";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -196,198 +199,247 @@ export default function DashboardPage() {
   const [clientError, setClientError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Get default date range
+  const today = new Date();
+  const defaultStartDate = format(addDays(today, -30), "yyyyMMdd");
+  const defaultEndDate = format(today, "yyyyMMdd");
+
+  // Fetch analytics data with retry logic
+  const {
+    data: analyticsData,
+    error: analyticsError,
+    mutate: refreshAnalytics,
+  } = useSWR(
+    role === "admin"
+      ? `/api/analytics?startDate=${defaultStartDate}&endDate=${defaultEndDate}`
+      : null,
+    async (url) => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to fetch analytics");
+      }
+      return response.json();
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 300000, // Refresh every 5 minutes
+      retryCount: 3,
+      onError: (error) => {
+        console.error("Analytics fetch error:", error);
+      },
+    }
+  );
+
   // Admin dashboard logic
   useEffect(() => {
-    setLoading(true);
     if (role === "admin") {
-      fetchAdminDashboardData().then((data) => {
-        setAdminData(data);
-        setLoading(false);
-      });
-    } else if (role === "client") {
-      setClientLoading(true);
-      fetchAnalyticsProfiles().then(({ data, error }) => {
-        if (error) setClientError(error.message);
-        else setClientProfiles(data || []);
-        setClientLoading(false);
-        setLoading(false);
-      });
-    } else {
-      setLoading(false);
+      fetchAdminDashboardData().then(setAdminData);
     }
   }, [role]);
 
+  useEffect(() => {
+    async function loadClientProfiles() {
+      setClientLoading(true);
+      try {
+        const { data, error } = await fetchAnalyticsProfiles();
+        if (error) throw error;
+        setClientProfiles(data || []);
+      } catch (err: any) {
+        setClientError(err.message);
+      } finally {
+        setClientLoading(false);
+      }
+    }
+    loadClientProfiles();
+  }, []);
+
+  useEffect(() => {
+    if (
+      (role === "admin" && (analyticsData?.data || analyticsError)) ||
+      (role !== "admin" && !clientLoading)
+    ) {
+      setLoading(false);
+    }
+  }, [role, analyticsData, analyticsError, clientLoading]);
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64 bg-background text-foreground">
-        Loading dashboard...
+      <div className="p-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className="h-32 rounded-lg bg-gray-100 animate-pulse"
+            />
+          ))}
+        </div>
       </div>
     );
   }
 
-  if (role === "admin" && adminData) {
+  if (role === "admin" && analyticsError) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-card p-6 rounded-lg shadow-sm">
-            <h3 className="font-semibold text-foreground">Total Users</h3>
-            <p className="text-3xl font-bold mt-2 text-primary">
-              {adminData.totalUsers}
-            </p>
-          </div>
-          <div className="bg-card p-6 rounded-lg shadow-sm">
-            <h3 className="font-semibold text-foreground">Total Sales</h3>
-            <p className="text-3xl font-bold mt-2 text-primary">
-              {adminData.totalSales}
-            </p>
-          </div>
-          <div className="bg-card p-6 rounded-lg shadow-sm">
-            <h3 className="font-semibold text-foreground">Revenue</h3>
-            <p className="text-3xl font-bold mt-2 text-primary">
-              {adminData.revenue}
-            </p>
-          </div>
-          <div className="bg-card p-6 rounded-lg shadow-sm">
-            <h3 className="font-semibold text-foreground">System Health</h3>
-            <p className="text-lg mt-2 text-foreground">
-              {adminData.systemHealth}
-            </p>
-          </div>
-        </div>
-        <div className="bg-card p-6 rounded-lg shadow-sm">
-          <h3 className="font-semibold text-foreground mb-2">Recent Sales</h3>
-          <ul className="space-y-1">
-            {adminData.recentSales.map((s: any, i: number) => (
-              <li key={i} className="text-foreground">
-                {s.product} -{" "}
-                <span className="font-semibold text-primary">{s.amount}</span>{" "}
-                <span className="text-xs text-muted-foreground">
-                  ({s.date})
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <BigQueryEventCards />
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            Failed to load analytics data: {analyticsError.message}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => refreshAnalytics()}
+            >
+              Try Again
+            </Button>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
-  if (role === "client") {
-    if (clientLoading) {
-      return (
-        <div className="flex justify-center items-center h-64 bg-background text-foreground">
-          Loading analytics profiles...
-        </div>
-      );
-    }
-    if (clientError) {
-      return (
-        <div className="space-y-6">
-          <div className="p-4 bg-destructive text-destructive-foreground rounded-md">
-            {clientError}
-          </div>
-          <BigQueryEventCards />
-        </div>
-      );
-    }
-    // Summary stats
-    const totalProfiles = clientProfiles.length;
-    const mostRecent = clientProfiles[0]?.monitoredsince
-      ? new Date(clientProfiles[0].monitoredsince).toLocaleDateString()
-      : "-";
+  if (role !== "admin" && clientError) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-foreground">
-          Client Analytics Dashboard
-        </h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-card p-6 rounded-lg shadow-sm">
-            <h3 className="font-semibold text-foreground">
-              Total Analytics Profiles
-            </h3>
-            <p className="text-3xl font-bold mt-2 text-primary">
-              {totalProfiles}
-            </p>
-          </div>
-          <div className="bg-card p-6 rounded-lg shadow-sm">
-            <h3 className="font-semibold text-foreground">
-              Most Recent Monitored
-            </h3>
-            <p className="text-lg mt-2 text-primary">{mostRecent}</p>
-          </div>
-        </div>
-        <div className="bg-card p-6 rounded-lg shadow-sm">
-          <h3 className="font-semibold text-foreground mb-2">
-            Analytics Profiles
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full border border-border bg-card text-foreground">
-              <thead>
-                <tr className="bg-primary">
-                  <th className="px-4 py-2 text-left text-muted-foreground">
-                    Name
-                  </th>
-                  <th className="px-4 py-2 text-left text-muted-foreground">
-                    Project ID
-                  </th>
-                  <th className="px-4 py-2 text-left text-muted-foreground">
-                    Dataset ID
-                  </th>
-                  <th className="px-4 py-2 text-left text-muted-foreground">
-                    Table Name
-                  </th>
-                  <th className="px-4 py-2 text-left text-muted-foreground">
-                    Monitored Since
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {clientProfiles.map((profile) => (
-                  <tr key={profile.id} className="border-b">
-                    <td className="px-4 py-2 text-foreground">
-                      {profile.name}
-                    </td>
-                    <td className="px-4 py-2 text-foreground">
-                      {profile.projectid}
-                    </td>
-                    <td className="px-4 py-2 text-foreground">
-                      {profile.datasetid}
-                    </td>
-                    <td className="px-4 py-2 text-foreground">
-                      {profile.tablename}
-                    </td>
-                    <td className="px-4 py-2 text-foreground">
-                      {profile.monitoredsince
-                        ? new Date(profile.monitoredsince).toLocaleDateString()
-                        : "-"}
-                    </td>
-                  </tr>
-                ))}
-                {clientProfiles.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="text-center py-4 text-muted-foreground"
-                    >
-                      No analytics profiles found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <BigQueryEventCards />
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            Failed to load client data: {clientError}
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
-  // For all other roles or fallback, always show BigQueryEventCards
+  const analytics = analyticsData?.data || {};
+
   return (
-    <div className="p-6 text-center text-muted-foreground">
-      No dashboard data available for your role.
+    <div className="p-6">
+      {role === "admin" ? (
+        <>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-semibold">Analytics Overview</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refreshAnalytics()}
+            >
+              Refresh Data
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+            <StatCard
+              title="Total Page Views"
+              value={analytics.total_page_views || 0}
+            />
+            <StatCard
+              title="Total Unique Users"
+              value={analytics.total_unique_users || 0}
+            />
+            <StatCard
+              title="Total Users who activate our services"
+              value={analytics.total_users_with_service || 0}
+            />
+            <StatCard
+              title="Percentage of users using our service"
+              value={analytics.percentage_users_with_service || 0}
+              suffix="%"
+            />
+            <StatCard
+              title="Conversion rate without AR/3D activation"
+              value={analytics.conversion_rate_without_ar || 0}
+              suffix="%"
+            />
+            <StatCard
+              title="Conversion rate with AR/3D activation"
+              value={analytics.conversion_rate_with_ar || 0}
+              suffix="%"
+            />
+            <StatCard
+              title="Total Purchases with AR/3D activation"
+              value={analytics.total_purchases_with_ar || 0}
+            />
+            <StatCard
+              title="Add to Cart Default"
+              value={analytics.add_to_cart_default || 0}
+              suffix="%"
+            />
+            <StatCard
+              title="Add to Cart with CharpstAR"
+              value={analytics.add_to_cart_with_ar || 0}
+              suffix="%"
+            />
+            <StatCard
+              title="Average Order Value without AR/3D activation"
+              value={
+                analytics.avg_order_value_without_ar?.toLocaleString() || "0"
+              }
+              suffix="(Store currency)"
+            />
+            <StatCard
+              title="Average Order Value with AR/3D activation"
+              value={analytics.avg_order_value_with_ar?.toLocaleString() || "0"}
+              suffix="(Store currency)"
+            />
+            <StatCard
+              title="Total AR Clicks"
+              value={analytics.total_ar_clicks || 0}
+            />
+            <StatCard
+              title="Total 3D Clicks"
+              value={analytics.total_3d_clicks || 0}
+            />
+            <StatCard
+              title="Session time duration without AR/3D activation"
+              value={analytics.session_duration_without_ar || 0}
+              suffix="seconds"
+            />
+            <StatCard
+              title="Session time duration with AR/3D activation"
+              value={analytics.session_duration_with_ar || 0}
+              suffix="seconds"
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-semibold">Event Analytics</h2>
+          </div>
+          <div className="mb-8">
+            {clientLoading ? (
+              <div>Loading client profiles...</div>
+            ) : clientProfiles.length > 0 ? (
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                {clientProfiles.map((profile) => (
+                  <Card key={profile.id} className="p-4">
+                    <CardHeader>
+                      <CardTitle>{profile.name || "Unnamed Profile"}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm text-muted-foreground">
+                        <p>
+                          Monitored since: {profile.monitoredsince || "N/A"}
+                        </p>
+                        <p>Status: {profile.status || "Unknown"}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div>No analytics profiles found.</div>
+            )}
+          </div>
+        </>
+      )}
+
+      <h2 className="text-2xl font-semibold mb-6">Event Analytics</h2>
+      <BigQueryEventCards />
     </div>
   );
 }

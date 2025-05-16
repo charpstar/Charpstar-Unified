@@ -4,5 +4,6 @@ declare namespace NodeJS {
     SUPABASE_SERVICE_ROLE_KEY: string;
     NEXTAUTH_SECRET: string;
     NEXTAUTH_URL: string;
+    GOOGLE_CLOUD_PROJECT: string;
   }
 }
