@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/app/providers";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { SWRConfig } from "swr";
+import { localStorageProvider } from "@/lib/swrLocalStorageProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +31,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <SWRConfig value={{ provider: localStorageProvider }}>
+          <ThemeProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </ThemeProvider>
+        </SWRConfig>
       </body>
     </html>
   );

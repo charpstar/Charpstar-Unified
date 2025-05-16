@@ -10,7 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -39,7 +38,6 @@ export default function PermissionsPage() {
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
 
-  // Helper to get permission key
   const getKey = (role: string, page: string) => `${role}:${page}`;
 
   useEffect(() => {
@@ -90,15 +88,18 @@ export default function PermissionsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold mb-4">
+      <h1 className="text-2xl font-semibold mb-4 text-foreground">
         Role Permissions Management
       </h1>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Page</TableHead>
+            <TableHead className="text-muted-foreground">Page</TableHead>
             {roles.map((role) => (
-              <TableHead key={role} className="capitalize">
+              <TableHead
+                key={role}
+                className="capitalize text-muted-foreground"
+              >
                 {role}
               </TableHead>
             ))}
@@ -106,23 +107,27 @@ export default function PermissionsPage() {
         </TableHeader>
         <TableBody>
           {pages.map((page) => (
-            <TableRow key={page.key}>
-              <TableCell>{page.label}</TableCell>
-              {roles.map((role) => (
-                <TableCell key={role}>
-                  <input
-                    type="checkbox"
-                    checked={permissions[getKey(role, page.key)] ?? false}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      handleToggle(role, page.key, e.target.checked)
-                    }
-                    disabled={loading || pending === getKey(role, page.key)}
-                  />
-                  {pending === getKey(role, page.key) && (
-                    <span className="ml-2 animate-spin">⏳</span>
-                  )}
-                </TableCell>
-              ))}
+            <TableRow key={page.key} className="bg-card border-b border-border">
+              <TableCell className="text-foreground">{page.label}</TableCell>
+              {roles.map((role) => {
+                const key = getKey(role, page.key);
+                return (
+                  <TableCell key={role} className="text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={permissions[key] ?? false}
+                      onChange={(e) =>
+                        handleToggle(role, page.key, e.target.checked)
+                      }
+                      disabled={loading || pending === key}
+                      className="accent-blue-500"
+                    />
+                    {pending === key && (
+                      <span className="ml-2 animate-spin inline-block">⏳</span>
+                    )}
+                  </TableCell>
+                );
+              })}
             </TableRow>
           ))}
         </TableBody>

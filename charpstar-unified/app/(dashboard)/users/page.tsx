@@ -99,10 +99,9 @@ function toTitleCase(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Helper to map backend role to UserForm role
+// Update roleMap and validUserFormRoles to exclude 'User'
 const roleMap: Record<string, UserFormValues["role"]> = {
   admin: "Admin",
-  user: "User",
   manager: "Manager",
   qa: "QA",
   qamanager: "QAmanager",
@@ -110,17 +109,32 @@ const roleMap: Record<string, UserFormValues["role"]> = {
   modelermanager: "Modelermanager",
   client: "Client",
 };
+const validUserFormRoles = [
+  "Admin",
+  "Manager",
+  "QA",
+  "QAmanager",
+  "Modeler",
+  "Modelermanager",
+  "Client",
+] as const;
+function toUserFormRole(role: string): UserFormValues["role"] | undefined {
+  const mapped = roleMap[role];
+  return mapped && validUserFormRoles.includes(mapped as any)
+    ? mapped
+    : undefined;
+}
 
 // Role badge color mapping (teal theme + distinct colors)
 const roleBadgeClasses: Record<string, string> = {
-  admin: "bg-red-700 text-white border-none", // admin - deep red
-  manager: "bg-orange-600 text-white border-none", // manager - orange
-  user: "bg-gray-200 text-gray-800 border-none", // user - neutral gray
-  client: "bg-emerald-600 text-white border-none", // client - emerald
-  qa: "bg-violet-500 text-white border-none", // qa - violet
-  qamanager: "bg-purple-600 text-white border-none", // qa manager - purple
-  modeler: "bg-cyan-500 text-white border-none", // modeler - cyan
-  modelermanager: "bg-blue-600 text-white border-none", // modeler manager - blue
+  admin: "bg-primary/80 text-primary-foreground border-none",
+  manager: "bg-accent text-accent-foreground border-none",
+  user: "bg-muted text-foreground border-none",
+  client: "bg-primary/60 text-primary-foreground border-none",
+  qa: "bg-accent/80 text-accent-foreground border-none",
+  qamanager: "bg-accent/60 text-accent-foreground border-none",
+  modeler: "bg-primary/60 text-primary-foreground border-none",
+  modelermanager: "bg-primary/70 text-primary-foreground border-none",
 };
 
 export default function UsersPage() {
@@ -196,30 +210,32 @@ export default function UsersPage() {
   };
   const filteredAndSortedUsers = sortData(filterData(users));
 
-  if (permLoading) {
+  if (permLoading || isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">Loading...</div>
-    );
-  }
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex flex-col items-center justify-center h-[60vh] text-foreground bg-background">
+        <div className="animate-spin h-10 w-10 rounded-full border-2 border-ring border-t-transparent" />
+        <p className="mt-4 text-sm text-muted-foreground">
+          {permLoading ? "Checking permissions..." : "Loading users..."}
+        </p>
       </div>
     );
   }
+
   if (error) {
     return (
-      <div className="p-4 bg-destructive/10 text-destructive rounded-md">
-        {error}
+      <div className="flex items-center justify-center h-[60vh] px-4">
+        <div className="max-w-md w-full p-6 rounded-lg border border-destructive bg-destructive/10 text-destructive shadow-sm">
+          <h2 className="text-lg font-semibold mb-2">Error</h2>
+          <p className="text-sm">{error}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-background text-foreground">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
+        <h1 className="text-2xl font-semibold flex items-center gap-2 text-foreground">
           <Users className="w-6 h-6" /> Users
         </h1>
         {canAddUser && (
@@ -228,8 +244,11 @@ export default function UsersPage() {
             onOpenChange={setIsAddUserDialogOpen}
           >
             <DialogTrigger asChild>
-              <Button disabled={addUserLoading}>
-                <UserPlus className="w-4 h-4 mr-2" />
+              <Button
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={addUserLoading}
+              >
+                <UserPlus className="w-4 h-4 mr-2 text-primary" />
                 Add User
               </Button>
             </DialogTrigger>
@@ -239,6 +258,7 @@ export default function UsersPage() {
                 <DialogDescription>
                   Create a new user account with specified role and permissions.
                 </DialogDescription>
+                §
               </DialogHeader>
               <UserForm
                 onSubmit={async (formData) => {
@@ -265,75 +285,54 @@ export default function UsersPage() {
       </div>
       <div className="flex gap-4 items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             placeholder="Search users..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 bg-background text-foreground border border-border focus:ring-primary"
           />
         </div>
         <select
           value={selectedRole}
           onChange={(e) => setSelectedRole(e.target.value)}
-          className="border rounded-md p-2"
+          className="border border-border rounded-md p-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         >
           {roleOptions.map((role) => (
-            <option key={role} value={role}>
+            <option
+              key={role}
+              value={role}
+              className="bg-background text-foreground"
+            >
               {role === "all" ? "All Roles" : toTitleCase(role)}
             </option>
           ))}
         </select>
       </div>
-      <div className="border rounded-lg">
+      <div className="border border-border rounded-lg bg-card text-foreground">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("name")}
-              >
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  Name
-                </div>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("email")}
-              >
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  Email
-                </div>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("role")}
-              >
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  Role
-                </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center gap-2">
-                  <MoreVertical className="w-4 h-4" />
-                  Actions
-                </div>
-              </TableHead>
+            <TableRow className="bg-card text-foreground">
+              <TableHead className="bg-card text-foreground">Name</TableHead>
+              <TableHead className="bg-card text-foreground">Email</TableHead>
+              <TableHead className="bg-card text-foreground">Role</TableHead>
+              <TableHead className="bg-card text-foreground">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAndSortedUsers.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>{user.name}</TableCell>
-                <TableCell>{user.email}</TableCell>
+              <TableRow className="bg-card text-foreground">
+                <TableCell className="bg-card text-foreground">
+                  {user.name}
+                </TableCell>
+                <TableCell className="bg-card text-foreground">
+                  {user.email}
+                </TableCell>
                 <TableCell>
                   <Badge
                     className={
                       roleBadgeClasses[user.role] ||
-                      "bg-gray-200 text-teal-800 border-none"
+                      "bg-muted text-foreground border-none"
                     }
                   >
                     {toTitleCase(user.role)}
@@ -342,11 +341,15 @@ export default function UsersPage() {
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-primary bg-transparent"
+                      >
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="bg-background">
                       <DropdownMenuItem
                         onClick={() => {
                           setUserToEdit(user);
@@ -393,7 +396,7 @@ export default function UsersPage() {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-primary">
               <AlertCircle className="w-5 h-5 text-destructive" />
               Confirm Deletion
             </DialogTitle>
@@ -440,7 +443,7 @@ export default function UsersPage() {
         open={isEditUserDialogOpen}
         onOpenChange={setIsEditUserDialogOpen}
       >
-        <DialogContent>
+        <DialogContent className="bg-background [&_select]:bg-transparent">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
@@ -469,7 +472,7 @@ export default function UsersPage() {
               isLoading={false}
               defaultValues={{
                 ...userToEdit,
-                role: roleMap[userToEdit.role] || "User",
+                role: toUserFormRole(userToEdit.role),
               }}
               isEdit
             />

@@ -25,12 +25,15 @@ export function useFeaturePermission(
         .select("can_access")
         .eq("role", role)
         .eq("feature", feature)
-        .single();
+        .maybeSingle();
+
       if (error || !data) {
-        setHasAccess(false);
+        console.warn("Permission missing or error:", error?.message);
+        setHasAccess(false); // default to false
       } else {
         setHasAccess(!!data.can_access);
       }
+
       setLoading(false);
     }
     checkPermission();

@@ -153,7 +153,7 @@ export function UserForm({
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
+                <SelectContent className="bg-background">
                   <SelectItem value="User">User</SelectItem>
                   <SelectItem value="Manager">Manager</SelectItem>
                   <SelectItem value="Admin">Admin</SelectItem>

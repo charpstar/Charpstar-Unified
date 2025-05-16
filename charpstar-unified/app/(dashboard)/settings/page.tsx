@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { usePagePermission } from "@/lib/usePagePermission";
+import { useTheme } from "next-themes";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -18,6 +24,30 @@ export default function SettingsPage() {
     },
     theme: "light",
   });
+  const { theme, setTheme } = useTheme();
+
+  // Fetch analytics datasetid for the logged-in user
+  const [datasetId, setDatasetId] = useState<string | null>(null);
+  useEffect(() => {
+    async function fetchDatasetId() {
+      if (!session?.user?.id) return;
+      // 1. Get analytics_profile_id from profiles
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("analytics_profile_id")
+        .eq("user_id", session.user.id)
+        .single();
+      if (!profile?.analytics_profile_id) return;
+      // 2. Get datasetid from analytics_profiles
+      const { data: analytic } = await supabase
+        .from("analytics_profiles")
+        .select("datasetid")
+        .eq("id", profile.analytics_profile_id)
+        .single();
+      setDatasetId(analytic?.datasetid || null);
+    }
+    fetchDatasetId();
+  }, [session?.user?.id]);
 
   if (loading) {
     return (
@@ -43,15 +73,22 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm">
+      <div className="mb-4">
+        <strong>Your Analytics Dataset ID:</strong>{" "}
+        {datasetId ? datasetId : "Not assigned"}
+      </div>
+
+      <div className="bg-background rounded-lg shadow-sm">
         <div className="p-6 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Profile Section */}
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold border-b pb-2">Profile</h2>
+              <h2 className="text-xl font-semibold border-b border-border pb-2 text-foreground">
+                Profile
+              </h2>
               <div className="grid gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-foreground">
                     Name
                   </label>
                   <input
@@ -60,11 +97,11 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-900 focus:border-gray-900"
+                    className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-background text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-foreground">
                     Email
                   </label>
                   <input
@@ -73,7 +110,7 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-900 focus:border-gray-900"
+                    className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-background text-foreground"
                   />
                 </div>
               </div>
@@ -81,16 +118,16 @@ export default function SettingsPage() {
 
             {/* Notifications Section */}
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold border-b pb-2">
+              <h2 className="text-xl font-semibold border-b border-border pb-2 text-foreground">
                 Notifications
               </h2>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900">
+                    <h3 className="text-sm font-medium text-foreground">
                       Email Notifications
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-foreground">
                       Receive email updates about your account
                     </p>
                   </div>
@@ -107,26 +144,26 @@ export default function SettingsPage() {
                     }
                     className={`${
                       formData.notifications.email
-                        ? "bg-gray-900"
-                        : "bg-gray-200"
-                    } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out`}
+                        ? "bg-primary"
+                        : "bg-background"
+                    } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out border border-border`}
                   >
                     <span
-                      className={`${
+                      className={`$${
                         formData.notifications.email
                           ? "translate-x-6"
                           : "translate-x-1"
-                      } inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out mt-1`}
+                      } inline-block h-4 w-4 transform rounded-full bg-foreground transition duration-200 ease-in-out mt-1 border border-border`}
                     />
                   </button>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900">
+                    <h3 className="text-sm font-medium text-foreground">
                       Push Notifications
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-foreground">
                       Receive push notifications in your browser
                     </p>
                   </div>
@@ -141,18 +178,18 @@ export default function SettingsPage() {
                         },
                       })
                     }
-                    className={`${
+                    className={`$${
                       formData.notifications.push
-                        ? "bg-gray-900"
-                        : "bg-gray-200"
-                    } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out`}
+                        ? "bg-primary"
+                        : "bg-background"
+                    } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out border border-border`}
                   >
                     <span
-                      className={`${
+                      className={`$${
                         formData.notifications.push
                           ? "translate-x-6"
                           : "translate-x-1"
-                      } inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out mt-1`}
+                      } inline-block h-4 w-4 transform rounded-full bg-foreground transition duration-200 ease-in-out mt-1 border border-border`}
                     />
                   </button>
                 </div>
@@ -161,19 +198,17 @@ export default function SettingsPage() {
 
             {/* Theme Section */}
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold border-b pb-2">
+              <h2 className="text-xl font-semibold border-b border-border pb-2 text-foreground">
                 Appearance
               </h2>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-foreground">
                   Theme
                 </label>
                 <select
-                  value={formData.theme}
-                  onChange={(e) =>
-                    setFormData({ ...formData, theme: e.target.value })
-                  }
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-gray-900 focus:border-gray-900 rounded-md"
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-border focus:outline-none focus:ring-primary focus:border-primary rounded-md bg-background text-foreground"
                 >
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
@@ -185,7 +220,7 @@ export default function SettingsPage() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Save Changes
               </button>

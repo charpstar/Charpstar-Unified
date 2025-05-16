@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /out/
+fast-lattice-421210-e8ac9db9a38e.json
 
 # production
 /build
