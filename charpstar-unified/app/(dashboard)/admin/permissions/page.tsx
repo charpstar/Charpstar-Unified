@@ -4,6 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { usePagePermission } from "@/lib/usePagePermission";
+import { TableCell } from "@/components/ui/table";
+import { TableBody } from "@/components/ui/table";
+import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Table } from "@/components/ui/table";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CheckCircle2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface Permission {
   role: string;
@@ -203,147 +217,181 @@ export default function PermissionsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto dark:bg-gray-900">
+    <div className="p-6 space-y-8 max-w-7xl mx-auto">
+      {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          Role Permissions
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Manage access permissions for different roles. Click on a role to view
-          and modify its permissions.
+        <h1 className="text-3xl font-bold text-foreground">Role Permissions</h1>
+        <p className="text-muted-foreground max-w-2xl">
+          Manage access permissions for different roles. Click on a switch to
+          allow or disallow access to a page or feature for each role.
         </p>
       </div>
 
-      <div className="space-y-2">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          Page Access
-        </h2>
-        <div className="overflow-auto border border-gray-200 dark:border-gray-700 rounded-md">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-              <tr>
-                <th className="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">
-                  Role
-                </th>
+      {/* Page Access */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Page Access</CardTitle>
+          <CardDescription>
+            Control which roles can access each page of your app.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-left">Role</TableHead>
                 {pageResources.map((res) => (
-                  <th
-                    key={res}
-                    className="px-4 py-2 text-center font-semibold text-gray-700 dark:text-gray-300"
-                  >
+                  <TableHead className="text-center" key={res}>
                     {res}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRoles.map((role, i) => (
-                <tr
-                  key={role}
-                  className={
-                    i % 2 === 0
-                      ? "bg-white dark:bg-gray-900"
-                      : "bg-gray-50 dark:bg-gray-800"
-                  }
-                >
-                  <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-300">
-                    {role}
-                  </td>
-                  {pageResources.map((res) => {
-                    const perm = groupedPagePermissions[role]?.find(
-                      (p) => p.resource === res
-                    );
-                    return (
-                      <td
-                        key={`${role}-${res}`}
-                        className="px-4 py-2 text-center"
-                      >
-                        {perm ? (
-                          <input
-                            type="checkbox"
-                            checked={perm.can_access}
-                            onChange={() => handleToggle(perm)}
-                            disabled={updating}
-                            className="w-4 h-4 accent-primary"
-                          />
-                        ) : (
-                          <span className="text-gray-400 dark:text-gray-600">
-                            –
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div className="space-y-2">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          Feature Access
-        </h2>
-        <div className="overflow-auto border border-gray-200 dark:border-gray-700 rounded-md">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-              <tr>
-                <th className="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">
-                  Role
-                </th>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRoles.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={pageResources.length + 1}
+                    className="text-center"
+                  >
+                    <Alert variant="default" className="my-6">
+                      <CheckCircle2 className="h-5 w-5 text-primary mr-2" />
+                      <AlertTitle>No Roles Found</AlertTitle>
+                      <AlertDescription>
+                        There are no roles to display.
+                      </AlertDescription>
+                    </Alert>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredRoles.map((role, i) => (
+                  <TableRow
+                    key={role}
+                    className={i % 2 === 0 ? "bg-background" : "bg-muted"}
+                  >
+                    <TableCell className="font-medium text-foreground">
+                      {role}
+                    </TableCell>
+                    {pageResources.map((res) => {
+                      const perm = groupedPagePermissions[role]?.find(
+                        (p) => p.resource === res
+                      );
+                      return (
+                        <TableCell
+                          key={`${role}-${res}`}
+                          className="text-center"
+                        >
+                          {perm ? (
+                            <Switch
+                              checked={perm.can_access}
+                              onCheckedChange={() => handleToggle(perm)}
+                              disabled={updating}
+                              aria-label={
+                                perm.can_access
+                                  ? `Disable ${role} access to ${res}`
+                                  : `Enable ${role} access to ${res}`
+                              }
+                              className="
+   data-[state=checked]:bg-[oklch(var(--green))]
+   data-[state=unchecked]:bg-[oklch(var(--destructive))]
+ "
+                            />
+                          ) : (
+                            <span className="text-muted-foreground">–</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Feature Access */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Feature Access</CardTitle>
+          <CardDescription>
+            Fine-tune access to app features by role.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-left">Role</TableHead>
                 {featureResources.map((res) => (
-                  <th
-                    key={res}
-                    className="px-4 py-2 text-center font-semibold text-gray-700 dark:text-gray-300"
-                  >
+                  <TableHead className="text-center" key={res}>
                     {res}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRoles.map((role, i) => (
-                <tr
-                  key={role}
-                  className={
-                    i % 2 === 0
-                      ? "bg-white dark:bg-gray-900"
-                      : "bg-gray-50 dark:bg-gray-800"
-                  }
-                >
-                  <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-300">
-                    {role}
-                  </td>
-                  {featureResources.map((res) => {
-                    const perm = groupedFeaturePermissions[role]?.find(
-                      (p) => p.resource === res
-                    );
-                    return (
-                      <td
-                        key={`${role}-${res}`}
-                        className="px-4 py-2 text-center"
-                      >
-                        {perm ? (
-                          <input
-                            type="checkbox"
-                            checked={perm.can_access}
-                            onChange={() => handleToggle(perm)}
-                            disabled={updating}
-                            className="w-4 h-4 accent-primary"
-                          />
-                        ) : (
-                          <span className="text-gray-400 dark:text-gray-600">
-                            –
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRoles.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={featureResources.length + 1}
+                    className="text-center"
+                  >
+                    <Alert variant="default" className="my-6">
+                      <CheckCircle2 className="h-5 w-5 text-primary mr-2" />
+                      <AlertTitle>No Roles Found</AlertTitle>
+                      <AlertDescription>
+                        There are no roles to display.
+                      </AlertDescription>
+                    </Alert>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredRoles.map((role, i) => (
+                  <TableRow
+                    key={role}
+                    className={i % 2 === 0 ? "bg-background" : "bg-muted"}
+                  >
+                    <TableCell className="font-medium text-foreground">
+                      {role}
+                    </TableCell>
+                    {featureResources.map((res) => {
+                      const perm = groupedFeaturePermissions[role]?.find(
+                        (p) => p.resource === res
+                      );
+                      return (
+                        <TableCell
+                          key={`${role}-${res}`}
+                          className="text-center"
+                        >
+                          {perm ? (
+                            <Switch
+                              checked={perm.can_access}
+                              onCheckedChange={() => handleToggle(perm)}
+                              disabled={updating}
+                              aria-label={
+                                perm.can_access
+                                  ? `Disable ${role} access to ${res}`
+                                  : `Enable ${role} access to ${res}`
+                              }
+                              className="
+    data-[state=checked]:bg-[oklch(var(--green))]
+    data-[state=unchecked]:bg-[oklch(var(--destructive))]
+  "
+                            />
+                          ) : (
+                            <span className="text-muted-foreground">–</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

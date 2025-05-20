@@ -24,9 +24,15 @@ interface UserFormProps {
   onSubmit: (data: UserFormValues) => Promise<void>;
   isLoading?: boolean;
   initialData?: UserFormValues;
+  error?: string | null;
 }
 
-export function UserForm({ onSubmit, isLoading, initialData }: UserFormProps) {
+export function UserForm({
+  onSubmit,
+  isLoading,
+  initialData,
+  error,
+}: UserFormProps) {
   const [formData, setFormData] = useState<UserFormValues>(
     initialData || {
       email: "",
@@ -36,17 +42,19 @@ export function UserForm({ onSubmit, isLoading, initialData }: UserFormProps) {
     }
   );
 
+  const isEditMode = !!initialData;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onSubmit(formData);
   };
 
-  const isEditMode = !!initialData;
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+    <form onSubmit={handleSubmit} className="  bg-card  p-6 space-y-6 ">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="email" className="text-sm text-foreground">
+          Email
+        </Label>
         <Input
           id="email"
           type="email"
@@ -56,13 +64,16 @@ export function UserForm({ onSubmit, isLoading, initialData }: UserFormProps) {
             setFormData((prev) => ({ ...prev, email: e.target.value }))
           }
           required
-          className="w-full"
+          className="w-full rounded-[var(--radius)] border border-input bg-background text-foreground focus:ring-2 focus:ring-ring transition"
           disabled={isLoading || isEditMode}
+          autoComplete="off"
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="name">Full Name</Label>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="name" className="text-sm text-foreground">
+          Full Name
+        </Label>
         <Input
           id="name"
           placeholder="John Doe"
@@ -71,13 +82,16 @@ export function UserForm({ onSubmit, isLoading, initialData }: UserFormProps) {
             setFormData((prev) => ({ ...prev, name: e.target.value }))
           }
           required
-          className="w-full"
+          className="w-full rounded-[var(--radius)] border border-input bg-background text-foreground focus:ring-2 focus:ring-ring transition"
           disabled={isLoading}
+          autoComplete="off"
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="role">Role</Label>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="role" className="text-sm text-foreground">
+          Role
+        </Label>
         <Select
           value={formData.role}
           onValueChange={(value: "admin" | "client" | "user") =>
@@ -85,46 +99,42 @@ export function UserForm({ onSubmit, isLoading, initialData }: UserFormProps) {
           }
           disabled={isLoading}
         >
-          <SelectTrigger className="w-full cursor-pointer bg-white dark:bg-gray-900">
+          <SelectTrigger className="w-full bg-muted text-foreground rounded-[var(--radius)] border border-input focus:ring-2 focus:ring-ring transition cursor-pointer">
             <SelectValue placeholder="Select a role" />
           </SelectTrigger>
-          <SelectContent className="bg-white dark:bg-gray-900 cursor-pointer">
+          <SelectContent className="bg-popover text-popover-foreground rounded-[var(--radius)] border border-border shadow-md">
             <SelectItem
-              className="cursor-pointer bg-white dark:bg-gray-900"
               value="user"
+              className="cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-[var(--radius)]"
             >
-              User
-              <span className="text-muted-foreground ml-2 cursor-pointer bg-white dark:bg-gray-900">
-                (Basic access)
-              </span>
+              User{" "}
+              <span className="text-muted-foreground ml-2">(Basic access)</span>
             </SelectItem>
             <SelectItem
-              className="cursor-pointer bg-white dark:bg-gray-900"
               value="client"
+              className="cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-[var(--radius)]"
             >
-              Client
-              <span className="text-muted-foreground ml-2 cursor-pointer bg-white dark:bg-gray-900">
+              Client{" "}
+              <span className="text-muted-foreground ml-2">
                 (Client features)
               </span>
             </SelectItem>
             <SelectItem
-              className="cursor-pointer bg-white dark:bg-gray-900"
               value="admin"
+              className="cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-[var(--radius)]"
             >
-              Admin
-              <span className="text-muted-foreground ml-2 cursor-pointer bg-white dark:bg-gray-900">
-                (Full access)
-              </span>
+              Admin{" "}
+              <span className="text-muted-foreground ml-2">(Full access)</span>
             </SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {!isEditMode && (
-        <div className="space-y-2">
-          <Label htmlFor="password">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="password" className="text-sm text-foreground">
             Password
-            <span className="text-muted-foreground ml-2 text-sm">
+            <span className="text-muted-foreground ml-2 text-xs">
               (Minimum 8 characters)
             </span>
           </Label>
@@ -138,15 +148,22 @@ export function UserForm({ onSubmit, isLoading, initialData }: UserFormProps) {
             }
             required={!isEditMode}
             minLength={8}
-            className="w-full"
+            className="w-full rounded-[var(--radius)] border border-input bg-background text-foreground focus:ring-2 focus:ring-ring transition"
             disabled={isLoading}
+            autoComplete="new-password"
           />
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-[var(--radius)] bg-destructive/10 text-destructive text-sm text-center px-3 py-2">
+          {error}
         </div>
       )}
 
       <Button
         type="submit"
-        className="w-full cursor-pointer bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
+        className="w-full rounded-[var(--radius)] bg-primary text-primary-foreground font-medium shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring transition flex items-center justify-center gap-2"
         disabled={isLoading}
       >
         {isLoading ? (

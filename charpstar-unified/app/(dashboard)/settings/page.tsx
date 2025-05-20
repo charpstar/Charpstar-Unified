@@ -5,8 +5,20 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { usePagePermission } from "@/lib/usePagePermission";
 import { useTheme } from "next-themes";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { LogOut, Sun, Moon, User2, BarChart3 } from "lucide-react";
+import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
 
 interface UserProfile {
   id: string;
@@ -29,16 +41,18 @@ export default function SettingsPage() {
   const [analyticsProfile, setAnalyticsProfile] =
     useState<AnalyticsProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 
-  // Update page name to match database format
+  // Page permission logic
   const {
     hasAccess,
     loading: permissionLoading,
     error: permissionError,
   } = usePagePermission(user?.role, "/settings");
 
+  // Fetch user & analytics profile
   useEffect(() => {
     const fetchUserAndAnalytics = async () => {
       try {
@@ -48,7 +62,6 @@ export default function SettingsPage() {
         } = await supabase.auth.getUser();
 
         if (authError || !authUser) {
-          console.log("Auth error:", authError);
           router.push("/auth");
           return;
         }
@@ -60,13 +73,12 @@ export default function SettingsPage() {
           .single();
 
         if (profileError || !profile) {
-          console.error("Failed to fetch profile:", profileError?.message);
           return;
         }
 
         setUser(profile);
 
-        // Fetch analytics profile if ID exists
+        // Fetch analytics profile if exists
         if (profile.analytics_profile_id) {
           const { data: analytics, error: analyticsError } = await supabase
             .from("analytics_profiles")
@@ -74,17 +86,12 @@ export default function SettingsPage() {
             .eq("id", profile.analytics_profile_id)
             .single();
 
-          if (analyticsError) {
-            console.error(
-              "Failed to fetch analytics profile:",
-              analyticsError.message
-            );
-          } else {
+          if (!analyticsError) {
             setAnalyticsProfile(analytics);
           }
         }
       } catch (err) {
-        console.error("Error fetching data:", err);
+        // handle error if needed
       } finally {
         setLoading(false);
       }
@@ -93,90 +100,127 @@ export default function SettingsPage() {
     fetchUserAndAnalytics();
   }, [router]);
 
-  // Show loading state while checking permissions or loading data
+  // Skeleton loader
   if (permissionLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin mx-auto"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
+        <Card className="p-6 max-w-sm w-full">
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-1/2 rounded-lg" />
+            <Skeleton className="h-4 w-full rounded" />
+            <Skeleton className="h-4 w-3/4 rounded" />
+            <Skeleton className="h-10 w-1/3 rounded" />
+          </div>
+        </Card>
       </div>
     );
   }
 
-  // Show error message if permission check failed
+  // Permission error
   if (permissionError) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-red-600">
-          Error checking permissions: {permissionError}
-        </p>
+      <div className="flex justify-center items-center min-h-[300px] p-4">
+        <Alert variant="destructive" className="max-w-lg mx-auto">
+          <AlertTitle>Permission Error</AlertTitle>
+          <AlertDescription>{permissionError}</AlertDescription>
+        </Alert>
       </div>
     );
   }
 
-  // Show access denied if no permission
+  // No access
   if (!hasAccess) {
     return (
-      <div className="p-8 text-center">
-        <h2 className="text-xl font-semibold text-red-600 mb-2">
-          Access Denied
-        </h2>
-        <p className="text-gray-600">
-          You don't have permission to access the settings page.
-        </p>
+      <div className="flex justify-center items-center min-h-[300px] p-4">
+        <Alert variant="destructive" className="max-w-lg mx-auto">
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>
+            You don&apos;t have permission to access the settings page.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
+  // Actions
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await supabase.auth.signOut();
+    router.push("/auth");
+  };
+
   return (
-    <div className="p-8">
-      <h1 className="text-4xl font-bold mb-8">Settings</h1>
-      <div className="grid gap-6">
-        <div className="rounded-lg border p-4">
-          <h2 className="text-xl font-semibold mb-4">Account Settings</h2>
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <p className="text-gray-600">Email: {user?.email}</p>
-              <p className="text-gray-600">Role: {user?.role || "User"}</p>
+    <div className="flex items-center justify-center min-h-screen p-4">
+      {/* Account Card */}
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <CardTitle>
+            <div className="flex items-center gap-3">
+              <User2 className="w-5 h-5 text-muted-foreground" />
+              Account Settings
             </div>
-
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold">Theme</h3>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="dark-mode"
-                  checked={theme === "dark"}
-                  onCheckedChange={(checked) =>
-                    setTheme(checked ? "dark" : "light")
-                  }
-                />
-                <Label htmlFor="dark-mode">Dark Mode</Label>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold">Analytics Profile</h3>
-              {user?.analytics_profile_id ? (
-                analyticsProfile ? (
-                  <>
-                    <p className="text-gray-600">
-                      Dataset ID: {analyticsProfile.datasetid}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-gray-600">
-                    Loading analytics profile details...
-                  </p>
-                )
-              ) : (
-                <p className="text-gray-600">No analytics profile assigned</p>
-              )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Email and Role */}
+          <div className="flex flex-col gap-1">
+            <Label className="text-muted-foreground">Email</Label>
+            <div className="text-lg font-medium text-foreground">
+              {user?.email}
             </div>
           </div>
-        </div>
-      </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-muted-foreground">Role</Label>
+            <div className="text-base text-foreground capitalize">
+              {user?.role || "User"}
+            </div>
+          </div>
+          {/* Theme toggle */}
+          <div className="flex flex-col gap-1">
+            <ThemeSwitcherCard />
+          </div>
+          {/* Analytics Profile */}
+          <div className="flex flex-col gap-1">
+            <Label className="text-muted-foreground mb-1 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" /> Analytics Profile
+            </Label>
+            {user?.analytics_profile_id ? (
+              analyticsProfile ? (
+                <div className="rounded-lg border border-muted p-3 bg-muted/40">
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">Dataset ID:</span>{" "}
+                    {analyticsProfile.datasetid}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">Table Name:</span>{" "}
+                    {analyticsProfile.tablename}
+                  </div>
+                  {/* Optionally: <Button variant="outline" size="sm">Edit Analytics</Button> */}
+                </div>
+              ) : (
+                <Skeleton className="h-4 w-24 rounded" />
+              )
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No analytics profile assigned
+              </div>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          {/* Add more actions if you wish */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            {loggingOut ? "Logging out..." : "Log Out"}
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

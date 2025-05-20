@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserPlus, Search, Pencil, MoreVertical, Trash2 } from "lucide-react";
+import {
+  UserPlus,
+  Search,
+  Pencil,
+  MoreVertical,
+  Trash2,
+  MoreHorizontal,
+  Shield,
+  Mail,
+  UserCog,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -42,6 +52,14 @@ import { supabase } from "@/lib/supabaseClient";
 import { usePagePermission } from "@/lib/usePagePermission";
 import { useUsers } from "@/lib/useUsers";
 import { useFeaturePermissions } from "@/lib/useFeaturePermissions";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface User {
   id: string;
@@ -57,7 +75,7 @@ export default function UsersPage() {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | undefined>();
   const { users, loading: usersLoading, error, fetchUsers } = useUsers(true);
-
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   // Add feature permissions check
   const {
     getFeaturePermissions,
@@ -317,9 +335,42 @@ export default function UsersPage() {
   // Debug log for action permissions
   console.log("Has action permissions:", hasActionPermissions);
 
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
+  // Function to get a role-specific badge color
+  const getRoleBadgeVariant = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "default";
+      case "manager":
+        return "blue";
+      case "editor":
+        return "green";
+      default:
+        return "secondary";
+    }
+  };
+
+  // Function to format date nicely
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(date);
+  };
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center ">
         <h1 className="text-2xl font-bold">Users</h1>
 
         {userPermissions.add_user && (
@@ -328,7 +379,7 @@ export default function UsersPage() {
             onOpenChange={setIsAddUserDialogOpen}
           >
             <DialogTrigger asChild>
-              <Button className="cursor-pointer bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800">
+              <Button className="cursor-pointer dark:bg-gray-900 hover:bg-gray-300 dark:hover:bg-gray-800">
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add User
               </Button>
@@ -374,91 +425,148 @@ export default function UsersPage() {
         </Select>
       </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Created At</TableHead>
-              {hasActionPermissions && (
-                <TableHead className="w-[100px] cursor-pointer  ">
-                  Actions
-                </TableHead>
-              )}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredUsers.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={hasActionPermissions ? 5 : 4}
-                  className="text-center text-muted-foreground py-8"
-                >
-                  No users found
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={user.role === "admin" ? "default" : "secondary"}
-                    >
-                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </TableCell>
+      <Card className="border border-border bg-card shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl font-semibold">
+            User Management
+          </CardTitle>
+          <CardDescription>View and manage system users</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="rounded-md overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-medium">User</TableHead>
+                  <TableHead className="font-medium">Role</TableHead>
+                  <TableHead className="font-medium hidden md:table-cell">
+                    Created
+                  </TableHead>
                   {hasActionPermissions && (
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="w-4 h-4 cursor-pointer" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          className="bg-white dark:bg-gray-900"
-                          align="end"
-                        >
-                          {userPermissions.edit_user && (
-                            <DropdownMenuItem
-                              className="cursor-pointer"
-                              onClick={() => {
-                                setEditingUser(user);
-                                setIsEditUserDialogOpen(true);
-                              }}
-                            >
-                              <Pencil className="w-4 h-4 mr-2" />
-                              Edit user
-                            </DropdownMenuItem>
-                          )}
-
-                          {userPermissions.delete_user && (
-                            <DropdownMenuItem
-                              className="text-red-600 cursor-pointer"
-                              onClick={() => handleDeleteUser(user.id)}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete user
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+                    <TableHead className="w-[80px] text-right">
+                      Actions
+                    </TableHead>
                   )}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={hasActionPermissions ? 4 : 3}
+                      className="text-center text-muted-foreground py-16"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <UserCog className="h-12 w-12 text-muted-foreground/50" />
+                        <p>No users found</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow
+                      key={user.id}
+                      className="group transition-colors hover:bg-accent/30"
+                      onMouseEnter={() => setHoveredRow(user.id)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9 border border-border">
+                            <AvatarImage src={user.avatar} alt={user.name} />
+                            <AvatarFallback className="bg-primary/10 text-primary-foreground">
+                              {getInitials(user.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{user.name}</p>
+                            <p className="text-sm text-muted-foreground flex items-center">
+                              <Mail className="mr-1 h-3 w-3" />
+                              {user.email}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              getRoleBadgeVariant(user.role) as
+                                | "default"
+                                | "destructive"
+                                | "secondary"
+                                | "outline"
+                                | null
+                                | undefined
+                            }
+                          >
+                            {user.role.charAt(0).toUpperCase() +
+                              user.role.slice(1)}
+                          </Badge>
+                          {user.role === "admin" && (
+                            <Shield className="h-3 w-3 text-primary" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {formatDate(user.created_at)}
+                      </TableCell>
+                      {hasActionPermissions && (
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={"h-8 w-8 p-0  "}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Open menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="bg-white dark:bg-gray-900"
+                            >
+                              {userPermissions.edit_user && (
+                                <DropdownMenuItem
+                                  className="cursor-pointer flex items-center"
+                                  onClick={() => {
+                                    setEditingUser(user);
+                                    setIsEditUserDialogOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="w-4 h-4 mr-2" />
+                                  Edit user
+                                </DropdownMenuItem>
+                              )}
 
+                              {userPermissions.edit_user &&
+                                userPermissions.delete_user && (
+                                  <DropdownMenuSeparator />
+                                )}
+
+                              {userPermissions.delete_user && (
+                                <DropdownMenuItem
+                                  className="cursor-pointer text-destructive focus:text-destructive flex items-center hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => handleDeleteUser(user.id)}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2 " />
+                                  Delete user
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
       {/* Edit User Dialog */}
       {userPermissions.edit_user && (
         <Dialog

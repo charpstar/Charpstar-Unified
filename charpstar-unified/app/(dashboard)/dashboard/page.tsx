@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Settings, BarChart2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { usePagePermission } from "@/lib/usePagePermission";
 import AnalyticsDashboard from "../analytics/page";
@@ -181,23 +181,27 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle className="text-lg font-semibold text-foreground">
+              Quick Actions
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               <li>
                 <button
                   onClick={() => router.push("/analytics")}
-                  className="text-blue-600 hover:underline"
+                  className="hover:scale-101 transition-all duration-300 flex items-center gap-3 w-full rounded-md border border-border bg-muted px-4 py-3 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition  duration-300 cursor-pointer"
                 >
+                  <BarChart2 className="h-4 w-4" />
                   View Analytics
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => router.push("/settings")}
-                  className="text-blue-600 hover:underline"
+                  className="hover:scale-101 transition-all duration-300 flex items-center gap-3 w-full rounded-md border border-border bg-muted px-4 py-3 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition  duration-300 cursor-pointer"
                 >
+                  <Settings className="h-4 w-4" />
                   Manage Settings
                 </button>
               </li>

@@ -78,7 +78,15 @@ export function Sidebar({ className }: SidebarProps) {
               {/* Dark Mode Logo */}
             </>
           </div>
+
           <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+            <div className="flex items-center justify-between   ">
+              {user && (
+                <p className="text-sm font-medium text-gray-500">
+                  {user.email}
+                </p>
+              )}
+            </div>
             Dashboard
           </h2>
 
@@ -86,7 +94,7 @@ export function Sidebar({ className }: SidebarProps) {
             <Link href="/dashboard">
               <Button
                 variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-                className="w-full justify-start cursor-pointer"
+                className="w-full justify-start cursor-pointer hover:scale-105 transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
               >
                 <LayoutDashboard className="mr-2 h-4 w-4" />
                 Overview
@@ -97,7 +105,7 @@ export function Sidebar({ className }: SidebarProps) {
               <Link href="/analytics">
                 <Button
                   variant={pathname === "/analytics" ? "secondary" : "ghost"}
-                  className="w-full justify-start cursor-pointer"
+                  className="w-full justify-start cursor-pointer hover:scale-105 transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
                 >
                   <BarChart className="mr-2 h-4 w-4" />
                   Analytics
@@ -109,7 +117,7 @@ export function Sidebar({ className }: SidebarProps) {
               <Link href="/users">
                 <Button
                   variant={pathname === "/users" ? "secondary" : "ghost"}
-                  className="w-full justify-start cursor-pointer"
+                  className="w-full justify-start cursor-pointer hover:scale-105 transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Users
@@ -120,7 +128,7 @@ export function Sidebar({ className }: SidebarProps) {
             <Link href="/settings">
               <Button
                 variant={pathname === "/settings" ? "secondary" : "ghost"}
-                className="w-full justify-start cursor-pointer"
+                className="w-full justify-start cursor-pointer hover:scale-105 transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
               >
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
@@ -132,9 +140,9 @@ export function Sidebar({ className }: SidebarProps) {
               <Link href="/admin/permissions">
                 <Button
                   variant={pathname === "/permissions" ? "secondary" : "ghost"}
-                  className="w-full justify-start cursor-pointer  "
+                  className="w-full justify-start cursor-pointer hover:scale-105 transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
                 >
-                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  <ShieldCheck className="mr-2 h-4 w-4 hover:scale-110 transition-all duration-300" />
                   Permissions
                 </Button>
               </Link>
@@ -143,22 +151,20 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
 
         {/* User Profile & Logout */}
-        <div className="px-3 py-2">
-          <div className="space-y-1">
-            {user && (
-              <div className="px-4 py-2">
-                <p className="text-sm font-medium">{user.email}</p>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-100"
-                  onClick={handleSignOut}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
-                </Button>
-              </div>
-            )}
-          </div>
+
+        <div className="space-y-1">
+          {user && (
+            <div className="px-4 py-2">
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-100 hover:scale-105 cursor-pointer  transition-all duration-300"
+                onClick={handleSignOut}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

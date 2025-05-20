@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import type { DateRange } from "react-day-picker";
 import { format, addDays } from "date-fns";
 import useSWR from "swr";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface AnalyticsData {
   total_page_views: number;
@@ -149,10 +150,11 @@ export default function AnalyticsDashboard() {
           : "selected date range"}
       </div>
 
-      {analyticsLoading ? (
-        <div className="text-center py-10">
-          <div className="w-8 h-8 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading analytics data...</p>
+      {analyticsLoading || eventsLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 14 }).map((_, i) => (
+            <Skeleton key={i} className="h-30 w-full" />
+          ))}
         </div>
       ) : analyticsError ? (
         <Card>
