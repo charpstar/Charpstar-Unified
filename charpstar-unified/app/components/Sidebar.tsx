@@ -105,15 +105,17 @@ export function Sidebar({ className }: SidebarProps) {
               </Link>
             )}
 
-            <Link href="/users">
-              <Button
-                variant={pathname === "/users" ? "secondary" : "ghost"}
-                className="w-full justify-start cursor-pointer"
-              >
-                <Users className="mr-2 h-4 w-4" />
-                Users
-              </Button>
-            </Link>
+            {role === "admin" && (
+              <Link href="/users">
+                <Button
+                  variant={pathname === "/users" ? "secondary" : "ghost"}
+                  className="w-full justify-start cursor-pointer"
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Users
+                </Button>
+              </Link>
+            )}
 
             <Link href="/settings">
               <Button
