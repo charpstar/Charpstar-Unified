@@ -14,17 +14,17 @@ export function StatCard({ title, value, suffix, className }: StatCardProps) {
   return (
     <div
       className={cn(
-        "rounded-lg border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md",
+        "rounded-lg border border-border bg-background p-6 shadow-sm transition-all hover:shadow-md",
         className
       )}
     >
-      <h3 className="text-sm font-medium text-gray-500">{title}</h3>
+      <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
       <div className="mt-2 flex items-baseline">
-        <p className="text-3xl font-semibold text-gray-900">
+        <p className="text-3xl font-semibold text-foreground">
           {typeof value === "number" ? value.toLocaleString() : value}
         </p>
         {suffix && (
-          <span className="ml-1 text-xl font-medium text-gray-500">
+          <span className="ml-1 text-xl font-medium text-muted-foreground">
             {suffix}
           </span>
         )}

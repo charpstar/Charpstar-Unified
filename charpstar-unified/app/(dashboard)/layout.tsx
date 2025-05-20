@@ -1,35 +1,40 @@
 "use client";
 
-import { Sidebar } from "../components/Sidebar";
-import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { Sidebar } from "@/app/components/Sidebar";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      redirect("/");
-    },
-  });
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (status === "loading") {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/auth");
+        return;
+      }
+      setIsLoading(false);
+    };
+    checkAuth();
+  }, [router]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
   }
 
   return (
     <div className="flex h-screen">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-slate-800con">
-        <div className="container mx-auto px-6 py-8">{children}</div>
-      </main>
+      <Sidebar className="w-64 border-r" />
+      <main className="flex-1 overflow-y-auto">{children}</main>
     </div>
   );
 }

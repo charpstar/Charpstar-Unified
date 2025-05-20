@@ -2,9 +2,9 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { BigQuery } from "@google-cloud/bigquery";
 import path from "path";
-import { AuthOptions, getServerSession } from "next-auth";
-import { authOptions } from "../auth/[...nextauth]/route";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 // Path to your service account key (DO NOT commit this file)
 const keyPath = path.join(
@@ -17,10 +17,6 @@ const bigquery = new BigQuery({
   projectId: process.env.GCP_PROJECT_ID,
 });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
 export async function GET(req: NextRequest) {
   try {
     if (!process.env.GCP_PROJECT_ID) {
@@ -30,25 +26,46 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 1. Get user from session
-    const session = await getServerSession(authOptions as AuthOptions);
-    const userEmail = session?.user?.email;
-    if (!userEmail) {
+    // 1. Get user from Supabase session
+    const cookieStore = await cookies();
+    const supabaseClient = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            const cookie = cookieStore.get(name);
+            return cookie?.value;
+          },
+          set(name: string, value: string, options: any) {
+            // Read-only in Edge Runtime
+          },
+          remove(name: string, options: any) {
+            // Read-only in Edge Runtime
+          },
+        },
+      }
+    );
+
+    const {
+      data: { session },
+    } = await supabaseClient.auth.getSession();
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     // 2. Get user id
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseAdmin
       .from("users")
       .select("id")
-      .eq("email", userEmail)
+      .eq("email", session.user.email)
       .single();
     if (userError || !user?.id) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // 3. Get analytics_profile_id for this user
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("analytics_profile_id")
       .eq("user_id", user.id)
@@ -61,7 +78,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 4. Get analytics profile details
-    const { data: analytic, error: analyticError } = await supabase
+    const { data: analytic, error: analyticError } = await supabaseAdmin
       .from("analytics_profiles")
       .select("projectid, datasetid, tablename")
       .eq("id", profile.analytics_profile_id)
@@ -178,6 +195,7 @@ export async function GET(req: NextRequest) {
     const [rows] = await bigquery.query(query);
     return NextResponse.json({ data: rows });
   } catch (error: any) {
+    console.error("BigQuery API Error:", error);
     return NextResponse.json(
       {
         error: error.message,

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -10,179 +11,155 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { ROLES } from "@/lib/auth";
+import { Icons } from "@/components/ui/icons";
 
-const userFormSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum([
-    "Admin",
-    "User",
-    "Manager",
-    "QA",
-    "QAmanager",
-    "Modeler",
-    "Modelermanager",
-    "Client",
-  ] as const),
-});
-
-export type UserFormValues = z.infer<typeof userFormSchema>;
+export interface UserFormValues {
+  email: string;
+  name: string;
+  role: "admin" | "client" | "user";
+  password: string;
+}
 
 interface UserFormProps {
   onSubmit: (data: UserFormValues) => Promise<void>;
-  isLoading: boolean;
-  defaultValues?: Partial<UserFormValues>;
-  isEdit?: boolean;
+  isLoading?: boolean;
+  initialData?: UserFormValues;
 }
 
-export function UserForm({
-  onSubmit,
-  isLoading,
-  defaultValues,
-  isEdit,
-}: UserFormProps) {
-  // Use a dynamic schema based on isEdit
-  const schema = useMemo(() => {
-    return isEdit
-      ? z.object({
-          name: z.string().min(2, "Name must be at least 2 characters"),
-          email: z.string().email("Invalid email address"),
-          password: z.string().optional(),
-          role: z.enum([
-            "Admin",
-            "User",
-            "Manager",
-            "QA",
-            "QAmanager",
-            "Modeler",
-            "Modelermanager",
-            "Client",
-          ] as const),
-        })
-      : userFormSchema;
-  }, [isEdit]);
-
-  const form = useForm<UserFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      name: defaultValues?.name || "",
-      email: defaultValues?.email || "",
+export function UserForm({ onSubmit, isLoading, initialData }: UserFormProps) {
+  const [formData, setFormData] = useState<UserFormValues>(
+    initialData || {
+      email: "",
+      name: "",
+      role: "user",
       password: "",
-      role: defaultValues?.role || "User",
-    },
-  });
-
-  const handleSubmit = async (data: UserFormValues) => {
-    try {
-      await onSubmit(data);
-      if (!isEdit) form.reset();
-    } catch (error) {
-      console.error("Form submission error:", error);
     }
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onSubmit(formData);
   };
 
+  const isEditMode = !!initialData;
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Name</FormLabel>
-              <FormControl>
-                <Input placeholder="John Doe" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="user@example.com"
+          value={formData.email}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, email: e.target.value }))
+          }
+          required
+          className="w-full"
+          disabled={isLoading || isEditMode}
         />
+      </div>
 
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="john@example.com" type="email" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+      <div className="space-y-2">
+        <Label htmlFor="name">Full Name</Label>
+        <Input
+          id="name"
+          placeholder="John Doe"
+          value={formData.name}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, name: e.target.value }))
+          }
+          required
+          className="w-full"
+          disabled={isLoading}
         />
+      </div>
 
-        {!isEdit && (
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <Input placeholder="••••••" type="password" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+      <div className="space-y-2">
+        <Label htmlFor="role">Role</Label>
+        <Select
+          value={formData.role}
+          onValueChange={(value: "admin" | "client" | "user") =>
+            setFormData((prev) => ({ ...prev, role: value }))
+          }
+          disabled={isLoading}
+        >
+          <SelectTrigger className="w-full cursor-pointer bg-white dark:bg-gray-900">
+            <SelectValue placeholder="Select a role" />
+          </SelectTrigger>
+          <SelectContent className="bg-white dark:bg-gray-900 cursor-pointer">
+            <SelectItem
+              className="cursor-pointer bg-white dark:bg-gray-900"
+              value="user"
+            >
+              User
+              <span className="text-muted-foreground ml-2 cursor-pointer bg-white dark:bg-gray-900">
+                (Basic access)
+              </span>
+            </SelectItem>
+            <SelectItem
+              className="cursor-pointer bg-white dark:bg-gray-900"
+              value="client"
+            >
+              Client
+              <span className="text-muted-foreground ml-2 cursor-pointer bg-white dark:bg-gray-900">
+                (Client features)
+              </span>
+            </SelectItem>
+            <SelectItem
+              className="cursor-pointer bg-white dark:bg-gray-900"
+              value="admin"
+            >
+              Admin
+              <span className="text-muted-foreground ml-2 cursor-pointer bg-white dark:bg-gray-900">
+                (Full access)
+              </span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {!isEditMode && (
+        <div className="space-y-2">
+          <Label htmlFor="password">
+            Password
+            <span className="text-muted-foreground ml-2 text-sm">
+              (Minimum 8 characters)
+            </span>
+          </Label>
+          <Input
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            value={formData.password}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, password: e.target.value }))
+            }
+            required={!isEditMode}
+            minLength={8}
+            className="w-full"
+            disabled={isLoading}
           />
-        )}
-
-        <FormField
-          control={form.control}
-          name="role"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Role</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent className="bg-background">
-                  <SelectItem value="User">User</SelectItem>
-                  <SelectItem value="Manager">Manager</SelectItem>
-                  <SelectItem value="Admin">Admin</SelectItem>
-                  <SelectItem value="QA">QA</SelectItem>
-                  <SelectItem value="QAmanager">QA Manager</SelectItem>
-                  <SelectItem value="Modeler">Modeler</SelectItem>
-                  <SelectItem value="Modelermanager">
-                    Modeler Manager
-                  </SelectItem>
-                  <SelectItem value="Client">Client</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex justify-end space-x-4 pt-4">
-          <Button type="submit" disabled={isLoading}>
-            {isLoading
-              ? isEdit
-                ? "Saving..."
-                : "Creating..."
-              : isEdit
-                ? "Save Changes"
-                : "Create User"}
-          </Button>
         </div>
-      </form>
-    </Form>
+      )}
+
+      <Button
+        type="submit"
+        className="w-full cursor-pointer bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <>
+            <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+            {isEditMode ? "Updating..." : "Creating..."}
+          </>
+        ) : isEditMode ? (
+          "Update User"
+        ) : (
+          "Create User"
+        )}
+      </Button>
+    </form>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { BarChart } from "@/components/ui/chart";
@@ -14,10 +14,7 @@ import type { DateRange } from "react-day-picker";
 import { StatCard } from "@/components/ui/stat-card";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { usePagePermission } from "@/lib/usePagePermission";
 
 function fetchAnalyticsProfiles() {
   return supabase
@@ -191,53 +188,65 @@ function BigQueryEventCards() {
 }
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
-  const role = session?.user?.role;
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | undefined>();
   const [adminData, setAdminData] = useState<any>(null);
   const [clientProfiles, setClientProfiles] = useState<any[]>([]);
   const [clientLoading, setClientLoading] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Get default date range
-  const today = new Date();
-  const defaultStartDate = format(addDays(today, -30), "yyyyMMdd");
-  const defaultEndDate = format(today, "yyyyMMdd");
-
-  // Fetch analytics data with retry logic
+  // Add permission check
   const {
-    data: analyticsData,
-    error: analyticsError,
-    mutate: refreshAnalytics,
-  } = useSWR(
-    role === "admin"
-      ? `/api/analytics?startDate=${defaultStartDate}&endDate=${defaultEndDate}`
-      : null,
-    async (url) => {
-      const response = await fetch(url);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to fetch analytics");
-      }
-      return response.json();
-    },
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-      refreshInterval: 300000, // Refresh every 5 minutes
-      retryCount: 3,
-      onError: (error) => {
-        console.error("Analytics fetch error:", error);
-      },
-    }
-  );
+    hasAccess,
+    loading: permissionLoading,
+    error: permissionError,
+  } = usePagePermission(userRole, "/dashboard");
 
-  // Admin dashboard logic
   useEffect(() => {
-    if (role === "admin") {
+    const fetchUserRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        setUserRole(profile.role);
+      }
+    };
+
+    fetchUserRole();
+  }, [router]);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
+      setUser(user);
+    };
+    getUser();
+  }, [router]);
+
+  useEffect(() => {
+    if (user?.role === "admin") {
       fetchAdminDashboardData().then(setAdminData);
     }
-  }, [role]);
+  }, [user?.role]);
 
   useEffect(() => {
     async function loadClientProfiles() {
@@ -257,12 +266,51 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (
-      (role === "admin" && (analyticsData?.data || analyticsError)) ||
-      (role !== "admin" && !clientLoading)
+      (user?.role === "admin" && adminData) ||
+      (user?.role !== "admin" && !clientLoading)
     ) {
       setLoading(false);
     }
-  }, [role, analyticsData, analyticsError, clientLoading]);
+  }, [user?.role, adminData, clientLoading]);
+
+  // Show loading state while checking permissions
+  if (permissionLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin mx-auto"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error message if permission check failed
+  if (permissionError) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-red-600">
+          Error checking permissions: {permissionError}
+        </p>
+      </div>
+    );
+  }
+
+  // Show access denied if no permission
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin mx-auto"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <div>Loading...</div>;
+  }
 
   if (loading) {
     return (
@@ -279,57 +327,36 @@ export default function DashboardPage() {
     );
   }
 
-  if (role === "admin" && analyticsError) {
+  if (user.role === "admin" && !adminData) {
     return (
       <div className="p-6">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            Failed to load analytics data: {analyticsError.message}
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={() => refreshAnalytics()}
-            >
-              Try Again
-            </Button>
+            Failed to load analytics data: {clientError}
           </AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  if (role !== "admin" && clientError) {
-    return (
-      <div className="p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            Failed to load client data: {clientError}
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  const analytics = analyticsData?.data || {};
+  const analytics = adminData || {};
 
   return (
-    <div className="p-6">
-      {role === "admin" ? (
+    <div className="p-8">
+      <h1 className="text-4xl font-bold mb-8">Dashboard</h1>
+      <div className="grid gap-6">
+        <div className="rounded-lg border p-4">
+          <h2 className="text-xl font-semibold mb-2">Welcome back!</h2>
+          <p className="text-gray-600">You are logged in as {user.email}</p>
+        </div>
+      </div>
+
+      {user.role === "admin" ? (
         <>
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">Analytics Overview</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refreshAnalytics()}
-            >
-              Refresh Data
-            </Button>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
             <StatCard
@@ -349,87 +376,52 @@ export default function DashboardPage() {
               value={analytics.percentage_users_with_service || 0}
               suffix="%"
             />
-            <StatCard
-              title="Conversion rate without AR/3D activation"
-              value={analytics.conversion_rate_without_ar || 0}
-              suffix="%"
-            />
-            <StatCard
-              title="Conversion rate with AR/3D activation"
-              value={analytics.conversion_rate_with_ar || 0}
-              suffix="%"
-            />
-            <StatCard
-              title="Total Purchases with AR/3D activation"
-              value={analytics.total_purchases_with_ar || 0}
-            />
-            <StatCard
-              title="Add to Cart Default"
-              value={analytics.add_to_cart_default || 0}
-              suffix="%"
-            />
-            <StatCard
-              title="Add to Cart with CharpstAR"
-              value={analytics.add_to_cart_with_ar || 0}
-              suffix="%"
-            />
-            <StatCard
-              title="Average Order Value without AR/3D activation"
-              value={
-                analytics.avg_order_value_without_ar?.toLocaleString() || "0"
-              }
-              suffix="(Store currency)"
-            />
-            <StatCard
-              title="Average Order Value with AR/3D activation"
-              value={analytics.avg_order_value_with_ar?.toLocaleString() || "0"}
-              suffix="(Store currency)"
-            />
-            <StatCard
-              title="Total AR Clicks"
-              value={analytics.total_ar_clicks || 0}
-            />
-            <StatCard
-              title="Total 3D Clicks"
-              value={analytics.total_3d_clicks || 0}
-            />
-            <StatCard
-              title="Session time duration without AR/3D activation"
-              value={analytics.session_duration_without_ar || 0}
-              suffix="seconds"
-            />
-            <StatCard
-              title="Session time duration with AR/3D activation"
-              value={analytics.session_duration_with_ar || 0}
-              suffix="seconds"
-            />
           </div>
         </>
       ) : (
         <>
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold">Event Analytics</h2>
+            <h2 className="text-2xl font-semibold p-6">Event Analytics</h2>
           </div>
-          <div className="mb-8">
+
+          <div className="mb-8 px-6">
             {clientLoading ? (
               <div>Loading client profiles...</div>
             ) : clientProfiles.length > 0 ? (
-              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                {clientProfiles.map((profile) => (
-                  <Card key={profile.id} className="p-4">
-                    <CardHeader>
-                      <CardTitle>{profile.name || "Unnamed Profile"}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-sm text-muted-foreground">
-                        <p>
-                          Monitored since: {profile.monitoredsince || "N/A"}
-                        </p>
-                        <p>Status: {profile.status || "Unknown"}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                <table className="min-w-full text-sm text-left">
+                  <thead className="bg-gray-100 dark:bg-gray-800">
+                    <tr>
+                      <th className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">
+                        Name
+                      </th>
+                      <th className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">
+                        Monitored Since
+                      </th>
+                      <th className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {clientProfiles.map((profile) => (
+                      <tr
+                        key={profile.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        <td className="px-4 py-3 text-gray-900 dark:text-gray-100">
+                          {profile.name || "Unnamed Profile"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                          {profile.monitoredsince || "N/A"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                          {profile.status || "Unknown"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <div>No analytics profiles found.</div>
@@ -437,9 +429,6 @@ export default function DashboardPage() {
           </div>
         </>
       )}
-
-      <h2 className="text-2xl font-semibold mb-6">Event Analytics</h2>
-      <BigQueryEventCards />
     </div>
   );
 }

@@ -1,53 +1,45 @@
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from "@/lib/supabaseClient";
 
 export function usePagePermission(role: string | undefined, page: string) {
   const [hasAccess, setHasAccess] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    if (!role || !page) {
+      setLoading(false);
+      return;
+    }
 
-    async function checkPermission() {
-      if (!role || !page) {
-        setHasAccess(false);
-        setLoading(false);
-        return;
-      }
-
+    const checkPermission = async () => {
       setLoading(true);
+      setError(null);
 
       const { data, error } = await supabase
         .from("role_permissions")
         .select("can_access")
         .eq("role", role)
         .eq("page", page)
-        .maybeSingle();
+        .single();
 
-      if (!cancelled) {
-        if (error || !data) {
-          console.warn(
-            `[Permission Check] ${role} → ${page}:`,
-            error?.message || "No data"
-          );
+      if (error) {
+        if (error.code === "PGRST116") {
+          // No permission row found = treat as no access
           setHasAccess(false);
         } else {
-          setHasAccess(!!data.can_access);
+          console.error("Permission check error:", error);
+          setError(error.message);
         }
-        setLoading(false);
+      } else {
+        setHasAccess(data?.can_access === true);
       }
-    }
+
+      setLoading(false);
+    };
 
     checkPermission();
-
-    return () => {
-      cancelled = true;
-    };
   }, [role, page]);
 
-  return { hasAccess, loading };
+  return { hasAccess, loading, error };
 }

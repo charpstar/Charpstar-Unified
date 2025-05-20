@@ -38,7 +38,7 @@ function Calendar({
         row: "flex w-full mt-2",
         cell: cn(
           "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
-          "[&:has([aria-selected])]:bg-blue-50",
+          "[&:has([aria-selected])]:bg-blue-50 dark:[&:has([aria-selected])]:bg-blue-950",
           "first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md",
           "[&:has([aria-selected].day-range-end)]:rounded-r-md",
           "[&:has([aria-selected].day-range-start)]:rounded-l-md",
@@ -47,26 +47,32 @@ function Calendar({
         day: cn(
           buttonVariants({ variant: "ghost" }),
           "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
-          "hover:bg-teal-100 hover:text-teal-900",
-          "focus:bg-teal-100 focus:text-teal-900 focus:outline-none",
-          "active:bg-teal-200 active:text-teal-900"
+          "cursor-pointer",
+          "hover:bg-teal-100 hover:text-teal-900 dark:hover:bg-teal-800 dark:hover:text-teal-100",
+          "focus:bg-teal-100 focus:text-teal-900 dark:focus:bg-teal-800 dark:focus:text-teal-100 focus:outline-none",
+          "active:bg-teal-200 active:text-teal-900 dark:active:bg-teal-700 dark:active:text-teal-100"
         ),
         day_selected:
-          "bg-teal-600 text-white hover:bg-teal-700 hover:text-white font-medium",
-        day_today: "bg-gray-100 text-gray-900 font-medium",
-        day_outside: "text-gray-400 opacity-50",
-        day_disabled: "text-gray-300 opacity-50",
+          "bg-teal-600 text-white hover:bg-teal-700 hover:text-white dark:bg-teal-500 dark:hover:bg-teal-600 font-medium",
+        day_today:
+          "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100 font-medium",
+        day_outside: "text-gray-400 dark:text-gray-500 opacity-50",
+        day_disabled: "text-gray-300 dark:text-gray-600 opacity-50",
         day_range_start:
-          "rounded-l-md bg-blue-600 text-white font-medium shadow-sm",
+          "rounded-l-md bg-blue-600 text-white dark:bg-blue-500 font-medium shadow-sm",
         day_range_end:
-          "rounded-r-md bg-teal-600 text-white font-medium shadow-sm",
-        day_range_middle: "bg-teal-50",
+          "rounded-r-md bg-teal-600 text-white dark:bg-teal-500 font-medium shadow-sm",
+        day_range_middle: "bg-teal-50 dark:bg-teal-900",
         day_hidden: "invisible",
         ...classNames,
       }}
       components={{
-        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
+        IconLeft: ({ ...props }) => (
+          <ChevronLeft className="h-4 w-4 cursor-pointer" />
+        ),
+        IconRight: ({ ...props }) => (
+          <ChevronRight className="h-4 w-4 cursor-pointer" />
+        ),
       }}
       {...props}
     />

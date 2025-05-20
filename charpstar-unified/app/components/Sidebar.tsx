@@ -3,129 +3,161 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, Settings, LogOut } from "lucide-react";
-import { signOut, useSession } from "next-auth/react";
-import { usePagePermission } from "@/lib/usePagePermission";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useState } from "react";
+import {
+  LayoutDashboard,
+  Users,
+  Settings,
+  LogOut,
+  ShieldCheck,
+  Menu,
+  BarChart,
+} from "lucide-react";
 import Image from "next/image";
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-// To more easily add new menu items, and not make it an array likke before, sometimes messes up the routing and navigation.
-// So we'll use a more dynamic approach.
-
-const menuItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Users",
-    href: "/users",
-    icon: Users,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-];
-
-export function Sidebar() {
+export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const role = session?.user?.role;
+  const [user, setUser] = useState<any>(null);
+  const [role, setRole] = useState<string | null>(null);
 
-  // For each menu item, check permission
-  const menuWithAccess = menuItems.map((item) => {
-    const { hasAccess } = usePagePermission(role, item.href);
-    return { ...item, hasAccess };
-  });
+  useEffect(() => {
+    const getUserAndRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      setUser(user);
+
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && profile) {
+        setRole(profile.role);
+      }
+    };
+
+    getUserAndRole();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/auth";
+  };
 
   return (
-    <div className="flex flex-col h-screen w-64 bg-background text-foreground">
-      {/* Logo section */}
-      <div className="p-4">
-        <Image
-          src="/images/charpstarGrey.png"
-          alt="Charpstar"
-          width={200}
-          height={100}
-          className="mb-1"
-        />
-        <div className="border-b border-border mb-2"></div>
+    <div className={cn("pb-12", className)}>
+      <div className="space-y-4 py-4">
+        <div className="px-3 py-2">
+          <div className="flex items-center justify-between">
+            <>
+              {/* Light Mode Logo */}
+              <Image
+                src="/images/charpstarWhite.png"
+                alt="Logo (dark mode)"
+                width={200}
+                height={100}
+                className="hidden dark:block"
+              />
 
-        {session?.user?.role && (
-          <div className="flex flex-col gap-0.5">
-            <p className="text-sm font-medium text-foreground">
-              {session.user.name}
-            </p>
-            <p className="text-xs text-muted-foreground capitalize">
-              {session.user.role}
-            </p>
+              <Image
+                src="/images/charpstarGrey.png"
+                alt="Logo"
+                width={200}
+                height={100}
+                className="block dark:hidden"
+              />
+
+              {/* Dark Mode Logo */}
+            </>
           </div>
-        )}
-      </div>
+          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+            Dashboard
+          </h2>
 
-      {/* Navigation section */}
-      {menuWithAccess
-        .filter((item) => item.hasAccess)
-        .map((item) => {
-          const isActive = pathname === item.href;
-          const Icon = item.icon;
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-foreground/60 hover:text-foreground hover:bg-primary/10"
-              )}
-            >
-              <Icon className="w-5 h-5" />
-              <span>{item.title}</span>
+          <div className="space-y-1">
+            <Link href="/dashboard">
+              <Button
+                variant={pathname === "/dashboard" ? "secondary" : "ghost"}
+                className="w-full justify-start cursor-pointer"
+              >
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                Overview
+              </Button>
             </Link>
-          );
-        })}
-      {/* Permissions link for admin only */}
-      {session?.user?.role === "admin" && (
-        <>
-          <Link
-            href="/admin/permissions"
-            className={cn(
-              "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors mt-4",
-              pathname === "/admin/permissions"
-                ? "bg-primary text-primary-foreground"
-                : "text-foreground/60 hover:text-foreground hover:bg-primary/10"
+
+            {role === "admin" && (
+              <Link href="/analytics">
+                <Button
+                  variant={pathname === "/analytics" ? "secondary" : "ghost"}
+                  className="w-full justify-start cursor-pointer"
+                >
+                  <BarChart className="mr-2 h-4 w-4" />
+                  Analytics
+                </Button>
+              </Link>
             )}
-          >
-            <span className="w-5 h-5 inline-block">🔒</span>
-            <span>Permissions</span>
-          </Link>
-          <Link
-            href="/admin/feature-permissions"
-            className={cn(
-              "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
-              pathname === "/admin/feature-permissions"
-                ? "bg-primary text-primary-foreground"
-                : "text-foreground/60 hover:text-foreground hover:bg-primary/10"
+
+            <Link href="/users">
+              <Button
+                variant={pathname === "/users" ? "secondary" : "ghost"}
+                className="w-full justify-start cursor-pointer"
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Users
+              </Button>
+            </Link>
+
+            <Link href="/settings">
+              <Button
+                variant={pathname === "/settings" ? "secondary" : "ghost"}
+                className="w-full justify-start cursor-pointer"
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </Button>
+            </Link>
+
+            {/* ✅ Conditionally show for admins */}
+            {role === "admin" && (
+              <Link href="/admin/permissions">
+                <Button
+                  variant={pathname === "/permissions" ? "secondary" : "ghost"}
+                  className="w-full justify-start cursor-pointer  "
+                >
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Permissions
+                </Button>
+              </Link>
             )}
-          >
-            <span className="w-5 h-5 inline-block">🛠️</span>
-            <span>Feature Permissions</span>
-          </Link>
-        </>
-      )}
-      {/* Bottom section */}
-      <div className="p-4 border-t border-border">
-        <button
-          onClick={() => signOut()}
-          className="flex items-center space-x-3 px-3 py-2 w-full rounded-lg text-foreground/60 hover:text-foreground hover:bg-primary/10 transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-          <span>Sign Out</span>
-        </button>
+          </div>
+        </div>
+
+        {/* User Profile & Logout */}
+        <div className="px-3 py-2">
+          <div className="space-y-1">
+            {user && (
+              <div className="px-4 py-2">
+                <p className="text-sm font-medium">{user.email}</p>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-100"
+                  onClick={handleSignOut}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign out
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

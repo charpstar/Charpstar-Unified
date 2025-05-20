@@ -1,30 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { ROLES, useHasPermission } from "@/lib/auth";
-import { createClient } from "@supabase/supabase-js";
-import {
-  MoreVertical,
-  Pencil,
-  Trash2,
-  Search,
-  UserPlus,
-  Plus,
-  User,
-  Mail,
-  Shield,
-  AlertCircle,
-  Users,
-} from "lucide-react";
-import { UserForm } from "@/app/components/UserForm";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { useEffect, useState } from "react";
+import { UserPlus, Search, Pencil, MoreVertical, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -34,188 +11,150 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
-import { toast } from "@/components/ui/use-toast";
-import {
-  Toast,
-  ToastAction,
-  ToastDescription,
-  ToastProvider,
-  ToastViewport,
-} from "@/components/ui/toast";
-import { Toaster } from "@/components/ui/toaster";
+import { UserForm, UserFormValues } from "@/app/components/UserForm";
 import { useToast } from "@/components/ui/use-toast";
-import type { UserFormValues } from "@/app/components/UserForm";
+import { Toaster } from "@/components/ui/toaster";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import { usePagePermission } from "@/lib/usePagePermission";
-import { useFeaturePermission } from "@/lib/useFeaturePermission";
 import { useUsers } from "@/lib/useUsers";
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Add role options array for filtering
-const roleOptions = [
-  "all",
-  "admin",
-  "manager",
-  "qa",
-  "qamanager",
-  "modeler",
-  "modelermanager",
-  "client",
-  "user",
-];
+import { useFeaturePermissions } from "@/lib/useFeaturePermissions";
 
 interface User {
   id: string;
-  name: string;
   email: string;
+  name: string;
   role: string;
+  created_at: string;
 }
 
-interface SortConfig {
-  key: keyof User;
-  direction: "asc" | "desc";
-}
-
-// Helper to convert role to title case for display
-function toTitleCase(str: string) {
-  if (!str) return str;
-  if (str === "qamanager") return "QA Manager";
-  if (str === "modelermanager") return "Modeler Manager";
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-// Update roleMap and validUserFormRoles to exclude 'User'
-const roleMap: Record<string, UserFormValues["role"]> = {
-  admin: "Admin",
-  manager: "Manager",
-  qa: "QA",
-  qamanager: "QAmanager",
-  modeler: "Modeler",
-  modelermanager: "Modelermanager",
-  client: "Client",
-};
-const validUserFormRoles = [
-  "Admin",
-  "Manager",
-  "QA",
-  "QAmanager",
-  "Modeler",
-  "Modelermanager",
-  "Client",
-] as const;
-function toUserFormRole(role: string): UserFormValues["role"] | undefined {
-  const mapped = roleMap[role];
-  return mapped && validUserFormRoles.includes(mapped as any)
-    ? mapped
-    : undefined;
-}
-
-// Role badge color mapping (teal theme + distinct colors)
-const roleBadgeClasses: Record<string, string> = {
-  admin: "bg-primary/80 text-primary-foreground border-none",
-  manager: "bg-accent text-accent-foreground border-none",
-  user: "bg-muted text-foreground border-none",
-  client: "bg-primary/60 text-primary-foreground border-none",
-  qa: "bg-accent/80 text-accent-foreground border-none",
-  qamanager: "bg-accent/60 text-accent-foreground border-none",
-  modeler: "bg-primary/60 text-primary-foreground border-none",
-  modelermanager: "bg-primary/70 text-primary-foreground border-none",
-};
+const roleOptions = ["all", "admin", "client", "user"] as const;
 
 export default function UsersPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRole, setSelectedRole] = useState("all");
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
-  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
-  const [userToEdit, setUserToEdit] = useState<User | null>(null);
-  const { data: session } = useSession();
-  const { toast } = useToast();
-  const role = session?.user?.role;
-  const { hasAccess, loading: permLoading } = usePagePermission(role, "/users");
-  const { hasAccess: canAddUser, loading: addUserLoading } =
-    useFeaturePermission(role, "add_user");
-  const { hasAccess: canEditUser, loading: editUserLoading } =
-    useFeaturePermission(role, "edit_user");
-  const { hasAccess: canDeleteUser, loading: deleteUserLoading } =
-    useFeaturePermission(role, "delete_user");
+  const router = useRouter();
+  const [userRole, setUserRole] = useState<string | undefined>();
+  const { users, loading: usersLoading, error, fetchUsers } = useUsers(true);
 
-  // Use the new useUsers hook
+  // Add feature permissions check
   const {
-    users,
-    loading: isLoading,
-    error,
-    addUser,
-    updateUser,
-    deleteUser,
-    refetch,
-    isAddingUser,
-    isDeletingUser,
-    pendingUserId,
-  } = useUsers(!!role && hasAccess);
+    getFeaturePermissions,
+    loading: featureLoading,
+    permissions,
+  } = useFeaturePermissions(true);
+  const userPermissions = getFeaturePermissions(userRole, [
+    "view_user_details",
+    "edit_user",
+    "add_user",
+    "delete_user",
+  ]);
 
-  // Fetch users only when role and hasAccess are ready
+  // Debug logs
+  console.log("Current user role:", userRole);
+  console.log("Feature permissions:", permissions);
+  console.log("User permissions:", userPermissions);
+
+  // Add permission check
+  const {
+    hasAccess,
+    loading: permissionLoading,
+    error: permissionError,
+  } = usePagePermission(userRole, "/users");
+
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
+
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRole, setSelectedRole] =
+    useState<(typeof roleOptions)[number]>("all");
+
   useEffect(() => {
-    if (role && hasAccess) {
-      refetch();
-    }
-  }, [role, hasAccess, refetch]);
-
-  // Sort and filter logic
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: "name",
-    direction: "asc",
-  });
-  const sortData = (data: User[]) => {
-    return [...data].sort((a, b) => {
-      if (a[sortConfig.key] < b[sortConfig.key]) {
-        return sortConfig.direction === "asc" ? -1 : 1;
+    const fetchUserRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth");
+        return;
       }
-      if (a[sortConfig.key] > b[sortConfig.key]) {
-        return sortConfig.direction === "asc" ? 1 : -1;
-      }
-      return 0;
-    });
-  };
-  const filterData = (data: User[]) => {
-    return data.filter(
-      (user) =>
-        (user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase())) &&
-        (selectedRole === "all" || user.role === selectedRole)
-    );
-  };
-  const handleSort = (key: keyof User) => {
-    setSortConfig((current) => ({
-      key,
-      direction:
-        current.key === key && current.direction === "asc" ? "desc" : "asc",
-    }));
-  };
-  const filteredAndSortedUsers = sortData(filterData(users));
 
-  if (permLoading || isLoading) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        setUserRole(profile.role);
+      }
+    };
+
+    fetchUserRole();
+  }, [router]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Show loading state while checking permissions or loading data
+  if (permissionLoading || usersLoading || featureLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-foreground bg-background">
-        <div className="animate-spin h-10 w-10 rounded-full border-2 border-ring border-t-transparent" />
-        <p className="mt-4 text-sm text-muted-foreground">
-          {permLoading ? "Checking permissions..." : "Loading users..."}
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin mx-auto"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error message if permission check failed
+  if (permissionError) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-red-600">
+          Error checking permissions: {permissionError}
+        </p>
+      </div>
+    );
+  }
+
+  // Show access denied if no permission
+  if (!hasAccess) {
+    return (
+      <div className="p-8 text-center">
+        <h2 className="text-xl font-semibold text-red-600 mb-2">
+          Access Denied
+        </h2>
+        <p className="text-gray-600">
+          You don't have permission to access the users page.
         </p>
       </div>
     );
@@ -223,262 +162,329 @@ export default function UsersPage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-[60vh] px-4">
-        <div className="max-w-md w-full p-6 rounded-lg border border-destructive bg-destructive/10 text-destructive shadow-sm">
-          <h2 className="text-lg font-semibold mb-2">Error</h2>
-          <p className="text-sm">{error}</p>
-        </div>
+      <div className="p-8 text-center">
+        <p className="text-red-600">Error loading users: {error}</p>
       </div>
     );
   }
 
+  const handleAddUser = async (formData: UserFormValues) => {
+    if (!userPermissions.add_user) {
+      toast({
+        title: "Error",
+        description: "You don't have permission to add users",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAddingUser(true);
+    try {
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to create user");
+      }
+
+      await fetchUsers();
+      setIsAddUserDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "User created successfully",
+      });
+    } catch (err) {
+      console.error("Error adding user:", err);
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Failed to create user",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingUser(false);
+    }
+  };
+
+  const handleEditUser = async (formData: UserFormValues) => {
+    if (!userPermissions.edit_user) {
+      toast({
+        title: "Error",
+        description: "You don't have permission to edit users",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editingUser) return;
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`/api/users/${editingUser.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to update user");
+      }
+
+      await fetchUsers();
+      setIsEditUserDialogOpen(false);
+      setEditingUser(null);
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      });
+    } catch (err) {
+      console.error("Error updating user:", err);
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Failed to update user",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!userPermissions.delete_user) {
+      toast({
+        title: "Error",
+        description: "You don't have permission to delete users",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this user?")) return;
+
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`/api/users/${userId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to delete user");
+      }
+
+      await fetchUsers();
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+    } catch (err) {
+      console.error("Error deleting user:", err);
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Failed to delete user",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Filter users based on search term and selected role
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesRole = selectedRole === "all" || user.role === selectedRole;
+
+    return matchesSearch && matchesRole;
+  });
+
+  // Check if user has any action permissions
+  const hasActionPermissions =
+    userPermissions.edit_user || userPermissions.delete_user;
+
+  // Debug log for action permissions
+  console.log("Has action permissions:", hasActionPermissions);
+
   return (
-    <div className="p-6 space-y-6 bg-background text-foreground">
+    <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold flex items-center gap-2 text-foreground">
-          <Users className="w-6 h-6" /> Users
-        </h1>
-        {canAddUser && (
+        <h1 className="text-2xl font-bold">Users</h1>
+
+        {userPermissions.add_user && (
           <Dialog
             open={isAddUserDialogOpen}
             onOpenChange={setIsAddUserDialogOpen}
           >
             <DialogTrigger asChild>
-              <Button
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-                disabled={addUserLoading}
-              >
-                <UserPlus className="w-4 h-4 mr-2 text-primary" />
+              <Button className="cursor-pointer bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800">
+                <UserPlus className="w-4 h-4 mr-2" />
                 Add User
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New User</DialogTitle>
-                <DialogDescription>
-                  Create a new user account with specified role and permissions.
-                </DialogDescription>
-                §
               </DialogHeader>
-              <UserForm
-                onSubmit={async (formData) => {
-                  const result = await addUser(formData);
-                  if (result.success) {
-                    setIsAddUserDialogOpen(false);
-                    toast({
-                      title: "Success",
-                      description: "User created successfully",
-                    });
-                  } else {
-                    toast({
-                      title: "Error",
-                      description: result.error || "Failed to create user",
-                      variant: "destructive",
-                    });
-                  }
-                }}
-                isLoading={isAddingUser}
-              />
+              <UserForm onSubmit={handleAddUser} isLoading={isAddingUser} />
             </DialogContent>
           </Dialog>
         )}
       </div>
+
       <div className="flex gap-4 items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder="Search users..."
+            placeholder="Search by name or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-background text-foreground border border-border focus:ring-primary"
+            className="pl-9"
           />
         </div>
-        <select
+        <Select
           value={selectedRole}
-          onChange={(e) => setSelectedRole(e.target.value)}
-          className="border border-border rounded-md p-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          onValueChange={(value: (typeof roleOptions)[number]) =>
+            setSelectedRole(value)
+          }
         >
-          {roleOptions.map((role) => (
-            <option
-              key={role}
-              value={role}
-              className="bg-background text-foreground"
-            >
-              {role === "all" ? "All Roles" : toTitleCase(role)}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-[180px] cursor-pointer bg-white dark:bg-gray-900">
+            <SelectValue placeholder="Select role" />
+          </SelectTrigger>
+          <SelectContent className="cursor-pointer bg-white dark:bg-gray-900">
+            {roleOptions.map((role) => (
+              <SelectItem key={role} value={role} className="cursor-pointer">
+                {role === "all"
+                  ? "All Roles"
+                  : role.charAt(0).toUpperCase() + role.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <div className="border border-border rounded-lg bg-card text-foreground">
+
+      <div className="rounded-md border">
         <Table>
           <TableHeader>
-            <TableRow className="bg-card text-foreground">
-              <TableHead className="bg-card text-foreground">Name</TableHead>
-              <TableHead className="bg-card text-foreground">Email</TableHead>
-              <TableHead className="bg-card text-foreground">Role</TableHead>
-              <TableHead className="bg-card text-foreground">Actions</TableHead>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Created At</TableHead>
+              {hasActionPermissions && (
+                <TableHead className="w-[100px] cursor-pointer  ">
+                  Actions
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAndSortedUsers.map((user) => (
-              <TableRow className="bg-card text-foreground">
-                <TableCell className="bg-card text-foreground">
-                  {user.name}
-                </TableCell>
-                <TableCell className="bg-card text-foreground">
-                  {user.email}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    className={
-                      roleBadgeClasses[user.role] ||
-                      "bg-muted text-foreground border-none"
-                    }
-                  >
-                    {toTitleCase(user.role)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-primary bg-transparent"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-background">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setUserToEdit(user);
-                          setIsEditUserDialogOpen(true);
-                        }}
-                        disabled={
-                          !canEditUser ||
-                          editUserLoading ||
-                          pendingUserId === user.id
-                        }
-                      >
-                        <Pencil className="w-4 h-4 mr-2" />
-                        {pendingUserId === user.id && (
-                          <span className="animate-spin">⏳</span>
-                        )}
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => {
-                          setUserToDelete(user);
-                          setIsDeleteDialogOpen(true);
-                        }}
-                        disabled={
-                          !canDeleteUser ||
-                          deleteUserLoading ||
-                          pendingUserId === user.id
-                        }
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        {pendingUserId === user.id && (
-                          <span className="animate-spin">⏳</span>
-                        )}
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {filteredUsers.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={hasActionPermissions ? 5 : 4}
+                  className="text-center text-muted-foreground py-8"
+                >
+                  No users found
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredUsers.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>{user.name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={user.role === "admin" ? "default" : "secondary"}
+                    >
+                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </TableCell>
+                  {hasActionPermissions && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="w-4 h-4 cursor-pointer" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          className="bg-white dark:bg-gray-900"
+                          align="end"
+                        >
+                          {userPermissions.edit_user && (
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onClick={() => {
+                                setEditingUser(user);
+                                setIsEditUserDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit user
+                            </DropdownMenuItem>
+                          )}
+
+                          {userPermissions.delete_user && (
+                            <DropdownMenuItem
+                              className="text-red-600 cursor-pointer"
+                              onClick={() => handleDeleteUser(user.id)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete user
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-primary">
-              <AlertCircle className="w-5 h-5 text-destructive" />
-              Confirm Deletion
-            </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete {userToDelete?.name}? This action
-              cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                if (!userToDelete) return;
-                const result = await deleteUser(userToDelete);
-                if (result.success) {
-                  setUserToDelete(null);
-                  setIsDeleteDialogOpen(false);
-                  toast({
-                    title: "Success",
-                    description: "User deleted successfully",
-                  });
-                } else {
-                  toast({
-                    title: "Error",
-                    description: result.error || "Failed to delete user",
-                    variant: "destructive",
-                  });
-                }
-              }}
-              disabled={isDeletingUser}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={isEditUserDialogOpen}
-        onOpenChange={setIsEditUserDialogOpen}
-      >
-        <DialogContent className="bg-background [&_select]:bg-transparent">
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>
-              Update user information and role.
-            </DialogDescription>
-          </DialogHeader>
-          {userToEdit && (
-            <UserForm
-              onSubmit={async (formData) => {
-                const result = await updateUser(userToEdit.id, formData);
-                if (result.success) {
-                  setIsEditUserDialogOpen(false);
-                  setUserToEdit(null);
-                  toast({
-                    title: "Success",
-                    description: "User updated successfully",
-                  });
-                } else {
-                  toast({
-                    title: "Error",
-                    description: result.error || "Failed to update user",
-                    variant: "destructive",
-                  });
-                }
-              }}
-              isLoading={false}
-              defaultValues={{
-                ...userToEdit,
-                role: toUserFormRole(userToEdit.role),
-              }}
-              isEdit
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+
+      {/* Edit User Dialog */}
+      {userPermissions.edit_user && (
+        <Dialog
+          open={isEditUserDialogOpen}
+          onOpenChange={setIsEditUserDialogOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+            </DialogHeader>
+            {editingUser && (
+              <UserForm
+                onSubmit={handleEditUser}
+                isLoading={isProcessing}
+                initialData={{
+                  name: editingUser.name,
+                  email: editingUser.email,
+                  role: editingUser.role as "admin" | "client" | "user",
+                  password: "", // Required by the type but not used in edit mode
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
       <Toaster />
     </div>
   );

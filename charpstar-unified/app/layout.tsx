@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/app/providers";
+import { Providers } from "@/app/providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SWRConfig } from "swr";
 import { localStorageProvider } from "@/lib/swrLocalStorageProvider";
@@ -33,7 +33,7 @@ export default function RootLayout({
       >
         <SWRConfig value={{ provider: localStorageProvider }}>
           <ThemeProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <Providers>{children}</Providers>
           </ThemeProvider>
         </SWRConfig>
       </body>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
@@ -17,14 +17,57 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Supabase will provide an access_token in the URL for password reset
-  const accessToken = searchParams.get("access_token");
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        // Get the hash fragment from the URL
+        const hashFragment = window.location.hash;
+        if (hashFragment) {
+          // Remove the # and parse the parameters
+          const params = new URLSearchParams(hashFragment.substring(1));
+          const type = params.get("type");
+          const accessToken = params.get("access_token");
+
+          if (type === "recovery" && accessToken) {
+            // Set the session using the access token
+            const { data, error } = await supabase.auth.getSession();
+            if (error) {
+              setError("Invalid or expired recovery link.");
+              return;
+            }
+          }
+        } else {
+          // Check for query parameters
+          const type = searchParams.get("type");
+          const code = searchParams.get("code");
+
+          if (type === "recovery" && code) {
+            const { data, error } =
+              await supabase.auth.exchangeCodeForSession(code);
+            if (error) {
+              setError("Invalid or expired recovery link.");
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Auth initialization error:", err);
+        setError("Failed to process recovery link.");
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+
+    initializeAuth();
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
+
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
@@ -33,20 +76,31 @@ export default function ResetPasswordPage() {
       setError("Passwords do not match.");
       return;
     }
-    if (!accessToken) {
-      setError("Invalid or missing token.");
-      return;
-    }
+
     setLoading(true);
     try {
-      // Use Supabase's updateUser API
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setError(
+          "No active session. Please request a new password reset link."
+        );
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({ password });
+
       if (error) throw error;
-      setMessage(
-        "Password updated! You can now log in with your new password."
-      );
+
+      setMessage("Password updated successfully! Redirecting to login...");
+
+      // Sign out the user after password reset
+      await supabase.auth.signOut();
+
       setTimeout(() => {
-        router.push("/");
+        router.push("/auth");
       }, 2000);
     } catch (err: any) {
       setError(err.message || "Failed to reset password.");
@@ -54,6 +108,38 @@ export default function ResetPasswordPage() {
       setLoading(false);
     }
   };
+
+  // Show loading state while initializing
+  if (!isInitialized) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center px-4">
+        <div className="w-8 h-8 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin"></div>
+        <p className="mt-4 text-gray-600">Verifying recovery link...</p>
+      </div>
+    );
+  }
+
+  // Show error if no valid session is present
+  if (error) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center px-4">
+        <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
+          <h1 className="text-2xl font-semibold text-red-600 mb-4">
+            Invalid Recovery Link
+          </h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => router.push("/auth")}
+            className={cn(
+              "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full"
+            )}
+          >
+            Return to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center px-4">
@@ -68,11 +154,6 @@ export default function ResetPasswordPage() {
         </div>
         <form onSubmit={handleSubmit} className="w-full">
           <div className="grid gap-4 w-full">
-            {error && (
-              <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error}
-              </div>
-            )}
             {message && (
               <div className="p-3 bg-green-100 border border-green-400 text-green-700 rounded">
                 {message}
