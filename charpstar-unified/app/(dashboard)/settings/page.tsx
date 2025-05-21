@@ -19,6 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { LogOut, Sun, Moon, User2, BarChart3 } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
+import { FontSettings } from "@/components/ui/font-setting";
+import { ColorThemePicker } from "@/components/ui/color-picker";
 
 interface UserProfile {
   id: string;
@@ -152,6 +154,7 @@ export default function SettingsPage() {
   return (
     <div className="flex items-center justify-center min-h-screen p-4">
       {/* Account Card */}
+
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle>
@@ -179,6 +182,14 @@ export default function SettingsPage() {
           <div className="flex flex-col gap-1">
             <ThemeSwitcherCard />
           </div>
+          <div className="flex flex-col gap-1">
+            <ColorThemePicker />
+          </div>
+          {/* Font Settings */}
+          <div className="flex flex-col gap-1">
+            <FontSettings />
+          </div>
+
           {/* Analytics Profile */}
           <div className="flex flex-col gap-1">
             <Label className="text-muted-foreground mb-1 flex items-center gap-2">

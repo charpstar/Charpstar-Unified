@@ -43,15 +43,6 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -129,15 +120,24 @@
   --green: 0.55 0.1 145;
   --red: 0.63 0.14 29;
 }
+html,
+body,
+* {
+  font-family: var(--user-font-family, Montserrat, system-ui, sans-serif);
+}
+body,
+html {
+  font-size: var(--user-font-size, 16px);
+}
+.border-b {
+  border-bottom: 0 !important;
+}
 
-/* Example utility classes for shadcn/ui */
-.bg-background {
-  background-color: rgb(var(--background));
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
-.text-foreground {
-  color: rgb(var(--foreground));
-}
-.border-border {
-  border-color: rgb(var(--border));
-}
-/* Add more as needed for your design system */

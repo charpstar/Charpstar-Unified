@@ -2,8 +2,7 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { BigQuery } from "@google-cloud/bigquery";
 import path from "path";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { createServerClient } from "@supabase/ssr";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 
 // Path to your service account key (DO NOT commit this file)
@@ -19,6 +18,7 @@ const bigquery = new BigQuery({
 
 export async function GET(req: NextRequest) {
   try {
+    // 1. Check GCP configuration
     if (!process.env.GCP_PROJECT_ID) {
       return NextResponse.json(
         { error: "GCP Project ID not configured" },
@@ -26,180 +26,128 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 1. Get user from Supabase session
-    const cookieStore = await cookies();
-    const supabaseClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            const cookie = cookieStore.get(name);
-            return cookie?.value;
-          },
-          set(name: string, value: string, options: any) {
-            // Read-only in Edge Runtime
-          },
-          remove(name: string, options: any) {
-            // Read-only in Edge Runtime
-          },
-        },
-      }
-    );
+    // 2. Get Supabase client and check authentication
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
     const {
       data: { session },
-    } = await supabaseClient.auth.getSession();
-    if (!session?.user?.email) {
+    } = await supabase.auth.getSession();
+    if (!session?.user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // 2. Get user id
-    const { data: user, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("id")
-      .eq("email", session.user.email)
-      .single();
-    if (userError || !user?.id) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // 3. Get analytics_profile_id for this user
-    const { data: profile, error: profileError } = await supabaseAdmin
+    // 3. Get user's analytics profile
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("analytics_profile_id")
-      .eq("user_id", user.id)
+      .eq("user_id", session.user.id)
       .single();
+
     if (profileError || !profile?.analytics_profile_id) {
       return NextResponse.json(
-        { error: "No analytics profile assigned" },
+        {
+          error: "Analytics profile not configured",
+          details:
+            "Please contact your administrator to set up your analytics profile.",
+        },
         { status: 403 }
       );
     }
 
     // 4. Get analytics profile details
-    const { data: analytic, error: analyticError } = await supabaseAdmin
+    const { data: analytics, error: analyticsError } = await supabase
       .from("analytics_profiles")
-      .select("projectid, datasetid, tablename")
+      .select("projectid, datasetid")
       .eq("id", profile.analytics_profile_id)
       .single();
-    if (analyticError || !analytic) {
+
+    if (analyticsError || !analytics) {
       return NextResponse.json(
         { error: "Analytics profile not found" },
         { status: 404 }
       );
     }
 
-    // 5. Use these values in your BigQuery query
-    const { projectid, datasetid, tablename } = analytic;
-    const tableRef = `\`${projectid}.${datasetid}.${tablename}\``;
-
-    // Check for meta query param
+    // 5. Get query parameters
     const { searchParams } = new URL(req.url);
-    const meta = searchParams.get("meta");
-    const startDate = searchParams.get("startDate"); // format: YYYYMMDD
-    const endDate = searchParams.get("endDate"); // format: YYYYMMDD
+    const months = parseInt(searchParams.get("months") || "12");
 
-    // If meta=1, return min/max available _TABLE_SUFFIX
-    if (meta === "1" && tablename.endsWith("*")) {
-      const tableSuffixQuery = `
-        SELECT
-          MIN(_TABLE_SUFFIX) as minDate,
-          MAX(_TABLE_SUFFIX) as maxDate
-        FROM ${tableRef}
-      `;
-      const [metaRows] = await bigquery.query(tableSuffixQuery);
-      return NextResponse.json({ meta: metaRows[0] });
+    if (isNaN(months) || months < 1 || months > 12) {
+      return NextResponse.json(
+        { error: "Invalid months parameter. Must be between 1 and 12." },
+        { status: 400 }
+      );
     }
 
-    // If using wildcard table, add _TABLE_SUFFIX filter if dates provided
-    let whereClause = "";
-    if (tablename.endsWith("*")) {
-      if (startDate && endDate) {
-        whereClause = `WHERE _TABLE_SUFFIX BETWEEN '${startDate}' AND '${endDate}'`;
-      } else if (startDate) {
-        whereClause = `WHERE _TABLE_SUFFIX >= '${startDate}'`;
-      } else if (endDate) {
-        whereClause = `WHERE _TABLE_SUFFIX <= '${endDate}'`;
-      }
-    }
-
-    // Enhanced analytics: summarize each event, avoid correlated subqueries
+    // 6. Build and execute query
     const query = `
-      WITH event_rows AS (
-        SELECT
-          event_name,
-          event_date,
-          user_id,
-          user_pseudo_id,
-          MAX(IF(param.key = 'campaign', param.value.string_value, NULL)) AS campaign,
-          MAX(IF(param.key = 'term', param.value.string_value, NULL)) AS term,
-          MAX(IF(param.key = 'batch_page_id', param.value.string_value, NULL)) AS batch_page_id,
-          MAX(IF(param.key = 'ga_session_number', param.value.string_value, NULL)) AS ga_session_number,
-          MAX(IF(param.key = 'engaged_session_event', param.value.string_value, NULL)) AS engaged_session_event
-        FROM ${tableRef},
-        UNNEST(event_params) AS param
-        ${whereClause}
-        GROUP BY event_name, event_date, user_id, user_pseudo_id
-      ),
-      top_campaigns AS (
-        SELECT
-          event_name,
-          campaign,
-          COUNT(*) as cnt,
-          ROW_NUMBER() OVER (PARTITION BY event_name ORDER BY COUNT(*) DESC) as rn
-        FROM event_rows
-        WHERE campaign IS NOT NULL
-        GROUP BY event_name, campaign
-      ),
-      top_terms AS (
-        SELECT
-          event_name,
-          term,
-          COUNT(*) as cnt,
-          ROW_NUMBER() OVER (PARTITION BY event_name ORDER BY COUNT(*) DESC) as rn
-        FROM event_rows
-        WHERE term IS NOT NULL
-        GROUP BY event_name, term
-      )
+    WITH monthly_data AS (
       SELECT
-        er.event_name,
-        COUNT(*) as event_count,
-        COUNT(DISTINCT er.user_pseudo_id) as unique_users,
-        MIN(er.event_date) as first_seen,
-        MAX(er.event_date) as last_seen,
-        ARRAY_AGG(STRUCT(
-          er.event_date,
-          er.user_id,
-          er.user_pseudo_id,
-          er.campaign,
-          er.term,
-          er.batch_page_id,
-          er.ga_session_number,
-          er.engaged_session_event
-        ) ORDER BY er.event_date DESC LIMIT 5) as sample_events,
-        tc.campaign as top_campaign,
-        tc.cnt as top_campaign_count,
-        tt.term as top_term,
-        tt.cnt as top_term_count
-      FROM event_rows er
-      LEFT JOIN top_campaigns tc
-        ON er.event_name = tc.event_name AND tc.rn = 1
-      LEFT JOIN top_terms tt
-        ON er.event_name = tt.event_name AND tt.rn = 1
-      GROUP BY er.event_name, tc.campaign, tc.cnt, tt.term, tt.cnt
-      ORDER BY event_count DESC
-      LIMIT 20
+        FORMAT_TIMESTAMP('%Y-%m', TIMESTAMP_MICROS(event_timestamp)) as month,
+        COUNT(CASE WHEN event_name = 'charpstAR_AR_Button_Click' THEN 1 END) as ar_clicks,
+        COUNT(CASE WHEN event_name = 'charpstAR_3D_Button_Click' THEN 1 END) as threed_clicks
+      FROM \`${analytics.projectid}.${analytics.datasetid}.events_*\`
+      WHERE
+        _TABLE_SUFFIX >= FORMAT_DATE(
+          '%Y%m%d',
+          DATE_SUB(CURRENT_DATE(), INTERVAL ${months} MONTH)
+        )
+        AND event_name IN ('charpstAR_AR_Button_Click', 'charpstAR_3D_Button_Click')
+      GROUP BY month
+      ORDER BY month DESC
+      LIMIT ${months}
+    )
+    SELECT * FROM monthly_data
+    ORDER BY month ASC
     `;
 
     const [rows] = await bigquery.query(query);
-    return NextResponse.json({ data: rows });
+
+    // 7. Return the data
+    return NextResponse.json({
+      data: {
+        monthly_data: rows,
+        total_ar_clicks: rows.reduce(
+          (sum: number, row: any) => sum + row.ar_clicks,
+          0
+        ),
+        total_3d_clicks: rows.reduce(
+          (sum: number, row: any) => sum + row.threed_clicks,
+          0
+        ),
+        total_page_views: 0, // These will be added when we extend the query
+        total_unique_users: 0,
+      },
+    });
   } catch (error: any) {
     console.error("BigQuery API Error:", error);
+
+    // Handle specific error types
+    if (error.message?.includes("Permission denied")) {
+      return NextResponse.json(
+        {
+          error: "BigQuery authentication failed",
+          details: "Please check your service account configuration.",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (error.message?.includes("Not found")) {
+      return NextResponse.json(
+        {
+          error: "BigQuery resource not found",
+          details: "The requested analytics data could not be found.",
+        },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(
       {
-        error: error.message,
-        help: "Ensure your GCP credentials and permissions are properly configured",
+        error: "Failed to fetch analytics data",
+        details: error.message,
       },
       { status: 500 }
     );

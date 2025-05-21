@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { LoginForm } from "@/components/ui/login-form";
-
+import { GalleryVerticalEnd } from "lucide-react";
+import Image from "next/image";
 export default function AuthPage() {
   const router = useRouter();
   const [formType, setFormType] = useState<"login" | "signup" | "reset">(
@@ -104,8 +105,16 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-muted p-6 md:p-10">
-      <div className="w-full max-w-sm md:max-w-3xl">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <Image
+          src="/images/charpstarGrey.png"
+          alt="logo"
+          width={300}
+          height={300}
+          className="rounded-md self-center   "
+        />
+
         <LoginForm
           type={formType}
           values={

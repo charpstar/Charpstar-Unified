@@ -1,6 +1,5 @@
 "use client";
 
-import { Sidebar } from "@/app/components/Sidebar";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -31,10 +30,5 @@ export default function DashboardLayout({
     return <div>Loading...</div>;
   }
 
-  return (
-    <div className="flex h-screen">
-      <Sidebar className="w-64 border-r" />
-      <main className="flex-1 overflow-y-auto">{children}</main>
-    </div>
-  );
+  return children;
 }

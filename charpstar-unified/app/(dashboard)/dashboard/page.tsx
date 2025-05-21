@@ -1,270 +1,153 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { AlertCircle, Settings, BarChart2 } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { usePagePermission } from "@/lib/usePagePermission";
-import AnalyticsDashboard from "../analytics/page";
 
-function fetchAnalyticsProfiles() {
-  return supabase
-    .from("analytics_profiles")
-    .select("*")
-    .order("monitoredsince", { ascending: false });
+import { SiteHeader } from "@/components/site-header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { addDays, format } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard } from "@/components/ui/stat-card";
+import PerformanceTrends from "@/components/PerformanceTrends";
+
+interface AnalyticsData {
+  total_page_views: number;
+  total_unique_users: number;
+  total_users_with_service: number;
+  percentage_users_with_service: number;
+  conversion_rate_without_ar: number;
+  conversion_rate_with_ar: number;
+  total_purchases_with_ar: number;
+  add_to_cart_default: number;
+  add_to_cart_with_ar: number;
+  avg_order_value_without_ar: number;
+  avg_order_value_with_ar: number;
+  total_ar_clicks: number;
+  total_3d_clicks: number;
+  session_duration_without_ar: number;
+  session_duration_with_ar: number;
 }
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [userRole, setUserRole] = useState<string | undefined>();
+function generateTimeSeriesData(
+  analyticsData: AnalyticsData,
+  timeRange: "1d" | "7d" | "30d"
+) {
+  const now = new Date();
+  const days = timeRange === "1d" ? 1 : timeRange === "7d" ? 7 : 30;
+  const data = [];
+
+  // Generate data points for each day
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    date.setHours(0, 0, 0, 0);
+
+    // For demo purposes, we'll distribute the total values across days
+    // In a real implementation, you'd get daily data from your API
+    const dayFactor = (days - i) / days; // Creates a simple progression
+
+    data.push({
+      date: date.toISOString(),
+      pageViews: Math.round(
+        ((analyticsData.total_page_views || 0) * dayFactor) / days
+      ),
+      uniqueUsers: Math.round(
+        ((analyticsData.total_unique_users || 0) * dayFactor) / days
+      ),
+      arClicks: Math.round(
+        ((analyticsData.total_ar_clicks || 0) * dayFactor) / days
+      ),
+      threeDClicks: Math.round(
+        ((analyticsData.total_3d_clicks || 0) * dayFactor) / days
+      ),
+    });
+  }
+
+  return data;
+}
+
+export default function Page() {
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
-  const [clientProfiles, setClientProfiles] = useState<any[]>([]);
-  const [clientLoading, setClientLoading] = useState(false);
-  const [clientError, setClientError] = useState<string | null>(null);
-
-  // Add permission check
-  const {
-    hasAccess,
-    loading: permissionLoading,
-    error: permissionError,
-  } = usePagePermission(userRole, "/dashboard");
+  const [timeRange, setTimeRange] = useState<"1d" | "7d" | "30d">("30d");
 
   useEffect(() => {
-    const fetchUserRole = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/auth");
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (profile) {
-        setUserRole(profile.role);
-      }
-    };
-
-    fetchUserRole();
-  }, [router]);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/auth");
-        return;
-      }
-      setUser(user);
-      setLoading(false);
-    };
-    getUser();
-  }, [router]);
-
-  // Fetch analytics profiles for admin view
-  useEffect(() => {
-    async function loadClientProfiles() {
-      if (userRole !== "admin") return;
-
-      setClientLoading(true);
+    const fetchAnalytics = async () => {
       try {
-        const { data, error } = await fetchAnalyticsProfiles();
-        if (error) throw error;
-        setClientProfiles(data || []);
-      } catch (err: any) {
-        setClientError(err.message);
+        const today = new Date();
+        const startDate = format(
+          addDays(
+            today,
+            timeRange === "1d" ? -1 : timeRange === "7d" ? -7 : -30
+          ),
+          "yyyyMMdd"
+        );
+        const endDate = format(today, "yyyyMMdd");
+
+        const response = await fetch(
+          `/api/analytics?startDate=${startDate}&endDate=${endDate}`
+        );
+        const result = await response.json();
+
+        if (result.data) {
+          setAnalyticsData(result.data);
+        }
+      } catch (error) {
+        console.error("Error fetching analytics:", error);
       } finally {
-        setClientLoading(false);
+        setLoading(false);
       }
-    }
-    loadClientProfiles();
-  }, [userRole]);
+    };
 
-  // Show loading state while checking permissions
-  if (permissionLoading || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin mx-auto"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+    fetchAnalytics();
+  }, [timeRange]);
 
-  // Show error message if permission check failed
-  if (permissionError) {
-    return (
-      <div className="p-8 text-center">
-        <p className="text-red-600">
-          Error checking permissions: {permissionError}
-        </p>
-      </div>
-    );
-  }
+  // Transform analytics data for the chart
+  const chartData = analyticsData
+    ? generateTimeSeriesData(analyticsData, timeRange)
+    : [];
 
-  // Show access denied if no permission
-  if (!hasAccess) {
-    return (
-      <div className="p-8 text-center">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
-            You don't have permission to access this page.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  // Regular user view
-  if (userRole === "user") {
-    return (
-      <div className="p-8">
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle>Welcome to Charpstar Analytics!</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <p className="text-gray-600">
-                Hello {user?.email}, thank you for joining Charpstar Analytics.
-              </p>
-              <p className="text-gray-600">
-                Our team will be setting up your analytics connection shortly.
-                Once the setup is complete, you'll be able to access your
-                analytics dashboard here.
-              </p>
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                <p className="text-sm text-blue-600 dark:text-blue-400">
-                  If you have any questions or need assistance, please don't
-                  hesitate to contact our support team.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Client view - show analytics dashboard
-  if (userRole === "client") {
-    return <AnalyticsDashboard />;
-  }
-
-  // Admin view
   return (
-    <div className="p-8">
-      <h1 className="text-4xl font-bold mb-8">Admin Dashboard</h1>
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Welcome, Admin!</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600">You are logged in as {user?.email}</p>
-          </CardContent>
-        </Card>
+    <>
+      <SiteHeader />
+      <div className="flex flex-1 flex-col p-6">
+        <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
 
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-foreground">
-              Quick Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3">
-              <li>
-                <button
-                  onClick={() => router.push("/analytics")}
-                  className="hover:scale-101 transition-all duration-300 flex items-center gap-3 w-full rounded-md border border-border bg-muted px-4 py-3 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition  duration-300 cursor-pointer"
-                >
-                  <BarChart2 className="h-4 w-4" />
-                  View Analytics
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => router.push("/settings")}
-                  className="hover:scale-101 transition-all duration-300 flex items-center gap-3 w-full rounded-md border border-border bg-muted px-4 py-3 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition  duration-300 cursor-pointer"
-                >
-                  <Settings className="h-4 w-4" />
-                  Manage Settings
-                </button>
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
+        {loading ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full" />
+            ))}
+          </div>
+        ) : !analyticsData ? (
+          <div className="text-red-500">No analytics data available</div>
+        ) : (
+          <div className="space-y-6">
+            {/* Key Metrics Cards */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title="Total Page Views"
+                value={analyticsData.total_page_views}
+              />
+              <StatCard
+                title="Total Unique Users"
+                value={analyticsData.total_unique_users}
+              />
+              <StatCard
+                title="Total AR Clicks"
+                value={analyticsData.total_ar_clicks}
+              />
+              <StatCard
+                title="Total 3D Clicks"
+                value={analyticsData.total_3d_clicks}
+              />
+            </div>
 
-        {/* Analytics Profiles Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Analytics Profiles</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {clientLoading ? (
-              <div>Loading analytics profiles...</div>
-            ) : clientError ? (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{clientError}</AlertDescription>
-              </Alert>
-            ) : clientProfiles.length > 0 ? (
-              <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-                <table className="min-w-full text-sm text-left">
-                  <thead className="bg-gray-100 dark:bg-gray-800">
-                    <tr>
-                      <th className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">
-                        Name
-                      </th>
-                      <th className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">
-                        Monitored Since
-                      </th>
-                      <th className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {clientProfiles.map((profile) => (
-                      <tr
-                        key={profile.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-800"
-                      >
-                        <td className="px-4 py-3 text-gray-900 dark:text-gray-100">
-                          {profile.name || "Unnamed Profile"}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                          {profile.monitoredsince || "N/A"}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                          {profile.status || "Unknown"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-gray-600">No analytics profiles found.</div>
-            )}
-          </CardContent>
-        </Card>
+            {/* <PerformanceTrends /> */}
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }

@@ -10,6 +10,7 @@ import type { DateRange } from "react-day-picker";
 import { format, addDays } from "date-fns";
 import useSWR from "swr";
 import { Skeleton } from "@/components/ui/skeleton";
+import PerformanceTrends from "@/components/PerformanceTrends";
 
 interface AnalyticsData {
   total_page_views: number;
@@ -38,25 +39,6 @@ const fetcher = async (url: string) => {
   }
   return res.json();
 };
-
-function AnalyticsBigQueryEvents({ dateRange }: { dateRange: DateRange }) {
-  const { data, error, isLoading } = useSWR(
-    dateRange.from && dateRange.to
-      ? `/api/bigquery-analytics?startDate=${format(dateRange.from, "yyyyMMdd")}&endDate=${format(dateRange.to, "yyyyMMdd")}`
-      : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      refreshInterval: 5 * 60 * 1000,
-      dedupingInterval: 60 * 1000,
-    }
-  );
-
-  const events = data?.data || [];
-
-  return <Card className="mt-8"></Card>;
-}
 
 export default function AnalyticsDashboard() {
   // Date range state with pending and applied states
@@ -99,26 +81,7 @@ export default function AnalyticsDashboard() {
     }
   );
 
-  // Fetch BigQuery events data
-  const {
-    data: eventsData,
-    error: eventsError,
-    isLoading: eventsLoading,
-  } = useSWR(
-    appliedRange.from && appliedRange.to
-      ? `/api/bigquery-analytics?startDate=${format(appliedRange.from, "yyyyMMdd")}&endDate=${format(appliedRange.to, "yyyyMMdd")}`
-      : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      refreshInterval: 5 * 60 * 1000,
-      dedupingInterval: 60 * 1000,
-    }
-  );
-
   const stats = analyticsData?.data;
-  const events = eventsData?.data || [];
 
   return (
     <div className="p-6 space-y-6">
@@ -150,7 +113,7 @@ export default function AnalyticsDashboard() {
           : "selected date range"}
       </div>
 
-      {analyticsLoading || eventsLoading ? (
+      {analyticsLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 14 }).map((_, i) => (
             <Skeleton key={i} className="h-30 w-full" />
@@ -233,7 +196,7 @@ export default function AnalyticsDashboard() {
         </Card>
       )}
 
-      <AnalyticsBigQueryEvents dateRange={appliedRange} />
+      <PerformanceTrends />
     </div>
   );
 }
