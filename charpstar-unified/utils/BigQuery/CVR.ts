@@ -181,7 +181,5 @@ export async function executeClientQuery({
     avg_combined_session_duration: number;
   }[];
 
-  // console.log(response);
-
   return response;
 }

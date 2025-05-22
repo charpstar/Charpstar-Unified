@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  IconCreditCard,
-  IconDotsVertical,
-  IconLogout,
-  IconNotification,
-  IconUserCircle,
-} from "@tabler/icons-react";
+import { IconDotsVertical, IconLogout } from "@tabler/icons-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -31,8 +25,8 @@ export function NavUser() {
   const supaUser = useUser();
 
   // Fallback avatar (initials)
-  const initials = supaUser?.metadata?.name
-    ? supaUser.metadata.name
+  const initials = supaUser?.metadata?.analytics_profiles?.[0]?.name
+    ? supaUser.metadata.analytics_profiles[0].name
         .split(" ")
         .map((n) => n[0])
         .join("")
@@ -40,12 +34,12 @@ export function NavUser() {
     : "U";
 
   // Use metadata for name/email/avatar or fallback to main user fields
-  const name = supaUser?.metadata?.name || supaUser?.email || "User";
+  const name =
+    supaUser?.metadata?.analytics_profiles?.[0]?.name ||
+    supaUser?.email ||
+    "User";
   const email = supaUser?.email || "No email";
-  const avatar =
-    supaUser?.metadata?.avatar ||
-    supaUser?.metadata?.profile_image_url || // If from OAuth or similar
-    ""; // fallback to blank
+  const avatar = ""; // fallback to blank
 
   const { isMobile } = useSidebar();
 

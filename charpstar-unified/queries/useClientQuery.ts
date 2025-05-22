@@ -28,21 +28,9 @@ export function useClientQuery({
   const projectId = profile?.projectid;
   const datasetId = profile?.datasetid;
 
-  console.log("Debug values:", {
-    user: !!user,
-    profile: !!profile,
-    projectId,
-    datasetId,
-    startTableName,
-    endTableName,
-    fullProfile: profile,
-  });
-
   const shouldEnableFetching = Boolean(
     user && projectId && datasetId && startTableName && endTableName
   );
-
-  console.log("shouldEnableFetching:", shouldEnableFetching);
 
   const { data: _clientQueryResult, isLoading: isQueryLoading } = useQuery({
     queryKey: [
@@ -53,12 +41,6 @@ export function useClientQuery({
       endTableName,
     ] as const,
     queryFn: ({ queryKey }) => {
-      console.log("Executing query with:", {
-        projectId: queryKey[1],
-        datasetId: queryKey[2],
-        startTableName: queryKey[3],
-        endTableName: queryKey[4],
-      });
       return executeClientQuery({
         projectId: queryKey[1],
         datasetId: queryKey[2],
@@ -73,8 +55,6 @@ export function useClientQuery({
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
-
-  console.log("Query result:", _clientQueryResult);
 
   return {
     clientQueryResult: _clientQueryResult ?? [],

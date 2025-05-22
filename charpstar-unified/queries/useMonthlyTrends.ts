@@ -9,9 +9,6 @@ export function useMonthlyTrends() {
   const datasetId = user?.metadata?.analytics_profiles?.datasetid;
   const projectId = user?.metadata?.analytics_profiles?.projectid;
 
-  // Optionally log for dev/debugging
-  // console.log("datasetId:", datasetId, "projectId:", projectId);
-
   return useQuery({
     queryKey: ["monthly-trends", datasetId, projectId],
     queryFn: async () => {

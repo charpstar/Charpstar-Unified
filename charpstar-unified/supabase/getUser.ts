@@ -7,8 +7,6 @@ export async function getUser(supabase: SupabaseClient) {
     error,
   } = await supabase.auth.getUser();
 
-  if (error) console.log("error", error);
-
   return user;
 }
 
@@ -33,13 +31,6 @@ export async function getUserMetadata(
     )
     .eq("id", user_id)
     .single();
-
-  if (error) {
-    console.log("error", error);
-    return null;
-  }
-
-  console.log("data", data);
 
   return data as {
     id: string;

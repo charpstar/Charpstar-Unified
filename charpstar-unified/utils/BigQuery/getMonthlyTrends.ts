@@ -12,7 +12,6 @@ export async function getMonthlyTrends({
   months?: number;
 }) {
   const bigqueryClient = getBigQueryClient({ projectId });
-  console.log(projectId, datasetId);
 
   const query = `
     WITH monthly_data AS (

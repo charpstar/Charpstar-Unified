@@ -25,8 +25,6 @@ export function useUsers(enabled: boolean) {
       const response = await fetch("/api/users");
       const users: User[] = await response.json();
 
-      console.log("Fetched users from API:", users);
-
       setUsers(users);
     } catch (err: any) {
       console.error("Client error while fetching users:", err);

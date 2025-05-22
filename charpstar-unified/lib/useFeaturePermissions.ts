@@ -40,11 +40,6 @@ export function useFeaturePermissions(enabled: boolean) {
   const hasFeatureAccess = useCallback(
     (role: string | undefined, featureName: string): boolean => {
       if (!role) return false;
-      console.log("Checking access for:", {
-        role,
-        featureName,
-        permission: groupedPermissions[featureName]?.[role],
-      });
       return groupedPermissions[featureName]?.[role]?.can_access ?? false;
     },
     [groupedPermissions]
@@ -56,19 +51,13 @@ export function useFeaturePermissions(enabled: boolean) {
       role: string | undefined,
       featureNames: string[]
     ): Record<string, boolean> => {
-      const result = featureNames.reduce(
+      return featureNames.reduce(
         (acc, feature) => {
           acc[feature] = hasFeatureAccess(role, feature);
           return acc;
         },
         {} as Record<string, boolean>
       );
-      console.log("Feature permissions result:", {
-        role,
-        featureNames,
-        result,
-      });
-      return result;
     },
     [hasFeatureAccess]
   );
@@ -87,7 +76,7 @@ export function useFeaturePermissions(enabled: boolean) {
       const featurePerms = data.filter(
         (p: any) => p.permission_type === "feature"
       );
-      console.log("Fetched feature permissions:", featurePerms);
+
       setPermissions(featurePerms);
     } catch (err: any) {
       console.error("Error fetching feature permissions:", err);

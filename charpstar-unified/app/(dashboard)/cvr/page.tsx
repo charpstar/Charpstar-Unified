@@ -22,7 +22,6 @@ export default function CVRPage() {
     endTableName,
     limit: 100,
   });
-  console.log(clientQueryResult);
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6">

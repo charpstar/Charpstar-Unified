@@ -90,11 +90,6 @@ export default function UsersPage() {
     "delete_user",
   ]);
 
-  // Debug logs
-  console.log("Current user role:", userRole);
-  console.log("Feature permissions:", permissions);
-  console.log("User permissions:", userPermissions);
-
   // Add permission check
   const {
     hasAccess,
@@ -333,9 +328,6 @@ export default function UsersPage() {
   const hasActionPermissions =
     userPermissions.edit_user || userPermissions.delete_user;
 
-  // Debug log for action permissions
-  console.log("Has action permissions:", hasActionPermissions);
-
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -481,7 +473,7 @@ export default function UsersPage() {
                           <div className="flex items-center gap-3">
                             <Avatar className="h-9 w-9 border border-border">
                               <AvatarImage src={user.avatar} alt={user.name} />
-                              <AvatarFallback className="bg-primary/10 text-primary-foreground">
+                              <AvatarFallback className="bg-primary/10 text-muted-foreground">
                                 {getInitials(user.name)}
                               </AvatarFallback>
                             </Avatar>
