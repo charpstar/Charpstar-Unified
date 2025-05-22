@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StatCard } from "@/components/ui/stat-card";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
 import type { DateRange } from "react-day-picker";
@@ -11,6 +11,12 @@ import { format, addDays } from "date-fns";
 import useSWR from "swr";
 import { Skeleton } from "@/components/ui/skeleton";
 import PerformanceTrends from "@/components/PerformanceTrends";
+import { SiteHeader } from "@/components/site-header";
+import { useClientQuery } from "@/queries/useClientQuery";
+import { compToBq } from "@/utils/uiutils";
+import { useUser } from "@/contexts/useUser";
+import { ProductMetrics } from "@/utils/BigQuery/types";
+import CVRTable from "@/components/CVRTable";
 
 interface AnalyticsData {
   total_page_views: number;
@@ -30,7 +36,6 @@ interface AnalyticsData {
   session_duration_with_ar: number;
 }
 
-// Fetch function for SWR
 const fetcher = async (url: string) => {
   const res = await fetch(url);
   if (!res.ok) {
@@ -41,6 +46,10 @@ const fetcher = async (url: string) => {
 };
 
 export default function AnalyticsDashboard() {
+  const user = useUser();
+  const hasAnalytics = Boolean(user?.metadata?.analytics_profile_id);
+  // const analyticsProfile = user?.metadata?.analytics_profiles; // Not used in this code, but available if needed
+
   // Date range state with pending and applied states
   const today = new Date();
   const thirtyDaysAgo = addDays(today, -30);
@@ -81,122 +90,180 @@ export default function AnalyticsDashboard() {
     }
   );
 
-  const stats = analyticsData?.data;
+  const stats: AnalyticsData | undefined = analyticsData?.data;
+
+  const startTableName = appliedRange.from
+    ? compToBq(format(appliedRange.from, "yyyyMMdd"))
+    : "";
+  const endTableName = appliedRange.to
+    ? compToBq(format(appliedRange.to, "yyyyMMdd"))
+    : "";
+
+  const { clientQueryResult, isQueryLoading } = useClientQuery({
+    startTableName,
+    endTableName,
+    limit: 100,
+  });
+
+  // --- Conditional UI rendering below all hooks ---
+  if (!hasAnalytics) {
+    return (
+      <>
+        <SiteHeader />
+        <div className="p-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-8">
+                <h2 className="text-2xl font-semibold mb-2">
+                  Analytics Not Available
+                </h2>
+                <p className="text-gray-500">
+                  No analytics profile has been set up for your account. Please
+                  contact support for assistance.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
-        <div className="flex gap-2 items-end">
-          <DateRangePicker
-            value={pendingRange}
-            onChange={(newRange) => {
-              if (newRange?.from && newRange?.to) {
-                setPendingRange(newRange);
-              }
-            }}
-          />
-          <Button
-            className="ml-2 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-black dark:text-white font-medium border border-gray-300 dark:border-gray-700"
-            disabled={isApplyDisabled}
-            onClick={() => setAppliedRange(pendingRange)}
-          >
-            Apply
-          </Button>
+    <>
+      <SiteHeader />
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
+          <div className="flex gap-2 items-end">
+            <DateRangePicker
+              value={pendingRange}
+              onChange={(newRange) => {
+                if (newRange?.from && newRange?.to) {
+                  setPendingRange(newRange);
+                }
+              }}
+            />
+            <Button
+              variant={"outline"}
+              disabled={isApplyDisabled}
+              onClick={() => setAppliedRange(pendingRange)}
+            >
+              Apply
+            </Button>
+          </div>
         </div>
+
+        <div>
+          Analytics data for{" "}
+          {appliedRange.from && appliedRange.to
+            ? `${format(appliedRange.from, "MMM d, yyyy")} - ${format(
+                appliedRange.to,
+                "MMM d, yyyy"
+              )}`
+            : "selected date range"}
+        </div>
+
+        {analyticsLoading ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 14 }).map((_, i) => (
+              <Skeleton key={i} className="h-30 w-full" />
+            ))}
+          </div>
+        ) : analyticsError ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-red-500">
+                Error: {analyticsError.message}
+              </div>
+            </CardContent>
+          </Card>
+        ) : stats ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard title="Total Page Views" value={stats.total_page_views} />
+            <StatCard
+              title="Total Unique Users"
+              value={stats.total_unique_users}
+            />
+            <StatCard
+              title="Total Users who activate our services"
+              value={stats.total_users_with_service}
+            />
+            <StatCard
+              title="Percentage of users using our service"
+              value={stats.percentage_users_with_service}
+              suffix="%"
+            />
+            <StatCard
+              title="Conversion rate without AR/3D activation"
+              value={stats.conversion_rate_without_ar}
+              suffix="%"
+            />
+            <StatCard
+              title="Conversion rate with AR/3D activation"
+              value={stats.conversion_rate_with_ar}
+              suffix="%"
+            />
+            <StatCard
+              title="Total Purchases with AR/3D activation"
+              value={stats.total_purchases_with_ar}
+            />
+            <StatCard
+              title="Add to Cart Default"
+              value={stats.add_to_cart_default}
+              suffix="%"
+            />
+            <StatCard
+              title="Add to Cart with CharpstAR"
+              value={stats.add_to_cart_with_ar}
+              suffix="%"
+            />
+            <StatCard
+              title="Average Order Value without AR/3D activation"
+              value={stats.avg_order_value_without_ar}
+              suffix="(Store currency)"
+            />
+            <StatCard
+              title="Average Order Value with AR/3D activation"
+              value={stats.avg_order_value_with_ar}
+              suffix="(Store currency)"
+            />
+            <StatCard title="Total AR Clicks" value={stats.total_ar_clicks} />
+            <StatCard title="Total 3D Clicks" value={stats.total_3d_clicks} />
+            <StatCard
+              title="Session time duration without AR/3D activation"
+              value={stats.session_duration_without_ar}
+              suffix="seconds"
+            />
+            <StatCard
+              title="Session time duration with AR/3D activation"
+              value={stats.session_duration_with_ar}
+              suffix="seconds"
+            />
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-gray-500">No analytics data available</div>
+            </CardContent>
+          </Card>
+        )}
+
+        <PerformanceTrends />
+
+        <CVRTable
+          isLoading={isQueryLoading}
+          data={clientQueryResult as ProductMetrics[]}
+          showColumns={{
+            ar_sessions: true,
+            _3d_sessions: true,
+            total_purchases: true,
+            purchases_with_service: true,
+            avg_session_duration_seconds: true,
+          }}
+          showSearch={true}
+        />
       </div>
-
-      <div>
-        Analytics data for{" "}
-        {appliedRange.from && appliedRange.to
-          ? `${format(appliedRange.from, "MMM d, yyyy")} - ${format(appliedRange.to, "MMM d, yyyy")}`
-          : "selected date range"}
-      </div>
-
-      {analyticsLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <Skeleton key={i} className="h-30 w-full" />
-          ))}
-        </div>
-      ) : analyticsError ? (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-red-500">Error: {analyticsError.message}</div>
-          </CardContent>
-        </Card>
-      ) : stats ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Total Page Views" value={stats.total_page_views} />
-          <StatCard
-            title="Total Unique Users"
-            value={stats.total_unique_users}
-          />
-          <StatCard
-            title="Total Users who activate our services"
-            value={stats.total_users_with_service}
-          />
-          <StatCard
-            title="Percentage of users using our service"
-            value={stats.percentage_users_with_service}
-            suffix="%"
-          />
-          <StatCard
-            title="Conversion rate without AR/3D activation"
-            value={stats.conversion_rate_without_ar}
-            suffix="%"
-          />
-          <StatCard
-            title="Conversion rate with AR/3D activation"
-            value={stats.conversion_rate_with_ar}
-            suffix="%"
-          />
-          <StatCard
-            title="Total Purchases with AR/3D activation"
-            value={stats.total_purchases_with_ar}
-          />
-          <StatCard
-            title="Add to Cart Default"
-            value={stats.add_to_cart_default}
-            suffix="%"
-          />
-          <StatCard
-            title="Add to Cart with CharpstAR"
-            value={stats.add_to_cart_with_ar}
-            suffix="%"
-          />
-          <StatCard
-            title="Average Order Value without AR/3D activation"
-            value={stats.avg_order_value_without_ar}
-            suffix="(Store currency)"
-          />
-          <StatCard
-            title="Average Order Value with AR/3D activation"
-            value={stats.avg_order_value_with_ar}
-            suffix="(Store currency)"
-          />
-          <StatCard title="Total AR Clicks" value={stats.total_ar_clicks} />
-          <StatCard title="Total 3D Clicks" value={stats.total_3d_clicks} />
-          <StatCard
-            title="Session time duration without AR/3D activation"
-            value={stats.session_duration_without_ar}
-            suffix="seconds"
-          />
-          <StatCard
-            title="Session time duration with AR/3D activation"
-            value={stats.session_duration_with_ar}
-            suffix="seconds"
-          />
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-gray-500">No analytics data available</div>
-          </CardContent>
-        </Card>
-      )}
-
-      <PerformanceTrends />
-    </div>
+    </>
   );
 }

@@ -7,6 +7,7 @@ import { SWRConfig } from "swr";
 import { localStorageProvider } from "@/lib/swrLocalStorageProvider";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { SharedLayout } from "./shared-layout";
+import { DateRangeProvider } from "@/contexts/DateRangeContext";
 
 const montserrat = Montserrat({
   variable: "--font-sans",
@@ -37,16 +38,18 @@ export default function RootLayout({
         <div style={{ fontSize: "var(--user-font-size, 16px)" }}>
           <SWRConfig value={{ provider: localStorageProvider }}>
             <Providers>
-              <SidebarProvider
-                style={
-                  {
-                    "--sidebar-width": "calc(var(--spacing) * 72)",
-                    "--header-height": "calc(var(--spacing) * 12)",
-                  } as React.CSSProperties
-                }
-              >
-                <SharedLayout>{children}</SharedLayout>
-              </SidebarProvider>
+              <DateRangeProvider>
+                <SidebarProvider
+                  style={
+                    {
+                      "--sidebar-width": "calc(var(--spacing) * 72)",
+                      "--header-height": "calc(var(--spacing) * 12)",
+                    } as React.CSSProperties
+                  }
+                >
+                  <SharedLayout>{children}</SharedLayout>
+                </SidebarProvider>
+              </DateRangeProvider>
             </Providers>
           </SWRConfig>
         </div>

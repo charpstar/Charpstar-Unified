@@ -72,7 +72,7 @@ export function FontSettings() {
         </RadioGroup>
       </div>
       {/* Font Size */}
-      <div>
+      {/* <div>
         <Label className="mb-2 block text-muted-foreground">
           Font Size ({fontSize}px)
         </Label>
@@ -87,7 +87,7 @@ export function FontSettings() {
           />
           <span className="w-10 text-center text-foreground">{fontSize}px</span>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

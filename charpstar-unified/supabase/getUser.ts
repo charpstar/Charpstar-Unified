@@ -35,9 +35,11 @@ export async function getUserMetadata(
     .single();
 
   if (error) {
-    if (error) console.log("error", error);
+    console.log("error", error);
     return null;
   }
+
+  console.log("data", data);
 
   return data as {
     id: string;

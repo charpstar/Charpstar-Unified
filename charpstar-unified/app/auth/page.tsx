@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { LoginForm } from "@/components/ui/login-form";
-import { GalleryVerticalEnd } from "lucide-react";
+
 import Image from "next/image";
+import { getUserWithMetadata } from "@/supabase/getUser";
 export default function AuthPage() {
   const router = useRouter();
   const [formType, setFormType] = useState<"login" | "signup" | "reset">(
@@ -14,6 +15,7 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   // State for all forms
   const [loginData, setLoginData] = useState({ email: "", password: "" });
@@ -47,6 +49,9 @@ export default function AuthPage() {
         password: loginData.password,
       });
       if (error) throw error;
+      const userWithMeta = await getUserWithMetadata(supabase);
+      setUser(userWithMeta);
+
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);
@@ -105,7 +110,7 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10 rounded-lg">
       <div className="flex w-full max-w-sm flex-col gap-6">
         <Image
           src="/images/charpstarGrey.png"

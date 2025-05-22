@@ -25,6 +25,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useUser } from "@/contexts/useUser";
+import { supabase } from "@/lib/supabaseClient";
 
 export function NavUser() {
   const supaUser = useUser();
@@ -47,6 +48,21 @@ export function NavUser() {
     ""; // fallback to blank
 
   const { isMobile } = useSidebar();
+
+  const handleLogout = async () => {
+    // Remove any extra session data YOUR app stores
+    localStorage.removeItem("user"); // if you store user info
+    localStorage.removeItem("token"); // if you store a JWT
+    sessionStorage.clear(); // if you use sessionStorage
+
+    // If you use cookies, you might want to clear them here
+
+    // Supabase: remove session, sign out user
+    await supabase.auth.signOut();
+
+    // Redirect to login/auth page
+    window.location.href = "/auth";
+  };
 
   return (
     <SidebarMenu>
@@ -73,7 +89,7 @@ export function NavUser() {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg bg-background dark:bg-background"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
@@ -95,22 +111,9 @@ export function NavUser() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <IconUserCircle />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconCreditCard />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconNotification />
-                Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
+
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
               <IconLogout />
               Log out
             </DropdownMenuItem>

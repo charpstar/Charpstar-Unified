@@ -9,16 +9,29 @@ import { UserProvider } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { getUserWithMetadata } from "@/supabase/getUser";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: 30 * 60 * 1000, // 30 minutes
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+    },
+  },
+});
+
+// Create a persister
+const persister = createSyncStoragePersister({
+  storage: typeof window !== "undefined" ? window.localStorage : undefined,
+});
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Use a ref so the QueryClient instance stays the same
-  const queryClientRef = useRef<QueryClient>(new QueryClient());
-  if (!queryClientRef.current) {
-    queryClientRef.current = new QueryClient();
-  }
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -40,7 +53,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <QueryClientProvider client={queryClientRef.current}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister }}
+    >
       <UserProvider user={user}>
         <ThemeProvider
           attribute="class"
@@ -52,6 +68,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <Toaster />
         </ThemeProvider>
       </UserProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

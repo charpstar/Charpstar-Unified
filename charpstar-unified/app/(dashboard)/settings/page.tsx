@@ -21,6 +21,7 @@ import { LogOut, Sun, Moon, User2, BarChart3 } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
 import { FontSettings } from "@/components/ui/font-setting";
 import { ColorThemePicker } from "@/components/ui/color-picker";
+import { SiteHeader } from "@/components/site-header";
 
 interface UserProfile {
   id: string;
@@ -152,86 +153,89 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4">
-      {/* Account Card */}
+    <>
+      <SiteHeader />
+      <div className="flex items-center justify-center min-h-screen p-4">
+        {/* Account Card */}
 
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle>
-            <div className="flex items-center gap-3">
-              <User2 className="w-5 h-5 text-muted-foreground" />
-              Account Settings
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Email and Role */}
-          <div className="flex flex-col gap-1">
-            <Label className="text-muted-foreground">Email</Label>
-            <div className="text-lg font-medium text-foreground">
-              {user?.email}
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label className="text-muted-foreground">Role</Label>
-            <div className="text-base text-foreground capitalize">
-              {user?.role || "User"}
-            </div>
-          </div>
-          {/* Theme toggle */}
-          <div className="flex flex-col gap-1">
-            <ThemeSwitcherCard />
-          </div>
-          <div className="flex flex-col gap-1">
-            <ColorThemePicker />
-          </div>
-          {/* Font Settings */}
-          <div className="flex flex-col gap-1">
-            <FontSettings />
-          </div>
-
-          {/* Analytics Profile */}
-          <div className="flex flex-col gap-1">
-            <Label className="text-muted-foreground mb-1 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" /> Analytics Profile
-            </Label>
-            {user?.analytics_profile_id ? (
-              analyticsProfile ? (
-                <div className="rounded-lg border border-muted p-3 bg-muted/40">
-                  <div className="text-xs text-muted-foreground">
-                    <span className="font-medium">Dataset ID:</span>{" "}
-                    {analyticsProfile.datasetid}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    <span className="font-medium">Table Name:</span>{" "}
-                    {analyticsProfile.tablename}
-                  </div>
-                  {/* Optionally: <Button variant="outline" size="sm">Edit Analytics</Button> */}
-                </div>
-              ) : (
-                <Skeleton className="h-4 w-24 rounded" />
-              )
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                No analytics profile assigned
+        <Card className="w-full max-w-2xl">
+          <CardHeader>
+            <CardTitle>
+              <div className="flex items-center gap-3">
+                <User2 className="w-5 h-5 text-muted-foreground" />
+                Account Settings
               </div>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          {/* Add more actions if you wish */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            {loggingOut ? "Logging out..." : "Log Out"}
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Email and Role */}
+            <div className="flex flex-col gap-1">
+              <Label className="text-muted-foreground">Email</Label>
+              <div className="text-lg font-medium text-foreground">
+                {user?.email}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-muted-foreground">Role</Label>
+              <div className="text-base text-foreground capitalize">
+                {user?.role || "User"}
+              </div>
+            </div>
+            {/* Theme toggle */}
+            <div className="flex flex-col gap-1">
+              <ThemeSwitcherCard />
+            </div>
+            <div className="flex flex-col gap-1">
+              <ColorThemePicker />
+            </div>
+            {/* Font Settings */}
+            <div className="flex flex-col gap-1">
+              <FontSettings />
+            </div>
+
+            {/* Analytics Profile */}
+            <div className="flex flex-col gap-1">
+              <Label className="text-muted-foreground mb-1 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" /> Analytics Profile
+              </Label>
+              {user?.analytics_profile_id ? (
+                analyticsProfile ? (
+                  <div className="rounded-lg border border-muted p-3 bg-muted/40">
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-medium">Dataset ID:</span>{" "}
+                      {analyticsProfile.datasetid}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-medium">Table Name:</span>{" "}
+                      {analyticsProfile.tablename}
+                    </div>
+                    {/* Optionally: <Button variant="outline" size="sm">Edit Analytics</Button> */}
+                  </div>
+                ) : (
+                  <Skeleton className="h-4 w-24 rounded" />
+                )
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  No analytics profile assigned
+                </div>
+              )}
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            {/* Add more actions if you wish */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              {loggingOut ? "Logging out..." : "Log Out"}
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    </>
   );
 }

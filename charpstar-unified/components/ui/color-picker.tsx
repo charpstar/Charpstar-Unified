@@ -10,12 +10,12 @@ const themeColors = [
       light: {
         "--primary": "#2563eb",
         "--primary-foreground": "#fff",
-        "--background": "#eff6ff",
+        "--background": "#fff", // Soft light for light mode
       },
       dark: {
         "--primary": "#60a5fa",
         "--primary-foreground": "#1e293b",
-        "--background": "#181F2A",
+        "--background": "#18181b", // Soft dark for dark mode
       },
     },
   },
@@ -26,12 +26,12 @@ const themeColors = [
       light: {
         "--primary": "#16a34a",
         "--primary-foreground": "#fff",
-        "--background": "#f0fdf4",
+        "--background": "#fff",
       },
       dark: {
         "--primary": "#86efac",
         "--primary-foreground": "#1e293b",
-        "--background": "#162826",
+        "--background": "#18181b",
       },
     },
   },
@@ -42,12 +42,12 @@ const themeColors = [
       light: {
         "--primary": "#7c3aed",
         "--primary-foreground": "#fff",
-        "--background": "#f5f3ff",
+        "--background": "#fff",
       },
       dark: {
         "--primary": "#c4b5fd",
         "--primary-foreground": "#1e293b",
-        "--background": "#221c2b",
+        "--background": "#18181b",
       },
     },
   },
@@ -56,14 +56,14 @@ const themeColors = [
     value: "grey",
     colors: {
       light: {
-        "--primary": "#18181b", // Near-black (gray-900)
-        "--primary-foreground": "#fff", // White text on dark
-        "--background": "#fff", // White
+        "--primary": "#18181b",
+        "--primary-foreground": "#fff",
+        "--background": "#fff",
       },
       dark: {
-        "--primary": "#fff", // White accent (primary)
-        "--primary-foreground": "#18181b", // Black text on white
-        "--background": "#18181b", // Near-black (gray-900)
+        "--primary": "#fff",
+        "--primary-foreground": "#18181b",
+        "--background": "#18181b",
       },
     },
   },

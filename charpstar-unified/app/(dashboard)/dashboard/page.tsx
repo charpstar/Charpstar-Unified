@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import { SiteHeader } from "@/components/site-header";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { addDays, format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/ui/stat-card";
-import PerformanceTrends from "@/components/PerformanceTrends";
+import { useUser } from "@/contexts/useUser";
 
 interface AnalyticsData {
   total_page_views: number;
@@ -35,15 +33,12 @@ function generateTimeSeriesData(
   const days = timeRange === "1d" ? 1 : timeRange === "7d" ? 7 : 30;
   const data = [];
 
-  // Generate data points for each day
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date(now);
     date.setDate(date.getDate() - i);
     date.setHours(0, 0, 0, 0);
 
-    // For demo purposes, we'll distribute the total values across days
-    // In a real implementation, you'd get daily data from your API
-    const dayFactor = (days - i) / days; // Creates a simple progression
+    const dayFactor = (days - i) / days;
 
     data.push({
       date: date.toISOString(),
@@ -66,6 +61,9 @@ function generateTimeSeriesData(
 }
 
 export default function Page() {
+  const user = useUser();
+  const hasAnalytics = Boolean(user?.metadata?.analytics_profile_id);
+
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
     null
   );
@@ -92,9 +90,12 @@ export default function Page() {
 
         if (result.data) {
           setAnalyticsData(result.data);
+        } else {
+          setAnalyticsData(null);
         }
       } catch (error) {
         console.error("Error fetching analytics:", error);
+        setAnalyticsData(null);
       } finally {
         setLoading(false);
       }
@@ -108,6 +109,28 @@ export default function Page() {
     ? generateTimeSeriesData(analyticsData, timeRange)
     : [];
 
+  // ---- Guard: Only show cards if analytics profile is connected ----
+  if (!hasAnalytics) {
+    return (
+      <>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col p-6">
+          <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
+          <div className="text-center mt-24">
+            <div className="text-2xl font-semibold mb-2">
+              Analytics Not Available
+            </div>
+            <div className="text-gray-500">
+              No analytics profile has been set up for your account. Please
+              contact support for assistance.
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ---- Normal rendering if analytics is connected ----
   return (
     <>
       <SiteHeader />
@@ -124,7 +147,6 @@ export default function Page() {
           <div className="text-red-500">No analytics data available</div>
         ) : (
           <div className="space-y-6">
-            {/* Key Metrics Cards */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 title="Total Page Views"
@@ -143,7 +165,6 @@ export default function Page() {
                 value={analyticsData.total_3d_clicks}
               />
             </div>
-
             {/* <PerformanceTrends /> */}
           </div>
         )}
