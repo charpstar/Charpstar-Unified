@@ -14,7 +14,7 @@ export function SharedLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen w-full">
       {!hideSidebar && <AppSidebar variant="inset" />}
-      <div className="p-4 flex-1 overflow-x-hidden w-full  h-full bg-background">
+      <div className="p-4 flex-1 overflow-x-hidden w-full  h-full bg-muted-background dark:bg-muted-background">
         <div className="flex-1 overflow-x-hidden w-full min-h-screen bg-background p-6 rounded-lg">
           {children}
         </div>
