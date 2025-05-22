@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Image from "next/image";
+import Link from "next/link";
 
 type LoginFormProps = {
   type: "login" | "signup" | "reset";
@@ -47,14 +48,14 @@ export function LoginForm(props: LoginFormProps) {
     <div className={cn("flex flex-col gap-6", className)} {...rest}>
       <Card>
         <CardHeader className="text-center">
-          <CardTitle className="text-xl">
+          <CardTitle className="text-xl font-bold text-primary ">
             {type === "login"
               ? "Welcome back"
               : type === "signup"
                 ? "Create your account"
                 : "Reset Password"}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-muted-foreground text-sm">
             {type === "login" || type === "signup"
               ? "Login with your email and password"
               : "Enter your email to reset your password"}
@@ -193,8 +194,9 @@ export function LoginForm(props: LoginFormProps) {
         </CardContent>
       </Card>
       <div className="text-balance text-center text-xs text-muted-foreground [&_a]:underline [&_a]:underline-offset-4 hover:[&_a]:text-primary">
-        By clicking continue, you agree to our <a href="#">Terms of Service</a>{" "}
-        and <a href="#">Privacy Policy</a>.
+        By clicking continue, you agree to our{" "}
+        <Link href="/terms-of-service">Terms of Service</Link> and{" "}
+        <Link href="/privacy-policy">Privacy Policy</Link>.
       </div>
     </div>
   );

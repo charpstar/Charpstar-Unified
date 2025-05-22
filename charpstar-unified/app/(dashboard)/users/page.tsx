@@ -137,38 +137,12 @@ export default function UsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Show loading state while checking permissions or loading data
-  if (permissionLoading || usersLoading || featureLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin mx-auto"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Show error message if permission check failed
   if (permissionError) {
     return (
       <div className="p-8 text-center">
         <p className="text-red-600">
           Error checking permissions: {permissionError}
-        </p>
-      </div>
-    );
-  }
-
-  // Show access denied if no permission
-  if (!hasAccess) {
-    return (
-      <div className="p-8 text-center">
-        <h2 className="text-xl font-semibold text-red-600 mb-2">
-          Access Denied
-        </h2>
-        <p className="text-gray-600">
-          You don't have permission to access the users page.
         </p>
       </div>
     );
@@ -362,238 +336,235 @@ export default function UsersPage() {
   };
 
   return (
-    <>
-      <SiteHeader />
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center ">
-          <h1 className="text-2xl font-bold">Users</h1>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center ">
+        <h1 className="text-2xl font-bold">Users</h1>
 
-          {userPermissions.add_user && (
-            <Dialog
-              open={isAddUserDialogOpen}
-              onOpenChange={setIsAddUserDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <Button variant={"primary"}>
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add User
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New User</DialogTitle>
-                </DialogHeader>
-                <UserForm onSubmit={handleAddUser} isLoading={isAddingUser} />
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
-
-        <div className="flex gap-4 items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select
-            value={selectedRole}
-            onValueChange={(value: (typeof roleOptions)[number]) =>
-              setSelectedRole(value)
-            }
-          >
-            <SelectTrigger className="w-[180px] cursor-pointer bg-background dark:bg-background text-muted-foreground">
-              <SelectValue placeholder="Select role" />
-            </SelectTrigger>
-            <SelectContent className="cursor-pointer bg-background dark:bg-background text-muted-foreground">
-              {roleOptions.map((role) => (
-                <SelectItem
-                  key={role}
-                  value={role}
-                  className="cursor-pointer bg-background dark:bg-background text-muted-foreground hover:bg-muted-foreground/10 hover:text-muted-foreground"
-                >
-                  {role === "all"
-                    ? "All Roles"
-                    : role.charAt(0).toUpperCase() + role.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Card className="border border-border bg-card shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-xl font-semibold">
-              User Management
-            </CardTitle>
-            <CardDescription>View and manage system users</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="rounded-md overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="font-medium">User</TableHead>
-                    <TableHead className="font-medium">Role</TableHead>
-                    <TableHead className="font-medium hidden md:table-cell">
-                      Created
-                    </TableHead>
-                    {hasActionPermissions && (
-                      <TableHead className="w-[80px] text-right">
-                        Actions
-                      </TableHead>
-                    )}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={hasActionPermissions ? 4 : 3}
-                        className="text-center text-muted-foreground py-16"
-                      >
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <UserCog className="h-12 w-12 text-muted-foreground/50" />
-                          <p>No users found</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <TableRow
-                        key={user.id}
-                        className="group transition-colors hover:bg-accent/30"
-                        onMouseEnter={() => setHoveredRow(user.id)}
-                        onMouseLeave={() => setHoveredRow(null)}
-                      >
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-9 w-9 border border-border">
-                              <AvatarImage src={user.avatar} alt={user.name} />
-                              <AvatarFallback className="bg-primary/10 text-muted-foreground">
-                                {getInitials(user.name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{user.name}</p>
-                              <p className="text-sm text-muted-foreground flex items-center">
-                                <Mail className="mr-1 h-3 w-3" />
-                                {user.email}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant={
-                                getRoleBadgeVariant(user.role) as
-                                  | "default"
-                                  | "destructive"
-                                  | "secondary"
-                                  | "outline"
-                                  | null
-                                  | undefined
-                              }
-                            >
-                              {user.role.charAt(0).toUpperCase() +
-                                user.role.slice(1)}
-                            </Badge>
-                            {user.role === "admin" && (
-                              <Shield className="h-3 w-3 text-primary" />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground">
-                          {formatDate(user.created_at)}
-                        </TableCell>
-                        {hasActionPermissions && (
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className={"h-8 w-8 p-0  "}
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                  <span className="sr-only">Open menu</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                align="end"
-                                className="bg-white dark:bg-background"
-                              >
-                                {userPermissions.edit_user && (
-                                  <DropdownMenuItem
-                                    className="cursor-pointer flex items-center"
-                                    onClick={() => {
-                                      setEditingUser(user);
-                                      setIsEditUserDialogOpen(true);
-                                    }}
-                                  >
-                                    <Pencil className="w-4 h-4 mr-2" />
-                                    Edit user
-                                  </DropdownMenuItem>
-                                )}
-
-                                {userPermissions.edit_user &&
-                                  userPermissions.delete_user && (
-                                    <DropdownMenuSeparator />
-                                  )}
-
-                                {userPermissions.delete_user && (
-                                  <DropdownMenuItem
-                                    className="cursor-pointer text-destructive focus:text-destructive flex items-center hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={() => handleDeleteUser(user.id)}
-                                  >
-                                    <Trash2 className="w-4 h-4 mr-2 " />
-                                    Delete user
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-        {/* Edit User Dialog */}
-        {userPermissions.edit_user && (
+        {userPermissions.add_user && (
           <Dialog
-            open={isEditUserDialogOpen}
-            onOpenChange={setIsEditUserDialogOpen}
+            open={isAddUserDialogOpen}
+            onOpenChange={setIsAddUserDialogOpen}
           >
+            <DialogTrigger asChild>
+              <Button variant="default">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add User
+              </Button>
+            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Edit User</DialogTitle>
+                <DialogTitle>Add New User</DialogTitle>
               </DialogHeader>
-              {editingUser && (
-                <UserForm
-                  onSubmit={handleEditUser}
-                  isLoading={isProcessing}
-                  initialData={{
-                    name: editingUser.name,
-                    email: editingUser.email,
-                    role: editingUser.role as "admin" | "client" | "user",
-                    password: "", // Required by the type but not used in edit mode
-                  }}
-                />
-              )}
+              <UserForm onSubmit={handleAddUser} isLoading={isAddingUser} />
             </DialogContent>
           </Dialog>
         )}
-
-        <Toaster />
       </div>
-    </>
+
+      <div className="flex gap-4 items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <Input
+            placeholder="Search by name or email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select
+          value={selectedRole}
+          onValueChange={(value: (typeof roleOptions)[number]) =>
+            setSelectedRole(value)
+          }
+        >
+          <SelectTrigger className="w-[180px] cursor-pointer bg-background dark:bg-background text-muted-foreground">
+            <SelectValue placeholder="Select role" />
+          </SelectTrigger>
+          <SelectContent className="cursor-pointer bg-background dark:bg-background text-muted-foreground">
+            {roleOptions.map((role) => (
+              <SelectItem
+                key={role}
+                value={role}
+                className="cursor-pointer bg-background dark:bg-background text-muted-foreground hover:bg-muted-foreground/10 hover:text-muted-foreground"
+              >
+                {role === "all"
+                  ? "All Roles"
+                  : role.charAt(0).toUpperCase() + role.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Card className="border border-border bg-card shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl font-semibold">
+            User Management
+          </CardTitle>
+          <CardDescription>View and manage system users</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="rounded-md overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-medium">User</TableHead>
+                  <TableHead className="font-medium">Role</TableHead>
+                  <TableHead className="font-medium hidden md:table-cell">
+                    Created
+                  </TableHead>
+                  {hasActionPermissions && (
+                    <TableHead className="w-[80px] text-right">
+                      Actions
+                    </TableHead>
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={hasActionPermissions ? 4 : 3}
+                      className="text-center text-muted-foreground py-16"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <UserCog className="h-12 w-12 text-muted-foreground/50" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow
+                      key={user.id}
+                      className="group transition-colors hover:bg-accent/30"
+                      onMouseEnter={() => setHoveredRow(user.id)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9 border border-border">
+                            <AvatarImage src={user.avatar} alt={user.name} />
+                            <AvatarFallback className="bg-primary/10 text-muted-foreground">
+                              {getInitials(user.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{user.name}</p>
+                            <p className="text-sm text-muted-foreground flex items-center">
+                              <Mail className="mr-1 h-3 w-3" />
+                              {user.email}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              getRoleBadgeVariant(user.role) as
+                                | "default"
+                                | "destructive"
+                                | "secondary"
+                                | "outline"
+                                | null
+                                | undefined
+                            }
+                          >
+                            {user.role.charAt(0).toUpperCase() +
+                              user.role.slice(1)}
+                          </Badge>
+                          {user.role === "admin" && (
+                            <Shield className="h-3 w-3 text-primary" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {formatDate(user.created_at)}
+                      </TableCell>
+                      {hasActionPermissions && (
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={"h-8 w-8 p-0  "}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Open menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="bg-white dark:bg-background"
+                            >
+                              {userPermissions.edit_user && (
+                                <DropdownMenuItem
+                                  className="cursor-pointer flex items-center"
+                                  onClick={() => {
+                                    setEditingUser(user);
+                                    setIsEditUserDialogOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="w-4 h-4 mr-2" />
+                                  Edit user
+                                </DropdownMenuItem>
+                              )}
+
+                              {userPermissions.edit_user &&
+                                userPermissions.delete_user && (
+                                  <DropdownMenuSeparator />
+                                )}
+
+                              {userPermissions.delete_user && (
+                                <DropdownMenuItem
+                                  className="cursor-pointer text-destructive focus:text-destructive flex items-center hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => handleDeleteUser(user.id)}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2 " />
+                                  Delete user
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Edit User Dialog */}
+      {userPermissions.edit_user && (
+        <Dialog
+          open={isEditUserDialogOpen}
+          onOpenChange={setIsEditUserDialogOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+            </DialogHeader>
+            {editingUser && (
+              <UserForm
+                onSubmit={handleEditUser}
+                isLoading={isProcessing}
+                initialData={{
+                  name: editingUser.name,
+                  email: editingUser.email,
+                  role: editingUser.role as "admin" | "client" | "user",
+                  password: "",
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
+      <Toaster />
+    </div>
   );
 }

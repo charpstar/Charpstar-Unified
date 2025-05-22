@@ -1,6 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* For Proxima Nova, you'll need an @font-face, e.g.: */
+@font-face {
+  font-family: "Proxima Nova";
+  src:
+    url("/fonts/proximanova-regular.woff2") format("woff2"),
+    url("/fonts/proximanova-regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -81,8 +92,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  --green: 0.76 0.13 145;
-  --destructive: 0.63 0.14 29;
+  --font-heading: "Proxima Nova", "Montserrat", "Arial", sans-serif;
+  --font-body: "Montserrat", "Arial", sans-serif;
 }
 
 .dark {
@@ -90,7 +101,7 @@
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.269 0 0);
+  --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
@@ -98,7 +109,7 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
+  --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
@@ -116,21 +127,23 @@
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.439 0 0);
-  --green: 0.55 0.1 145;
-  --red: 0.63 0.14 29;
+  --sidebar-ring: oklch(0.556 0 0);
+  --font-heading: "Proxima Nova", "Montserrat", "Arial", sans-serif;
+  --font-body: "Montserrat", "Arial", sans-serif;
 }
-html,
-body,
-* {
-  font-family: var(--user-font-family, Montserrat, system-ui, sans-serif);
+
+body {
+  font-family: var(--font-body);
 }
-body,
-html {
-  font-size: var(--user-font-size, 16px);
-}
-.border-b {
-  border-bottom: 0 !important;
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.heading {
+  font-family: var(--font-heading);
 }
 
 @layer base {

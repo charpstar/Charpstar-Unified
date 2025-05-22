@@ -7,6 +7,7 @@ import { LoginForm } from "@/components/ui/login-form";
 
 import Image from "next/image";
 import { getUserWithMetadata } from "@/supabase/getUser";
+import { useTheme } from "next-themes";
 export default function AuthPage() {
   const router = useRouter();
   const [formType, setFormType] = useState<"login" | "signup" | "reset">(
@@ -108,17 +109,26 @@ export default function AuthPage() {
       setIsLoading(false);
     }
   };
-
+  const { theme, systemTheme } = useTheme();
+  // Handle system preference fallback
+  const currentTheme = theme === "system" ? systemTheme : theme;
+  const isDark = currentTheme === "dark";
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10 rounded-lg">
+    <div className="flex h-full flex-col items-center justify-center gap-6  p-6 md:p-10 rounded-lg overflow-auto">
       <div className="flex w-full max-w-sm flex-col gap-6">
-        <Image
-          src="/images/charpstarGrey.png"
-          alt="logo"
-          width={300}
-          height={300}
-          className="rounded-md self-center   "
-        />
+        <div className="h-8 w-[200px] overflow-hidden rounded-md self-center">
+          <Image
+            src={
+              isDark
+                ? "/images/charpstarWhite.png"
+                : "/images/charpstarGrey.png"
+            }
+            alt="logo"
+            width={200}
+            height={200}
+            className="object-cover object-center w-full h-full"
+          />
+        </div>
 
         <LoginForm
           type={formType}

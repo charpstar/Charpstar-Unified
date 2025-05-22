@@ -43,7 +43,6 @@ export default function SettingsPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [analyticsProfile, setAnalyticsProfile] =
     useState<AnalyticsProfile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -95,29 +94,11 @@ export default function SettingsPage() {
         }
       } catch (err) {
         // handle error if needed
-      } finally {
-        setLoading(false);
       }
     };
 
     fetchUserAndAnalytics();
   }, [router]);
-
-  // Skeleton loader
-  if (permissionLoading || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Card className="p-6 max-w-sm w-full">
-          <div className="space-y-4">
-            <Skeleton className="h-8 w-1/2 rounded-lg" />
-            <Skeleton className="h-4 w-full rounded" />
-            <Skeleton className="h-4 w-3/4 rounded" />
-            <Skeleton className="h-10 w-1/3 rounded" />
-          </div>
-        </Card>
-      </div>
-    );
-  }
 
   // Permission error
   if (permissionError) {
@@ -134,14 +115,7 @@ export default function SettingsPage() {
   // No access
   if (!hasAccess) {
     return (
-      <div className="flex justify-center items-center min-h-[300px] p-4">
-        <Alert variant="destructive" className="max-w-lg mx-auto">
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
-            You don&apos;t have permission to access the settings page.
-          </AlertDescription>
-        </Alert>
-      </div>
+      <div className="flex justify-center items-center min-h-[300px] p-4"></div>
     );
   }
 
@@ -153,89 +127,73 @@ export default function SettingsPage() {
   };
 
   return (
-    <>
-      <SiteHeader />
-      <div className="flex items-center justify-center min-h-screen p-4">
-        {/* Account Card */}
+    <div className="flex items-center justify-center min-h-screen p-4">
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <CardTitle>
+            <div className="flex items-center gap-3">
+              <User2 className="w-5 h-5 text-muted-foreground" />
+              Account Settings
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Email and Role */}
+          <div className="flex flex-col gap-1">
+            <Label className="text-muted-foreground">Email</Label>
+            <div className="text-lg font-medium text-foreground">
+              {user?.email}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-muted-foreground">Role</Label>
+            <div className="text-base text-foreground capitalize">
+              {user?.role || "User"}
+            </div>
+          </div>
+          {/* Theme toggle */}
+          <div className="flex flex-col gap-1">
+            <ThemeSwitcherCard />
+          </div>
 
-        <Card className="w-full max-w-2xl">
-          <CardHeader>
-            <CardTitle>
-              <div className="flex items-center gap-3">
-                <User2 className="w-5 h-5 text-muted-foreground" />
-                Account Settings
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Email and Role */}
-            <div className="flex flex-col gap-1">
-              <Label className="text-muted-foreground">Email</Label>
-              <div className="text-lg font-medium text-foreground">
-                {user?.email}
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-muted-foreground">Role</Label>
-              <div className="text-base text-foreground capitalize">
-                {user?.role || "User"}
-              </div>
-            </div>
-            {/* Theme toggle */}
-            <div className="flex flex-col gap-1">
-              <ThemeSwitcherCard />
-            </div>
-            <div className="flex flex-col gap-1">
-              <ColorThemePicker />
-            </div>
-            {/* Font Settings */}
-            <div className="flex flex-col gap-1">
-              <FontSettings />
-            </div>
-
-            {/* Analytics Profile */}
-            <div className="flex flex-col gap-1">
-              <Label className="text-muted-foreground mb-1 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" /> Analytics Profile
-              </Label>
-              {user?.analytics_profile_id ? (
-                analyticsProfile ? (
-                  <div className="rounded-lg border border-muted p-3 bg-muted/40">
-                    <div className="text-xs text-muted-foreground">
-                      <span className="font-medium">Dataset ID:</span>{" "}
-                      {analyticsProfile.datasetid}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      <span className="font-medium">Table Name:</span>{" "}
-                      {analyticsProfile.tablename}
-                    </div>
-                    {/* Optionally: <Button variant="outline" size="sm">Edit Analytics</Button> */}
+          {/* Analytics Profile */}
+          <div className="flex flex-col gap-1">
+            <Label className="text-muted-foreground mb-1 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" /> Analytics Profile
+            </Label>
+            {user?.analytics_profile_id ? (
+              analyticsProfile ? (
+                <div className="rounded-lg border border-muted p-3 bg-muted/40">
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">Dataset ID:</span>{" "}
+                    {analyticsProfile.datasetid}
                   </div>
-                ) : (
-                  <Skeleton className="h-4 w-24 rounded" />
-                )
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  No analytics profile assigned
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">Table Name:</span>{" "}
+                    {analyticsProfile.tablename}
+                  </div>
                 </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            {/* Add more actions if you wish */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              {loggingOut ? "Logging out..." : "Log Out"}
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    </>
+              ) : null
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No analytics profile assigned
+              </div>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            {loggingOut ? "Logging out..." : "Log Out"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
 }

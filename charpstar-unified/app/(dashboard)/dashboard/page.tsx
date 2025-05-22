@@ -60,18 +60,21 @@ function generateTimeSeriesData(
   return data;
 }
 
-export default function Page() {
+export default function DashboardPage() {
   const user = useUser();
-  const hasAnalytics = Boolean(user?.metadata?.analytics_profile_id);
-
+  const isUserLoading = typeof user === "undefined";
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
     null
   );
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<"1d" | "7d" | "30d">("30d");
 
+  // Only check hasAnalytics after user is loaded
+  const hasAnalytics = user && user.metadata?.analytics_profile_id;
+
   useEffect(() => {
     const fetchAnalytics = async () => {
+      setLoading(true);
       try {
         const today = new Date();
         const startDate = format(
@@ -101,19 +104,39 @@ export default function Page() {
       }
     };
 
-    fetchAnalytics();
-  }, [timeRange]);
+    // Only fetch after user is loaded AND analytics is available
+    if (!isUserLoading && hasAnalytics) {
+      fetchAnalytics();
+    } else {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeRange, isUserLoading, hasAnalytics]);
 
-  // Transform analytics data for the chart
-  const chartData = analyticsData
-    ? generateTimeSeriesData(analyticsData, timeRange)
-    : [];
-
-  // ---- Guard: Only show cards if analytics profile is connected ----
-  if (!hasAnalytics) {
-    return (
-      <>
-        <SiteHeader />
+  return (
+    <>
+      {/* LOADING STATE: Show skeletons while loading */}
+      {isUserLoading || (hasAnalytics && loading) ? (
+        <div className="p-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full" />
+            ))}
+          </div>
+        </div>
+      ) : user === null ? (
+        // NOT LOGGED IN
+        <div className="flex flex-1 flex-col p-6">
+          <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
+          <div className="text-center mt-24">
+            <div className="text-2xl font-semibold mb-2">Not logged in</div>
+            <div className="text-gray-500">
+              Please sign in to view analytics.
+            </div>
+          </div>
+        </div>
+      ) : !hasAnalytics ? (
+        // NO ANALYTICS PROFILE
         <div className="flex flex-1 flex-col p-6">
           <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
           <div className="text-center mt-24">
@@ -126,49 +149,38 @@ export default function Page() {
             </div>
           </div>
         </div>
-      </>
-    );
-  }
+      ) : (
+        // NORMAL RENDERING
+        <div className="flex flex-1 flex-col p-6">
+          <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
 
-  // ---- Normal rendering if analytics is connected ----
-  return (
-    <>
-      <SiteHeader />
-      <div className="flex flex-1 flex-col p-6">
-        <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
-
-        {loading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full" />
-            ))}
-          </div>
-        ) : !analyticsData ? (
-          <div className="text-red-500">No analytics data available</div>
-        ) : (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard
-                title="Total Page Views"
-                value={analyticsData.total_page_views}
-              />
-              <StatCard
-                title="Total Unique Users"
-                value={analyticsData.total_unique_users}
-              />
-              <StatCard
-                title="Total AR Clicks"
-                value={analyticsData.total_ar_clicks}
-              />
-              <StatCard
-                title="Total 3D Clicks"
-                value={analyticsData.total_3d_clicks}
-              />
+          {!analyticsData ? (
+            <div className="text-red-500">No analytics data available</div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                  title="Total Page Views"
+                  value={analyticsData.total_page_views}
+                />
+                <StatCard
+                  title="Total Unique Users"
+                  value={analyticsData.total_unique_users}
+                />
+                <StatCard
+                  title="Total AR Clicks"
+                  value={analyticsData.total_ar_clicks}
+                />
+                <StatCard
+                  title="Total 3D Clicks"
+                  value={analyticsData.total_3d_clicks}
+                />
+              </div>
+              {/* <PerformanceTrends /> */}
             </div>
-            {/* <PerformanceTrends /> */}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </>
   );
 }

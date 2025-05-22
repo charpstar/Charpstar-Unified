@@ -14,9 +14,11 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { format } from "date-fns";
+import { useTheme } from "next-themes";
 
 export default function PerformanceTrends() {
   const { data: trends, isLoading } = useMonthlyTrends();
+  const { resolvedTheme } = useTheme(); // 'light' or 'dark'
 
   if (isLoading) {
     return (
@@ -81,20 +83,23 @@ export default function PerformanceTrends() {
               <Tooltip
                 cursor={false}
                 contentStyle={{
-                  backgroundColor: "hsl(var(--popover))",
+                  backgroundColor:
+                    resolvedTheme === "dark" ? "#18181b" : "#fff",
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "0.5rem",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.09)",
                 }}
                 labelStyle={{
-                  color: "hsl(var(--popover-foreground))",
+                  color: "hsl(var(--foreground))",
                   fontWeight: 500,
                   marginBottom: "0.25rem",
                 }}
                 itemStyle={{
-                  color: "hsl(var(--popover-foreground))",
+                  color: "hsl(var(--foreground))",
                   fontSize: "0.875rem",
                 }}
               />
+
               <Legend
                 verticalAlign="top"
                 height={36}

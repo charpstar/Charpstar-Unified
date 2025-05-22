@@ -7,7 +7,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="card"
       className={cn(
         // compact/modern: subtle bg, border, shadow, less gap, less round
-        "bg-muted/50 text-card-foreground flex flex-col rounded-lg border border-border p-2 shadow-sm",
+        " text-card-foreground flex flex-col rounded-lg border border-border p-2 shadow-sm p-5 space-y-4 ",
         className
       )}
       {...props}
@@ -67,7 +67,7 @@ function CardAction({ className, ...props }: React.ComponentProps<"div">) {
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      data-slot="card-content"
+      data-slot="card-content "
       className={cn("px-0", className)} // no extra horizontal padding
       {...props}
     />

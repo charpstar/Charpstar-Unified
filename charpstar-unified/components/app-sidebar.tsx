@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/sidebar";
 import Image from "next/image";
 import { useTheme } from "next-themes";
+import Link from "next/link";
 
 const data = {
   user: {
@@ -159,7 +160,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <div className="flex items-center justify-center">
-                <a href="/dashboard">
+                <Link href="/dashboard">
                   <Image
                     src={
                       isDark
@@ -171,7 +172,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     height={150}
                     priority
                   />
-                </a>
+                </Link>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
