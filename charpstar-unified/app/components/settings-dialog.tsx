@@ -572,19 +572,25 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             className="w-full flex-1 flex flex-col"
           >
             <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 gap-2">
-              <TabsTrigger value="account" className="flex items-center gap-2">
+              <TabsTrigger
+                value="account"
+                className="flex items-center justify-center gap-2"
+              >
                 <User2 className="w-4 h-4" />
                 Account
               </TabsTrigger>
               {user?.role === "admin" && (
                 <>
-                  <TabsTrigger value="team" className="flex items-center gap-2">
+                  <TabsTrigger
+                    value="team"
+                    className="flex items-center justify-center gap-2"
+                  >
                     <Users className="w-4 h-4" />
                     Team
                   </TabsTrigger>
                   <TabsTrigger
                     value="permissions"
-                    className="flex items-center gap-2"
+                    className="flex items-center justify-center gap-2"
                   >
                     <ShieldCheck className="w-4 h-4" />
                     Permissions
@@ -731,11 +737,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             <Table>
                               <TableHeader className="sticky top-0 bg-background z-10">
                                 <TableRow className="bg-muted/50">
-                                  <TableHead className="font-medium">
+                                  <TableHead className="font-medium text-left">
                                     User
                                   </TableHead>
-                                  <TableHead className="font-medium">
-                                    Role
+                                  <TableHead className="font-medium text-left">
+                                    <span className="flex items-center justify-end gap-2">
+                                      Role
+                                      <Shield className="h-3 w-3 opacity-0" />
+                                    </span>
                                   </TableHead>
                                   <TableHead className="font-medium hidden md:table-cell">
                                     Created
@@ -794,7 +803,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                         }
                                         onMouseLeave={() => setHoveredRow(null)}
                                       >
-                                        <TableCell>
+                                        <TableCell className="align-middle text-left">
                                           <div className="flex items-center gap-3">
                                             <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-border">
                                               <AvatarImage
@@ -816,7 +825,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                             </div>
                                           </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="align-middle text-left">
                                           <div className="flex items-center gap-2">
                                             <Badge
                                               variant={
@@ -837,16 +846,18 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                                 .toUpperCase() +
                                                 user.role.slice(1)}
                                             </Badge>
-                                            {user.role === "admin" && (
+                                            {user.role === "admin" ? (
                                               <Shield className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <span className="h-3 w-3" />
                                             )}
                                           </div>
                                         </TableCell>
-                                        <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
+                                        <TableCell className="hidden md:table-cell text-muted-foreground text-sm align-middle text-left">
                                           {formatDate(user.created_at)}
                                         </TableCell>
                                         {hasActionPermissions && (
-                                          <TableCell className="text-right">
+                                          <TableCell className="text-right align-middle">
                                             <DropdownMenu>
                                               <DropdownMenuTrigger asChild>
                                                 <Button
@@ -943,7 +954,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                 <Table>
                                   <TableHeader>
                                     <TableRow>
-                                      <TableHead className="text-left font-bold text-foreground bg-muted">
+                                      <TableHead className="text-right font-bold text-foreground bg-muted">
                                         Role
                                       </TableHead>
                                       {pageResources.map((res) => (

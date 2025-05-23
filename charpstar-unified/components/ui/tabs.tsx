@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
+import { User2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
