@@ -7,6 +7,7 @@ import { usePagePermission } from "@/lib/usePagePermission";
 import { TableCell } from "@/components/ui/table";
 import { TableBody } from "@/components/ui/table";
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Table } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 interface Permission {
@@ -39,6 +40,27 @@ export default function PermissionsPage() {
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | undefined>();
+
+  const PAGE_LABELS: Record<string, string> = {
+    "/dashboard": "Dashboard",
+    "/admin/permissions": "Permissions",
+    "/settings": "Settings",
+    "/users": "Users",
+    // ...add more as needed
+  };
+
+  const FEATURE_LABELS: Record<string, string> = {
+    export_data: "Export Data",
+    invite_user: "Invite User",
+    // ...add more as needed
+  };
+
+  function formatLabel(str: string) {
+    return str
+      .replace(/^\//, "")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  }
 
   const pagePermissions = permissions.filter((p) => p.resource.startsWith("/"));
   const featurePermissions = permissions.filter(
@@ -179,46 +201,11 @@ export default function PermissionsPage() {
       )
   );
 
-  // Show loading state while checking permissions or loading data
-  if (permissionLoading || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin mx-auto"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error message if permission check failed
-  if (permissionError) {
-    return (
-      <div className="p-8 text-center">
-        <p className="text-red-600">
-          Error checking permissions: {permissionError}
-        </p>
-      </div>
-    );
-  }
-
-  // Show access denied if no permission
-  if (!hasAccess) {
-    return (
-      <div className="p-8 text-center">
-        <h2 className="text-xl font-semibold text-red-600 mb-2">
-          Access Denied
-        </h2>
-        <p className="text-gray-600">
-          You don't have permission to access the permissions page.
-        </p>
-      </div>
-    );
-  }
+  const isInitialLoading = permissionLoading || loading || !userRole;
 
   return (
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
-      {/* Header */}
+      {/* Header - Always visible */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold text-foreground">Role Permissions</h1>
         <p className="text-muted-foreground max-w-2xl">
@@ -227,171 +214,273 @@ export default function PermissionsPage() {
         </p>
       </div>
 
-      {/* Page Access */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Page Access</CardTitle>
-          <CardDescription>
-            Control which roles can access each page of your app.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-left">Role</TableHead>
-                {pageResources.map((res) => (
-                  <TableHead className="text-center" key={res}>
-                    {res}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRoles.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={pageResources.length + 1}
-                    className="text-center"
-                  >
-                    <Alert variant="default" className="my-6">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2" />
-                      <AlertTitle>No Roles Found</AlertTitle>
-                      <AlertDescription>
-                        There are no roles to display.
-                      </AlertDescription>
-                    </Alert>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredRoles.map((role, i) => (
-                  <TableRow
-                    key={role}
-                    className={i % 2 === 0 ? "bg-background" : "bg-muted"}
-                  >
-                    <TableCell className="font-medium text-foreground">
-                      {role}
-                    </TableCell>
-                    {pageResources.map((res) => {
-                      const perm = groupedPagePermissions[role]?.find(
-                        (p) => p.resource === res
-                      );
-                      return (
-                        <TableCell
-                          key={`${role}-${res}`}
-                          className="text-center"
-                        >
-                          {perm ? (
-                            <Switch
-                              checked={perm.can_access}
-                              onCheckedChange={() => handleToggle(perm)}
-                              disabled={updating}
-                              aria-label={
-                                perm.can_access
-                                  ? `Disable ${role} access to ${res}`
-                                  : `Enable ${role} access to ${res}`
-                              }
-                              className="
-   data-[state=checked]:bg-[oklch(var(--green))]
-   data-[state=unchecked]:bg-[oklch(var(--destructive))]
- "
-                            />
-                          ) : (
-                            <span className="text-muted-foreground">–</span>
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Show loading state while checking permissions or loading data */}
+      {isInitialLoading && (
+        <div className="space-y-8">
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="text-muted-foreground">
+                  Loading permissions...
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {/* Feature Access */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Feature Access</CardTitle>
-          <CardDescription>
-            Fine-tune access to app features by role.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-left">Role</TableHead>
-                {featureResources.map((res) => (
-                  <TableHead className="text-center" key={res}>
-                    {res}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRoles.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={featureResources.length + 1}
-                    className="text-center"
-                  >
-                    <Alert variant="default" className="my-6">
-                      <CheckCircle2 className="h-5 w-5 text-primary mr-2" />
-                      <AlertTitle>No Roles Found</AlertTitle>
-                      <AlertDescription>
-                        There are no roles to display.
-                      </AlertDescription>
-                    </Alert>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredRoles.map((role, i) => (
-                  <TableRow
-                    key={role}
-                    className={i % 2 === 0 ? "bg-background" : "bg-muted"}
-                  >
-                    <TableCell className="font-medium text-foreground">
-                      {role}
-                    </TableCell>
-                    {featureResources.map((res) => {
-                      const perm = groupedFeaturePermissions[role]?.find(
-                        (p) => p.resource === res
-                      );
-                      return (
-                        <TableCell
-                          key={`${role}-${res}`}
-                          className="text-center"
-                        >
-                          {perm ? (
-                            <Switch
-                              checked={perm.can_access}
-                              onCheckedChange={() => handleToggle(perm)}
-                              disabled={updating}
-                              aria-label={
-                                perm.can_access
-                                  ? `Disable ${role} access to ${res}`
-                                  : `Enable ${role} access to ${res}`
-                              }
-                              className="
-    data-[state=checked]:bg-[oklch(var(--green))]
-    data-[state=unchecked]:bg-[oklch(var(--destructive))]
-  "
-                            />
-                          ) : (
-                            <span className="text-muted-foreground">–</span>
-                          )}
-                        </TableCell>
-                      );
-                    })}
+      {/* Show error message if permission check failed */}
+      {!isInitialLoading && permissionError && (
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Error</CardTitle>
+            <CardDescription>
+              An error occurred while checking permissions: {permissionError}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      {/* Show access denied if no permission *after* loading is complete */}
+      {!isInitialLoading && !hasAccess && !permissionError && (
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardDescription>
+              You don't have permission to access the permissions page.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      {/* Main content - only show when loaded and has access */}
+      {!isInitialLoading && hasAccess && !permissionError && (
+        <>
+          {/* Page Access */}
+          <Card className="rounded-xl shadow-sm border border-border">
+            <CardHeader>
+              <CardTitle>Page Access</CardTitle>
+              <CardDescription>
+                Control which roles can access each page of your app.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-left font-bold text-foreground bg-muted">
+                      Role
+                    </TableHead>
+                    {pageResources.map((res) => (
+                      <TableHead
+                        className="text-center font-bold text-foreground bg-muted"
+                        key={res}
+                      >
+                        {FEATURE_LABELS[res] || formatLabel(res)}
+                      </TableHead>
+                    ))}
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredRoles.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={pageResources.length + 1}
+                        className="text-center py-8 bg-card"
+                      >
+                        <Alert
+                          variant="default"
+                          className="my-6 flex items-center justify-center"
+                        >
+                          <CheckCircle2 className="h-5 w-5 text-primary mr-2" />
+                          <div>
+                            <AlertTitle>No Roles Found</AlertTitle>
+                            <AlertDescription>
+                              There are no roles to display.
+                            </AlertDescription>
+                          </div>
+                        </Alert>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredRoles.map((role, i) => (
+                      <TableRow
+                        key={role}
+                        className={cn(
+                          i % 2 === 0 ? "bg-card" : "bg-muted",
+                          "hover:bg-muted transition-colors"
+                        )}
+                      >
+                        <TableCell className="font-medium text-foreground pl-4">
+                          {role}
+                        </TableCell>
+                        {pageResources.map((res) => {
+                          const perm = groupedPagePermissions[role]?.find(
+                            (p) => p.resource === res
+                          );
+                          return (
+                            <TableCell
+                              key={`${role}-${res}`}
+                              className="text-center"
+                            >
+                              {perm ? (
+                                <Switch
+                                  checked={perm.can_access}
+                                  onCheckedChange={() => handleToggle(perm)}
+                                  disabled={updating}
+                                  aria-label={
+                                    perm.can_access
+                                      ? `Disable ${role} access to ${res}`
+                                      : `Enable ${role} access to ${res}`
+                                  }
+                                  className="
+                                 data-[state=checked]:bg-green-600
+                                 dark:data-[state=checked]:bg-green-400
+                                 data-[state=unchecked]:bg-red-500
+                                 dark:data-[state=unchecked]:bg-red-400
+                                 border border-border
+                                 shadow
+                                 relative
+                                 transition-colors
+                                 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                                 dark:focus-visible:ring-offset-background
+                                 [&>span]:bg-white
+                                 dark:[&>span]:bg-zinc-700
+                                 [&>span]:shadow-lg
+                                 [&>span]:size-5
+                                 [&>span]:transition-all
+                                 [&>span]:duration-200
+                               "
+                                />
+                              ) : (
+                                <span className="text-muted-foreground select-none">
+                                  –
+                                </span>
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Feature Access */}
+          <Card className="rounded-xl shadow-sm border border-border mt-8">
+            <CardHeader>
+              <CardTitle>Feature Access</CardTitle>
+              <CardDescription>
+                Fine-tune access to app features by role.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-left font-bold text-foreground bg-muted">
+                      Role
+                    </TableHead>
+                    {featureResources.map((res) => (
+                      <TableHead
+                        className="text-center font-bold text-foreground bg-muted"
+                        key={res}
+                      >
+                        {FEATURE_LABELS[res] || formatLabel(res)}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRoles.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={featureResources.length + 1}
+                        className="text-center py-8 bg-card"
+                      >
+                        <Alert
+                          variant="default"
+                          className="my-6 flex items-center justify-center"
+                        >
+                          <CheckCircle2 className="h-5 w-5 text-primary mr-2" />
+                          <div>
+                            <AlertTitle>No Roles Found</AlertTitle>
+                            <AlertDescription>
+                              There are no roles to display.
+                            </AlertDescription>
+                          </div>
+                        </Alert>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredRoles.map((role, i) => (
+                      <TableRow
+                        key={role}
+                        className={cn(
+                          i % 2 === 0 ? "bg-card" : "bg-muted",
+                          "hover:bg-muted transition-colors"
+                        )}
+                      >
+                        <TableCell className="font-medium text-foreground pl-4">
+                          {role}
+                        </TableCell>
+                        {featureResources.map((res) => {
+                          const perm = groupedFeaturePermissions[role]?.find(
+                            (p) => p.resource === res
+                          );
+                          return (
+                            <TableCell
+                              key={`${role}-${res}`}
+                              className="text-center"
+                            >
+                              {perm ? (
+                                <Switch
+                                  checked={perm.can_access}
+                                  onCheckedChange={() => handleToggle(perm)}
+                                  disabled={updating}
+                                  aria-label={
+                                    perm.can_access
+                                      ? `Disable ${role} access to ${res}`
+                                      : `Enable ${role} access to ${res}`
+                                  }
+                                  className="
+                               data-[state=checked]:bg-green-600
+                               dark:data-[state=checked]:bg-green-400
+                               data-[state=unchecked]:bg-red-500
+                               dark:data-[state=unchecked]:bg-red-400
+                               border border-border
+                               shadow
+                               relative
+                               transition-colors
+                               focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                               dark:focus-visible:ring-offset-background
+                               [&>span]:bg-white
+                               dark:[&>span]:bg-zinc-700
+                               [&>span]:shadow-lg
+                               [&>span]:size-5
+                               [&>span]:transition-all
+                               [&>span]:duration-200
+                             "
+                                />
+                              ) : (
+                                <span className="text-muted-foreground select-none">
+                                  –
+                                </span>
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

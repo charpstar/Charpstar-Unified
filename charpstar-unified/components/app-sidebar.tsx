@@ -60,6 +60,11 @@ const data = {
       url: "/users",
       icon: IconUsers,
     },
+    {
+      title: "Permissions",
+      url: "/admin/permissions",
+      icon: IconUsers,
+    },
   ],
   navClouds: [
     {

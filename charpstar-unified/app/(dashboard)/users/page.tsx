@@ -11,6 +11,7 @@ import {
   Shield,
   Mail,
   UserCog,
+  Loader2,
 } from "lucide-react";
 import {
   Table,
@@ -72,23 +73,37 @@ interface User {
 
 const roleOptions = ["all", "admin", "client", "user"] as const;
 
+interface FeaturePermissions {
+  view_user_details: boolean;
+  edit_user: boolean;
+  add_user: boolean;
+  delete_user: boolean;
+}
+
 export default function UsersPage() {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | undefined>();
   const { users, loading: usersLoading, error, fetchUsers } = useUsers(true);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+
   // Add feature permissions check
   const {
     getFeaturePermissions,
     loading: featureLoading,
     permissions,
   } = useFeaturePermissions(true);
-  const userPermissions = getFeaturePermissions(userRole, [
+  const permissionsResult = getFeaturePermissions(userRole, [
     "view_user_details",
     "edit_user",
     "add_user",
     "delete_user",
   ]);
+  const userPermissions: FeaturePermissions = {
+    view_user_details: !!permissionsResult.view_user_details,
+    edit_user: !!permissionsResult.edit_user,
+    add_user: !!permissionsResult.add_user,
+    delete_user: !!permissionsResult.delete_user,
+  };
 
   // Add permission check
   const {
@@ -134,24 +149,81 @@ export default function UsersPage() {
   }, [router]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    // Only fetch users if we have permission
+    if (hasAccess) {
+      fetchUsers();
+    }
+  }, [fetchUsers, hasAccess]);
 
-  // Show error message if permission check failed
-  if (permissionError) {
+  const isInitialLoading = permissionLoading || usersLoading || !userRole;
+
+  // Show loading state while checking permissions or loading data
+  if (isInitialLoading) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-red-600">
-          Error checking permissions: {permissionError}
-        </p>
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Users</h1>
+        </div>
+        <Card className="border border-border">
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="flex items-center space-x-2">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-muted-foreground">Loading users...</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
+  // Show error message if permission check failed
+  if (permissionError) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Users</h1>
+        </div>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardDescription>
+              An error occurred while checking permissions: {permissionError}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show access denied if no permission
+  if (!hasAccess) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Users</h1>
+        </div>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardDescription>
+              You don't have permission to access the users page.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show error message if users loading failed
   if (error) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-red-600">Error loading users: {error}</p>
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Users</h1>
+        </div>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardDescription>Error loading users: {error}</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }

@@ -46,7 +46,7 @@ export function LoginForm(props: LoginFormProps) {
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...rest}>
-      <Card>
+      <Card className="bg-background border-none shadow-none p-6">
         <CardHeader className="text-center">
           <CardTitle className="text-xl font-bold text-primary ">
             {type === "login"

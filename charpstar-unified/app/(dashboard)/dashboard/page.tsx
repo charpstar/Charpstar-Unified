@@ -6,6 +6,16 @@ import { addDays, format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/ui/stat-card";
 import { useUser } from "@/contexts/useUser";
+import { usePagePermission } from "@/lib/usePagePermission";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 
 interface AnalyticsData {
   total_page_views: number;
@@ -62,6 +72,8 @@ function generateTimeSeriesData(
 
 export default function DashboardPage() {
   const user = useUser();
+  const router = useRouter();
+  const [userRole, setUserRole] = useState<string | undefined>();
   const isUserLoading = typeof user === "undefined";
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
     null
@@ -69,8 +81,39 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<"1d" | "7d" | "30d">("30d");
 
+  // Add permission check
+  const {
+    hasAccess,
+    loading: permissionLoading,
+    error: permissionError,
+  } = usePagePermission(userRole, "/dashboard");
+
   // Only check hasAnalytics after user is loaded
   const hasAnalytics = user && user.metadata?.analytics_profile_id;
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        setUserRole(profile.role);
+      }
+    };
+
+    fetchUserRole();
+  }, [router]);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -104,83 +147,108 @@ export default function DashboardPage() {
       }
     };
 
-    // Only fetch after user is loaded AND analytics is available
-    if (!isUserLoading && hasAnalytics) {
+    // Only fetch after user is loaded AND analytics is available AND has permission
+    if (!isUserLoading && hasAnalytics && hasAccess) {
       fetchAnalytics();
     } else {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeRange, isUserLoading, hasAnalytics]);
+  }, [timeRange, isUserLoading, hasAnalytics, hasAccess]);
 
-  return (
-    <>
-      {/* LOADING STATE: Show skeletons while loading */}
-      {isUserLoading || (hasAnalytics && loading) ? (
-        <div className="p-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full" />
-            ))}
-          </div>
-        </div>
-      ) : user === null ? (
-        // NOT LOGGED IN
-        <div className="flex flex-1 flex-col p-6">
-          <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
-          <div className="text-center mt-24">
-            <div className="text-2xl font-semibold mb-2">Not logged in</div>
-            <div className="text-gray-500">
-              Please sign in to view analytics.
-            </div>
-          </div>
-        </div>
-      ) : !hasAnalytics ? (
-        // NO ANALYTICS PROFILE
-        <div className="flex flex-1 flex-col p-6">
-          <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
-          <div className="text-center mt-24">
-            <div className="text-2xl font-semibold mb-2">
-              Analytics Not Available
-            </div>
-            <div className="text-gray-500">
-              No analytics profile has been set up for your account. Please
-              contact support for assistance.
-            </div>
-          </div>
-        </div>
-      ) : (
-        // NORMAL RENDERING
-        <div className="flex flex-1 flex-col p-6">
-          <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
+  const isInitialLoading =
+    isUserLoading || !userRole || permissionLoading || (hasAccess && loading);
 
-          {!analyticsData ? (
-            <div className="text-red-500">No analytics data available</div>
-          ) : (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <StatCard
-                  title="Total Page Views"
-                  value={analyticsData.total_page_views}
-                />
-                <StatCard
-                  title="Total Unique Users"
-                  value={analyticsData.total_unique_users}
-                />
-                <StatCard
-                  title="Total AR Clicks"
-                  value={analyticsData.total_ar_clicks}
-                />
-                <StatCard
-                  title="Total 3D Clicks"
-                  value={analyticsData.total_3d_clicks}
-                />
+  // Show loading state for any initial loading condition
+  if (isInitialLoading || !userRole) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <CardContent key={i} className="p-6">
+              <div className="space-y-3">
+                {/* Title */}
+                <Skeleton className="h-4 w-24" />
+                {/* Value */}
               </div>
-              {/* <PerformanceTrends /> */}
-            </div>
-          )}
+            </CardContent>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Only show error states after we've loaded the user role
+  if (permissionError) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardDescription>
+              An error occurred while checking permissions: {permissionError}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardDescription>
+              You don't have permission to access the dashboard.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  // Rest of the component remains the same
+  return (
+    <div className="flex flex-1 flex-col p-6">
+      <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
+
+      {!hasAnalytics ? (
+        <div className="text-center mt-24">
+          <div className="text-2xl font-semibold mb-2">
+            Analytics Not Available
+          </div>
+          <div className="text-gray-500">
+            No analytics profile has been set up for your account. Please
+            contact support for assistance.
+          </div>
+        </div>
+      ) : !analyticsData ? (
+        <div className="text-red-500">No analytics data available</div>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              title="Total Page Views"
+              value={analyticsData.total_page_views}
+            />
+            <StatCard
+              title="Total Unique Users"
+              value={analyticsData.total_unique_users}
+            />
+            <StatCard
+              title="Total AR Clicks"
+              value={analyticsData.total_ar_clicks}
+            />
+            <StatCard
+              title="Total 3D Clicks"
+              value={analyticsData.total_3d_clicks}
+            />
+          </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

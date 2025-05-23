@@ -114,7 +114,7 @@ export default function AuthPage() {
   const currentTheme = theme === "system" ? systemTheme : theme;
   const isDark = currentTheme === "dark";
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6  p-6 md:p-10 rounded-lg overflow-auto">
+    <div className="flex h-full flex-col items-center justify-center gap-6  p-6 md:p-10 rounded-lg overflow-auto bg-muted">
       <div className="flex w-full max-w-sm flex-col gap-6">
         <div className="h-8 w-[200px] overflow-hidden rounded-md self-center">
           <Image

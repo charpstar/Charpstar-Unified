@@ -11,13 +11,14 @@ import {
   CardTitle,
   CardContent,
   CardFooter,
+  CardDescription,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { LogOut, Sun, Moon, User2, BarChart3 } from "lucide-react";
+import { LogOut, Sun, Moon, User2, BarChart3, Loader2 } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
 import { FontSettings } from "@/components/ui/font-setting";
 import { ColorThemePicker } from "@/components/ui/color-picker";
@@ -100,22 +101,60 @@ export default function SettingsPage() {
     fetchUserAndAnalytics();
   }, [router]);
 
-  // Permission error
-  if (permissionError) {
+  const isInitialLoading = permissionLoading || !user;
+
+  // Show loading state while checking permissions or loading data
+  if (isInitialLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[300px] p-4">
-        <Alert variant="destructive" className="max-w-lg mx-auto">
-          <AlertTitle>Permission Error</AlertTitle>
-          <AlertDescription>{permissionError}</AlertDescription>
-        </Alert>
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Settings</h1>
+        </div>
+        <Card className="border border-border">
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="flex items-center space-x-2">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-muted-foreground">Loading settings...</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  // No access
+  // Show error message if permission check failed
+  if (permissionError) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Settings</h1>
+        </div>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardDescription>
+              An error occurred while checking permissions: {permissionError}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show access denied if no permission
   if (!hasAccess) {
     return (
-      <div className="flex justify-center items-center min-h-[300px] p-4"></div>
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Settings</h1>
+        </div>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardDescription>
+              You don't have permission to access the settings page.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     );
   }
 
@@ -127,7 +166,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4">
+    <div className="flex items-center justify-center h-full p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle>
