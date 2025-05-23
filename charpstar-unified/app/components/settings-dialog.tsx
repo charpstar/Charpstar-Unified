@@ -69,6 +69,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 interface UserProfile {
   id: string;
@@ -561,6 +562,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           onOpenChange(false);
         }}
       >
+        <VisuallyHidden>
+          <DialogTitle>Settings</DialogTitle>
+        </VisuallyHidden>
         {user ? (
           <Tabs
             value={activeTab}

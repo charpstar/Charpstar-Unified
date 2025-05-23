@@ -47,76 +47,8 @@ const fetcher = async (url: string) => {
 
 export default function AnalyticsDashboard() {
   const user = useUser();
-
-  // user === undefined: loading
-  // user === null: not logged in
-  // user: loaded
   const isUserLoading = typeof user === "undefined";
-
-  // Show skeletons only while user is loading!
-  if (isUserLoading) {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
-          <div className="flex gap-2 items-end">
-            <Skeleton className="h-10 w-48 rounded" />
-            <Skeleton className="h-10 w-20 rounded" />
-          </div>
-        </div>
-        <div>
-          <Skeleton className="h-6 w-60 rounded" />
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <Skeleton
-              key={i}
-              className="h-30 w-full bg-background rounded-md "
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // User is loaded but not logged in (optional: redirect to login page here)
-  if (user === null) {
-    return (
-      <div className="p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <h2 className="text-2xl font-semibold mb-2">Not logged in</h2>
-              <p className="text-gray-500">Please sign in to view analytics.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // User is loaded and logged in
-  const hasAnalytics = Boolean(user.metadata?.analytics_profile_id);
-
-  if (!hasAnalytics) {
-    return (
-      <div className="p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <h2 className="text-2xl font-semibold mb-2">
-                Analytics Not Available
-              </h2>
-              <p className="text-gray-500">
-                No analytics profile has been set up for your account. Please
-                contact support for assistance.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const hasAnalytics = user?.metadata?.analytics_profile_id;
 
   // --- Date range state with pending and applied states ---
   const today = new Date();
@@ -172,6 +104,69 @@ export default function AnalyticsDashboard() {
     endTableName,
     limit: 100,
   });
+
+  // Show skeletons only while user is loading!
+  if (isUserLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
+          <div className="flex gap-2 items-end">
+            <Skeleton className="h-10 w-48 rounded" />
+            <Skeleton className="h-10 w-20 rounded" />
+          </div>
+        </div>
+        <div>
+          <Skeleton className="h-6 w-60 rounded" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 14 }).map((_, i) => (
+            <Skeleton
+              key={i}
+              className="h-30 w-full bg-background rounded-md "
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // User is loaded but not logged in
+  if (user === null) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <h2 className="text-2xl font-semibold mb-2">Not logged in</h2>
+              <p className="text-gray-500">Please sign in to view analytics.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // No analytics profile
+  if (!hasAnalytics) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <h2 className="text-2xl font-semibold mb-2">
+                Analytics Not Available
+              </h2>
+              <p className="text-gray-500">
+                No analytics profile has been set up for your account. Please
+                contact support for assistance.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // --- Main dashboard ---
   return (
