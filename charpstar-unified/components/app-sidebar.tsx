@@ -54,17 +54,6 @@ const data = {
       url: "/analytics",
       icon: IconChartBar,
     },
-
-    {
-      title: "Team",
-      url: "/users",
-      icon: IconUsers,
-    },
-    {
-      title: "Permissions",
-      url: "/admin/permissions",
-      icon: IconUsers,
-    },
   ],
   navClouds: [
     {
@@ -115,21 +104,7 @@ const data = {
     },
   ],
   navSecondary: [
-    {
-      title: "Settings",
-      url: "/settings",
-      icon: IconSettings,
-    },
-    // {
-    //   title: "Get Help",
-    //   url: "#",
-    //   icon: IconHelp,
-    // },
-    // {
-    //   title: "Search",
-    //   url: "#",
-    //   icon: IconSearch,
-    // },
+    // Remove settings from navSecondary
   ],
   //   documents: [
   //     {

@@ -7,11 +7,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 const TITLES = {
   "/": "Home",
   "/dashboard": "Dashboard",
-  "/settings": "Settings",
   "/analytics": "Analytics",
-  "/users": "Users",
-
-  // Add more as needed
 };
 
 export function SiteHeader() {

@@ -13,6 +13,7 @@ import {
   UserCog,
   Loader2,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -163,12 +164,91 @@ export default function UsersPage() {
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Users</h1>
+          <Button variant="default" disabled>
+            <UserPlus className="w-4 h-4 mr-2" />
+            Add User
+          </Button>
         </div>
-        <Card className="border border-border">
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="flex items-center space-x-2">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="text-muted-foreground">Loading users...</span>
+
+        <div className="flex gap-4 items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search by name or email..."
+              className="pl-9"
+              disabled
+            />
+          </div>
+          <Select disabled>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select role" />
+            </SelectTrigger>
+          </Select>
+        </div>
+
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl font-semibold">
+              User Management
+            </CardTitle>
+            <CardDescription>View and manage system users</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="rounded-md overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-medium">User</TableHead>
+                    <TableHead className="font-medium">Role</TableHead>
+                    <TableHead className="font-medium hidden md:table-cell">
+                      Created
+                    </TableHead>
+                    <TableHead className="w-[80px] text-right">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow
+                      key={i}
+                      className="group transition-colors hover:bg-accent/30"
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
+                          <div>
+                            <div className="h-4 w-32 bg-muted rounded animate-pulse mb-1" />
+                            <div className="flex items-center text-sm text-muted-foreground">
+                              <Mail className="mr-1 h-3 w-3" />
+                              <div className="h-3 w-40 bg-muted rounded animate-pulse" />
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="inline-flex h-6 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-muted text-muted-foreground">
+                          <div className="w-12 animate-pulse" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          disabled
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>
@@ -469,12 +549,6 @@ export default function UsersPage() {
       </div>
 
       <Card className="border border-border bg-card shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-xl font-semibold">
-            User Management
-          </CardTitle>
-          <CardDescription>View and manage system users</CardDescription>
-        </CardHeader>
         <CardContent className="p-0">
           <div className="rounded-md overflow-hidden">
             <Table>

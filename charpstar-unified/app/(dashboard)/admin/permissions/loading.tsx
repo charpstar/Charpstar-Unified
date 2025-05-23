@@ -1,104 +1,162 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  TableCell,
-  TableRow,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import {
   Table,
   TableBody,
+  TableCell,
   TableHead,
   TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+
+const PageAccessSkeleton = () => {
+  const pageResources = [
+    "/dashboard",
+    "/users",
+    "/settings",
+    "/admin/permissions",
+  ];
+  const roles = ["admin", "client", "user"];
+
+  return (
+    <Card className="rounded-xl shadow-sm border border-border">
+      <CardHeader>
+        <CardTitle>Page Access</CardTitle>
+        <CardDescription>
+          Control which roles can access each page of your app.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="rounded-md overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-left font-bold text-foreground bg-muted">
+                  Role
+                </TableHead>
+                {pageResources.map((res) => (
+                  <TableHead
+                    key={res}
+                    className="text-center font-bold text-foreground bg-muted"
+                  >
+                    {res}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {roles.map((role, i) => (
+                <TableRow
+                  key={role}
+                  className={i % 2 === 0 ? "bg-card" : "bg-muted"}
+                >
+                  <TableCell className="font-medium text-foreground pl-4">
+                    {role}
+                  </TableCell>
+                  {pageResources.map((res) => (
+                    <TableCell key={`${role}-${res}`} className="text-center">
+                      <div className="inline-flex mx-auto h-6 w-11 items-center rounded-full border bg-muted animate-pulse" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const FeatureAccessSkeleton = () => {
+  const featureResources = [
+    "export_data",
+    "invite_user",
+    "edit_user",
+    "delete_user",
+    "view_user_details",
+  ];
+  const roles = ["admin", "client", "user"];
+
+  return (
+    <Card className="rounded-xl shadow-sm border border-border">
+      <CardHeader>
+        <CardTitle>Feature Access</CardTitle>
+        <CardDescription>
+          Fine-tune access to app features by role.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="rounded-md overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-left font-bold text-foreground bg-muted">
+                  Role
+                </TableHead>
+                {featureResources.map((res) => (
+                  <TableHead
+                    key={res}
+                    className="text-center font-bold text-foreground bg-muted"
+                  >
+                    {res
+                      .split("_")
+                      .map(
+                        (word) => word.charAt(0).toUpperCase() + word.slice(1)
+                      )
+                      .join(" ")}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {roles.map((role, i) => (
+                <TableRow
+                  key={role}
+                  className={i % 2 === 0 ? "bg-card" : "bg-muted"}
+                >
+                  <TableCell className="font-medium text-foreground pl-4">
+                    {role}
+                  </TableCell>
+                  {featureResources.map((res) => (
+                    <TableCell key={`${role}-${res}`} className="text-center">
+                      <div className="inline-flex mx-auto h-6 w-11 items-center rounded-full border bg-muted animate-pulse" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 export default function PermissionsLoading() {
   return (
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
-      {/* Header Skeleton */}
+      {/* Header */}
       <div className="space-y-2">
-        <Skeleton className="h-9 w-48" />
-        <Skeleton className="h-5 w-96" />
+        <h1 className="text-3xl font-bold text-foreground">Role Permissions</h1>
+        <p className="text-muted-foreground max-w-2xl">
+          Manage access permissions for different roles. Click on a switch to
+          allow or disallow access to a page or feature for each role.
+        </p>
       </div>
 
-      {/* Page Access Card Skeleton */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <Skeleton className="h-7 w-32" />
-          </CardTitle>
-          <Skeleton className="h-5 w-64" />
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[150px]">
-                  <Skeleton className="h-5 w-20" />
-                </TableHead>
-                {[1, 2, 3, 4].map((i) => (
-                  <TableHead key={i} className="text-center">
-                    <Skeleton className="h-5 w-24 mx-auto" />
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[1, 2, 3].map((row) => (
-                <TableRow key={row}>
-                  <TableCell>
-                    <Skeleton className="h-5 w-24" />
-                  </TableCell>
-                  {[1, 2, 3, 4].map((cell) => (
-                    <TableCell key={cell} className="text-center">
-                      <Skeleton className="h-6 w-10 mx-auto" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Page Access Skeleton */}
+      <PageAccessSkeleton />
 
-      {/* Feature Access Card Skeleton */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <Skeleton className="h-7 w-36" />
-          </CardTitle>
-          <Skeleton className="h-5 w-64" />
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[150px]">
-                  <Skeleton className="h-5 w-20" />
-                </TableHead>
-                {[1, 2, 3].map((i) => (
-                  <TableHead key={i} className="text-center">
-                    <Skeleton className="h-5 w-24 mx-auto" />
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[1, 2, 3].map((row) => (
-                <TableRow key={row}>
-                  <TableCell>
-                    <Skeleton className="h-5 w-24" />
-                  </TableCell>
-                  {[1, 2, 3].map((cell) => (
-                    <TableCell key={cell} className="text-center">
-                      <Skeleton className="h-6 w-10 mx-auto" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Feature Access Skeleton */}
+      <FeatureAccessSkeleton />
     </div>
   );
 }

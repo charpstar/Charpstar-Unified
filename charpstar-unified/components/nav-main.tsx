@@ -32,11 +32,9 @@ export function NavMain({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title} isActive={pathname === item.url}>
-              <Link href={item.url} passHref legacyBehavior>
-                <SidebarMenuButton asChild isActive={pathname === item.url}>
-                  <a>{item.title}</a>
-                </SidebarMenuButton>
-              </Link>
+              <SidebarMenuButton asChild isActive={pathname === item.url}>
+                <Link href={item.url}>{item.title}</Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>

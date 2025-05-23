@@ -1,6 +1,10 @@
 "use client";
 
-import { IconDotsVertical, IconLogout } from "@tabler/icons-react";
+ssionimport {
+  IconDotsVertical,
+  IconLogout,
+  IconSettings,
+} from "@tabler/icons-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -20,9 +24,12 @@ import {
 } from "@/components/ui/sidebar";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
+import { SettingsDialog } from "@/app/components/settings-dialog";
+import { useState } from "react";
 
 export function NavUser() {
   const supaUser = useUser();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Fallback avatar (initials)
   const initials = supaUser?.metadata?.analytics_profiles?.[0]?.name
@@ -59,38 +66,16 @@ export function NavUser() {
   };
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage src={avatar} alt={name} />
-                <AvatarFallback className="rounded-lg">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{name}</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {email}
-                </span>
-              </div>
-              <IconDotsVertical className="ml-auto size-4" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg bg-background dark:bg-background"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
+    <>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              >
+                <Avatar className="h-8 w-8 rounded-lg grayscale">
                   <AvatarImage src={avatar} alt={name} />
                   <AvatarFallback className="rounded-lg">
                     {initials}
@@ -102,17 +87,54 @@ export function NavUser() {
                     {email}
                   </span>
                 </div>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+                <IconDotsVertical className="ml-auto size-4" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg bg-background dark:bg-background"
+              side={isMobile ? "bottom" : "right"}
+              align="end"
+              sideOffset={4}
+            >
+              <DropdownMenuLabel className="p-0 font-normal">
+                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={avatar} alt={name} />
+                    <AvatarFallback className="rounded-lg">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">{name}</span>
+                    <span className="text-muted-foreground truncate text-xs">
+                      {email}
+                    </span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
 
-            <DropdownMenuItem onClick={handleLogout}>
-              <IconLogout />
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+              <DropdownMenuItem
+                onClick={() => setIsSettingsOpen(true)}
+                className="cursor-pointer"
+              >
+                <IconSettings className="mr-2 h-4 w-4" />
+                Settings
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer"
+              >
+                <IconLogout className="mr-2 h-4 w-4" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
+
+      <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
+    </>
   );
 }

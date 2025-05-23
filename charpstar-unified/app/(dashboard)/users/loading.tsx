@@ -71,7 +71,7 @@ export default function UsersLoading() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {Array.from({ length: 5 }).map((_, i) => (
+                {Array.from({ length: 1 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell>
                       <div className="flex items-center gap-3">

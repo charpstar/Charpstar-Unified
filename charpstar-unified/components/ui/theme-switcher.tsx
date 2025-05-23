@@ -67,7 +67,7 @@ export function ThemeSwitcherCard() {
       <div className="text-sm text-muted-foreground mb-4">
         Select the theme for the dashboard.
       </div>
-      <div className="flex gap-6">
+      <div className="flex gap-8 pl-2">
         {themes.map((t) => (
           <button
             key={t.value}
