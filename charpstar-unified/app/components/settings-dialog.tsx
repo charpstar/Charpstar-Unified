@@ -955,7 +955,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                   <TableHeader>
                                     <TableRow>
                                       <TableHead className="text-right font-bold text-foreground bg-muted">
-                                        Role
+                                        <span className="flex items-center justify-start gap-2 pl-0.5">
+                                          Role
+                                        </span>
                                       </TableHead>
                                       {pageResources.map((res) => (
                                         <TableHead
