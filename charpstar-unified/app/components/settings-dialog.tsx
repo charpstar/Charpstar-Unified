@@ -740,7 +740,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                   <TableHead className="font-medium text-left">
                                     User
                                   </TableHead>
-                                  <TableHead className="font-medium text-left">
+                                  <TableHead className="font-medium text-right">
                                     <span className="flex items-center justify-end gap-2">
                                       Role
                                       <Shield className="h-3 w-3 opacity-0" />
@@ -757,7 +757,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                 </TableRow>
                               </TableHeader>
                             </Table>
-                            <div className="h-full overflow-y-auto">
+                            <div className="h-full max-h-[450px] overflow-y-auto">
                               <Table>
                                 <TableBody>
                                   {usersLoading ? (
