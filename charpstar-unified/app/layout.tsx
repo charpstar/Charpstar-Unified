@@ -37,20 +37,20 @@ export default function RootLayout({
       >
         <div style={{ fontSize: "var(--user-font-size, 16px)" }}>
           <SWRConfig value={{ provider: localStorageProvider }}>
-            <Providers>
-              <DateRangeProvider>
-                <SidebarProvider
-                  style={
-                    {
-                      "--sidebar-width": "calc(var(--spacing) * 72)",
-                      "--header-height": "calc(var(--spacing) * 12)",
-                    } as React.CSSProperties
-                  }
-                >
+            <SidebarProvider
+              style={
+                {
+                  "--sidebar-width": "calc(var(--spacing) * 72)",
+                  "--header-height": "calc(var(--spacing) * 12)",
+                } as React.CSSProperties
+              }
+            >
+              <Providers>
+                <DateRangeProvider>
                   <SharedLayout>{children}</SharedLayout>
-                </SidebarProvider>
-              </DateRangeProvider>
-            </Providers>
+                </DateRangeProvider>
+              </Providers>
+            </SidebarProvider>
           </SWRConfig>
         </div>
       </body>

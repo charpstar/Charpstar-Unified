@@ -19,6 +19,7 @@ interface DateRangePickerProps {
   onChange: (value: DateRange | undefined) => void;
   minDate?: Date;
   maxDate?: Date;
+  disabledDates?: Date[];
 }
 
 export function DateRangePicker({
@@ -27,6 +28,7 @@ export function DateRangePicker({
   onChange,
   minDate,
   maxDate,
+  disabledDates = [],
 }: DateRangePickerProps) {
   return (
     <div className={cn("grid gap-2", className)}>
@@ -65,6 +67,7 @@ export function DateRangePicker({
             numberOfMonths={2}
             fromDate={minDate}
             toDate={maxDate}
+            disabled={disabledDates}
           />
         </PopoverContent>
       </Popover>

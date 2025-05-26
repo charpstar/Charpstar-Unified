@@ -574,7 +574,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 gap-2">
               <TabsTrigger
                 value="account"
-                className="flex items-center justify-center gap-2"
+                className="flex items-center justify-center gap-2 cursor-pointer"
               >
                 <User2 className="w-4 h-4" />
                 Account
@@ -583,14 +583,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <>
                   <TabsTrigger
                     value="team"
-                    className="flex items-center justify-center gap-2"
+                    className="flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Users className="w-4 h-4" />
                     Team
                   </TabsTrigger>
                   <TabsTrigger
                     value="permissions"
-                    className="flex items-center justify-center gap-2"
+                    className="flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <ShieldCheck className="w-4 h-4" />
                     Permissions
@@ -652,7 +652,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       size="sm"
                       onClick={handleLogout}
                       disabled={loggingOut}
-                      className="gap-2"
+                      className="gap-2 cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
                       {loggingOut ? "Logging out..." : "Log Out"}
@@ -674,7 +674,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </div>
                       ) : (
                         <>
-                          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                          <div className="flex flex-col sm:flex-row gap-4 items-start items-center">
                             <div className="relative flex-1 w-full">
                               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                               <Input
@@ -691,12 +691,16 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                   value: (typeof roleOptions)[number]
                                 ) => setSelectedRole(value)}
                               >
-                                <SelectTrigger className="w-full sm:w-[180px] h-10">
+                                <SelectTrigger className="w-full sm:w-[180px] h-10 cursor-pointer">
                                   <SelectValue placeholder="Select role" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {roleOptions.map((role) => (
-                                    <SelectItem key={role} value={role}>
+                                    <SelectItem
+                                      key={role}
+                                      value={role}
+                                      className="cursor-pointer"
+                                    >
                                       {role === "all"
                                         ? "All Roles"
                                         : role.charAt(0).toUpperCase() +
@@ -713,7 +717,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                   <DialogTrigger asChild>
                                     <Button
                                       variant="default"
-                                      className="whitespace-nowrap h-10"
+                                      className="whitespace-nowrap h-9 cursor-pointer"
                                     >
                                       <UserPlus className="w-4 h-4 mr-2" />
                                       Add User
@@ -797,7 +801,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                     filteredUsers.map((user) => (
                                       <TableRow
                                         key={user.id}
-                                        className="group transition-colors hover:bg-accent/30"
+                                        className="group transition-colors hover:bg-accent/30 cursor-pointer"
                                         onMouseEnter={() =>
                                           setHoveredRow(user.id)
                                         }
@@ -863,7 +867,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                                 <Button
                                                   variant="ghost"
                                                   size="sm"
-                                                  className="h-8 w-8 p-0"
+                                                  className="h-8 w-8 p-0 cursor-pointer"
                                                 >
                                                   <MoreHorizontal className="h-4 w-4" />
                                                   <span className="sr-only">
@@ -1022,6 +1026,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                                     [&>span]:size-5
                                                     [&>span]:transition-all
                                                     [&>span]:duration-200
+                                                    cursor-pointer
                                                   "
                                                   />
                                                 ) : (
@@ -1124,6 +1129,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                                     [&>span]:size-5
                                                     [&>span]:transition-all
                                                     [&>span]:duration-200
+                                                    cursor-pointer
                                                   "
                                                   />
                                                 ) : (

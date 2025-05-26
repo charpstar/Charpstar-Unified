@@ -10,16 +10,30 @@ import {
 import { useMonthlyTrends } from "@/queries/useMonthlyTrends";
 import { TrendingUp } from "lucide-react";
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
   ResponsiveContainer,
 } from "recharts";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+
+const chartConfig = {
+  AR: {
+    label: "AR Clicks",
+    color: "hsl(var(--chart-1))",
+  },
+  "3D": {
+    label: "3D Clicks",
+    color: "hsl(var(--chart-2))",
+  },
+} as const;
 
 export default function PerformanceTrends() {
   const { data: trends, isLoading } = useMonthlyTrends();
@@ -41,7 +55,7 @@ export default function PerformanceTrends() {
   }
 
   const chartData = trends?.map((item) => ({
-    name: format(new Date(item.month), "MMM yy"),
+    month: format(new Date(item.month), "MMM yy"),
     AR: item.ar_clicks,
     "3D": item.threed_clicks,
   }));
@@ -58,78 +72,52 @@ export default function PerformanceTrends() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px] w-full [&_.recharts-bar-rectangle]:!fill-current [&_.recharts-cartesian-grid-horizontal]:!stroke-border/20 [&_.recharts-cartesian-grid-vertical]:!stroke-border/20 [&_.recharts-cartesian-axis-line]:!stroke-border">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              className="[&_.recharts-bar-rectangle]:opacity-70 [&_.recharts-bar-rectangle:hover]:opacity-100"
-              margin={{
-                top: 5,
-                right: 32,
-                left: 0,
-                bottom: 32,
-              }}
-            >
-              <CartesianGrid
-                strokeDasharray="10 10"
-                className="stroke-border/20"
-              />
-              <XAxis
-                dataKey="name"
-                axisLine={false}
-                tickLine={false}
-                tick={{ className: "fill-muted-foreground text-xs" }}
-                padding={{ left: 20, right: 20 }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ className: "fill-muted-foreground text-xs" }}
-                tickFormatter={(value) => `${value}`}
-              />
-              <Tooltip
-                cursor={false}
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="rounded-lg border bg-popover p-2 shadow-md">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="flex flex-col">
-                            <span className="text-[0.70rem] uppercase text-muted-foreground">
-                              AR
-                            </span>
-                            <span className="font-bold text-popover-foreground">
-                              {payload[0].value}
-                            </span>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[0.70rem] uppercase text-muted-foreground">
-                              3D
-                            </span>
-                            <span className="font-bold text-popover-foreground">
-                              {payload[1].value}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Bar
-                dataKey="AR"
-                className="fill-primary transition-colors"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar
-                dataKey="3D"
-                className="fill-muted-foreground transition-colors"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+          <BarChart
+            data={chartData}
+            margin={{
+              top: 5,
+              right: 32,
+              left: 0,
+              bottom: 32,
+            }}
+          >
+            <CartesianGrid
+              vertical={false}
+              strokeDasharray="10 10"
+              className="stroke-border/20"
+            />
+            <XAxis
+              dataKey="month"
+              tickLine={false}
+              axisLine={false}
+              tick={{ className: "fill-muted-foreground text-xs" }}
+              padding={{ left: 20, right: 20 }}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tick={{ className: "fill-muted-foreground text-xs" }}
+              tickFormatter={(value) => `${value}`}
+            />
+            <ChartTooltip
+              content={<ChartTooltipContent indicator="line" />}
+              cursor={false}
+            />
+            <Bar
+              dataKey="AR"
+              fill="var(--color-AR)"
+              radius={[4, 4, 0, 0]}
+              className="opacity-70 hover:opacity-100 transition-opacity"
+            />
+            <Bar
+              dataKey="3D"
+              fill="var(--color-3D)"
+              radius={[4, 4, 0, 0]}
+              className="opacity-70 hover:opacity-100 transition-opacity"
+            />
+          </BarChart>
+        </ChartContainer>
       </CardContent>
     </Card>
   );

@@ -75,7 +75,7 @@ export function ThemeSwitcherCard() {
             aria-pressed={theme === t.value}
             onClick={() => setTheme(t.value)}
             className={cn(
-              "relative flex flex-col items-center justify-between rounded-xl transition-all p-3 w-36 border-2 outline-none ring-0",
+              "relative flex flex-col items-center justify-between rounded-xl transition-all p-3 w-36 border-2 outline-none ring-0 cursor-pointer",
               t.className,
               theme === t.value
                 ? "border-primary ring-2 ring-primary shadow-lg"

@@ -2,15 +2,15 @@
 
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 import { UserProvider } from "@/contexts/useUser";
-import { supabase } from "@/lib/supabaseClient";
-import { getUserWithMetadata } from "@/supabase/getUser";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { SiteHeader } from "@/components/site-header";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -30,26 +30,38 @@ const persister = createSyncStoragePersister({
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const userData = await getUserWithMetadata(supabase);
-        setUser(userData);
-      } catch (error) {
-        console.error("Error fetching user:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Set loading to false after a short delay to ensure smooth transition
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 100);
 
-    fetchUser();
+    return () => clearTimeout(timer);
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen bg-background">
+        <SiteHeader />
+        <main className="flex-1 space-y-4 p-8 pt-6">
+          <div className="flex items-center justify-between space-y-2">
+            <Skeleton className="h-8 w-[200px]" />
+            <Skeleton className="h-8 w-[100px]" />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-[125px] w-full" />
+            ))}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+            <Skeleton className="col-span-4 h-[350px]" />
+            <Skeleton className="col-span-3 h-[350px]" />
+          </div>
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -57,7 +69,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       client={queryClient}
       persistOptions={{ persister }}
     >
-      <UserProvider user={user}>
+      <UserProvider>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

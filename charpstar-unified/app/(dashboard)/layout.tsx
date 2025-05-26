@@ -27,7 +27,7 @@ export default function DashboardLayout({
   }, [router]);
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div></div>;
   }
 
   return children;

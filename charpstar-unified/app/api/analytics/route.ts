@@ -14,6 +14,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const analyticsProfileId = searchParams.get("analytics_profile_id");
+    const projectId = searchParams.get("projectid");
 
     // Validate date parameters
     if (!startDate || !endDate) {
@@ -64,7 +66,7 @@ export async function GET(request: Request) {
               event_name,
               event_params,
               items
-            FROM \`fast-lattice-421210.analytics_287358793.events_*\`
+            FROM \`${projectId}.${analyticsProfileId}.events_*\`
             WHERE ${eventsBetween}
               AND user_pseudo_id IS NOT NULL
           ),
@@ -268,7 +270,7 @@ export async function GET(request: Request) {
             (SELECT avg_session_duration_ar FROM session_durations) AS session_duration_with_ar
         `,
         jobTimeoutMs: 60000,
-        maximumBytesBilled: "1000000000",
+        maximumBytesBilled: "10000000000",
       } as any);
 
       if (!rows?.[0]) {
