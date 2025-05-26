@@ -43,7 +43,7 @@ function DropdownMenuContent({
         sideOffset={sideOffset}
         className={cn(
           // Neutral popover bg for both light/dark (inherits from your theme)
-          " text-foreground border border-border rounded-md shadow-lg p-1",
+          " text-foreground border border-border rounded-md shadow-lg p-1 bg-background",
           // Animate in/out
           "z-50 min-w-[8rem] max-h-[--radix-dropdown-menu-content-available-height] overflow-x-hidden overflow-y-auto",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",

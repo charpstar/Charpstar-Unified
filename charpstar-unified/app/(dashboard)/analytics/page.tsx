@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -17,6 +17,9 @@ import { useUser } from "@/contexts/useUser";
 import { ProductMetrics } from "@/utils/BigQuery/types";
 import CVRTable from "@/components/CVRTable";
 import { SiteHeader } from "@/components/site-header";
+import { usePagePermission } from "@/lib/usePagePermission";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 interface AnalyticsData {
   total_page_views: number;
@@ -47,8 +50,38 @@ const fetcher = async (url: string) => {
 
 export default function AnalyticsDashboard() {
   const user = useUser();
+  const router = useRouter();
+  const [userRole, setUserRole] = useState<string | undefined>();
   const isUserLoading = typeof user === "undefined";
   const hasAnalytics = user?.metadata?.analytics_profile_id;
+  const { hasAccess, loading: permissionLoading } = usePagePermission(
+    userRole,
+    "/analytics"
+  );
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        setUserRole(profile.role);
+      }
+    };
+
+    fetchUserRole();
+  }, [router]);
 
   // --- Date range state with pending and applied states ---
   const today = new Date();
@@ -106,7 +139,7 @@ export default function AnalyticsDashboard() {
   });
 
   // Show skeletons only while user is loading!
-  if (isUserLoading) {
+  if (isUserLoading || permissionLoading || !userRole) {
     return (
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
@@ -140,6 +173,24 @@ export default function AnalyticsDashboard() {
             <div className="text-center py-8">
               <h2 className="text-2xl font-semibold mb-2">Not logged in</h2>
               <p className="text-gray-500">Please sign in to view analytics.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // No permission to access analytics
+  if (!hasAccess) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
+              <p className="text-gray-500">
+                You don't have permission to view analytics.
+              </p>
             </div>
           </CardContent>
         </Card>

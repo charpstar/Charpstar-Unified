@@ -198,13 +198,15 @@ export default function DashboardPage() {
   if (!hasAccess) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
-        <Card className="border-destructive">
-          <CardHeader>
-            <CardDescription>
-              You don't have permission to access the dashboard.
-            </CardDescription>
-          </CardHeader>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
+              <p className="text-gray-500">
+                You don't have permission to view analytics.
+              </p>
+            </div>
+          </CardContent>
         </Card>
       </div>
     );
