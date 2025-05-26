@@ -248,6 +248,11 @@ export default function AnalyticsDashboard() {
                   setPendingRange(newRange);
                 }
               }}
+              minDate={
+                analyticsProfile?.monitoredsince
+                  ? new Date(analyticsProfile.monitoredsince)
+                  : undefined
+              }
             />
             <Button
               variant={"outline"}

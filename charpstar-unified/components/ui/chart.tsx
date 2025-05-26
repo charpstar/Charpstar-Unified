@@ -219,7 +219,7 @@ const ChartTooltipContent = React.forwardRef<
                   <>
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       {itemConfig?.icon ? (
-                        <itemConfig.icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <itemConfig.icon />
                       ) : (
                         !hideIndicator &&
                         (indicator === "dot" ? (
