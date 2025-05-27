@@ -15,11 +15,6 @@ const montserrat = Montserrat({
   weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
   title: "Unified",
   description: "Unified",
@@ -32,9 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${montserrat.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${montserrat.variable}  antialiased`}>
         <div style={{ fontSize: "var(--user-font-size, 16px)" }}>
           <SWRConfig value={{ provider: localStorageProvider }}>
             <SidebarProvider

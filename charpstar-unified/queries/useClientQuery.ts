@@ -5,6 +5,7 @@ import { executeClientQuery } from "@/utils/BigQuery/CVR";
 import { useUser } from "@/contexts/useUser";
 import { type TDatasets } from "@/utils/BigQuery/clientQueries";
 import { supabase } from "@/lib/supabaseClient";
+import { getEventsBetween } from "@/utils/BigQuery/utils";
 
 type AnalyticsProfile = {
   name: string;
@@ -13,6 +14,52 @@ type AnalyticsProfile = {
   tablename: string;
   monitoredsince: string;
 };
+
+type RawMetric = {
+  data_type: "overall" | "product";
+  metric_name: string;
+  metrics: string;
+};
+
+type TransformedMetric = {
+  product_name: string;
+  AR_Button_Clicks: number;
+  _3D_Button_Clicks: number;
+  total_button_clicks: number;
+  total_purchases: number;
+  total_views: number;
+  purchases_with_service: number;
+  product_conv_rate: number;
+  default_conv_rate: number;
+  avg_session_duration_seconds: number;
+  avg_combined_session_duration: number;
+};
+
+function transformMetrics(rawData: RawMetric[]): TransformedMetric[] {
+  // Filter only product metrics and transform them
+  return rawData
+    .filter((item) => item.data_type === "product")
+    .map((item) => {
+      const metrics = JSON.parse(item.metrics);
+      return {
+        product_name: item.metric_name,
+        AR_Button_Clicks: parseInt(metrics.AR_Button_Clicks || "0"),
+        _3D_Button_Clicks: parseInt(metrics._3D_Button_Clicks || "0"),
+        total_button_clicks: parseInt(metrics.total_button_clicks || "0"),
+        total_purchases: parseInt(metrics.total_purchases || "0"),
+        total_views: parseInt(metrics.total_views || "0"),
+        purchases_with_service: parseInt(metrics.purchases_with_service || "0"),
+        product_conv_rate: parseFloat(metrics.product_conv_rate || "0"),
+        default_conv_rate: parseFloat(metrics.default_conv_rate || "0"),
+        avg_session_duration_seconds: parseFloat(
+          metrics.avg_session_duration_seconds || "0"
+        ),
+        avg_combined_session_duration: parseFloat(
+          metrics.avg_combined_session_duration || "0"
+        ),
+      };
+    });
+}
 
 export function useClientQuery({
   startTableName,
@@ -29,14 +76,6 @@ export function useClientQuery({
     | undefined;
   const projectId = profile?.projectid;
   const datasetId = profile?.datasetid;
-
-  useEffect(() => {
-    if (user) {
-      console.log("Analytics profile:", profile);
-      console.log("Project ID:", projectId);
-      console.log("Dataset ID:", datasetId);
-    }
-  }, [user, profile, projectId, datasetId]);
 
   const shouldEnableFetching = Boolean(
     user && projectId && datasetId && startTableName && endTableName
@@ -73,19 +112,23 @@ export function useClientQuery({
         }
       }
 
-      console.log("Executing client query with:", {
-        projectId: queryKey[1],
-        datasetId: queryKey[2],
-        startTableName: queryKey[3],
-        endTableName: queryKey[4],
-      });
+      try {
+        const result = await executeClientQuery({
+          projectId: queryKey[1],
+          datasetId: queryKey[2],
+          startTableName: queryKey[3],
+          endTableName: queryKey[4],
+        });
 
-      return executeClientQuery({
-        projectId: queryKey[1],
-        datasetId: queryKey[2],
-        startTableName: queryKey[3],
-        endTableName: queryKey[4],
-      });
+        // Transform the data
+        const transformedData = transformMetrics(
+          result as unknown as RawMetric[]
+        );
+        return transformedData;
+      } catch (error) {
+        console.error("Query execution error:", error);
+        throw error;
+      }
     },
     enabled: shouldEnableFetching,
     // Caching configuration

@@ -53,6 +53,10 @@ const fetcher = async (url: string) => {
   return res.json();
 };
 
+function capPercentage(value: number): number {
+  return Math.min(value, 100);
+}
+
 export default function AnalyticsDashboard() {
   const user = useUser();
   const router = useRouter();
@@ -145,6 +149,23 @@ export default function AnalyticsDashboard() {
     ? compToBq(format(appliedRange.to, "yyyyMMdd"))
     : "";
 
+  // Add validation for date range
+  useEffect(() => {
+    if (appliedRange.from && appliedRange.to) {
+      const fromDate = new Date(appliedRange.from);
+      const toDate = new Date(appliedRange.to);
+      const today = new Date();
+
+      if (fromDate > today || toDate > today) {
+        console.warn("Date range includes future dates:", {
+          from: format(fromDate, "yyyy-MM-dd"),
+          to: format(toDate, "yyyy-MM-dd"),
+          today: format(today, "yyyy-MM-dd"),
+        });
+      }
+    }
+  }, [appliedRange]);
+
   const { clientQueryResult, isQueryLoading } = useClientQuery({
     startTableName,
     endTableName,
@@ -164,9 +185,7 @@ export default function AnalyticsDashboard() {
           <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
           <div className="flex gap-2 items-end"></div>
         </div>
-        <div>
-          <Skeleton className="h-6 w-60 rounded" />
-        </div>
+        <div></div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 14 }).map((_, i) => (
             <Skeleton
@@ -195,14 +214,13 @@ export default function AnalyticsDashboard() {
     );
   }
 
-  // No permission to access analytics
-  if (!hasAccess) {
+  // No permission to access analytics - only show after we're sure about permissions
+  if (!hasAccess && !permissionLoading) {
     return (
       <div className="p-6">
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-8">
-              <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
               <p className="text-gray-500">
                 You don't have permission to view analytics.
               </p>
@@ -339,7 +357,7 @@ export default function AnalyticsDashboard() {
                   <div>
                     <StatCard
                       title="Percentage of users using our service"
-                      value={stats.percentage_users_with_service}
+                      value={capPercentage(stats.percentage_users_with_service)}
                       suffix="%"
                     />
                   </div>

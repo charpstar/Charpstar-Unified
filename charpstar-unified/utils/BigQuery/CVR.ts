@@ -131,20 +131,29 @@ export async function getPageViewsCount({
 export async function executeClientQuery({
   projectId,
   datasetId,
-
   startTableName,
   endTableName,
 }: {
   projectId: string;
   datasetId: TDatasets;
-
   startTableName: string;
   endTableName: string;
 }) {
-  const eventsBetween = getEventsBetween({ startTableName, endTableName });
+  // Validate datasetId
+  if (!datasetId || !queries[datasetId]) {
+    console.error("Invalid datasetId:", datasetId);
 
+    throw new Error(
+      `Invalid dataset ID: ${datasetId}. Available datasets: ${Object.keys(queries).join(", ")}`
+    );
+  }
+
+  const eventsBetween = getEventsBetween({ startTableName, endTableName });
   const query = queries[datasetId](eventsBetween);
-  if (!query) throw new Error(`Query not found for datasetId: ${datasetId}`);
+
+  if (!query) {
+    throw new Error(`Query not found for datasetId: ${datasetId}`);
+  }
 
   const bigqueryClient = getBigQueryClient({ projectId });
 
@@ -153,33 +162,27 @@ export async function executeClientQuery({
     projectId,
   };
 
-  const [job] = await bigqueryClient.createQueryJob(options);
-  const [_response] = await job.getQueryResults();
+  try {
+    const [job] = await bigqueryClient.createQueryJob(options);
+    const [_response] = await job.getQueryResults();
 
-  /*
-    total_purchases - Total purchases
-    purchases_with_service - Total purchases by users who have clicked either buttons
-    product_conv_rate - Conv Rate with AR/3D
-    default_conv_rate - Conv Rate default
-  */
+    const response = _response as {
+      product_name: string;
+      _3D_Button_Clicks: number;
+      AR_Button_Clicks: number;
+      total_button_clicks: number;
+      total_purchases: number;
+      total_views: number;
+      purchases_with_service: number;
+      product_conv_rate: number;
+      default_conv_rate: number;
+      avg_session_duration_seconds: number;
+      avg_combined_session_duration: number;
+    }[];
 
-  const response = _response as {
-    product_name: string;
-
-    _3D_Button_Clicks: number;
-    AR_Button_Clicks: number;
-    total_button_clicks: number;
-
-    total_purchases: number;
-    total_views: number;
-    purchases_with_service: number;
-
-    product_conv_rate: number;
-    default_conv_rate: number;
-
-    avg_session_duration_seconds: number;
-    avg_combined_session_duration: number;
-  }[];
-
-  return response;
+    return response;
+  } catch (error) {
+    console.error("BigQuery execution error:", error);
+    throw error;
+  }
 }

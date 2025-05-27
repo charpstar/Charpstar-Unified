@@ -13,7 +13,3 @@ export const getEventsBetween = ({
   startTableName: string;
   endTableName: string;
 }) => `_TABLE_SUFFIX BETWEEN '${startTableName}' AND '${endTableName}'`;
-
-export function compToBq(date: string) {
-  return date.replace(/-/g, "");
-}
