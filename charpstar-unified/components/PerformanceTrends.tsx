@@ -72,15 +72,20 @@ export default function PerformanceTrends() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+        <ChartContainer
+          config={chartConfig}
+          className="h-[400px] w-full max-w-[600px] mx-auto"
+        >
           <BarChart
             data={chartData}
             margin={{
               top: 5,
-              right: 32,
-              left: 0,
-              bottom: 32,
+              right: 20,
+              left: 20,
+              bottom: 20,
             }}
+            barSize={80}
+            barGap={12}
           >
             <CartesianGrid
               vertical={false}
@@ -92,7 +97,7 @@ export default function PerformanceTrends() {
               tickLine={false}
               axisLine={false}
               tick={{ className: "fill-muted-foreground text-xs" }}
-              padding={{ left: 20, right: 20 }}
+              padding={{ left: 5, right: 5 }}
             />
             <YAxis
               tickLine={false}

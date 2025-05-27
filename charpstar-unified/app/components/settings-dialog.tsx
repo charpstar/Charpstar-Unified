@@ -26,6 +26,7 @@ import {
   Shield,
   Mail,
   UserCog,
+  Calendar,
 } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -556,7 +557,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-5xl h-[55vh] flex flex-col p-4 sm:p-6"
+        className="w-full max-w-[98vw] h-[98vh] sm:max-w-5xl sm:h-[58vh] flex flex-col p-2 sm:p-6"
+        style={{ minWidth: 0 }}
         onPointerDownOutside={(e) => {
           e.preventDefault();
           onOpenChange(false);
@@ -571,7 +573,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             onValueChange={handleTabChange}
             className="w-full flex-1 flex flex-col"
           >
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 gap-2">
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 gap-2 inline-flex ">
               <TabsTrigger
                 value="account"
                 className="flex items-center justify-center gap-2 cursor-pointer"
@@ -600,35 +602,37 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </TabsList>
 
             <div className="flex-1 overflow-y-auto mt-3 sm:mt-6">
-              <TabsContent value="account" className="space-y-6 h-full">
-                <div className="space-y-6 h-full">
+              <TabsContent value="account" className="space-y-6">
+                <div className="space-y-3 sm:space-y-6  px-1  text-xs sm:text-base  overflow-hidden">
                   {/* Email and Role */}
                   <div className="flex flex-col gap-1">
-                    <Label className="text-muted-foreground">Email</Label>
-                    <div className="text-lg font-medium text-foreground">
+                    <Label className="text-muted-foreground text-xs sm:text-sm">
+                      Email
+                    </Label>
+                    <div className="text-xs sm:text-lg font-medium text-foreground break-all">
                       {user?.email}
                     </div>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <Label className="text-muted-foreground">Role</Label>
-                    <div className="text-base text-foreground capitalize">
+                    <Label className="text-muted-foreground text-xs sm:text-sm">
+                      Role
+                    </Label>
+                    <div className="text-xs sm:text-base text-foreground capitalize">
                       {user?.role || "User"}
                     </div>
                   </div>
-
                   {/* Theme toggle */}
                   <div className="flex flex-col gap-1">
                     <ThemeSwitcherCard />
                   </div>
-
                   {/* Analytics Profile */}
                   <div className="flex flex-col gap-1">
-                    <Label className="text-muted-foreground mb-1 flex items-center gap-2">
+                    <Label className="text-muted-foreground mb-1 flex items-center gap-2 text-xs sm:text-sm">
                       <BarChart3 className="w-4 h-4" /> Analytics Profile
                     </Label>
                     {user?.analytics_profile_id ? (
                       analyticsProfile ? (
-                        <div className="rounded-lg border border-muted p-3 bg-muted/40">
+                        <div className="rounded-lg border border-muted p-2 sm:p-3 bg-muted/40">
                           <div className="text-xs text-muted-foreground">
                             <span className="font-medium">Dataset ID:</span>{" "}
                             {analyticsProfile.datasetid}
@@ -640,19 +644,18 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </div>
                       ) : null
                     ) : (
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs sm:text-sm text-muted-foreground">
                         No analytics profile assigned
                       </div>
                     )}
                   </div>
-
-                  <div className="flex justify-start pt-4">
+                  <div className="flex justify-start pt-2 sm:pt-4">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={handleLogout}
                       disabled={loggingOut}
-                      className="gap-2 cursor-pointer"
+                      className="gap-2 cursor-pointer text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
                     >
                       <LogOut className="w-4 h-4" />
                       {loggingOut ? "Logging out..." : "Log Out"}
@@ -737,194 +740,189 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             </div>
                           </div>
 
-                          <div className="rounded-md border">
-                            <Table>
+                          <div className="rounded-md border max-h-[65vh] sm:max-h-[42vh] overflow-y-auto w-full overflow-x-auto">
+                            <Table className="min-w-[600px]">
                               <TableHeader className="sticky top-0 bg-background z-10">
                                 <TableRow className="bg-muted/50">
-                                  <TableHead className="font-medium text-left">
+                                  <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                     User
                                   </TableHead>
-                                  <TableHead className="font-medium text-right">
-                                    <span className="flex items-center justify-end gap-2">
+                                  <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                    <span className="flex items-center justify-start gap-2">
                                       Role
                                       <Shield className="h-3 w-3 opacity-0" />
                                     </span>
                                   </TableHead>
-                                  <TableHead className="font-medium hidden md:table-cell">
-                                    Created
+                                  <TableHead className="font-medium hidden md:table-cell px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                    <span className="flex items-center justify-start gap-2">
+                                      Created
+                                    </span>
                                   </TableHead>
                                   {hasActionPermissions && (
-                                    <TableHead className="w-[80px] text-right">
+                                    <TableHead className="w-[80px] text-right px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                       Actions
                                     </TableHead>
                                   )}
                                 </TableRow>
                               </TableHeader>
-                            </Table>
-                            <div className="h-full max-h-[450px] overflow-y-auto">
-                              <Table>
-                                <TableBody>
-                                  {usersLoading ? (
-                                    <TableRow>
-                                      <TableCell
-                                        colSpan={4}
-                                        className="text-center py-8"
-                                      >
-                                        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                                          <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
-                                          Loading users...
+                              <TableBody>
+                                {usersLoading ? (
+                                  <TableRow>
+                                    <TableCell
+                                      colSpan={4}
+                                      className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4"
+                                    >
+                                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                                        <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
+                                        Loading users...
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ) : error ? (
+                                  <TableRow>
+                                    <TableCell
+                                      colSpan={4}
+                                      className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4 text-destructive"
+                                    >
+                                      Error loading users: {error}
+                                    </TableCell>
+                                  </TableRow>
+                                ) : filteredUsers.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell
+                                      colSpan={hasActionPermissions ? 4 : 3}
+                                      className="text-center text-muted-foreground py-16 px-2 text-xs sm:text-sm sm:px-4"
+                                    >
+                                      <div className="flex flex-col items-center justify-center gap-2">
+                                        <UserCog className="h-12 w-12 text-muted-foreground/50" />
+                                        <p>No users found</p>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  filteredUsers.map((user) => (
+                                    <TableRow
+                                      key={user.id}
+                                      className="group transition-colors hover:bg-accent/30 cursor-pointer"
+                                      onMouseEnter={() =>
+                                        setHoveredRow(user.id)
+                                      }
+                                      onMouseLeave={() => setHoveredRow(null)}
+                                    >
+                                      <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                        <div className="flex items-center gap-3">
+                                          <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-border">
+                                            <AvatarImage
+                                              src={user.avatar}
+                                              alt={user.name}
+                                            />
+                                            <AvatarFallback className="bg-primary/10 text-muted-foreground">
+                                              {getInitials(user.name)}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <div>
+                                            <p className="font-medium text-sm sm:text-base">
+                                              {user.name}
+                                            </p>
+                                            <p className="text-xs sm:text-sm text-muted-foreground flex items-center">
+                                              <Mail className="mr-1 h-3 w-3" />
+                                              {user.email}
+                                            </p>
+                                          </div>
                                         </div>
                                       </TableCell>
-                                    </TableRow>
-                                  ) : error ? (
-                                    <TableRow>
-                                      <TableCell
-                                        colSpan={4}
-                                        className="text-center py-8 text-destructive"
-                                      >
-                                        Error loading users: {error}
-                                      </TableCell>
-                                    </TableRow>
-                                  ) : filteredUsers.length === 0 ? (
-                                    <TableRow>
-                                      <TableCell
-                                        colSpan={hasActionPermissions ? 4 : 3}
-                                        className="text-center text-muted-foreground py-16"
-                                      >
-                                        <div className="flex flex-col items-center justify-center gap-2">
-                                          <UserCog className="h-12 w-12 text-muted-foreground/50" />
-                                          <p>No users found</p>
+                                      <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                        <div className="flex items-center gap-2">
+                                          <Badge
+                                            variant={
+                                              getRoleBadgeVariant(user.role) as
+                                                | "default"
+                                                | "destructive"
+                                                | "secondary"
+                                                | "outline"
+                                                | null
+                                                | undefined
+                                            }
+                                            className="text-xs sm:text-sm"
+                                          >
+                                            {user.role.charAt(0).toUpperCase() +
+                                              user.role.slice(1)}
+                                          </Badge>
+                                          {user.role === "admin" ? (
+                                            <Shield className="h-3 w-3 text-primary" />
+                                          ) : (
+                                            <span className="h-3 w-3" />
+                                          )}
                                         </div>
                                       </TableCell>
-                                    </TableRow>
-                                  ) : (
-                                    filteredUsers.map((user) => (
-                                      <TableRow
-                                        key={user.id}
-                                        className="group transition-colors hover:bg-accent/30 cursor-pointer"
-                                        onMouseEnter={() =>
-                                          setHoveredRow(user.id)
-                                        }
-                                        onMouseLeave={() => setHoveredRow(null)}
-                                      >
-                                        <TableCell className="align-middle text-left">
-                                          <div className="flex items-center gap-3">
-                                            <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-border">
-                                              <AvatarImage
-                                                src={user.avatar}
-                                                alt={user.name}
-                                              />
-                                              <AvatarFallback className="bg-primary/10 text-muted-foreground">
-                                                {getInitials(user.name)}
-                                              </AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                              <p className="font-medium text-sm sm:text-base">
-                                                {user.name}
-                                              </p>
-                                              <p className="text-xs sm:text-sm text-muted-foreground flex items-center">
-                                                <Mail className="mr-1 h-3 w-3" />
-                                                {user.email}
-                                              </p>
-                                            </div>
-                                          </div>
-                                        </TableCell>
-                                        <TableCell className="align-middle text-left">
-                                          <div className="flex items-center gap-2">
-                                            <Badge
-                                              variant={
-                                                getRoleBadgeVariant(
-                                                  user.role
-                                                ) as
-                                                  | "default"
-                                                  | "destructive"
-                                                  | "secondary"
-                                                  | "outline"
-                                                  | null
-                                                  | undefined
-                                              }
-                                              className="text-xs sm:text-sm"
-                                            >
-                                              {user.role
-                                                .charAt(0)
-                                                .toUpperCase() +
-                                                user.role.slice(1)}
-                                            </Badge>
-                                            {user.role === "admin" ? (
-                                              <Shield className="h-3 w-3 text-primary" />
-                                            ) : (
-                                              <span className="h-3 w-3" />
-                                            )}
-                                          </div>
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell text-muted-foreground text-sm align-middle text-left">
-                                          {formatDate(user.created_at)}
-                                        </TableCell>
-                                        {hasActionPermissions && (
-                                          <TableCell className="text-right align-middle">
-                                            <DropdownMenu>
-                                              <DropdownMenuTrigger asChild>
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  className="h-8 w-8 p-0 cursor-pointer"
+                                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                        {formatDate(user.created_at)}
+                                      </TableCell>
+                                      {hasActionPermissions && (
+                                        <TableCell className="text-right align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 p-0 cursor-pointer"
+                                              >
+                                                <MoreHorizontal className="h-4 w-4" />
+                                                <span className="sr-only">
+                                                  Open menu
+                                                </span>
+                                              </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                              {userPermissions.edit_user && (
+                                                <DropdownMenuItem
+                                                  className="cursor-pointer"
+                                                  onClick={() => {
+                                                    setEditingUser(user);
+                                                    setIsEditUserDialogOpen(
+                                                      true
+                                                    );
+                                                  }}
                                                 >
-                                                  <MoreHorizontal className="h-4 w-4" />
-                                                  <span className="sr-only">
-                                                    Open menu
-                                                  </span>
-                                                </Button>
-                                              </DropdownMenuTrigger>
-                                              <DropdownMenuContent align="end">
-                                                {userPermissions.edit_user && (
-                                                  <DropdownMenuItem
-                                                    className="cursor-pointer"
-                                                    onClick={() => {
-                                                      setEditingUser(user);
-                                                      setIsEditUserDialogOpen(
-                                                        true
-                                                      );
-                                                    }}
-                                                  >
-                                                    <Pencil className="w-4 h-4 mr-2" />
-                                                    Edit user
-                                                  </DropdownMenuItem>
+                                                  <Pencil className="w-4 h-4 mr-2" />
+                                                  Edit user
+                                                </DropdownMenuItem>
+                                              )}
+                                              {userPermissions.edit_user &&
+                                                userPermissions.delete_user && (
+                                                  <DropdownMenuSeparator />
                                                 )}
-
-                                                {userPermissions.edit_user &&
-                                                  userPermissions.delete_user && (
-                                                    <DropdownMenuSeparator />
-                                                  )}
-
-                                                {userPermissions.delete_user && (
-                                                  <DropdownMenuItem
-                                                    className="cursor-pointer text-destructive focus:text-destructive"
-                                                    onClick={() =>
-                                                      handleDeleteUser(user.id)
-                                                    }
-                                                  >
-                                                    <Trash2 className="w-4 h-4 mr-2" />
-                                                    Delete user
-                                                  </DropdownMenuItem>
-                                                )}
-                                              </DropdownMenuContent>
-                                            </DropdownMenu>
-                                          </TableCell>
-                                        )}
-                                      </TableRow>
-                                    ))
-                                  )}
-                                </TableBody>
-                              </Table>
-                            </div>
+                                              {userPermissions.delete_user && (
+                                                <DropdownMenuItem
+                                                  className="cursor-pointer text-destructive focus:text-destructive"
+                                                  onClick={() =>
+                                                    handleDeleteUser(user.id)
+                                                  }
+                                                >
+                                                  <Trash2 className="w-4 h-4 mr-2" />
+                                                  Delete user
+                                                </DropdownMenuItem>
+                                              )}
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        </TableCell>
+                                      )}
+                                    </TableRow>
+                                  ))
+                                )}
+                              </TableBody>
+                            </Table>
                           </div>
                         </>
                       )}
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="permissions" className="space-y-6 h-full">
-                    <div className="space-y-6 h-full">
+                  <TabsContent
+                    value="permissions"
+                    className="space-y-6 max-h-[80vh] sm:max-h-[48vh] overflow-y-auto"
+                  >
+                    <div className="space-y-6 h-full overflow-y-auto">
                       {permissionError ? (
                         <div className="text-center py-8 text-destructive">
                           An error occurred while checking permissions:{" "}
