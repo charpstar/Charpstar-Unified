@@ -753,6 +753,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                 <Dialog
                                   open={isAddUserDialogOpen}
                                   onOpenChange={setIsAddUserDialogOpen}
+                                  className="w-full sm:w-auto h-10"
                                 >
                                   <DialogTrigger asChild>
                                     <Button
@@ -763,7 +764,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                       Add User
                                     </Button>
                                   </DialogTrigger>
-                                  <DialogContent className="sm:max-w-md">
+                                  <DialogContent className="sm:max-w-md max-h-[30vh] overflow-y-auto">
                                     <DialogHeader>
                                       <DialogTitle>Add New User</DialogTitle>
                                     </DialogHeader>
