@@ -58,6 +58,9 @@ function capPercentage(value: number): number {
 }
 
 export default function AnalyticsDashboard() {
+  useEffect(() => {
+    document.title = "CharpstAR Platform - Analytics";
+  }, []);
   const user = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();

@@ -5,7 +5,6 @@ import * as RechartsPrimitive from "recharts";
 
 import { cn } from "@/lib/utils";
 
-// Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
 
 export type ChartConfig = {
@@ -209,7 +208,7 @@ const ChartTooltipContent = React.forwardRef<
               <div
                 key={item.dataKey}
                 className={cn(
-                  "flex items-center justify-between gap-2 text-xs",
+                  "flex items-center justify-between gap-1 text-xs",
                   "hover:bg-muted/20 rounded px-1 py-0.5 -mx-1 transition-colors"
                 )}
               >

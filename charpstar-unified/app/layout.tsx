@@ -16,8 +16,11 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "Unified",
-  description: "Unified",
+  title: {
+    default: "CharpstAR Platform - Dashboard",
+    template: "CharpstAR Platform - %s",
+  },
+  description: "CharpstAR Platform",
 };
 
 export default function RootLayout({

@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 // import { StatCard } from "@/components/ui/stat-card";
 import { useUser } from "@/contexts/useUser";
 import { usePagePermission } from "@/lib/usePagePermission";
+import { useEffect } from "react";
 // import {
 //   Card,
 //   CardContent,
@@ -71,6 +72,9 @@ import { usePagePermission } from "@/lib/usePagePermission";
 // }
 
 export default function DashboardPage() {
+  useEffect(() => {
+    document.title = "CharpstAR Platform - Dashboard";
+  }, []);
   const user = useUser();
   // const router = useRouter();
   // const [userRole, setUserRole] = useState<string | undefined>();
