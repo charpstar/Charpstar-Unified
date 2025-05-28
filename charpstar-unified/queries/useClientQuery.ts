@@ -65,20 +65,23 @@ export function useClientQuery({
   startTableName,
   endTableName,
   limit,
+  effectiveProfile,
 }: {
   startTableName: string;
   endTableName: string;
   limit: number;
+  effectiveProfile?: any;
 }) {
   const user = useUser();
   const profile = user?.metadata?.analytics_profiles as
     | AnalyticsProfile
     | undefined;
-  const projectId = profile?.projectid;
-  const datasetId = profile?.datasetid;
+  // Prefer effectiveProfile if provided, else fallback to user
+  const projectId = effectiveProfile?.projectid || profile?.projectid;
+  const datasetId = effectiveProfile?.datasetid || profile?.datasetid;
 
   const shouldEnableFetching = Boolean(
-    user && projectId && datasetId && startTableName && endTableName
+    projectId && datasetId && startTableName && endTableName
   );
 
   const {

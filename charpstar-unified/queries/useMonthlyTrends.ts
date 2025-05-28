@@ -2,12 +2,16 @@ import { useUser } from "@/contexts/useUser";
 import { getMonthlyTrends } from "@/utils/BigQuery/getMonthlyTrends";
 import { useQuery } from "@tanstack/react-query";
 
-export function useMonthlyTrends() {
+export function useMonthlyTrends(effectiveProfile?: any) {
   const user = useUser();
 
-  // Get analytics profile details as object
-  const datasetId = user?.metadata?.analytics_profiles?.datasetid;
-  const projectId = user?.metadata?.analytics_profiles?.projectid;
+  // Prefer effectiveProfile if provided, else fallback to user
+  const datasetId =
+    effectiveProfile?.datasetid ||
+    user?.metadata?.analytics_profiles?.datasetid;
+  const projectId =
+    effectiveProfile?.projectid ||
+    user?.metadata?.analytics_profiles?.projectid;
 
   return useQuery({
     queryKey: ["monthly-trends", datasetId, projectId],

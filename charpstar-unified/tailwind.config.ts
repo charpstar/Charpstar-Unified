@@ -62,6 +62,11 @@ module.exports = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        banner: "oklch(var(--banner) / <alpha-value>)",
+        "banner-border": "oklch(var(--banner-border) / <alpha-value>)",
+        "banner-text": "oklch(var(--banner-text) / <alpha-value>)",
+        "banner-text-foreground":
+          "oklch(var(--banner-text-foreground) / <alpha-value>)",
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",

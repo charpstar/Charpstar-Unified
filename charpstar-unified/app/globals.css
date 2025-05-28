@@ -55,6 +55,10 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --color-banner: var(--banner);
+  --color-banner-border: var(--banner-border);
+  --color-banner-text: var(--banner-text);
+  --color-banner-text-foreground: var(--banner-text-foreground);
 }
 
 @tailwind base;
@@ -113,6 +117,13 @@
   --chart-3: 197 37% 24%;
   --chart-4: 43 74% 66%;
   --chart-5: 27 87% 67%;
+
+  --banner: oklch(0.99 0.045 180); /* Even softer, lighter blue */
+  --banner-border: oklch(0.56 0.055 180); /* Gentle blue border */
+  --banner-text: oklch(0.31 0.01 180); /* Deep slate/navy text, easy to read */
+  --banner-text-foreground: oklch(0.99 0 0); /* Pure white for accents */
+
+  /* White for highlighted/foreground text */
 }
 
 /* --- DARK MODE VARIABLES --- */
@@ -164,6 +175,13 @@
   --chart-3: 30 80% 55%;
   --chart-4: 280 65% 60%;
   --chart-5: 340 75% 55%;
+
+  --banner: oklch(0.22 0.045 220); /* Deep slate blue, still soft */
+  --banner-border: oklch(0.32 0.07 220); /* Lighter blue accent for border */
+  --banner-text: oklch(0.92 0.01 235); /* Near-white text for contrast */
+  --banner-text-foreground: oklch(0.72 0.02 235);
+
+  /* White for highlighted/foreground text */
 }
 
 /* --- GLOBAL FONT FAMILY --- */

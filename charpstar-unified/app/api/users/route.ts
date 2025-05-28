@@ -10,8 +10,11 @@ async function isAdmin(userId: string) {
   return user.user.user_metadata?.role === "admin";
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const role = searchParams.get("role");
+
     // Fetch users from auth
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.listUsers();
@@ -22,9 +25,11 @@ export async function GET() {
     }
 
     // Fetch profiles with roles
-    const { data: profiles, error: profilesError } = await supabaseAdmin
-      .from("profiles")
-      .select("*");
+    let profilesQuery = supabaseAdmin.from("profiles").select("*");
+    if (role) {
+      profilesQuery = profilesQuery.eq("role", role);
+    }
+    const { data: profiles, error: profilesError } = await profilesQuery;
 
     if (profilesError) {
       console.error("Profiles Error:", profilesError);
@@ -39,19 +44,22 @@ export async function GET() {
       profiles.map((profile) => [profile.id, profile])
     );
 
-    // Combine auth users with their profiles
-    const users = authData.users.map((user) => {
-      const profile = profilesMap.get(user.id);
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.user_metadata?.name || "",
-        role: profile?.role || "user",
-        created_at: user.created_at,
-      };
-    });
+    // Combine auth users with their profiles, but only include users with a matching profile
+    const users = authData.users
+      .map((user) => {
+        const profile = profilesMap.get(user.id);
+        if (!profile) return null;
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata?.name || "",
+          role: profile?.role || "user",
+          created_at: user.created_at,
+        };
+      })
+      .filter(Boolean);
 
-    return NextResponse.json(users);
+    return NextResponse.json({ users });
   } catch (err: any) {
     console.error("API /users error:", err);
     return NextResponse.json(

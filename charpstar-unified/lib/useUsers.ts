@@ -23,9 +23,8 @@ export function useUsers(enabled: boolean) {
     setError(null);
     try {
       const response = await fetch("/api/users");
-      const users: User[] = await response.json();
-
-      setUsers(users);
+      const data = await response.json();
+      setUsers(data.users || []);
     } catch (err: any) {
       console.error("Client error while fetching users:", err);
       setError(err.message || "Failed to load users");

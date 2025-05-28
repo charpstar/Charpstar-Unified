@@ -113,6 +113,13 @@ type GroupedPermissions = {
   [role: string]: Permission[];
 };
 
+interface ClientUser {
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
+}
+
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [analyticsProfile, setAnalyticsProfile] =
@@ -159,6 +166,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [search, setSearch] = useState("");
+
+  const [clients, setClients] = useState<ClientUser[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [clientsError, setClientsError] = useState<string | null>(null);
 
   const PAGE_LABELS: Record<string, string> = {
     "/dashboard": "Dashboard",
@@ -554,6 +565,25 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     }).format(date);
   };
 
+  useEffect(() => {
+    async function fetchClients() {
+      if (user?.role !== "admin") return;
+      setClientsLoading(true);
+      setClientsError(null);
+      try {
+        const res = await fetch("/api/users?role=client");
+        if (!res.ok) throw new Error("Failed to fetch clients");
+        const data = await res.json();
+        setClients(data.users || []);
+      } catch (err: any) {
+        setClientsError(err.message || "Unknown error");
+      } finally {
+        setClientsLoading(false);
+      }
+    }
+    if (open && user?.role === "admin") fetchClients();
+  }, [open, user?.role]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -576,7 +606,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 gap-2 inline-flex ">
               <TabsTrigger
                 value="account"
-                className="flex items-center justify-center gap-2 cursor-pointer"
+                className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
               >
                 <User2 className="w-4 h-4" />
                 Account
@@ -585,17 +615,24 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <>
                   <TabsTrigger
                     value="team"
-                    className="flex items-center justify-center gap-2 cursor-pointer"
+                    className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
                   >
                     <Users className="w-4 h-4" />
                     Team
                   </TabsTrigger>
                   <TabsTrigger
                     value="permissions"
-                    className="flex items-center justify-center gap-2 cursor-pointer"
+                    className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
                   >
                     <ShieldCheck className="w-4 h-4" />
                     Permissions
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="clients"
+                    className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
+                  >
+                    <Users className="w-4 h-4" />
+                    Clients
                   </TabsTrigger>
                 </>
               )}
@@ -1148,6 +1185,110 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                           </Card>
                         </>
                       )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="clients" className="space-y-6">
+                    <div className="rounded-md border max-h-[65vh] sm:max-h-[42vh] overflow-y-auto w-full overflow-x-auto">
+                      <Table className="min-w-[600px]">
+                        <TableHeader className="sticky top-0 bg-background z-10">
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                              Client
+                            </TableHead>
+                            <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                              <span className="flex items-center justify-start gap-2">
+                                Email
+                              </span>
+                            </TableHead>
+                            <TableHead className="font-medium hidden md:table-cell px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                              <span className="flex items-center justify-start gap-2">
+                                Created
+                              </span>
+                            </TableHead>
+                            <TableHead className="w-[80px] text-right px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                              Actions
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {clientsLoading ? (
+                            <TableRow>
+                              <TableCell
+                                colSpan={4}
+                                className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4"
+                              >
+                                Loading clients...
+                              </TableCell>
+                            </TableRow>
+                          ) : clientsError ? (
+                            <TableRow>
+                              <TableCell
+                                colSpan={4}
+                                className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4 text-destructive"
+                              >
+                                {clientsError}
+                              </TableCell>
+                            </TableRow>
+                          ) : clients.length === 0 ? (
+                            <TableRow>
+                              <TableCell
+                                colSpan={4}
+                                className="text-center text-muted-foreground py-16 px-2 text-xs sm:text-sm sm:px-4"
+                              >
+                                No clients found.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            clients.map((client) => (
+                              <TableRow
+                                key={client.id}
+                                className="group transition-colors hover:bg-accent/30 cursor-pointer"
+                              >
+                                <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-border">
+                                      <AvatarFallback className="bg-primary/10 text-muted-foreground">
+                                        {client.name
+                                          .split(" ")
+                                          .map((n) => n[0])
+                                          .join("")
+                                          .toUpperCase()
+                                          .substring(0, 2)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="font-medium text-sm sm:text-base">
+                                        {client.name}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3 break-all">
+                                  {client.email}
+                                </TableCell>
+                                <TableCell className="hidden md:table-cell text-muted-foreground text-sm align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                  {new Date(
+                                    client.created_at
+                                  ).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell className="text-right align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs"
+                                    onClick={() =>
+                                      (window.location.href = `/analytics?impersonate=${client.id}`)
+                                    }
+                                  >
+                                    View Dashboard as
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
                     </div>
                   </TabsContent>
                 </>

@@ -26,18 +26,19 @@ import { type ProductMetrics } from "@/utils/BigQuery/types";
 import { createColumns } from "@/components/CVRTable/columns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-interface CVRTableProps {
+export interface CVRTableProps {
   isLoading: boolean;
   data: ProductMetrics[];
   showColumns: {
-    total_purchases: boolean;
-    purchases_with_service: boolean;
-    _3d_sessions: boolean;
-    ar_sessions: boolean;
-    avg_session_duration_seconds: boolean;
+    ar_sessions?: boolean;
+    _3d_sessions?: boolean;
+    total_purchases?: boolean;
+    purchases_with_service?: boolean;
+    avg_session_duration_seconds?: boolean;
   };
   showPaginationControls?: boolean;
   showSearch?: boolean;
+  effectiveProfile: any;
 }
 
 export default function CVRTable({
@@ -46,6 +47,7 @@ export default function CVRTable({
   isLoading,
   data,
   showSearch = false,
+  effectiveProfile,
 }: CVRTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");

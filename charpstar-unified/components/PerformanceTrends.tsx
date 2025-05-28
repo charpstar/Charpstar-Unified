@@ -35,8 +35,12 @@ const chartConfig = {
   },
 } as const;
 
-export default function PerformanceTrends() {
-  const { data: trends, isLoading } = useMonthlyTrends();
+export default function PerformanceTrends({
+  effectiveProfile,
+}: {
+  effectiveProfile: any;
+}) {
+  const { data: trends, isLoading } = useMonthlyTrends(effectiveProfile);
 
   if (isLoading) {
     return (

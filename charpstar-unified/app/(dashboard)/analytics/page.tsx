@@ -18,7 +18,7 @@ import { ProductMetrics } from "@/utils/BigQuery/types";
 import CVRTable from "@/components/CVRTable";
 import { SiteHeader } from "@/components/site-header";
 import { usePagePermission } from "@/lib/usePagePermission";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -60,6 +60,12 @@ function capPercentage(value: number): number {
 export default function AnalyticsDashboard() {
   const user = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const impersonateId = searchParams.get("impersonate");
+  const [impersonatedProfile, setImpersonatedProfile] = useState<any | null>(
+    null
+  );
+  const [impersonateLoading, setImpersonateLoading] = useState(false);
   const [userRole, setUserRole] = useState<string | undefined>();
   const isUserLoading = typeof user === "undefined";
   const {
@@ -97,6 +103,45 @@ export default function AnalyticsDashboard() {
     fetchUserRole();
   }, [router]);
 
+  useEffect(() => {
+    async function fetchImpersonatedProfile() {
+      if (impersonateId && userRole === "admin") {
+        setImpersonateLoading(true);
+        // Fetch the impersonated user's profile
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", impersonateId)
+          .single();
+        if (profile && profile.analytics_profile_id) {
+          // Fetch the analytics profile using analytics_profile_id
+          const { data: analyticsProfile, error: analyticsError } =
+            await supabase
+              .from("analytics_profiles")
+              .select("datasetid, projectid, monitoredsince")
+              .eq("id", profile.analytics_profile_id)
+              .single();
+          setImpersonatedProfile({
+            ...profile,
+            datasetid: analyticsProfile?.datasetid,
+            projectid: analyticsProfile?.projectid,
+            monitoredsince: analyticsProfile?.monitoredsince,
+          });
+        } else {
+          setImpersonatedProfile(profile || null);
+        }
+        setImpersonateLoading(false);
+      } else {
+        setImpersonatedProfile(null);
+      }
+    }
+    fetchImpersonatedProfile();
+  }, [impersonateId, userRole]);
+
+  console.log("impersonateId:", impersonateId);
+  console.log("impersonatedProfile:", impersonatedProfile);
+  console.log("Current URL:", window.location.href);
+  console.log("user:", user);
   // --- Date range state with pending and applied states ---
   const today = new Date();
   const thirtyDaysAgo = addDays(today, -30);
@@ -112,15 +157,32 @@ export default function AnalyticsDashboard() {
       (appliedRange.from?.getTime() || 0) &&
     (pendingRange.to?.getTime() || 0) === (appliedRange.to?.getTime() || 0);
 
+  // Use impersonated profile if present
+  const effectiveProfile = impersonatedProfile || analyticsProfile;
+
   // Create the URL for SWR based on applied date range
   const getAnalyticsUrl = (from: Date, to: Date) => {
-    if (!analyticsProfile?.datasetid || !analyticsProfile?.projectid) {
+    if (!effectiveProfile?.datasetid || !effectiveProfile?.projectid) {
       return null;
     }
     const startDate = format(from, "yyyyMMdd");
     const endDate = format(to, "yyyyMMdd");
-    return `/api/analytics?startDate=${startDate}&endDate=${endDate}&analytics_profile_id=${analyticsProfile.datasetid}&projectid=${analyticsProfile.projectid}`;
+    return `/api/analytics?startDate=${startDate}&endDate=${endDate}&analytics_profile_id=${effectiveProfile.datasetid}&projectid=${effectiveProfile.projectid}`;
   };
+
+  // Log the effective profile and API URL for debugging
+  console.log("Effective profile:", effectiveProfile);
+  if (
+    appliedRange.from &&
+    appliedRange.to &&
+    effectiveProfile?.datasetid &&
+    effectiveProfile?.projectid
+  ) {
+    console.log(
+      "Analytics API URL:",
+      getAnalyticsUrl(appliedRange.from, appliedRange.to)
+    );
+  }
 
   // Fetch analytics data
   const {
@@ -140,7 +202,122 @@ export default function AnalyticsDashboard() {
     }
   );
 
-  const stats: AnalyticsData | undefined = analyticsData?.data;
+  // Helper function to parse metrics
+  const parseMetric = (row: any) => {
+    if (!row?.metrics) return 0;
+    try {
+      const parsed = JSON.parse(row.metrics);
+      return parsed.value ? parseFloat(parsed.value) : 0;
+    } catch (e) {
+      console.error("Error parsing metrics:", e);
+      return 0;
+    }
+  };
+
+  // Ensure analyticsData is an array
+  const analyticsArray = Array.isArray(analyticsData) ? analyticsData : [];
+
+  // Process the raw analytics data into the expected format
+  const stats: AnalyticsData | undefined =
+    analyticsArray.length > 0
+      ? {
+          total_page_views: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "charpstAR_Load"
+            )
+          ),
+          total_unique_users: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "total_unique_users"
+            )
+          ),
+          total_users_with_service: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "total_activated_users"
+            )
+          ),
+          percentage_users_with_service: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "percentage_charpstAR"
+            )
+          ),
+          conversion_rate_without_ar: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "overall_conv_rate"
+            )
+          ),
+          conversion_rate_with_ar: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "overall_conv_rate_CharpstAR"
+            )
+          ),
+          total_purchases_with_ar: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "total_purchases_after_ar"
+            )
+          ),
+          add_to_cart_default: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "cart_percentage_default"
+            )
+          ),
+          add_to_cart_with_ar: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "cart_after_ar_percentage"
+            )
+          ),
+          avg_order_value_without_ar: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "average_order_value_all_users"
+            )
+          ),
+          avg_order_value_with_ar: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "average_order_value_ar_users"
+            )
+          ),
+          total_ar_clicks: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "charpstAR_AR_Button_Click"
+            )
+          ),
+          total_3d_clicks: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "charpstAR_3D_Button_Click"
+            )
+          ),
+          session_duration_without_ar: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "session_time_default"
+            )
+          ),
+          session_duration_with_ar: parseMetric(
+            analyticsArray.find(
+              (row: any) => row.metric_name === "session_time_charpstAR"
+            )
+          ),
+        }
+      : undefined;
+
+  console.log("Processed stats:", stats);
+
+  // Debug individual metrics
+  console.log(
+    "Total views (charpstAR_Load):",
+    analyticsArray.find((row: any) => row.metric_name === "charpstAR_Load")
+      ?.metrics
+  );
+  console.log(
+    "Total unique users:",
+    analyticsArray.find((row: any) => row.metric_name === "total_unique_users")
+      ?.metrics
+  );
+  console.log(
+    "AR clicks:",
+    analyticsArray.find(
+      (row: any) => row.metric_name === "charpstAR_AR_Button_Click"
+    )?.metrics
+  );
 
   const startTableName = appliedRange.from
     ? compToBq(format(appliedRange.from, "yyyyMMdd"))
@@ -170,6 +347,7 @@ export default function AnalyticsDashboard() {
     startTableName,
     endTableName,
     limit: 100,
+    effectiveProfile,
   });
 
   // Show loading state for any initial loading condition
@@ -222,7 +400,7 @@ export default function AnalyticsDashboard() {
           <CardContent className="pt-6">
             <div className="text-center py-8">
               <p className="text-gray-500">
-                You don't have permission to view analytics.
+                § You don't have permission to view analytics.
               </p>
             </div>
           </CardContent>
@@ -256,6 +434,12 @@ export default function AnalyticsDashboard() {
   return (
     <>
       <div className="p-6 space-y-6">
+        {/* Show impersonation banner if impersonating */}
+        {impersonatedProfile && (
+          <div className="mb-4 p-3 bg-banner border-l-4 border-banner-border text-banner-text rounded-md">
+            Viewing as <b>{impersonatedProfile.email}</b>
+          </div>
+        )}
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
           <div className="flex gap-2 items-end">
@@ -267,8 +451,8 @@ export default function AnalyticsDashboard() {
                 }
               }}
               minDate={
-                analyticsProfile?.monitoredsince
-                  ? new Date(analyticsProfile.monitoredsince)
+                effectiveProfile?.monitoredsince
+                  ? new Date(effectiveProfile.monitoredsince)
                   : undefined
               }
             />
@@ -606,7 +790,7 @@ export default function AnalyticsDashboard() {
           </Card>
         )}
 
-        <PerformanceTrends />
+        <PerformanceTrends effectiveProfile={effectiveProfile} />
 
         <CVRTable
           isLoading={isQueryLoading}
@@ -619,6 +803,7 @@ export default function AnalyticsDashboard() {
             avg_session_duration_seconds: true,
           }}
           showSearch={true}
+          effectiveProfile={effectiveProfile}
         />
       </div>
     </>
