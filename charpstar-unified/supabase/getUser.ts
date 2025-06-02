@@ -19,6 +19,7 @@ export async function getUserMetadata(
     .select(
       `
     id,
+    client,
     analytics_profile_id,
     analytics_profiles:analytics_profile_id (
       projectid,
@@ -34,6 +35,7 @@ export async function getUserMetadata(
 
   return data as {
     id: string;
+    client: string | null;
     analytics_profile_id: string;
     analytics_profiles: {
       projectid: string;

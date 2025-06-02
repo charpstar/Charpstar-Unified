@@ -54,6 +54,11 @@ const data = {
       url: "/analytics",
       icon: IconChartBar,
     },
+    {
+      title: "Asset Library",
+      url: "/asset-library",
+      icon: IconFolder,
+    },
   ],
   navClouds: [
     {

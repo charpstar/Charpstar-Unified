@@ -8,6 +8,7 @@ const TITLES = {
   "/": "Home",
   "/dashboard": "Dashboard",
   "/analytics": "Analytics",
+  "/asset-library": "Asset Library",
 };
 
 export function SiteHeader() {
