@@ -22,6 +22,7 @@ import {
   Filter,
   X,
   Camera,
+  Eye,
 } from "lucide-react";
 import { useAssets } from "../../../hooks/use-assets";
 import { AssetLibrarySkeleton } from "@/components/ui/asset-library-skeleton";
@@ -57,6 +58,7 @@ import { Separator } from "@/components/ui/separator";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { AssetCardSkeleton } from "@/components/ui/asset-card-skeleton";
+import { PreviewGeneratorDialog } from "./components/preview-generator-dialog";
 
 export default function AssetLibraryPage() {
   const searchParams = useSearchParams();
@@ -73,6 +75,7 @@ export default function AssetLibraryPage() {
   const [searchValue, setSearchValue] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const user = useUser();
 
@@ -289,6 +292,13 @@ export default function AssetLibraryPage() {
                 <span className="px-3 py-1 rounded bg-primary/10 text-primary text-sm font-medium">
                   {user.metadata.client}
                 </span>
+                <Button onClick={() => setPreviewDialogOpen(true)}>
+                  <span className="text-xs">Generate Preview</span>
+                  <PreviewGeneratorDialog
+                    isOpen={previewDialogOpen}
+                    onClose={() => setPreviewDialogOpen(false)}
+                  />
+                </Button>
               </div>
             )}
           </div>
@@ -328,11 +338,11 @@ export default function AssetLibraryPage() {
                       <div>
                         <h3 className="text-sm font-medium mb-2">Category</h3>
                         <Select
-                          value={filters.category || "all"}
+                          value={filters.category || "all-categories"}
                           onValueChange={(value) =>
                             handleFilterChange(
                               "category",
-                              value === "all" ? null : value
+                              value === "all-categories" ? null : value
                             )
                           }
                         >
@@ -340,7 +350,9 @@ export default function AssetLibraryPage() {
                             <SelectValue placeholder="Select category" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">All Categories</SelectItem>
+                            <SelectItem value="all-categories">
+                              All Categories
+                            </SelectItem>
                             {filterOptions.categories.map((category) => (
                               <SelectItem key={category.id} value={category.id}>
                                 {category.name}
@@ -357,11 +369,11 @@ export default function AssetLibraryPage() {
                             Subcategory
                           </h3>
                           <Select
-                            value={filters.subcategory || "all"}
+                            value={filters.subcategory || "all-subcategories"}
                             onValueChange={(value) =>
                               handleFilterChange(
                                 "subcategory",
-                                value === "all" ? null : value
+                                value === "all-subcategories" ? null : value
                               )
                             }
                           >
@@ -369,7 +381,7 @@ export default function AssetLibraryPage() {
                               <SelectValue placeholder="Select subcategory" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="all">
+                              <SelectItem value="all-subcategories">
                                 All Subcategories
                               </SelectItem>
                               {filterOptions.categories
@@ -684,23 +696,14 @@ export default function AssetLibraryPage() {
                   <div
                     className={`w-full ${
                       viewMode === "grid"
-                        ? "rounded-t-lg h-[32rem]"
-                        : "h-full rounded-l-lg"
+                        ? "rounded-t-lg h-82"
+                        : "h-32 rounded-l-lg"
                     }`}
                   >
-                    <model-viewer
-                      src={asset.glb_link}
+                    <img
+                      src={asset.preview_image || "/placeholder.png"}
                       alt={asset.product_name}
-                      camera-orbit="-31.05deg 79.38deg"
-                      field-of-view="33.96deg"
-                      environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
-                      exposure="1.2"
-                      shadow-intensity="0"
-                      auto-rotate
-                      camera-controls
-                      interaction-prompt="none"
-                      className="w-full h-full"
-                      poster={asset.preview_image}
+                      className="w-full h-full object-contain bg-white"
                     />
                   </div>
                 ) : (
@@ -711,7 +714,9 @@ export default function AssetLibraryPage() {
                         : "h-full rounded-l-lg"
                     } bg-muted`}
                   >
-                    <p className="text-muted-foreground">No 3D Model</p>
+                    <p className="text-muted-foreground">
+                      No Preview Available
+                    </p>
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

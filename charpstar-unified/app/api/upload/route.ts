@@ -1,4 +1,5 @@
-import { createClient } from "@/utils/supabase/client";
+// src/app/api/upload/route.ts
+
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -7,48 +8,44 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File;
     const fileName = formData.get("fileName") as string;
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    if (!fileName) {
+    if (!file || !fileName) {
       return NextResponse.json(
-        { error: "No file name provided" },
+        { error: "File and fileName are required" },
         { status: 400 }
       );
     }
 
-    const supabase = createClient();
-
-    // Convert file to buffer
     const buffer = await file.arrayBuffer();
 
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from("previews")
-      .upload(fileName, buffer, {
-        contentType: file.type,
-        upsert: true,
-      });
+    // Upload to Bunny Storage
+    const response = await fetch(
+      `${process.env.BUNNY_STORAGE_URL}/preview_images/${fileName}`,
+      {
+        method: "PUT",
+        headers: {
+          AccessKey: process.env.BUNNY_STORAGE_KEY!,
+          "Content-Type": "image/png",
+          "x-bunnycdn-access-key": process.env.BUNNY_STORAGE_KEY!,
+        },
+        body: buffer,
+      }
+    );
 
-    if (error) {
-      console.error("Upload error:", error);
-      return NextResponse.json(
-        { error: "Failed to upload file", details: error.message },
-        { status: 500 }
-      );
+    if (!response.ok) {
+      throw new Error(`Bunny Storage error: ${response.statusText}`);
     }
 
-    // Get public URL
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("previews").getPublicUrl(fileName);
-
-    return NextResponse.json({ url: publicUrl });
-  } catch (error) {
+    return NextResponse.json({
+      success: true,
+      url: `${process.env.BUNNY_STORAGE_PUBLIC_URL}/preview_images/${fileName}`,
+    });
+  } catch (error: any) {
     console.error("Upload error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Failed to upload file",
+        details: error.message,
+      },
       { status: 500 }
     );
   }
