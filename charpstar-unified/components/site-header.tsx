@@ -9,11 +9,26 @@ const TITLES = {
   "/dashboard": "Dashboard",
   "/analytics": "Analytics",
   "/asset-library": "Asset Library",
+  "/asset-library/upload": "Upload Assets",
+  "/asset-library/preview-generator": "Preview Generator",
+  "/asset-library/[id]": "Asset Details",
 };
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const pageTitle = TITLES[pathname as keyof typeof TITLES] || "Unified";
+
+  let pageTitle = "Unified";
+  if (
+    pathname.startsWith("/asset-library/") &&
+    pathname.split("/").length === 3
+  ) {
+    // Extract the id from the URL
+    const id = pathname.split("/")[2];
+    pageTitle = `Asset Details `;
+  } else {
+    pageTitle = TITLES[pathname as keyof typeof TITLES] || "Unified";
+  }
+
   return (
     <header className="bg-background flex h-(--header-height) shrink-0 items-center gap-2 border-b  rounded-t-lg border-border transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
       <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">

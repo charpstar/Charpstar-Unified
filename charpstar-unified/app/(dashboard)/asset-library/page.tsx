@@ -59,6 +59,7 @@ import { useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { AssetCardSkeleton } from "@/components/ui/asset-card-skeleton";
 import { PreviewGeneratorDialog } from "./components/preview-generator-dialog";
+import { createClient } from "@/utils/supabase/client";
 
 export default function AssetLibraryPage() {
   const searchParams = useSearchParams();
@@ -73,13 +74,30 @@ export default function AssetLibraryPage() {
     setFilters,
   } = useAssets();
   const [searchValue, setSearchValue] = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "compactGrid" | "list">(
+    "grid"
+  );
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const user = useUser();
+  const [userRole, setUserRole] = useState<string | null>(null);
 
-  const ITEMS_PER_PAGE = 50;
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user) return;
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      if (data?.role) setUserRole(data.role);
+    };
+    fetchUserRole();
+  }, [user]);
+
+  const ITEMS_PER_PAGE = 52;
 
   // Filter assets based on search
   const filteredAssets = assets.filter((asset) =>
@@ -117,9 +135,9 @@ export default function AssetLibraryPage() {
     return (
       <div className="p-6">
         <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center">
+          <div className="flex  items-center">
             <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold">Asset Library</h1>
+              <h1 className="text-2xl font-bold">Library</h1>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -141,43 +159,10 @@ export default function AssetLibraryPage() {
         />
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold">Asset Library</h1>
-              {user?.metadata?.client && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    My Business:
-                  </span>
-                  <span className="px-3 py-1 rounded bg-primary/10 text-primary text-sm font-medium">
-                    {user.metadata.client}
-                  </span>
-                </div>
-              )}
+            <div className="flex items-center gap-4 mb-6">
+              <h1 className="text-2xl font-bold">Library</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Filter className="h-4 w-4" />
-                    Filters
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[400px] sm:w-[540px]">
-                  <SheetHeader>
-                    <SheetTitle>Filters</SheetTitle>
-                  </SheetHeader>
-                  <div className="py-4">
-                    <div className="h-[calc(100vh-8rem)] overflow-y-auto pr-4">
-                      <div className="space-y-6">
-                        <div className="h-8 w-full bg-muted rounded animate-pulse" />
-                        <div className="h-8 w-full bg-muted rounded animate-pulse" />
-                        <div className="h-8 w-full bg-muted rounded animate-pulse" />
-                      </div>
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-
               <Button variant="default" asChild>
                 <Link
                   href="/asset-library/upload"
@@ -191,32 +176,34 @@ export default function AssetLibraryPage() {
 
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-2">
-              <div className="relative w-94">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search assets..."
-                  value={searchValue}
-                  onChange={(e) => setSearchValue(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
               <div className="flex items-center gap-1 border rounded-md">
-                <Button
+                {/* <Button
                   variant={viewMode === "grid" ? "default" : "ghost"}
                   size="icon"
                   className="h-9 w-9"
                   onClick={() => setViewMode("grid")}
+                  aria-label="Grid View"
                 >
                   <Grid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "compactGrid" ? "default" : "ghost"}
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setViewMode("compactGrid")}
+                  aria-label="Compact Grid View"
+                >
+                  <Grid className="h-3 w-3" />
                 </Button>
                 <Button
                   variant={viewMode === "list" ? "default" : "ghost"}
                   size="icon"
                   className="h-9 w-9"
                   onClick={() => setViewMode("list")}
+                  aria-label="List View"
                 >
                   <List className="h-4 w-4" />
-                </Button>
+                </Button> */}
               </div>
             </div>
           </div>
@@ -235,7 +222,7 @@ export default function AssetLibraryPage() {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">
-          Asset Library{" "}
+          Library{" "}
           {client && (
             <span className="px-3 py-1 rounded bg-muted text-sm font-medium border border-border text-muted-foreground">
               Client: {client}
@@ -256,7 +243,7 @@ export default function AssetLibraryPage() {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">
-          Asset Library{" "}
+          Library{" "}
           {client && (
             <span className="px-3 py-1 rounded bg-muted text-sm font-medium border border-border text-muted-foreground">
               Client: {client}
@@ -282,55 +269,16 @@ export default function AssetLibraryPage() {
       />
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold">Asset Library</h1>
-            {user?.metadata?.client && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  My Business:
-                </span>
-                <span className="px-3 py-1 rounded bg-primary/10 text-primary text-sm font-medium">
-                  {user.metadata.client}
-                </span>
-                <Button onClick={() => setPreviewDialogOpen(true)}>
-                  <span className="text-xs">Generate Preview</span>
-                  <PreviewGeneratorDialog
-                    isOpen={previewDialogOpen}
-                    onClose={() => setPreviewDialogOpen(false)}
-                  />
-                </Button>
-              </div>
-            )}
+          <div className="flex items-center gap-4 mb-6">
+            <h1 className="text-2xl font-bold">Library</h1>
           </div>
           <div className="flex items-center gap-2">
             <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filters
-                  {(filters.category ||
-                    filters.subcategory ||
-                    filters.client.length > 0 ||
-                    filters.material.length > 0 ||
-                    filters.color.length > 0) && (
-                    <Badge variant="secondary" className="ml-1">
-                      {
-                        [
-                          filters.category,
-                          filters.subcategory,
-                          ...filters.client,
-                          ...filters.material,
-                          ...filters.color,
-                        ].filter(Boolean).length
-                      }
-                    </Badge>
-                  )}
-                </Button>
-              </SheetTrigger>
               <SheetContent side="right" className="w-[400px] sm:w-[540px]">
                 <SheetHeader>
                   <SheetTitle>Filters</SheetTitle>
                 </SheetHeader>
+
                 <div className="py-4">
                   <div className="h-[calc(100vh-8rem)] overflow-y-auto pr-4">
                     <div className="space-y-6">
@@ -545,20 +493,32 @@ export default function AssetLibraryPage() {
               </SheetContent>
             </Sheet>
 
-            <Button variant="default" asChild>
-              <Link
-                href="/asset-library/upload"
-                className="flex items-center gap-2"
-              >
-                Upload Assets
-              </Link>
-            </Button>
+            {/* Only show for admin */}
+            {userRole === "admin" && (
+              <>
+                <Button onClick={() => setPreviewDialogOpen(true)}>
+                  <span className="text-sm">Generate Previews</span>
+                </Button>
+                <PreviewGeneratorDialog
+                  isOpen={previewDialogOpen}
+                  onClose={() => setPreviewDialogOpen(false)}
+                />
+                <Button variant="default" asChild>
+                  <Link
+                    href="/asset-library/upload"
+                    className="flex items-center gap-2"
+                  >
+                    Upload Assets
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
         <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <div className="relative w-94">
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="relative w-96">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search assets..."
@@ -567,238 +527,273 @@ export default function AssetLibraryPage() {
                 className="pl-9"
               />
             </div>
+            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filters
+                  {(filters.category ||
+                    filters.subcategory ||
+                    filters.client.length > 0 ||
+                    filters.material.length > 0 ||
+                    filters.color.length > 0) && (
+                    <Badge variant="secondary" className="ml-1">
+                      {
+                        [
+                          filters.category,
+                          filters.subcategory,
+                          ...filters.client,
+                          ...filters.material,
+                          ...filters.color,
+                        ].filter(Boolean).length
+                      }
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
+            </Sheet>
             <div className="flex items-center gap-1 border rounded-md">
               <Button
                 variant={viewMode === "grid" ? "default" : "ghost"}
                 size="icon"
                 className="h-9 w-9"
                 onClick={() => setViewMode("grid")}
+                aria-label="Grid View"
               >
                 <Grid className="h-4 w-4" />
               </Button>
               <Button
-                variant={viewMode === "list" ? "default" : "ghost"}
+                variant={viewMode === "compactGrid" ? "default" : "ghost"}
                 size="icon"
                 className="h-9 w-9"
-                onClick={() => setViewMode("list")}
+                onClick={() => setViewMode("compactGrid")}
+                aria-label="Compact Grid View"
               >
-                <List className="h-4 w-4" />
+                <Grid className="h-3 w-3" />
               </Button>
             </div>
           </div>
 
           {/* Active Filters Display */}
-          <div className="flex flex-wrap gap-2">
-            {filters.category && (
-              <Badge variant="secondary" className="gap-1">
-                {
-                  filterOptions.categories.find(
-                    (c) => c.id === filters.category
-                  )?.name
+        </div>
+        <div className="flex flex-wrap gap-2 justify-end">
+          {filters.category && (
+            <Badge variant="secondary" className="gap-1">
+              {
+                filterOptions.categories.find((c) => c.id === filters.category)
+                  ?.name
+              }
+              <button
+                onClick={() => handleFilterChange("category", null)}
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.subcategory && (
+            <Badge variant="secondary" className="gap-1">
+              {
+                filterOptions.categories
+                  .find((c) => c.id === filters.category)
+                  ?.subcategories.find((s) => s.id === filters.subcategory)
+                  ?.name
+              }
+              <button
+                onClick={() => handleFilterChange("subcategory", null)}
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.client.map((client) => (
+            <Badge key={client} variant="secondary" className="gap-1">
+              {client}
+              <button
+                onClick={() =>
+                  handleFilterChange(
+                    "client",
+                    filters.client.filter((c) => c !== client)
+                  )
                 }
-                <button
-                  onClick={() => handleFilterChange("category", null)}
-                  className="ml-1 hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-            {filters.subcategory && (
-              <Badge variant="secondary" className="gap-1">
-                {
-                  filterOptions.categories
-                    .find((c) => c.id === filters.category)
-                    ?.subcategories.find((s) => s.id === filters.subcategory)
-                    ?.name
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          {filters.material.map((material) => (
+            <Badge key={material} variant="secondary" className="gap-1">
+              {material}
+              <button
+                onClick={() =>
+                  handleFilterChange(
+                    "material",
+                    filters.material.filter((m) => m !== material)
+                  )
                 }
-                <button
-                  onClick={() => handleFilterChange("subcategory", null)}
-                  className="ml-1 hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-            {filters.client.map((client) => (
-              <Badge key={client} variant="secondary" className="gap-1">
-                {client}
-                <button
-                  onClick={() =>
-                    handleFilterChange(
-                      "client",
-                      filters.client.filter((c) => c !== client)
-                    )
-                  }
-                  className="ml-1 hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-            {filters.material.map((material) => (
-              <Badge key={material} variant="secondary" className="gap-1">
-                {material}
-                <button
-                  onClick={() =>
-                    handleFilterChange(
-                      "material",
-                      filters.material.filter((m) => m !== material)
-                    )
-                  }
-                  className="ml-1 hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-            {filters.color.map((color) => (
-              <Badge key={color} variant="secondary" className="gap-1">
-                {color}
-                <button
-                  onClick={() =>
-                    handleFilterChange(
-                      "color",
-                      filters.color.filter((c) => c !== color)
-                    )
-                  }
-                  className="ml-1 hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          {filters.color.map((color) => (
+            <Badge key={color} variant="secondary" className="gap-1">
+              {color}
+              <button
+                onClick={() =>
+                  handleFilterChange(
+                    "color",
+                    filters.color.filter((c) => c !== color)
+                  )
+                }
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
         </div>
 
         <div
-          className={`${
+          className={
             viewMode === "grid"
-              ? `grid gap-8 grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 max-w-[2000px] mx-auto`
-              : "flex flex-col gap-4"
-          }`}
+              ? "grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 max-w-[2000px] mx-auto"
+              : "grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 max-w-[2000px] mx-auto"
+          }
         >
           {currentAssets.map((asset) => (
             <Card
               key={asset.id}
-              className={`group ${
-                viewMode === "grid"
-                  ? `flex flex-col h-full overflow-hidden border-border/50 hover:border-border transition-colors`
-                  : "flex flex-row overflow-hidden border-border/50 hover:border-border transition-colors"
-              }`}
+              className={
+                viewMode === "compactGrid"
+                  ? "flex flex-col h-full overflow-hidden border-border/50 hover:border-border transition-colors p-2 text-xs min-h-[120px] min-w-[120px]"
+                  : "flex flex-col h-full overflow-hidden border-border/50 hover:border-border transition-colors p-2 text-sm min-h-[180px] min-w-[180px]"
+              }
             >
               <CardHeader
-                className={`p-0 relative ${
-                  viewMode === "list" ? "w-48 shrink-0" : ""
-                }`}
+                className={
+                  viewMode === "compactGrid"
+                    ? "p-1 flex-shrink-0"
+                    : viewMode === "grid"
+                      ? "p-0"
+                      : "p-0 w-32 shrink-0"
+                }
               >
-                {asset.glb_link ? (
-                  <div
-                    className={`w-full ${
-                      viewMode === "grid"
-                        ? "rounded-t-lg h-82"
-                        : "h-32 rounded-l-lg"
-                    }`}
-                  >
-                    <img
-                      src={asset.preview_image || "/placeholder.png"}
-                      alt={asset.product_name}
-                      className="w-full h-full object-contain bg-white"
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className={`w-full flex items-center justify-center ${
-                      viewMode === "grid"
-                        ? "rounded-t-lg h-[32rem]"
-                        : "h-full rounded-l-lg"
-                    } bg-muted`}
-                  >
-                    <p className="text-muted-foreground">
-                      No Preview Available
-                    </p>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <img
+                  src={asset.preview_image || "/placeholder.png"}
+                  alt={asset.product_name}
+                  className={
+                    viewMode === "compactGrid"
+                      ? "w-full h-20 object-contain bg-white"
+                      : "w-full h-78 object-contain bg-white"
+                  }
+                />
               </CardHeader>
-              <CardContent className={`flex-1 flex flex-col space-y-4 p-8`}>
+              <CardContent
+                className={
+                  viewMode === "compactGrid"
+                    ? "flex-1 flex flex-col justify-center items-center p-1"
+                    : "flex-1 flex flex-col space-y-2 p-2"
+                }
+              >
                 <div>
-                  <CardTitle className={`line-clamp-1 font-semibold text-2xl`}>
+                  <CardTitle
+                    className={
+                      viewMode === "compactGrid"
+                        ? "line-clamp-1 font-semibold text-xs text-center"
+                        : "line-clamp-1 font-semibold text-base"
+                    }
+                  >
                     {asset.product_name}
                   </CardTitle>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <Badge variant="secondary" className="text-sm font-normal">
-                      {asset.category}
-                    </Badge>
-                    {asset.subcategory && (
-                      <Badge variant="outline" className="text-sm font-normal">
-                        {asset.subcategory}
-                      </Badge>
-                    )}
+                  {viewMode !== "compactGrid" && (
+                    <>
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <Badge
+                          variant="secondary"
+                          className="text-xs font-normal"
+                        >
+                          {asset.category}
+                        </Badge>
+                        {asset.subcategory && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs font-normal"
+                          >
+                            {asset.subcategory}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="h-px bg-border my-2" />
+
+                      <div className="flex flex-wrap gap-2">
+                        {asset.materials &&
+                          asset.materials.length > 0 &&
+                          asset.materials.map((material: string) => (
+                            <Badge
+                              key={material}
+                              variant="secondary"
+                              className="text-xs font-normal"
+                            >
+                              {material.replace(/[[\]"]/g, "")}
+                            </Badge>
+                          ))}
+                        {asset.colors &&
+                          asset.colors.length > 0 &&
+                          asset.colors.map((color: string) => (
+                            <Badge
+                              key={color}
+                              variant="outline"
+                              className="text-xs font-normal"
+                            >
+                              {color.replace(/[[\]"]/g, "")}
+                            </Badge>
+                          ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {viewMode !== "compactGrid" && (
+                  <div className="mt-auto pt-4 flex items-center gap-2">
+                    <Button
+                      variant="default"
+                      size="default"
+                      className="flex-1 group/btn h-9"
+                      asChild
+                    >
+                      <Link
+                        href={`/asset-library/${asset.id}`}
+                        className="flex items-center justify-center gap-2"
+                        prefetch={true}
+                      >
+                        View Product
+                        <ExternalLink className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 shrink-0 hover:bg-muted/50 transition-colors group/download"
+                      asChild
+                      disabled={!asset.glb_link}
+                    >
+                      <a
+                        href={asset.glb_link}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Download 3D Model"
+                        className="flex items-center justify-center"
+                      >
+                        <Download className="h-4 w-4 transition-transform group-hover/download:translate-y-0.5" />
+                      </a>
+                    </Button>
                   </div>
-                </div>
-
-                <div className="h-px bg-border my-2" />
-
-                <div className="flex flex-wrap gap-2">
-                  {asset.materials &&
-                    asset.materials.length > 0 &&
-                    asset.materials.map((material: string) => (
-                      <Badge
-                        key={material}
-                        variant="secondary"
-                        className="text-sm font-normal"
-                      >
-                        {material.replace(/[\[\]"]/g, "")}
-                      </Badge>
-                    ))}
-                  {asset.colors &&
-                    asset.colors.length > 0 &&
-                    asset.colors.map((color: string) => (
-                      <Badge
-                        key={color}
-                        variant="outline"
-                        className="text-sm font-normal"
-                      >
-                        {color.replace(/[\[\]"]/g, "")}
-                      </Badge>
-                    ))}
-                </div>
-                <div className="mt-auto pt-6 flex items-center gap-3">
-                  <Button
-                    variant="default"
-                    size="default"
-                    className="flex-1 group/btn h-11"
-                    asChild
-                  >
-                    <Link
-                      href={`/asset-library/${asset.id}`}
-                      className="flex items-center justify-center gap-2"
-                      prefetch={true}
-                    >
-                      View Product
-                      <ExternalLink className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-11 w-11 shrink-0 hover:bg-muted/50 transition-colors group/download"
-                    asChild
-                    disabled={!asset.glb_link}
-                  >
-                    <a
-                      href={asset.glb_link}
-                      download
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Download 3D Model"
-                      className="flex items-center justify-center"
-                    >
-                      <Download className="h-4 w-4 transition-transform group-hover/download:translate-y-0.5" />
-                    </a>
-                  </Button>
-                </div>
+                )}
               </CardContent>
             </Card>
           ))}

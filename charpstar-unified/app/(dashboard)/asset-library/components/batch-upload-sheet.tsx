@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
+import { useUser } from "@/contexts/useUser";
 import {
   Upload,
   Plus,
@@ -23,9 +24,16 @@ interface AssetRow {
   materials: string;
   preview_image?: File | null;
   id: string;
-  errors?: Partial<
-    Record<keyof Omit<AssetRow, "id" | "preview_image">, string>
-  >;
+  errors?: {
+    [K in
+      | "product_name"
+      | "product_link"
+      | "glb_link"
+      | "category"
+      | "subcategory"
+      | "client"
+      | "materials"]?: string;
+  };
 }
 
 const emptyRow = (): AssetRow => ({
@@ -41,7 +49,7 @@ const emptyRow = (): AssetRow => ({
   errors: {},
 });
 
-const requiredFields: (keyof AssetRow)[] = [
+const requiredFields: EditableField[] = [
   "product_name",
   "product_link",
   "glb_link",
@@ -50,7 +58,14 @@ const requiredFields: (keyof AssetRow)[] = [
   "client",
 ];
 
-type EditableField = keyof AssetRow;
+type EditableField =
+  | "product_name"
+  | "product_link"
+  | "glb_link"
+  | "category"
+  | "subcategory"
+  | "client"
+  | "materials";
 
 const editableFields: EditableField[] = [
   "product_name",
@@ -68,6 +83,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const [dragActive, setDragActive] = useState(false);
+  const user = useUser();
 
   // Keyboard navigation
   const cellRefs = useRef<(HTMLInputElement | null)[][]>([]);
@@ -151,14 +167,29 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     handleCSVFile(file);
   };
 
-  const handleChange = (idx: number, field: keyof AssetRow, value: any) => {
+  const handleChange = (idx: number, field: EditableField, value: string) => {
+    console.log(`Changing ${field} to:`, value);
     setRows((prev) => {
       const copy = [...prev];
       copy[idx][field] = value;
-      // Clear error for this cell
-      if (copy[idx].errors && editableFields.includes(field as EditableField)) {
-        copy[idx].errors![field as EditableField] = undefined;
+
+      // Initialize errors object if it doesn't exist
+      if (!copy[idx].errors) {
+        copy[idx].errors = {};
       }
+
+      // Clear error for this cell
+      if (editableFields.includes(field)) {
+        delete copy[idx].errors![field];
+      }
+
+      // Only validate if the field is required
+      if (requiredFields.includes(field)) {
+        if (!value || value.trim() === "") {
+          copy[idx].errors![field] = "Required";
+        }
+      }
+
       return copy;
     });
   };
@@ -178,20 +209,52 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   // Per-cell validation
   const validateRow = (row: AssetRow) => {
     const errors: AssetRow["errors"] = {};
+
     requiredFields.forEach((field) => {
-      if (!row[field]) {
+      const value = row[field];
+      if (!value || (typeof value === "string" && value.trim() === "")) {
         errors[field] = "Required";
       }
     });
+
     return errors;
   };
 
+  // Set client from user metadata when component mounts
+  React.useEffect(() => {
+    if (user?.metadata?.client) {
+      const clientValue = user.metadata.client;
+      setRows((prev) =>
+        prev.map((row) => ({
+          ...row,
+          client: clientValue,
+        }))
+      );
+    }
+  }, [user]);
+
   const handleUploadAll = async () => {
+    const clientValue = user?.metadata?.client;
+    if (!clientValue) {
+      toast({
+        title: "Error",
+        description: "No client found in user profile",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     let anyError = false;
+
+    // Add console log to debug rows before upload
+    console.log("Rows before upload:", rows);
+
     const results = await Promise.all(
       rows.map(async (row, idx) => {
         const errors = validateRow(row);
+        console.log(`Row ${idx} validation errors:`, errors);
+
         if (Object.keys(errors).length > 0) {
           setRows((prev) => {
             const copy = [...prev];
@@ -201,13 +264,14 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           anyError = true;
           return null;
         }
+
         const formData = new FormData();
-        formData.append("product_name", row.product_name);
-        formData.append("product_link", row.product_link);
-        formData.append("glb_link", row.glb_link);
-        formData.append("category", row.category);
-        formData.append("subcategory", row.subcategory);
-        formData.append("client", row.client);
+        formData.append("product_name", row.product_name.trim());
+        formData.append("product_link", row.product_link.trim());
+        formData.append("glb_link", row.glb_link.trim());
+        formData.append("category", row.category.trim());
+        formData.append("subcategory", row.subcategory.trim());
+        formData.append("client", clientValue);
         formData.append(
           "materials",
           JSON.stringify(
@@ -220,6 +284,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         if (row.preview_image) {
           formData.append("preview_image", row.preview_image);
         }
+
         try {
           const res = await fetch("/api/assets", {
             method: "POST",
@@ -235,6 +300,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           });
           return true;
         } catch (err) {
+          console.error(`Error uploading row ${idx}:`, err);
           setRows((prev) => {
             const copy = [...prev];
             copy[idx].errors = { product_name: "Upload failed" };
@@ -245,6 +311,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         }
       })
     );
+
     setLoading(false);
     if (!anyError) {
       toast({
@@ -263,41 +330,44 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   const errorCount = rows.reduce(
-    (count, row) => count + Object.keys(row.errors || {}).length,
+    (count, row) => count + (row.errors ? Object.keys(row.errors).length : 0),
     0
   );
-  const validRows = rows.filter(
-    (row) => Object.keys(row.errors || {}).length === 0
-  ).length;
+  const validRows = rows.filter((row) => {
+    const errors = validateRow(row);
+    return Object.keys(errors).length === 0;
+  }).length;
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-7">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-100 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-        <div className="flex items-center justify-between">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-100 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-2xl p-7 border border-blue-200 dark:border-blue-800 shadow-md flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1 tracking-tight">
               Batch Asset Upload
             </h2>
-            <p className="text-gray-600 dark:text-gray-300">
+            <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">
               Upload multiple assets at once or import from CSV
             </p>
           </div>
-          <div className="flex items-center space-x-4 text-sm">
-            <div className="bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border">
+          <div className="flex items-center space-x-2 text-sm">
+            <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm flex items-center gap-1">
               <span className="text-gray-500">Total Rows:</span>
-              <span className="font-semibold ml-1">{rows.length}</span>
+              <span className="font-semibold text-blue-600 dark:text-blue-200">
+                {rows.length}
+              </span>
             </div>
-            <div className="bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border">
+            <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-green-100 dark:border-green-900 shadow-sm flex items-center gap-1">
               <span className="text-gray-500">Valid:</span>
-              <span className="font-semibold ml-1 text-green-600">
+              <span className="font-semibold text-green-600 dark:text-green-400">
                 {validRows}
               </span>
             </div>
             {errorCount > 0 && (
-              <div className="bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border">
+              <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-red-100 dark:border-red-800 shadow-sm flex items-center gap-1">
                 <span className="text-gray-500">Errors:</span>
-                <span className="font-semibold ml-1 text-red-600">
+                <span className="font-semibold text-red-600 dark:text-red-400">
                   {errorCount}
                 </span>
               </div>
@@ -307,10 +377,10 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button
           onClick={handleAddRow}
-          className="bg-green-600 hover:bg-green-700 text-white shadow-md"
+          className="bg-primary hover:bg-primary/90 text-white shadow-md"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Row
@@ -318,7 +388,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         <Button
           variant="outline"
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+          className="border-2 border-dashed border-gray-300 hover:border-primary hover:bg-primary/10"
         >
           <FileSpreadsheet className="w-4 h-4 mr-2" />
           Import CSV
@@ -333,7 +403,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         <Button
           onClick={handleUploadAll}
           disabled={loading || validRows === 0}
-          className="bg-blue-600 hover:bg-blue-700 text-white shadow-md disabled:bg-gray-400"
+          className="bg-primary hover:bg-primary/90 text-white shadow-lg disabled:bg-gray-300"
         >
           {loading ? (
             <>
@@ -355,38 +425,37 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`relative bg-white dark:bg-gray-900 rounded-xl border-2 shadow-sm transition-all duration-200 ${
-          dragActive
-            ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-lg"
-            : "border-gray-200 dark:border-gray-700"
-        }`}
+        className={`relative rounded-2xl border-2 transition-all duration-200 overflow-hidden
+          ${
+            dragActive
+              ? "border-blue-400 bg-blue-50 dark:bg-blue-950/20 shadow-xl animate-pulse"
+              : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm"
+          }`}
       >
+        {/* Drag Overlay */}
         {dragActive && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-blue-50/90 dark:bg-blue-950/90 border-2 border-dashed border-blue-400 rounded-xl backdrop-blur-sm">
-            <div className="text-center">
-              <Upload className="w-12 h-12 mx-auto mb-3 text-blue-500" />
-              <span className="text-blue-700 dark:text-blue-300 text-lg font-semibold">
-                Drop CSV file here to import
-              </span>
-            </div>
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-blue-50/90 dark:bg-blue-950/80 border-2 border-dashed border-blue-400 rounded-2xl backdrop-blur-sm">
+            <Upload className="w-14 h-14 mb-3 text-blue-500 animate-bounce" />
+            <span className="text-blue-800 dark:text-blue-200 text-lg font-semibold">
+              Drop CSV file here to import
+            </span>
           </div>
         )}
 
+        {/* Uploading Overlay */}
         {loading && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-xl">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-blue-500" />
-              <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-                Uploading assets...
-              </span>
-            </div>
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/85 dark:bg-gray-900/85 backdrop-blur-sm rounded-2xl">
+            <Loader2 className="w-10 h-10 mb-3 animate-spin text-blue-500" />
+            <span className="text-base font-semibold text-gray-700 dark:text-gray-200">
+              Uploading assets...
+            </span>
           </div>
         )}
 
         {/* Table Container */}
         <div className="overflow-x-auto">
           <table className="min-w-[1200px] w-full">
-            <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <tr>
                 {[
                   {
@@ -432,7 +501,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                     className={`transition-colors ${
                       hasErrors
                         ? "bg-red-50 dark:bg-red-950/20 border-l-4 border-l-red-400"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                        : "hover:bg-blue-50 dark:hover:bg-blue-950/10"
                     }`}
                   >
                     {(
@@ -444,9 +513,9 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                         "subcategory",
                         "client",
                         "materials",
-                      ] as (keyof AssetRow)[]
+                      ] as EditableField[]
                     ).map((field, colIdx) => (
-                      <td className="px-4 py-3" key={field}>
+                      <td className="px-4 py-3 align-top" key={field}>
                         <div className="relative">
                           <Input
                             ref={(el) => {
@@ -454,17 +523,18 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                                 cellRefs.current[rowIdx] = [];
                               cellRefs.current[rowIdx][colIdx] = el;
                             }}
-                            value={row[field] as string}
+                            value={row[field]}
                             onChange={(e) =>
                               handleChange(rowIdx, field, e.target.value)
                             }
                             onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
                             required={requiredFields.includes(field)}
-                            className={`transition-all duration-200 ${
-                              row.errors && row.errors[field]
-                                ? "border-red-400 focus:border-red-500 focus:ring-red-200"
-                                : "border-gray-300 focus:border-blue-500 focus:ring-blue-200"
-                            }`}
+                            className={`transition-all duration-200 text-sm shadow-sm
+                              ${
+                                row.errors && row.errors[field]
+                                  ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                                  : "border-gray-300 focus:border-primary focus:ring-primary/20"
+                              }`}
                             placeholder={`Enter ${field.replace("_", " ")}`}
                           />
                           {row.errors && row.errors[field] && (
@@ -476,7 +546,8 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                         </div>
                       </td>
                     ))}
-                    <td className="px-4 py-3">
+                    {/* Preview Image */}
+                    <td className="px-4 py-3 align-top">
                       <div className="relative">
                         <Input
                           type="file"
@@ -497,13 +568,15 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    {/* Actions */}
+                    <td className="px-4 py-3 align-top">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleRemoveRow(rowIdx)}
                         disabled={rows.length === 1}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                        title="Remove Row"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

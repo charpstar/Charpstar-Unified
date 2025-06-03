@@ -14,7 +14,16 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Camera, X, CheckCircle, RotateCcw, Eye } from "lucide-react";
+import {
+  Loader2,
+  Camera,
+  X,
+  CheckCircle,
+  RotateCcw,
+  Eye,
+  Sparkles,
+  AlertTriangle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAssets } from "@/hooks/use-assets";
 
@@ -42,30 +51,6 @@ interface FailedAsset {
   id: string;
   error: string;
   retryCount: number;
-}
-
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      "model-viewer": React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement> & {
-          src?: string;
-          alt?: string;
-          "auto-rotate"?: boolean;
-          "camera-controls"?: boolean;
-          "shadow-intensity"?: string;
-          "camera-orbit"?: string;
-          "field-of-view"?: string;
-          "environment-image"?: string;
-          exposure?: string;
-          "tone-mapping"?: string;
-          "alpha-channel"?: string;
-          "background-color"?: string;
-        },
-        HTMLElement
-      >;
-    }
-  }
 }
 
 export function PreviewGeneratorDialog({
@@ -242,7 +227,6 @@ export function PreviewGeneratorDialog({
     retryCount = 0
   ): Promise<void> => {
     let cleanup: (() => void) | undefined;
-    const MAX_RETRIES = 2;
 
     try {
       return await new Promise((resolve, reject) => {
@@ -252,16 +236,11 @@ export function PreviewGeneratorDialog({
         }
 
         const loadTimeout = setTimeout(() => {
-          if (retryCount < MAX_RETRIES) {
-            console.log(`Retry ${retryCount + 1} for ${asset.product_name}`);
-            resolve(waitForModelLoad(modelViewer, asset, retryCount + 1));
-          } else {
-            reject(
-              new Error(
-                `Model load timeout for ${asset.product_name}. URL: ${asset.glb_link}`
-              )
-            );
-          }
+          reject(
+            new Error(
+              `Model load timeout for ${asset.product_name}. URL: ${asset.glb_link}`
+            )
+          );
         }, 30000);
 
         const handleLoad = () => {
@@ -271,16 +250,9 @@ export function PreviewGeneratorDialog({
 
         const handleError = (error: any) => {
           clearTimeout(loadTimeout);
-          if (retryCount < MAX_RETRIES) {
-            console.log(
-              `Retry ${retryCount + 1} for ${asset.product_name} after error`
-            );
-            resolve(waitForModelLoad(modelViewer, asset, retryCount + 1));
-          } else {
-            reject(
-              new Error(`Failed to load 3D model for ${asset.product_name}`)
-            );
-          }
+          reject(
+            new Error(`Failed to load 3D model for ${asset.product_name}`)
+          );
         };
 
         modelViewer.addEventListener("load", handleLoad);
@@ -372,7 +344,7 @@ export function PreviewGeneratorDialog({
 
           let uploadSuccess = false;
           let uploadAttempts = 0;
-          const maxAttempts = 3;
+          const maxAttempts = 1;
 
           while (!uploadSuccess && uploadAttempts < maxAttempts) {
             try {
@@ -572,225 +544,330 @@ export function PreviewGeneratorDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <PreviewGeneratorDialogContent className="max-w-3xl w-full h-[calc(100vh-64px)] flex flex-col">
-        <DialogHeader>
+      <PreviewGeneratorDialogContent className="max-w-4xl w-full h-[calc(85vh-32px)] flex flex-col border-0 shadow-2xl bg-background">
+        {/* Enhanced Header with Global Colors */}
+        <DialogHeader className="relative px-6 py-4 border-b border-border bg-background">
           <div className="flex items-center justify-between">
-            <DialogTitle>Generate Preview Images</DialogTitle>
-            <DialogClose asChild>
-              <Button variant="ghost" size="icon">
-                <X className="w-5 h-5" />
-              </Button>
-            </DialogClose>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                <Camera className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-semibold text-primary">
+                  Generate Preview Images
+                </DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground mt-1">
+                  Preview generation for{" "}
+                  <span className="font-semibold text-primary">
+                    {assetsNeedingPreview.length}
+                  </span>{" "}
+                  assets
+                </DialogDescription>
+              </div>
+            </div>
           </div>
-          <DialogDescription>
-            Generate preview images for <b>{assetsNeedingPreview.length}</b>{" "}
-            assets without previews.
-          </DialogDescription>
         </DialogHeader>
 
-        {/* URL Check Results */}
-        {urlCheckResults && (
-          <Alert
-            variant={urlCheckResults.missing > 0 ? "destructive" : "default"}
-          >
-            <AlertTitle>
-              {urlCheckResults.missing > 0
-                ? `${urlCheckResults.missing} missing preview images found`
-                : "All preview images are valid"}
-            </AlertTitle>
-            <AlertDescription>
-              Checked {urlCheckResults.total} assets with preview images
-              {failedUrls.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-sm font-medium">Failed URLs:</p>
-                  <ul className="text-xs mt-1 space-y-1">
-                    {failedUrls.slice(0, 3).map((failed, idx) => (
-                      <li key={idx}>{failed.name}</li>
-                    ))}
-                    {failedUrls.length > 3 && (
-                      <li className="text-muted-foreground">
-                        ...and {failedUrls.length - 3} more
-                      </li>
-                    )}
-                  </ul>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={retryFailedPreviews}
-                    disabled={processing}
-                  >
-                    Retry All Failed Previews
-                  </Button>
-                </div>
-              )}
-              {urlCheckResults && urlCheckResults.total > 0 && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="mt-2"
-                  onClick={regenerateFailedPreviews}
-                  disabled={processing}
+        <div className="flex-1 flex flex-col gap-4 p-6  overflow-hidden ">
+          {/* Enhanced URL Check Results */}
+          {urlCheckResults && (
+            <div className="animate-in fade-in-50 slide-in-from-top-2">
+              <Alert
+                className={`border-0 shadow-lg ${
+                  urlCheckResults.missing > 0
+                    ? "bg-destructive/10"
+                    : "bg-success/10"
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                    urlCheckResults.missing > 0
+                      ? "bg-destructive/20"
+                      : "bg-success/20"
+                  }`}
                 >
-                  Regenerate Failed Previews
-                </Button>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
+                  {urlCheckResults.missing > 0 ? (
+                    <AlertTriangle className="w-3 h-3 text-destructive" />
+                  ) : (
+                    <CheckCircle className="w-3 h-3 text-success" />
+                  )}
+                </div>
+                <AlertTitle
+                  className={`font-semibold ${
+                    urlCheckResults.missing > 0
+                      ? "text-destructive"
+                      : "text-success"
+                  }`}
+                >
+                  {urlCheckResults.missing > 0
+                    ? `${urlCheckResults.missing} broken preview image URL${urlCheckResults.missing > 1 ? "s" : ""} found`
+                    : "All preview images are valid"}
+                </AlertTitle>
+                <AlertDescription className="text-foreground">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-muted"></div>
+                    <span>
+                      Checked {urlCheckResults.total} assets with preview images
+                    </span>
+                  </div>
 
-        {/* URL Check Progress */}
-        {checkingUrls && (
-          <div className="mt-3">
-            <div className="w-full h-2 bg-muted rounded overflow-hidden mb-1">
-              <div
-                className="bg-primary h-full transition-all duration-200"
-                style={{ width: `${urlCheckProgress}%` }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground text-center">
-              Checking URLs... {urlCheckProgress}%
-              {currentCheckingAsset && (
-                <span className="block text-[10px]">
-                  Current: {currentCheckingAsset}
-                </span>
-              )}
-            </p>
-          </div>
-        )}
-
-        {/* Model Viewer */}
-        <div className="relative flex-1 bg-muted rounded-xl min-h-[400px] overflow-hidden">
-          {modelViewerLoaded ? (
-            <model-viewer
-              ref={modelViewerRef}
-              tone-mapping="aces"
-              shadow-intensity="0"
-              camera-orbit="-20.05deg 79.38deg 6.5m" // Add a distance value (increase to zoom out)
-              field-of-view="10deg" // Increase FOV to zoom out
-              environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
-              exposure="1.2"
-              alpha-channel="blend"
-              background-color="transparent"
-              style={{ width: "100%", height: "100%" }}
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 animate-spin" />
+                  {urlCheckResults && urlCheckResults.total > 0 && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="bg-primary hover:bg-primary/90 shadow-lg "
+                      onClick={regenerateFailedPreviews}
+                      disabled={processing}
+                      title="Regenerate previews for assets with broken preview image URLs."
+                    >
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      Regenerate Broken URL Previews
+                    </Button>
+                  )}
+                </AlertDescription>
+              </Alert>
             </div>
           )}
-        </div>
 
-        {/* Progress and Status */}
-        <div className="flex flex-col gap-3 mt-3">
-          {processing && (
-            <div>
-              <div className="w-full h-2 bg-muted rounded overflow-hidden mb-1">
-                <div
-                  className="bg-primary h-full transition-all duration-200"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                Processing... {progress}%
-                {currentAsset && (
-                  <span className="block text-[10px]">
-                    Current: {currentAsset}
-                  </span>
+          {/* Enhanced URL Check Progress */}
+          {checkingUrls && (
+            <div className="bg-muted backdrop-blur-sm rounded-xl p-4 border border-border shadow-lg animate-in fade-in-50">
+              <div className="relative">
+                <div className="w-full h-3 bg-muted rounded-full overflow-hidden shadow-inner">
+                  <div
+                    className="bg-primary h-full transition-all duration-300 ease-out rounded-full shadow-sm"
+                    style={{ width: `${urlCheckProgress}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <p className="text-xs font-medium text-foreground">
+                    Checking URLs... {urlCheckProgress}%
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                  </div>
+                </div>
+                {currentCheckingAsset && (
+                  <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate">
+                    Current: {currentCheckingAsset}
+                  </p>
                 )}
-              </p>
+              </div>
+            </div>
+          )}
+
+          {/* Enhanced Model Viewer */}
+          <div className="relative flex-1 bg-muted rounded-md  max-h-[600px] overflow-hidden shadow-xl border border-border mt-auto">
+            <div className="absolute top-4 left-4 z-10">
+              <div className="bg-background backdrop-blur-sm rounded-lg px-3 py-1.5 shadow-lg border border-border">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
+                  <span className="text-xs font-medium text-foreground">
+                    3D Preview
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {modelViewerLoaded ? (
+              <model-viewer
+                ref={modelViewerRef}
+                tone-mapping="aces"
+                shadow-intensity="0"
+                camera-orbit="-20.05deg 79.38deg 6.5m"
+                field-of-view="10deg"
+                environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
+                exposure="1.2"
+                alpha-channel="blend"
+                background-color="transparent"
+                style={{ width: "100%", height: "100%" }}
+                className="rounded-2xl"
+                poster="https://drive.charpstar.net/preview_images/0000efe2-1210-442e-8a07-a274e26ad4cf_preview.png"
+              />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4 shadow-lg">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">
+                  Loading 3D viewer...
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Enhanced Progress and Status */}
+          {!processing && (
+            <div className="flex flex-row gap-4 flex-wrap w-full">
+              {/* Section: Generate for missing/empty preview images */}
+              <div className="flex-1 min-w-[280px] bg-muted/30 rounded-xl p-4 border border-border shadow-lg animate-in fade-in-50 flex flex-col items-center text-center">
+                <div className="flex items-center gap-2 mb-2">
+                  <Camera className="w-4 h-4 text-primary" />
+                  <span className="font-semibold text-primary">
+                    Generate Previews for Assets Missing a Preview Image
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  This will generate preview images for assets that do not
+                  currently have a preview image (i.e., the preview image field
+                  is empty or missing). Assets with a preview image (working or
+                  broken) will be skipped.
+                </p>
+                <div className="gap-3">
+                  <Button
+                    onClick={processAssets}
+                    disabled={
+                      processing ||
+                      checkingUrls ||
+                      assetsNeedingPreview.length === 0 ||
+                      !modelViewerLoaded
+                    }
+                    className="border-border border-1 hover:bg-muted bg-background text-foreground"
+                    title="Generate previews for assets missing a preview image."
+                  >
+                    {processing && (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    )}
+                    {processing ? (
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 animate-pulse" />
+                        Generating...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Camera className="w-4 h-4" />
+                        Generate Missing Previews
+                      </span>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Only assets with a GLB link and no preview image will be
+                  processed.
+                </p>
+              </div>
+
+              {/* Section: Check Broken Preview URLs */}
+              <div className="flex-1 min-w-[280px] bg-muted/30 rounded-xl p-4 border border-border shadow-lg animate-in fade-in-50 flex flex-col items-center text-center">
+                <div className="flex items-center gap-2 mb-2">
+                  <Eye className="w-4 h-4 text-primary" />
+                  <span className="font-semibold text-primary">
+                    Check Broken Preview URLs
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3 text-wrap items-center">
+                  This will check all preview image URLs for broken links (404
+                  or unreachable). Assets with broken preview image URLs will be
+                  listed for regeneration.
+                </p>
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={checkPreviewUrls}
+                    disabled={processing || checkingUrls}
+                    className="border-border hover:bg-muted"
+                    title="Check all preview image URLs for broken links (404 or unreachable)."
+                  >
+                    {checkingUrls ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Eye className="w-4 h-4 mr-2" />
+                    )}
+                    {checkingUrls ? "Checking..." : "Check Broken Preview URLs"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 text-wrap">
+                  Only assets with a preview image will be checked.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {processing && (
+            <div className="bg-muted backdrop-blur-sm rounded-xl p-4 border border-border shadow-lg animate-in fade-in-50">
+              <div className="relative">
+                <div className="w-full h-3 bg-muted rounded-full overflow-hidden shadow-inner">
+                  <div
+                    className="bg-success h-full transition-all duration-300 ease-out rounded-full shadow-sm"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <p className="text-xs font-medium text-foreground">
+                    Processing... {progress}%
+                  </p>
+                </div>
+                {currentAsset && (
+                  <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate">
+                    Current: {currentAsset}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
           {error && (
-            <Alert variant="destructive">
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
+            <Alert className="border-0 shadow-lg bg-destructive/10 animate-in fade-in-50 slide-in-from-bottom-2">
+              <div className="w-5 h-5 rounded-full bg-destructive/20 flex items-center justify-center">
+                <AlertTriangle className="w-3 h-3 text-destructive" />
+              </div>
+              <AlertTitle className="text-destructive font-semibold">
+                Error
+              </AlertTitle>
+              <AlertDescription className="text-destructive">
+                {error}
+              </AlertDescription>
             </Alert>
           )}
 
-          {failedAssets.length > 0 && (
-            <div>
-              <p className="text-sm text-destructive font-medium">
-                Failed assets:
-              </p>
-              <div className="max-h-60 overflow-y-auto mt-1 space-y-1">
-                {failedAssets.map((asset, idx) => (
-                  <p key={idx} className="text-xs text-muted-foreground">
-                    {asset.id}: {asset.error}
-                  </p>
-                ))}
-              </div>
-            </div>
-          )}
-
           {progress === 100 && !error && failedAssets.length === 0 && (
-            <Alert variant="default">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <AlertTitle>Preview generation complete!</AlertTitle>
+            <Alert className="border-0 shadow-lg bg-success/10 animate-in fade-in-50 slide-in-from-bottom-2">
+              <div className="w-5 h-5 rounded-full bg-success/20 flex items-center justify-center">
+                <CheckCircle className="w-3 h-3 text-success" />
+              </div>
+              <AlertTitle className="text-success font-semibold flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Preview generation complete!
+              </AlertTitle>
             </Alert>
           )}
         </div>
 
-        <DialogFooter className="pt-4 gap-2 flex-col sm:flex-row sm:justify-between">
-          <div className="flex items-center gap-2 flex-1">
-            <Button
-              variant="outline"
-              type="button"
-              size="sm"
-              onClick={() => setRetakeAll(!retakeAll)}
-              disabled={processing || checkingUrls}
-            >
-              {retakeAll ? (
-                <RotateCcw className="w-4 h-4 mr-2" />
-              ) : (
-                <Camera className="w-4 h-4 mr-2" />
-              )}
-              {retakeAll ? "Process Missing Only" : "Retake All Previews"}
-            </Button>
-            <Button
-              variant="outline"
-              type="button"
-              size="sm"
-              onClick={checkPreviewUrls}
-              disabled={processing || checkingUrls}
-            >
-              {checkingUrls ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Eye className="w-4 h-4 mr-2" />
-              )}
-              {checkingUrls ? "Checking..." : "Check Preview URLs"}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {retakeAll
-                ? `Will process all ${assets.filter((a) => a.glb_link).length} assets`
-                : `Will process ${assets.filter((a) => !a.preview_image && a.glb_link).length} assets`}
-            </span>
-          </div>
+        {/* Enhanced Footer */}
+        <DialogFooter className="px-6 py-4 bg-background border-t border-border">
+          <div className="flex flex-col sm:flex-row w-full gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRetakeAll(!retakeAll)}
+                disabled={processing || checkingUrls}
+                className="border-border hover:bg-muted"
+                title={
+                  retakeAll
+                    ? "Switch to only generating previews for assets missing a preview image."
+                    : "Switch to regenerating previews for all assets with a GLB link."
+                }
+              >
+                {retakeAll ? (
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                ) : (
+                  <Camera className="w-4 h-4 mr-2" />
+                )}
+                {retakeAll ? "Process Missing Only" : "Retake All Previews"}
+              </Button>
+            </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleClose}
-              disabled={processing || checkingUrls}
-              type="button"
-            >
-              {processing ? "Cancel" : "Close"}
-            </Button>
-            <Button
-              variant="default"
-              onClick={processAssets}
-              disabled={
-                processing ||
-                checkingUrls ||
-                assetsNeedingPreview.length === 0 ||
-                !modelViewerLoaded
-              }
-            >
-              {processing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {processing ? "Generating..." : "Generate Previews"}
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handleClose}
+                disabled={processing || checkingUrls}
+                className="border-border hover:bg-muted"
+              >
+                {processing ? "Cancel" : "Close"}
+              </Button>
+            </div>
           </div>
         </DialogFooter>
       </PreviewGeneratorDialogContent>

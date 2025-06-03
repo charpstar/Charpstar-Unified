@@ -87,6 +87,7 @@ function DialogContent({
     </DialogPortal>
   );
 }
+
 function EditProductDialogContent({
   className,
   children,

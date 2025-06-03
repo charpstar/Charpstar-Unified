@@ -20,6 +20,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import Script from "next/script";
+import { createClient } from "@/utils/supabase/client";
+import { useUser } from "@/contexts/useUser";
 
 declare global {
   namespace JSX {
@@ -60,6 +62,8 @@ interface Asset {
   preview_image?: string;
   product_link?: string;
   glb_link?: string;
+  created_at?: string;
+  article_id?: string;
 }
 
 export default function AssetDetailPage() {
@@ -72,6 +76,22 @@ export default function AssetDetailPage() {
   const [newMaterial, setNewMaterial] = useState("");
   const [newColor, setNewColor] = useState("");
   const [newTag, setNewTag] = useState("");
+  const user = useUser();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user) return;
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      if (data?.role) setUserRole(data.role);
+    };
+    fetchUserRole();
+  }, [user]);
 
   useEffect(() => {
     const fetchAsset = async () => {
@@ -259,7 +279,7 @@ export default function AssetDetailPage() {
         type="module"
         src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
       />
-      <div className="p-6 h-[calc(100vh-4rem)]">
+      <div className="p-6 h-[calc(100vh-10rem)]">
         <div className="h-full">
           <div className="flex justify-between items-center mb-6">
             <Link href="/asset-library">
@@ -268,52 +288,52 @@ export default function AssetDetailPage() {
                 Back to Asset Library
               </Button>
             </Link>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (isEditing) {
-                  setEditedAsset(asset);
-                }
-                setIsEditing(!isEditing);
-              }}
-            >
-              {isEditing ? (
-                <>
-                  <X className="mr-2 h-4 w-4" />
-                  Cancel Edit
-                </>
-              ) : (
-                <>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit Product
-                </>
-              )}
-            </Button>
+            {userRole === "admin" && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (isEditing) {
+                    setEditedAsset(asset);
+                  }
+                  setIsEditing(!isEditing);
+                }}
+              >
+                {isEditing ? (
+                  <>
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel Edit
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit Product
+                  </>
+                )}
+              </Button>
+            )}
           </div>
 
-          <div className="grid gap-8 md:grid-cols-2 h-[calc(100%-4rem)]">
-            <div className="space-y-4 h-full">
+          <div className="grid gap-8 grid-cols-1 h-[calc(100%)]">
+            <div className="w-full h-[500px] rounded-lg bg-muted">
               {asset.glb_link ? (
-                <div className="w-full h-full rounded-lg overflow-hidden bg-muted">
-                  <model-viewer
-                    src={asset.glb_link}
-                    alt={asset.product_name}
-                    auto-rotate
-                    camera-controls
-                    shadow-intensity="1"
-                    camera-orbit="0deg 75deg 105%"
-                    min-camera-orbit="auto auto 50%"
-                    max-camera-orbit="auto auto 150%"
-                    interaction-prompt="auto"
-                    environment-image="neutral"
-                    exposure="1"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      backgroundColor: "transparent",
-                    }}
-                  />
-                </div>
+                <model-viewer
+                  src={asset.glb_link}
+                  alt={asset.product_name}
+                  auto-rotate
+                  camera-controls
+                  shadow-intensity="1"
+                  camera-orbit="0deg 75deg 105%"
+                  min-camera-orbit="auto auto 50%"
+                  max-camera-orbit="auto auto 150%"
+                  interaction-prompt="auto"
+                  environment-image="neutral"
+                  exposure="1"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: "transparent",
+                  }}
+                />
               ) : asset.preview_image ? (
                 <img
                   src={asset.preview_image}
@@ -327,23 +347,20 @@ export default function AssetDetailPage() {
               )}
             </div>
 
-            <div className="flex flex-col gap-10 space-y-6 h-full overflow-y-auto pr-4">
+            <div className="flex flex-col gap-6 space-y-6 h-full overflow-y-auto pr-4">
               {isEditing ? (
-                <div className="space-y-6">
+                <div className="space-y-6 h-full overflow-y-auto p-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="id">Article ID</Label>
-                      <Input
-                        id="id"
-                        value={editedAsset?.id}
-                        disabled
-                        className="bg-muted"
-                      />
+                      <Label htmlFor="article_id">Article ID</Label>
+                      <Input id="article_id" value={editedAsset?.article_id} />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="client">Client</Label>
                       <Input
                         id="client"
+                        className="bg-muted"
+                        disabled
                         value={editedAsset?.client || ""}
                         onChange={(e) =>
                           setEditedAsset(
@@ -431,91 +448,93 @@ export default function AssetDetailPage() {
                     </div>
                   </div>
 
-                  {/* Materials */}
-                  <div className="grid gap-2">
-                    <Label>Materials</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={newMaterial}
-                        onChange={(e) => setNewMaterial(e.target.value)}
-                        placeholder="Add new material"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addMaterial();
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={addMaterial}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {Array.isArray(editedAsset?.materials) &&
-                        editedAsset.materials.map((material, index) => (
-                          <Badge
-                            key={index}
-                            variant="secondary"
-                            className="flex items-center gap-1"
-                          >
-                            {material}
-                            <button
-                              onClick={() => removeMaterial(index)}
-                              className="ml-1 hover:text-destructive"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Materials */}
+                    <div className="grid gap-2">
+                      <Label>Materials</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={newMaterial}
+                          onChange={(e) => setNewMaterial(e.target.value)}
+                          placeholder="Add new material"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addMaterial();
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={addMaterial}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {Array.isArray(editedAsset?.materials) &&
+                          editedAsset.materials.map((material, index) => (
+                            <Badge
+                              key={index}
+                              variant="secondary"
+                              className="flex items-center gap-1"
                             >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        ))}
+                              {material}
+                              <button
+                                onClick={() => removeMaterial(index)}
+                                className="ml-1 hover:text-destructive"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Colors */}
-                  <div className="grid gap-2">
-                    <Label>Colors</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={newColor}
-                        onChange={(e) => setNewColor(e.target.value)}
-                        placeholder="Add new color"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addColor();
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={addColor}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {Array.isArray(editedAsset?.colors) &&
-                        editedAsset.colors.map((color, index) => (
-                          <Badge
-                            key={index}
-                            variant="outline"
-                            className="flex items-center gap-1"
-                          >
-                            {color}
-                            <button
-                              onClick={() => removeColor(index)}
-                              className="ml-1 hover:text-destructive"
+                    {/* Colors */}
+                    <div className="grid gap-2">
+                      <Label>Colors</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={newColor}
+                          onChange={(e) => setNewColor(e.target.value)}
+                          placeholder="Add new color"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addColor();
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={addColor}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {Array.isArray(editedAsset?.colors) &&
+                          editedAsset.colors.map((color, index) => (
+                            <Badge
+                              key={index}
+                              variant="outline"
+                              className="flex items-center gap-1"
                             >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        ))}
+                              {color}
+                              <button
+                                onClick={() => removeColor(index)}
+                                className="ml-1 hover:text-destructive"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                      </div>
                     </div>
                   </div>
 
@@ -577,11 +596,44 @@ export default function AssetDetailPage() {
                   </div>
                 </div>
               ) : (
-                <>
+                <div className="space-y-8">
                   <div>
-                    <h1 className="text-3xl font-bold mb-2">
-                      {asset.product_name}
-                    </h1>
+                    <div className="flex items-center justify-between mb-4">
+                      <h1 className="text-3xl font-bold">
+                        {asset.product_name}
+                      </h1>
+                      <div className="flex items-center gap-2">
+                        <Button variant="default" className="group/btn" asChild>
+                          <a
+                            href={asset.product_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2"
+                          >
+                            View Product
+                            <ExternalLink className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
+                          </a>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-10 w-10 shrink-0 hover:bg-muted/50 transition-colors group/download"
+                          asChild
+                          disabled={!asset.glb_link}
+                        >
+                          <a
+                            href={asset.glb_link}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Download 3D Model"
+                            className="flex items-center justify-center"
+                          >
+                            <Download className="h-4 w-4 transition-transform group-hover/download:translate-y-0.5" />
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
                     <div className="flex flex-wrap gap-2 mb-4">
                       <Badge className="bg-primary/90 text-primary-foreground hover:bg-primary/90">
                         {asset.category}
@@ -597,157 +649,149 @@ export default function AssetDetailPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Basic Information */}
                     <div className="space-y-4">
-                      <h2 className="text-xl font-semibold">
-                        Basic Information
-                      </h2>
-                      <div className="grid gap-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-muted-foreground w-24">
-                            Article ID:
+                      <h2 className="text-xl font-bold">Basic Information</h2>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Article ID
                           </span>
-                          <span className="text-sm">{asset.id}</span>
+                          <p className="text-sm">{asset.article_id}</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-muted-foreground w-24">
-                            Client:
+                        <div className="space-y-1">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Client
                           </span>
-                          <span className="text-sm">
-                            {asset.client || "N/A"}
+                          <p className="text-sm">{asset.client || "N/A"}</p>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Created
                           </span>
+                          <p className="text-sm">
+                            {asset.created_at
+                              ? new Date(asset.created_at).toLocaleDateString()
+                              : "N/A"}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Product Link
+                          </span>
+                          <a
+                            href={asset.product_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline flex items-center gap-1"
+                          >
+                            View Product
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            GLB Link
+                          </span>
+                          {asset.glb_link ? (
+                            <a
+                              href={asset.glb_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline flex items-center gap-1"
+                            >
+                              Download Model
+                              <Download className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">N/A</p>
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Description */}
-                    {asset.description && (
-                      <div className="space-y-2">
-                        <h2 className="text-xl font-semibold">Description</h2>
-                        <p className="text-muted-foreground">
-                          {asset.description}
-                        </p>
-                      </div>
-                    )}
+                    {/* Specifications */}
+                    <div className="space-y-4">
+                      <h2 className="text-xl font-bold">Specifications</h2>
+                      {Array.isArray(asset.materials) &&
+                        asset.materials.length > 0 && (
+                          <div className="space-y-2">
+                            <h3 className="text-sm font-medium">Materials</h3>
+                            <div className="flex flex-wrap gap-1.5">
+                              {asset.materials.map((material: string) => (
+                                <Badge
+                                  key={material}
+                                  variant="secondary"
+                                  className="text-sm font-normal"
+                                >
+                                  {material.replace(/[\[\]"]/g, "")}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-                    {/* Materials and Colors */}
-                    {(Array.isArray(asset.materials) &&
-                      asset.materials.length > 0) ||
-                    (Array.isArray(asset.colors) && asset.colors.length > 0) ? (
-                      <div className="space-y-4">
-                        <h2 className="text-xl font-semibold">
-                          Specifications
-                        </h2>
-                        {Array.isArray(asset.materials) &&
-                          asset.materials.length > 0 && (
-                            <div>
-                              <h3 className="text-sm font-medium mb-2">
-                                Materials
-                              </h3>
-                              <div className="flex flex-wrap gap-1.5">
-                                {asset.materials.map((material: string) => (
+                      {Array.isArray(asset.colors) &&
+                        asset.colors.length > 0 && (
+                          <div className="space-y-2">
+                            <h3 className="text-sm font-medium">Colors</h3>
+                            <div className="flex flex-wrap gap-1.5">
+                              {asset.colors.map((color: string) => (
+                                <Badge
+                                  key={color}
+                                  variant="outline"
+                                  className="text-sm font-normal"
+                                >
+                                  {color.replace(/[\[\]"]/g, "")}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                      {asset.tags && (
+                        <div className="space-y-2">
+                          <h3 className="text-sm font-medium">Tags</h3>
+                          <div className="flex flex-wrap gap-1.5">
+                            {Array.isArray(asset.tags) ? (
+                              asset.tags.map((tag: string) => (
+                                <div key={tag}>
                                   <Badge
-                                    key={material}
                                     variant="secondary"
-                                    className="text-sm font-normal"
+                                    className="text-sm font-normal border border-border"
                                   >
-                                    {material.replace(/[\[\]"]/g, "")}
+                                    {tag.replace(/[\[\]"]/g, "")}
                                   </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                        {Array.isArray(asset.colors) &&
-                          asset.colors.length > 0 && (
-                            <div>
-                              <h3 className="text-sm font-medium mb-2">
-                                Colors
-                              </h3>
-                              <div className="flex flex-wrap gap-1.5">
-                                {asset.colors.map((color: string) => (
-                                  <Badge
-                                    key={color}
-                                    variant="outline"
-                                    className="text-sm font-normal"
-                                  >
-                                    {color.replace(/[\[\]"]/g, "")}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                      </div>
-                    ) : null}
-
-                    {/* Tags */}
-                    {asset.tags && (
-                      <div className="space-y-4">
-                        <h2 className="text-xl font-semibold">Tags</h2>
-                        <div className="flex flex-wrap gap-1.5">
-                          {Array.isArray(asset.tags) ? (
-                            asset.tags.map((tag: string) => (
-                              <div key={tag}>
+                                </div>
+                              ))
+                            ) : typeof asset.tags === "string" ? (
+                              <div>
                                 <Badge
                                   variant="secondary"
                                   className="text-sm font-normal border border-border"
                                 >
-                                  {tag.replace(/[\[\]"]/g, "")}
+                                  {asset.tags.replace(/[\[\]"]/g, "")}
                                 </Badge>
                               </div>
-                            ))
-                          ) : typeof asset.tags === "string" ? (
-                            <div>
-                              <Badge
-                                variant="secondary"
-                                className="text-sm font-normal border border-border"
-                              >
-                                {asset.tags.replace(/[\[\]"]/g, "")}
-                              </Badge>
-                            </div>
-                          ) : null}
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-4 pt-4">
-                      <Button
-                        variant="default"
-                        className="flex-1 group/btn"
-                        asChild
-                      >
-                        <a
-                          href={asset.product_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-2"
-                        >
-                          View Original Product
-                          <ExternalLink className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
-                        </a>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-10 w-10 shrink-0 hover:bg-muted/50 transition-colors group/download"
-                        asChild
-                        disabled={!asset.glb_link}
-                      >
-                        <a
-                          href={asset.glb_link}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Download 3D Model"
-                          className="flex items-center justify-center"
-                        >
-                          <Download className="h-4 w-4 transition-transform group-hover/download:translate-y-0.5" />
-                        </a>
-                      </Button>
+                      )}
                     </div>
                   </div>
-                </>
+
+                  {/* Description */}
+                  {asset.description && (
+                    <div className="space-y-2">
+                      <h2 className="text-xl font-bold">Description</h2>
+                      <p className="text-muted-foreground">
+                        {asset.description}
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
