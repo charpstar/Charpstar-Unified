@@ -686,10 +686,12 @@ export default function AssetLibraryPage() {
                       {/* Clear Filters Button */}
                       <Button
                         variant="outline"
-                        className="w-full"
+                        size="sm"
                         onClick={clearFilters}
+                        className="ml-4 text-muted-foreground border-border/40 hover:bg-muted hover:text-foreground font-medium px-4 rounded-md shadow-sm transition-all duration-200 cursor-pointer"
+                        title="Clear all filters"
                       >
-                        Clear All Filters
+                        Clear All
                       </Button>
                     </div>
                   </div>
@@ -788,121 +790,391 @@ export default function AssetLibraryPage() {
               </Button>
             </div>
           </div>
+        </div>
 
-          {/* Active Filters Display */}
-        </div>
-        <div className="flex flex-wrap gap-2 justify-end">
-          {filters.category && (
-            <Badge variant="secondary" className="gap-1">
-              {
-                filterOptions.categories.find((c) => c.id === filters.category)
-                  ?.name
-              }
-              <button
-                onClick={() => handleFilterChange("category", null)}
-                className="ml-1 hover:text-destructive"
+        {/* Active Filters Display */}
+        {(filters.category ||
+          filters.subcategory ||
+          filters.client.length > 0 ||
+          filters.material.length > 0 ||
+          filters.color.length > 0) && (
+          <div className="flex justify-end w-full">
+            <div
+              className="
+                flex flex-nowrap gap-3 items-center
+                mt-2 mb-6  pl-4 pr-4
+                rounded-md shadow-md
+                border border-border/30
+                max-w-full
+                bg-background/70 backdrop-blur-md
+                overflow-x-auto
+                transition-all
+                min-h-[56px]
+                "
+              style={{ scrollbarWidth: "none" }}
+            >
+              <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium select-none">
+                <Filter className="h-4 w-4 opacity-80" />
+                <span className="hidden sm:inline">Active Filters:</span>
+              </div>
+              {filters.category && (
+                <Badge
+                  variant="secondary"
+                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border-none hover:bg-primary/20 transition-all duration-300 shadow-sm"
+                >
+                  <span className="font-semibold flex items-center gap-1">
+                    <span className="rounded-full w-2 h-2 bg-primary/60 mr-1" />
+                    {
+                      filterOptions.categories.find(
+                        (c) => c.id === filters.category
+                      )?.name
+                    }
+                  </span>
+                  <button
+                    onClick={() => handleFilterChange("category", null)}
+                    className="ml-1 hover:text-destructive cursor-pointer transition-colors duration-200 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-destructive/30"
+                    title="Remove filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.subcategory && (
+                <Badge
+                  variant="secondary"
+                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border-none hover:bg-primary/20 transition-all duration-300 shadow-sm"
+                >
+                  <span className="font-semibold flex items-center gap-1">
+                    <span className="rounded-full w-2 h-2 bg-muted-foreground mr-1" />
+                    {
+                      filterOptions.categories
+                        .find((c) => c.id === filters.category)
+                        ?.subcategories.find(
+                          (s) => s.id === filters.subcategory
+                        )?.name
+                    }
+                  </span>
+                  <button
+                    onClick={() => handleFilterChange("subcategory", null)}
+                    className="ml-1 hover:text-destructive cursor-pointer transition-colors duration-200 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-destructive/30"
+                    title="Remove filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {filters.client.map((client) => (
+                <Badge
+                  key={client}
+                  variant="secondary"
+                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border-none hover:bg-primary/20 transition-all duration-300 shadow-sm"
+                >
+                  <span className="font-semibold flex items-center gap-1">
+                    <span className="rounded-full w-2 h-2 bg-accent mr-1" />
+                    {client}
+                  </span>
+                  <button
+                    onClick={() =>
+                      handleFilterChange(
+                        "client",
+                        filters.client.filter((c) => c !== client)
+                      )
+                    }
+                    className="ml-1 hover:text-destructive cursor-pointer transition-colors duration-200 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-destructive/30"
+                    title="Remove filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              {filters.material.map((material) => (
+                <Badge
+                  key={material}
+                  variant="secondary"
+                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border-none hover:bg-primary/20 transition-all duration-300 shadow-sm"
+                >
+                  <span className="font-semibold flex items-center gap-1">
+                    <span className="rounded-full w-2 h-2 bg-purple-400 mr-1" />
+                    {material}
+                  </span>
+                  <button
+                    onClick={() =>
+                      handleFilterChange(
+                        "material",
+                        filters.material.filter((m) => m !== material)
+                      )
+                    }
+                    className="ml-1 hover:text-destructive cursor-pointer transition-colors duration-200 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-destructive/30"
+                    title="Remove filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              {filters.color.map((color) => (
+                <Badge
+                  key={color}
+                  variant="secondary"
+                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border-none hover:bg-primary/20 transition-all duration-300 shadow-sm"
+                >
+                  <span className="font-semibold flex items-center gap-1">
+                    <span
+                      className="rounded-full w-2 h-2"
+                      style={{ backgroundColor: color }}
+                    />
+                    {color}
+                  </span>
+                  <button
+                    onClick={() =>
+                      handleFilterChange(
+                        "color",
+                        filters.color.filter((c) => c !== color)
+                      )
+                    }
+                    className="ml-1 hover:text-destructive cursor-pointer transition-colors duration-200 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-destructive/30"
+                    title="Remove filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearFilters}
+                className="ml-4 text-muted-foreground border-border/40 hover:bg-muted hover:text-foreground font-medium px-4 rounded-md shadow-sm transition-all duration-200 cursor-pointer"
+                title="Clear all filters"
               >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {filters.subcategory && (
-            <Badge variant="secondary" className="gap-1">
-              {
-                filterOptions.categories
-                  .find((c) => c.id === filters.category)
-                  ?.subcategories.find((s) => s.id === filters.subcategory)
-                  ?.name
-              }
-              <button
-                onClick={() => handleFilterChange("subcategory", null)}
-                className="ml-1 hover:text-destructive"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {filters.client.map((client) => (
-            <Badge key={client} variant="secondary" className="gap-1">
-              {client}
-              <button
-                onClick={() =>
-                  handleFilterChange(
-                    "client",
-                    filters.client.filter((c) => c !== client)
-                  )
-                }
-                className="ml-1 hover:text-destructive"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-          {filters.material.map((material) => (
-            <Badge key={material} variant="secondary" className="gap-1">
-              {material}
-              <button
-                onClick={() =>
-                  handleFilterChange(
-                    "material",
-                    filters.material.filter((m) => m !== material)
-                  )
-                }
-                className="ml-1 hover:text-destructive"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-          {filters.color.map((color) => (
-            <Badge key={color} variant="secondary" className="gap-1">
-              {color}
-              <button
-                onClick={() =>
-                  handleFilterChange(
-                    "color",
-                    filters.color.filter((c) => c !== color)
-                  )
-                }
-                className="ml-1 hover:text-destructive"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
+                Clear All
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div
           className={
             viewMode === "grid"
               ? "grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 max-w-[2000px] mx-auto"
-              : "grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 max-w-[2000px] mx-auto"
+              : "flex flex-col gap-4 w-full"
           }
         >
           {currentAssets.map((asset) =>
             viewMode === "compactGrid" ? (
-              <Link
+              <Card
                 key={asset.id}
-                href={`/asset-library/${asset.id}`}
-                className="block"
+                className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm rounded-xl"
               >
-                <Card className="flex flex-col h-full overflow-hidden border-border/50 hover:border-border transition-colors p-2 text-xs min-h-[120px] min-w-[120px] cursor-pointer">
-                  <CardHeader className="p-1 flex-shrink-0">
-                    <img
-                      src={asset.preview_image || "/placeholder.png"}
-                      alt={asset.product_name}
-                      className="w-full h-20 object-contain bg-white dark:bg-black"
-                    />
-                  </CardHeader>
-                  <CardContent className="flex-1 flex flex-col justify-center items-center p-1">
-                    <div>
-                      <CardTitle className="line-clamp-1 font-semibold text-xs text-center">
+                <div className="flex gap-8 p-8">
+                  {/* Image Section */}
+                  <div className="relative w-96 h-96 shrink-0">
+                    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 p-4 group-hover:shadow-lg transition-all duration-500">
+                      <div className="relative aspect-square overflow-hidden rounded-lg bg-white dark:bg-black/50">
+                        <Link
+                          href={`/asset-library/${asset.id}`}
+                          className="block w-full h-full cursor-pointer"
+                          prefetch={true}
+                        >
+                          <img
+                            src={asset.preview_image || "/placeholder.png"}
+                            alt={asset.product_name}
+                            className="w-full h-full object-contain transition-all duration-700 group-hover:scale-105"
+                            loading="lazy"
+                          />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Content Section */}
+                  <div className="flex-1 flex flex-col gap-6">
+                    {/* Title and Category */}
+                    <div className="space-y-4">
+                      <CardTitle className="text-2xl font-bold leading-tight group-hover:text-primary transition-all duration-300">
                         {asset.product_name}
                       </CardTitle>
+                      <div className="flex flex-wrap gap-3">
+                        <Badge
+                          variant="secondary"
+                          className="text-lg font-medium px-6 py-2 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/40 transition-all duration-300 group-hover:shadow-md group-hover:shadow-primary/20 hover:scale-105"
+                        >
+                          <span className="font-semibold">
+                            {asset.category}
+                          </span>
+                        </Badge>
+                        {asset.subcategory && (
+                          <Badge
+                            variant="outline"
+                            className="text-lg font-medium px-6 py-2 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group-hover:shadow-sm hover:scale-105"
+                          >
+                            {asset.subcategory}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
+
+                    {/* Additional Info */}
+                    <div className="grid grid-cols-3 gap-8 p-6 bg-muted/20 rounded-xl border border-border/40">
+                      {asset.client && (
+                        <div className="space-y-2">
+                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                            Client
+                          </p>
+                          <p className="text-base text-foreground font-medium">
+                            {asset.client}
+                          </p>
+                        </div>
+                      )}
+                      {asset.created_at && (
+                        <div className="space-y-2">
+                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                            Added
+                          </p>
+                          <p className="text-base text-foreground font-medium">
+                            {new Date(asset.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      )}
+                      {asset.product_link && (
+                        <div className="space-y-2">
+                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                            Product Link
+                          </p>
+                          <a
+                            href={asset.product_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-base text-primary hover:underline flex items-center gap-1.5 bg-primary/5 px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300"
+                          >
+                            View Product
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </div>
+                      )}
+                      {asset.glb_link && (
+                        <div className="space-y-2">
+                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                            3D Model
+                          </p>
+                          <a
+                            href={asset.glb_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-base text-primary hover:underline flex items-center gap-1.5 bg-primary/5 px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300"
+                          >
+                            View GLB
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </div>
+                      )}
+                      {asset.tags && asset.tags.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                            Tags
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {asset.tags.map((tag) => (
+                              <Badge
+                                key={tag}
+                                variant="secondary"
+                                className="text-sm font-normal px-3 py-1 bg-muted/50 hover:bg-muted transition-all duration-300"
+                              >
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Materials and Colors */}
+                    <div className="flex flex-wrap gap-8 p-6 bg-muted/20 rounded-xl border border-border/40 ">
+                      {asset.materials && asset.materials.length > 0 && (
+                        <div className="space-y-3">
+                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider">
+                            Materials
+                          </p>
+                          <div className="flex flex-wrap gap-3">
+                            {asset.materials.map((material, index) => (
+                              <Badge
+                                key={material}
+                                variant="secondary"
+                                className="text-base font-normal px-4 py-1.5 bg-muted/50 hover:bg-muted transition-all duration-300 group-hover:bg-primary/10 group-hover:scale-105 hover:shadow-sm"
+                                style={{ animationDelay: `${index * 100}ms` }}
+                              >
+                                {material.replace(/[[\]"]/g, "")}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {asset.colors && asset.colors.length > 0 && (
+                        <div className="space-y-3">
+                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider">
+                            Colors
+                          </p>
+                          <div className="flex flex-wrap gap-3">
+                            {asset.colors.map((color, index) => (
+                              <Badge
+                                key={color}
+                                variant="outline"
+                                className="text-base font-normal px-4 py-1.5 border-border/40 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group-hover:border-primary/30 group-hover:scale-105"
+                                style={{ animationDelay: `${index * 100}ms` }}
+                              >
+                                {color.replace(/[[\]"]/g, "")}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Buttons - More compact */}
+                    <div className="mt-auto flex items-center gap-2">
+                      <Button
+                        variant="default"
+                        size="default"
+                        className="w-40 group/btn h-9 font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-lg hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 rounded-lg"
+                        asChild
+                      >
+                        <Link
+                          href={`/asset-library/${asset.id}`}
+                          className="flex items-center justify-center gap-2.5"
+                          prefetch={true}
+                        >
+                          <span>View Details</span>
+                          <ExternalLink className="h-4 w-4 transition-all duration-300 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-0.5" />
+                        </Link>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 hover:scale-103 hover:shadow-lg group/download rounded-lg backdrop-blur-sm"
+                        asChild
+                        disabled={!asset.glb_link}
+                      >
+                        <a
+                          href={asset.glb_link}
+                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Download 3D Model"
+                          className="flex items-center justify-center relative"
+                        >
+                          <Download className="h-4 w-4 transition-all duration-300 group-hover/download:scale-103" />
+                          <div className="absolute inset-0 rounded-lg bg-primary/20 scale-0 group-hover/download:scale-100 group-hover/download:animate-ping transition-transform duration-300" />
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
             ) : (
               <Card
                 key={asset.id}
@@ -917,14 +1189,18 @@ export default function AssetLibraryPage() {
                   <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 p-3 group-hover:shadow-lg transition-all duration-500">
                     {/* Image container with loading state */}
                     <div className="relative aspect-square overflow-hidden rounded-lg bg-white dark:bg-black/50">
-                      <img
-                        src={asset.preview_image || "/placeholder.png"}
-                        alt={asset.product_name}
-                        className="w-full h-full object-contain transition-all duration-700 group-hover:scale-103"
-                        loading="lazy"
-                      />
-                      {/* Subtle shine effect */}
-                      <div className="" />
+                      <Link
+                        href={`/asset-library/${asset.id}`}
+                        className="block w-full h-full cursor-pointer"
+                        prefetch={true}
+                      >
+                        <img
+                          src={asset.preview_image || "/placeholder.png"}
+                          alt={asset.product_name}
+                          className="w-full h-full object-contain transition-all duration-700 group-hover:scale-103"
+                          loading="lazy"
+                        />
+                      </Link>
                     </div>
 
                     {/* Floating status indicator */}
