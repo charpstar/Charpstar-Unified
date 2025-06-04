@@ -994,7 +994,7 @@ export default function AssetLibraryPage() {
               >
                 <div className="flex gap-8 p-8">
                   {/* Image Section */}
-                  <div className="relative w-96 h-96 shrink-0">
+                  <div className="relative w-126 h-126 shrink-0">
                     <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 p-4 group-hover:shadow-lg transition-all duration-500">
                       <div className="relative aspect-square overflow-hidden rounded-lg bg-white dark:bg-black/50">
                         <Link
