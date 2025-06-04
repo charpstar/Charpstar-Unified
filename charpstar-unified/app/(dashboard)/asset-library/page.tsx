@@ -792,94 +792,109 @@ export default function AssetLibraryPage() {
         <div className="mb-8 space-y-4">
           <div className="flex flex-row gap-4">
             {/* Main Categories */}
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-0.5 w-6 bg-primary rounded-full"></div>
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Categories
-                </h3>
-              </div>
+            {!filters.category && (
+              <div className="relative w-full">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-0.5 w-6 bg-primary rounded-full"></div>
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Categories
+                  </h3>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <div
-                  ref={categoryContainerRef}
-                  className="flex items-center gap-2 overflow-x-auto pb-2 px-1 cursor-grab active:cursor-grabbing select-none max-w-[1300px]"
-                  onMouseDown={handleMouseDown}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseLeave}
-                  onMouseMove={handleMouseMove}
-                  style={{
-                    scrollbarWidth: "none",
-                    msOverflowStyle: "none",
-                  }}
-                >
-                  <Button
-                    variant={!filters.category ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleFilterChange("category", null)}
-                    className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
-                      !filters.category
-                        ? "bg-primary text-primary-foreground"
-                        : "border-border hover:bg-muted/50"
-                    }`}
+                <div className="flex items-center gap-2">
+                  <div
+                    ref={categoryContainerRef}
+                    className="flex items-center gap-2 overflow-x-auto pb-2 px-1 cursor-grab active:cursor-grabbing select-none max-w-[1300px]"
+                    onMouseDown={handleMouseDown}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseMove={handleMouseMove}
+                    style={{
+                      scrollbarWidth: "none",
+                      msOverflowStyle: "none",
+                    }}
                   >
-                    All Categories
-                  </Button>
-
-                  {filterOptions.categories.map((category) => (
                     <Button
-                      key={category.id}
-                      variant={
-                        filters.category === category.id ? "default" : "outline"
-                      }
+                      variant={!filters.category ? "default" : "outline"}
                       size="sm"
-                      onClick={() =>
-                        handleFilterChange("category", category.id)
-                      }
+                      onClick={() => handleFilterChange("category", null)}
                       className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
-                        filters.category === category.id
+                        !filters.category
                           ? "bg-primary text-primary-foreground"
                           : "border-border hover:bg-muted/50"
                       }`}
                     >
-                      {category.name || "Uncategorized"}
+                      All Categories
                     </Button>
-                  ))}
-                </div>
 
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-foreground hover:text-primary transition-colors"
-                    onClick={() =>
-                      scrollContainer("left", categoryContainerRef)
-                    }
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-foreground hover:text-primary transition-colors"
-                    onClick={() =>
-                      scrollContainer("right", categoryContainerRef)
-                    }
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </Button>
+                    {filterOptions.categories.map((category) => (
+                      <Button
+                        key={category.id}
+                        variant={
+                          filters.category === category.id
+                            ? "default"
+                            : "outline"
+                        }
+                        size="sm"
+                        onClick={() =>
+                          handleFilterChange("category", category.id)
+                        }
+                        className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
+                          filters.category === category.id
+                            ? "bg-primary text-primary-foreground"
+                            : "border-border hover:bg-muted/50"
+                        }`}
+                      >
+                        {category.name || "Uncategorized"}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-foreground hover:text-primary transition-colors"
+                      onClick={() =>
+                        scrollContainer("left", categoryContainerRef)
+                      }
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-foreground hover:text-primary transition-colors"
+                      onClick={() =>
+                        scrollContainer("right", categoryContainerRef)
+                      }
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Subcategory Navigation */}
             {filters.category && (
-              <div className="relative">
+              <div className="relative w-full">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="h-0.5 w-4 bg-primary/60 rounded-full"></div>
+                  <div className="h-0.5 w-6 bg-primary/60 rounded-full"></div>
                   <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Subcategories
+                    {filterOptions.categories.find(
+                      (c) => c.id === filters.category
+                    )?.name || "Subcategories"}
                   </h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleFilterChange("category", null)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Back to Categories
+                  </Button>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -899,7 +914,7 @@ export default function AssetLibraryPage() {
                       variant={!filters.subcategory ? "default" : "outline"}
                       size="sm"
                       onClick={() => handleFilterChange("subcategory", null)}
-                      className={`shrink-0 h-7 px-3 text-xs font-medium transition-colors duration-200 rounded-md ${
+                      className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
                         !filters.subcategory
                           ? "bg-primary/80 text-primary-foreground"
                           : "border-border hover:bg-muted/50"
@@ -922,7 +937,7 @@ export default function AssetLibraryPage() {
                           onClick={() =>
                             handleFilterChange("subcategory", sub.id)
                           }
-                          className={`shrink-0 h-7 px-3 text-xs font-medium transition-colors duration-200 rounded-md ${
+                          className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
                             filters.subcategory === sub.id
                               ? "bg-primary/80 text-primary-foreground"
                               : "border-border hover:bg-muted/50"
