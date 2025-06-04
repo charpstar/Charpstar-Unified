@@ -1,7 +1,6 @@
 "use client";
 
 // import { useEffect, useState } from "react";
-import { SiteHeader } from "@/components/site-header";
 // import { addDays, format } from "date-fns";
 // import { Skeleton } from "@/components/ui/skeleton";
 // import { StatCard } from "@/components/ui/stat-card";
@@ -78,17 +77,12 @@ export default function DashboardPage() {
   const user = useUser();
   // const router = useRouter();
   // const [userRole, setUserRole] = useState<string | undefined>();
-  const isUserLoading = typeof user === "undefined";
   // const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   // const [loading, setLoading] = useState(true);
   // const [timeRange, setTimeRange] = useState<"1d" | "7d" | "30d">("30d");
 
   // Add permission check
-  const {
-    hasAccess,
-    loading: permissionLoading,
-    error: permissionError,
-  } = usePagePermission(user?.role, "/dashboard");
+  const {} = usePagePermission(user?.role, "/dashboard");
 
   // Only check hasAnalytics after user is loaded
   // const hasAnalytics = user && user.metadata?.analytics_profile_id;

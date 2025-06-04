@@ -59,6 +59,35 @@ export function useAssets() {
     sort: "name-asc",
   });
   const user = useUser();
+  const [totalCount, setTotalCount] = useState(0);
+  console.log(user);
+  const [userProfile, setUserProfile] = useState<{
+    client: string;
+    role: string;
+  } | null>(null);
+
+  // Fetch user profile when user changes
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("client, role")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        return;
+      }
+
+      setUserProfile(data);
+    };
+
+    fetchUserProfile();
+  }, [user]);
 
   const fetchAssets = async () => {
     try {
@@ -66,23 +95,52 @@ export function useAssets() {
       setError(null);
 
       // Don't fetch if user is not loaded yet
-      if (!user) return;
+      if (!user || !userProfile) return;
 
       const supabase = createClient();
 
-      let query = supabase.from("assets").select("*");
+      // First get the total count
+      let countQuery = supabase
+        .from("assets")
+        .select("*", { count: "exact", head: true });
 
-      // Apply client filter if user has a client
-      if (user.metadata?.client) {
-        query = query.eq("client", user.metadata.client);
+      // Only apply client filter if user is not admin
+      if (userProfile.role !== "admin") {
+        countQuery = countQuery.eq("client", userProfile.client);
       }
 
-      const { data, error } = await query;
+      const { count } = await countQuery;
 
-      if (error) throw error;
+      // Then fetch all assets with pagination
+      let allAssets: Asset[] = [];
+      let page = 0;
+      const pageSize = 1000;
+
+      while (true) {
+        let dataQuery = supabase
+          .from("assets")
+          .select("*")
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        // Only apply client filter if user is not admin
+        if (userProfile.role !== "admin") {
+          dataQuery = dataQuery.eq("client", userProfile.client);
+        }
+
+        const { data, error } = await dataQuery;
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+
+        allAssets = [...allAssets, ...data];
+        page++;
+
+        // If we got less than pageSize items, we've reached the end
+        if (data.length < pageSize) break;
+      }
 
       // Parse materials, colors, and tags from string arrays
-      const parsedAssets = data.map((item) => ({
+      const parsedAssets = allAssets.map((item) => ({
         ...item,
         materials: Array.isArray(item.materials)
           ? item.materials
@@ -96,6 +154,7 @@ export function useAssets() {
       }));
 
       setAssets(parsedAssets);
+      setTotalCount(count || 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -105,7 +164,7 @@ export function useAssets() {
 
   useEffect(() => {
     fetchAssets();
-  }, [user]);
+  }, [user, userProfile]);
 
   // Filter assets based on current filters
   const filteredAssets = useMemo(() => {
@@ -209,5 +268,6 @@ export function useAssets() {
     filters,
     setFilters,
     filterOptions,
+    totalCount,
   };
 }

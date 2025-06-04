@@ -11,42 +11,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  Download,
-  ExternalLink,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Grid,
-  List,
-  Filter,
-  X,
-  Camera,
-  Eye,
-} from "lucide-react";
+import { Download, ExternalLink, Search, Grid, Filter, X } from "lucide-react";
 import { useAssets } from "../../../hooks/use-assets";
-import { AssetLibrarySkeleton } from "@/components/ui/asset-library-skeleton";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Script from "next/script";
-import { BatchUploadSheet } from "./components/batch-upload-sheet";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  UploadAssetDialogContent,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import {
   Select,
   SelectContent,
@@ -72,6 +42,7 @@ export default function AssetLibraryPage() {
     filterOptions,
     filters,
     setFilters,
+    totalCount,
   } = useAssets();
   const [searchValue, setSearchValue] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "compactGrid" | "list">(
@@ -271,6 +242,9 @@ export default function AssetLibraryPage() {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4 mb-6">
             <h1 className="text-2xl font-bold">Library</h1>
+            <Badge variant="secondary" className="text-sm">
+              {totalCount} {totalCount === 1 ? "Model" : "Models"}
+            </Badge>
           </div>
           <div className="flex items-center gap-2">
             <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
@@ -302,8 +276,11 @@ export default function AssetLibraryPage() {
                               All Categories
                             </SelectItem>
                             {filterOptions.categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
+                              <SelectItem
+                                key={category.id}
+                                value={category.id || "uncategorized"}
+                              >
+                                {category.name || "Uncategorized"}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -335,8 +312,11 @@ export default function AssetLibraryPage() {
                               {filterOptions.categories
                                 .find((c) => c.id === filters.category)
                                 ?.subcategories.map((sub) => (
-                                  <SelectItem key={sub.id} value={sub.id}>
-                                    {sub.name}
+                                  <SelectItem
+                                    key={sub.id}
+                                    value={sub.id || "uncategorized"}
+                                  >
+                                    {sub.name || "Uncategorized"}
                                   </SelectItem>
                                 ))}
                             </SelectContent>
@@ -664,110 +644,103 @@ export default function AssetLibraryPage() {
               : "grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 max-w-[2000px] mx-auto"
           }
         >
-          {currentAssets.map((asset) => (
-            <Card
-              key={asset.id}
-              className={
-                viewMode === "compactGrid"
-                  ? "flex flex-col h-full overflow-hidden border-border/50 hover:border-border transition-colors p-2 text-xs min-h-[120px] min-w-[120px]"
-                  : "flex flex-col h-full overflow-hidden border-border/50 hover:border-border transition-colors p-2 text-sm min-h-[180px] min-w-[180px]"
-              }
-            >
-              <CardHeader
-                className={
-                  viewMode === "compactGrid"
-                    ? "p-1 flex-shrink-0"
-                    : viewMode === "grid"
-                      ? "p-0"
-                      : "p-0 w-32 shrink-0"
-                }
+          {currentAssets.map((asset) =>
+            viewMode === "compactGrid" ? (
+              <Link
+                key={asset.id}
+                href={`/asset-library/${asset.id}`}
+                className="block"
               >
-                <img
-                  src={asset.preview_image || "/placeholder.png"}
-                  alt={asset.product_name}
-                  className={
-                    viewMode === "compactGrid"
-                      ? "w-full h-20 object-contain bg-white"
-                      : "w-full h-78 object-contain bg-white"
-                  }
-                />
-              </CardHeader>
-              <CardContent
-                className={
-                  viewMode === "compactGrid"
-                    ? "flex-1 flex flex-col justify-center items-center p-1"
-                    : "flex-1 flex flex-col space-y-2 p-2"
-                }
+                <Card className="flex flex-col h-full overflow-hidden border-border/50 hover:border-border transition-colors p-2 text-xs min-h-[120px] min-w-[120px] cursor-pointer">
+                  <CardHeader className="p-1 flex-shrink-0">
+                    <img
+                      src={asset.preview_image || "/placeholder.png"}
+                      alt={asset.product_name}
+                      className="w-full h-20 object-contain bg-white dark:bg-black"
+                    />
+                  </CardHeader>
+                  <CardContent className="flex-1 flex flex-col justify-center items-center p-1">
+                    <div>
+                      <CardTitle className="line-clamp-1 font-semibold text-xs text-center">
+                        {asset.product_name}
+                      </CardTitle>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ) : (
+              <Card
+                key={asset.id}
+                className="flex flex-col h-full overflow-hidden border-border/50 hover:border-border transition-colors p-2 text-sm min-h-[180px] min-w-[180px]"
               >
-                <div>
-                  <CardTitle
-                    className={
-                      viewMode === "compactGrid"
-                        ? "line-clamp-1 font-semibold text-xs text-center"
-                        : "line-clamp-1 font-semibold text-base"
-                    }
-                  >
-                    {asset.product_name}
-                  </CardTitle>
-                  {viewMode !== "compactGrid" && (
-                    <>
-                      <div className="flex flex-wrap gap-2 mt-3">
+                <CardHeader
+                  className={viewMode === "grid" ? "p-0" : "p-0 w-32 shrink-0"}
+                >
+                  <img
+                    src={asset.preview_image || "/placeholder.png"}
+                    alt={asset.product_name}
+                    className="w-full h-78 object-contain bg-white dark:bg-black"
+                  />
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col space-y-2 p-2">
+                  <div>
+                    <CardTitle className="line-clamp-1 font-semibold text-base">
+                      {asset.product_name}
+                    </CardTitle>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      <Badge
+                        variant="secondary"
+                        className="text-xs font-normal"
+                      >
+                        {asset.category}
+                      </Badge>
+                      {asset.subcategory && (
                         <Badge
-                          variant="secondary"
+                          variant="outline"
                           className="text-xs font-normal"
                         >
-                          {asset.category}
+                          {asset.subcategory}
                         </Badge>
-                        {asset.subcategory && (
+                      )}
+                    </div>
+
+                    <div className="h-px bg-border my-2" />
+
+                    <div className="flex flex-wrap gap-2">
+                      {asset.materials &&
+                        asset.materials.length > 0 &&
+                        asset.materials.map((material: string) => (
                           <Badge
+                            key={material}
+                            variant="secondary"
+                            className="text-xs font-normal"
+                          >
+                            {material.replace(/[[\]"]/g, "")}
+                          </Badge>
+                        ))}
+                      {asset.colors &&
+                        asset.colors.length > 0 &&
+                        asset.colors.map((color: string) => (
+                          <Badge
+                            key={color}
                             variant="outline"
                             className="text-xs font-normal"
                           >
-                            {asset.subcategory}
+                            {color.replace(/[[\]"]/g, "")}
                           </Badge>
-                        )}
-                      </div>
-
-                      <div className="h-px bg-border my-2" />
-
-                      <div className="flex flex-wrap gap-2">
-                        {asset.materials &&
-                          asset.materials.length > 0 &&
-                          asset.materials.map((material: string) => (
-                            <Badge
-                              key={material}
-                              variant="secondary"
-                              className="text-xs font-normal"
-                            >
-                              {material.replace(/[[\]"]/g, "")}
-                            </Badge>
-                          ))}
-                        {asset.colors &&
-                          asset.colors.length > 0 &&
-                          asset.colors.map((color: string) => (
-                            <Badge
-                              key={color}
-                              variant="outline"
-                              className="text-xs font-normal"
-                            >
-                              {color.replace(/[[\]"]/g, "")}
-                            </Badge>
-                          ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-                {viewMode !== "compactGrid" && (
+                        ))}
+                    </div>
+                  </div>
                   <div className="mt-auto pt-4 flex items-center gap-2">
                     <Button
                       variant="default"
                       size="default"
-                      className="flex-1 group/btn h-9"
+                      className="flex-1 group/btn h-9 dark:bg-muted dark:text-white"
                       asChild
                     >
                       <Link
                         href={`/asset-library/${asset.id}`}
-                        className="flex items-center justify-center gap-2"
+                        className="flex items-center justify-center gap-2 dark:bg-background dark:text-black"
                         prefetch={true}
                       >
                         View Product
@@ -793,14 +766,22 @@ export default function AssetLibraryPage() {
                       </a>
                     </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            )
+          )}
         </div>
 
         {totalPages > 1 && (
           <div className="flex justify-center items-center gap-2 mt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+            >
+              First
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -819,6 +800,14 @@ export default function AssetLibraryPage() {
               disabled={currentPage === totalPages}
             >
               Next
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              Last
             </Button>
           </div>
         )}

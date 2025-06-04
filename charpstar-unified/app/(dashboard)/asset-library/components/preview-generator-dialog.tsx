@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import {
   Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -17,14 +16,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Loader2,
   Camera,
-  X,
   CheckCircle,
   RotateCcw,
   Eye,
   Sparkles,
   AlertTriangle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useAssets } from "@/hooks/use-assets";
 
 interface Asset {

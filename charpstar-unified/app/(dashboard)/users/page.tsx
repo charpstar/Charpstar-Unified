@@ -5,7 +5,6 @@ import {
   UserPlus,
   Search,
   Pencil,
-  MoreVertical,
   Trash2,
   MoreHorizontal,
   Shield,
@@ -13,7 +12,6 @@ import {
   UserCog,
   Loader2,
 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -62,7 +60,6 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { SiteHeader } from "@/components/site-header";
 
 interface User {
   id: string;
@@ -284,7 +281,7 @@ export default function UsersPage() {
         <Card className="border-destructive">
           <CardHeader>
             <CardDescription>
-              You don't have permission to access the users page.
+              You don&apos;t have permission to access the users page.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -312,7 +309,7 @@ export default function UsersPage() {
     if (!userPermissions.add_user) {
       toast({
         title: "Error",
-        description: "You don't have permission to add users",
+        description: "You don&apos;t have permission to add users",
         variant: "destructive",
       });
       return;
@@ -356,7 +353,7 @@ export default function UsersPage() {
     if (!userPermissions.edit_user) {
       toast({
         title: "Error",
-        description: "You don't have permission to edit users",
+        description: "You don&apos;t have permission to edit users",
         variant: "destructive",
       });
       return;
@@ -402,7 +399,7 @@ export default function UsersPage() {
     if (!userPermissions.delete_user) {
       toast({
         title: "Error",
-        description: "You don't have permission to delete users",
+        description: "You don&apos;t have permission to delete users",
         variant: "destructive",
       });
       return;

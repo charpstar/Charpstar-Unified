@@ -1,9 +1,9 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { useUser } from "@/contexts/useUser";
+import { createClient } from "@/utils/supabase/client";
 import {
   Upload,
   Plus,
@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
+import { debounce } from "lodash";
 
 interface AssetRow {
   product_name: string;
@@ -33,6 +34,15 @@ interface AssetRow {
       | "subcategory"
       | "client"
       | "materials"]?: string;
+  };
+}
+
+interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  existingAsset?: {
+    id: string;
+    name: string;
+    client: string;
   };
 }
 
@@ -80,6 +90,8 @@ const editableFields: EditableField[] = [
 export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   const [rows, setRows] = useState<AssetRow[]>([emptyRow()]);
   const [loading, setLoading] = useState(false);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  const [duplicates, setDuplicates] = useState<{ [key: string]: boolean }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -233,6 +245,61 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     }
   }, [user]);
 
+  // Add duplicate check function
+  const checkDuplicates = async (
+    rows: AssetRow[]
+  ): Promise<DuplicateCheckResult[]> => {
+    const results: DuplicateCheckResult[] = [];
+
+    for (const row of rows) {
+      if (!row.product_name) continue;
+
+      const { data: existingAssets } = await createClient()
+        .from("assets")
+        .select("id, name, client")
+        .ilike("name", row.product_name)
+        .eq("client", user?.metadata?.client || "");
+
+      results.push({
+        isDuplicate: Boolean(existingAssets && existingAssets.length > 0),
+        existingAsset: existingAssets?.[0],
+      });
+    }
+
+    return results;
+  };
+
+  // Update the useEffect
+  useEffect(() => {
+    const debouncedCheck = debounce(async () => {
+      if (rows.length === 0) return;
+
+      setCheckingDuplicates(true);
+      try {
+        const duplicateResults = await checkDuplicates(rows);
+        const newDuplicates: { [key: string]: boolean } = {};
+        duplicateResults.forEach((result, index) => {
+          if (result.isDuplicate && result.existingAsset) {
+            newDuplicates[rows[index].id] = true;
+          }
+        });
+        setDuplicates(newDuplicates);
+      } catch (error) {
+        console.error("Error checking duplicates:", error);
+        toast({
+          title: "Error",
+          description: "Failed to check for duplicates",
+          variant: "destructive",
+        });
+      } finally {
+        setCheckingDuplicates(false);
+      }
+    }, 500);
+
+    debouncedCheck();
+    return () => debouncedCheck.cancel();
+  }, [rows, checkDuplicates]);
+
   const handleUploadAll = async () => {
     const clientValue = user?.metadata?.client;
     if (!clientValue) {
@@ -341,35 +408,41 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   return (
     <div className="w-full space-y-7">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-100 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-2xl p-7 border border-blue-200 dark:border-blue-800 shadow-md flex flex-col gap-4">
+      <div className="bg-gradient-to-r from-muted-50  dark:from-muted-950/20  rounded-2xl p-7 border border-muted-200 dark:border-muted-800 shadow-md flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div>
-            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1 tracking-tight">
+            <h2 className="text-2xl font-extrabold text-muted-900 dark:text-white mb-1 tracking-tight">
               Batch Asset Upload
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">
+            <p className="text-muted-600 dark:text-muted-300 text-sm font-medium">
               Upload multiple assets at once or import from CSV
             </p>
           </div>
           <div className="flex items-center space-x-2 text-sm">
-            <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm flex items-center gap-1">
-              <span className="text-gray-500">Total Rows:</span>
-              <span className="font-semibold text-blue-600 dark:text-blue-200">
+            <div className="bg-white dark:bg-background px-4 py-2 rounded-xl border border-muted-100 dark:border-muted-800 shadow-sm flex items-center gap-1">
+              <span className="text-muted-500">Total Rows:</span>
+              <span className="font-semibold text-muted-600 dark:text-muted-200">
                 {rows.length}
               </span>
             </div>
-            <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-green-100 dark:border-green-900 shadow-sm flex items-center gap-1">
-              <span className="text-gray-500">Valid:</span>
+            <div className="bg-white dark:bg-background px-4 py-2 rounded-xl border border-green-100 dark:border-green-900 shadow-sm flex items-center gap-1">
+              <span className="text-muted-500">Valid:</span>
               <span className="font-semibold text-green-600 dark:text-green-400">
                 {validRows}
               </span>
             </div>
             {errorCount > 0 && (
-              <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-red-100 dark:border-red-800 shadow-sm flex items-center gap-1">
-                <span className="text-gray-500">Errors:</span>
+              <div className="bg-white dark:bg-muted-800 px-4 py-2 rounded-xl border border-red-100 dark:border-red-800 shadow-sm flex items-center gap-1">
+                <span className="text-muted-500">Errors:</span>
                 <span className="font-semibold text-red-600 dark:text-red-400">
                   {errorCount}
                 </span>
+              </div>
+            )}
+            {checkingDuplicates && (
+              <div className="bg-white dark:bg-background px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900 shadow-sm flex items-center gap-1">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                <span className="text-muted-500">Checking duplicates...</span>
               </div>
             )}
           </div>
@@ -380,7 +453,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
       <div className="flex flex-wrap items-center gap-3">
         <Button
           onClick={handleAddRow}
-          className="bg-primary hover:bg-primary/90 text-white shadow-md"
+          className="bg-primary hover:bg-primary/90 dark:hover:bg-primary/30 text-white shadow-md dark:bg-muted dark:text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Row
@@ -388,7 +461,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         <Button
           variant="outline"
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-gray-300 hover:border-primary hover:bg-primary/10"
+          className="border-2 border-dashed border-muted-300 hover:border-primary hover:bg-primary/10 dark:border-muted-600 dark:text-white"
         >
           <FileSpreadsheet className="w-4 h-4 mr-2" />
           Import CSV
@@ -403,7 +476,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         <Button
           onClick={handleUploadAll}
           disabled={loading || validRows === 0}
-          className="bg-primary hover:bg-primary/90 text-white shadow-lg disabled:bg-gray-300"
+          className="bg-primary hover:bg-primary/90 text-white shadow-lg disabled:bg-muted-300 dark:bg-muted dark:text-white dark:hover:bg-primary/30"
         >
           {loading ? (
             <>
@@ -428,15 +501,15 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         className={`relative rounded-2xl border-2 transition-all duration-200 overflow-hidden
           ${
             dragActive
-              ? "border-blue-400 bg-blue-50 dark:bg-blue-950/20 shadow-xl animate-pulse"
-              : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm"
+              ? "border-muted-400 bg-muted-50 dark:bg-muted-950/20 shadow-xl animate-pulse"
+              : "border-background-200 dark:border-background-700 bg-background dark:bg-background-900 shadow-sm"
           }`}
       >
         {/* Drag Overlay */}
         {dragActive && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-blue-50/90 dark:bg-blue-950/80 border-2 border-dashed border-blue-400 rounded-2xl backdrop-blur-sm">
-            <Upload className="w-14 h-14 mb-3 text-blue-500 animate-bounce" />
-            <span className="text-blue-800 dark:text-blue-200 text-lg font-semibold">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-muted-50/90 dark:bg-muted-950/80 border-2 border-dashed border-muted-400 rounded-2xl backdrop-blur-sm">
+            <Upload className="w-14 h-14 mb-3 text-muted-500 animate-bounce" />
+            <span className="text-muted-800 dark:text-muted-200 text-lg font-semibold">
               Drop CSV file here to import
             </span>
           </div>
@@ -444,9 +517,9 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
 
         {/* Uploading Overlay */}
         {loading && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/85 dark:bg-gray-900/85 backdrop-blur-sm rounded-2xl">
-            <Loader2 className="w-10 h-10 mb-3 animate-spin text-blue-500" />
-            <span className="text-base font-semibold text-gray-700 dark:text-gray-200">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/85 dark:bg-muted-900/85 backdrop-blur-sm rounded-2xl">
+            <Loader2 className="w-10 h-10 mb-3 animate-spin text-muted-500" />
+            <span className="text-base font-semibold text-muted-700 dark:text-muted-200">
               Uploading assets...
             </span>
           </div>
@@ -455,7 +528,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         {/* Table Container */}
         <div className="overflow-x-auto">
           <table className="min-w-[1200px] w-full">
-            <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <thead className="sticky top-0 z-10 bg-muted-50 dark:bg-muted-800 border-b border-muted-200 dark:border-muted-700">
               <tr>
                 {[
                   {
@@ -482,7 +555,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                 ].map((col) => (
                   <th
                     key={col.key}
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider"
+                    className="px-4 py-3 text-left text-xs font-semibold text-muted-600 dark:text-muted-300 uppercase tracking-wider"
                   >
                     <div className="flex items-center space-x-1">
                       <span>{col.label}</span>
@@ -492,16 +565,19 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-muted-200 dark:divide-muted-700">
               {rows.map((row, rowIdx) => {
                 const hasErrors = Object.keys(row.errors || {}).length > 0;
+                const isDuplicate = duplicates[row.id];
                 return (
                   <tr
                     key={row.id}
                     className={`transition-colors ${
                       hasErrors
                         ? "bg-red-50 dark:bg-red-950/20 border-l-4 border-l-red-400"
-                        : "hover:bg-blue-50 dark:hover:bg-blue-950/10"
+                        : isDuplicate
+                          ? "bg-yellow-50 dark:bg-yellow-950/20 border-l-4 border-l-yellow-400"
+                          : "hover:bg-muted-50 dark:hover:bg-muted-950/10"
                     }`}
                   >
                     {(
@@ -533,7 +609,9 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                               ${
                                 row.errors && row.errors[field]
                                   ? "border-red-400 focus:border-red-500 focus:ring-red-200"
-                                  : "border-gray-300 focus:border-primary focus:ring-primary/20"
+                                  : isDuplicate
+                                    ? "border-yellow-400 focus:border-yellow-500 focus:ring-yellow-200"
+                                    : "border-muted-300 focus:border-primary focus:ring-primary/20"
                               }`}
                             placeholder={`Enter ${field.replace("_", " ")}`}
                           />
@@ -541,6 +619,12 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                             <div className="flex items-center mt-1 text-xs text-red-600">
                               <AlertCircle className="w-3 h-3 mr-1" />
                               {row.errors[field]}
+                            </div>
+                          )}
+                          {isDuplicate && (
+                            <div className="flex items-center mt-1 text-xs text-yellow-600">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              This product name already exists
                             </div>
                           )}
                         </div>

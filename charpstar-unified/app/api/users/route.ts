@@ -2,14 +2,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-// Helper function to check if a user is an admin
-async function isAdmin(userId: string) {
-  const { data: user, error } =
-    await supabaseAdmin.auth.admin.getUserById(userId);
-  if (error || !user) return false;
-  return user.user.user_metadata?.role === "admin";
-}
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);

@@ -16,7 +16,6 @@ import { compToBq } from "@/utils/uiutils";
 import { useUser } from "@/contexts/useUser";
 import { ProductMetrics } from "@/utils/BigQuery/types";
 import CVRTable from "@/components/CVRTable";
-import { SiteHeader } from "@/components/site-header";
 import { usePagePermission } from "@/lib/usePagePermission";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -25,6 +24,21 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { TooltipContent } from "@/components/ui/tooltip";
 import { TooltipTrigger } from "@/components/ui/tooltip";
 import { useAnalyticsCheck } from "@/lib/analyticsCheck";
+
+interface AnalyticsRow {
+  metric_name: string;
+  metrics: string;
+}
+
+interface ImpersonatedProfile {
+  id: string;
+  email: string;
+  role: string;
+  analytics_profile_id?: string;
+  datasetid?: string;
+  projectid?: string;
+  monitoredsince?: string;
+}
 
 interface AnalyticsData {
   total_page_views: number;
@@ -42,6 +56,10 @@ interface AnalyticsData {
   total_3d_clicks: number;
   session_duration_without_ar: number;
   session_duration_with_ar: number;
+}
+
+interface ParsedMetric {
+  value: string | number;
 }
 
 const fetcher = async (url: string) => {
@@ -65,10 +83,8 @@ export default function AnalyticsDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const impersonateId = searchParams.get("impersonate");
-  const [impersonatedProfile, setImpersonatedProfile] = useState<any | null>(
-    null
-  );
-  const [impersonateLoading, setImpersonateLoading] = useState(false);
+  const [impersonatedProfile, setImpersonatedProfile] =
+    useState<ImpersonatedProfile | null>(null);
   const [userRole, setUserRole] = useState<string | undefined>();
   const isUserLoading = typeof user === "undefined";
   const {
@@ -109,21 +125,19 @@ export default function AnalyticsDashboard() {
   useEffect(() => {
     async function fetchImpersonatedProfile() {
       if (impersonateId && userRole === "admin") {
-        setImpersonateLoading(true);
-        // Fetch the impersonated user's profile
-        const { data: profile, error: profileError } = await supabase
+        // Fetch the impersonated user&apos;s profile
+        const { data: profile } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", impersonateId)
           .single();
         if (profile && profile.analytics_profile_id) {
           // Fetch the analytics profile using analytics_profile_id
-          const { data: analyticsProfile, error: analyticsError } =
-            await supabase
-              .from("analytics_profiles")
-              .select("datasetid, projectid, monitoredsince")
-              .eq("id", profile.analytics_profile_id)
-              .single();
+          const { data: analyticsProfile } = await supabase
+            .from("analytics_profiles")
+            .select("datasetid, projectid, monitoredsince")
+            .eq("id", profile.analytics_profile_id)
+            .single();
           setImpersonatedProfile({
             ...profile,
             datasetid: analyticsProfile?.datasetid,
@@ -133,7 +147,6 @@ export default function AnalyticsDashboard() {
         } else {
           setImpersonatedProfile(profile || null);
         }
-        setImpersonateLoading(false);
       } else {
         setImpersonatedProfile(null);
       }
@@ -206,11 +219,11 @@ export default function AnalyticsDashboard() {
   );
 
   // Helper function to parse metrics
-  const parseMetric = (row: any) => {
+  const parseMetric = (row: AnalyticsRow | undefined): number => {
     if (!row?.metrics) return 0;
     try {
-      const parsed = JSON.parse(row.metrics);
-      return parsed.value ? parseFloat(parsed.value) : 0;
+      const parsed = JSON.parse(row.metrics) as ParsedMetric;
+      return parsed.value ? parseFloat(parsed.value.toString()) : 0;
     } catch (e) {
       console.error("Error parsing metrics:", e);
       return 0;
@@ -226,77 +239,86 @@ export default function AnalyticsDashboard() {
       ? {
           total_page_views: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "charpstAR_Load"
+              (row: AnalyticsRow) => row.metric_name === "charpstAR_Load"
             )
           ),
           total_unique_users: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "total_unique_users"
+              (row: AnalyticsRow) => row.metric_name === "total_unique_users"
             )
           ),
           total_users_with_service: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "total_activated_users"
+              (row: AnalyticsRow) => row.metric_name === "total_activated_users"
             )
           ),
           percentage_users_with_service: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "percentage_charpstAR"
+              (row: AnalyticsRow) => row.metric_name === "percentage_charpstAR"
             )
           ),
           conversion_rate_without_ar: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "overall_conv_rate"
+              (row: AnalyticsRow) => row.metric_name === "overall_conv_rate"
             )
           ),
           conversion_rate_with_ar: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "overall_conv_rate_CharpstAR"
+              (row: AnalyticsRow) =>
+                row.metric_name === "overall_conv_rate_CharpstAR"
             )
           ),
           total_purchases_with_ar: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "total_purchases_after_ar"
+              (row: AnalyticsRow) =>
+                row.metric_name === "total_purchases_after_ar"
             )
           ),
           add_to_cart_default: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "cart_percentage_default"
+              (row: AnalyticsRow) =>
+                row.metric_name === "cart_percentage_default"
             )
           ),
           add_to_cart_with_ar: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "cart_after_ar_percentage"
+              (row: AnalyticsRow) =>
+                row.metric_name === "cart_after_ar_percentage"
             )
           ),
           avg_order_value_without_ar: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "average_order_value_all_users"
+              (row: AnalyticsRow) =>
+                row.metric_name === "average_order_value_all_users"
             )
           ),
           avg_order_value_with_ar: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "average_order_value_ar_users"
+              (row: AnalyticsRow) =>
+                row.metric_name === "average_order_value_ar_users"
             )
           ),
           total_ar_clicks: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "charpstAR_AR_Button_Click"
+              (row: AnalyticsRow) =>
+                row.metric_name === "charpstAR_AR_Button_Click"
             )
           ),
           total_3d_clicks: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "charpstAR_3D_Button_Click"
+              (row: AnalyticsRow) =>
+                row.metric_name === "charpstAR_3D_Button_Click"
             )
           ),
           session_duration_without_ar: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "session_time_default"
+              (row: AnalyticsRow) => row.metric_name === "session_time_default"
             )
           ),
           session_duration_with_ar: parseMetric(
             analyticsArray.find(
-              (row: any) => row.metric_name === "session_time_charpstAR"
+              (row: AnalyticsRow) =>
+                row.metric_name === "session_time_charpstAR"
             )
           ),
         }
@@ -395,7 +417,7 @@ export default function AnalyticsDashboard() {
     );
   }
 
-  // No permission to access analytics - only show after we're sure about permissions
+  // No permission to access analytics - only show after we&apos;re sure about permissions
   if (!hasAccess && !permissionLoading) {
     return (
       <div className="p-6">
@@ -403,7 +425,7 @@ export default function AnalyticsDashboard() {
           <CardContent className="pt-6">
             <div className="text-center py-8">
               <p className="text-gray-500">
-                § You don't have permission to view analytics.
+                § You don&apos;t have permission to view analytics.
               </p>
             </div>
           </CardContent>
@@ -684,8 +706,8 @@ export default function AnalyticsDashboard() {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>
-                    The Average value in the store's default currency of orders
-                    made by customers when they have not interacted with
+                    The Average value in the store&apos;s default currency of
+                    orders made by customers when they have not interacted with
                     CharpstAR services
                   </p>
                 </TooltipContent>
@@ -705,9 +727,9 @@ export default function AnalyticsDashboard() {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>
-                    The Average value in the store's default currency of orders
-                    made by customers after they have interacted with either of
-                    the AR/3D buttons
+                    The Average value in the store&apos;s default currency of
+                    orders made by customers after they have interacted with
+                    either of the AR/3D buttons
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -724,7 +746,9 @@ export default function AnalyticsDashboard() {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Total clicks by users on the 'View in AR' Button</p>
+                  <p>
+                    Total clicks by users on the &apos;View in AR&apos; Button
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -740,7 +764,9 @@ export default function AnalyticsDashboard() {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Total clicks by users on the 'View in 3D' Button</p>
+                  <p>
+                    Total clicks by users on the &apos;View in 3D&apos; Button
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

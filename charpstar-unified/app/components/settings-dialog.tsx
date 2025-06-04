@@ -26,7 +26,6 @@ import {
   Shield,
   Mail,
   UserCog,
-  Calendar,
 } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -76,9 +75,10 @@ interface UserProfile {
   id: string;
   email: string;
   role: string;
+  name: string;
   updated_at: string;
-  created_at: string;
-  analytics_profile_id: string | null;
+  analytics_profile_id?: string;
+  avatar?: string;
 }
 
 interface AnalyticsProfile {
@@ -120,6 +120,16 @@ interface ClientUser {
   created_at: string;
 }
 
+// Add User type
+interface User {
+  id: string;
+  email: string;
+  role: string;
+  name: string;
+  analytics_profile_id?: string;
+  avatar?: string;
+}
+
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [analyticsProfile, setAnalyticsProfile] =
@@ -132,10 +142,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   // Team management state
   const [userRole, setUserRole] = useState<string | undefined>();
   const { users, loading: usersLoading, error, fetchUsers } = useUsers(true);
-  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
-  const [isAddingUser, setIsAddingUser] = useState(false);
-  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -143,11 +151,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     useState<(typeof roleOptions)[number]>("all");
 
   // Feature permissions
-  const {
-    getFeaturePermissions,
-    loading: featureLoading,
-    permissions: featurePermissionsList,
-  } = useFeaturePermissions(true);
+  const { getFeaturePermissions, permissions: featurePermissionsList } =
+    useFeaturePermissions(true);
   const permissionsResult = getFeaturePermissions(userRole, [
     "view_user_details",
     "edit_user",
@@ -165,7 +170,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [rolePermissions, setRolePermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [search, setSearch] = useState("");
 
   const [clients, setClients] = useState<ClientUser[]>([]);
   const [clientsLoading, setClientsLoading] = useState(false);
@@ -341,7 +345,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           }
         }
       } catch (err) {
-        // handle error if needed
+        console.error("Error fetching user data:", err);
       }
     };
 
@@ -349,7 +353,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       fetchUserAndAnalytics();
       fetchUsers();
     }
-  }, [router, open, fetchUsers]);
+  }, [router, open, fetchUsers, toast]);
 
   // Add this useEffect to fetch permissions when dialog opens
   useEffect(() => {
@@ -393,7 +397,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       return;
     }
 
-    setIsAddingUser(true);
+    setIsProcessing(true);
     try {
       const response = await fetch("/api/users", {
         method: "POST",
@@ -423,21 +427,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         variant: "destructive",
       });
     } finally {
-      setIsAddingUser(false);
+      setIsProcessing(false);
     }
   };
 
-  const handleEditUser = async (formData: UserFormValues) => {
-    if (!userPermissions.edit_user) {
-      toast({
-        title: "Error",
-        description: "You don't have permission to edit users",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleEditUser = async (userData: Partial<UserProfile>) => {
     if (!editingUser) return;
+
     setIsProcessing(true);
     try {
       const response = await fetch(`/api/users/${editingUser.id}`, {
@@ -445,27 +441,24 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(userData),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to update user");
+        throw new Error("Failed to update user");
       }
 
       await fetchUsers();
       setIsEditUserDialogOpen(false);
-      setEditingUser(null);
       toast({
         title: "Success",
         description: "User updated successfully",
       });
-    } catch (err) {
-      console.error("Error updating user:", err);
+    } catch (error) {
+      console.error("Error updating user:", error);
       toast({
         title: "Error",
-        description:
-          err instanceof Error ? err.message : "Failed to update user",
+        description: "Failed to update user",
         variant: "destructive",
       });
     } finally {
@@ -583,6 +576,21 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     }
     if (open && user?.role === "admin") fetchClients();
   }, [open, user?.role]);
+
+  // Add type conversion for User to UserProfile
+  const handleEditUserClick = (user: User) => {
+    const userProfile: UserProfile = {
+      id: user.id,
+      email: user.email || "",
+      role: user.role || "",
+      name: user.name || "",
+      updated_at: new Date().toISOString(),
+      analytics_profile_id: user.analytics_profile_id,
+      avatar: user.avatar,
+    };
+    setEditingUser(userProfile);
+    setIsEditUserDialogOpen(true);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -753,7 +761,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                 <Dialog
                                   open={isAddUserDialogOpen}
                                   onOpenChange={setIsAddUserDialogOpen}
-                                  className="w-full sm:w-auto h-10"
                                 >
                                   <DialogTrigger asChild>
                                     <Button
@@ -770,7 +777,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                     </DialogHeader>
                                     <UserForm
                                       onSubmit={handleAddUser}
-                                      isLoading={isAddingUser}
+                                      isLoading={isProcessing}
                                     />
                                   </DialogContent>
                                 </Dialog>
@@ -842,10 +849,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                     <TableRow
                                       key={user.id}
                                       className="group transition-colors hover:bg-accent/30 cursor-pointer"
-                                      onMouseEnter={() =>
-                                        setHoveredRow(user.id)
-                                      }
-                                      onMouseLeave={() => setHoveredRow(null)}
                                     >
                                       <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                         <div className="flex items-center gap-3">
@@ -915,12 +918,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                               {userPermissions.edit_user && (
                                                 <DropdownMenuItem
                                                   className="cursor-pointer"
-                                                  onClick={() => {
-                                                    setEditingUser(user);
-                                                    setIsEditUserDialogOpen(
-                                                      true
-                                                    );
-                                                  }}
+                                                  onClick={() =>
+                                                    handleEditUserClick(user)
+                                                  }
                                                 >
                                                   <Pencil className="w-4 h-4 mr-2" />
                                                   Edit user

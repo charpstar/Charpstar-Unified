@@ -126,7 +126,7 @@ export async function POST(req: Request) {
       const buffer = Buffer.from(await preview_image.arrayBuffer());
       const randomString = Math.random().toString(36).substring(2, 15);
       const fileName = `previews/${Date.now()}_${randomString}_${product_name.replace(/\s+/g, "_")}.png`;
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from("assets")
         .upload(fileName, buffer, {
           contentType: preview_image.type || "image/png",
