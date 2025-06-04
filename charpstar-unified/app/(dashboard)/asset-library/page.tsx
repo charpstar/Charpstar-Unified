@@ -297,7 +297,7 @@ export default function AssetLibraryPage() {
                 {index > 0 && <ChevronRight className="h-4 w-4 mx-2" />}
                 <Link
                   href={item.href}
-                  className={`hover:text-primary transition-colors flex items-center gap-1 ${
+                  className={`hover:text-primary transition-colors flex items-center gap-1 cursor-pointer ${
                     index === breadcrumbItems.length - 1
                       ? "text-foreground font-medium"
                       : ""
@@ -431,7 +431,7 @@ export default function AssetLibraryPage() {
               {index > 0 && <ChevronRight className="h-4 w-4 mx-2" />}
               <Link
                 href={item.href}
-                className={`hover:text-primary transition-colors flex items-center gap-1 ${
+                className={`hover:text-primary transition-colors flex items-center gap-1 cursor-pointer ${
                   index === breadcrumbItems.length - 1
                     ? "text-foreground font-medium"
                     : ""
@@ -468,7 +468,9 @@ export default function AssetLibraryPage() {
                     <div className="space-y-6">
                       {/* Category Filter */}
                       <div>
-                        <h3 className="text-sm font-medium mb-2">Category</h3>
+                        <h3 className="text-sm font-medium mb-2 cursor-pointer">
+                          Category
+                        </h3>
                         <Select
                           value={filters.category || "all-categories"}
                           onValueChange={(value) =>
@@ -478,17 +480,21 @@ export default function AssetLibraryPage() {
                             )
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="cursor-pointer">
                             <SelectValue placeholder="Select category" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all-categories">
+                            <SelectItem
+                              value="all-categories"
+                              className="cursor-pointer"
+                            >
                               All Categories
                             </SelectItem>
                             {filterOptions.categories.map((category) => (
                               <SelectItem
                                 key={category.id}
                                 value={category.id || "uncategorized"}
+                                className="cursor-pointer"
                               >
                                 {category.name || "Uncategorized"}
                               </SelectItem>
@@ -500,7 +506,7 @@ export default function AssetLibraryPage() {
                       {/* Subcategory Filter */}
                       {filters.category && (
                         <div>
-                          <h3 className="text-sm font-medium mb-2">
+                          <h3 className="text-sm font-medium mb-2 cursor-pointer">
                             Subcategory
                           </h3>
                           <Select
@@ -512,11 +518,14 @@ export default function AssetLibraryPage() {
                               )
                             }
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="cursor-pointer">
                               <SelectValue placeholder="Select subcategory" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="all-subcategories">
+                              <SelectItem
+                                value="all-subcategories"
+                                className="cursor-pointer"
+                              >
                                 All Subcategories
                               </SelectItem>
                               {filterOptions.categories
@@ -525,6 +534,7 @@ export default function AssetLibraryPage() {
                                   <SelectItem
                                     key={sub.id}
                                     value={sub.id || "uncategorized"}
+                                    className="cursor-pointer"
                                   >
                                     {sub.name || "Uncategorized"}
                                   </SelectItem>
@@ -537,12 +547,14 @@ export default function AssetLibraryPage() {
                       {/* Client Filter */}
                       {filterOptions.clients.length > 0 && (
                         <div>
-                          <h3 className="text-sm font-medium mb-2">Client</h3>
+                          <h3 className="text-sm font-medium mb-2 cursor-pointer">
+                            Client
+                          </h3>
                           <div className="space-y-2">
                             {filterOptions.clients.map((client) => (
                               <div
                                 key={client.value}
-                                className="flex items-center space-x-2"
+                                className="flex items-center space-x-2 cursor-pointer"
                               >
                                 <input
                                   type="checkbox"
@@ -558,11 +570,11 @@ export default function AssetLibraryPage() {
                                         );
                                     handleFilterChange("client", newClients);
                                   }}
-                                  className="h-4 w-4 rounded border-gray-300"
+                                  className="h-4 w-4 rounded border-gray-300 cursor-pointer"
                                 />
                                 <label
                                   htmlFor={`client-${client.value}`}
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                 >
                                   {client.label}
                                 </label>
@@ -574,16 +586,18 @@ export default function AssetLibraryPage() {
 
                       {/* Material Filter */}
                       <div>
-                        <h3 className="text-sm font-medium mb-2">Materials</h3>
+                        <h3 className="text-sm font-medium mb-2 cursor-pointer">
+                          Materials
+                        </h3>
                         <Select
                           value={
                             filters.material.length > 0
                               ? filters.material[0]
                               : "all"
                           }
-                          onValueChange={() => {}} // Prevent closing on select
+                          onValueChange={() => {}}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="cursor-pointer">
                             <SelectValue>
                               {filters.material.length > 0
                                 ? `${filters.material.length} selected`
@@ -595,7 +609,7 @@ export default function AssetLibraryPage() {
                               {filterOptions.materials.map((material) => (
                                 <div
                                   key={material.value}
-                                  className="flex items-center space-x-2 py-1"
+                                  className="flex items-center space-x-2 py-1 cursor-pointer"
                                 >
                                   <input
                                     type="checkbox"
@@ -614,11 +628,11 @@ export default function AssetLibraryPage() {
                                         newMaterials
                                       );
                                     }}
-                                    className="h-4 w-4 rounded border-gray-300"
+                                    className="h-4 w-4 rounded border-gray-300 cursor-pointer"
                                   />
                                   <label
                                     htmlFor={`material-${material.value}`}
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                   >
                                     {material.label}
                                   </label>
@@ -631,14 +645,16 @@ export default function AssetLibraryPage() {
 
                       {/* Color Filter */}
                       <div>
-                        <h3 className="text-sm font-medium mb-2">Colors</h3>
+                        <h3 className="text-sm font-medium mb-2 cursor-pointer">
+                          Colors
+                        </h3>
                         <Select
                           value={
                             filters.color.length > 0 ? filters.color[0] : "all"
                           }
-                          onValueChange={() => {}} // Prevent closing on select
+                          onValueChange={() => {}}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="cursor-pointer">
                             <SelectValue>
                               {filters.color.length > 0
                                 ? `${filters.color.length} selected`
@@ -650,7 +666,7 @@ export default function AssetLibraryPage() {
                               {filterOptions.colors.map((color) => (
                                 <div
                                   key={color.value}
-                                  className="flex items-center space-x-2 py-1"
+                                  className="flex items-center space-x-2 py-1 cursor-pointer"
                                 >
                                   <input
                                     type="checkbox"
@@ -666,11 +682,11 @@ export default function AssetLibraryPage() {
                                           );
                                       handleFilterChange("color", newColors);
                                     }}
-                                    className="h-4 w-4 rounded border-gray-300"
+                                    className="h-4 w-4 rounded border-gray-300 cursor-pointer"
                                   />
                                   <label
                                     htmlFor={`color-${color.value}`}
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                   >
                                     {color.label}
                                   </label>
@@ -734,19 +750,31 @@ export default function AssetLibraryPage() {
               />
             </div>
             <Select value={filters.sort} onValueChange={handleSortChange}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] cursor-pointer">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="name-asc">Name (A-Z)</SelectItem>
-                <SelectItem value="name-desc">Name (Z-A)</SelectItem>
-                <SelectItem value="date-asc">Date (Oldest First)</SelectItem>
-                <SelectItem value="date-desc">Date (Newest First)</SelectItem>
+                <SelectItem value="name-asc" className="cursor-pointer">
+                  Name (A-Z)
+                </SelectItem>
+                <SelectItem value="name-desc" className="cursor-pointer">
+                  Name (Z-A)
+                </SelectItem>
+                <SelectItem value="date-asc" className="cursor-pointer">
+                  Date (Oldest First)
+                </SelectItem>
+                <SelectItem value="date-desc" className="cursor-pointer">
+                  Date (Newest First)
+                </SelectItem>
               </SelectContent>
             </Select>
             <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 cursor-pointer"
+                >
                   <Filter className="h-4 w-4" />
                   Filters
                   {(filters.category ||
@@ -773,7 +801,7 @@ export default function AssetLibraryPage() {
               <Button
                 variant={viewMode === "grid" ? "default" : "ghost"}
                 size="icon"
-                className="h-9 w-9"
+                className="h-9 w-9 cursor-pointer"
                 onClick={() => setViewMode("grid")}
                 aria-label="Grid View"
               >
@@ -782,7 +810,7 @@ export default function AssetLibraryPage() {
               <Button
                 variant={viewMode === "compactGrid" ? "default" : "ghost"}
                 size="icon"
-                className="h-9 w-9"
+                className="h-9 w-9 cursor-pointer"
                 onClick={() => setViewMode("compactGrid")}
                 aria-label="Compact Grid View"
               >
@@ -1165,7 +1193,7 @@ export default function AssetLibraryPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Download 3D Model"
-                          className="flex items-center justify-center relative"
+                          className="flex items-center justify-center relative cursor-pointer"
                         >
                           <Download className="h-4 w-4 transition-all duration-300 group-hover/download:scale-103" />
                           <div className="absolute inset-0 rounded-lg bg-primary/20 scale-0 group-hover/download:scale-100 group-hover/download:animate-ping transition-transform duration-300" />
@@ -1253,7 +1281,7 @@ export default function AssetLibraryPage() {
                                 <Badge
                                   key={material}
                                   variant="secondary"
-                                  className="text-xs font-normal px-2 py-0.5 bg-muted/50 hover:bg-muted transition-all duration-300 group-hover:bg-primary/10 group-hover:scale-105 hover:shadow-sm"
+                                  className="text-xs font-normal px-2 py-0.5 bg-muted/50 hover:bg-muted transition-all duration-300 group-hover:bg-primary/10 group-hover:scale-101 hover:shadow-sm"
                                   style={{ animationDelay: `${index * 100}ms` }}
                                 >
                                   {material.replace(/[[\]"]/g, "")}
@@ -1278,7 +1306,7 @@ export default function AssetLibraryPage() {
                               <Badge
                                 key={color}
                                 variant="outline"
-                                className="text-xs font-normal px-2 py-0.5 border-border/40 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group-hover:border-primary/30 group-hover:scale-105"
+                                className="text-xs font-normal px-2 py-0.5 border-border/40 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group-hover:border-primary/30 group-hover:scale-101"
                                 style={{ animationDelay: `${index * 100}ms` }}
                               >
                                 {color.replace(/[[\]"]/g, "")}
@@ -1329,7 +1357,7 @@ export default function AssetLibraryPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Download 3D Model"
-                        className="flex items-center justify-center relative"
+                        className="flex items-center justify-center relative cursor-pointer"
                       >
                         <Download className="h-4 w-4 transition-all duration-300 group-hover/download:scale-103" />
                         {/* Download pulse effect */}
@@ -1350,6 +1378,7 @@ export default function AssetLibraryPage() {
               size="sm"
               onClick={() => setCurrentPage(1)}
               disabled={currentPage === 1}
+              className="cursor-pointer"
             >
               First
             </Button>
@@ -1358,6 +1387,7 @@ export default function AssetLibraryPage() {
               size="sm"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
+              className="cursor-pointer"
             >
               Previous
             </Button>
@@ -1369,6 +1399,7 @@ export default function AssetLibraryPage() {
               size="sm"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
+              className="cursor-pointer"
             >
               Next
             </Button>
@@ -1377,6 +1408,7 @@ export default function AssetLibraryPage() {
               size="sm"
               onClick={() => setCurrentPage(totalPages)}
               disabled={currentPage === totalPages}
+              className="cursor-pointer"
             >
               Last
             </Button>
