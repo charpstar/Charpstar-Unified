@@ -60,7 +60,7 @@ export function useAssets() {
   });
   const user = useUser();
   const [totalCount, setTotalCount] = useState(0);
-  console.log(user);
+
   const [userProfile, setUserProfile] = useState<{
     client: string;
     role: string;

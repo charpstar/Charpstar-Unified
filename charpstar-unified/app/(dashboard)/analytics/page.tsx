@@ -154,10 +154,6 @@ export default function AnalyticsDashboard() {
     fetchImpersonatedProfile();
   }, [impersonateId, userRole]);
 
-  console.log("impersonateId:", impersonateId);
-  console.log("impersonatedProfile:", impersonatedProfile);
-  console.log("Current URL:", window.location.href);
-  console.log("user:", user);
   // --- Date range state with pending and applied states ---
   const today = new Date();
   const thirtyDaysAgo = addDays(today, -30);
@@ -187,17 +183,13 @@ export default function AnalyticsDashboard() {
   };
 
   // Log the effective profile and API URL for debugging
-  console.log("Effective profile:", effectiveProfile);
+
   if (
     appliedRange.from &&
     appliedRange.to &&
     effectiveProfile?.datasetid &&
     effectiveProfile?.projectid
   ) {
-    console.log(
-      "Analytics API URL:",
-      getAnalyticsUrl(appliedRange.from, appliedRange.to)
-    );
   }
 
   // Fetch analytics data
@@ -324,25 +316,7 @@ export default function AnalyticsDashboard() {
         }
       : undefined;
 
-  console.log("Processed stats:", stats);
-
   // Debug individual metrics
-  console.log(
-    "Total views (charpstAR_Load):",
-    analyticsArray.find((row: any) => row.metric_name === "charpstAR_Load")
-      ?.metrics
-  );
-  console.log(
-    "Total unique users:",
-    analyticsArray.find((row: any) => row.metric_name === "total_unique_users")
-      ?.metrics
-  );
-  console.log(
-    "AR clicks:",
-    analyticsArray.find(
-      (row: any) => row.metric_name === "charpstAR_AR_Button_Click"
-    )?.metrics
-  );
 
   const startTableName = appliedRange.from
     ? compToBq(format(appliedRange.from, "yyyyMMdd"))

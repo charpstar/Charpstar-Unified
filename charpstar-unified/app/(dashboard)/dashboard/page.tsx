@@ -1,177 +1,313 @@
 "use client";
 
-// import { useEffect, useState } from "react";
-// import { addDays, format } from "date-fns";
-// import { Skeleton } from "@/components/ui/skeleton";
-// import { StatCard } from "@/components/ui/stat-card";
+import { useEffect, useState } from "react";
 import { useUser } from "@/contexts/useUser";
-import { usePagePermission } from "@/lib/usePagePermission";
-import { useEffect } from "react";
-// import {
-//   Card,
-//   CardContent,
-//   CardDescription,
-//   CardHeader,
-// } from "@/components/ui/card";
-// import { Loader2 } from "lucide-react";
-// import { supabase } from "@/lib/supabaseClient";
-// import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { createClient } from "@/utils/supabase/client";
+import {
+  Package,
+  TrendingUp,
+  Boxes,
+  Palette,
+  Layers,
+  ChartBar,
+  User2,
+  BarChart3,
+  Shield,
+} from "lucide-react";
+import Link from "next/link";
+import { Label } from "@/components/ui/label";
+import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-// interface AnalyticsData {
-//   total_page_views: number;
-//   total_unique_users: number;
-//   total_users_with_service: number;
-//   percentage_users_with_service: number;
-//   conversion_rate_without_ar: number;
-//   conversion_rate_with_ar: number;
-//   total_purchases_with_ar: number;
-//   add_to_cart_default: number;
-//   add_to_cart_with_ar: number;
-//   avg_order_value_without_ar: number;
-//   avg_order_value_with_ar: number;
-//   total_ar_clicks: number;
-//   total_3d_clicks: number;
-//   session_duration_without_ar: number;
-//   session_duration_with_ar: number;
-// }
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  analytics_profile_id?: string;
+  metadata?: {
+    analytics_profile_id?: string;
+  };
+}
 
-// function generateTimeSeriesData(
-//   analyticsData: AnalyticsData,
-//   timeRange: "1d" | "7d" | "30d"
-// ) {
-//   const now = new Date();
-//   const days = timeRange === "1d" ? 1 : timeRange === "7d" ? 7 : 30;
-//   const data = [];
+interface UserProfile {
+  id: string;
+  role: string;
+  user_id: string;
+}
 
-//   for (let i = days - 1; i >= 0; i--) {
-//     const date = new Date(now);
-//     date.setDate(date.getDate() - i);
-//     date.setHours(0, 0, 0, 0);
+interface DashboardStats {
+  totalModels: number;
+  totalCategories: number;
+  totalMaterials: number;
+  totalColors: number;
+}
 
-//     const dayFactor = (days - i) / days;
-
-//     data.push({
-//       date: date.toISOString(),
-//       pageViews: Math.round(
-//         ((analyticsData.total_page_views || 0) * dayFactor) / days
-//       ),
-//       uniqueUsers: Math.round(
-//         ((analyticsData.total_unique_users || 0) * dayFactor) / days
-//       ),
-//       arClicks: Math.round(
-//         ((analyticsData.total_ar_clicks || 0) * dayFactor) / days
-//       ),
-//       threeDClicks: Math.round(
-//         ((analyticsData.total_3d_clicks || 0) * dayFactor) / days
-//       ),
-//     });
-//   }
-
-//   return data;
-// }
+interface AnalyticsProfile {
+  id: string;
+  projectid: string;
+  datasetid: string;
+  tablename: string;
+}
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [analyticsProfile, setAnalyticsProfile] =
+    useState<AnalyticsProfile | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const user = useUser() as User | null;
+
   useEffect(() => {
     document.title = "CharpstAR Platform - Dashboard";
   }, []);
-  const user = useUser();
-  // const router = useRouter();
-  // const [userRole, setUserRole] = useState<string | undefined>();
-  // const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
-  // const [loading, setLoading] = useState(true);
-  // const [timeRange, setTimeRange] = useState<"1d" | "7d" | "30d">("30d");
 
-  // Add permission check
-  const {} = usePagePermission(user?.role, "/dashboard");
+  useEffect(() => {
+    const fetchStats = async () => {
+      const supabase = createClient();
 
-  // Only check hasAnalytics after user is loaded
-  // const hasAnalytics = user && user.metadata?.analytics_profile_id;
+      try {
+        // Fetch user profile with role
+        if (user?.id) {
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .single();
 
-  // useEffect(() => {
-  //   const fetchUserRole = async () => {
-  //     const {
-  //       data: { user },
-  //     } = await supabase.auth.getUser();
-  //     if (!user) {
-  //       router.push("/auth");
-  //       return;
-  //     }
+          if (profileError || !profile) {
+            console.error("Error fetching profile:", profileError);
+            return;
+          }
 
-  //     const { data: profile } = await supabase
-  //       .from("profiles")
-  //       .select("role")
-  //       .eq("id", user.id)
-  //       .single();
+          setUserProfile(profile);
+        }
 
-  //     if (profile) {
-  //       setUserRole(profile.role);
-  //     }
-  //   };
+        // Fetch total models
+        const { count: totalModels } = await supabase
+          .from("assets")
+          .select("*", { count: "exact", head: true });
 
-  //   fetchUserRole();
-  // }, [router]);
+        // Fetch categories
+        const { data: categories } = await supabase
+          .from("categories")
+          .select("id");
 
-  // const isInitialLoading =
-  //   isUserLoading || !userRole || permissionLoading || (hasAccess && loading);
+        // Get unique materials and colors
+        const { data: assets } = await supabase
+          .from("assets")
+          .select("materials, colors");
 
-  // Show loading state for any initial loading condition
-  // if (isInitialLoading || !userRole) {
-  //   return (
-  //     <div className="p-6">
-  //       <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-  //       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-  //         {Array.from({ length: 4 }).map((_, i) => (
-  //           <CardContent key={i} className="p-6">
-  //             <div className="space-y-3">
-  //               {/* Title */}
-  //               <Skeleton className="h-4 w-24" />
-  //               {/* Value */}
-  //             </div>
-  //           </CardContent>
-  //         ))}
-  //       </div>
-  //     </div>
-  //   );
-  // }
+        const materials = new Set();
+        const colors = new Set();
 
-  // Only show error states after we've loaded the user role
-  // if (permissionError) {
-  //   return (
-  //     <div className="p-6">
-  //       <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-  //       <Card className="border-foreground">
-  //         <CardHeader>
-  //           <CardDescription>
-  //             An error occurred while checking permissions: {permissionError}
-  //           </CardDescription>
-  //         </CardHeader>
-  //       </Card>
-  //     </div>
-  //   );
-  // }
+        assets?.forEach((asset) => {
+          asset.materials?.forEach((m: string) => materials.add(m));
+          asset.colors?.forEach((c: string) => colors.add(c));
+        });
 
-  // if (!hasAccess) {
-  //   return (
-  //     <div className="p-6">
-  //       <Card>
-  //         <CardContent className="pt-6">
-  //           <div className="text-center py-8">
-  //             <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
-  //             <p className="text-gray-500">
-  //               You don't have permission to view analytics.
-  //             </p>
-  //           </div>
-  //         </CardContent>
-  //       </Card>
-  //     </div>
-  //   );
-  // }
+        // Fetch analytics profile if user has one
+        const analyticsProfileId =
+          user?.analytics_profile_id || user?.metadata?.analytics_profile_id;
+        if (analyticsProfileId) {
+          const { data: analytics } = await supabase
+            .from("analytics_profiles")
+            .select("*")
+            .eq("id", analyticsProfileId)
+            .single();
+
+          if (analytics) {
+            setAnalyticsProfile(analytics);
+          }
+        }
+
+        setStats({
+          totalModels: totalModels || 0,
+          totalCategories: categories?.length || 0,
+          totalMaterials: materials.size,
+          totalColors: colors.size,
+        });
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [user]);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
+  const getRoleBadgeVariant = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "default";
+      case "manager":
+        return "blue";
+      case "editor":
+        return "green";
+      default:
+        return "secondary";
+    }
+  };
+
+  const StatCard = ({
+    title,
+    value,
+    icon: Icon,
+    description,
+  }: {
+    title: string;
+    value: number | string;
+    icon: any;
+    description?: string;
+  }) => (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        {description && (
+          <p className="text-xs text-muted-foreground">{description}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 flex-col p-6">
+        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-[100px]" />
+                <Skeleton className="h-4 w-4" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-[60px]" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col p-6">
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-      <div className="space-y-6">
-        <span>More to come!</span>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User2 className="h-4 w-4" />
+                User Profile
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16 border border-border">
+                    <AvatarFallback className="bg-primary/10 text-muted-foreground text-lg">
+                      {getInitials(user?.email || "")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-1">
+                    <p className="text-lg font-medium">
+                      {user?.email || "User"}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
+                          getRoleBadgeVariant(userProfile?.role || "") as any
+                        }
+                      >
+                        {(userProfile?.role || "User").charAt(0).toUpperCase() +
+                          (userProfile?.role || "User").slice(1)}
+                      </Badge>
+                      {userProfile?.role === "admin" && (
+                        <Shield className="h-4 w-4 text-primary" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <ThemeSwitcherCard />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Quick Actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full justify-start"
+                >
+                  <Link
+                    href="/asset-library/upload"
+                    className="flex items-center gap-2"
+                  >
+                    <Package className="h-4 w-4" />
+                    Upload New Model
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full justify-start"
+                >
+                  <Link
+                    href="/asset-library"
+                    className="flex items-center gap-2"
+                  >
+                    <Boxes className="h-4 w-4" />
+                    Browse Models
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full justify-start"
+                >
+                  <Link href="/analytics" className="flex items-center gap-2">
+                    <ChartBar className="h-4 w-4" />
+                    Analytics
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -76,8 +76,10 @@ export function PreviewGeneratorDialog({
   const processingRef = useRef(false);
 
   const assetsNeedingPreview = retakeAll
-    ? assets.filter((asset) => asset.glb_link)
-    : assets.filter((asset) => !asset.preview_image && asset.glb_link);
+    ? assets.filter((asset) => asset.glb_link).slice(0, 300)
+    : assets
+        .filter((asset) => !asset.preview_image && asset.glb_link)
+        .slice(0, 300);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -111,7 +113,9 @@ export function PreviewGeneratorDialog({
     let total = 0;
     let checked = 0;
 
-    const assetsWithPreviews = assets.filter((a) => a.preview_image);
+    const assetsWithPreviews = assets
+      .filter((a) => a.preview_image)
+      .slice(0, 300);
     const totalToCheck = assetsWithPreviews.length;
 
     for (const asset of assetsWithPreviews) {
@@ -556,7 +560,8 @@ export function PreviewGeneratorDialog({
                 <DialogDescription className="text-sm text-muted-foreground mt-1">
                   Preview generation for{" "}
                   <span className="font-semibold text-primary">
-                    {assetsNeedingPreview.length}
+                    {assetsNeedingPreview.length} / {assets.length} (limited to
+                    300 assets for now)
                   </span>{" "}
                   assets
                 </DialogDescription>

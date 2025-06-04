@@ -111,25 +111,6 @@ export default function AssetDetailPage() {
 
         setAsset(data);
         setEditedAsset(data);
-        console.log("Asset Details:", {
-          id: data.id,
-          name: data.product_name,
-          category: data.category,
-          subcategory: data.subcategory,
-          description: data.description,
-          client: data.client,
-          materials: data.materials,
-          colors: data.colors,
-          tags: data.tags,
-          preview_image: data.preview_image,
-          product_link: data.product_link,
-          glb_link: data.glb_link,
-          glb_link_valid: data.glb_link
-            ? new URL(data.glb_link).toString()
-            : false,
-          raw_data: data,
-        });
-        console.log("Asset Details:", data);
       } catch (err) {
         console.error("Error fetching asset:", err);
         setError("Failed to load asset details");

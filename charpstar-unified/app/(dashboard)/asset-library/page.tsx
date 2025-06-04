@@ -11,7 +11,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Download, ExternalLink, Search, Grid, Filter, X } from "lucide-react";
+import {
+  Download,
+  ExternalLink,
+  Search,
+  Grid,
+  Filter,
+  X,
+  ChevronRight,
+  Home,
+} from "lucide-react";
 import { useAssets } from "../../../hooks/use-assets";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -25,14 +34,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { AssetCardSkeleton } from "@/components/ui/asset-card-skeleton";
 import { PreviewGeneratorDialog } from "./components/preview-generator-dialog";
 import { createClient } from "@/utils/supabase/client";
 
+type SortOption = "name-asc" | "name-desc" | "date-asc" | "date-desc";
+
 export default function AssetLibraryPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const client = searchParams.get("client");
   const {
     assets,
@@ -70,10 +83,29 @@ export default function AssetLibraryPage() {
 
   const ITEMS_PER_PAGE = 52;
 
-  // Filter assets based on search
-  const filteredAssets = assets.filter((asset) =>
-    asset.product_name.toLowerCase().includes(searchValue.toLowerCase())
-  );
+  // Filter assets based on search and sort
+  const filteredAssets = assets
+    .filter((asset) =>
+      asset.product_name.toLowerCase().includes(searchValue.toLowerCase())
+    )
+    .sort((a, b) => {
+      switch (filters.sort) {
+        case "name-asc":
+          return a.product_name.localeCompare(b.product_name);
+        case "name-desc":
+          return b.product_name.localeCompare(a.product_name);
+        case "date-asc":
+          return (
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        case "date-desc":
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        default:
+          return 0;
+      }
+    });
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredAssets.length / ITEMS_PER_PAGE);
@@ -100,6 +132,136 @@ export default function AssetLibraryPage() {
       sort: "name-asc",
     });
   };
+
+  // Helper function to build URL with filters
+  const buildUrlWithFilters = (params: Record<string, string | null>) => {
+    const urlParams = new URLSearchParams();
+
+    // Only include navigation-related filters in the URL
+    if (filters.category) urlParams.set("category", filters.category);
+    if (filters.subcategory) urlParams.set("subcategory", filters.subcategory);
+
+    // Override with new params
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null) {
+        urlParams.delete(key);
+      } else {
+        urlParams.set(key, value);
+      }
+    });
+
+    return `/asset-library${urlParams.toString() ? `?${urlParams.toString()}` : ""}`;
+  };
+
+  // Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    // Include all filters in the actual URL
+    if (filters.category) params.set("category", filters.category);
+    if (filters.subcategory) params.set("subcategory", filters.subcategory);
+    if (filters.client.length > 0)
+      params.set("clients", filters.client.join(","));
+    if (filters.material.length > 0)
+      params.set("materials", filters.material.join(","));
+    if (filters.color.length > 0) params.set("colors", filters.color.join(","));
+    if (filters.sort !== "name-asc") params.set("sort", filters.sort);
+    if (searchValue) params.set("search", searchValue);
+
+    const newUrl = `${pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+    router.push(newUrl, { scroll: false });
+  }, [filters, searchValue, pathname, router]);
+
+  // Initialize filters from URL on mount
+  useEffect(() => {
+    // Helper to parse comma-separated params
+    const parseList = (param: string | null): string[] =>
+      param ? param.split(",") : [];
+
+    setFilters((prev) => ({
+      ...prev,
+      category: searchParams.get("category") || null,
+      subcategory: searchParams.get("subcategory") || null,
+      client: parseList(searchParams.get("clients")),
+      material: parseList(searchParams.get("materials")),
+      color: parseList(searchParams.get("colors")),
+      sort: (searchParams.get("sort") as SortOption) || "name-asc",
+    }));
+
+    setSearchValue(searchParams.get("search") || "");
+  }, [searchParams]);
+
+  // Breadcrumb items
+  const breadcrumbItems: {
+    label: string;
+    href: string;
+    icon?: React.ReactNode;
+    onClick?: () => void;
+  }[] = [
+    {
+      label: "Home",
+      href: "/asset-library",
+      icon: <Home className="h-4 w-4" />,
+    },
+  ];
+
+  // Always include Asset Library
+  breadcrumbItems.push({
+    label: "Asset Library",
+    href: buildUrlWithFilters({ category: null, subcategory: null }),
+    onClick: () => {
+      setFilters((prev) => ({
+        ...prev,
+        category: null,
+        subcategory: null,
+      }));
+    },
+  });
+
+  if (filters.category) {
+    const category = filterOptions.categories.find(
+      (c) => c.id === filters.category
+    );
+    if (category) {
+      breadcrumbItems.push({
+        label: category.name || "Uncategorized",
+        href: buildUrlWithFilters({
+          category: filters.category,
+          subcategory: null,
+        }),
+        onClick: () => {
+          setFilters((prev) => ({
+            ...prev,
+            subcategory: null,
+          }));
+        },
+      });
+    }
+  }
+
+  if (filters.category && filters.subcategory) {
+    const category = filterOptions.categories.find(
+      (c) => c.id === filters.category
+    );
+    const subcategory = category?.subcategories.find(
+      (s) => s.id === filters.subcategory
+    );
+    if (subcategory) {
+      breadcrumbItems.push({
+        label: subcategory.name || "Uncategorized",
+        href: buildUrlWithFilters({
+          category: filters.category,
+          subcategory: filters.subcategory,
+        }),
+        onClick: () => {
+          setFilters((prev) => ({
+            ...prev,
+            subcategory: filters.subcategory,
+          }));
+        },
+      });
+    }
+  }
 
   // Show loading state while user profile is being fetched
   if (!user) {
@@ -129,6 +291,29 @@ export default function AssetLibraryPage() {
           src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
         />
         <div className="flex flex-col gap-4">
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+            {breadcrumbItems.map((item, index) => (
+              <div key={item.href} className="flex items-center">
+                {index > 0 && <ChevronRight className="h-4 w-4 mx-2" />}
+                <Link
+                  href={item.href}
+                  className={`hover:text-primary transition-colors flex items-center gap-1 ${
+                    index === breadcrumbItems.length - 1
+                      ? "text-foreground font-medium"
+                      : ""
+                  }`}
+                  onClick={(e) => {
+                    if (item.onClick) {
+                      e.preventDefault();
+                      item.onClick();
+                    }
+                  }}
+                >
+                  {item.icon || item.label}
+                </Link>
+              </div>
+            ))}
+          </div>
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4 mb-6">
               <h1 className="text-2xl font-bold">Library</h1>
@@ -179,7 +364,7 @@ export default function AssetLibraryPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pl-10 pr-10">
             {Array.from({ length: 12 }).map((_, i) => (
               <AssetCardSkeleton key={i} />
             ))}
@@ -239,6 +424,31 @@ export default function AssetLibraryPage() {
         src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
       />
       <div className="flex flex-col gap-4">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+          {breadcrumbItems.map((item, index) => (
+            <div key={item.href} className="flex items-center">
+              {index > 0 && <ChevronRight className="h-4 w-4 mx-2" />}
+              <Link
+                href={item.href}
+                className={`hover:text-primary transition-colors flex items-center gap-1 ${
+                  index === breadcrumbItems.length - 1
+                    ? "text-foreground font-medium"
+                    : ""
+                }`}
+                onClick={(e) => {
+                  if (item.onClick) {
+                    e.preventDefault();
+                    item.onClick();
+                  }
+                }}
+              >
+                {item.icon || item.label}
+              </Link>
+            </div>
+          ))}
+        </div>
+
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4 mb-6">
             <h1 className="text-2xl font-bold">Library</h1>
@@ -325,7 +535,7 @@ export default function AssetLibraryPage() {
                       )}
 
                       {/* Client Filter */}
-                      {filterOptions.clients.length > 1 && (
+                      {filterOptions.clients.length > 0 && (
                         <div>
                           <h3 className="text-sm font-medium mb-2">Client</h3>
                           <div className="space-y-2">
@@ -365,94 +575,108 @@ export default function AssetLibraryPage() {
                       {/* Material Filter */}
                       <div>
                         <h3 className="text-sm font-medium mb-2">Materials</h3>
-                        <div className="space-y-2">
-                          {filterOptions.materials.map((material) => (
-                            <div
-                              key={material.value}
-                              className="flex items-center space-x-2"
-                            >
-                              <input
-                                type="checkbox"
-                                id={`material-${material.value}`}
-                                checked={filters.material.includes(
-                                  material.value
-                                )}
-                                onChange={(e) => {
-                                  const newMaterials = e.target.checked
-                                    ? [...filters.material, material.value]
-                                    : filters.material.filter(
-                                        (m) => m !== material.value
+                        <Select
+                          value={
+                            filters.material.length > 0
+                              ? filters.material[0]
+                              : "all"
+                          }
+                          onValueChange={() => {}} // Prevent closing on select
+                        >
+                          <SelectTrigger>
+                            <SelectValue>
+                              {filters.material.length > 0
+                                ? `${filters.material.length} selected`
+                                : "Select materials"}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="w-[300px] max-h-[300px]">
+                            <div className="space-y-1 p-2">
+                              {filterOptions.materials.map((material) => (
+                                <div
+                                  key={material.value}
+                                  className="flex items-center space-x-2 py-1"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    id={`material-${material.value}`}
+                                    checked={filters.material.includes(
+                                      material.value
+                                    )}
+                                    onChange={(e) => {
+                                      const newMaterials = e.target.checked
+                                        ? [...filters.material, material.value]
+                                        : filters.material.filter(
+                                            (m) => m !== material.value
+                                          );
+                                      handleFilterChange(
+                                        "material",
+                                        newMaterials
                                       );
-                                  handleFilterChange("material", newMaterials);
-                                }}
-                                className="h-4 w-4 rounded border-gray-300"
-                              />
-                              <label
-                                htmlFor={`material-${material.value}`}
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              >
-                                {material.label}
-                              </label>
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-300"
+                                  />
+                                  <label
+                                    htmlFor={`material-${material.value}`}
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                  >
+                                    {material.label}
+                                  </label>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* Color Filter */}
                       <div>
                         <h3 className="text-sm font-medium mb-2">Colors</h3>
-                        <div className="space-y-2">
-                          {filterOptions.colors.map((color) => (
-                            <div
-                              key={color.value}
-                              className="flex items-center space-x-2"
-                            >
-                              <input
-                                type="checkbox"
-                                id={`color-${color.value}`}
-                                checked={filters.color.includes(color.value)}
-                                onChange={(e) => {
-                                  const newColors = e.target.checked
-                                    ? [...filters.color, color.value]
-                                    : filters.color.filter(
-                                        (c) => c !== color.value
-                                      );
-                                  handleFilterChange("color", newColors);
-                                }}
-                                className="h-4 w-4 rounded border-gray-300"
-                              />
-                              <label
-                                htmlFor={`color-${color.value}`}
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              >
-                                {color.label}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Sort Options */}
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">Sort By</h3>
                         <Select
-                          value={filters.sort}
-                          onValueChange={handleSortChange}
+                          value={
+                            filters.color.length > 0 ? filters.color[0] : "all"
+                          }
+                          onValueChange={() => {}} // Prevent closing on select
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Sort by" />
+                            <SelectValue>
+                              {filters.color.length > 0
+                                ? `${filters.color.length} selected`
+                                : "Select colors"}
+                            </SelectValue>
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="name-asc">Name (A-Z)</SelectItem>
-                            <SelectItem value="name-desc">
-                              Name (Z-A)
-                            </SelectItem>
-                            <SelectItem value="date-asc">
-                              Date (Oldest First)
-                            </SelectItem>
-                            <SelectItem value="date-desc">
-                              Date (Newest First)
-                            </SelectItem>
+                          <SelectContent className="w-[300px] max-h-[300px]">
+                            <div className="space-y-1 p-2">
+                              {filterOptions.colors.map((color) => (
+                                <div
+                                  key={color.value}
+                                  className="flex items-center space-x-2 py-1"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    id={`color-${color.value}`}
+                                    checked={filters.color.includes(
+                                      color.value
+                                    )}
+                                    onChange={(e) => {
+                                      const newColors = e.target.checked
+                                        ? [...filters.color, color.value]
+                                        : filters.color.filter(
+                                            (c) => c !== color.value
+                                          );
+                                      handleFilterChange("color", newColors);
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-300"
+                                  />
+                                  <label
+                                    htmlFor={`color-${color.value}`}
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                  >
+                                    {color.label}
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
                           </SelectContent>
                         </Select>
                       </div>
@@ -507,6 +731,17 @@ export default function AssetLibraryPage() {
                 className="pl-9"
               />
             </div>
+            <Select value={filters.sort} onValueChange={handleSortChange}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+                <SelectItem value="date-asc">Date (Oldest First)</SelectItem>
+                <SelectItem value="date-desc">Date (Newest First)</SelectItem>
+              </SelectContent>
+            </Select>
             <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -671,86 +906,144 @@ export default function AssetLibraryPage() {
             ) : (
               <Card
                 key={asset.id}
-                className="flex flex-col h-full overflow-hidden border-border/50 hover:border-border transition-colors p-2 text-sm min-h-[180px] min-w-[180px]"
+                className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm min-h-[220px] min-w-[220px] rounded-xl"
               >
+                {/* Subtle gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
                 <CardHeader
-                  className={viewMode === "grid" ? "p-0" : "p-0 w-32 shrink-0"}
+                  className={`relative ${viewMode === "grid" ? "p-3" : "p-3 w-32 shrink-0"}`}
                 >
-                  <img
-                    src={asset.preview_image || "/placeholder.png"}
-                    alt={asset.product_name}
-                    className="w-full h-78 object-contain bg-white dark:bg-black"
-                  />
+                  <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 p-3 group-hover:shadow-lg transition-all duration-500">
+                    {/* Image container with loading state */}
+                    <div className="relative aspect-square overflow-hidden rounded-lg bg-white dark:bg-black/50">
+                      <img
+                        src={asset.preview_image || "/placeholder.png"}
+                        alt={asset.product_name}
+                        className="w-full h-full object-contain transition-all duration-700 group-hover:scale-103"
+                        loading="lazy"
+                      />
+                      {/* Subtle shine effect */}
+                      <div className="" />
+                    </div>
+
+                    {/* Floating status indicator */}
+                  </div>
                 </CardHeader>
-                <CardContent className="flex-1 flex flex-col space-y-2 p-2">
-                  <div>
-                    <CardTitle className="line-clamp-1 font-semibold text-base">
-                      {asset.product_name}
-                    </CardTitle>
-                    <div className="flex flex-wrap gap-2 mt-3">
+
+                <CardContent className="relative flex-1 flex flex-col p-3 space-y-3">
+                  <div className="space-y-2">
+                    {/* Title with enhanced typography */}
+                    <div className="space-y-2">
+                      <CardTitle className="line-clamp-2 font-bold text-base leading-tight group-hover:text-primary transition-all duration-300 group-hover:tracking-wide">
+                        {asset.product_name}
+                      </CardTitle>
+
+                      {/* Premium divider */}
+                      <div className="relative h-px bg-gradient-to-r from-transparent via-border to-transparent group-hover:via-primary/40 transition-all duration-500">
+                        <div className="absolute left-1/2 top-1/2 w-1 h-1 bg-primary/60 rounded-full transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      </div>
+                    </div>
+
+                    {/* Enhanced category badges */}
+                    <div className="flex flex-wrap gap-2">
                       <Badge
                         variant="secondary"
-                        className="text-xs font-normal"
+                        className="text-xs font-medium px-3 py-1 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/40 transition-all duration-300 group-hover:shadow-md group-hover:shadow-primary/20 hover:scale-105"
                       >
-                        {asset.category}
+                        <span className="font-semibold">{asset.category}</span>
                       </Badge>
                       {asset.subcategory && (
                         <Badge
                           variant="outline"
-                          className="text-xs font-normal"
+                          className="text-xs font-medium px-3 py-1 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group-hover:shadow-sm hover:scale-105"
                         >
                           {asset.subcategory}
                         </Badge>
                       )}
                     </div>
 
-                    <div className="h-px bg-border my-2" />
+                    {/* Material and color tags with enhanced styling */}
+                    <div className="space-y-2">
+                      {asset.materials && asset.materials.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Materials
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {asset.materials
+                              .slice(0, 3)
+                              .map((material, index) => (
+                                <Badge
+                                  key={material}
+                                  variant="secondary"
+                                  className="text-xs font-normal px-2 py-0.5 bg-muted/50 hover:bg-muted transition-all duration-300 group-hover:bg-primary/10 group-hover:scale-105 hover:shadow-sm"
+                                  style={{ animationDelay: `${index * 100}ms` }}
+                                >
+                                  {material.replace(/[[\]"]/g, "")}
+                                </Badge>
+                              ))}
+                            {asset.materials.length > 3 && (
+                              <Badge className="text-xs font-normal px-2 py-0.5">
+                                +{asset.materials.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
-                    <div className="flex flex-wrap gap-2">
-                      {asset.materials &&
-                        asset.materials.length > 0 &&
-                        asset.materials.map((material: string) => (
-                          <Badge
-                            key={material}
-                            variant="secondary"
-                            className="text-xs font-normal"
-                          >
-                            {material.replace(/[[\]"]/g, "")}
-                          </Badge>
-                        ))}
-                      {asset.colors &&
-                        asset.colors.length > 0 &&
-                        asset.colors.map((color: string) => (
-                          <Badge
-                            key={color}
-                            variant="outline"
-                            className="text-xs font-normal"
-                          >
-                            {color.replace(/[[\]"]/g, "")}
-                          </Badge>
-                        ))}
+                      {asset.colors && asset.colors.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Colors
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {asset.colors.slice(0, 4).map((color, index) => (
+                              <Badge
+                                key={color}
+                                variant="outline"
+                                className="text-xs font-normal px-2 py-0.5 border-border/40 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group-hover:border-primary/30 group-hover:scale-105"
+                                style={{ animationDelay: `${index * 100}ms` }}
+                              >
+                                {color.replace(/[[\]"]/g, "")}
+                              </Badge>
+                            ))}
+                            {asset.colors.length > 4 && (
+                              <Badge
+                                variant="ghost"
+                                className="text-xs font-normal px-2 py-0.5"
+                              >
+                                +{asset.colors.length - 4}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {/* Enhanced action buttons */}
                   <div className="mt-auto pt-4 flex items-center gap-2">
                     <Button
                       variant="default"
                       size="default"
-                      className="flex-1 group/btn h-9 dark:bg-muted dark:text-white"
+                      className="flex-1 group/btn h-9 font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-lg hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 rounded-lg"
                       asChild
                     >
                       <Link
                         href={`/asset-library/${asset.id}`}
-                        className="flex items-center justify-center gap-2 dark:bg-background dark:text-black"
+                        className="flex items-center justify-center gap-2.5"
                         prefetch={true}
                       >
-                        View Product
-                        <ExternalLink className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
+                        <span>View Details</span>
+                        <ExternalLink className="h-4 w-4 transition-all duration-300 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-0.5" />
                       </Link>
                     </Button>
+
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-9 w-9 shrink-0 hover:bg-muted/50 transition-colors group/download"
+                      className="h-9 w-9 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 hover:scale-103 hover:shadow-lg group/download rounded-lg backdrop-blur-sm"
                       asChild
                       disabled={!asset.glb_link}
                     >
@@ -760,9 +1053,11 @@ export default function AssetLibraryPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Download 3D Model"
-                        className="flex items-center justify-center"
+                        className="flex items-center justify-center relative"
                       >
-                        <Download className="h-4 w-4 transition-transform group-hover/download:translate-y-0.5" />
+                        <Download className="h-4 w-4 transition-all duration-300 group-hover/download:scale-103" />
+                        {/* Download pulse effect */}
+                        <div className="absolute inset-0 rounded-lg bg-primary/20 scale-0 group-hover/download:scale-100 group-hover/download:animate-ping transition-transform duration-300" />
                       </a>
                     </Button>
                   </div>
