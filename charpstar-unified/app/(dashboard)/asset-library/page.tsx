@@ -20,9 +20,10 @@ import {
   X,
   ChevronRight,
   Home,
+  ChevronLeft,
 } from "lucide-react";
 import { useAssets } from "../../../hooks/use-assets";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Script from "next/script";
 
@@ -66,6 +67,12 @@ export default function AssetLibraryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const user = useUser();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const categoryContainerRef = useRef<HTMLDivElement>(null);
+  const subcategoryContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -114,7 +121,12 @@ export default function AssetLibraryPage() {
   const currentAssets = filteredAssets.slice(startIndex, endIndex);
 
   const handleFilterChange = (key: keyof typeof filters, value: any) => {
-    setFilters({ ...filters, [key]: value });
+    if (key === "category" && value === null) {
+      // When clearing category, also clear subcategory
+      setFilters({ ...filters, category: null, subcategory: null });
+    } else {
+      setFilters({ ...filters, [key]: value });
+    }
   };
 
   const handleSortChange = (value: string) => {
@@ -262,6 +274,41 @@ export default function AssetLibraryPage() {
       });
     }
   }
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    setStartX(e.pageX - e.currentTarget.offsetLeft);
+    setScrollLeft(e.currentTarget.scrollLeft);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - e.currentTarget.offsetLeft;
+    const walk = (x - startX) * 0.8; // Reduced from 2 to 0.8 for slower scrolling
+    e.currentTarget.scrollLeft = scrollLeft - walk;
+  };
+
+  const scrollContainer = (
+    direction: "left" | "right",
+    containerRef: React.RefObject<HTMLDivElement>
+  ) => {
+    if (containerRef.current) {
+      const scrollAmount = 200; // Adjust this value to control scroll distance
+      containerRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
 
   // Show loading state while user profile is being fetched
   if (!user) {
@@ -466,84 +513,6 @@ export default function AssetLibraryPage() {
                 <div className="py-4">
                   <div className="h-[calc(100vh-8rem)] overflow-y-auto pr-4">
                     <div className="space-y-6">
-                      {/* Category Filter */}
-                      <div>
-                        <h3 className="text-sm font-medium mb-2 cursor-pointer">
-                          Category
-                        </h3>
-                        <Select
-                          value={filters.category || "all-categories"}
-                          onValueChange={(value) =>
-                            handleFilterChange(
-                              "category",
-                              value === "all-categories" ? null : value
-                            )
-                          }
-                        >
-                          <SelectTrigger className="cursor-pointer">
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem
-                              value="all-categories"
-                              className="cursor-pointer"
-                            >
-                              All Categories
-                            </SelectItem>
-                            {filterOptions.categories.map((category) => (
-                              <SelectItem
-                                key={category.id}
-                                value={category.id || "uncategorized"}
-                                className="cursor-pointer"
-                              >
-                                {category.name || "Uncategorized"}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Subcategory Filter */}
-                      {filters.category && (
-                        <div>
-                          <h3 className="text-sm font-medium mb-2 cursor-pointer">
-                            Subcategory
-                          </h3>
-                          <Select
-                            value={filters.subcategory || "all-subcategories"}
-                            onValueChange={(value) =>
-                              handleFilterChange(
-                                "subcategory",
-                                value === "all-subcategories" ? null : value
-                              )
-                            }
-                          >
-                            <SelectTrigger className="cursor-pointer">
-                              <SelectValue placeholder="Select subcategory" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem
-                                value="all-subcategories"
-                                className="cursor-pointer"
-                              >
-                                All Subcategories
-                              </SelectItem>
-                              {filterOptions.categories
-                                .find((c) => c.id === filters.category)
-                                ?.subcategories.map((sub) => (
-                                  <SelectItem
-                                    key={sub.id}
-                                    value={sub.id || "uncategorized"}
-                                    className="cursor-pointer"
-                                  >
-                                    {sub.name || "Uncategorized"}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
                       {/* Client Filter */}
                       {filterOptions.clients.length > 0 && (
                         <div>
@@ -554,7 +523,7 @@ export default function AssetLibraryPage() {
                             {filterOptions.clients.map((client) => (
                               <div
                                 key={client.value}
-                                className="flex items-center space-x-2 cursor-pointer"
+                                className="flex items-center space-x-2"
                               >
                                 <input
                                   type="checkbox"
@@ -574,7 +543,7 @@ export default function AssetLibraryPage() {
                                 />
                                 <label
                                   htmlFor={`client-${client.value}`}
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                 >
                                   {client.label}
                                 </label>
@@ -632,7 +601,7 @@ export default function AssetLibraryPage() {
                                   />
                                   <label
                                     htmlFor={`material-${material.value}`}
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                   >
                                     {material.label}
                                   </label>
@@ -686,7 +655,7 @@ export default function AssetLibraryPage() {
                                   />
                                   <label
                                     htmlFor={`color-${color.value}`}
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                   >
                                     {color.label}
                                   </label>
@@ -820,164 +789,177 @@ export default function AssetLibraryPage() {
           </div>
         </div>
 
-        {/* Active Filters Display */}
-        {(filters.category ||
-          filters.subcategory ||
-          filters.client.length > 0 ||
-          filters.material.length > 0 ||
-          filters.color.length > 0) && (
-          <div className="flex justify-end w-full">
-            <div
-              className="
-                flex flex-nowrap gap-3 items-center
-                mt-2 mb-6  pl-4 pr-4
-                rounded-md shadow-md
-                border border-border/30
-                max-w-full
-                bg-background/70 backdrop-blur-md
-                overflow-x-auto
-                transition-all
-                min-h-[56px]
-                "
-              style={{ scrollbarWidth: "none" }}
-            >
-              <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium select-none">
-                <Filter className="h-4 w-4 opacity-80" />
-                <span className="hidden sm:inline">Active Filters:</span>
+        <div className="mb-8 space-y-4">
+          <div className="flex flex-row gap-4">
+            {/* Main Categories */}
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-0.5 w-6 bg-primary rounded-full"></div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Categories
+                </h3>
               </div>
-              {filters.category && (
-                <Badge
-                  variant="secondary"
-                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border-none hover:bg-primary/20 transition-all duration-300 shadow-sm"
+
+              <div className="flex items-center gap-2">
+                <div
+                  ref={categoryContainerRef}
+                  className="flex items-center gap-2 overflow-x-auto pb-2 px-1 cursor-grab active:cursor-grabbing select-none max-w-[1300px]"
+                  onMouseDown={handleMouseDown}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseLeave}
+                  onMouseMove={handleMouseMove}
+                  style={{
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                  }}
                 >
-                  <span className="font-semibold flex items-center gap-1">
-                    <span className="rounded-full w-2 h-2 bg-primary/60 mr-1" />
-                    {
-                      filterOptions.categories.find(
-                        (c) => c.id === filters.category
-                      )?.name
-                    }
-                  </span>
-                  <button
+                  <Button
+                    variant={!filters.category ? "default" : "outline"}
+                    size="sm"
                     onClick={() => handleFilterChange("category", null)}
-                    className="ml-1 hover:text-destructive cursor-pointer transition-colors duration-200 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-destructive/30"
-                    title="Remove filter"
+                    className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
+                      !filters.category
+                        ? "bg-primary text-primary-foreground"
+                        : "border-border hover:bg-muted/50"
+                    }`}
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.subcategory && (
-                <Badge
-                  variant="secondary"
-                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border-none hover:bg-primary/20 transition-all duration-300 shadow-sm"
-                >
-                  <span className="font-semibold flex items-center gap-1">
-                    <span className="rounded-full w-2 h-2 bg-muted-foreground mr-1" />
-                    {
-                      filterOptions.categories
-                        .find((c) => c.id === filters.category)
-                        ?.subcategories.find(
-                          (s) => s.id === filters.subcategory
-                        )?.name
-                    }
-                  </span>
-                  <button
-                    onClick={() => handleFilterChange("subcategory", null)}
-                    className="ml-1 hover:text-destructive cursor-pointer transition-colors duration-200 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-destructive/30"
-                    title="Remove filter"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.client.map((client) => (
-                <Badge
-                  key={client}
-                  variant="secondary"
-                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border-none hover:bg-primary/20 transition-all duration-300 shadow-sm"
-                >
-                  <span className="font-semibold flex items-center gap-1">
-                    <span className="rounded-full w-2 h-2 bg-accent mr-1" />
-                    {client}
-                  </span>
-                  <button
+                    All Categories
+                  </Button>
+
+                  {filterOptions.categories.map((category) => (
+                    <Button
+                      key={category.id}
+                      variant={
+                        filters.category === category.id ? "default" : "outline"
+                      }
+                      size="sm"
+                      onClick={() =>
+                        handleFilterChange("category", category.id)
+                      }
+                      className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
+                        filters.category === category.id
+                          ? "bg-primary text-primary-foreground"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      {category.name || "Uncategorized"}
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-foreground hover:text-primary transition-colors"
                     onClick={() =>
-                      handleFilterChange(
-                        "client",
-                        filters.client.filter((c) => c !== client)
-                      )
+                      scrollContainer("left", categoryContainerRef)
                     }
-                    className="ml-1 hover:text-destructive cursor-pointer transition-colors duration-200 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-destructive/30"
-                    title="Remove filter"
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-              {filters.material.map((material) => (
-                <Badge
-                  key={material}
-                  variant="secondary"
-                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border-none hover:bg-primary/20 transition-all duration-300 shadow-sm"
-                >
-                  <span className="font-semibold flex items-center gap-1">
-                    <span className="rounded-full w-2 h-2 bg-purple-400 mr-1" />
-                    {material}
-                  </span>
-                  <button
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-foreground hover:text-primary transition-colors"
                     onClick={() =>
-                      handleFilterChange(
-                        "material",
-                        filters.material.filter((m) => m !== material)
-                      )
+                      scrollContainer("right", categoryContainerRef)
                     }
-                    className="ml-1 hover:text-destructive cursor-pointer transition-colors duration-200 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-destructive/30"
-                    title="Remove filter"
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-              {filters.color.map((color) => (
-                <Badge
-                  key={color}
-                  variant="secondary"
-                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 border-none hover:bg-primary/20 transition-all duration-300 shadow-sm"
-                >
-                  <span className="font-semibold flex items-center gap-1">
-                    <span
-                      className="rounded-full w-2 h-2"
-                      style={{ backgroundColor: color }}
-                    />
-                    {color}
-                  </span>
-                  <button
-                    onClick={() =>
-                      handleFilterChange(
-                        "color",
-                        filters.color.filter((c) => c !== color)
-                      )
-                    }
-                    className="ml-1 hover:text-destructive cursor-pointer transition-colors duration-200 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-destructive/30"
-                    title="Remove filter"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearFilters}
-                className="ml-4 text-muted-foreground border-border/40 hover:bg-muted hover:text-foreground font-medium px-4 rounded-md shadow-sm transition-all duration-200 cursor-pointer"
-                title="Clear all filters"
-              >
-                Clear All
-              </Button>
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
             </div>
+
+            {/* Subcategory Navigation */}
+            {filters.category && (
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-0.5 w-4 bg-primary/60 rounded-full"></div>
+                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Subcategories
+                  </h4>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div
+                    ref={subcategoryContainerRef}
+                    className="flex items-center gap-2 overflow-x-auto pb-2 px-1 cursor-grab active:cursor-grabbing select-none max-w-[1300px]"
+                    onMouseDown={handleMouseDown}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseMove={handleMouseMove}
+                    style={{
+                      scrollbarWidth: "none",
+                      msOverflowStyle: "none",
+                    }}
+                  >
+                    <Button
+                      variant={!filters.subcategory ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleFilterChange("subcategory", null)}
+                      className={`shrink-0 h-7 px-3 text-xs font-medium transition-colors duration-200 rounded-md ${
+                        !filters.subcategory
+                          ? "bg-primary/80 text-primary-foreground"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      All
+                    </Button>
+
+                    {filterOptions.categories
+                      .find((c) => c.id === filters.category)
+                      ?.subcategories.map((sub) => (
+                        <Button
+                          key={sub.id}
+                          variant={
+                            filters.subcategory === sub.id
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() =>
+                            handleFilterChange("subcategory", sub.id)
+                          }
+                          className={`shrink-0 h-7 px-3 text-xs font-medium transition-colors duration-200 rounded-md ${
+                            filters.subcategory === sub.id
+                              ? "bg-primary/80 text-primary-foreground"
+                              : "border-border hover:bg-muted/50"
+                          }`}
+                        >
+                          {sub.name || "Uncategorized"}
+                        </Button>
+                      ))}
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-foreground hover:text-primary transition-colors"
+                      onClick={() =>
+                        scrollContainer("left", subcategoryContainerRef)
+                      }
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-foreground hover:text-primary transition-colors"
+                      onClick={() =>
+                        scrollContainer("right", subcategoryContainerRef)
+                      }
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         <div
           className={
@@ -992,11 +974,11 @@ export default function AssetLibraryPage() {
                 key={asset.id}
                 className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm rounded-xl"
               >
-                <div className="flex gap-8 p-8">
+                <div className="flex gap-4 p-4">
                   {/* Image Section */}
-                  <div className="relative w-126 h-126 shrink-0">
-                    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 p-4 group-hover:shadow-lg transition-all duration-500">
-                      <div className="relative aspect-square overflow-hidden rounded-lg bg-white dark:bg-black/50">
+                  <div className="relative w-96 h-96 shrink-0">
+                    <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-muted/30 to-muted/10 p-2 group-hover:shadow-lg transition-all duration-500">
+                      <div className="relative aspect-square overflow-hidden rounded-md bg-white dark:bg-black/50">
                         <Link
                           href={`/asset-library/${asset.id}`}
                           className="block w-full h-full cursor-pointer"
@@ -1014,16 +996,16 @@ export default function AssetLibraryPage() {
                   </div>
 
                   {/* Content Section */}
-                  <div className="flex-1 flex flex-col gap-6">
+                  <div className="flex-1 flex flex-col gap-3">
                     {/* Title and Category */}
-                    <div className="space-y-4">
-                      <CardTitle className="text-2xl font-bold leading-tight group-hover:text-primary transition-all duration-300">
+                    <div className="space-y-2">
+                      <CardTitle className="text-xl font-bold leading-tight group-hover:text-primary transition-all duration-300">
                         {asset.product_name}
                       </CardTitle>
-                      <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-wrap gap-2">
                         <Badge
                           variant="secondary"
-                          className="text-lg font-medium px-6 py-2 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/40 transition-all duration-300 group-hover:shadow-md group-hover:shadow-primary/20 hover:scale-105"
+                          className="text-base font-medium px-4 py-1 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20"
                         >
                           <span className="font-semibold">
                             {asset.category}
@@ -1032,7 +1014,7 @@ export default function AssetLibraryPage() {
                         {asset.subcategory && (
                           <Badge
                             variant="outline"
-                            className="text-lg font-medium px-6 py-2 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group-hover:shadow-sm hover:scale-105"
+                            className="text-base font-medium px-4 py-1 border-border/60"
                           >
                             {asset.subcategory}
                           </Badge>
@@ -1041,7 +1023,7 @@ export default function AssetLibraryPage() {
                     </div>
 
                     {/* Additional Info */}
-                    <div className="grid grid-cols-3 gap-8 p-6 bg-muted/20 rounded-xl border border-border/40">
+                    <div className="grid grid-cols-3 gap-4 p-4 bg-muted/20 rounded-lg border border-border/40">
                       {asset.client && (
                         <div className="space-y-2">
                           <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -1131,7 +1113,7 @@ export default function AssetLibraryPage() {
                               <Badge
                                 key={material}
                                 variant="secondary"
-                                className="text-base font-normal px-4 py-1.5 bg-muted/50 hover:bg-muted transition-all duration-300 group-hover:bg-primary/10 group-hover:scale-105 hover:shadow-sm"
+                                className="text-base font-normal px-4 py-1.5 bg-muted/50"
                                 style={{ animationDelay: `${index * 100}ms` }}
                               >
                                 {material.replace(/[[\]"]/g, "")}
@@ -1151,7 +1133,7 @@ export default function AssetLibraryPage() {
                               <Badge
                                 key={color}
                                 variant="outline"
-                                className="text-base font-normal px-4 py-1.5 border-border/40 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group-hover:border-primary/30 group-hover:scale-105"
+                                className="text-base font-normal px-4 py-1.5 border-border/40"
                                 style={{ animationDelay: `${index * 100}ms` }}
                               >
                                 {color.replace(/[[\]"]/g, "")}
@@ -1167,23 +1149,23 @@ export default function AssetLibraryPage() {
                       <Button
                         variant="default"
                         size="default"
-                        className="w-40 group/btn h-9 font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-lg hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 rounded-lg"
+                        className="w-40 group/btn h-9 font-medium bg-primary/90 hover:bg-primary/95 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
                         asChild
                       >
                         <Link
                           href={`/asset-library/${asset.id}`}
-                          className="flex items-center justify-center gap-2.5"
+                          className="flex items-center justify-center gap-2"
                           prefetch={true}
                         >
                           <span>View Details</span>
-                          <ExternalLink className="h-4 w-4 transition-all duration-300 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-0.5" />
+                          <ExternalLink className="h-4 w-4" />
                         </Link>
                       </Button>
 
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-9 w-9 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 hover:scale-103 hover:shadow-lg group/download rounded-lg backdrop-blur-sm"
+                        className="h-9 w-9 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 rounded-lg"
                         asChild
                         disabled={!asset.glb_link}
                       >
@@ -1195,8 +1177,7 @@ export default function AssetLibraryPage() {
                           title="Download 3D Model"
                           className="flex items-center justify-center relative cursor-pointer"
                         >
-                          <Download className="h-4 w-4 transition-all duration-300 group-hover/download:scale-103" />
-                          <div className="absolute inset-0 rounded-lg bg-primary/20 scale-0 group-hover/download:scale-100 group-hover/download:animate-ping transition-transform duration-300" />
+                          <Download className="h-4 w-4" />
                         </a>
                       </Button>
                     </div>
@@ -1206,7 +1187,7 @@ export default function AssetLibraryPage() {
             ) : (
               <Card
                 key={asset.id}
-                className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm min-h-[220px] min-w-[220px] rounded-xl"
+                className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm min-h-[220px] min-w-[220px] rounded-xl"
               >
                 {/* Subtle gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
@@ -1214,32 +1195,30 @@ export default function AssetLibraryPage() {
                 <CardHeader
                   className={`relative ${viewMode === "grid" ? "p-3" : "p-3 w-32 shrink-0"}`}
                 >
-                  <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 p-3 group-hover:shadow-lg transition-all duration-500">
-                    {/* Image container with loading state */}
-                    <div className="relative aspect-square overflow-hidden rounded-lg bg-white dark:bg-black/50">
-                      <Link
-                        href={`/asset-library/${asset.id}`}
-                        className="block w-full h-full cursor-pointer"
-                        prefetch={true}
-                      >
-                        <img
-                          src={asset.preview_image || "/placeholder.png"}
-                          alt={asset.product_name}
-                          className="w-full h-full object-contain transition-all duration-700 group-hover:scale-103"
-                          loading="lazy"
-                        />
-                      </Link>
-                    </div>
-
-                    {/* Floating status indicator */}
+                  {/* Image container with loading state */}
+                  <div className="relative aspect-square overflow-hidden rounded-lg bg-white dark:bg-black/50">
+                    <Link
+                      href={`/asset-library/${asset.id}`}
+                      className="block w-full h-full cursor-pointer"
+                      prefetch={true}
+                    >
+                      <img
+                        src={asset.preview_image || "/placeholder.png"}
+                        alt={asset.product_name}
+                        className="w-full h-full object-contain transition-all duration-700 group-hover:scale-103"
+                        loading="lazy"
+                      />
+                    </Link>
                   </div>
+
+                  {/* Floating status indicator */}
                 </CardHeader>
 
                 <CardContent className="relative flex-1 flex flex-col p-3 space-y-3">
                   <div className="space-y-2">
                     {/* Title with enhanced typography */}
                     <div className="space-y-2">
-                      <CardTitle className="line-clamp-2 font-bold text-base leading-tight group-hover:text-primary transition-all duration-300 group-hover:tracking-wide">
+                      <CardTitle className="line-clamp-2 text-base font-medium leading-tight">
                         {asset.product_name}
                       </CardTitle>
 
@@ -1253,14 +1232,14 @@ export default function AssetLibraryPage() {
                     <div className="flex flex-wrap gap-2">
                       <Badge
                         variant="secondary"
-                        className="text-xs font-medium px-3 py-1 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/40 transition-all duration-300 group-hover:shadow-md group-hover:shadow-primary/20 hover:scale-105"
+                        className="text-xs font-medium px-3 py-1 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20"
                       >
                         <span className="font-semibold">{asset.category}</span>
                       </Badge>
                       {asset.subcategory && (
                         <Badge
                           variant="outline"
-                          className="text-xs font-medium px-3 py-1 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group-hover:shadow-sm hover:scale-105"
+                          className="text-xs font-medium px-3 py-1 border-border/60"
                         >
                           {asset.subcategory}
                         </Badge>
@@ -1281,7 +1260,7 @@ export default function AssetLibraryPage() {
                                 <Badge
                                   key={material}
                                   variant="secondary"
-                                  className="text-xs font-normal px-2 py-0.5 bg-muted/50 hover:bg-muted transition-all duration-300 group-hover:bg-primary/10 group-hover:scale-101 hover:shadow-sm"
+                                  className="text-xs font-normal px-2 py-0.5 bg-muted/50"
                                   style={{ animationDelay: `${index * 100}ms` }}
                                 >
                                   {material.replace(/[[\]"]/g, "")}
@@ -1306,7 +1285,7 @@ export default function AssetLibraryPage() {
                               <Badge
                                 key={color}
                                 variant="outline"
-                                className="text-xs font-normal px-2 py-0.5 border-border/40 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group-hover:border-primary/30 group-hover:scale-101"
+                                className="text-xs font-normal px-2 py-0.5 border-border/40"
                                 style={{ animationDelay: `${index * 100}ms` }}
                               >
                                 {color.replace(/[[\]"]/g, "")}
@@ -1331,23 +1310,23 @@ export default function AssetLibraryPage() {
                     <Button
                       variant="default"
                       size="default"
-                      className="flex-1 group/btn h-9 font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-lg hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 rounded-lg"
+                      className="flex-1 group/btn h-9 font-medium bg-primary/90 hover:bg-primary/95 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
                       asChild
                     >
                       <Link
                         href={`/asset-library/${asset.id}`}
-                        className="flex items-center justify-center gap-2.5"
+                        className="flex items-center justify-center gap-2"
                         prefetch={true}
                       >
                         <span>View Details</span>
-                        <ExternalLink className="h-4 w-4 transition-all duration-300 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-0.5" />
+                        <ExternalLink className="h-4 w-4" />
                       </Link>
                     </Button>
 
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-9 w-9 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 hover:scale-103 hover:shadow-lg group/download rounded-lg backdrop-blur-sm"
+                      className="h-9 w-9 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 rounded-lg"
                       asChild
                       disabled={!asset.glb_link}
                     >
@@ -1359,9 +1338,7 @@ export default function AssetLibraryPage() {
                         title="Download 3D Model"
                         className="flex items-center justify-center relative cursor-pointer"
                       >
-                        <Download className="h-4 w-4 transition-all duration-300 group-hover/download:scale-103" />
-                        {/* Download pulse effect */}
-                        <div className="absolute inset-0 rounded-lg bg-primary/20 scale-0 group-hover/download:scale-100 group-hover/download:animate-ping transition-transform duration-300" />
+                        <Download className="h-4 w-4" />
                       </a>
                     </Button>
                   </div>
