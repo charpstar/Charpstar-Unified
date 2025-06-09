@@ -332,6 +332,20 @@ export default function AssetDetailPage() {
                 <div className="space-y-6 h-full overflow-y-auto p-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="grid gap-2">
+                      <Label htmlFor="product_name">Product Name</Label>
+                      <Input
+                        id="product_name"
+                        value={editedAsset?.product_name || ""}
+                        onChange={(e) =>
+                          setEditedAsset(
+                            editedAsset
+                              ? { ...editedAsset, product_name: e.target.value }
+                              : null
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
                       <Label htmlFor="article_id">Article ID</Label>
                       <Input id="article_id" value={editedAsset?.article_id} />
                     </div>
