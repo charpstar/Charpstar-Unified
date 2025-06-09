@@ -23,6 +23,9 @@ interface AssetRow {
   subcategory: string;
   client: string;
   materials: string;
+  colors: string;
+  tags: string;
+  article_id: string;
   preview_image?: File | null;
   id: string;
   errors?: {
@@ -33,15 +36,20 @@ interface AssetRow {
       | "category"
       | "subcategory"
       | "client"
-      | "materials"]?: string;
+      | "materials"
+      | "colors"
+      | "tags"
+      | "article_id"]?: string;
   };
 }
 
 interface DuplicateCheckResult {
   isDuplicate: boolean;
+  duplicateType?: "article_id" | "product_name" | "both";
   existingAsset?: {
     id: string;
-    name: string;
+    product_name: string;
+    article_id: string;
     client: string;
   };
 }
@@ -54,12 +62,16 @@ const emptyRow = (): AssetRow => ({
   subcategory: "",
   client: "",
   materials: "",
+  colors: "",
+  tags: "",
+  article_id: "",
   preview_image: null,
   id: Math.random().toString(36).slice(2),
   errors: {},
 });
 
 const requiredFields: EditableField[] = [
+  "article_id",
   "product_name",
   "product_link",
   "glb_link",
@@ -75,7 +87,10 @@ type EditableField =
   | "category"
   | "subcategory"
   | "client"
-  | "materials";
+  | "materials"
+  | "colors"
+  | "tags"
+  | "article_id";
 
 const editableFields: EditableField[] = [
   "product_name",
@@ -85,13 +100,75 @@ const editableFields: EditableField[] = [
   "subcategory",
   "client",
   "materials",
+  "colors",
+  "tags",
+  "article_id",
 ];
+
+const checkDuplicates = async (
+  rows: AssetRow[],
+  client: string | null | undefined
+): Promise<DuplicateCheckResult[]> => {
+  const results: DuplicateCheckResult[] = [];
+
+  for (const row of rows) {
+    if (!row.product_name && !row.article_id) continue;
+
+    const { data: existingAssets } = await createClient()
+      .from("assets")
+      .select("id, product_name, article_id, client")
+      .eq("client", client || "")
+      .or(
+        row.article_id && row.product_name
+          ? `and(article_id.eq.${row.article_id},product_name.ilike.${row.product_name}),or(article_id.eq.${row.article_id},product_name.ilike.${row.product_name})`
+          : row.article_id
+            ? `article_id.eq.${row.article_id}`
+            : `product_name.ilike.${row.product_name}`
+      );
+
+    if (existingAssets && existingAssets.length > 0) {
+      const existing = existingAssets[0];
+      let duplicateType: "article_id" | "product_name" | "both" = "both";
+
+      if (row.article_id && !row.product_name) {
+        duplicateType = "article_id";
+      } else if (!row.article_id && row.product_name) {
+        duplicateType = "product_name";
+      } else if (row.article_id && row.product_name) {
+        // Check which one matches
+        const articleIdMatch = existing.article_id === row.article_id;
+        const productNameMatch =
+          existing.product_name.toLowerCase() ===
+          row.product_name.toLowerCase();
+        if (articleIdMatch && !productNameMatch) {
+          duplicateType = "article_id";
+        } else if (!articleIdMatch && productNameMatch) {
+          duplicateType = "product_name";
+        }
+      }
+
+      results.push({
+        isDuplicate: true,
+        duplicateType,
+        existingAsset: existing,
+      });
+    } else {
+      results.push({
+        isDuplicate: false,
+      });
+    }
+  }
+
+  return results;
+};
 
 export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   const [rows, setRows] = useState<AssetRow[]>([emptyRow()]);
   const [loading, setLoading] = useState(false);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
-  const [duplicates, setDuplicates] = useState<{ [key: string]: boolean }>({});
+  const [duplicates, setDuplicates] = useState<{
+    [key: string]: "article_id" | "product_name" | "both";
+  }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -140,12 +217,20 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     setDragActive(false);
   };
 
+  // Add new state for CSV loading
+  const [csvLoading, setCsvLoading] = useState(false);
+
+  // Update the handleCSVFile function
   const handleCSVFile = (file: File) => {
+    setCsvLoading(true);
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
       const lines = text.split(/\r?\n/).filter(Boolean);
-      if (lines.length < 1) return;
+      if (lines.length < 1) {
+        setCsvLoading(false);
+        return;
+      }
       const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
       const newRows: AssetRow[] = lines.slice(1).map((line) => {
         const values = line.split(",");
@@ -161,6 +246,9 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           subcategory: obj["subcategory"] || "",
           client: obj["client"] || "",
           materials: obj["materials"] || "",
+          colors: obj["colors"] || "",
+          tags: obj["tags"] || "",
+          article_id: obj["article id"] || "",
           preview_image: null,
           id: Math.random().toString(36).slice(2),
           errors: {},
@@ -168,6 +256,15 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
       });
       setRows((prev) => [...prev, ...newRows]);
       toast({ title: `Imported ${newRows.length} rows from CSV` });
+      setCsvLoading(false);
+    };
+    reader.onerror = () => {
+      toast({
+        title: "Error",
+        description: "Failed to read CSV file",
+        variant: "destructive",
+      });
+      setCsvLoading(false);
     };
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -245,45 +342,31 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     }
   }, [user]);
 
-  // Add duplicate check function
-  const checkDuplicates = async (
-    rows: AssetRow[]
-  ): Promise<DuplicateCheckResult[]> => {
-    const results: DuplicateCheckResult[] = [];
-
-    for (const row of rows) {
-      if (!row.product_name) continue;
-
-      const { data: existingAssets } = await createClient()
-        .from("assets")
-        .select("id, name, client")
-        .ilike("name", row.product_name)
-        .eq("client", user?.metadata?.client || "");
-
-      results.push({
-        isDuplicate: Boolean(existingAssets && existingAssets.length > 0),
-        existingAsset: existingAssets?.[0],
-      });
-    }
-
-    return results;
-  };
-
   // Update the useEffect
   useEffect(() => {
     const debouncedCheck = debounce(async () => {
       if (rows.length === 0) return;
 
+      const rowsToCheck = rows.filter(
+        (row) => row.product_name.trim() || row.article_id.trim()
+      );
+      if (rowsToCheck.length === 0) return;
+
       setCheckingDuplicates(true);
       try {
-        const duplicateResults = await checkDuplicates(rows);
-        const newDuplicates: { [key: string]: boolean } = {};
-        duplicateResults.forEach((result, index) => {
-          if (result.isDuplicate && result.existingAsset) {
-            newDuplicates[rows[index].id] = true;
+        const results = await checkDuplicates(
+          rowsToCheck,
+          user?.metadata?.client
+        );
+        const duplicateMap: {
+          [key: string]: "article_id" | "product_name" | "both";
+        } = {};
+        results.forEach((result, index) => {
+          if (result.isDuplicate && result.duplicateType) {
+            duplicateMap[rowsToCheck[index].id] = result.duplicateType;
           }
         });
-        setDuplicates(newDuplicates);
+        setDuplicates(duplicateMap);
       } catch (error) {
         console.error("Error checking duplicates:", error);
         toast({
@@ -294,11 +377,11 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
       } finally {
         setCheckingDuplicates(false);
       }
-    }, 500);
+    }, 1000);
 
     debouncedCheck();
     return () => debouncedCheck.cancel();
-  }, [rows, checkDuplicates]);
+  }, [rows, user?.metadata?.client]);
 
   const handleUploadAll = async () => {
     const clientValue = user?.metadata?.client;
@@ -339,12 +422,31 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         formData.append("category", row.category.trim());
         formData.append("subcategory", row.subcategory.trim());
         formData.append("client", clientValue);
+        formData.append("article_id", row.article_id.trim());
         formData.append(
           "materials",
           JSON.stringify(
             row.materials
               .split(",")
               .map((m) => m.trim())
+              .filter(Boolean)
+          )
+        );
+        formData.append(
+          "colors",
+          JSON.stringify(
+            row.colors
+              .split(",")
+              .map((c) => c.trim())
+              .filter(Boolean)
+          )
+        );
+        formData.append(
+          "tags",
+          JSON.stringify(
+            row.tags
+              .split(",")
+              .map((t) => t.trim())
               .filter(Boolean)
           )
         );
@@ -425,12 +527,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                 {rows.length}
               </span>
             </div>
-            <div className="bg-white dark:bg-background px-4 py-2 rounded-xl border border-green-100 dark:border-green-900 shadow-sm flex items-center gap-1">
-              <span className="text-muted-500">Valid:</span>
-              <span className="font-semibold text-green-600 dark:text-green-400">
-                {validRows}
-              </span>
-            </div>
+
             {errorCount > 0 && (
               <div className="bg-white dark:bg-muted-800 px-4 py-2 rounded-xl border border-red-100 dark:border-red-800 shadow-sm flex items-center gap-1">
                 <span className="text-muted-500">Errors:</span>
@@ -445,6 +542,146 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                 <span className="text-muted-500">Checking duplicates...</span>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Field Information Box */}
+        <div className="mt-4 bg-white/50 dark:bg-background backdrop-blur-sm rounded-xl border border-muted-200 dark:border-muted-700 p-4">
+          <h3 className="text-sm font-semibold text-muted-900 dark:text-muted-100 mb-3">
+            Field Information
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  Article ID
+                </span>
+                <span className="text-xs text-red-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                Unique identifier for the product (required)
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  Product Name
+                </span>
+                <span className="text-xs text-red-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                Name of the product
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  Product Link
+                </span>
+                <span className="text-xs text-red-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                URL to the product page
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  GLB Link
+                </span>
+                <span className="text-xs text-red-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                URL to the 3D model file
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  Category
+                </span>
+                <span className="text-xs text-red-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                Main category of the product
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  Subcategory
+                </span>
+                <span className="text-xs text-red-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                Subcategory of the product
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  Client
+                </span>
+                <span className="text-xs text-red-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                Client name or identifier
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  Materials
+                </span>
+                <span className="text-xs text-muted-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                Comma-separated list of materials
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  Colors
+                </span>
+                <span className="text-xs text-muted-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                Comma-separated list of colors
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  Tags
+                </span>
+                <span className="text-xs text-muted-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                Comma-separated list of tags
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
+                  Preview Image
+                </span>
+                <span className="text-xs text-muted-500">*</span>
+              </div>
+              <p className="text-xs text-muted-600 dark:text-muted-300">
+                Product preview image file
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1 text-muted-600 dark:text-muted-300">
+              <span className="text-red-500">*</span>
+              <span>Required</span>
+            </div>
+            <div className="flex items-center gap-1 text-muted-600 dark:text-muted-300">
+              <span className="text-muted-500">*</span>
+              <span>Optional</span>
+            </div>
           </div>
         </div>
       </div>
@@ -515,6 +752,16 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         )}
 
+        {/* Add CSV Loading Overlay */}
+        {csvLoading && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/85 dark:bg-muted-900/85 backdrop-blur-sm rounded-2xl">
+            <Loader2 className="w-10 h-10 mb-3 animate-spin text-muted-500" />
+            <span className="text-base font-semibold text-muted-700 dark:text-muted-200">
+              Processing CSV file...
+            </span>
+          </div>
+        )}
+
         {/* Uploading Overlay */}
         {loading && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/85 dark:bg-muted-900/85 backdrop-blur-sm rounded-2xl">
@@ -532,6 +779,11 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
               <tr>
                 {[
                   {
+                    key: "article_id",
+                    label: "Article ID",
+                    required: true,
+                  },
+                  {
                     key: "product_name",
                     label: "Product Name",
                     required: true,
@@ -546,6 +798,8 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                   { key: "subcategory", label: "Subcategory", required: true },
                   { key: "client", label: "Client", required: true },
                   { key: "materials", label: "Materials", required: false },
+                  { key: "colors", label: "Colors", required: false },
+                  { key: "tags", label: "Tags", required: false },
                   {
                     key: "preview_image",
                     label: "Preview Image",
@@ -559,7 +813,11 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                   >
                     <div className="flex items-center space-x-1">
                       <span>{col.label}</span>
-                      {col.required && <span className="text-red-500">*</span>}
+                      {col.required ? (
+                        <span className="text-red-500">*</span>
+                      ) : (
+                        <span className="text-muted-500">*</span>
+                      )}
                     </div>
                   </th>
                 ))}
@@ -582,6 +840,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                   >
                     {(
                       [
+                        "article_id",
                         "product_name",
                         "product_link",
                         "glb_link",
@@ -589,6 +848,8 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                         "subcategory",
                         "client",
                         "materials",
+                        "colors",
+                        "tags",
                       ] as EditableField[]
                     ).map((field, colIdx) => (
                       <td className="px-4 py-3 align-top" key={field}>
@@ -609,7 +870,9 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                               ${
                                 row.errors && row.errors[field]
                                   ? "border-red-400 focus:border-red-500 focus:ring-red-200"
-                                  : isDuplicate
+                                  : isDuplicate &&
+                                      (field === "article_id" ||
+                                        field === "product_name")
                                     ? "border-yellow-400 focus:border-yellow-500 focus:ring-yellow-200"
                                     : "border-muted-300 focus:border-primary focus:ring-primary/20"
                               }`}
@@ -621,12 +884,24 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                               {row.errors[field]}
                             </div>
                           )}
-                          {isDuplicate && (
-                            <div className="flex items-center mt-1 text-xs text-yellow-600">
-                              <AlertCircle className="w-3 h-3 mr-1" />
-                              This product name already exists
-                            </div>
-                          )}
+                          {isDuplicate &&
+                            (field === "article_id" ||
+                              field === "product_name") && (
+                              <div className="flex items-center mt-1 text-xs text-yellow-600">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                {field === "article_id"
+                                  ? duplicates[row.id] === "article_id"
+                                    ? "This Article ID already exists"
+                                    : duplicates[row.id] === "both"
+                                      ? "This Article ID and Product Name combination already exists"
+                                      : ""
+                                  : duplicates[row.id] === "product_name"
+                                    ? "This Product Name already exists"
+                                    : duplicates[row.id] === "both"
+                                      ? "This Article ID and Product Name combination already exists"
+                                      : ""}
+                              </div>
+                            )}
                         </div>
                       </td>
                     ))}

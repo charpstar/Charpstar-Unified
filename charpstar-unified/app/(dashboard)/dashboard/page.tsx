@@ -191,18 +191,51 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-1 flex-col p-6">
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <Skeleton className="h-4 w-[100px]" />
-                <Skeleton className="h-4 w-4" />
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* User Profile Skeleton */}
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-8 w-[60px]" />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="h-16 w-16 rounded-full" />
+                    <div className="space-y-1 flex-1">
+                      <Skeleton className="h-5 w-32" />
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-5 w-14 rounded-full" />
+                        <Skeleton className="h-4 w-4 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                  <Skeleton className="h-10 w-full" />
+                </div>
               </CardContent>
             </Card>
-          ))}
+          </div>
+          {/* Quick Actions Skeleton */}
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <Skeleton className="h-10 w-full rounded" />
+                  <Skeleton className="h-10 w-full rounded" />
+                  <Skeleton className="h-10 w-full rounded" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     );

@@ -21,6 +21,8 @@ import {
   ChevronRight,
   Home,
   ChevronLeft,
+  Columns,
+  Rows,
 } from "lucide-react";
 import { useAssets } from "../../../hooks/use-assets";
 import { useState, useEffect, useRef } from "react";
@@ -207,28 +209,20 @@ export default function AssetLibraryPage() {
   const breadcrumbItems: {
     label: string;
     href: string;
-    icon?: React.ReactNode;
     onClick?: () => void;
   }[] = [
     {
-      label: "Home",
-      href: "/asset-library",
-      icon: <Home className="h-4 w-4" />,
+      label: "Asset Library",
+      href: buildUrlWithFilters({ category: null, subcategory: null }),
+      onClick: () => {
+        setFilters((prev) => ({
+          ...prev,
+          category: null,
+          subcategory: null,
+        }));
+      },
     },
   ];
-
-  // Always include Asset Library
-  breadcrumbItems.push({
-    label: "Asset Library",
-    href: buildUrlWithFilters({ category: null, subcategory: null }),
-    onClick: () => {
-      setFilters((prev) => ({
-        ...prev,
-        category: null,
-        subcategory: null,
-      }));
-    },
-  });
 
   if (filters.category) {
     const category = filterOptions.categories.find(
@@ -302,7 +296,7 @@ export default function AssetLibraryPage() {
     containerRef: React.RefObject<HTMLDivElement>
   ) => {
     if (containerRef.current) {
-      const scrollAmount = 200; // Adjust this value to control scroll distance
+      const scrollAmount = 200;
       containerRef.current.scrollBy({
         left: direction === "left" ? -scrollAmount : scrollAmount,
         behavior: "smooth",
@@ -338,82 +332,94 @@ export default function AssetLibraryPage() {
           src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
         />
         <div className="flex flex-col gap-4">
+          {/* Breadcrumb skeleton */}
           <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
-            {breadcrumbItems.map((item, index) => (
-              <div key={item.href} className="flex items-center">
-                {index > 0 && <ChevronRight className="h-4 w-4 mx-2" />}
-                <Link
-                  href={item.href}
-                  className={`hover:text-primary transition-colors flex items-center gap-1 cursor-pointer ${
-                    index === breadcrumbItems.length - 1
-                      ? "text-foreground font-medium"
-                      : ""
-                  }`}
-                  onClick={(e) => {
-                    if (item.onClick) {
-                      e.preventDefault();
-                      item.onClick();
-                    }
-                  }}
-                >
-                  {item.icon || item.label}
-                </Link>
-              </div>
-            ))}
+            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-32 bg-muted rounded animate-pulse" />
           </div>
+
+          {/* Header skeleton */}
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4 mb-6">
-              <h1 className="text-2xl font-bold">Library</h1>
+              <div className="h-8 w-32 bg-muted rounded animate-pulse" />
+              <div className="h-6 w-24 bg-muted rounded animate-pulse" />
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="default" asChild>
-                <Link
-                  href="/asset-library/upload"
-                  className="flex items-center gap-2"
-                >
-                  Upload Assets
-                </Link>
-              </Button>
+              <div className="h-10 w-32 bg-muted rounded animate-pulse" />
             </div>
           </div>
 
+          {/* Search and filters skeleton */}
           <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
+              <div className="relative w-96">
+                <div className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 bg-muted rounded animate-pulse" />
+                <div className="h-10 w-full bg-muted rounded animate-pulse" />
+              </div>
+              <div className="h-10 w-[180px] bg-muted rounded animate-pulse" />
+              <div className="h-10 w-[100px] bg-muted rounded animate-pulse" />
               <div className="flex items-center gap-1 border rounded-md">
-                {/* <Button
-                  variant={viewMode === "grid" ? "default" : "ghost"}
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => setViewMode("grid")}
-                  aria-label="Grid View"
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "compactGrid" ? "default" : "ghost"}
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => setViewMode("compactGrid")}
-                  aria-label="Compact Grid View"
-                >
-                  <Grid className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant={viewMode === "list" ? "default" : "ghost"}
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => setViewMode("list")}
-                  aria-label="List View"
-                >
-                  <List className="h-4 w-4" />
-                </Button> */}
+                <div className="h-9 w-9 bg-muted rounded animate-pulse" />
+                <div className="h-9 w-9 bg-muted rounded animate-pulse" />
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pl-10 pr-10">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <AssetCardSkeleton key={i} />
+          {/* Categories skeleton */}
+          <div className="mb-8 space-y-4">
+            <div className="flex flex-row gap-4">
+              <div className="relative w-full h-[120px]">
+                {/* Main Categories */}
+                <div className="absolute inset-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-0.5 w-6 bg-muted rounded-full animate-pulse"></div>
+                    <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 overflow-x-auto">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="h-8 w-32 bg-muted rounded-md animate-pulse shrink-0"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Asset Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 rounded-xl p-4 space-y-4"
+              >
+                {/* Image skeleton */}
+                <div className="relative aspect-square overflow-hidden rounded-lg bg-muted animate-pulse" />
+
+                {/* Content skeleton */}
+                <div className="space-y-3">
+                  {/* Title skeleton */}
+                  <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
+
+                  {/* Category badges skeleton */}
+                  <div className="flex gap-2">
+                    <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
+                    <div className="h-6 w-24 bg-muted rounded-full animate-pulse" />
+                  </div>
+
+                  {/* Action buttons skeleton */}
+                  <div className="flex items-center gap-2 pt-4">
+                    <div className="h-9 flex-1 bg-muted rounded-lg animate-pulse" />
+                    <div className="h-9 w-9 bg-muted rounded-lg animate-pulse" />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -473,9 +479,10 @@ export default function AssetLibraryPage() {
       <div className="flex flex-col gap-4">
         {/* Breadcrumb Navigation */}
         <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+          <Home className="h-4 w-4 text-muted-foreground" />
           {breadcrumbItems.map((item, index) => (
             <div key={item.href} className="flex items-center">
-              {index > 0 && <ChevronRight className="h-4 w-4 mx-2" />}
+              <ChevronRight className="h-4 w-4 mx-2" />
               <Link
                 href={item.href}
                 className={`hover:text-primary transition-colors flex items-center gap-1 cursor-pointer ${
@@ -490,7 +497,7 @@ export default function AssetLibraryPage() {
                   }
                 }}
               >
-                {item.icon || item.label}
+                {item.label}
               </Link>
             </div>
           ))}
@@ -500,7 +507,7 @@ export default function AssetLibraryPage() {
           <div className="flex items-center gap-4 mb-6">
             <h1 className="text-2xl font-bold">Library</h1>
             <Badge variant="secondary" className="text-sm">
-              {totalCount} {totalCount === 1 ? "Model" : "Models"}
+              {totalCount === 1 ? "Model:" : "Total Models:"} {totalCount}
             </Badge>
           </div>
           <div className="flex items-center gap-2">
@@ -783,7 +790,7 @@ export default function AssetLibraryPage() {
                 onClick={() => setViewMode("compactGrid")}
                 aria-label="Compact Grid View"
               >
-                <Grid className="h-3 w-3" />
+                <Rows className="h-3 w-3" />
               </Button>
             </div>
           </div>
@@ -791,9 +798,16 @@ export default function AssetLibraryPage() {
 
         <div className="mb-8 space-y-4">
           <div className="flex flex-row gap-4">
-            {/* Main Categories */}
-            {!filters.category && (
-              <div className="relative w-full">
+            {/* Fixed height container for category navigation */}
+            <div className="relative w-full h-[120px]">
+              {/* Main Categories */}
+              <div
+                className={`absolute inset-0 transition-all duration-500 ease-in-out transform ${
+                  !filters.category
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 -translate-y-8 pointer-events-none"
+                }`}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   <div className="h-0.5 w-6 bg-primary rounded-full"></div>
                   <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -804,7 +818,7 @@ export default function AssetLibraryPage() {
                 <div className="flex items-center gap-2">
                   <div
                     ref={categoryContainerRef}
-                    className="flex items-center gap-2 overflow-x-auto pb-2 px-1 cursor-grab active:cursor-grabbing select-none max-w-[1300px]"
+                    className="flex items-center gap-2 overflow-x-auto  cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
                     onMouseDown={handleMouseDown}
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseLeave}
@@ -818,7 +832,7 @@ export default function AssetLibraryPage() {
                       variant={!filters.category ? "default" : "outline"}
                       size="sm"
                       onClick={() => handleFilterChange("category", null)}
-                      className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
+                      className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
                         !filters.category
                           ? "bg-primary text-primary-foreground"
                           : "border-border hover:bg-muted/50"
@@ -839,7 +853,7 @@ export default function AssetLibraryPage() {
                         onClick={() =>
                           handleFilterChange("category", category.id)
                         }
-                        className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
+                        className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
                           filters.category === category.id
                             ? "bg-primary text-primary-foreground"
                             : "border-border hover:bg-muted/50"
@@ -854,31 +868,37 @@ export default function AssetLibraryPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-foreground hover:text-primary transition-colors"
+                      className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
                       onClick={() =>
+                        categoryContainerRef.current &&
                         scrollContainer("left", categoryContainerRef)
                       }
                     >
-                      <ChevronLeft className="h-5 w-5" />
+                      <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-foreground hover:text-primary transition-colors"
+                      className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
                       onClick={() =>
+                        categoryContainerRef.current &&
                         scrollContainer("right", categoryContainerRef)
                       }
                     >
-                      <ChevronRight className="h-5 w-5" />
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               </div>
-            )}
 
-            {/* Subcategory Navigation */}
-            {filters.category && (
-              <div className="relative w-full">
+              {/* Subcategory Navigation */}
+              <div
+                className={`absolute inset-0 transition-all duration-500 ease-in-out transform ${
+                  filters.category
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8 pointer-events-none"
+                }`}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   <div className="h-0.5 w-6 bg-primary/60 rounded-full"></div>
                   <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -890,7 +910,7 @@ export default function AssetLibraryPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleFilterChange("category", null)}
-                    className="text-xs text-muted-foreground hover:text-foreground"
+                    className="p-0 m-0 h-auto min-h-0 bg-transparent hover:bg-transparent shadow-none border-none text-xs text-muted-foreground hover:text-foreground transition-colors appearance-none flex items-center cursor-pointer"
                   >
                     <X className="h-3 w-3 mr-1" />
                     Back to Categories
@@ -900,7 +920,7 @@ export default function AssetLibraryPage() {
                 <div className="flex items-center gap-2">
                   <div
                     ref={subcategoryContainerRef}
-                    className="flex items-center gap-2 overflow-x-auto pb-2 px-1 cursor-grab active:cursor-grabbing select-none max-w-[1300px]"
+                    className="flex items-center gap-2 overflow-x-auto  cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
                     onMouseDown={handleMouseDown}
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseLeave}
@@ -914,7 +934,7 @@ export default function AssetLibraryPage() {
                       variant={!filters.subcategory ? "default" : "outline"}
                       size="sm"
                       onClick={() => handleFilterChange("subcategory", null)}
-                      className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
+                      className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
                         !filters.subcategory
                           ? "bg-primary/80 text-primary-foreground"
                           : "border-border hover:bg-muted/50"
@@ -937,7 +957,7 @@ export default function AssetLibraryPage() {
                           onClick={() =>
                             handleFilterChange("subcategory", sub.id)
                           }
-                          className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md ${
+                          className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
                             filters.subcategory === sub.id
                               ? "bg-primary/80 text-primary-foreground"
                               : "border-border hover:bg-muted/50"
@@ -952,27 +972,29 @@ export default function AssetLibraryPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-foreground hover:text-primary transition-colors"
+                      className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
                       onClick={() =>
+                        subcategoryContainerRef.current &&
                         scrollContainer("left", subcategoryContainerRef)
                       }
                     >
-                      <ChevronLeft className="h-5 w-5" />
+                      <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-foreground hover:text-primary transition-colors"
+                      className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
                       onClick={() =>
+                        subcategoryContainerRef.current &&
                         scrollContainer("right", subcategoryContainerRef)
                       }
                     >
-                      <ChevronRight className="h-5 w-5" />
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -987,12 +1009,12 @@ export default function AssetLibraryPage() {
             viewMode === "compactGrid" ? (
               <Card
                 key={asset.id}
-                className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm rounded-xl"
+                className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm rounded-xl"
               >
                 <div className="flex gap-4 p-4">
                   {/* Image Section */}
                   <div className="relative w-96 h-96 shrink-0">
-                    <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-muted/30 to-muted/10 p-2 group-hover:shadow-lg transition-all duration-500">
+                    <div className="relative overflow-hidden rounded-lg ">
                       <div className="relative aspect-square overflow-hidden rounded-md bg-white dark:bg-black/50">
                         <Link
                           href={`/asset-library/${asset.id}`}
@@ -1002,7 +1024,7 @@ export default function AssetLibraryPage() {
                           <img
                             src={asset.preview_image || "/placeholder.png"}
                             alt={asset.product_name}
-                            className="w-full h-full object-contain transition-all duration-700 group-hover:scale-105"
+                            className="w-full h-full object-contain transition-all duration-700 group-hover:scale-102"
                             loading="lazy"
                           />
                         </Link>
@@ -1020,7 +1042,7 @@ export default function AssetLibraryPage() {
                       <div className="flex flex-wrap gap-2">
                         <Badge
                           variant="secondary"
-                          className="text-base font-medium px-4 py-1 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20"
+                          className="text-sm font-medium px-3 py-1 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20"
                         >
                           <span className="font-semibold">
                             {asset.category}
@@ -1029,7 +1051,7 @@ export default function AssetLibraryPage() {
                         {asset.subcategory && (
                           <Badge
                             variant="outline"
-                            className="text-base font-medium px-4 py-1 border-border/60"
+                            className="text-sm font-medium px-3 py-1 border-border/60"
                           >
                             {asset.subcategory}
                           </Badge>
@@ -1037,33 +1059,33 @@ export default function AssetLibraryPage() {
                       </div>
                     </div>
 
-                    {/* Additional Info */}
-                    <div className="grid grid-cols-3 gap-4 p-4 bg-muted/20 rounded-lg border border-border/40">
+                    {/* Additional Info - Made more compact */}
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/20 rounded-lg border border-border/40">
                       {asset.client && (
-                        <div className="space-y-2">
-                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
                             Client
                           </p>
-                          <p className="text-base text-foreground font-medium">
+                          <p className="text-sm text-foreground font-medium">
                             {asset.client}
                           </p>
                         </div>
                       )}
                       {asset.created_at && (
-                        <div className="space-y-2">
-                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
                             Added
                           </p>
-                          <p className="text-base text-foreground font-medium">
+                          <p className="text-sm text-foreground font-medium">
                             {new Date(asset.created_at).toLocaleDateString()}
                           </p>
                         </div>
                       )}
                       {asset.product_link && (
-                        <div className="space-y-2">
-                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
                             Product Link
                           </p>
@@ -1071,16 +1093,16 @@ export default function AssetLibraryPage() {
                             href={asset.product_link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-base text-primary hover:underline flex items-center gap-1.5 bg-primary/5 px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300"
+                            className="text-sm text-primary hover:underline flex items-center gap-1.5 bg-primary/5 px-2 py-1 rounded-lg hover:bg-primary/10 transition-all duration-300"
                           >
                             View Product
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
                       )}
                       {asset.glb_link && (
-                        <div className="space-y-2">
-                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
                             3D Model
                           </p>
@@ -1088,83 +1110,67 @@ export default function AssetLibraryPage() {
                             href={asset.glb_link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-base text-primary hover:underline flex items-center gap-1.5 bg-primary/5 px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-all duration-300"
+                            className="text-sm text-primary hover:underline flex items-center gap-1.5 bg-primary/5 px-2 py-1 rounded-lg hover:bg-primary/10 transition-all duration-300"
                           >
                             View GLB
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
                       )}
-                      {asset.tags && asset.tags.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
-                            Tags
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {asset.tags.map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="secondary"
-                                className="text-sm font-normal px-3 py-1 bg-muted/50 hover:bg-muted transition-all duration-300"
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
-                    {/* Materials and Colors */}
-                    <div className="flex flex-wrap gap-8 p-6 bg-muted/20 rounded-xl border border-border/40 ">
-                      {asset.materials && asset.materials.length > 0 && (
-                        <div className="space-y-3">
-                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider">
-                            Materials
-                          </p>
-                          <div className="flex flex-wrap gap-3">
-                            {asset.materials.map((material, index) => (
-                              <Badge
-                                key={material}
-                                variant="secondary"
-                                className="text-base font-normal px-4 py-1.5 bg-muted/50"
-                                style={{ animationDelay: `${index * 100}ms` }}
-                              >
-                                {material.replace(/[[\]"]/g, "")}
-                              </Badge>
-                            ))}
+                    {/* Materials and Colors - Made more compact */}
+                    {(asset.materials?.length > 0 ||
+                      asset.colors?.length > 0) && (
+                      <div className="flex flex-wrap gap-4 p-3 bg-muted/20 rounded-lg border border-border/40">
+                        {asset.materials && asset.materials.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                              Materials
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {asset.materials.map((material, index) => (
+                                <Badge
+                                  key={material}
+                                  variant="secondary"
+                                  className="text-xs font-normal px-2 py-1 bg-muted/50"
+                                  style={{ animationDelay: `${index * 100}ms` }}
+                                >
+                                  {material.replace(/[[\]"]/g, "")}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {asset.colors && asset.colors.length > 0 && (
-                        <div className="space-y-3">
-                          <p className="text-lg font-medium text-muted-foreground uppercase tracking-wider">
-                            Colors
-                          </p>
-                          <div className="flex flex-wrap gap-3">
-                            {asset.colors.map((color, index) => (
-                              <Badge
-                                key={color}
-                                variant="outline"
-                                className="text-base font-normal px-4 py-1.5 border-border/40"
-                                style={{ animationDelay: `${index * 100}ms` }}
-                              >
-                                {color.replace(/[[\]"]/g, "")}
-                              </Badge>
-                            ))}
+                        {asset.colors && asset.colors.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                              Colors
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {asset.colors.map((color, index) => (
+                                <Badge
+                                  key={color}
+                                  variant="outline"
+                                  className="text-xs font-normal px-2 py-1 border-border/40"
+                                  style={{ animationDelay: `${index * 100}ms` }}
+                                >
+                                  {color.replace(/[[\]"]/g, "")}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
 
-                    {/* Action Buttons - More compact */}
+                    {/* Action Buttons - Made more compact */}
                     <div className="mt-auto flex items-center gap-2">
                       <Button
                         variant="default"
-                        size="default"
-                        className="w-40 group/btn h-9 font-medium bg-primary/90 hover:bg-primary/95 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
+                        size="sm"
+                        className="w-32 group/btn h-8 font-medium bg-primary/90 hover:bg-primary/95 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
                         asChild
                       >
                         <Link
@@ -1173,14 +1179,14 @@ export default function AssetLibraryPage() {
                           prefetch={true}
                         >
                           <span>View Details</span>
-                          <ExternalLink className="h-4 w-4" />
+                          <ExternalLink className="h-3 w-3" />
                         </Link>
                       </Button>
 
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-9 w-9 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 rounded-lg"
+                        className="h-8 w-8 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 rounded-lg"
                         asChild
                         disabled={!asset.glb_link}
                       >
@@ -1192,7 +1198,7 @@ export default function AssetLibraryPage() {
                           title="Download 3D Model"
                           className="flex items-center justify-center relative cursor-pointer"
                         >
-                          <Download className="h-4 w-4" />
+                          <Download className="h-3 w-3" />
                         </a>
                       </Button>
                     </div>
@@ -1211,7 +1217,7 @@ export default function AssetLibraryPage() {
                   className={`relative ${viewMode === "grid" ? "p-3" : "p-3 w-32 shrink-0"}`}
                 >
                   {/* Image container with loading state */}
-                  <div className="relative aspect-square overflow-hidden rounded-lg bg-white dark:bg-black/50">
+                  <div className="relative aspect-square overflow-hidden rounded-lg  dark:bg-black/50">
                     <Link
                       href={`/asset-library/${asset.id}`}
                       className="block w-full h-full cursor-pointer"
@@ -1220,7 +1226,7 @@ export default function AssetLibraryPage() {
                       <img
                         src={asset.preview_image || "/placeholder.png"}
                         alt={asset.product_name}
-                        className="w-full h-full object-contain transition-all duration-700 group-hover:scale-103"
+                        className="w-full h-full object-contain transition-all duration-700 group-hover:scale-101"
                         loading="lazy"
                       />
                     </Link>
@@ -1238,9 +1244,7 @@ export default function AssetLibraryPage() {
                       </CardTitle>
 
                       {/* Premium divider */}
-                      <div className="relative h-px bg-gradient-to-r from-transparent via-border to-transparent group-hover:via-primary/40 transition-all duration-500">
-                        <div className="absolute left-1/2 top-1/2 w-1 h-1 bg-primary/60 rounded-full transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      </div>
+                      <div className="relative h-px bg-gradient-to-r from-transparent via-border to-transparent group-hover:via-primary/40 transition-all duration-500"></div>
                     </div>
 
                     {/* Enhanced category badges */}
@@ -1258,64 +1262,6 @@ export default function AssetLibraryPage() {
                         >
                           {asset.subcategory}
                         </Badge>
-                      )}
-                    </div>
-
-                    {/* Material and color tags with enhanced styling */}
-                    <div className="space-y-2">
-                      {asset.materials && asset.materials.length > 0 && (
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Materials
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {asset.materials
-                              .slice(0, 3)
-                              .map((material, index) => (
-                                <Badge
-                                  key={material}
-                                  variant="secondary"
-                                  className="text-xs font-normal px-2 py-0.5 bg-muted/50"
-                                  style={{ animationDelay: `${index * 100}ms` }}
-                                >
-                                  {material.replace(/[[\]"]/g, "")}
-                                </Badge>
-                              ))}
-                            {asset.materials.length > 3 && (
-                              <Badge className="text-xs font-normal px-2 py-0.5">
-                                +{asset.materials.length - 3}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {asset.colors && asset.colors.length > 0 && (
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Colors
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {asset.colors.slice(0, 4).map((color, index) => (
-                              <Badge
-                                key={color}
-                                variant="outline"
-                                className="text-xs font-normal px-2 py-0.5 border-border/40"
-                                style={{ animationDelay: `${index * 100}ms` }}
-                              >
-                                {color.replace(/[[\]"]/g, "")}
-                              </Badge>
-                            ))}
-                            {asset.colors.length > 4 && (
-                              <Badge
-                                variant="ghost"
-                                className="text-xs font-normal px-2 py-0.5"
-                              >
-                                +{asset.colors.length - 4}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
                       )}
                     </div>
                   </div>
