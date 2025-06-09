@@ -20,11 +20,13 @@ export function SiteHeader() {
   let pageTitle = "Unified";
   if (
     pathname.startsWith("/asset-library/") &&
-    pathname.split("/").length === 3
+    pathname.split("/").length === 3 &&
+    !pathname.includes("/upload") &&
+    !pathname.includes("/preview-generator")
   ) {
     // Extract the id from the URL
     const id = pathname.split("/")[2];
-    pageTitle = `Asset Details `;
+    pageTitle = `Asset Details`;
   } else {
     pageTitle = TITLES[pathname as keyof typeof TITLES] || "Unified";
   }
