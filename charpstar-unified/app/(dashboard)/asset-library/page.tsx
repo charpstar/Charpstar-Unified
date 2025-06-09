@@ -371,7 +371,13 @@ export default function AssetLibraryPage() {
             <div className="flex flex-row gap-4">
               <div className="relative w-full h-[120px]">
                 {/* Main Categories */}
-                <div className="absolute inset-0">
+                <div
+                  className={`absolute inset-0 ${
+                    !filters.category
+                      ? "opacity-100"
+                      : "opacity-0 pointer-events-none"
+                  }`}
+                >
                   <div className="flex items-center gap-2 mb-2">
                     <div className="h-0.5 w-6 bg-muted rounded-full animate-pulse"></div>
                     <div className="h-4 w-24 bg-muted rounded animate-pulse" />
@@ -476,520 +482,534 @@ export default function AssetLibraryPage() {
         type="module"
         src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
       />
-      <div className="flex flex-col gap-4">
-        {/* Breadcrumb Navigation */}
-        <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
-          <Home className="h-4 w-4 text-muted-foreground" />
-          {breadcrumbItems.map((item, index) => (
-            <div key={item.href} className="flex items-center">
-              <ChevronRight className="h-4 w-4 mx-2" />
-              <Link
-                href={item.href}
-                className={`hover:text-primary transition-colors flex items-center gap-1 cursor-pointer ${
-                  index === breadcrumbItems.length - 1
-                    ? "text-foreground font-medium"
-                    : ""
-                }`}
-                onClick={(e) => {
-                  if (item.onClick) {
-                    e.preventDefault();
-                    item.onClick();
-                  }
-                }}
-              >
-                {item.label}
-              </Link>
+      <div>
+        <div className="flex flex-col gap-4 ">
+          {/* Breadcrumb Navigation */}
+
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4 mb-6">
+              <h1 className="text-2xl font-bold">Library</h1>
+              <Badge variant="secondary" className="text-sm">
+                {totalCount === 1 ? "Model:" : "Total Models:"} {totalCount}
+              </Badge>
             </div>
-          ))}
-        </div>
+            <div className="flex items-center gap-2">
+              <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+                <SheetContent side="right" className="w-[400px] sm:w-[540px]">
+                  <SheetHeader>
+                    <SheetTitle>Filters</SheetTitle>
+                  </SheetHeader>
 
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4 mb-6">
-            <h1 className="text-2xl font-bold">Library</h1>
-            <Badge variant="secondary" className="text-sm">
-              {totalCount === 1 ? "Model:" : "Total Models:"} {totalCount}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
-              <SheetContent side="right" className="w-[400px] sm:w-[540px]">
-                <SheetHeader>
-                  <SheetTitle>Filters</SheetTitle>
-                </SheetHeader>
+                  <div className="py-4">
+                    <div className="h-[calc(100vh-8rem)] overflow-y-auto pr-4">
+                      <div className="space-y-6">
+                        {/* Client Filter */}
+                        {filterOptions.clients.length > 0 && (
+                          <div>
+                            <h3 className="text-sm font-medium mb-2 cursor-pointer">
+                              Client
+                            </h3>
+                            <div className="space-y-2">
+                              {filterOptions.clients.map((client) => (
+                                <div
+                                  key={client.value}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    id={`client-${client.value}`}
+                                    checked={filters.client.includes(
+                                      client.value
+                                    )}
+                                    onChange={(e) => {
+                                      const newClients = e.target.checked
+                                        ? [...filters.client, client.value]
+                                        : filters.client.filter(
+                                            (c) => c !== client.value
+                                          );
+                                      handleFilterChange("client", newClients);
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                                  />
+                                  <label
+                                    htmlFor={`client-${client.value}`}
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                  >
+                                    {client.label}
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-                <div className="py-4">
-                  <div className="h-[calc(100vh-8rem)] overflow-y-auto pr-4">
-                    <div className="space-y-6">
-                      {/* Client Filter */}
-                      {filterOptions.clients.length > 0 && (
+                        {/* Material Filter */}
                         <div>
                           <h3 className="text-sm font-medium mb-2 cursor-pointer">
-                            Client
+                            Materials
                           </h3>
-                          <div className="space-y-2">
-                            {filterOptions.clients.map((client) => (
-                              <div
-                                key={client.value}
-                                className="flex items-center space-x-2"
-                              >
-                                <input
-                                  type="checkbox"
-                                  id={`client-${client.value}`}
-                                  checked={filters.client.includes(
-                                    client.value
-                                  )}
-                                  onChange={(e) => {
-                                    const newClients = e.target.checked
-                                      ? [...filters.client, client.value]
-                                      : filters.client.filter(
-                                          (c) => c !== client.value
+                          <Select
+                            value={
+                              filters.material.length > 0
+                                ? filters.material[0]
+                                : "all"
+                            }
+                            onValueChange={() => {}}
+                          >
+                            <SelectTrigger className="cursor-pointer">
+                              <SelectValue>
+                                {filters.material.length > 0
+                                  ? `${filters.material.length} selected`
+                                  : "Select materials"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="w-[300px] max-h-[300px]">
+                              <div className="space-y-1 p-2">
+                                {filterOptions.materials.map((material) => (
+                                  <div
+                                    key={material.value}
+                                    className="flex items-center space-x-2 py-1 cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      id={`material-${material.value}`}
+                                      checked={filters.material.includes(
+                                        material.value
+                                      )}
+                                      onChange={(e) => {
+                                        const newMaterials = e.target.checked
+                                          ? [
+                                              ...filters.material,
+                                              material.value,
+                                            ]
+                                          : filters.material.filter(
+                                              (m) => m !== material.value
+                                            );
+                                        handleFilterChange(
+                                          "material",
+                                          newMaterials
                                         );
-                                    handleFilterChange("client", newClients);
-                                  }}
-                                  className="h-4 w-4 rounded border-gray-300 cursor-pointer"
-                                />
-                                <label
-                                  htmlFor={`client-${client.value}`}
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                  {client.label}
-                                </label>
+                                      }}
+                                      className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                                    />
+                                    <label
+                                      htmlFor={`material-${material.value}`}
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                      {material.label}
+                                    </label>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
+                            </SelectContent>
+                          </Select>
                         </div>
-                      )}
 
-                      {/* Material Filter */}
-                      <div>
-                        <h3 className="text-sm font-medium mb-2 cursor-pointer">
-                          Materials
-                        </h3>
-                        <Select
-                          value={
-                            filters.material.length > 0
-                              ? filters.material[0]
-                              : "all"
-                          }
-                          onValueChange={() => {}}
-                        >
-                          <SelectTrigger className="cursor-pointer">
-                            <SelectValue>
-                              {filters.material.length > 0
-                                ? `${filters.material.length} selected`
-                                : "Select materials"}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="w-[300px] max-h-[300px]">
-                            <div className="space-y-1 p-2">
-                              {filterOptions.materials.map((material) => (
-                                <div
-                                  key={material.value}
-                                  className="flex items-center space-x-2 py-1 cursor-pointer"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    id={`material-${material.value}`}
-                                    checked={filters.material.includes(
-                                      material.value
-                                    )}
-                                    onChange={(e) => {
-                                      const newMaterials = e.target.checked
-                                        ? [...filters.material, material.value]
-                                        : filters.material.filter(
-                                            (m) => m !== material.value
-                                          );
-                                      handleFilterChange(
-                                        "material",
-                                        newMaterials
-                                      );
-                                    }}
-                                    className="h-4 w-4 rounded border-gray-300 cursor-pointer"
-                                  />
-                                  <label
-                                    htmlFor={`material-${material.value}`}
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        {/* Color Filter */}
+                        <div>
+                          <h3 className="text-sm font-medium mb-2 cursor-pointer">
+                            Colors
+                          </h3>
+                          <Select
+                            value={
+                              filters.color.length > 0
+                                ? filters.color[0]
+                                : "all"
+                            }
+                            onValueChange={() => {}}
+                          >
+                            <SelectTrigger className="cursor-pointer">
+                              <SelectValue>
+                                {filters.color.length > 0
+                                  ? `${filters.color.length} selected`
+                                  : "Select colors"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="w-[300px] max-h-[300px]">
+                              <div className="space-y-1 p-2">
+                                {filterOptions.colors.map((color) => (
+                                  <div
+                                    key={color.value}
+                                    className="flex items-center space-x-2 py-1 cursor-pointer"
                                   >
-                                    {material.label}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                                    <input
+                                      type="checkbox"
+                                      id={`color-${color.value}`}
+                                      checked={filters.color.includes(
+                                        color.value
+                                      )}
+                                      onChange={(e) => {
+                                        const newColors = e.target.checked
+                                          ? [...filters.color, color.value]
+                                          : filters.color.filter(
+                                              (c) => c !== color.value
+                                            );
+                                        handleFilterChange("color", newColors);
+                                      }}
+                                      className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                                    />
+                                    <label
+                                      htmlFor={`color-${color.value}`}
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                      {color.label}
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                      {/* Color Filter */}
-                      <div>
-                        <h3 className="text-sm font-medium mb-2 cursor-pointer">
-                          Colors
-                        </h3>
-                        <Select
-                          value={
-                            filters.color.length > 0 ? filters.color[0] : "all"
-                          }
-                          onValueChange={() => {}}
+                        <Separator />
+
+                        {/* Clear Filters Button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearFilters}
+                          className="ml-4 text-muted-foreground border-border/40 hover:bg-muted hover:text-foreground font-medium px-4 rounded-md shadow-sm transition-all duration-200 cursor-pointer"
+                          title="Clear all filters"
                         >
-                          <SelectTrigger className="cursor-pointer">
-                            <SelectValue>
-                              {filters.color.length > 0
-                                ? `${filters.color.length} selected`
-                                : "Select colors"}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="w-[300px] max-h-[300px]">
-                            <div className="space-y-1 p-2">
-                              {filterOptions.colors.map((color) => (
-                                <div
-                                  key={color.value}
-                                  className="flex items-center space-x-2 py-1 cursor-pointer"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    id={`color-${color.value}`}
-                                    checked={filters.color.includes(
-                                      color.value
-                                    )}
-                                    onChange={(e) => {
-                                      const newColors = e.target.checked
-                                        ? [...filters.color, color.value]
-                                        : filters.color.filter(
-                                            (c) => c !== color.value
-                                          );
-                                      handleFilterChange("color", newColors);
-                                    }}
-                                    className="h-4 w-4 rounded border-gray-300 cursor-pointer"
-                                  />
-                                  <label
-                                    htmlFor={`color-${color.value}`}
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                  >
-                                    {color.label}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          </SelectContent>
-                        </Select>
+                          Clear All
+                        </Button>
                       </div>
-
-                      <Separator />
-
-                      {/* Clear Filters Button */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearFilters}
-                        className="ml-4 text-muted-foreground border-border/40 hover:bg-muted hover:text-foreground font-medium px-4 rounded-md shadow-sm transition-all duration-200 cursor-pointer"
-                        title="Clear all filters"
-                      >
-                        Clear All
-                      </Button>
                     </div>
                   </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+                </SheetContent>
+              </Sheet>
 
-            {/* Only show for admin */}
-            {userRole === "admin" && (
-              <>
-                <Button onClick={() => setPreviewDialogOpen(true)}>
-                  <span className="text-sm">Generate Previews</span>
-                </Button>
-                <PreviewGeneratorDialog
-                  isOpen={previewDialogOpen}
-                  onClose={() => setPreviewDialogOpen(false)}
-                />
-                <Button variant="default" asChild>
-                  <Link
-                    href="/asset-library/upload"
-                    className="flex items-center gap-2"
-                  >
-                    Upload Assets
-                  </Link>
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2 ml-auto">
-            <div className="relative w-96">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search assets..."
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={filters.sort} onValueChange={handleSortChange}>
-              <SelectTrigger className="w-[180px] cursor-pointer">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name-asc" className="cursor-pointer">
-                  Name (A-Z)
-                </SelectItem>
-                <SelectItem value="name-desc" className="cursor-pointer">
-                  Name (Z-A)
-                </SelectItem>
-                <SelectItem value="date-asc" className="cursor-pointer">
-                  Date (Oldest First)
-                </SelectItem>
-                <SelectItem value="date-desc" className="cursor-pointer">
-                  Date (Newest First)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 cursor-pointer"
-                >
-                  <Filter className="h-4 w-4" />
-                  Filters
-                  {(filters.category ||
-                    filters.subcategory ||
-                    filters.client.length > 0 ||
-                    filters.material.length > 0 ||
-                    filters.color.length > 0) && (
-                    <Badge variant="secondary" className="ml-1">
-                      {
-                        [
-                          filters.category,
-                          filters.subcategory,
-                          ...filters.client,
-                          ...filters.material,
-                          ...filters.color,
-                        ].filter(Boolean).length
-                      }
-                    </Badge>
-                  )}
-                </Button>
-              </SheetTrigger>
-            </Sheet>
-            <div className="flex items-center gap-1 border rounded-md">
-              <Button
-                variant={viewMode === "grid" ? "default" : "ghost"}
-                size="icon"
-                className="h-9 w-9 cursor-pointer"
-                onClick={() => setViewMode("grid")}
-                aria-label="Grid View"
-              >
-                <Grid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "compactGrid" ? "default" : "ghost"}
-                size="icon"
-                className="h-9 w-9 cursor-pointer"
-                onClick={() => setViewMode("compactGrid")}
-                aria-label="Compact Grid View"
-              >
-                <Rows className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-8 space-y-4">
-          <div className="flex flex-row gap-4">
-            {/* Fixed height container for category navigation */}
-            <div className="relative w-full h-[120px]">
-              {/* Main Categories */}
-              <div
-                className={`absolute inset-0 transition-all duration-500 ease-in-out transform ${
-                  !filters.category
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 -translate-y-8 pointer-events-none"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-0.5 w-6 bg-primary rounded-full"></div>
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Categories
-                  </h3>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div
-                    ref={categoryContainerRef}
-                    className="flex items-center gap-2 overflow-x-auto  cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
-                    onMouseDown={handleMouseDown}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseLeave}
-                    onMouseMove={handleMouseMove}
-                    style={{
-                      scrollbarWidth: "none",
-                      msOverflowStyle: "none",
-                    }}
-                  >
-                    <Button
-                      variant={!filters.category ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleFilterChange("category", null)}
-                      className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
-                        !filters.category
-                          ? "bg-primary text-primary-foreground"
-                          : "border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      All Categories
-                    </Button>
-
-                    {filterOptions.categories.map((category) => (
-                      <Button
-                        key={category.id}
-                        variant={
-                          filters.category === category.id
-                            ? "default"
-                            : "outline"
-                        }
-                        size="sm"
-                        onClick={() =>
-                          handleFilterChange("category", category.id)
-                        }
-                        className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
-                          filters.category === category.id
-                            ? "bg-primary text-primary-foreground"
-                            : "border-border hover:bg-muted/50"
-                        }`}
-                      >
-                        {category.name || "Uncategorized"}
-                      </Button>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
-                      onClick={() =>
-                        categoryContainerRef.current &&
-                        scrollContainer("left", categoryContainerRef)
-                      }
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
-                      onClick={() =>
-                        categoryContainerRef.current &&
-                        scrollContainer("right", categoryContainerRef)
-                      }
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Subcategory Navigation */}
-              <div
-                className={`absolute inset-0 transition-all duration-500 ease-in-out transform ${
-                  filters.category
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-8 pointer-events-none"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-0.5 w-6 bg-primary/60 rounded-full"></div>
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    {filterOptions.categories.find(
-                      (c) => c.id === filters.category
-                    )?.name || "Subcategories"}
-                  </h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleFilterChange("category", null)}
-                    className="p-0 m-0 h-auto min-h-0 bg-transparent hover:bg-transparent shadow-none border-none text-xs text-muted-foreground hover:text-foreground transition-colors appearance-none flex items-center cursor-pointer"
-                  >
-                    <X className="h-3 w-3 mr-1" />
-                    Back to Categories
+              {/* Only show for admin */}
+              {userRole === "admin" && (
+                <>
+                  <Button onClick={() => setPreviewDialogOpen(true)}>
+                    <span className="text-sm">Generate Previews</span>
                   </Button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div
-                    ref={subcategoryContainerRef}
-                    className="flex items-center gap-2 overflow-x-auto  cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
-                    onMouseDown={handleMouseDown}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseLeave}
-                    onMouseMove={handleMouseMove}
-                    style={{
-                      scrollbarWidth: "none",
-                      msOverflowStyle: "none",
-                    }}
-                  >
-                    <Button
-                      variant={!filters.subcategory ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleFilterChange("subcategory", null)}
-                      className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
-                        !filters.subcategory
-                          ? "bg-primary/80 text-primary-foreground"
-                          : "border-border hover:bg-muted/50"
-                      }`}
+                  <PreviewGeneratorDialog
+                    isOpen={previewDialogOpen}
+                    onClose={() => setPreviewDialogOpen(false)}
+                  />
+                  <Button variant="default" asChild>
+                    <Link
+                      href="/asset-library/upload"
+                      className="flex items-center gap-2"
                     >
-                      All
-                    </Button>
+                      Upload Assets
+                    </Link>
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="mb-8 space-y-4 max-w-full mx-auto">
+              <div className="flex items-center justify-between gap-4">
+                {/* Fixed height container for category navigation */}
+                <div className="relative w-full h-[120px] flex-1 max-w-[1200px] min-w-[400px]">
+                  {/* Main Categories */}
+                  <div
+                    className={`absolute inset-0 pt-3.5 ${
+                      !filters.category
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+                      {breadcrumbItems.map((item, index) => (
+                        <div key={item.href} className="flex items-center">
+                          <ChevronRight className="h-4 w-4 mx-2" />
+                          <Link
+                            href={item.href}
+                            className={`hover:text-primary transition-colors flex items-center gap-1 cursor-pointer ${
+                              index === breadcrumbItems.length - 1
+                                ? "text-foreground font-medium"
+                                : ""
+                            }`}
+                            onClick={(e) => {
+                              if (item.onClick) {
+                                e.preventDefault();
+                                item.onClick();
+                              }
+                            }}
+                          >
+                            {item.label}
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
 
-                    {filterOptions.categories
-                      .find((c) => c.id === filters.category)
-                      ?.subcategories.map((sub) => (
+                    <div className="flex items-center gap-2 justify-center   ">
+                      <div className="flex items-center gap-1 ">
                         <Button
-                          key={sub.id}
-                          variant={
-                            filters.subcategory === sub.id
-                              ? "default"
-                              : "outline"
+                          variant="ghost"
+                          size="icon"
+                          className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
+                          onClick={() =>
+                            categoryContainerRef.current &&
+                            scrollContainer("left", categoryContainerRef)
                           }
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div
+                        ref={categoryContainerRef}
+                        className="flex items-center gap-2 overflow-x-auto  cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
+                        onMouseDown={handleMouseDown}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseLeave}
+                        onMouseMove={handleMouseMove}
+                        style={{
+                          scrollbarWidth: "none",
+                          msOverflowStyle: "none",
+                        }}
+                      >
+                        <Button
+                          variant={!filters.category ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleFilterChange("category", null)}
+                          className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
+                            !filters.category
+                              ? "bg-primary text-primary-foreground"
+                              : "border-border hover:bg-muted/50"
+                          }`}
+                        >
+                          All Categories
+                        </Button>
+
+                        {filterOptions.categories.map((category) => (
+                          <Button
+                            key={category.id}
+                            variant={
+                              filters.category === category.id
+                                ? "default"
+                                : "outline"
+                            }
+                            size="sm"
+                            onClick={() =>
+                              handleFilterChange("category", category.id)
+                            }
+                            className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
+                              filters.category === category.id
+                                ? "bg-primary text-primary-foreground"
+                                : "border-border hover:bg-muted/50"
+                            }`}
+                          >
+                            {category.name || "Uncategorized"}
+                          </Button>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-1 ">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
+                          onClick={() =>
+                            categoryContainerRef.current &&
+                            scrollContainer("right", categoryContainerRef)
+                          }
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subcategory Navigation */}
+                  <div
+                    className={`absolute inset-0  pt-3.5 ${
+                      filters.category
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+                      {breadcrumbItems.map((item, index) => (
+                        <div key={item.href} className="flex items-center">
+                          <ChevronRight className="h-4 w-4 mx-2" />
+                          <Link
+                            href={item.href}
+                            className={`hover:text-primary transition-colors flex items-center gap-1 cursor-pointer ${
+                              index === breadcrumbItems.length - 1
+                                ? "text-foreground font-medium"
+                                : ""
+                            }`}
+                            onClick={(e) => {
+                              if (item.onClick) {
+                                e.preventDefault();
+                                item.onClick();
+                              }
+                            }}
+                          >
+                            {item.label}
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 ">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
+                          onClick={() =>
+                            subcategoryContainerRef.current &&
+                            scrollContainer("left", subcategoryContainerRef)
+                          }
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div
+                        ref={subcategoryContainerRef}
+                        className="flex items-center gap-2 overflow-x-auto  cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
+                        onMouseDown={handleMouseDown}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseLeave}
+                        onMouseMove={handleMouseMove}
+                        style={{
+                          scrollbarWidth: "none",
+                          msOverflowStyle: "none",
+                        }}
+                      >
+                        <Button
+                          variant={!filters.subcategory ? "default" : "outline"}
                           size="sm"
                           onClick={() =>
-                            handleFilterChange("subcategory", sub.id)
+                            handleFilterChange("subcategory", null)
                           }
                           className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
-                            filters.subcategory === sub.id
+                            !filters.subcategory
                               ? "bg-primary/80 text-primary-foreground"
                               : "border-border hover:bg-muted/50"
                           }`}
                         >
-                          {sub.name || "Uncategorized"}
+                          All
                         </Button>
-                      ))}
-                  </div>
 
-                  <div className="flex items-center gap-1">
+                        {filterOptions.categories
+                          .find((c) => c.id === filters.category)
+                          ?.subcategories.map((sub) => (
+                            <Button
+                              key={sub.id}
+                              variant={
+                                filters.subcategory === sub.id
+                                  ? "default"
+                                  : "outline"
+                              }
+                              size="sm"
+                              onClick={() =>
+                                handleFilterChange("subcategory", sub.id)
+                              }
+                              className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
+                                filters.subcategory === sub.id
+                                  ? "bg-primary/80 text-primary-foreground"
+                                  : "border-border hover:bg-muted/50"
+                              }`}
+                            >
+                              {sub.name || "Uncategorized"}
+                            </Button>
+                          ))}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
+                          onClick={() =>
+                            subcategoryContainerRef.current &&
+                            scrollContainer("right", subcategoryContainerRef)
+                          }
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="relative w-[300px]">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search assets..."
+                      value={searchValue}
+                      onChange={(e) => setSearchValue(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Select value={filters.sort} onValueChange={handleSortChange}>
+                    <SelectTrigger className="w-[180px] cursor-pointer">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name-asc" className="cursor-pointer">
+                        Name (A-Z)
+                      </SelectItem>
+                      <SelectItem value="name-desc" className="cursor-pointer">
+                        Name (Z-A)
+                      </SelectItem>
+                      <SelectItem value="date-asc" className="cursor-pointer">
+                        Date (Oldest First)
+                      </SelectItem>
+                      <SelectItem value="date-desc" className="cursor-pointer">
+                        Date (Newest First)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Sheet
+                    open={filterSheetOpen}
+                    onOpenChange={setFilterSheetOpen}
+                  >
+                    <SheetTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 cursor-pointer"
+                      >
+                        <Filter className="h-4 w-4" />
+                        Filters
+                        {(filters.category ||
+                          filters.subcategory ||
+                          filters.client.length > 0 ||
+                          filters.material.length > 0 ||
+                          filters.color.length > 0) && (
+                          <Badge variant="secondary" className="ml-1">
+                            {
+                              [
+                                filters.category,
+                                filters.subcategory,
+                                ...filters.client,
+                                ...filters.material,
+                                ...filters.color,
+                              ].filter(Boolean).length
+                            }
+                          </Badge>
+                        )}
+                      </Button>
+                    </SheetTrigger>
+                  </Sheet>
+                  <div className="flex items-center gap-1 border rounded-md">
                     <Button
-                      variant="ghost"
+                      variant={viewMode === "grid" ? "default" : "ghost"}
                       size="icon"
-                      className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
-                      onClick={() =>
-                        subcategoryContainerRef.current &&
-                        scrollContainer("left", subcategoryContainerRef)
-                      }
+                      className="h-9 w-9 cursor-pointer"
+                      onClick={() => setViewMode("grid")}
+                      aria-label="Grid View"
                     >
-                      <ChevronLeft className="h-4 w-4" />
+                      <Grid className="h-4 w-4" />
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant={viewMode === "compactGrid" ? "default" : "ghost"}
                       size="icon"
-                      className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
-                      onClick={() =>
-                        subcategoryContainerRef.current &&
-                        scrollContainer("right", subcategoryContainerRef)
-                      }
+                      className="h-9 w-9 cursor-pointer"
+                      onClick={() => setViewMode("compactGrid")}
+                      aria-label="Compact Grid View"
                     >
-                      <ChevronRight className="h-4 w-4" />
+                      <Rows className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
@@ -997,11 +1017,10 @@ export default function AssetLibraryPage() {
             </div>
           </div>
         </div>
-
         <div
           className={
             viewMode === "grid"
-              ? "grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 max-w-[2000px] mx-auto"
+              ? "grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 max mx-auto"
               : "flex flex-col gap-4 w-full"
           }
         >
