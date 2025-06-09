@@ -245,7 +245,7 @@ export default function AssetDetailPage() {
               Back to Asset Library
             </Button>
           </Link>
-          <div className="flex justify-center items-center h-64">
+          <div className="flex justify-center items-center h-64 ">
             <p className="text-destructive">{error || "Asset not found"}</p>
           </div>
         </div>
@@ -263,8 +263,8 @@ export default function AssetDetailPage() {
         <div className="h-full">
           <div className="flex justify-between items-center mb-6">
             <Link href="/asset-library">
-              <Button variant="ghost">
-                <ArrowLeft className="mr-2 h-4 w-4" />
+              <Button variant="ghost" className="cursor-pointer">
+                <ArrowLeft className="mr-2 h-4 w-4 " />
                 Back to Asset Library
               </Button>
             </Link>
@@ -280,53 +280,61 @@ export default function AssetDetailPage() {
               >
                 {isEditing ? (
                   <>
-                    <X className="mr-2 h-4 w-4" />
-                    Cancel Edit
+                    <Button variant="ghost" className="cursor-pointer">
+                      <X className="mr-2 h-4 w-4" />
+                      Cancel Edit
+                    </Button>
                   </>
                 ) : (
                   <>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit Product
+                    <Button variant="ghost" className="cursor-pointer">
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit Product
+                    </Button>
                   </>
                 )}
               </Button>
             )}
           </div>
 
-          <div className="grid gap-8 grid-cols-1 h-[calc(100%)]">
-            <div className="w-full h-[500px] rounded-lg bg-muted">
-              {asset.glb_link ? (
-                <model-viewer
-                  src={asset.glb_link}
-                  alt={asset.product_name}
-                  auto-rotate
-                  camera-controls
-                  shadow-intensity="1"
-                  camera-orbit="0deg 75deg 105%"
-                  min-camera-orbit="auto auto 50%"
-                  max-camera-orbit="auto auto 150%"
-                  interaction-prompt="auto"
-                  environment-image="neutral"
-                  exposure="1"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    backgroundColor: "transparent",
-                  }}
-                />
-              ) : asset.preview_image ? (
-                <img
-                  src={asset.preview_image}
-                  alt={asset.product_name}
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              ) : (
-                <div className="w-full h-full rounded-lg bg-muted flex items-center justify-center">
-                  <ImageIcon className="h-16 w-16 text-muted-foreground" />
-                </div>
-              )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100%-4rem)]">
+            {/* Left Side - Model Viewer */}
+            <div className="flex flex-col gap-4 h-full">
+              <div className="w-full h-full rounded-lg bg-muted overflow-hidden">
+                {asset.glb_link ? (
+                  <model-viewer
+                    src={asset.glb_link}
+                    alt={asset.product_name}
+                    auto-rotate
+                    camera-controls
+                    shadow-intensity="1"
+                    camera-orbit="0deg 75deg 160%"
+                    min-camera-orbit="auto auto 50%"
+                    max-camera-orbit="auto auto 150%"
+                    interaction-prompt="auto"
+                    environment-image="neutral"
+                    exposure="1"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      backgroundColor: "transparent",
+                    }}
+                  />
+                ) : asset.preview_image ? (
+                  <img
+                    src={asset.preview_image}
+                    alt={asset.product_name}
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-lg bg-muted flex items-center justify-center">
+                    <ImageIcon className="h-16 w-16 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
             </div>
 
+            {/* Right Side - Details */}
             <div className="flex flex-col gap-6 space-y-6 h-full overflow-y-auto pr-4">
               {isEditing ? (
                 <div className="space-y-6 h-full overflow-y-auto p-4">
@@ -462,9 +470,10 @@ export default function AssetDetailPage() {
                           type="button"
                           variant="outline"
                           size="icon"
+                          className="cursor-pointer"
                           onClick={addMaterial}
                         >
-                          <Plus className="h-4 w-4" />
+                          <Plus className="h-4 w-4 " />
                         </Button>
                       </div>
                       <div className="flex flex-wrap gap-1.5 mt-2">
@@ -480,7 +489,7 @@ export default function AssetDetailPage() {
                                 onClick={() => removeMaterial(index)}
                                 className="ml-1 hover:text-destructive"
                               >
-                                <X className="h-3 w-3" />
+                                <X className="h-3 w-3 cursor-pointer" />
                               </button>
                             </Badge>
                           ))}
@@ -506,9 +515,10 @@ export default function AssetDetailPage() {
                           type="button"
                           variant="outline"
                           size="icon"
+                          className="cursor-pointer"
                           onClick={addColor}
                         >
-                          <Plus className="h-4 w-4" />
+                          <Plus className="h-4 w-4 cursor-pointer" />
                         </Button>
                       </div>
                       <div className="flex flex-wrap gap-1.5 mt-2">
@@ -524,7 +534,7 @@ export default function AssetDetailPage() {
                                 onClick={() => removeColor(index)}
                                 className="ml-1 hover:text-destructive"
                               >
-                                <X className="h-3 w-3" />
+                                <X className="h-3 w-3 cursor-pointer" />
                               </button>
                             </Badge>
                           ))}
@@ -551,9 +561,10 @@ export default function AssetDetailPage() {
                         type="button"
                         variant="outline"
                         size="icon"
+                        className="cursor-pointer"
                         onClick={addTag}
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-4 w-4 cursor-pointer" />
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-1.5 mt-2">
@@ -567,7 +578,7 @@ export default function AssetDetailPage() {
                             {tag}
                             <button
                               onClick={() => removeTag(index)}
-                              className="ml-1 hover:text-destructive"
+                              className="ml-1 hover:text-destructive cursor-pointer"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -579,6 +590,7 @@ export default function AssetDetailPage() {
                   <div className="flex justify-end gap-2 pt-4 border-t">
                     <Button
                       variant="outline"
+                      className="cursor-pointer"
                       onClick={() => {
                         setEditedAsset(asset);
                         setIsEditing(false);
@@ -586,16 +598,33 @@ export default function AssetDetailPage() {
                     >
                       Cancel
                     </Button>
-                    <Button onClick={handleEdit}>Save Changes</Button>
+                    <Button onClick={handleEdit} className="cursor-pointer">
+                      Save Changes
+                    </Button>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-8">
                   <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <h1 className="text-3xl font-bold">
-                        {asset.product_name}
-                      </h1>
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h1 className="text-3xl font-bold mb-3">
+                          {asset.product_name}
+                        </h1>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge className="bg-primary/90 text-primary-foreground hover:bg-primary/90">
+                            {asset.category}
+                          </Badge>
+                          {asset.subcategory && (
+                            <Badge
+                              variant="secondary"
+                              className="bg-background/90 hover:bg-background/90"
+                            >
+                              {asset.subcategory}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
                         <Button variant="default" className="group/btn" asChild>
                           <a
@@ -628,97 +657,64 @@ export default function AssetDetailPage() {
                         </Button>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <Badge className="bg-primary/90 text-primary-foreground hover:bg-primary/90">
-                        {asset.category}
-                      </Badge>
-                      {asset.subcategory && (
-                        <Badge
-                          variant="secondary"
-                          className="bg-background/90 hover:bg-background/90"
-                        >
-                          {asset.subcategory}
-                        </Badge>
-                      )}
-                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 gap-8">
                     {/* Basic Information */}
-                    <div className="space-y-4">
-                      <h2 className="text-xl font-bold">Basic Information</h2>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
+                    <div className="space-y-4 bg-muted/30 rounded-lg p-6">
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <span className="h-6 w-1 bg-primary rounded-full"></span>
+                        Basic Information
+                      </h2>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
                           <span className="text-sm font-medium text-muted-foreground">
                             Article ID
                           </span>
-                          <p className="text-sm">{asset.article_id}</p>
+                          <p className="text-sm font-medium">
+                            {asset.article_id}
+                          </p>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <span className="text-sm font-medium text-muted-foreground">
                             Client
                           </span>
-                          <p className="text-sm">{asset.client || "N/A"}</p>
+                          <p className="text-sm font-medium">
+                            {asset.client || "N/A"}
+                          </p>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <span className="text-sm font-medium text-muted-foreground">
                             Created
                           </span>
-                          <p className="text-sm">
+                          <p className="text-sm font-medium">
                             {asset.created_at
                               ? new Date(asset.created_at).toLocaleDateString()
                               : "N/A"}
                           </p>
                         </div>
-                        <div className="space-y-1">
-                          <span className="text-sm font-medium text-muted-foreground">
-                            Product Link
-                          </span>
-                          <a
-                            href={asset.product_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline flex items-center gap-1"
-                          >
-                            View Product
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-sm font-medium text-muted-foreground">
-                            GLB Link
-                          </span>
-                          {asset.glb_link ? (
-                            <a
-                              href={asset.glb_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline flex items-center gap-1"
-                            >
-                              Download Model
-                              <Download className="h-3 w-3" />
-                            </a>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">N/A</p>
-                          )}
-                        </div>
                       </div>
                     </div>
 
                     {/* Specifications */}
-                    <div className="space-y-4">
-                      <h2 className="text-xl font-bold">Specifications</h2>
+                    <div className="space-y-4 bg-muted/30 rounded-lg p-6">
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <span className="h-6 w-1 bg-primary rounded-full"></span>
+                        Specifications
+                      </h2>
                       {Array.isArray(asset.materials) &&
                         asset.materials.length > 0 && (
                           <div className="space-y-2">
-                            <h3 className="text-sm font-medium">Materials</h3>
+                            <h3 className="text-sm font-medium text-muted-foreground">
+                              Materials
+                            </h3>
                             <div className="flex flex-wrap gap-1.5">
                               {asset.materials.map((material: string) => (
                                 <Badge
                                   key={material}
                                   variant="secondary"
-                                  className="text-sm font-normal"
+                                  className="text-sm font-normal bg-background/50"
                                 >
                                   {material.replace(/[\[\]"]/g, "")}
                                 </Badge>
@@ -730,13 +726,15 @@ export default function AssetDetailPage() {
                       {Array.isArray(asset.colors) &&
                         asset.colors.length > 0 && (
                           <div className="space-y-2">
-                            <h3 className="text-sm font-medium">Colors</h3>
+                            <h3 className="text-sm font-medium text-muted-foreground">
+                              Colors
+                            </h3>
                             <div className="flex flex-wrap gap-1.5">
                               {asset.colors.map((color: string) => (
                                 <Badge
                                   key={color}
                                   variant="outline"
-                                  className="text-sm font-normal"
+                                  className="text-sm font-normal bg-background/50"
                                 >
                                   {color.replace(/[\[\]"]/g, "")}
                                 </Badge>
@@ -747,14 +745,16 @@ export default function AssetDetailPage() {
 
                       {asset.tags && (
                         <div className="space-y-2">
-                          <h3 className="text-sm font-medium">Tags</h3>
+                          <h3 className="text-sm font-medium text-muted-foreground">
+                            Tags
+                          </h3>
                           <div className="flex flex-wrap gap-1.5">
                             {Array.isArray(asset.tags) ? (
                               asset.tags.map((tag: string) => (
                                 <div key={tag}>
                                   <Badge
                                     variant="secondary"
-                                    className="text-sm font-normal border border-border"
+                                    className="text-sm font-normal border border-border bg-background/50"
                                   >
                                     {tag.replace(/[\[\]"]/g, "")}
                                   </Badge>
@@ -764,7 +764,7 @@ export default function AssetDetailPage() {
                               <div>
                                 <Badge
                                   variant="secondary"
-                                  className="text-sm font-normal border border-border"
+                                  className="text-sm font-normal border border-border bg-background/50"
                                 >
                                   {asset.tags.replace(/[\[\]"]/g, "")}
                                 </Badge>
@@ -774,17 +774,20 @@ export default function AssetDetailPage() {
                         </div>
                       )}
                     </div>
-                  </div>
 
-                  {/* Description */}
-                  {asset.description && (
-                    <div className="space-y-2">
-                      <h2 className="text-xl font-bold">Description</h2>
-                      <p className="text-muted-foreground">
-                        {asset.description}
-                      </p>
-                    </div>
-                  )}
+                    {/* Description */}
+                    {asset.description && (
+                      <div className="space-y-4 bg-muted/30 rounded-lg p-6">
+                        <h2 className="text-xl font-bold flex items-center gap-2">
+                          <span className="h-6 w-1 bg-primary rounded-full"></span>
+                          Description
+                        </h2>
+                        <p className="text-muted-foreground leading-relaxed">
+                          {asset.description}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

@@ -12,8 +12,17 @@ import {
   Check,
   AlertCircle,
   Loader2,
+  ImageIcon,
 } from "lucide-react";
 import { debounce } from "lodash";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface AssetRow {
   product_name: string;
@@ -773,16 +782,12 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         )}
 
         {/* Table Container */}
-        <div className="overflow-x-auto">
-          <table className="min-w-[1200px] w-full">
-            <thead className="sticky top-0 z-10 bg-muted-50 dark:bg-muted-800 border-b border-muted-200 dark:border-muted-700">
-              <tr>
+        <div className="rounded-2xl shadow-lg bg-white dark:bg-muted-900 border border-muted-200 dark:border-muted-800 p-4">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
                 {[
-                  {
-                    key: "article_id",
-                    label: "Article ID",
-                    required: true,
-                  },
+                  { key: "article_id", label: "Article ID", required: true },
                   {
                     key: "product_name",
                     label: "Product Name",
@@ -800,43 +805,40 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                   { key: "materials", label: "Materials", required: false },
                   { key: "colors", label: "Colors", required: false },
                   { key: "tags", label: "Tags", required: false },
-                  {
-                    key: "preview_image",
-                    label: "Preview Image",
-                    required: false,
-                  },
-                  { key: "actions", label: "Actions", required: false },
+                  { key: "preview_image", label: "Preview", required: false },
+                  { key: "actions", label: "", required: false },
                 ].map((col) => (
-                  <th
+                  <TableHead
                     key={col.key}
-                    className="px-4 py-3 text-left text-xs font-semibold text-muted-600 dark:text-muted-300 uppercase tracking-wider"
+                    className={`${
+                      col.required ? "text-primary" : "text-muted-400"
+                    } ${col.key === "actions" ? "w-10" : ""}`}
                   >
-                    <div className="flex items-center space-x-1">
-                      <span>{col.label}</span>
-                      {col.required ? (
-                        <span className="text-red-500">*</span>
-                      ) : (
-                        <span className="text-muted-500">*</span>
+                    <div className="flex items-center gap-1">
+                      {col.label}
+                      {col.required && (
+                        <span className="text-red-500" title="Required">
+                          *
+                        </span>
                       )}
                     </div>
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-muted-200 dark:divide-muted-700">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((row, rowIdx) => {
                 const hasErrors = Object.keys(row.errors || {}).length > 0;
                 const isDuplicate = duplicates[row.id];
                 return (
-                  <tr
+                  <TableRow
                     key={row.id}
-                    className={`transition-colors ${
-                      hasErrors
-                        ? "bg-red-50 dark:bg-red-950/20 border-l-4 border-l-red-400"
-                        : isDuplicate
-                          ? "bg-yellow-50 dark:bg-yellow-950/20 border-l-4 border-l-yellow-400"
-                          : "hover:bg-muted-50 dark:hover:bg-muted-950/10"
-                    }`}
+                    className={`transition-all
+                      ${rowIdx % 2 === 0 ? "bg-muted-100 dark:bg-muted-800/40" : "bg-white dark:bg-muted-900"}
+                      ${hasErrors ? "border-l-4 border-l-red-400 bg-red-50/60 dark:bg-red-950/30" : ""}
+                      ${isDuplicate ? "border-l-4 border-l-yellow-400 bg-yellow-50/60 dark:bg-yellow-950/30" : ""}
+                      hover:bg-muted-50 dark:hover:bg-muted-800/60
+                    `}
                   >
                     {(
                       [
@@ -852,7 +854,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                         "tags",
                       ] as EditableField[]
                     ).map((field, colIdx) => (
-                      <td className="px-4 py-3 align-top" key={field}>
+                      <TableCell key={field} className="align-top">
                         <div className="relative">
                           <Input
                             ref={(el) => {
@@ -866,24 +868,28 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                             }
                             onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
                             required={requiredFields.includes(field)}
-                            className={`transition-all duration-200 text-sm shadow-sm
+                            className={`rounded-lg border transition-all duration-150 text-sm shadow-sm focus:ring-2
                               ${
                                 row.errors && row.errors[field]
-                                  ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                                  ? "border-red-400 ring-red-100"
                                   : isDuplicate &&
                                       (field === "article_id" ||
                                         field === "product_name")
-                                    ? "border-yellow-400 focus:border-yellow-500 focus:ring-yellow-200"
-                                    : "border-muted-300 focus:border-primary focus:ring-primary/20"
-                              }`}
+                                    ? "border-yellow-400 ring-yellow-100"
+                                    : "border-muted-300 focus:border-primary ring-primary/20"
+                              }
+                              bg-white dark:bg-muted-900
+                            `}
                             placeholder={`Enter ${field.replace("_", " ")}`}
                           />
+                          {/* Error Message */}
                           {row.errors && row.errors[field] && (
                             <div className="flex items-center mt-1 text-xs text-red-600">
                               <AlertCircle className="w-3 h-3 mr-1" />
                               {row.errors[field]}
                             </div>
                           )}
+                          {/* Duplicate Warning */}
                           {isDuplicate &&
                             (field === "article_id" ||
                               field === "product_name") && (
@@ -903,48 +909,60 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                               </div>
                             )}
                         </div>
-                      </td>
+                      </TableCell>
                     ))}
                     {/* Preview Image */}
-                    <td className="px-4 py-3 align-top">
-                      <div className="relative">
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) =>
-                            handleFileChange(
-                              rowIdx,
-                              e.target.files?.[0] || null
-                            )
-                          }
-                          className="text-sm"
-                        />
+                    <TableCell className="align-top">
+                      <div className="flex items-center gap-2">
+                        <label className="relative cursor-pointer flex items-center group p-2">
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-muted-200 dark:bg-muted-700 rounded hover:bg-primary/10 transition-colors border border-muted-300 dark:border-muted-600">
+                            <ImageIcon className="w-4 h-4 mr-1" />
+                            Upload
+                          </span>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) =>
+                              handleFileChange(
+                                rowIdx,
+                                e.target.files?.[0] || null
+                              )
+                            }
+                            className="sr-only"
+                          />
+                        </label>
                         {row.preview_image && (
-                          <div className="flex items-center mt-1 text-xs text-green-600">
-                            <Check className="w-3 h-3 mr-1" />
-                            {row.preview_image.name}
+                          <div className="flex flex-col items-start">
+                            <img
+                              src={URL.createObjectURL(row.preview_image)}
+                              alt="Preview"
+                              className="w-8 h-8 rounded shadow border border-muted-300 object-cover"
+                            />
+                            <span className="text-xs mt-1 text-green-600">
+                              {row.preview_image.name}
+                            </span>
                           </div>
                         )}
                       </div>
-                    </td>
+                    </TableCell>
                     {/* Actions */}
-                    <td className="px-4 py-3 align-top">
+                    <TableCell className="align-top">
                       <Button
-                        variant="outline"
-                        size="sm"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleRemoveRow(rowIdx)}
                         disabled={rows.length === 1}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                        className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900 transition"
                         title="Remove Row"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-5 h-5" />
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>

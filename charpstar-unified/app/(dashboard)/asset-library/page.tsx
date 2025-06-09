@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   Columns,
   Rows,
+  LayoutGrid,
 } from "lucide-react";
 import { useAssets } from "../../../hooks/use-assets";
 import { useState, useEffect, useRef } from "react";
@@ -61,9 +62,9 @@ export default function AssetLibraryPage() {
     totalCount,
   } = useAssets();
   const [searchValue, setSearchValue] = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "compactGrid" | "list">(
-    "grid"
-  );
+  const [viewMode, setViewMode] = useState<
+    "grid" | "colGrid" | "compactGrid" | "list"
+  >("grid");
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,7 +91,7 @@ export default function AssetLibraryPage() {
     fetchUserRole();
   }, [user]);
 
-  const ITEMS_PER_PAGE = 52;
+  const ITEMS_PER_PAGE = viewMode === "compactGrid" ? 60 : 52;
 
   // Filter assets based on search and sort
   const filteredAssets = assets
@@ -331,102 +332,100 @@ export default function AssetLibraryPage() {
           type="module"
           src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
         />
-        <div className="flex flex-col gap-4">
-          {/* Breadcrumb skeleton */}
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
-            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-            <div className="h-4 w-4 bg-muted rounded animate-pulse" />
-            <div className="h-4 w-32 bg-muted rounded animate-pulse" />
-          </div>
-
-          {/* Header skeleton */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="h-8 w-32 bg-muted rounded animate-pulse" />
-              <div className="h-6 w-24 bg-muted rounded animate-pulse" />
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-32 bg-muted rounded animate-pulse" />
-            </div>
-          </div>
-
-          {/* Search and filters skeleton */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-2 ml-auto">
-              <div className="relative w-96">
-                <div className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 bg-muted rounded animate-pulse" />
-                <div className="h-10 w-full bg-muted rounded animate-pulse" />
+        <div>
+          <div className="flex flex-col gap-4">
+            {/* Header skeleton */}
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div className="h-8 w-32 bg-muted rounded animate-pulse" />
+                <div className="h-6 w-24 bg-muted rounded animate-pulse" />
               </div>
-              <div className="h-10 w-[180px] bg-muted rounded animate-pulse" />
-              <div className="h-10 w-[100px] bg-muted rounded animate-pulse" />
-              <div className="flex items-center gap-1 border rounded-md">
-                <div className="h-9 w-9 bg-muted rounded animate-pulse" />
-                <div className="h-9 w-9 bg-muted rounded animate-pulse" />
+              <div className="flex items-center gap-2">
+                <div className="h-10 w-32 bg-muted rounded animate-pulse" />
               </div>
             </div>
-          </div>
 
-          {/* Categories skeleton */}
-          <div className="mb-8 space-y-4">
-            <div className="flex flex-row gap-4">
-              <div className="relative w-full h-[120px]">
-                {/* Main Categories */}
-                <div
-                  className={`absolute inset-0 ${
-                    !filters.category
-                      ? "opacity-100"
-                      : "opacity-0 pointer-events-none"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-0.5 w-6 bg-muted rounded-full animate-pulse"></div>
-                    <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+            <div>
+              <div className="mb-8 space-y-4 max-w-full mx-auto">
+                <div className="flex items-center justify-between gap-4">
+                  {/* Category navigation skeleton */}
+                  <div className="relative w-full h-[120px] flex-1 max-w-[1200px] min-w-[400px]">
+                    <div className="absolute inset-0 pt-3.5">
+                      {/* Breadcrumb skeleton */}
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+                        <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+                        <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                        <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+                        <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                      </div>
+
+                      {/* Categories skeleton */}
+                      <div className="flex items-center gap-2 justify-center">
+                        <div className="flex items-center gap-1">
+                          <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                        </div>
+                        <div className="flex items-center gap-2 overflow-x-auto">
+                          {Array.from({ length: 8 }).map((_, i) => (
+                            <div
+                              key={i}
+                              className="h-8 w-32 bg-muted rounded-md animate-pulse shrink-0"
+                            />
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 overflow-x-auto">
-                      {Array.from({ length: 8 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="h-8 w-32 bg-muted rounded-md animate-pulse shrink-0"
-                        />
-                      ))}
+                  {/* Search and filters skeleton */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="relative w-[300px]">
+                      <div className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 bg-muted rounded animate-pulse" />
+                      <div className="h-10 w-full bg-muted rounded animate-pulse" />
+                    </div>
+                    <div className="h-10 w-[180px] bg-muted rounded animate-pulse" />
+                    <div className="h-10 w-[100px] bg-muted rounded animate-pulse" />
+                    <div className="flex items-center gap-1 border rounded-md">
+                      <div className="h-9 w-9 bg-muted rounded animate-pulse" />
+                      <div className="h-9 w-9 bg-muted rounded animate-pulse" />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Asset Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 rounded-xl p-4 space-y-4"
-              >
-                {/* Image skeleton */}
-                <div className="relative aspect-square overflow-hidden rounded-lg bg-muted animate-pulse" />
+            {/* Asset Cards Grid */}
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-w-full mx-auto">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 rounded-xl p-4 space-y-4 w-full"
+                >
+                  {/* Image skeleton */}
+                  <div className="relative aspect-square overflow-hidden rounded-lg bg-muted animate-pulse w-full" />
 
-                {/* Content skeleton */}
-                <div className="space-y-3">
-                  {/* Title skeleton */}
-                  <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
+                  {/* Content skeleton */}
+                  <div className="space-y-3 w-full">
+                    {/* Title skeleton */}
+                    <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
 
-                  {/* Category badges skeleton */}
-                  <div className="flex gap-2">
-                    <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
-                    <div className="h-6 w-24 bg-muted rounded-full animate-pulse" />
-                  </div>
+                    {/* Category badges skeleton */}
+                    <div className="flex gap-2">
+                      <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
+                      <div className="h-6 w-24 bg-muted rounded-full animate-pulse" />
+                    </div>
 
-                  {/* Action buttons skeleton */}
-                  <div className="flex items-center gap-2 pt-4">
-                    <div className="h-9 flex-1 bg-muted rounded-lg animate-pulse" />
-                    <div className="h-9 w-9 bg-muted rounded-lg animate-pulse" />
+                    {/* Action buttons skeleton */}
+                    <div className="flex items-center gap-2 pt-4 w-full">
+                      <div className="h-9 flex-1 bg-muted rounded-lg animate-pulse" />
+                      <div className="h-9 w-9 bg-muted rounded-lg animate-pulse" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -738,7 +737,7 @@ export default function AssetLibraryPage() {
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-2 justify-center   ">
+                    <div className="flex items-center gap-2 justify-start   ">
                       <div className="flex items-center gap-1 ">
                         <Button
                           variant="ghost"
@@ -1000,7 +999,7 @@ export default function AssetLibraryPage() {
                       onClick={() => setViewMode("grid")}
                       aria-label="Grid View"
                     >
-                      <Grid className="h-4 w-4" />
+                      <LayoutGrid className="h-4 w-4" />
                     </Button>
                     <Button
                       variant={viewMode === "compactGrid" ? "default" : "ghost"}
@@ -1009,8 +1008,17 @@ export default function AssetLibraryPage() {
                       onClick={() => setViewMode("compactGrid")}
                       aria-label="Compact Grid View"
                     >
-                      <Rows className="h-3 w-3" />
+                      <Grid className="h-3 w-3" />
                     </Button>
+                    <Button
+                      variant={viewMode === "colGrid" ? "default" : "ghost"}
+                      size="icon"
+                      className="h-9 w-9 cursor-pointer"
+                      onClick={() => setViewMode("colGrid")}
+                      aria-label="Column Grid View"
+                    >
+                      <Rows className="h-3 w-3" />
+                    </Button>{" "}
                   </div>
                 </div>
               </div>
@@ -1020,12 +1028,14 @@ export default function AssetLibraryPage() {
         <div
           className={
             viewMode === "grid"
-              ? "grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 max mx-auto"
-              : "flex flex-col gap-4 w-full"
+              ? "grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-w-full mx-auto"
+              : viewMode === "compactGrid"
+                ? "grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 min-w-full mx-auto"
+                : "flex flex-col gap-4 w-full"
           }
         >
           {currentAssets.map((asset) =>
-            viewMode === "compactGrid" ? (
+            viewMode === "colGrid" ? (
               <Card
                 key={asset.id}
                 className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm rounded-xl"
@@ -1221,6 +1231,45 @@ export default function AssetLibraryPage() {
                         </a>
                       </Button>
                     </div>
+                  </div>
+                </div>
+              </Card>
+            ) : viewMode === "compactGrid" ? (
+              <Card
+                key={asset.id}
+                className="group relative overflow-hidden  via-background to-muted/20 border border-border/40   hover:scale-[1.01]  rounded-xl"
+              >
+                <div className="relative aspect-square overflow-hidden rounded-lg">
+                  <Link
+                    href={`/asset-library/${asset.id}`}
+                    className="block w-full h-full cursor-pointer"
+                    prefetch={true}
+                  >
+                    <img
+                      src={asset.preview_image || "/placeholder.png"}
+                      alt={asset.product_name}
+                      className="w-full h-full object-contain transition-all duration-700 group-hover:scale-102"
+                      loading="lazy"
+                    />
+                  </Link>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent opacity-0 group-hover:opacity-100  duration-300">
+                  <div className="absolute bottom-2 left-2 right-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full h-8 text-xs font-medium  text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
+                      asChild
+                    >
+                      <Link
+                        href={`/asset-library/${asset.id}`}
+                        className="flex items-center justify-center gap-1"
+                        prefetch={true}
+                      >
+                        <span>View</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    </Button>
                   </div>
                 </div>
               </Card>
