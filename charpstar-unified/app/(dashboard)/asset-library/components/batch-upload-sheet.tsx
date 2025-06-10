@@ -9,10 +9,10 @@ import {
   Plus,
   Trash2,
   FileSpreadsheet,
-  Check,
   AlertCircle,
   Loader2,
-  ImageIcon,
+  Image,
+  Info,
 } from "lucide-react";
 import { debounce } from "lodash";
 import {
@@ -144,7 +144,6 @@ const checkDuplicates = async (
       } else if (!row.article_id && row.product_name) {
         duplicateType = "product_name";
       } else if (row.article_id && row.product_name) {
-        // Check which one matches
         const articleIdMatch = existing.article_id === row.article_id;
         const productNameMatch =
           existing.product_name.toLowerCase() ===
@@ -178,15 +177,15 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   const [duplicates, setDuplicates] = useState<{
     [key: string]: "article_id" | "product_name" | "both";
   }>({});
+  const [showInfo, setShowInfo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
   const user = useUser();
 
-  // Keyboard navigation
   const cellRefs = useRef<(HTMLInputElement | null)[][]>([]);
 
-  // Focus next cell on Enter/Tab
   const focusCell = (rowIdx: number, colIdx: number) => {
     const cell = cellRefs.current[rowIdx]?.[colIdx];
     if (cell) cell.focus();
@@ -199,7 +198,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   ) => {
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      // Move to next cell or next row
       if (cellRefs.current[rowIdx]?.[colIdx + 1]) {
         focusCell(rowIdx, colIdx + 1);
       } else if (cellRefs.current[rowIdx + 1]?.[0]) {
@@ -208,7 +206,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     }
   };
 
-  // Drag-and-drop CSV import
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
@@ -221,15 +218,12 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     e.preventDefault();
     setDragActive(true);
   };
+
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
   };
 
-  // Add new state for CSV loading
-  const [csvLoading, setCsvLoading] = useState(false);
-
-  // Update the handleCSVFile function
   const handleCSVFile = (file: File) => {
     setCsvLoading(true);
     const reader = new FileReader();
@@ -286,22 +280,18 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   const handleChange = (idx: number, field: EditableField, value: string) => {
-    console.log(`Changing ${field} to:`, value);
     setRows((prev) => {
       const copy = [...prev];
       copy[idx][field] = value;
 
-      // Initialize errors object if it doesn't exist
       if (!copy[idx].errors) {
         copy[idx].errors = {};
       }
 
-      // Clear error for this cell
       if (editableFields.includes(field)) {
         delete copy[idx].errors![field];
       }
 
-      // Only validate if the field is required
       if (requiredFields.includes(field)) {
         if (!value || value.trim() === "") {
           copy[idx].errors![field] = "Required";
@@ -324,7 +314,11 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   const handleRemoveRow = (idx: number) =>
     setRows((prev) => prev.filter((_, i) => i !== idx));
 
-  // Per-cell validation
+  const handleRemoveDuplicateRows = () => {
+    setRows((prev) => prev.filter((row) => !duplicates[row.id]));
+    setDuplicates({});
+  };
+
   const validateRow = (row: AssetRow) => {
     const errors: AssetRow["errors"] = {};
 
@@ -338,7 +332,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     return errors;
   };
 
-  // Set client from user metadata when component mounts
   React.useEffect(() => {
     if (user?.metadata?.client) {
       const clientValue = user.metadata.client;
@@ -351,7 +344,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     }
   }, [user]);
 
-  // Update the useEffect
   useEffect(() => {
     const debouncedCheck = debounce(async () => {
       if (rows.length === 0) return;
@@ -406,13 +398,9 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     setLoading(true);
     let anyError = false;
 
-    // Add console log to debug rows before upload
-    console.log("Rows before upload:", rows);
-
     const results = await Promise.all(
       rows.map(async (row, idx) => {
         const errors = validateRow(row);
-        console.log(`Row ${idx} validation errors:`, errors);
 
         if (Object.keys(errors).length > 0) {
           setRows((prev) => {
@@ -516,454 +504,345 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     return Object.keys(errors).length === 0;
   }).length;
 
+  const columns = [
+    { key: "article_id", label: "Article ID", required: true, width: "120px" },
+    {
+      key: "product_name",
+      label: "Product Name",
+      required: true,
+      width: "150px",
+    },
+    {
+      key: "product_link",
+      label: "Product Link",
+      required: true,
+      width: "150px",
+    },
+    { key: "glb_link", label: "GLB Link", required: true, width: "150px" },
+    { key: "category", label: "Category", required: true, width: "120px" },
+    {
+      key: "subcategory",
+      label: "Subcategory",
+      required: true,
+      width: "120px",
+    },
+    { key: "client", label: "Client", required: true, width: "100px" },
+    { key: "materials", label: "Materials", required: false, width: "120px" },
+    { key: "colors", label: "Colors", required: false, width: "100px" },
+    { key: "tags", label: "Tags", required: false, width: "100px" },
+    { key: "preview_image", label: "Preview", required: false, width: "100px" },
+    { key: "actions", label: "", required: false, width: "60px" },
+  ];
+
   return (
-    <div className="w-full space-y-7">
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-muted-50  dark:from-muted-950/20  rounded-2xl p-7 border border-muted-200 dark:border-muted-800 shadow-md flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+    <div className="w-full space-y-6 p-6 bg-background min-h-screen">
+      {/* Header */}
+      <div className="bg-card rounded-lg border border-border p-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-extrabold text-muted-900 dark:text-white mb-1 tracking-tight">
+            <h1 className="text-2xl font-semibold text-foreground">
               Batch Asset Upload
-            </h2>
-            <p className="text-muted-600 dark:text-muted-300 text-sm font-medium">
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Upload multiple assets at once or import from CSV
             </p>
           </div>
-          <div className="flex items-center space-x-2 text-sm">
-            <div className="bg-white dark:bg-background px-4 py-2 rounded-xl border border-muted-100 dark:border-muted-800 shadow-sm flex items-center gap-1">
-              <span className="text-muted-500">Total Rows:</span>
-              <span className="font-semibold text-muted-600 dark:text-muted-200">
-                {rows.length}
-              </span>
-            </div>
-
-            {errorCount > 0 && (
-              <div className="bg-white dark:bg-muted-800 px-4 py-2 rounded-xl border border-red-100 dark:border-red-800 shadow-sm flex items-center gap-1">
-                <span className="text-muted-500">Errors:</span>
-                <span className="font-semibold text-red-600 dark:text-red-400">
-                  {errorCount}
-                </span>
-              </div>
-            )}
-            {checkingDuplicates && (
-              <div className="bg-white dark:bg-background px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900 shadow-sm flex items-center gap-1">
-                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                <span className="text-muted-500">Checking duplicates...</span>
-              </div>
-            )}
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowInfo(!showInfo)}
+            className="text-muted-foreground"
+          >
+            <Info className="w-4 h-4 mr-2" />
+            Field Info
+          </Button>
         </div>
 
-        {/* Field Information Box */}
-        <div className="mt-4 bg-white/50 dark:bg-background backdrop-blur-sm rounded-xl border border-muted-200 dark:border-muted-700 p-4">
-          <h3 className="text-sm font-semibold text-muted-900 dark:text-muted-100 mb-3">
-            Field Information
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  Article ID
-                </span>
-                <span className="text-xs text-red-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                Unique identifier for the product (required)
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  Product Name
-                </span>
-                <span className="text-xs text-red-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                Name of the product
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  Product Link
-                </span>
-                <span className="text-xs text-red-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                URL to the product page
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  GLB Link
-                </span>
-                <span className="text-xs text-red-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                URL to the 3D model file
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  Category
-                </span>
-                <span className="text-xs text-red-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                Main category of the product
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  Subcategory
-                </span>
-                <span className="text-xs text-red-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                Subcategory of the product
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  Client
-                </span>
-                <span className="text-xs text-red-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                Client name or identifier
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  Materials
-                </span>
-                <span className="text-xs text-muted-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                Comma-separated list of materials
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  Colors
-                </span>
-                <span className="text-xs text-muted-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                Comma-separated list of colors
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  Tags
-                </span>
-                <span className="text-xs text-muted-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                Comma-separated list of tags
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-medium text-muted-900 dark:text-muted-100">
-                  Preview Image
-                </span>
-                <span className="text-xs text-muted-500">*</span>
-              </div>
-              <p className="text-xs text-muted-600 dark:text-muted-300">
-                Product preview image file
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 flex items-center gap-4 text-xs">
-            <div className="flex items-center gap-1 text-muted-600 dark:text-muted-300">
-              <span className="text-red-500">*</span>
-              <span>Required</span>
-            </div>
-            <div className="flex items-center gap-1 text-muted-600 dark:text-muted-300">
-              <span className="text-muted-500">*</span>
-              <span>Optional</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          onClick={handleAddRow}
-          className="bg-primary hover:bg-primary/90 dark:hover:bg-primary/30 text-white shadow-md dark:bg-muted dark:text-white"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Row
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-muted-300 hover:border-primary hover:bg-primary/10 dark:border-muted-600 dark:text-white"
-        >
-          <FileSpreadsheet className="w-4 h-4 mr-2" />
-          Import CSV
-        </Button>
-        <input
-          type="file"
-          accept=".csv"
-          ref={fileInputRef}
-          className="hidden"
-          onChange={handleImportCSV}
-        />
-        <Button
-          onClick={handleUploadAll}
-          disabled={loading || validRows === 0}
-          className="bg-primary hover:bg-primary/90 text-white shadow-lg disabled:bg-muted-300 dark:bg-muted dark:text-white dark:hover:bg-primary/30"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Uploading...
-            </>
-          ) : (
-            <>
-              <Upload className="w-4 h-4 mr-2" />
-              Upload All ({validRows})
-            </>
+        {/* Status Bar */}
+        <div className="flex items-center gap-4 text-sm">
+          <span className="text-muted-foreground">
+            Rows:{" "}
+            <span className="font-medium text-foreground">{rows.length}</span>
+          </span>
+          {errorCount > 0 && (
+            <span className="text-destructive">
+              Errors: <span className="font-medium">{errorCount}</span>
+            </span>
           )}
-        </Button>
+          {checkingDuplicates && (
+            <div className="flex items-center text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin mr-1" />
+              Checking duplicates...
+            </div>
+          )}
+          {Object.keys(duplicates).length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRemoveDuplicateRows}
+              className="text-yellow-600 dark:text-yellow-400 border-yellow-400 hover:bg-yellow-50/60 dark:hover:bg-yellow-950/30"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Remove Duplicates
+            </Button>
+          )}
+        </div>
+
+        {/* Field Information */}
+        {showInfo && (
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+              {columns.slice(0, -2).map((col) => (
+                <div key={col.key} className="space-y-1">
+                  <div className="font-medium text-foreground flex items-center gap-1">
+                    {col.label}
+                    {col.required && (
+                      <span className="text-destructive">*</span>
+                    )}
+                  </div>
+                  <div className="text-muted-foreground text-xs">
+                    {col.key === "materials" ||
+                    col.key === "colors" ||
+                    col.key === "tags"
+                      ? "Comma-separated list"
+                      : col.key.includes("link")
+                        ? "Valid URL"
+                        : "Text field"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3 mt-4">
+          <Button onClick={handleAddRow} size="sm">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Row
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            className="border-border hover:bg-muted"
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Import CSV
+          </Button>
+          <input
+            type="file"
+            accept=".csv"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleImportCSV}
+          />
+          <Button
+            onClick={handleUploadAll}
+            disabled={loading || validRows === 0}
+            className="ml-auto"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4 mr-2" />
+                Upload All ({validRows})
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
-      {/* Drag and Drop Zone */}
+      {/* Table Container */}
       <div
         ref={dropZoneRef}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`relative rounded-2xl border-2 transition-all duration-200 overflow-hidden
-          ${
-            dragActive
-              ? "border-muted-400 bg-muted-50 dark:bg-muted-950/20 shadow-xl animate-pulse"
-              : "border-background-200 dark:border-background-700 bg-background dark:bg-background-900 shadow-sm"
-          }`}
+        className={`relative rounded-2xl bg-card border border-border p-4 transition-all duration-200 ${
+          dragActive ? "border-primary bg-primary/5" : "border-border"
+        }`}
       >
         {/* Drag Overlay */}
         {dragActive && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-muted-50/90 dark:bg-muted-950/80 border-2 border-dashed border-muted-400 rounded-2xl backdrop-blur-sm">
-            <Upload className="w-14 h-14 mb-3 text-muted-500 animate-bounce" />
-            <span className="text-muted-800 dark:text-muted-200 text-lg font-semibold">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/80 border-2 border-dashed border-primary rounded-2xl backdrop-blur-sm">
+            <Upload className="w-12 h-12 mb-3 text-primary animate-bounce" />
+            <span className="text-primary font-medium">
               Drop CSV file here to import
             </span>
           </div>
         )}
 
-        {/* Add CSV Loading Overlay */}
-        {csvLoading && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/85 dark:bg-muted-900/85 backdrop-blur-sm rounded-2xl">
-            <Loader2 className="w-10 h-10 mb-3 animate-spin text-muted-500" />
-            <span className="text-base font-semibold text-muted-700 dark:text-muted-200">
-              Processing CSV file...
+        {/* Loading Overlays */}
+        {(csvLoading || loading) && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm rounded-2xl">
+            <Loader2 className="w-8 h-8 mb-3 animate-spin text-primary" />
+            <span className="font-medium text-foreground">
+              {csvLoading ? "Processing CSV file..." : "Uploading assets..."}
             </span>
           </div>
         )}
 
-        {/* Uploading Overlay */}
-        {loading && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/85 dark:bg-muted-900/85 backdrop-blur-sm rounded-2xl">
-            <Loader2 className="w-10 h-10 mb-3 animate-spin text-muted-500" />
-            <span className="text-base font-semibold text-muted-700 dark:text-muted-200">
-              Uploading assets...
-            </span>
-          </div>
-        )}
-
-        {/* Table Container */}
-        <div className="rounded-2xl shadow-lg bg-white dark:bg-muted-900 border border-muted-200 dark:border-muted-800 p-4">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                {[
-                  { key: "article_id", label: "Article ID", required: true },
-                  {
-                    key: "product_name",
-                    label: "Product Name",
-                    required: true,
-                  },
-                  {
-                    key: "product_link",
-                    label: "Product Link",
-                    required: true,
-                  },
-                  { key: "glb_link", label: "GLB Link", required: true },
-                  { key: "category", label: "Category", required: true },
-                  { key: "subcategory", label: "Subcategory", required: true },
-                  { key: "client", label: "Client", required: true },
-                  { key: "materials", label: "Materials", required: false },
-                  { key: "colors", label: "Colors", required: false },
-                  { key: "tags", label: "Tags", required: false },
-                  { key: "preview_image", label: "Preview", required: false },
-                  { key: "actions", label: "", required: false },
-                ].map((col) => (
-                  <TableHead
-                    key={col.key}
-                    className={`${
-                      col.required ? "text-primary" : "text-muted-400"
-                    } ${col.key === "actions" ? "w-10" : ""}`}
-                  >
-                    <div className="flex items-center gap-1">
-                      {col.label}
-                      {col.required && (
-                        <span className="text-red-500" title="Required">
-                          *
-                        </span>
-                      )}
-                    </div>
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row, rowIdx) => {
-                const hasErrors = Object.keys(row.errors || {}).length > 0;
-                const isDuplicate = duplicates[row.id];
-                return (
-                  <TableRow
-                    key={row.id}
-                    className={`transition-all
-                      ${rowIdx % 2 === 0 ? "bg-muted-100 dark:bg-muted-800/40" : "bg-white dark:bg-muted-900"}
-                      ${hasErrors ? "border-l-4 border-l-red-400 bg-red-50/60 dark:bg-red-950/30" : ""}
-                      ${isDuplicate ? "border-l-4 border-l-yellow-400 bg-yellow-50/60 dark:bg-yellow-950/30" : ""}
-                      hover:bg-muted-50 dark:hover:bg-muted-800/60
-                    `}
-                  >
-                    {(
-                      [
-                        "article_id",
-                        "product_name",
-                        "product_link",
-                        "glb_link",
-                        "category",
-                        "subcategory",
-                        "client",
-                        "materials",
-                        "colors",
-                        "tags",
-                      ] as EditableField[]
-                    ).map((field, colIdx) => (
-                      <TableCell key={field} className="align-top">
-                        <div className="relative">
-                          <Input
-                            ref={(el) => {
-                              if (!cellRefs.current[rowIdx])
-                                cellRefs.current[rowIdx] = [];
-                              cellRefs.current[rowIdx][colIdx] = el;
-                            }}
-                            value={row[field]}
-                            onChange={(e) =>
-                              handleChange(rowIdx, field, e.target.value)
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead colSpan={columns.length} className="pb-0">
+                <div className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+                  <span className="text-destructive">*</span> Required field
+                </div>
+              </TableHead>
+            </TableRow>
+            <TableRow className="hover:bg-transparent">
+              {columns.map((col) => (
+                <TableHead
+                  key={col.key}
+                  className={`${
+                    col.required ? "text-primary" : "text-muted-foreground"
+                  } ${col.key === "actions" ? "w-10" : ""}`}
+                >
+                  <div className="flex items-center gap-1">
+                    {col.label}
+                    {col.required && (
+                      <span className="text-destructive" title="Required">
+                        *
+                      </span>
+                    )}
+                  </div>
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row, rowIdx) => {
+              const hasErrors = Object.keys(row.errors || {}).length > 0;
+              const isDuplicate = duplicates[row.id];
+              return (
+                <TableRow
+                  key={row.id}
+                  className={`transition-all
+                    ${rowIdx % 2 === 0 ? "bg-muted/50" : "bg-card"}
+                    ${hasErrors ? "border-l-4 border-l-destructive bg-destructive/5" : ""}
+                    ${isDuplicate ? "border-l-4 border-l-yellow-400 bg-yellow-50/60 dark:bg-yellow-950/30" : ""}
+                    hover:bg-muted/80
+                  `}
+                >
+                  {columns.slice(0, -2).map((col, colIdx) => (
+                    <TableCell key={col.key} className="align-top">
+                      <div className="relative">
+                        <Input
+                          ref={(el) => {
+                            if (!cellRefs.current[rowIdx])
+                              cellRefs.current[rowIdx] = [];
+                            cellRefs.current[rowIdx][colIdx] = el;
+                          }}
+                          value={row[col.key as EditableField]}
+                          onChange={(e) =>
+                            handleChange(
+                              rowIdx,
+                              col.key as EditableField,
+                              e.target.value
+                            )
+                          }
+                          onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
+                          className={`rounded-lg border transition-all duration-150 text-sm shadow-sm focus:ring-2
+                            ${
+                              row.errors && row.errors[col.key as EditableField]
+                                ? "border-destructive ring-destructive/20"
+                                : isDuplicate &&
+                                    (col.key === "article_id" ||
+                                      col.key === "product_name")
+                                  ? "border-yellow-400 ring-yellow-100 dark:ring-yellow-900/30"
+                                  : "border-border focus:border-primary ring-primary/20"
                             }
-                            onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
-                            required={requiredFields.includes(field)}
-                            className={`rounded-lg border transition-all duration-150 text-sm shadow-sm focus:ring-2
-                              ${
-                                row.errors && row.errors[field]
-                                  ? "border-red-400 ring-red-100"
-                                  : isDuplicate &&
-                                      (field === "article_id" ||
-                                        field === "product_name")
-                                    ? "border-yellow-400 ring-yellow-100"
-                                    : "border-muted-300 focus:border-primary ring-primary/20"
-                              }
-                              bg-white dark:bg-muted-900
-                            `}
-                            placeholder={`Enter ${field.replace("_", " ")}`}
-                          />
-                          {/* Error Message */}
-                          {row.errors && row.errors[field] && (
-                            <div className="flex items-center mt-1 text-xs text-red-600">
-                              <AlertCircle className="w-3 h-3 mr-1" />
-                              {row.errors[field]}
-                            </div>
-                          )}
-                          {/* Duplicate Warning */}
-                          {isDuplicate &&
-                            (field === "article_id" ||
-                              field === "product_name") && (
-                              <div className="flex items-center mt-1 text-xs text-yellow-600">
-                                <AlertCircle className="w-3 h-3 mr-1" />
-                                {field === "article_id"
-                                  ? duplicates[row.id] === "article_id"
-                                    ? "This Article ID already exists"
-                                    : duplicates[row.id] === "both"
-                                      ? "This Article ID and Product Name combination already exists"
-                                      : ""
-                                  : duplicates[row.id] === "product_name"
-                                    ? "This Product Name already exists"
-                                    : duplicates[row.id] === "both"
-                                      ? "This Article ID and Product Name combination already exists"
-                                      : ""}
-                              </div>
-                            )}
-                        </div>
-                      </TableCell>
-                    ))}
-                    {/* Preview Image */}
-                    <TableCell className="align-top">
-                      <div className="flex items-center gap-2">
-                        <label className="relative cursor-pointer flex items-center group p-2">
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-muted-200 dark:bg-muted-700 rounded hover:bg-primary/10 transition-colors border border-muted-300 dark:border-muted-600">
-                            <ImageIcon className="w-4 h-4 mr-1" />
-                            Upload
-                          </span>
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) =>
-                              handleFileChange(
-                                rowIdx,
-                                e.target.files?.[0] || null
-                              )
-                            }
-                            className="sr-only"
-                          />
-                        </label>
-                        {row.preview_image && (
-                          <div className="flex flex-col items-start">
-                            <img
-                              src={URL.createObjectURL(row.preview_image)}
-                              alt="Preview"
-                              className="w-8 h-8 rounded shadow border border-muted-300 object-cover"
-                            />
-                            <span className="text-xs mt-1 text-green-600">
-                              {row.preview_image.name}
-                            </span>
+                            bg-background
+                          `}
+                          placeholder={col.key.replace("_", " ")}
+                        />
+                        {/* Error Message */}
+                        {row.errors && row.errors[col.key as EditableField] && (
+                          <div className="flex items-center mt-1 text-xs text-destructive">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            {row.errors[col.key as EditableField]}
                           </div>
                         )}
+                        {/* Duplicate Warning */}
+                        {isDuplicate &&
+                          (col.key === "article_id" ||
+                            col.key === "product_name") && (
+                            <div className="flex items-center mt-1 text-xs text-yellow-600 dark:text-yellow-400">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              {col.key === "article_id"
+                                ? duplicates[row.id] === "article_id"
+                                  ? "This Article ID already exists"
+                                  : duplicates[row.id] === "both"
+                                    ? "This Article ID and Product Name combination already exists"
+                                    : ""
+                                : duplicates[row.id] === "product_name"
+                                  ? "This Product Name already exists"
+                                  : duplicates[row.id] === "both"
+                                    ? "This Article ID and Product Name combination already exists"
+                                    : ""}
+                            </div>
+                          )}
                       </div>
                     </TableCell>
-                    {/* Actions */}
-                    <TableCell className="align-top">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveRow(rowIdx)}
-                        disabled={rows.length === 1}
-                        className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900 transition"
-                        title="Remove Row"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                  ))}
+                  {/* Preview Image */}
+                  <TableCell className="align-top">
+                    <div className="flex items-center gap-2">
+                      <label className="relative cursor-pointer flex items-center group p-2">
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-muted rounded hover:bg-primary/10 transition-colors border border-border">
+                          <Image className="w-4 h-4 mr-1" />
+                          Upload
+                        </span>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) =>
+                            handleFileChange(
+                              rowIdx,
+                              e.target.files?.[0] || null
+                            )
+                          }
+                          className="sr-only"
+                        />
+                      </label>
+                      {row.preview_image && (
+                        <div className="flex flex-col items-start">
+                          <img
+                            src={URL.createObjectURL(row.preview_image)}
+                            alt="Preview"
+                            className="w-8 h-8 rounded shadow border border-border object-cover"
+                          />
+                          <span className="text-xs mt-1 text-primary">
+                            {row.preview_image.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  {/* Actions */}
+                  <TableCell className="align-top">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveRow(rowIdx)}
+                      disabled={rows.length === 1}
+                      className="text-destructive hover:bg-destructive/10 transition"
+                      title="Remove Row"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

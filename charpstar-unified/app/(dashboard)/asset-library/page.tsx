@@ -349,10 +349,10 @@ export default function AssetLibraryPage() {
               <div className="mb-8 space-y-4 max-w-full mx-auto">
                 <div className="flex items-center justify-between gap-4">
                   {/* Category navigation skeleton */}
-                  <div className="relative w-full h-[120px] flex-1 max-w-[1200px] min-w-[400px]">
+                  <div className="relative w-full h-[120px] flex-1 max-w-[1000px] min-w-[400px]">
                     <div className="absolute inset-0 pt-3.5">
                       {/* Breadcrumb skeleton */}
-                      <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-3">
                         <div className="h-4 w-4 bg-muted rounded animate-pulse" />
                         <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                         <div className="h-4 w-4 bg-muted rounded animate-pulse" />
@@ -360,7 +360,7 @@ export default function AssetLibraryPage() {
                       </div>
 
                       {/* Categories skeleton */}
-                      <div className="flex items-center gap-2 justify-center">
+                      <div className="flex items-center gap-2 justify-center scroll-hidden  ">
                         <div className="flex items-center gap-1">
                           <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                         </div>
@@ -368,7 +368,7 @@ export default function AssetLibraryPage() {
                           {Array.from({ length: 8 }).map((_, i) => (
                             <div
                               key={i}
-                              className="h-8 w-32 bg-muted rounded-md animate-pulse shrink-0"
+                              className="h-8 w-27 bg-muted rounded-md animate-pulse shrink-0"
                             />
                           ))}
                         </div>
@@ -713,7 +713,7 @@ export default function AssetLibraryPage() {
                         : "opacity-0 pointer-events-none"
                     }`}
                   >
-                    <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2.5">
                       {breadcrumbItems.map((item, index) => (
                         <div key={item.href} className="flex items-center">
                           <ChevronRight className="h-4 w-4 mx-2" />
@@ -823,7 +823,7 @@ export default function AssetLibraryPage() {
                         : "opacity-0 pointer-events-none"
                     }`}
                   >
-                    <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2.5">
                       {breadcrumbItems.map((item, index) => (
                         <div key={item.href} className="flex items-center">
                           <ChevronRight className="h-4 w-4 mx-2" />
@@ -1339,7 +1339,7 @@ export default function AssetLibraryPage() {
                     <Button
                       variant="default"
                       size="default"
-                      className="flex-1 group/btn h-9 font-medium bg-primary/90 hover:bg-primary/95 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
+                      className="flex-1 group/btn h-9 font-medium bg-primary/90  hover:bg-primary/95 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
                       asChild
                     >
                       <Link
