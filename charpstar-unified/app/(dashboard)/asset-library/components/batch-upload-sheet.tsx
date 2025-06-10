@@ -28,6 +28,7 @@ interface AssetRow {
   product_name: string;
   product_link: string;
   glb_link: string;
+  glb_file?: File | null;
   category: string;
   subcategory: string;
   client: string;
@@ -42,6 +43,7 @@ interface AssetRow {
       | "product_name"
       | "product_link"
       | "glb_link"
+      | "glb_file"
       | "category"
       | "subcategory"
       | "client"
@@ -93,6 +95,7 @@ type EditableField =
   | "product_name"
   | "product_link"
   | "glb_link"
+  | "glb_file"
   | "category"
   | "subcategory"
   | "client"
@@ -310,7 +313,33 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     });
   };
 
-  const handleAddRow = () => setRows((prev) => [...prev, emptyRow()]);
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
+
+  const handleGLBFileChange = (idx: number, file: File | null) => {
+    if (file && file.size > MAX_FILE_SIZE) {
+      toast({
+        title: "File too large",
+        description:
+          "Maximum file size is 50MB. Please compress your file or use a smaller one.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setRows((prev) => {
+      const copy = [...prev];
+      copy[idx].glb_file = file;
+      return copy;
+    });
+  };
+
+  const handleAddRow = () => {
+    const lastRow = rows[rows.length - 1];
+    const newRow = emptyRow();
+    if (lastRow) {
+      newRow.client = lastRow.client;
+    }
+    setRows((prev) => [...prev, newRow]);
+  };
   const handleRemoveRow = (idx: number) =>
     setRows((prev) => prev.filter((_, i) => i !== idx));
 
@@ -385,111 +414,212 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   }, [rows, user?.metadata?.client]);
 
   const handleUploadAll = async () => {
-    const clientValue = user?.metadata?.client;
-    if (!clientValue) {
+    try {
+      const supabase = createClient();
+      const results = [];
+
+      for (const row of rows) {
+        console.log("Processing row:", {
+          product_name: row.product_name,
+          category: row.category,
+          client: row.client,
+          glb_file: row.glb_file ? row.glb_file.name : null,
+        });
+
+        if (!row.product_name || !row.category || !row.client) {
+          console.log("Skipping row - missing required fields:", {
+            hasProductName: !!row.product_name,
+            hasCategory: !!row.category,
+            hasClient: !!row.client,
+          });
+          continue;
+        }
+
+        let glb_url = row.glb_link;
+        let zip_url = null;
+        let preview_image_url = row.preview_image;
+
+        // Handle 3D file upload (GLB files)
+        if (row.glb_file) {
+          console.log("Processing GLB file:", row.glb_file.name);
+          try {
+            const fileExtension = row.glb_file.name
+              .split(".")
+              .pop()
+              ?.toLowerCase();
+            console.log("File extension:", fileExtension);
+
+            let contentType;
+            switch (fileExtension) {
+              case "glb":
+                contentType = "model/gltf-binary";
+                break;
+              case "obj":
+                contentType = "text/plain";
+                break;
+              case "zip":
+                contentType = "application/zip";
+                break;
+              default:
+                throw new Error(
+                  `Unsupported file type "${fileExtension}". Only .glb, .obj, and .zip are allowed.`
+                );
+            }
+
+            console.log("Uploading file with content type:", contentType);
+            const fileBuffer = await row.glb_file.arrayBuffer();
+            const fileName = `${row.article_id}_${Date.now()}.${fileExtension}`;
+            const filePath = `models/${fileName}`;
+
+            console.log("Uploading to path:", filePath);
+            const { data: uploadData, error: uploadError } =
+              await supabase.storage
+                .from("assets")
+                .upload(filePath, fileBuffer, {
+                  contentType,
+                  cacheControl: "3600",
+                  upsert: false,
+                });
+
+            if (uploadError) {
+              console.error("Upload error:", uploadError);
+              throw uploadError;
+            }
+
+            console.log("File uploaded successfully:", uploadData);
+
+            const { data: urlData } = supabase.storage
+              .from("assets")
+              .getPublicUrl(filePath);
+
+            console.log("Generated public URL:", urlData);
+
+            if (fileExtension === "zip") {
+              zip_url = urlData.publicUrl;
+            } else if (!glb_url) {
+              // Only use bucket URL if no original GLB link exists
+              glb_url = urlData.publicUrl;
+            }
+          } catch (error) {
+            console.error("Error uploading 3D file:", error);
+            toast({
+              title: "Error",
+              description: `Failed to upload 3D file: ${error.message}`,
+              variant: "destructive",
+            });
+            continue;
+          }
+        }
+
+        // Handle preview image upload
+        if (row.preview_image) {
+          console.log("Processing preview image");
+          try {
+            const fileBuffer = await row.preview_image.arrayBuffer();
+            // Use article_id in the preview image path as well
+            const fileName = `${row.article_id}_${Date.now()}.png`;
+            const filePath = `previews/${fileName}`;
+
+            console.log("Uploading preview to path:", filePath);
+            const { data: uploadData, error: uploadError } =
+              await supabase.storage
+                .from("assets")
+                .upload(filePath, fileBuffer, {
+                  contentType: row.preview_image.type,
+                  cacheControl: "3600",
+                  upsert: false,
+                });
+
+            if (uploadError) {
+              console.error("Preview upload error:", uploadError);
+              throw uploadError;
+            }
+
+            console.log("Preview uploaded successfully:", uploadData);
+
+            const { data: urlData } = supabase.storage
+              .from("assets")
+              .getPublicUrl(filePath);
+
+            console.log("Generated preview URL:", urlData);
+            preview_image_url = urlData.publicUrl;
+          } catch (error) {
+            console.error("Error uploading preview image:", error);
+            toast({
+              title: "Error",
+              description: `Failed to upload preview image: ${error.message}`,
+              variant: "destructive",
+            });
+            continue;
+          }
+        }
+
+        console.log("Attempting to insert row:", {
+          product_name: row.product_name,
+          category: row.category,
+          client: row.client,
+          article_id: row.article_id,
+          glb_url,
+          zip_url,
+          preview_image_url,
+        });
+
+        const { data, error } = await supabase
+          .from("assets")
+          .insert([
+            {
+              product_name: row.product_name,
+              product_link: row.product_link,
+              glb_link: glb_url,
+
+              category: row.category,
+              subcategory: row.subcategory,
+              client: row.client,
+              materials: row.materials
+                ? row.materials.split(",").map((m) => m.trim())
+                : [],
+              colors: row.colors
+                ? row.colors.split(",").map((c) => c.trim())
+                : [],
+              tags: row.tags ? row.tags.split(",").map((t) => t.trim()) : [],
+              article_id: row.article_id,
+              preview_image: preview_image_url,
+            },
+          ])
+          .select()
+          .single();
+
+        if (error) {
+          console.error("Database error:", error);
+          throw error;
+        }
+
+        console.log("Successfully inserted row:", data);
+        results.push(data);
+      }
+
+      if (results.length === 0) {
+        toast({
+          title: "No assets uploaded",
+          description:
+            "Please check that you have filled in all required fields",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Success",
+        description: `Successfully uploaded ${results.length} assets`,
+      });
+
+      setRows([]);
+      if (onSuccess) onSuccess();
+    } catch (error) {
+      console.error("Upload error:", error);
       toast({
         title: "Error",
-        description: "No client found in user profile",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    let anyError = false;
-
-    const results = await Promise.all(
-      rows.map(async (row, idx) => {
-        const errors = validateRow(row);
-
-        if (Object.keys(errors).length > 0) {
-          setRows((prev) => {
-            const copy = [...prev];
-            copy[idx].errors = errors;
-            return copy;
-          });
-          anyError = true;
-          return null;
-        }
-
-        const formData = new FormData();
-        formData.append("product_name", row.product_name.trim());
-        formData.append("product_link", row.product_link.trim());
-        formData.append("glb_link", row.glb_link.trim());
-        formData.append("category", row.category.trim());
-        formData.append("subcategory", row.subcategory.trim());
-        formData.append("client", clientValue);
-        formData.append("article_id", row.article_id.trim());
-        formData.append(
-          "materials",
-          JSON.stringify(
-            row.materials
-              .split(",")
-              .map((m) => m.trim())
-              .filter(Boolean)
-          )
-        );
-        formData.append(
-          "colors",
-          JSON.stringify(
-            row.colors
-              .split(",")
-              .map((c) => c.trim())
-              .filter(Boolean)
-          )
-        );
-        formData.append(
-          "tags",
-          JSON.stringify(
-            row.tags
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean)
-          )
-        );
-        if (row.preview_image) {
-          formData.append("preview_image", row.preview_image);
-        }
-
-        try {
-          const res = await fetch("/api/assets", {
-            method: "POST",
-            body: formData,
-          });
-          if (!res.ok) {
-            throw new Error("Failed to upload");
-          }
-          setRows((prev) => {
-            const copy = [...prev];
-            copy[idx].errors = {};
-            return copy;
-          });
-          return true;
-        } catch (err) {
-          console.error(`Error uploading row ${idx}:`, err);
-          setRows((prev) => {
-            const copy = [...prev];
-            copy[idx].errors = { product_name: "Upload failed" };
-            return copy;
-          });
-          anyError = true;
-          return false;
-        }
-      })
-    );
-
-    setLoading(false);
-    if (!anyError) {
-      toast({
-        title: "All assets uploaded successfully!",
-        description: `${rows.length} assets uploaded`,
-      });
-      setRows([emptyRow()]);
-      if (onSuccess) onSuccess();
-    } else {
-      toast({
-        title: "Some uploads failed",
-        description: "Please check errors and try again",
+        description: error.message,
         variant: "destructive",
       });
     }
@@ -519,6 +649,12 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
       width: "150px",
     },
     { key: "glb_link", label: "GLB Link", required: true, width: "150px" },
+    {
+      key: "glb_file",
+      label: "3D File Upload",
+      required: false,
+      width: "150px",
+    },
     { key: "category", label: "Category", required: true, width: "120px" },
     {
       key: "subcategory",
@@ -605,9 +741,13 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                     col.key === "colors" ||
                     col.key === "tags"
                       ? "Comma-separated list"
-                      : col.key.includes("link")
-                        ? "Valid URL"
-                        : "Text field"}
+                      : col.key === "glb_file"
+                        ? "Upload GLB/OBJ/ZIP (max 50MB)"
+                        : col.key.includes("link")
+                          ? col.key === "glb_link"
+                            ? "Valid GLB link"
+                            : "Valid URL"
+                          : "Text field"}
                   </div>
                 </div>
               ))}
@@ -733,35 +873,60 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                   {columns.slice(0, -2).map((col, colIdx) => (
                     <TableCell key={col.key} className="align-top">
                       <div className="relative">
-                        <Input
-                          ref={(el) => {
-                            if (!cellRefs.current[rowIdx])
-                              cellRefs.current[rowIdx] = [];
-                            cellRefs.current[rowIdx][colIdx] = el;
-                          }}
-                          value={row[col.key as EditableField]}
-                          onChange={(e) =>
-                            handleChange(
-                              rowIdx,
-                              col.key as EditableField,
-                              e.target.value
-                            )
-                          }
-                          onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
-                          className={`rounded-lg border transition-all duration-150 text-sm shadow-sm focus:ring-2
-                            ${
-                              row.errors && row.errors[col.key as EditableField]
-                                ? "border-destructive ring-destructive/20"
-                                : isDuplicate &&
-                                    (col.key === "article_id" ||
-                                      col.key === "product_name")
-                                  ? "border-yellow-400 ring-yellow-100 dark:ring-yellow-900/30"
-                                  : "border-border focus:border-primary ring-primary/20"
+                        {col.key === "glb_file" ? (
+                          <div className="flex items-center gap-2">
+                            <label className="relative cursor-pointer flex items-center group p-2 w-full">
+                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-muted rounded hover:bg-primary/10 transition-colors border border-border w-full justify-center">
+                                <Upload className="w-4 h-4 mr-1" />
+                                {row.glb_file
+                                  ? row.glb_file.name
+                                  : "Upload GLB/OBJ/ZIP"}
+                              </span>
+                              <Input
+                                type="file"
+                                accept=".glb,.obj,.zip"
+                                onChange={(e) =>
+                                  handleGLBFileChange(
+                                    rowIdx,
+                                    e.target.files?.[0] || null
+                                  )
+                                }
+                                className="sr-only"
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <Input
+                            ref={(el) => {
+                              if (!cellRefs.current[rowIdx])
+                                cellRefs.current[rowIdx] = [];
+                              cellRefs.current[rowIdx][colIdx] = el;
+                            }}
+                            value={row[col.key as EditableField]}
+                            onChange={(e) =>
+                              handleChange(
+                                rowIdx,
+                                col.key as EditableField,
+                                e.target.value
+                              )
                             }
-                            bg-background
-                          `}
-                          placeholder={col.key.replace("_", " ")}
-                        />
+                            onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
+                            className={`rounded-lg border transition-all duration-150 text-sm shadow-sm focus:ring-2
+                              ${
+                                row.errors &&
+                                row.errors[col.key as EditableField]
+                                  ? "border-destructive ring-destructive/20"
+                                  : isDuplicate &&
+                                      (col.key === "article_id" ||
+                                        col.key === "product_name")
+                                    ? "border-yellow-400 ring-yellow-100 dark:ring-yellow-900/30"
+                                    : "border-border focus:border-primary ring-primary/20"
+                              }
+                              bg-background
+                            `}
+                            placeholder={col.key.replace("_", " ")}
+                          />
+                        )}
                         {/* Error Message */}
                         {row.errors && row.errors[col.key as EditableField] && (
                           <div className="flex items-center mt-1 text-xs text-destructive">

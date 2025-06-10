@@ -12,6 +12,7 @@ import {
   Pencil,
   Plus,
   X,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,12 @@ import { Textarea } from "@/components/ui/textarea";
 import Script from "next/script";
 import { createClient } from "@/utils/supabase/client";
 import { useUser } from "@/contexts/useUser";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 declare global {
   namespace JSX {
@@ -61,6 +68,7 @@ interface Asset {
   preview_image?: string;
   product_link?: string;
   glb_link?: string;
+  zip_link?: string;
   created_at?: string;
   article_id?: string;
 }
@@ -75,6 +83,7 @@ export default function AssetDetailPage() {
   const [newMaterial, setNewMaterial] = useState("");
   const [newColor, setNewColor] = useState("");
   const [newTag, setNewTag] = useState("");
+  const [zipUrl, setZipUrl] = useState<string | null>(null);
   const user = useUser();
   const [userRole, setUserRole] = useState<string | null>(null);
 
@@ -121,6 +130,46 @@ export default function AssetDetailPage() {
 
     fetchAsset();
   }, [params.id]);
+
+  useEffect(() => {
+    const getZipUrl = async () => {
+      if (!asset?.article_id) return;
+
+      const supabase = createClient();
+      try {
+        // List files in the models directory
+        const { data: files, error } = await supabase.storage
+          .from("assets")
+          .list("models");
+
+        if (error) {
+          console.error("Error listing files:", error);
+          return;
+        }
+
+        // Find the ZIP file for this article_id
+        const zipFile = files.find(
+          (file) =>
+            file.name.startsWith(asset.article_id) && file.name.endsWith(".zip")
+        );
+
+        if (zipFile) {
+          const { data } = supabase.storage
+            .from("assets")
+            .getPublicUrl(`models/${zipFile.name}`);
+
+          console.log("Found ZIP file:", zipFile.name);
+          setZipUrl(data.publicUrl);
+        } else {
+          console.log("No ZIP file found for article_id:", asset.article_id);
+        }
+      } catch (error) {
+        console.error("Error getting ZIP URL:", error);
+      }
+    };
+
+    getZipUrl();
+  }, [asset?.article_id]);
 
   const handleEdit = async () => {
     try {
@@ -637,24 +686,55 @@ export default function AssetDetailPage() {
                             <ExternalLink className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
                           </a>
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-10 w-10 shrink-0 hover:bg-muted/50 transition-colors group/download"
-                          asChild
-                          disabled={!asset.glb_link}
-                        >
-                          <a
-                            href={asset.glb_link}
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Download 3D Model"
-                            className="flex items-center justify-center"
-                          >
-                            <Download className="h-4 w-4 transition-transform group-hover/download:translate-y-0.5" />
-                          </a>
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-10 w-10 shrink-0 hover:bg-muted/50 transition-colors"
+                              disabled={!asset.glb_link}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <a
+                                href={asset.glb_link}
+                                download
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 cursor-pointer"
+                              >
+                                <Download className="h-4 w-4" />
+                                Download GLB
+                              </a>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <a
+                                href={zipUrl || "#"}
+                                download
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 cursor-pointer"
+                                onClick={(e) => {
+                                  if (!zipUrl) {
+                                    e.preventDefault();
+                                    toast({
+                                      title: "Error",
+                                      description:
+                                        "ZIP file not found in storage",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                              >
+                                <Download className="h-4 w-4" />
+                                Download ZIP (OBJ)
+                              </a>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </div>
