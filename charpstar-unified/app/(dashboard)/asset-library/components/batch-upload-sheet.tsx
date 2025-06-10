@@ -13,6 +13,8 @@ import {
   Loader2,
   Image,
   Info,
+  Camera,
+  CheckCircle,
 } from "lucide-react";
 import { debounce } from "lodash";
 import {
@@ -186,6 +188,17 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   const [dragActive, setDragActive] = useState(false);
   const [csvLoading, setCsvLoading] = useState(false);
   const user = useUser();
+  const [generatingPreview, setGeneratingPreview] = useState<number | null>(
+    null
+  );
+  const modelViewerRef = useRef<any>(null);
+  const [modelViewerLoaded, setModelViewerLoaded] = useState(false);
+  const [modelViewerKey, setModelViewerKey] = useState(0);
+  const [previewQueue, setPreviewQueue] = useState<number[]>([]);
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+  const [previewGenerated, setPreviewGenerated] = useState<{
+    [rowIdx: number]: boolean;
+  }>({});
 
   const cellRefs = useRef<(HTMLInputElement | null)[][]>([]);
 
@@ -306,11 +319,36 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   const handleFileChange = (idx: number, file: File | null) => {
-    setRows((prev) => {
-      const copy = [...prev];
-      copy[idx].preview_image = file;
-      return copy;
-    });
+    if (!file) {
+      setRows((prev) => {
+        const copy = [...prev];
+        copy[idx].preview_image = null;
+        return copy;
+      });
+      return;
+    }
+    // Upload to Bunny CDN
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("fileName", file.name);
+    console.log("Uploading manual preview image to Bunny CDN:", file.name);
+    fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to upload preview image");
+        const { url } = await response.json();
+        setRows((prev) => {
+          const copy = [...prev];
+          copy[idx].preview_image = url;
+          return copy;
+        });
+        console.log("Manual preview image uploaded to Bunny CDN:", url);
+      })
+      .catch((error) => {
+        console.error("Manual preview image upload error:", error);
+      });
   };
 
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
@@ -417,38 +455,24 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     try {
       const supabase = createClient();
       const results = [];
-
+      console.log("Starting batch asset upload. Rows:", rows.length);
       for (const row of rows) {
-        console.log("Processing row:", {
-          product_name: row.product_name,
-          category: row.category,
-          client: row.client,
-          glb_file: row.glb_file ? row.glb_file.name : null,
-        });
-
+        console.log("Processing row:", row);
         if (!row.product_name || !row.category || !row.client) {
-          console.log("Skipping row - missing required fields:", {
-            hasProductName: !!row.product_name,
-            hasCategory: !!row.category,
-            hasClient: !!row.client,
-          });
+          console.log("Skipping row - missing required fields:", row);
           continue;
         }
-
         let glb_url = row.glb_link;
         let zip_url = null;
         let preview_image_url = row.preview_image;
-
         // Handle 3D file upload (GLB files)
         if (row.glb_file) {
-          console.log("Processing GLB file:", row.glb_file.name);
+          console.log("Uploading 3D file:", row.glb_file.name);
           try {
             const fileExtension = row.glb_file.name
               .split(".")
               .pop()
               ?.toLowerCase();
-            console.log("File extension:", fileExtension);
-
             let contentType;
             switch (fileExtension) {
               case "glb":
@@ -465,13 +489,10 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                   `Unsupported file type "${fileExtension}". Only .glb, .obj, and .zip are allowed.`
                 );
             }
-
-            console.log("Uploading file with content type:", contentType);
             const fileBuffer = await row.glb_file.arrayBuffer();
             const fileName = `${row.article_id}_${Date.now()}.${fileExtension}`;
             const filePath = `models/${fileName}`;
-
-            console.log("Uploading to path:", filePath);
+            console.log("Uploading 3D file to Supabase Storage:", filePath);
             const { data: uploadData, error: uploadError } =
               await supabase.storage
                 .from("assets")
@@ -480,26 +501,19 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                   cacheControl: "3600",
                   upsert: false,
                 });
-
             if (uploadError) {
               console.error("Upload error:", uploadError);
               throw uploadError;
             }
-
-            console.log("File uploaded successfully:", uploadData);
-
             const { data: urlData } = supabase.storage
               .from("assets")
               .getPublicUrl(filePath);
-
-            console.log("Generated public URL:", urlData);
-
             if (fileExtension === "zip") {
               zip_url = urlData.publicUrl;
             } else if (!glb_url) {
-              // Only use bucket URL if no original GLB link exists
               glb_url = urlData.publicUrl;
             }
+            console.log("3D file uploaded. Public URL:", urlData.publicUrl);
           } catch (error) {
             console.error("Error uploading 3D file:", error);
             toast({
@@ -510,51 +524,33 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
             continue;
           }
         }
-
-        // Handle preview image upload
-        if (row.preview_image) {
-          console.log("Processing preview image");
-          try {
-            const fileBuffer = await row.preview_image.arrayBuffer();
-            // Use article_id in the preview image path as well
-            const fileName = `${row.article_id}_${Date.now()}.png`;
-            const filePath = `previews/${fileName}`;
-
-            console.log("Uploading preview to path:", filePath);
-            const { data: uploadData, error: uploadError } =
-              await supabase.storage
-                .from("assets")
-                .upload(filePath, fileBuffer, {
-                  contentType: row.preview_image.type,
-                  cacheControl: "3600",
-                  upsert: false,
-                });
-
-            if (uploadError) {
-              console.error("Preview upload error:", uploadError);
-              throw uploadError;
-            }
-
-            console.log("Preview uploaded successfully:", uploadData);
-
-            const { data: urlData } = supabase.storage
-              .from("assets")
-              .getPublicUrl(filePath);
-
-            console.log("Generated preview URL:", urlData);
-            preview_image_url = urlData.publicUrl;
-          } catch (error) {
-            console.error("Error uploading preview image:", error);
+        // Handle preview image upload (should already be a URL)
+        if (preview_image_url && typeof preview_image_url !== "string") {
+          console.log(
+            "Uploading preview image file to Bunny CDN:",
+            preview_image_url.name
+          );
+          const formData = new FormData();
+          formData.append("file", preview_image_url);
+          formData.append("fileName", preview_image_url.name);
+          const response = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+          if (!response.ok) {
+            console.error("Preview image upload error:", response.statusText);
             toast({
               title: "Error",
-              description: `Failed to upload preview image: ${error.message}`,
+              description: "Failed to upload preview image",
               variant: "destructive",
             });
             continue;
           }
+          const { url } = await response.json();
+          preview_image_url = url;
+          console.log("Preview image uploaded to Bunny CDN. URL:", url);
         }
-
-        console.log("Attempting to insert row:", {
+        console.log("Inserting asset into database:", {
           product_name: row.product_name,
           category: row.category,
           client: row.client,
@@ -563,7 +559,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           zip_url,
           preview_image_url,
         });
-
         const { data, error } = await supabase
           .from("assets")
           .insert([
@@ -571,7 +566,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
               product_name: row.product_name,
               product_link: row.product_link,
               glb_link: glb_url,
-
               category: row.category,
               subcategory: row.subcategory,
               client: row.client,
@@ -583,21 +577,21 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                 : [],
               tags: row.tags ? row.tags.split(",").map((t) => t.trim()) : [],
               article_id: row.article_id,
-              preview_image: preview_image_url,
+              preview_image:
+                typeof preview_image_url === "string"
+                  ? preview_image_url
+                  : null,
             },
           ])
           .select()
           .single();
-
         if (error) {
           console.error("Database error:", error);
           throw error;
         }
-
         console.log("Successfully inserted row:", data);
         results.push(data);
       }
-
       if (results.length === 0) {
         toast({
           title: "No assets uploaded",
@@ -607,12 +601,10 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         });
         return;
       }
-
       toast({
         title: "Success",
         description: `Successfully uploaded ${results.length} assets`,
       });
-
       setRows([]);
       if (onSuccess) onSuccess();
     } catch (error) {
@@ -670,8 +662,190 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     { key: "actions", label: "", required: false, width: "60px" },
   ];
 
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src =
+      "https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js";
+    script.type = "module";
+    script.onload = () => setModelViewerLoaded(true);
+    document.head.appendChild(script);
+    return () => {
+      setModelViewerLoaded(false);
+      const existingScript = document.querySelector(
+        `script[src="${script.src}"]`
+      );
+      if (existingScript) document.head.removeChild(existingScript);
+    };
+  }, []);
+
+  const waitForModelLoad = async (
+    modelViewer: any,
+    glbLink: string,
+    retryCount = 0
+  ): Promise<void> => {
+    let cleanup: (() => void) | undefined;
+
+    try {
+      return await new Promise((resolve, reject) => {
+        if (!modelViewer) {
+          reject(new Error("Model viewer not initialized"));
+          return;
+        }
+
+        const loadTimeout = setTimeout(() => {
+          reject(
+            new Error(
+              `Model load timeout for URL: ${glbLink}. Please check if the URL is accessible and try again.`
+            )
+          );
+        }, 60000); // Increased to 60 seconds
+
+        const handleLoad = () => {
+          clearTimeout(loadTimeout);
+          setTimeout(resolve, 2000); // Increased delay to ensure model is fully loaded
+        };
+
+        const handleError = (error: any) => {
+          clearTimeout(loadTimeout);
+          reject(
+            new Error(
+              `Failed to load 3D model. Please check if the URL is accessible and try again.`
+            )
+          );
+        };
+
+        modelViewer.addEventListener("load", handleLoad);
+        modelViewer.addEventListener("error", handleError);
+
+        cleanup = () => {
+          clearTimeout(loadTimeout);
+          modelViewer.removeEventListener("load", handleLoad);
+          modelViewer.removeEventListener("error", handleError);
+        };
+      });
+    } finally {
+      if (cleanup) cleanup();
+    }
+  };
+
+  const generatePreview = async (rowIdx: number) => {
+    try {
+      const row = rows[rowIdx];
+      if (!row.glb_link) {
+        toast({
+          title: "Error",
+          description: "Please provide a GLB link first",
+          variant: "destructive",
+        });
+        return;
+      }
+      setGeneratingPreview(rowIdx);
+      const modelViewer = modelViewerRef.current;
+      if (!modelViewer) throw new Error("Model viewer not initialized");
+      // Clear previous model
+      modelViewer.src = "";
+      modelViewer.dismissPoster?.();
+      modelViewer.scene?.clear?.();
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Set new model
+      modelViewer.src = row.glb_link;
+      await waitForModelLoad(modelViewer, row.glb_link);
+      // Additional delay to ensure model is fully rendered
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const blob = await modelViewer.toBlob({
+        idealAspect: true,
+        mimeType: "image/png",
+        qualityArgument: 1,
+        dimensionLimit: 1024,
+        width: 1024,
+        height: 1024,
+      });
+      if (!blob || blob.size === 0) {
+        throw new Error("Failed to generate preview image");
+      }
+      const file = new File(
+        [blob],
+        `${row.article_id || "preview"}_preview.png`,
+        {
+          type: "image/png",
+        }
+      );
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("fileName", `${row.article_id || "preview"}_preview.png`);
+      console.log("Uploading generated preview image to Bunny CDN:", file.name);
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error("Failed to upload preview image");
+      }
+      const { url } = await response.json();
+      setRows((prev) => {
+        const copy = [...prev];
+        copy[rowIdx].preview_image = url;
+        return copy;
+      });
+      console.log("Generated preview image uploaded to Bunny CDN:", url);
+      toast({
+        title: "Success",
+        description: "Preview image generated and uploaded",
+      });
+      setPreviewGenerated((prev) => ({ ...prev, [rowIdx]: true }));
+    } catch (error) {
+      console.error("Preview generation/upload error:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to generate preview",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingPreview(null);
+      setModelViewerKey((k) => k + 1);
+    }
+  };
+
+  // Queue processor effect
+  useEffect(() => {
+    if (previewQueue.length > 0 && !isProcessingQueue) {
+      setIsProcessingQueue(true);
+      generatePreview(previewQueue[0]).finally(() => {
+        setPreviewQueue((q) => q.slice(1));
+        setIsProcessingQueue(false);
+      });
+    }
+  }, [previewQueue, isProcessingQueue]);
+
   return (
     <div className="w-full space-y-6 p-6 bg-background min-h-screen">
+      {/* Off-canvas model viewer for high-res preview generation */}
+      {modelViewerLoaded && (
+        <model-viewer
+          key={modelViewerKey}
+          ref={modelViewerRef}
+          style={{
+            position: "absolute",
+            left: "-9999px",
+            top: 0,
+            width: "1024px",
+            height: "1024px",
+            opacity: 1,
+            pointerEvents: "none",
+            zIndex: -1,
+          }}
+          tone-mapping="aces"
+          shadow-intensity="0"
+          camera-orbit="-20.05deg 79.38deg 6.5m"
+          field-of-view="10deg"
+          environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
+          exposure="1.2"
+          alpha-channel="blend"
+          background-color="transparent"
+        />
+      )}
+
       {/* Header */}
       <div className="bg-card rounded-lg border border-border p-6">
         <div className="flex items-center justify-between mb-4">
@@ -895,6 +1069,79 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                               />
                             </label>
                           </div>
+                        ) : col.key === "glb_link" ? (
+                          <div className="flex gap-2">
+                            <Input
+                              ref={(el) => {
+                                if (!cellRefs.current[rowIdx])
+                                  cellRefs.current[rowIdx] = [];
+                                cellRefs.current[rowIdx][colIdx] = el;
+                              }}
+                              value={row[col.key as EditableField]}
+                              onChange={(e) =>
+                                handleChange(
+                                  rowIdx,
+                                  col.key as EditableField,
+                                  e.target.value
+                                )
+                              }
+                              onKeyDown={(e) =>
+                                handleKeyDown(e, rowIdx, colIdx)
+                              }
+                              className={`rounded-lg border transition-all duration-150 text-sm shadow-sm focus:ring-2
+                                ${
+                                  row.errors &&
+                                  row.errors[col.key as EditableField]
+                                    ? "border-destructive ring-destructive/20"
+                                    : isDuplicate &&
+                                        (col.key === "article_id" ||
+                                          col.key === "product_name")
+                                      ? "border-yellow-400 ring-yellow-100 dark:ring-yellow-900/30"
+                                      : "border-border focus:border-primary ring-primary/20"
+                                }
+                                bg-background
+                              `}
+                              placeholder={col.key.replace("_", " ")}
+                            />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() =>
+                                setPreviewQueue((q) =>
+                                  q.includes(rowIdx) ? q : [...q, rowIdx]
+                                )
+                              }
+                              disabled={
+                                !modelViewerLoaded ||
+                                generatingPreview === rowIdx ||
+                                previewQueue.includes(rowIdx) ||
+                                (isProcessingQueue &&
+                                  previewQueue[0] === rowIdx)
+                              }
+                              className="shrink-0"
+                              title={
+                                previewQueue.includes(rowIdx) ||
+                                (isProcessingQueue &&
+                                  previewQueue[0] === rowIdx)
+                                  ? "Queued for preview generation"
+                                  : "Generate preview image from GLB"
+                              }
+                            >
+                              {generatingPreview === rowIdx ||
+                              (isProcessingQueue &&
+                                previewQueue[0] === rowIdx) ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : previewQueue.includes(rowIdx) ? (
+                                <span className="w-4 h-4 flex items-center justify-center text-xs font-bold">
+                                  Q
+                                </span>
+                              ) : previewGenerated[rowIdx] ? (
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                              ) : (
+                                <Camera className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
                         ) : (
                           <Input
                             ref={(el) => {
@@ -979,12 +1226,14 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                       {row.preview_image && (
                         <div className="flex flex-col items-start">
                           <img
-                            src={URL.createObjectURL(row.preview_image)}
+                            src={row.preview_image}
                             alt="Preview"
                             className="w-8 h-8 rounded shadow border border-border object-cover"
                           />
                           <span className="text-xs mt-1 text-primary">
-                            {row.preview_image.name}
+                            {typeof row.preview_image === "string"
+                              ? row.preview_image.split("/").pop()
+                              : ""}
                           </span>
                         </div>
                       )}

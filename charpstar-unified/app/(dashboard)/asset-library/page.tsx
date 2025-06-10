@@ -64,7 +64,7 @@ export default function AssetLibraryPage() {
   const [searchValue, setSearchValue] = useState("");
   const [viewMode, setViewMode] = useState<
     "grid" | "colGrid" | "compactGrid" | "list"
-  >("grid");
+  >("compactGrid");
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -387,7 +387,8 @@ export default function AssetLibraryPage() {
                     </div>
                     <div className="h-10 w-[180px] bg-muted rounded animate-pulse" />
                     <div className="h-10 w-[100px] bg-muted rounded animate-pulse" />
-                    <div className="flex items-center gap-1 border rounded-md">
+                    <div className="flex items-center gap-1 border-border rounded-md">
+                      <div className="h-9 w-9 bg-muted rounded animate-pulse" />
                       <div className="h-9 w-9 bg-muted rounded animate-pulse" />
                       <div className="h-9 w-9 bg-muted rounded animate-pulse" />
                     </div>
@@ -397,30 +398,22 @@ export default function AssetLibraryPage() {
             </div>
 
             {/* Asset Cards Grid */}
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-w-full mx-auto">
-              {Array.from({ length: 8 }).map((_, i) => (
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 min-w-full mx-auto">
+              {Array.from({ length: 58 }).map((_, i) => (
                 <div
                   key={i}
-                  className="relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 rounded-xl p-4 space-y-4 w-full"
+                  className="group relative overflow-hidden via-background to-muted/20 border border-border/40 rounded-xl p-1"
                 >
-                  {/* Image skeleton */}
-                  <div className="relative aspect-square overflow-hidden rounded-lg bg-muted animate-pulse w-full" />
-
-                  {/* Content skeleton */}
-                  <div className="space-y-3 w-full">
-                    {/* Title skeleton */}
-                    <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
-
-                    {/* Category badges skeleton */}
-                    <div className="flex gap-2">
-                      <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
-                      <div className="h-6 w-24 bg-muted rounded-full animate-pulse" />
+                  <div className="relative aspect-square overflow-hidden rounded-lg">
+                    <div className="w-full h-full bg-muted animate-pulse" />
+                    <div className="absolute inset-0 flex items-center justify-center gap-2">
+                      <div className="w-12 h-2 bg-muted/50 rounded animate-pulse" />
+                      <div className="w-8 h-2 bg-muted/50 rounded animate-pulse" />
                     </div>
-
-                    {/* Action buttons skeleton */}
-                    <div className="flex items-center gap-2 pt-4 w-full">
-                      <div className="h-9 flex-1 bg-muted rounded-lg animate-pulse" />
-                      <div className="h-9 w-9 bg-muted rounded-lg animate-pulse" />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent opacity-0 group-hover:opacity-100 duration-300">
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <div className="h-10 w-full bg-muted rounded-lg animate-pulse" />
                     </div>
                   </div>
                 </div>
@@ -1235,44 +1228,45 @@ export default function AssetLibraryPage() {
                 </div>
               </Card>
             ) : viewMode === "compactGrid" ? (
-              <Card
-                key={asset.id}
-                className="group relative overflow-hidden  via-background to-muted/20 border border-border/40   hover:scale-[1.01]  rounded-xl"
+              <Link
+                href={`/asset-library/${asset.id}`}
+                className="block w-full h-full cursor-pointer"
+                prefetch={true}
               >
-                <div className="relative aspect-square overflow-hidden rounded-lg">
-                  <Link
-                    href={`/asset-library/${asset.id}`}
-                    className="block w-full h-full cursor-pointer"
-                    prefetch={true}
-                  >
+                <Card
+                  key={asset.id}
+                  className="group relative overflow-hidden  via-background to-muted/20 border border-border/40   hover:scale-[1.01]  rounded-xl"
+                >
+                  <div className="relative aspect-square overflow-hidden rounded-lg">
                     <img
                       src={asset.preview_image || "/placeholder.png"}
                       alt={asset.product_name}
                       className="w-full h-full object-contain transition-all duration-700 group-hover:scale-102"
                       loading="lazy"
                     />
-                  </Link>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent opacity-0 group-hover:opacity-100  duration-300">
-                  <div className="absolute bottom-2 left-2 right-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="w-full h-8 text-xs font-medium  text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
-                      asChild
-                    >
-                      <Link
-                        href={`/asset-library/${asset.id}`}
-                        className="flex items-center justify-center gap-1"
-                        prefetch={true}
-                      >
-                        <span>View</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </Link>
-                    </Button>
                   </div>
-                </div>
-              </Card>
+
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent opacity-0 group-hover:opacity-100  duration-300">
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full h-8 text-xs font-medium  text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
+                        asChild
+                      >
+                        <Link
+                          href={`/asset-library/${asset.id}`}
+                          className="flex items-center justify-center gap-1"
+                          prefetch={true}
+                        >
+                          <span>View</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              </Link>
             ) : (
               <Card
                 key={asset.id}
@@ -1285,6 +1279,7 @@ export default function AssetLibraryPage() {
                   className={`relative ${viewMode === "grid" ? "p-3" : "p-3 w-32 shrink-0"}`}
                 >
                   {/* Image container with loading state */}
+
                   <div className="relative aspect-square overflow-hidden rounded-lg  dark:bg-black/50">
                     <Link
                       href={`/asset-library/${asset.id}`}
