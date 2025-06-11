@@ -1,9 +1,18 @@
 import { BigQuery } from "@google-cloud/bigquery";
 
-// Parse credentials from environment variable
-const credentials = JSON.parse(
-  process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || "{}"
-);
+// Parse credentials from base64 encoded environment variable
+let credentials;
+try {
+  const base64Credentials = process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64;
+  if (!base64Credentials) {
+    throw new Error("GOOGLE_APPLICATION_CREDENTIALS_BASE64 is not set");
+  }
+  const jsonString = Buffer.from(base64Credentials, "base64").toString();
+  credentials = JSON.parse(jsonString);
+} catch (error) {
+  console.error("Error parsing credentials:", error);
+  credentials = {};
+}
 
 // Initialize BigQuery with credentials directly
 export const bigquery = new BigQuery({

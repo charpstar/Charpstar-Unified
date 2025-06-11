@@ -31,8 +31,6 @@ export async function GET(request: Request) {
       );
     }
 
-    const analytics = user.metadata.analytics_profiles;
-
     // 5. Get query parameters
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("query");
