@@ -4,7 +4,12 @@ import { createClient } from "@/utils/supabase/client";
 import _ from "lodash";
 import { useUser } from "@/contexts/useUser";
 
-export type SortOption = "name-asc" | "name-desc" | "date-asc" | "date-desc";
+export type SortOption =
+  | "name-asc"
+  | "name-desc"
+  | "date-asc"
+  | "date-desc"
+  | "updated-desc";
 
 export type FilterState = {
   search: string[];
@@ -43,6 +48,7 @@ interface Asset {
   tags: string[];
   preview_image: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export function useAssets() {

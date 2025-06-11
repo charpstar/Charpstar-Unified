@@ -40,6 +40,7 @@ interface AssetRow {
   article_id: string;
   preview_image?: File | null;
   id: string;
+  created_at?: string;
   errors?: {
     [K in
       | "product_name"
@@ -80,6 +81,7 @@ const emptyRow = (): AssetRow => ({
   article_id: "",
   preview_image: null,
   id: Math.random().toString(36).slice(2),
+  created_at: new Date().toISOString(),
   errors: {},
 });
 
@@ -270,6 +272,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           article_id: obj["article id"] || "",
           preview_image: null,
           id: Math.random().toString(36).slice(2),
+          created_at: new Date().toISOString(),
           errors: {},
         };
       });
@@ -581,6 +584,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                 typeof preview_image_url === "string"
                   ? preview_image_url
                   : null,
+              created_at: row.created_at || new Date().toISOString(),
             },
           ])
           .select()

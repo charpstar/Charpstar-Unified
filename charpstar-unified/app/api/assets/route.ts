@@ -116,6 +116,8 @@ export async function POST(req: Request) {
     const materials = JSON.parse((formData.get("materials") as string) || "[]");
     const colors = JSON.parse((formData.get("colors") as string) || "[]");
     const preview_image = formData.get("preview_image");
+    const created_at =
+      (formData.get("created_at") as string) || new Date().toISOString();
     let preview_image_url = null;
 
     if (
@@ -154,6 +156,8 @@ export async function POST(req: Request) {
           materials,
           colors,
           preview_image: preview_image_url,
+          created_at,
+          updated_at: new Date().toISOString(),
         },
       ])
       .select()

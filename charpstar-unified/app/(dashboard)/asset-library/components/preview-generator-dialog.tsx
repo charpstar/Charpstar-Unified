@@ -76,10 +76,10 @@ export function PreviewGeneratorDialog({
   const processingRef = useRef(false);
 
   const assetsNeedingPreview = retakeAll
-    ? assets.filter((asset) => asset.glb_link).slice(0, 300)
+    ? assets.filter((asset) => asset.glb_link).slice(0, 400)
     : assets
         .filter((asset) => !asset.preview_image && asset.glb_link)
-        .slice(0, 300);
+        .slice(0, 400);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -115,7 +115,7 @@ export function PreviewGeneratorDialog({
 
     const assetsWithPreviews = assets
       .filter((a) => a.preview_image)
-      .slice(0, 300);
+      .slice(0, 400);
     const totalToCheck = assetsWithPreviews.length;
 
     for (const asset of assetsWithPreviews) {
@@ -124,7 +124,7 @@ export function PreviewGeneratorDialog({
         const response = await fetch(asset.preview_image, { method: "HEAD" });
         if (response.status !== 200) {
           console.log(
-            `Missing preview for: ${asset.product_name} (${asset.preview_image})`
+            `Preview not 200: ${asset.product_name} (${asset.preview_image})`
           );
           missing++;
           setFailedUrls((prev) => [
@@ -251,9 +251,17 @@ export function PreviewGeneratorDialog({
 
         const handleError = (error: any) => {
           clearTimeout(loadTimeout);
-          reject(
-            new Error(`Failed to load 3D model for ${asset.product_name}`)
-          );
+          if (error.detail?.sourceError?.message?.includes("204")) {
+            reject(
+              new Error(
+                `GLB file is empty or not accessible (204 No Content): ${asset.glb_link}`
+              )
+            );
+          } else {
+            reject(
+              new Error(`Failed to load 3D model for ${asset.product_name}`)
+            );
+          }
         };
 
         modelViewer.addEventListener("load", handleLoad);
@@ -270,6 +278,80 @@ export function PreviewGeneratorDialog({
     }
   };
 
+  const checkGLBFile = async (
+    glbLink: string,
+    assetId: string,
+    retryCount = 0
+  ): Promise<void> => {
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 seconds
+    const supabase = createClient();
+
+    try {
+      console.log(
+        `Checking GLB file (attempt ${retryCount + 1}/${maxRetries + 1}): ${glbLink}`
+      );
+      const response = await fetch(glbLink);
+      console.log(`GLB file response status: ${response.status}`);
+
+      if (response.status === 204) {
+        // Update database with GLB status
+        await supabase
+          .from("assets")
+          .update({ glb_status: "204_no_content" })
+          .eq("id", assetId);
+
+        if (retryCount < maxRetries) {
+          console.log(`Received 204 response, retrying in ${retryDelay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+          return checkGLBFile(glbLink, assetId, retryCount + 1);
+        }
+        throw new Error(
+          `GLB file is empty or not accessible (204 No Content after ${maxRetries + 1} attempts): ${glbLink}`
+        );
+      }
+
+      if (!response.ok) {
+        // Update database with GLB status
+        await supabase
+          .from("assets")
+          .update({ glb_status: `error_${response.status}` })
+          .eq("id", assetId);
+
+        throw new Error(
+          `GLB file not accessible: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const contentLength = response.headers.get("content-length");
+      console.log(`GLB file size: ${contentLength} bytes`);
+      if (contentLength === "0") {
+        // Update database with GLB status
+        await supabase
+          .from("assets")
+          .update({ glb_status: "empty_file" })
+          .eq("id", assetId);
+
+        throw new Error(`GLB file is empty (0 bytes): ${glbLink}`);
+      }
+
+      // Update database with successful GLB status
+      await supabase
+        .from("assets")
+        .update({ glb_status: "ok" })
+        .eq("id", assetId);
+
+      console.log("GLB file is accessible and valid");
+    } catch (error) {
+      if (retryCount < maxRetries) {
+        console.log(`Error checking GLB file, retrying in ${retryDelay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        return checkGLBFile(glbLink, assetId, retryCount + 1);
+      }
+      throw error;
+    }
+  };
+
   const generatePreview = async (asset: Asset): Promise<string> => {
     try {
       const modelViewer = modelViewerRef.current;
@@ -282,6 +364,10 @@ export function PreviewGeneratorDialog({
 
       if (!asset.glb_link)
         throw new Error(`Missing GLB link for asset: ${asset.product_name}`);
+
+      // Check GLB file accessibility with retries
+      await checkGLBFile(asset.glb_link, asset.id);
+
       modelViewer.src = asset.glb_link;
       await waitForModelLoad(modelViewer, asset);
 
@@ -325,20 +411,36 @@ export function PreviewGeneratorDialog({
       if (!modelViewer) throw new Error("Model viewer component not found");
 
       const supabase = createClient();
-      modelViewer.src = "";
-      await new Promise((resolve) => setTimeout(resolve, 100));
       let processed = 0;
 
       for (const asset of assetsNeedingPreview) {
         try {
           if (!processingRef.current) break;
-          if (modelViewerRef.current) {
-            modelViewerRef.current.src = "";
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          }
+          console.log(`\n=== Processing asset: ${asset.product_name} ===`);
+          console.log(`GLB Link: ${asset.glb_link}`);
+          setCurrentAsset(asset.product_name);
+
+          // Clear existing model
+          console.log("Clearing existing model...");
+          modelViewer.src = "";
+          modelViewer.dismissPoster?.();
+          modelViewer.scene?.clear?.();
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          console.log("Model cleared");
+
+          // Check GLB file accessibility
+          console.log("Checking GLB file accessibility...");
+          await checkGLBFile(asset.glb_link, asset.id);
+
+          console.log("Generating preview...");
           const previewUrl = await generatePreview(asset);
+          console.log("Preview generated successfully");
+
+          console.log("Fetching preview blob...");
           const response = await fetch(previewUrl);
           const blob = await response.blob();
+          console.log(`Preview blob size: ${blob.size} bytes`);
+
           const file = new File([blob], `${asset.id}_preview.png`, {
             type: "image/png",
           });
@@ -346,49 +448,50 @@ export function PreviewGeneratorDialog({
           let uploadSuccess = false;
           let uploadAttempts = 0;
           const maxAttempts = 1;
-
+          console.log("Starting upload process...");
           while (!uploadSuccess && uploadAttempts < maxAttempts) {
             try {
               uploadAttempts++;
+              console.log(`Upload attempt ${uploadAttempts}/${maxAttempts}`);
               const formData = new FormData();
               formData.append("file", file);
               formData.append("fileName", `${asset.id}_preview.png`);
 
+              console.log("Uploading to server...");
               const response = await fetch("/api/upload", {
                 method: "POST",
                 body: formData,
               });
               const responseData = await response.json();
-              if (!response.ok)
+              if (!response.ok) {
+                console.error("Upload failed:", responseData);
                 throw new Error(
                   `Upload failed: ${responseData.error || responseData.details || response.statusText}`
                 );
-              if (responseData.error)
+              }
+              if (responseData.error) {
+                console.error("Server error:", responseData.error);
                 throw new Error(`Server error: ${responseData.error}`);
-
+              }
               const { url } = responseData;
-              console.log(
-                "Updating Supabase for asset:",
-                asset.id,
-                "with preview URL:",
-                url
-              );
+              console.log("Upload successful, updating database...");
+
               const { error: updateError } = await supabase
                 .from("assets")
                 .update({ preview_image: url })
                 .eq("id", asset.id);
-
               if (updateError) {
-                console.error("Supabase update error:", updateError);
+                console.error("Database update failed:", updateError);
                 throw new Error(
                   `Failed to update asset: ${updateError.message}`
                 );
               }
-              console.log("Successfully updated Supabase for asset:", asset.id);
-
+              console.log("Database updated successfully");
               uploadSuccess = true;
             } catch (error) {
+              console.error(`Upload attempt ${uploadAttempts} failed:`, error);
               if (uploadAttempts === maxAttempts) {
+                console.error("Max upload attempts reached, marking as failed");
                 setFailedAssets((prev) => [
                   ...prev,
                   {
@@ -398,18 +501,27 @@ export function PreviewGeneratorDialog({
                     retryCount: uploadAttempts,
                   },
                 ]);
-                throw error;
+                break;
               }
+              console.log("Waiting before retry...");
               await new Promise((resolve) => setTimeout(resolve, 2000));
             }
           }
 
           URL.revokeObjectURL(previewUrl);
+          console.log("Preview URL revoked");
           processed++;
-          setProgress(
-            Math.round((processed / assetsNeedingPreview.length) * 100)
+          const progress = Math.round(
+            (processed / assetsNeedingPreview.length) * 100
           );
+          console.log(
+            `Progress: ${progress}% (${processed}/${assetsNeedingPreview.length})`
+          );
+          setProgress(progress);
+          console.log("Waiting before next asset...");
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         } catch (error) {
+          console.error(`Failed to process ${asset.product_name}:`, error);
           setFailedAssets((prev) => [
             ...prev,
             {
@@ -419,8 +531,13 @@ export function PreviewGeneratorDialog({
             },
           ]);
         }
-        await new Promise((resolve) => setTimeout(resolve, 500));
       }
+
+      console.log("\n=== Processing complete ===");
+      console.log(
+        `Successfully processed: ${processed - failedAssets.length} assets`
+      );
+      console.log(`Failed assets: ${failedAssets.length}`);
 
       if (failedAssets.length > 0) {
         setError(
@@ -430,6 +547,7 @@ export function PreviewGeneratorDialog({
       await refetch();
       if (failedAssets.length === 0) setTimeout(onClose, 1500);
     } catch (error) {
+      console.error("Processing failed:", error);
       setError(
         error instanceof Error ? error.message : "Failed to process assets"
       );
@@ -448,6 +566,9 @@ export function PreviewGeneratorDialog({
     );
     if (assetsToRegenerate.length === 0) return;
 
+    console.log(
+      `Starting regeneration for ${assetsToRegenerate.length} assets`
+    );
     setProcessing(true);
     setProgress(0);
     setError(null);
@@ -457,47 +578,89 @@ export function PreviewGeneratorDialog({
       const supabase = createClient();
       let processed = 0;
       for (const asset of assetsToRegenerate) {
+        console.log(`\n=== Processing asset: ${asset.product_name} ===`);
+        console.log(`GLB Link: ${asset.glb_link}`);
         setCurrentAsset(asset.product_name);
         try {
+          // Ensure model-viewer is ready for each asset
+          const modelViewer = modelViewerRef.current;
+          if (!modelViewer) {
+            console.error("Model viewer not initialized");
+            throw new Error("Model viewer not initialized");
+          }
+          console.log("Model viewer initialized");
+
+          // Clear existing model
+          console.log("Clearing existing model...");
+          modelViewer.src = "";
+          modelViewer.dismissPoster?.();
+          modelViewer.scene?.clear?.();
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          console.log("Model cleared");
+
+          // Check GLB file accessibility
+          console.log("Checking GLB file accessibility...");
+          await checkGLBFile(asset.glb_link, asset.id);
+
+          console.log("Generating preview...");
           const previewUrl = await generatePreview(asset);
+          console.log("Preview generated successfully");
+
+          console.log("Fetching preview blob...");
           const response = await fetch(previewUrl);
           const blob = await response.blob();
+          console.log(`Preview blob size: ${blob.size} bytes`);
+
           const file = new File([blob], `${asset.id}_preview.png`, {
             type: "image/png",
           });
           let uploadSuccess = false;
           let uploadAttempts = 0;
           const maxAttempts = 1;
+          console.log("Starting upload process...");
           while (!uploadSuccess && uploadAttempts < maxAttempts) {
             try {
               uploadAttempts++;
+              console.log(`Upload attempt ${uploadAttempts}/${maxAttempts}`);
               const formData = new FormData();
               formData.append("file", file);
               formData.append("fileName", `${asset.id}_preview.png`);
+
+              console.log("Uploading to server...");
               const response = await fetch("/api/upload", {
                 method: "POST",
                 body: formData,
               });
               const responseData = await response.json();
-              if (!response.ok)
+              if (!response.ok) {
+                console.error("Upload failed:", responseData);
                 throw new Error(
                   `Upload failed: ${responseData.error || responseData.details || response.statusText}`
                 );
-              if (responseData.error)
+              }
+              if (responseData.error) {
+                console.error("Server error:", responseData.error);
                 throw new Error(`Server error: ${responseData.error}`);
+              }
               const { url } = responseData;
+              console.log("Upload successful, updating database...");
+
               const { error: updateError } = await supabase
                 .from("assets")
                 .update({ preview_image: url })
                 .eq("id", asset.id);
               if (updateError) {
+                console.error("Database update failed:", updateError);
                 throw new Error(
                   `Failed to update asset: ${updateError.message}`
                 );
               }
+              console.log("Database updated successfully");
               uploadSuccess = true;
             } catch (error) {
+              console.error(`Upload attempt ${uploadAttempts} failed:`, error);
               if (uploadAttempts === maxAttempts) {
+                console.error("Max upload attempts reached, marking as failed");
                 setFailedAssets((prev) => [
                   ...prev,
                   {
@@ -507,14 +670,16 @@ export function PreviewGeneratorDialog({
                     retryCount: uploadAttempts,
                   },
                 ]);
-                // Instead of throw, just break to continue with next asset
                 break;
               }
+              console.log("Waiting before retry...");
               await new Promise((resolve) => setTimeout(resolve, 2000));
             }
           }
           URL.revokeObjectURL(previewUrl);
+          console.log("Preview URL revoked");
         } catch (error) {
+          console.error(`Failed to process ${asset.product_name}:`, error);
           setFailedAssets((prev) => [
             ...prev,
             {
@@ -525,9 +690,21 @@ export function PreviewGeneratorDialog({
           ]);
         }
         processed++;
-        setProgress(Math.round((processed / assetsToRegenerate.length) * 100));
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        const progress = Math.round(
+          (processed / assetsToRegenerate.length) * 100
+        );
+        console.log(
+          `Progress: ${progress}% (${processed}/${assetsToRegenerate.length})`
+        );
+        setProgress(progress);
+        console.log("Waiting before next asset...");
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
+      console.log("\n=== Regeneration complete ===");
+      console.log(
+        `Successfully processed: ${processed - failedAssets.length} assets`
+      );
+      console.log(`Failed assets: ${failedAssets.length}`);
       await refetch();
       setTimeout(() => {
         setProcessing(false);
@@ -535,6 +712,7 @@ export function PreviewGeneratorDialog({
         checkPreviewUrls();
       }, 1500);
     } catch (error) {
+      console.error("Regeneration process failed:", error);
       setError(
         error instanceof Error ? error.message : "Failed to regenerate previews"
       );
@@ -561,7 +739,7 @@ export function PreviewGeneratorDialog({
                   Preview generation for{" "}
                   <span className="font-semibold text-primary">
                     {assetsNeedingPreview.length} / {assets.length} (limited to
-                    300 assets for now)
+                    400 assets for now)
                   </span>{" "}
                   assets
                 </DialogDescription>

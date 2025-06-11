@@ -44,7 +44,59 @@ import { AssetCardSkeleton } from "@/components/ui/asset-card-skeleton";
 import { PreviewGeneratorDialog } from "./components/preview-generator-dialog";
 import { createClient } from "@/utils/supabase/client";
 
-type SortOption = "name-asc" | "name-desc" | "date-asc" | "date-desc";
+type SortOption =
+  | "name-asc"
+  | "name-desc"
+  | "date-asc"
+  | "date-desc"
+  | "updated-desc";
+
+const levenshteinDistance = (a: string, b: string): number => {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix = Array(b.length + 1)
+    .fill(null)
+    .map(() => Array(a.length + 1).fill(null));
+
+  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+
+  for (let j = 1; j <= b.length; j++) {
+    for (let i = 1; i <= a.length; i++) {
+      const substitutionCost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1, // deletion
+        matrix[j - 1][i] + 1, // insertion
+        matrix[j - 1][i - 1] + substitutionCost // substitution
+      );
+    }
+  }
+
+  return matrix[b.length][a.length];
+};
+
+const isFuzzyMatch = (searchTerm: string, target: string): boolean => {
+  const searchLower = searchTerm.toLowerCase();
+  const targetLower = target.toLowerCase();
+
+  // Direct match
+  if (targetLower.includes(searchLower)) return true;
+
+  // Fuzzy match for words with length > 3
+  if (searchLower.length > 3) {
+    const words = targetLower.split(/\s+/);
+    return words.some((word) => {
+      if (word.length < 4) return false;
+      const distance = levenshteinDistance(searchLower, word);
+      // Allow 1 typo for every 4 characters, minimum 1 typo allowed
+      const maxDistance = Math.max(1, Math.floor(word.length / 4));
+      return distance <= maxDistance;
+    });
+  }
+
+  return false;
+};
 
 export default function AssetLibraryPage() {
   const searchParams = useSearchParams();
@@ -95,9 +147,19 @@ export default function AssetLibraryPage() {
 
   // Filter assets based on search and sort
   const filteredAssets = assets
-    .filter((asset) =>
-      asset.product_name.toLowerCase().includes(searchValue.toLowerCase())
-    )
+    .filter((asset) => {
+      const searchLower = searchValue.toLowerCase();
+      if (!searchLower) return true;
+
+      return (
+        isFuzzyMatch(searchLower, asset.product_name) ||
+        asset.materials?.some((material) =>
+          isFuzzyMatch(searchLower, material)
+        ) ||
+        asset.colors?.some((color) => isFuzzyMatch(searchLower, color)) ||
+        asset.tags?.some((tag) => isFuzzyMatch(searchLower, tag))
+      );
+    })
     .sort((a, b) => {
       switch (filters.sort) {
         case "name-asc":
@@ -111,6 +173,11 @@ export default function AssetLibraryPage() {
         case "date-desc":
           return (
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        case "updated-desc":
+          return (
+            new Date(b.updated_at || b.created_at).getTime() -
+            new Date(a.updated_at || a.created_at).getTime()
           );
         default:
           return 0;
@@ -672,25 +739,24 @@ export default function AssetLibraryPage() {
               </Sheet>
 
               {/* Only show for admin */}
-              {userRole === "admin" && (
-                <>
-                  <Button onClick={() => setPreviewDialogOpen(true)}>
-                    <span className="text-sm">Generate Previews</span>
-                  </Button>
-                  <PreviewGeneratorDialog
-                    isOpen={previewDialogOpen}
-                    onClose={() => setPreviewDialogOpen(false)}
-                  />
-                  <Button variant="default" asChild>
-                    <Link
-                      href="/asset-library/upload"
-                      className="flex items-center gap-2"
-                    >
-                      Upload Assets
-                    </Link>
-                  </Button>
-                </>
-              )}
+
+              <>
+                <Button onClick={() => setPreviewDialogOpen(true)}>
+                  <span className="text-sm">Generate Previews</span>
+                </Button>
+                <PreviewGeneratorDialog
+                  isOpen={previewDialogOpen}
+                  onClose={() => setPreviewDialogOpen(false)}
+                />
+                <Button variant="default" asChild>
+                  <Link
+                    href="/asset-library/upload"
+                    className="flex items-center gap-2"
+                  >
+                    Upload Assets
+                  </Link>
+                </Button>
+              </>
             </div>
           </div>
           <div>
@@ -932,6 +998,123 @@ export default function AssetLibraryPage() {
                       onChange={(e) => setSearchValue(e.target.value)}
                       className="pl-9"
                     />
+                    {/* Active Filters */}
+                    {(filters.category ||
+                      filters.subcategory ||
+                      filters.client.length > 0 ||
+                      filters.material.length > 0 ||
+                      filters.color.length > 0 ||
+                      searchValue) && (
+                      <div className="absolute -bottom-7 left-0 right-0 flex flex-row gap-1.5 max-w-[300px]">
+                        {searchValue && (
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() => setSearchValue("")}
+                          >
+                            Search: {searchValue}
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {filters.category && (
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() => handleFilterChange("category", null)}
+                          >
+                            Category:{" "}
+                            {
+                              filterOptions.categories.find(
+                                (c) => c.id === filters.category
+                              )?.name
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {filters.subcategory && (
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange("subcategory", null)
+                            }
+                          >
+                            Subcategory:{" "}
+                            {
+                              filterOptions.categories
+                                .find((c) => c.id === filters.category)
+                                ?.subcategories.find(
+                                  (s) => s.id === filters.subcategory
+                                )?.name
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {filters.client.map((client) => (
+                          <Badge
+                            key={client}
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange(
+                                "client",
+                                filters.client.filter((c) => c !== client)
+                              )
+                            }
+                          >
+                            Client:{" "}
+                            {
+                              filterOptions.clients.find(
+                                (c) => c.value === client
+                              )?.label
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        ))}
+                        {filters.material.map((material) => (
+                          <Badge
+                            key={material}
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange(
+                                "material",
+                                filters.material.filter((m) => m !== material)
+                              )
+                            }
+                          >
+                            Material:{" "}
+                            {
+                              filterOptions.materials.find(
+                                (m) => m.value === material
+                              )?.label
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        ))}
+                        {filters.color.map((color) => (
+                          <Badge
+                            key={color}
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange(
+                                "color",
+                                filters.color.filter((c) => c !== color)
+                              )
+                            }
+                          >
+                            Color:{" "}
+                            {
+                              filterOptions.colors.find(
+                                (c) => c.value === color
+                              )?.label
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <Select value={filters.sort} onValueChange={handleSortChange}>
                     <SelectTrigger className="w-[180px] cursor-pointer">
@@ -949,6 +1132,12 @@ export default function AssetLibraryPage() {
                       </SelectItem>
                       <SelectItem value="date-desc" className="cursor-pointer">
                         Date (Newest First)
+                      </SelectItem>
+                      <SelectItem
+                        value="updated-desc"
+                        className="cursor-pointer"
+                      >
+                        Latest Updated
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -1011,13 +1200,14 @@ export default function AssetLibraryPage() {
                       aria-label="Column Grid View"
                     >
                       <Rows className="h-3 w-3" />
-                    </Button>{" "}
+                    </Button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
         <div
           className={
             viewMode === "grid"
@@ -1027,44 +1217,351 @@ export default function AssetLibraryPage() {
                 : "flex flex-col gap-4 w-full"
           }
         >
-          {currentAssets.map((asset) =>
-            viewMode === "colGrid" ? (
-              <Card
-                key={asset.id}
-                className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm rounded-xl"
-              >
-                <div className="flex gap-4 p-4">
-                  {/* Image Section */}
-                  <div className="relative w-96 h-96 shrink-0">
-                    <div className="relative overflow-hidden rounded-lg ">
-                      <div className="relative aspect-square overflow-hidden rounded-md bg-white dark:bg-black/50">
-                        <Link
-                          href={`/asset-library/${asset.id}`}
-                          className="block w-full h-full cursor-pointer"
-                          prefetch={true}
+          {currentAssets.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-12 px-4">
+              <div className="w-16 h-16 mb-4 text-muted-foreground">
+                <Search className="w-full h-full opacity-50" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No matches found</h3>
+              <p className="text-muted-foreground text-center max-w-md">
+                {searchValue ? (
+                  <>
+                    No assets found matching{" "}
+                    <span className="font-medium text-foreground">
+                      "{searchValue}"
+                    </span>
+                    {filters.category ||
+                    filters.subcategory ||
+                    filters.client.length > 0 ||
+                    filters.material.length > 0 ||
+                    filters.color.length > 0 ? (
+                      <> with the current filters</>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    No assets found
+                    {filters.category ||
+                    filters.subcategory ||
+                    filters.client.length > 0 ||
+                    filters.material.length > 0 ||
+                    filters.color.length > 0 ? (
+                      <> with the current filters</>
+                    ) : null}
+                  </>
+                )}
+              </p>
+              {(searchValue ||
+                filters.category ||
+                filters.subcategory ||
+                filters.client.length > 0 ||
+                filters.material.length > 0 ||
+                filters.color.length > 0) && (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => {
+                    setSearchValue("");
+                    clearFilters();
+                  }}
+                >
+                  Clear all filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            currentAssets.map((asset) =>
+              viewMode === "colGrid" ? (
+                <Card
+                  key={asset.id}
+                  className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm rounded-xl"
+                >
+                  <div className="flex gap-4 p-4">
+                    {/* Image Section */}
+                    <div className="relative w-96 h-96 shrink-0">
+                      <div className="relative overflow-hidden rounded-lg ">
+                        <div className="relative aspect-square overflow-hidden rounded-md bg-white dark:bg-black/50">
+                          <Link
+                            href={`/asset-library/${asset.id}`}
+                            className="block w-full h-full cursor-pointer"
+                            prefetch={true}
+                          >
+                            <img
+                              src={asset.preview_image || "/placeholder.png"}
+                              alt={asset.product_name}
+                              className="w-full h-full object-contain transition-all duration-700 group-hover:scale-102"
+                              loading="lazy"
+                            />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Content Section */}
+                    <div className="flex-1 flex flex-col gap-3">
+                      {/* Title and Category */}
+                      <div className="space-y-2">
+                        <CardTitle className="text-xl font-bold leading-tight group-hover:text-primary transition-all duration-300">
+                          {asset.product_name}
+                        </CardTitle>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge
+                            variant="secondary"
+                            className="text-sm font-medium px-3 py-1 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20"
+                          >
+                            <span className="font-semibold">
+                              {asset.category}
+                            </span>
+                          </Badge>
+                          {asset.subcategory && (
+                            <Badge
+                              variant="outline"
+                              className="text-sm font-medium px-3 py-1 border-border/60"
+                            >
+                              {asset.subcategory}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Additional Info - Made more compact */}
+                      <div className="grid grid-cols-2 gap-4 p-3 bg-muted/20 rounded-lg border border-border/40">
+                        {asset.client && (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                              Client
+                            </p>
+                            <p className="text-sm text-foreground font-medium">
+                              {asset.client}
+                            </p>
+                          </div>
+                        )}
+                        {asset.created_at && (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                              Added
+                            </p>
+                            <p className="text-sm text-foreground font-medium">
+                              {new Date(asset.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        )}
+                        {asset.product_link && (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                              Product Link
+                            </p>
+                            <a
+                              href={asset.product_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline flex items-center gap-1.5 bg-primary/5 px-2 py-1 rounded-lg hover:bg-primary/10 transition-all duration-300"
+                            >
+                              View Product
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
+                        )}
+                        {asset.glb_link && (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                              3D Model
+                            </p>
+                            <a
+                              href={asset.glb_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline flex items-center gap-1.5 bg-primary/5 px-2 py-1 rounded-lg hover:bg-primary/10 transition-all duration-300"
+                            >
+                              View GLB
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Materials and Colors - Made more compact */}
+                      {(asset.materials?.length > 0 ||
+                        asset.colors?.length > 0) && (
+                        <div className="flex flex-wrap gap-4 p-3 bg-muted/20 rounded-lg border border-border/40">
+                          {asset.materials && asset.materials.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                                Materials
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {asset.materials.map((material, index) => (
+                                  <Badge
+                                    key={material}
+                                    variant="secondary"
+                                    className="text-xs font-normal px-2 py-1 bg-muted/50"
+                                    style={{
+                                      animationDelay: `${index * 100}ms`,
+                                    }}
+                                  >
+                                    {material.replace(/[[\]"]/g, "")}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {asset.colors && asset.colors.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                                Colors
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {asset.colors.map((color, index) => (
+                                  <Badge
+                                    key={color}
+                                    variant="outline"
+                                    className="text-xs font-normal px-2 py-1 border-border/40"
+                                    style={{
+                                      animationDelay: `${index * 100}ms`,
+                                    }}
+                                  >
+                                    {color.replace(/[[\]"]/g, "")}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Action Buttons - Made more compact */}
+                      <div className="mt-auto flex items-center gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="w-32 group/btn h-8 font-medium bg-primary/90 hover:bg-primary/95 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
+                          asChild
                         >
-                          <img
-                            src={asset.preview_image || "/placeholder.png"}
-                            alt={asset.product_name}
-                            className="w-full h-full object-contain transition-all duration-700 group-hover:scale-102"
-                            loading="lazy"
-                          />
-                        </Link>
+                          <Link
+                            href={`/asset-library/${asset.id}`}
+                            className="flex items-center justify-center gap-2"
+                            prefetch={true}
+                          >
+                            <span>View Details</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 rounded-lg"
+                          asChild
+                          disabled={!asset.glb_link}
+                        >
+                          <a
+                            href={asset.glb_link}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Download 3D Model"
+                            className="flex items-center justify-center relative cursor-pointer"
+                          >
+                            <Download className="h-3 w-3" />
+                          </a>
+                        </Button>
                       </div>
                     </div>
                   </div>
+                </Card>
+              ) : viewMode === "compactGrid" ? (
+                <Link
+                  href={`/asset-library/${asset.id}`}
+                  className="block w-full h-full cursor-pointer"
+                  prefetch={true}
+                >
+                  <Card
+                    key={asset.id}
+                    className="group relative overflow-hidden  via-background to-muted/20 border border-border/40   hover:scale-[1.01]  rounded-xl"
+                  >
+                    <div className="relative aspect-square overflow-hidden rounded-lg">
+                      <img
+                        src={asset.preview_image || "/placeholder.png"}
+                        alt={asset.product_name}
+                        className="w-full h-full object-contain transition-all duration-700 group-hover:scale-102"
+                        loading="lazy"
+                      />
+                    </div>
 
-                  {/* Content Section */}
-                  <div className="flex-1 flex flex-col gap-3">
-                    {/* Title and Category */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent opacity-0 group-hover:opacity-100  duration-300">
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="w-full h-8 text-xs font-medium  text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
+                          asChild
+                        >
+                          <Link
+                            href={`/asset-library/${asset.id}`}
+                            className="flex items-center justify-center gap-1"
+                            prefetch={true}
+                          >
+                            <span>View</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              ) : (
+                <Card
+                  key={asset.id}
+                  className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm min-h-[220px] min-w-[220px] rounded-xl"
+                >
+                  {/* Subtle gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                  <CardHeader
+                    className={`relative ${viewMode === "grid" ? "p-3" : "p-3 w-32 shrink-0"}`}
+                  >
+                    {/* Image container with loading state */}
+
+                    <div className="relative aspect-square overflow-hidden rounded-lg  dark:bg-black/50">
+                      <Link
+                        href={`/asset-library/${asset.id}`}
+                        className="block w-full h-full cursor-pointer"
+                        prefetch={true}
+                      >
+                        <img
+                          src={asset.preview_image || "/placeholder.png"}
+                          alt={asset.product_name}
+                          className="w-full h-full object-contain transition-all duration-700 group-hover:scale-101"
+                          loading="lazy"
+                        />
+                      </Link>
+                    </div>
+
+                    {/* Floating status indicator */}
+                  </CardHeader>
+
+                  <CardContent className="relative flex-1 flex flex-col p-3 space-y-3">
                     <div className="space-y-2">
-                      <CardTitle className="text-xl font-bold leading-tight group-hover:text-primary transition-all duration-300">
-                        {asset.product_name}
-                      </CardTitle>
+                      {/* Title with enhanced typography */}
+                      <div className="space-y-2">
+                        <CardTitle className="line-clamp-2 text-base font-medium leading-tight">
+                          {asset.product_name}
+                        </CardTitle>
+
+                        {/* Premium divider */}
+                        <div className="relative h-px bg-gradient-to-r from-transparent via-border to-transparent group-hover:via-primary/40 transition-all duration-500"></div>
+                      </div>
+
+                      {/* Enhanced category badges */}
                       <div className="flex flex-wrap gap-2">
                         <Badge
                           variant="secondary"
-                          className="text-sm font-medium px-3 py-1 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20"
+                          className="text-xs font-medium px-3 py-1 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20"
                         >
                           <span className="font-semibold">
                             {asset.category}
@@ -1073,7 +1570,7 @@ export default function AssetLibraryPage() {
                         {asset.subcategory && (
                           <Badge
                             variant="outline"
-                            className="text-sm font-medium px-3 py-1 border-border/60"
+                            className="text-xs font-medium px-3 py-1 border-border/60"
                           >
                             {asset.subcategory}
                           </Badge>
@@ -1081,118 +1578,12 @@ export default function AssetLibraryPage() {
                       </div>
                     </div>
 
-                    {/* Additional Info - Made more compact */}
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/20 rounded-lg border border-border/40">
-                      {asset.client && (
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
-                            Client
-                          </p>
-                          <p className="text-sm text-foreground font-medium">
-                            {asset.client}
-                          </p>
-                        </div>
-                      )}
-                      {asset.created_at && (
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
-                            Added
-                          </p>
-                          <p className="text-sm text-foreground font-medium">
-                            {new Date(asset.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      )}
-                      {asset.product_link && (
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
-                            Product Link
-                          </p>
-                          <a
-                            href={asset.product_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline flex items-center gap-1.5 bg-primary/5 px-2 py-1 rounded-lg hover:bg-primary/10 transition-all duration-300"
-                          >
-                            View Product
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </div>
-                      )}
-                      {asset.glb_link && (
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
-                            3D Model
-                          </p>
-                          <a
-                            href={asset.glb_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline flex items-center gap-1.5 bg-primary/5 px-2 py-1 rounded-lg hover:bg-primary/10 transition-all duration-300"
-                          >
-                            View GLB
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Materials and Colors - Made more compact */}
-                    {(asset.materials?.length > 0 ||
-                      asset.colors?.length > 0) && (
-                      <div className="flex flex-wrap gap-4 p-3 bg-muted/20 rounded-lg border border-border/40">
-                        {asset.materials && asset.materials.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                              Materials
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {asset.materials.map((material, index) => (
-                                <Badge
-                                  key={material}
-                                  variant="secondary"
-                                  className="text-xs font-normal px-2 py-1 bg-muted/50"
-                                  style={{ animationDelay: `${index * 100}ms` }}
-                                >
-                                  {material.replace(/[[\]"]/g, "")}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {asset.colors && asset.colors.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                              Colors
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {asset.colors.map((color, index) => (
-                                <Badge
-                                  key={color}
-                                  variant="outline"
-                                  className="text-xs font-normal px-2 py-1 border-border/40"
-                                  style={{ animationDelay: `${index * 100}ms` }}
-                                >
-                                  {color.replace(/[[\]"]/g, "")}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Action Buttons - Made more compact */}
-                    <div className="mt-auto flex items-center gap-2">
+                    {/* Enhanced action buttons */}
+                    <div className="mt-auto pt-4 flex items-center gap-2">
                       <Button
                         variant="default"
-                        size="sm"
-                        className="w-32 group/btn h-8 font-medium bg-primary/90 hover:bg-primary/95 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
+                        size="default"
+                        className="flex-1 group/btn h-9 font-medium bg-primary/90  hover:bg-primary/95 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
                         asChild
                       >
                         <Link
@@ -1201,14 +1592,14 @@ export default function AssetLibraryPage() {
                           prefetch={true}
                         >
                           <span>View Details</span>
-                          <ExternalLink className="h-3 w-3" />
+                          <ExternalLink className="h-4 w-4" />
                         </Link>
                       </Button>
 
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-8 w-8 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 rounded-lg"
+                        className="h-9 w-9 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 rounded-lg"
                         asChild
                         disabled={!asset.glb_link}
                       >
@@ -1220,154 +1611,13 @@ export default function AssetLibraryPage() {
                           title="Download 3D Model"
                           className="flex items-center justify-center relative cursor-pointer"
                         >
-                          <Download className="h-3 w-3" />
+                          <Download className="h-4 w-4" />
                         </a>
                       </Button>
                     </div>
-                  </div>
-                </div>
-              </Card>
-            ) : viewMode === "compactGrid" ? (
-              <Link
-                href={`/asset-library/${asset.id}`}
-                className="block w-full h-full cursor-pointer"
-                prefetch={true}
-              >
-                <Card
-                  key={asset.id}
-                  className="group relative overflow-hidden  via-background to-muted/20 border border-border/40   hover:scale-[1.01]  rounded-xl"
-                >
-                  <div className="relative aspect-square overflow-hidden rounded-lg">
-                    <img
-                      src={asset.preview_image || "/placeholder.png"}
-                      alt={asset.product_name}
-                      className="w-full h-full object-contain transition-all duration-700 group-hover:scale-102"
-                      loading="lazy"
-                    />
-                  </div>
-
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent opacity-0 group-hover:opacity-100  duration-300">
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="w-full h-8 text-xs font-medium  text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
-                        asChild
-                      >
-                        <Link
-                          href={`/asset-library/${asset.id}`}
-                          className="flex items-center justify-center gap-1"
-                          prefetch={true}
-                        >
-                          <span>View</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
+                  </CardContent>
                 </Card>
-              </Link>
-            ) : (
-              <Card
-                key={asset.id}
-                className="group relative overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 border border-border/40 hover:border-primary/30 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/10 backdrop-blur-sm min-h-[220px] min-w-[220px] rounded-xl"
-              >
-                {/* Subtle gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
-                <CardHeader
-                  className={`relative ${viewMode === "grid" ? "p-3" : "p-3 w-32 shrink-0"}`}
-                >
-                  {/* Image container with loading state */}
-
-                  <div className="relative aspect-square overflow-hidden rounded-lg  dark:bg-black/50">
-                    <Link
-                      href={`/asset-library/${asset.id}`}
-                      className="block w-full h-full cursor-pointer"
-                      prefetch={true}
-                    >
-                      <img
-                        src={asset.preview_image || "/placeholder.png"}
-                        alt={asset.product_name}
-                        className="w-full h-full object-contain transition-all duration-700 group-hover:scale-101"
-                        loading="lazy"
-                      />
-                    </Link>
-                  </div>
-
-                  {/* Floating status indicator */}
-                </CardHeader>
-
-                <CardContent className="relative flex-1 flex flex-col p-3 space-y-3">
-                  <div className="space-y-2">
-                    {/* Title with enhanced typography */}
-                    <div className="space-y-2">
-                      <CardTitle className="line-clamp-2 text-base font-medium leading-tight">
-                        {asset.product_name}
-                      </CardTitle>
-
-                      {/* Premium divider */}
-                      <div className="relative h-px bg-gradient-to-r from-transparent via-border to-transparent group-hover:via-primary/40 transition-all duration-500"></div>
-                    </div>
-
-                    {/* Enhanced category badges */}
-                    <div className="flex flex-wrap gap-2">
-                      <Badge
-                        variant="secondary"
-                        className="text-xs font-medium px-3 py-1 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20"
-                      >
-                        <span className="font-semibold">{asset.category}</span>
-                      </Badge>
-                      {asset.subcategory && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs font-medium px-3 py-1 border-border/60"
-                        >
-                          {asset.subcategory}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Enhanced action buttons */}
-                  <div className="mt-auto pt-4 flex items-center gap-2">
-                    <Button
-                      variant="default"
-                      size="default"
-                      className="flex-1 group/btn h-9 font-medium bg-primary/90  hover:bg-primary/95 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-lg"
-                      asChild
-                    >
-                      <Link
-                        href={`/asset-library/${asset.id}`}
-                        className="flex items-center justify-center gap-2"
-                        prefetch={true}
-                      >
-                        <span>View Details</span>
-                        <ExternalLink className="h-4 w-4" />
-                      </Link>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 shrink-0 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 rounded-lg"
-                      asChild
-                      disabled={!asset.glb_link}
-                    >
-                      <a
-                        href={asset.glb_link}
-                        download
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Download 3D Model"
-                        className="flex items-center justify-center relative cursor-pointer"
-                      >
-                        <Download className="h-4 w-4" />
-                      </a>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              )
             )
           )}
         </div>
