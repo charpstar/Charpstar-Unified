@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
@@ -12,7 +12,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("assets")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", (await params).id)
       .single();
 
     if (error) throw error;
@@ -43,7 +43,7 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
@@ -61,7 +61,7 @@ export async function PUT(
         colors: JSON.stringify(body.colors || []),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.id)
+      .eq("id", (await params).id)
       .select()
       .single();
 
