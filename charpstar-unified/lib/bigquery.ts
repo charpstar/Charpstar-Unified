@@ -14,12 +14,19 @@ try {
   credentials = {};
 }
 
-// Initialize BigQuery with credentials directly
+// Initialize BigQuery with explicit credentials
 export const bigquery = new BigQuery({
+  projectId: credentials.project_id,
   credentials: {
     client_email: credentials.client_email,
     private_key: credentials.private_key,
     project_id: credentials.project_id,
   },
-  projectId: credentials.project_id,
+  // Disable default credentials
+  keyFilename: undefined,
+  // Add scopes for BigQuery
+  scopes: [
+    "https://www.googleapis.com/auth/bigquery",
+    "https://www.googleapis.com/auth/cloud-platform",
+  ],
 });
