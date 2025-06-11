@@ -595,7 +595,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="w-full max-w-[98vw] h-[98vh] sm:max-w-5xl sm:h-[58vh] flex flex-col p-2 sm:p-6"
+        className="w-full max-w-[98vw] h-[98vh] sm:max-w-5xl sm:h-[68vh] flex flex-col p-2 sm:p-6"
         style={{ minWidth: 0 }}
         onPointerDownOutside={(e) => {
           e.preventDefault();
