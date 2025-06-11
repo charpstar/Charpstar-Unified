@@ -783,6 +783,7 @@ export function PreviewGeneratorDialog({
             </div>
 
             {modelViewerLoaded ? (
+              // @ts-expect-error -- model-viewer is a custom element
               <model-viewer
                 ref={modelViewerRef}
                 tone-mapping="aces"

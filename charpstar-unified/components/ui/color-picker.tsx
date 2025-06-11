@@ -119,6 +119,7 @@ export function ColorThemePicker() {
 
   // Update CSS variables when color/theme changes
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const key = isDark ? "app-color-theme-dark" : "app-color-theme-light";
     const selected = themeColors.find((t) => t.value === colorTheme);
     if (selected) {
@@ -132,6 +133,7 @@ export function ColorThemePicker() {
 
   // Update local state when theme changes (sync the right palette)
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const key = isDark ? "app-color-theme-dark" : "app-color-theme-light";
     setColorTheme(localStorage.getItem(key) || "blue");
   }, [isDark]);

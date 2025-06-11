@@ -32,6 +32,7 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
     interface IntrinsicElements {
+      // @ts-expect-error -- model-viewer is a custom element
       "model-viewer": React.DetailedHTMLProps<
         React.HTMLAttributes<HTMLElement> & {
           src?: string;
@@ -255,18 +256,6 @@ export default function AssetDetailPage() {
     }
   };
 
-  const removeTag = (index: number) => {
-    if (editedAsset) {
-      const currentTags = Array.isArray(editedAsset.tags)
-        ? editedAsset.tags
-        : [];
-      setEditedAsset({
-        ...editedAsset,
-        tags: currentTags.filter((_, i) => i !== index),
-      });
-    }
-  };
-
   if (loading) {
     return (
       <div className="p-6">
@@ -350,6 +339,7 @@ export default function AssetDetailPage() {
             <div className="flex flex-col gap-4 h-full">
               <div className="w-full h-full rounded-lg bg-muted overflow-hidden">
                 {asset.glb_link ? (
+                  // @ts-expect-error -- model-viewer is a custom element
                   <model-viewer
                     src={asset.glb_link}
                     alt={asset.product_name}
@@ -617,22 +607,25 @@ export default function AssetDetailPage() {
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {Array.isArray(editedAsset?.tags) &&
-                        editedAsset.tags.map((tag, index) => (
+                      {Array.isArray(editedAsset?.tags) ? (
+                        editedAsset.tags.map((tag: string) => (
                           <Badge
-                            key={index}
+                            key={tag}
                             variant="secondary"
-                            className="flex items-center gap-1 border border-border"
+                            className="text-sm font-normal border border-border bg-background/50"
                           >
                             {tag}
-                            <button
-                              onClick={() => removeTag(index)}
-                              className="ml-1 hover:text-destructive cursor-pointer"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
                           </Badge>
-                        ))}
+                        ))
+                      ) : editedAsset?.tags &&
+                        typeof editedAsset.tags === "string" ? (
+                        <Badge
+                          variant="secondary"
+                          className="text-sm font-normal border border-border bg-background/50"
+                        >
+                          {editedAsset.tags}
+                        </Badge>
+                      ) : null}
                     </div>
                   </div>
 
@@ -720,12 +713,9 @@ export default function AssetDetailPage() {
                                 onClick={(e) => {
                                   if (!zipUrl) {
                                     e.preventDefault();
-                                    toast({
-                                      title: "Error",
-                                      description:
-                                        "ZIP file not found in storage",
-                                      variant: "destructive",
-                                    });
+                                    toast.error(
+                                      "ZIP file not found in storage"
+                                    );
                                   }
                                 }}
                               >
@@ -831,24 +821,21 @@ export default function AssetDetailPage() {
                           <div className="flex flex-wrap gap-1.5">
                             {Array.isArray(asset.tags) ? (
                               asset.tags.map((tag: string) => (
-                                <div key={tag}>
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-sm font-normal border border-border bg-background/50"
-                                  >
-                                    {tag.replace(/[\[\]"]/g, "")}
-                                  </Badge>
-                                </div>
-                              ))
-                            ) : typeof asset.tags === "string" ? (
-                              <div>
                                 <Badge
+                                  key={tag}
                                   variant="secondary"
                                   className="text-sm font-normal border border-border bg-background/50"
                                 >
-                                  {asset.tags.replace(/[\[\]"]/g, "")}
+                                  {tag}
                                 </Badge>
-                              </div>
+                              ))
+                            ) : typeof asset.tags === "string" ? (
+                              <Badge
+                                variant="secondary"
+                                className="text-sm font-normal border border-border bg-background/50"
+                              >
+                                {asset.tags}
+                              </Badge>
                             ) : null}
                           </div>
                         </div>

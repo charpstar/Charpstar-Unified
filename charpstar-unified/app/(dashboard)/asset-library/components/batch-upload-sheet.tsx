@@ -38,22 +38,11 @@ interface AssetRow {
   colors: string;
   tags: string;
   article_id: string;
-  preview_image?: File | null;
+  preview_image?: string | File | null;
   id: string;
   created_at?: string;
   errors?: {
-    [K in
-      | "product_name"
-      | "product_link"
-      | "glb_link"
-      | "glb_file"
-      | "category"
-      | "subcategory"
-      | "client"
-      | "materials"
-      | "colors"
-      | "tags"
-      | "article_id"]?: string;
+    [K in EditableField]?: string;
   };
 }
 
@@ -106,7 +95,8 @@ type EditableField =
   | "materials"
   | "colors"
   | "tags"
-  | "article_id";
+  | "article_id"
+  | "preview_image";
 
 const editableFields: EditableField[] = [
   "product_name",
@@ -301,6 +291,10 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   const handleChange = (idx: number, field: EditableField, value: string) => {
     setRows((prev) => {
       const copy = [...prev];
+      if (field === "preview_image" || field === "glb_file") {
+        // Skip these fields as they are handled separately
+        return copy;
+      }
       copy[idx][field] = value;
 
       if (!copy[idx].errors) {
@@ -520,7 +514,9 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
             console.error("Error uploading 3D file:", error);
             toast({
               title: "Error",
-              description: `Failed to upload 3D file: ${error.message}`,
+              description: `Failed to upload 3D file: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
               variant: "destructive",
             });
             continue;
@@ -614,7 +610,8 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
       console.error("Upload error:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
       });
     }
@@ -826,6 +823,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     <div className="w-full space-y-6 p-6 bg-background min-h-screen">
       {/* Off-canvas model viewer for high-res preview generation */}
       {modelViewerLoaded && (
+        // @ts-expect-error -- model-viewer is a custom element
         <model-viewer
           key={modelViewerKey}
           ref={modelViewerRef}
@@ -1087,7 +1085,9 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                                   cellRefs.current[rowIdx] = [];
                                 cellRefs.current[rowIdx][colIdx] = el;
                               }}
-                              value={row[col.key as EditableField]}
+                              value={String(
+                                row[col.key as keyof AssetRow] || ""
+                              )}
                               onChange={(e) =>
                                 handleChange(
                                   rowIdx,
@@ -1104,8 +1104,9 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                                   row.errors[col.key as EditableField]
                                     ? "border-destructive ring-destructive/20"
                                     : isDuplicate &&
-                                        (col.key === "article_id" ||
-                                          col.key === "product_name")
+                                        ((col.key as string) === "article_id" ||
+                                          (col.key as string) ===
+                                            "product_name")
                                       ? "border-yellow-400 ring-yellow-100 dark:ring-yellow-900/30"
                                       : "border-border focus:border-primary ring-primary/20"
                                 }
@@ -1159,7 +1160,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                                 cellRefs.current[rowIdx] = [];
                               cellRefs.current[rowIdx][colIdx] = el;
                             }}
-                            value={row[col.key as EditableField]}
+                            value={String(row[col.key as keyof AssetRow] || "")}
                             onChange={(e) =>
                               handleChange(
                                 rowIdx,
@@ -1174,8 +1175,8 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                                 row.errors[col.key as EditableField]
                                   ? "border-destructive ring-destructive/20"
                                   : isDuplicate &&
-                                      (col.key === "article_id" ||
-                                        col.key === "product_name")
+                                      ((col.key as string) === "article_id" ||
+                                        (col.key as string) === "product_name")
                                     ? "border-yellow-400 ring-yellow-100 dark:ring-yellow-900/30"
                                     : "border-border focus:border-primary ring-primary/20"
                               }
@@ -1193,8 +1194,8 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                         )}
                         {/* Duplicate Warning */}
                         {isDuplicate &&
-                          (col.key === "article_id" ||
-                            col.key === "product_name") && (
+                          ((col.key as string) === "article_id" ||
+                            (col.key as string) === "product_name") && (
                             <div className="flex items-center mt-1 text-xs text-yellow-600 dark:text-yellow-400">
                               <AlertCircle className="w-3 h-3 mr-1" />
                               {col.key === "article_id"
@@ -1221,7 +1222,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                           <Image
                             className="w-4 h-4 mr-1"
                             width={16}
-                            alt="Upload"
                             height={16}
                           />
                           Upload
@@ -1248,7 +1248,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                           />
                           <span className="text-xs mt-1 text-primary">
                             {typeof row.preview_image === "string"
-                              ? row.preview_image.split("/").pop()
+                              ? row.preview_image.split("/").pop() || ""
                               : ""}
                           </span>
                         </div>
@@ -1276,4 +1276,33 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
       </div>
     </div>
   );
+}
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
+      // @ts-expect-error -- model-viewer is a custom element
+      "model-viewer": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement> & {
+          src?: string;
+          alt?: string;
+          "auto-rotate"?: boolean;
+          "camera-controls"?: boolean;
+          "shadow-intensity"?: string;
+          "camera-orbit"?: string;
+          "min-camera-orbit"?: string;
+          "max-camera-orbit"?: string;
+          "interaction-prompt"?: string;
+          "environment-image"?: string;
+          exposure?: string;
+          "tone-mapping"?: string;
+          "field-of-view"?: string;
+          "alpha-channel"?: string;
+          "background-color"?: string;
+        },
+        HTMLElement
+      >;
+    }
+  }
 }

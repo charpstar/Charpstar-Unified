@@ -18,6 +18,9 @@ interface Asset {
   preview_image: string;
   category: string;
   subcategory: string;
+  materials?: string[];
+  colors?: string[];
+  glb_link?: string;
 }
 
 export default function AssetCard({ asset }: { asset: Asset }) {

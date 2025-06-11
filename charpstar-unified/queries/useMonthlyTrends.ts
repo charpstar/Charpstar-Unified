@@ -2,16 +2,43 @@ import { useUser } from "@/contexts/useUser";
 import { getMonthlyTrends } from "@/utils/BigQuery/getMonthlyTrends";
 import { useQuery } from "@tanstack/react-query";
 
-export function useMonthlyTrends(effectiveProfile?: any) {
+interface AnalyticsProfile {
+  datasetid:
+    | "analytics_287358793"
+    | "analytics_317975816"
+    | "analytics_371791627"
+    | "analytics_320210445"
+    | "analytics_274422295"
+    | "ewheelsGA4"
+    | "analytics_351120479"
+    | "analytics_389903836"
+    | "analytics_311675532"
+    | "analytics_296845812";
+  projectid: string;
+  tablename: string;
+  monitoredsince: string;
+  name: string;
+}
+
+interface UserMetadata {
+  id: string;
+  client: string | null;
+  analytics_profile_id: string;
+  analytics_profiles: AnalyticsProfile[];
+}
+
+export function useMonthlyTrends(effectiveProfile?: AnalyticsProfile) {
   const user = useUser();
 
   // Prefer effectiveProfile if provided, else fallback to user
   const datasetId =
     effectiveProfile?.datasetid ||
-    user?.metadata?.analytics_profiles?.datasetid;
+    (user?.metadata as unknown as UserMetadata)?.analytics_profiles?.[0]
+      ?.datasetid;
   const projectId =
     effectiveProfile?.projectid ||
-    user?.metadata?.analytics_profiles?.projectid;
+    (user?.metadata as unknown as UserMetadata)?.analytics_profiles?.[0]
+      ?.projectid;
 
   return useQuery({
     queryKey: ["monthly-trends", datasetId, projectId],
