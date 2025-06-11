@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getBigQueryClient } from "@/utils/BigQuery/Client";
 import { queries } from "@/utils/BigQuery/clientQueries";
 import { getEventsBetween } from "@/utils/BigQuery/utils";
 import type { BigQueryResponse } from "@/utils/BigQuery/types";
+import { bigquery } from "@/lib/bigquery";
 
 export async function GET(request: Request) {
   try {
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const bigqueryClient = getBigQueryClient({ projectId });
+    const bigqueryClient = bigquery;
     const query = queries[datasetId as keyof typeof queries](
       getEventsBetween({ startTableName, endTableName })
     );
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     const { projectId, datasetId, startTableName, endTableName } =
       await request.json();
 
-    const bigqueryClient = getBigQueryClient({ projectId });
+    const bigqueryClient = bigquery;
     const query = queries[datasetId as keyof typeof queries](
       getEventsBetween({ startTableName, endTableName })
     );
