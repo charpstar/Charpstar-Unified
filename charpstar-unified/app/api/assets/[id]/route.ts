@@ -40,7 +40,6 @@ export async function GET(
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
-
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -70,21 +69,7 @@ export async function PUT(
       return new NextResponse("Asset not found", { status: 404 });
     }
 
-    // Parse the response data to ensure arrays are properly formatted
-    const parsedData = {
-      ...data,
-      materials: Array.isArray(data.materials)
-        ? data.materials
-        : JSON.parse(data.materials || "[]"),
-      colors: Array.isArray(data.colors)
-        ? data.colors
-        : JSON.parse(data.colors || "[]"),
-      tags: Array.isArray(data.tags)
-        ? data.tags
-        : JSON.parse(data.tags || "[]"),
-    };
-
-    return NextResponse.json(parsedData);
+    // ...rest of your code
   } catch (error) {
     console.error("Error updating asset:", error);
     return new NextResponse("Internal Server Error", { status: 500 });

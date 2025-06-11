@@ -8,6 +8,9 @@ const nextConfig = {
     };
     return config;
   },
+  images: {
+    domains: ["drive.charpstar.net"],
+  },
 };
 
 module.exports = nextConfig;

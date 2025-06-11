@@ -806,7 +806,7 @@ export default function AnalyticsDashboard() {
             avg_session_duration_seconds: true,
           }}
           showSearch={true}
-          effectiveProfile={effectiveProfile}
+          effectiveProfile={effectiveProfile as ImpersonatedProfile}
         />
       </div>
     </>

@@ -29,10 +29,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 declare global {
-  interface JSX {
-    // This is necessary for TypeScript to recognize custom elements
-    // See: https://www.typescriptlang.org/docs/handbook/jsx.html#intrinsic-elements
-    IntrinsicElements: {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
       "model-viewer": React.DetailedHTMLProps<
         React.HTMLAttributes<HTMLElement> & {
           src?: string;
@@ -44,15 +43,12 @@ declare global {
           "min-camera-orbit"?: string;
           "max-camera-orbit"?: string;
           "interaction-prompt"?: string;
-          ar?: boolean;
-          "ar-modes"?: string;
-          "ar-scale"?: string;
           "environment-image"?: string;
           exposure?: string;
         },
         HTMLElement
       >;
-    };
+    }
   }
 }
 
@@ -151,7 +147,9 @@ export default function AssetDetailPage() {
         // Find the ZIP file for this article_id
         const zipFile = files.find(
           (file) =>
-            file.name.startsWith(asset.article_id) && file.name.endsWith(".zip")
+            asset.article_id &&
+            file.name.startsWith(asset.article_id) &&
+            file.name.endsWith(".zip")
         );
 
         if (zipFile) {

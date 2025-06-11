@@ -26,18 +26,29 @@ import { type ProductMetrics } from "@/utils/BigQuery/types";
 import { createColumns } from "@/components/CVRTable/columns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+interface ImpersonatedProfile {
+  id: string;
+  email: string;
+  role: string;
+  analytics_profile_id?: string;
+  datasetid?: string;
+  projectid?: string;
+  monitoredsince?: string;
+}
+
 export interface CVRTableProps {
   isLoading: boolean;
   data: ProductMetrics[];
   showColumns: {
-    ar_sessions?: boolean;
-    _3d_sessions?: boolean;
-    total_purchases?: boolean;
-    purchases_with_service?: boolean;
-    avg_session_duration_seconds?: boolean;
+    ar_sessions: boolean;
+    _3d_sessions: boolean;
+    total_purchases: boolean;
+    purchases_with_service: boolean;
+    avg_session_duration_seconds: boolean;
   };
   showPaginationControls?: boolean;
   showSearch?: boolean;
+  effectiveProfile: ImpersonatedProfile;
 }
 
 export default function CVRTable({
