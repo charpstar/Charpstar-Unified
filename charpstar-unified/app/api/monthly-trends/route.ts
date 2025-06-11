@@ -1,64 +1,41 @@
 import { NextResponse } from "next/server";
-import { BigQuery } from "@google-cloud/bigquery";
-import path from "path";
+import { bigquery } from "@/lib/bigquery";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 
-const bigquery = new BigQuery({
-  keyFilename: path.join(
-    process.cwd(),
-    "fast-lattice-421210-e8ac9db9a38e.json"
-  ),
-});
-
 export async function GET(request: Request) {
   try {
-    // Get Supabase client and check authentication
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-
+    // 1. Get the user's session
+    const supabase = createRouteHandlerClient({ cookies });
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+    // 2. Check if user is authenticated
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get user's analytics profile
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("analytics_profile_id")
-      .eq("user_id", session.user.id)
+    // 3. Get user metadata
+    const { data: user } = await supabase
+      .from("users")
+      .select("metadata")
+      .eq("id", session.user.id)
       .single();
 
-    if (profileError || !profile?.analytics_profile_id) {
+    // 4. Check if user has analytics profile
+    if (!user?.metadata?.analytics_profiles) {
       return NextResponse.json(
-        {
-          error: "Analytics profile not configured",
-          details:
-            "Please contact your administrator to set up your analytics profile.",
-        },
-        { status: 403 }
-      );
-    }
-
-    // Get analytics profile details
-    const { data: analytics, error: analyticsError } = await supabase
-      .from("analytics_profiles")
-      .select("projectid, datasetid")
-      .eq("id", profile.analytics_profile_id)
-      .single();
-
-    if (analyticsError || !analytics) {
-      return NextResponse.json(
-        { error: "Analytics profile not found" },
+        { error: "No analytics profile found" },
         { status: 404 }
       );
     }
 
-    // Get query parameters
+    const analytics = user.metadata.analytics_profiles;
+
+    // 5. Get query parameters
     const { searchParams } = new URL(request.url);
-    const months = parseInt(searchParams.get("months") || "6");
+    const months = parseInt(searchParams.get("months") || "12");
 
     if (isNaN(months) || months < 1 || months > 12) {
       return NextResponse.json(
@@ -67,58 +44,50 @@ export async function GET(request: Request) {
       );
     }
 
+    // 6. Build and execute query
     const query = `
-      WITH monthly_data AS (
-        SELECT
-          FORMAT_TIMESTAMP('%Y-%m', TIMESTAMP_MICROS(event_timestamp)) as month,
-          COUNT(CASE WHEN event_name = 'charpstAR_AR_Button_Click' THEN 1 END) as ar_clicks,
-          COUNT(CASE WHEN event_name = 'charpstAR_3D_Button_Click' THEN 1 END) as threed_clicks,
-          COUNT(CASE WHEN event_name = 'page_view' THEN 1 END) as page_views,
-          COUNT(DISTINCT user_pseudo_id) as unique_users
-        FROM \`${analytics.projectid}.${analytics.datasetid}.events_*\`
-        WHERE
-          _TABLE_SUFFIX >= FORMAT_DATE(
-            '%Y%m%d',
-            DATE_SUB(CURRENT_DATE(), INTERVAL ${months} MONTH)
-          )
-        GROUP BY month
-        ORDER BY month DESC
-        LIMIT ${months}
-      )
-      SELECT * FROM monthly_data
-      ORDER BY month ASC
+    WITH monthly_data AS (
+      SELECT
+        FORMAT_TIMESTAMP('%Y-%m', TIMESTAMP_MICROS(event_timestamp)) as month,
+        COUNT(CASE WHEN event_name = 'charpstAR_AR_Button_Click' THEN 1 END) as ar_clicks,
+        COUNT(CASE WHEN event_name = 'charpstAR_3D_Button_Click' THEN 1 END) as threed_clicks
+      FROM \`${analytics.projectid}.${analytics.datasetid}.events_*\`
+      WHERE
+        _TABLE_SUFFIX >= FORMAT_DATE(
+          '%Y%m%d',
+          DATE_SUB(CURRENT_DATE(), INTERVAL ${months} MONTH)
+        )
+        AND event_name IN ('charpstAR_AR_Button_Click', 'charpstAR_3D_Button_Click')
+      GROUP BY month
+      ORDER BY month DESC
+      LIMIT ${months}
+    )
+    SELECT * FROM monthly_data
+    ORDER BY month ASC
     `;
 
-    const [rows] = await bigquery.query({
-      query,
-      jobTimeoutMs: 60000,
-      maximumBytesBilled: "1000000000",
-    } as any);
+    const [rows] = await bigquery.query({ query });
 
+    // 7. Return the data
     return NextResponse.json({
-      data: rows,
-      meta: {
-        months,
+      data: {
+        monthly_data: rows,
+        total_ar_clicks: rows.reduce(
+          (sum: number, row: any) => sum + row.ar_clicks,
+          0
+        ),
+        total_3d_clicks: rows.reduce(
+          (sum: number, row: any) => sum + row.threed_clicks,
+          0
+        ),
+        total_page_views: 0, // These will be added when we extend the query
+        total_unique_users: 0,
       },
     });
   } catch (error: any) {
-    console.error("Monthly Trends API Error:", error);
-
-    if (error.message?.includes("Permission denied")) {
-      return NextResponse.json(
-        {
-          error: "BigQuery authentication failed",
-          details: "Please check your service account configuration.",
-        },
-        { status: 403 }
-      );
-    }
-
+    console.error("BigQuery API Error:", error);
     return NextResponse.json(
-      {
-        error: "Failed to fetch monthly trends",
-        details: error.message,
-      },
+      { error: error.message || "Failed to fetch data from BigQuery" },
       { status: 500 }
     );
   }
