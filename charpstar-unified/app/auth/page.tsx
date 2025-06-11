@@ -8,6 +8,7 @@ import { LoginForm } from "@/components/ui/login-form";
 import Image from "next/image";
 import { getUserWithMetadata } from "@/supabase/getUser";
 import { useTheme } from "next-themes";
+import { User } from "@supabase/supabase-js";
 export default function AuthPage() {
   const router = useRouter();
   const [formType, setFormType] = useState<"login" | "signup" | "reset">(
@@ -16,8 +17,8 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
-  const [user, setUser] = useState<any>(null);
-
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [user, setUser] = useState<User | null>(null);
   // State for all forms
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [signupData, setSignupData] = useState({

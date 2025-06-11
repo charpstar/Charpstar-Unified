@@ -151,8 +151,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     useState<(typeof roleOptions)[number]>("all");
 
   // Feature permissions
-  const { getFeaturePermissions, permissions: featurePermissionsList } =
-    useFeaturePermissions(true);
+  const { getFeaturePermissions } = useFeaturePermissions(true);
   const permissionsResult = getFeaturePermissions(userRole, [
     "view_user_details",
     "edit_user",
@@ -257,7 +256,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       if (!res.ok) {
         throw new Error("Failed to update permission");
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to update permission",
@@ -303,7 +302,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     if (open) {
       fetchPermissions();
     }
-  }, [open]);
+  }, [open, toast]);
+  // might wanna remove toast from the dependency array
 
   // Fetch user & analytics profile
   useEffect(() => {
@@ -391,7 +391,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     if (!userPermissions.add_user) {
       toast({
         title: "Error",
-        description: "You don't have permission to add users",
+        description: "You don&apos;t have permission to add users",
         variant: "destructive",
       });
       return;
@@ -454,8 +454,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         title: "Success",
         description: "User updated successfully",
       });
-    } catch (error) {
-      console.error("Error updating user:", error);
+    } catch {
+      console.error("Error updating user");
       toast({
         title: "Error",
         description: "Failed to update user",
@@ -470,7 +470,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     if (!userPermissions.delete_user) {
       toast({
         title: "Error",
-        description: "You don't have permission to delete users",
+        description: "You don&apos;t have permission to delete users",
         variant: "destructive",
       });
       return;
@@ -521,9 +521,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   // Check if user has any action permissions
   const hasActionPermissions =
     userPermissions.edit_user || userPermissions.delete_user;
-
-  // Check if user can view user details
-  const canViewUserDetails = userPermissions.view_user_details;
 
   const getInitials = (name: string) => {
     return name
@@ -595,7 +592,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="w-full max-w-[98vw] h-[98vh] sm:max-w-5xl sm:h-[68vh] flex flex-col p-2 sm:p-6"
+        className="w-full max-w-[98vw] h-[98vh] sm:max-w-5xl sm:h-[58vh] flex flex-col p-2 sm:p-6"
         style={{ minWidth: 0 }}
         onPointerDownOutside={(e) => {
           e.preventDefault();
@@ -718,7 +715,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     <div className="space-y-4 sm:space-y-6 h-full">
                       {!userPermissions.view_user_details ? (
                         <div className="text-center py-8 text-muted-foreground">
-                          You don't have permission to view user details.
+                          You don&apos;t have permission to view user details.
                         </div>
                       ) : (
                         <>
@@ -968,8 +965,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </div>
                       ) : !hasAccess && userRole && !permissionLoading ? (
                         <div className="text-center py-8 text-muted-foreground">
-                          You don't have permission to access the permissions
-                          page.
+                          You don&apos;t have permission to access the
+                          permissions page.
                         </div>
                       ) : loading || permissionLoading || !userRole ? (
                         <div className="text-center py-8">

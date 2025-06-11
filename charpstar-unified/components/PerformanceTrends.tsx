@@ -9,14 +9,7 @@ import {
 } from "@/components/ui/card";
 import { useMonthlyTrends } from "@/queries/useMonthlyTrends";
 import { TrendingUp } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { format } from "date-fns";
 import {
   ChartContainer,

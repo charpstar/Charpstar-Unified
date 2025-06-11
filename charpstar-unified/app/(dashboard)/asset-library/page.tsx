@@ -19,9 +19,7 @@ import {
   Filter,
   X,
   ChevronRight,
-  Home,
   ChevronLeft,
-  Columns,
   Rows,
   LayoutGrid,
 } from "lucide-react";
@@ -43,6 +41,7 @@ import { useUser } from "@/contexts/useUser";
 import { AssetCardSkeleton } from "@/components/ui/asset-card-skeleton";
 import { PreviewGeneratorDialog } from "./components/preview-generator-dialog";
 import { createClient } from "@/utils/supabase/client";
+import Image from "next/image";
 
 type SortOption =
   | "name-asc"
@@ -121,7 +120,7 @@ export default function AssetLibraryPage() {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const user = useUser();
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [, setUserRole] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -133,7 +132,7 @@ export default function AssetLibraryPage() {
     const fetchUserRole = async () => {
       if (!user) return;
       const supabase = createClient();
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
@@ -271,8 +270,8 @@ export default function AssetLibraryPage() {
     }));
 
     setSearchValue(searchParams.get("search") || "");
-  }, [searchParams]);
-
+  }, [searchParams, setFilters]);
+  //might wanna remove setFilters from the dependency array
   // Breadcrumb items
   const breadcrumbItems: {
     label: string;
@@ -361,7 +360,7 @@ export default function AssetLibraryPage() {
 
   const scrollContainer = (
     direction: "left" | "right",
-    containerRef: React.RefObject<HTMLDivElement>
+    containerRef: React.RefObject<HTMLDivElement | null>
   ) => {
     if (containerRef.current) {
       const scrollAmount = 200;
@@ -1228,7 +1227,7 @@ export default function AssetLibraryPage() {
                   <>
                     No assets found matching{" "}
                     <span className="font-medium text-foreground">
-                      "{searchValue}"
+                      &quot;{searchValue}&quot;
                     </span>
                     {filters.category ||
                     filters.subcategory ||
@@ -1286,11 +1285,13 @@ export default function AssetLibraryPage() {
                             className="block w-full h-full cursor-pointer"
                             prefetch={true}
                           >
-                            <img
+                            <Image
                               src={asset.preview_image || "/placeholder.png"}
                               alt={asset.product_name}
                               className="w-full h-full object-contain transition-all duration-700 group-hover:scale-102"
                               loading="lazy"
+                              width={384}
+                              height={384}
                             />
                           </Link>
                         </div>
@@ -1485,11 +1486,13 @@ export default function AssetLibraryPage() {
                     className="group relative overflow-hidden  via-background to-muted/20 border border-border/40   hover:scale-[1.01]  rounded-xl"
                   >
                     <div className="relative aspect-square overflow-hidden rounded-lg">
-                      <img
+                      <Image
                         src={asset.preview_image || "/placeholder.png"}
                         alt={asset.product_name}
                         className="w-full h-full object-contain transition-all duration-700 group-hover:scale-102"
                         loading="lazy"
+                        width={384}
+                        height={384}
                       />
                     </div>
 
@@ -1533,11 +1536,13 @@ export default function AssetLibraryPage() {
                         className="block w-full h-full cursor-pointer"
                         prefetch={true}
                       >
-                        <img
+                        <Image
                           src={asset.preview_image || "/placeholder.png"}
                           alt={asset.product_name}
                           className="w-full h-full object-contain transition-all duration-700 group-hover:scale-101"
                           loading="lazy"
+                          width={384}
+                          height={384}
                         />
                       </Link>
                     </div>

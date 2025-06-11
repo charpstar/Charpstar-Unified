@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { Montserrat, Geist_Mono } from "next/font/google";
+import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
-import { ThemeProvider } from "@/components/ThemeProvider";
 import { SWRConfig } from "swr";
 import { localStorageProvider } from "@/lib/swrLocalStorageProvider";
 import { SidebarProvider } from "@/components/ui/sidebar";

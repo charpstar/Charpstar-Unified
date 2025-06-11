@@ -134,7 +134,6 @@ export function ColorThemePicker() {
   useEffect(() => {
     const key = isDark ? "app-color-theme-dark" : "app-color-theme-light";
     setColorTheme(localStorage.getItem(key) || "blue");
-    // eslint-disable-next-line
   }, [isDark]);
 
   return (

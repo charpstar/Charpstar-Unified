@@ -12,13 +12,11 @@ import {
   Settings,
   LogOut,
   ShieldCheck,
-  Menu,
   BarChart,
 } from "lucide-react";
 import Image from "next/image";
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
   const [role, setRole] = useState<string | null>(null);
@@ -151,7 +149,6 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
 
         {/* User Profile & Logout */}
-
         <div className="space-y-1">
           {user && (
             <div className="px-4 py-2">

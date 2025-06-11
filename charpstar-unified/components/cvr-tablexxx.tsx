@@ -3,10 +3,6 @@
 import React from "react";
 
 import {
-  type ColumnDef,
-  createColumnHelper,
-  filterFns,
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
@@ -14,7 +10,6 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 
-import { cn } from "@/lib/utils";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { columns, CVRRow } from "@/components/columns";
 
@@ -34,16 +29,8 @@ interface CVRTableProps {
   showSearch?: boolean;
 }
 
-type Row = CVRTableProps["data"][number];
-
-export default function CVRTable({
-  showColumns,
-  showPaginationControls = true,
-  isLoading,
-  data,
-  showSearch = false,
-}: CVRTableProps) {
-  const table = useReactTable({
+export default function CVRTable({ isLoading, data }: CVRTableProps) {
+  useReactTable({
     data,
     columns,
 

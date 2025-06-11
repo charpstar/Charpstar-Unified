@@ -1,5 +1,7 @@
 // "use client";
-
+export default function PermissionsPage() {
+  return null; // Or some placeholder
+}
 // import { useEffect, useState } from "react";
 // import { useRouter } from "next/navigation";
 // import { supabase } from "@/lib/supabaseClient";

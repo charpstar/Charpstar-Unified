@@ -179,7 +179,7 @@ const checkDuplicates = async (
 
 export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   const [rows, setRows] = useState<AssetRow[]>([emptyRow()]);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [duplicates, setDuplicates] = useState<{
     [key: string]: "article_id" | "product_name" | "both";
@@ -496,14 +496,13 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
             const fileName = `${row.article_id}_${Date.now()}.${fileExtension}`;
             const filePath = `models/${fileName}`;
             console.log("Uploading 3D file to Supabase Storage:", filePath);
-            const { data: uploadData, error: uploadError } =
-              await supabase.storage
-                .from("assets")
-                .upload(filePath, fileBuffer, {
-                  contentType,
-                  cacheControl: "3600",
-                  upsert: false,
-                });
+            const { error: uploadError } = await supabase.storage
+              .from("assets")
+              .upload(filePath, fileBuffer, {
+                contentType,
+                cacheControl: "3600",
+                upsert: false,
+              });
             if (uploadError) {
               console.error("Upload error:", uploadError);
               throw uploadError;
@@ -684,8 +683,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
 
   const waitForModelLoad = async (
     modelViewer: any,
-    glbLink: string,
-    retryCount = 0
+    glbLink: string
   ): Promise<void> => {
     let cleanup: (() => void) | undefined;
 
@@ -709,7 +707,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           setTimeout(resolve, 2000); // Increased delay to ensure model is fully loaded
         };
 
-        const handleError = (error: any) => {
+        const handleError = () => {
           clearTimeout(loadTimeout);
           reject(
             new Error(
@@ -820,6 +818,8 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         setIsProcessingQueue(false);
       });
     }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewQueue, isProcessingQueue]);
 
   return (
@@ -890,15 +890,21 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
             </div>
           )}
           {Object.keys(duplicates).length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRemoveDuplicateRows}
-              className="text-yellow-600 dark:text-yellow-400 border-yellow-400 hover:bg-yellow-50/60 dark:hover:bg-yellow-950/30"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Remove Duplicates
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center text-yellow-600 dark:text-yellow-400">
+                <AlertCircle className="w-4 h-4 mr-1" />
+                <span>Duplicates found: {Object.keys(duplicates).length}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRemoveDuplicateRows}
+                className="text-yellow-600 dark:text-yellow-400 border-yellow-400 hover:bg-yellow-50/60 dark:hover:bg-yellow-950/30"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Remove Duplicates
+              </Button>
+            </div>
           )}
         </div>
 
@@ -1212,7 +1218,12 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                     <div className="flex items-center gap-2">
                       <label className="relative cursor-pointer flex items-center group p-2">
                         <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-muted rounded hover:bg-primary/10 transition-colors border border-border">
-                          <Image className="w-4 h-4 mr-1" />
+                          <Image
+                            className="w-4 h-4 mr-1"
+                            width={16}
+                            alt="Upload"
+                            height={16}
+                          />
                           Upload
                         </span>
                         <Input
@@ -1229,6 +1240,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                       </label>
                       {row.preview_image && (
                         <div className="flex flex-col items-start">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={row.preview_image}
                             alt="Preview"

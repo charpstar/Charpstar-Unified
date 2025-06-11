@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -38,7 +38,6 @@ export interface CVRTableProps {
   };
   showPaginationControls?: boolean;
   showSearch?: boolean;
-  effectiveProfile: any;
 }
 
 export default function CVRTable({
@@ -47,7 +46,6 @@ export default function CVRTable({
   isLoading,
   data,
   showSearch = false,
-  effectiveProfile,
 }: CVRTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");

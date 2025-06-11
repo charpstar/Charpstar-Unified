@@ -8,7 +8,6 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
   PreviewGeneratorDialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -136,7 +135,7 @@ export function PreviewGeneratorDialog({
             },
           ]);
         }
-      } catch (err) {
+      } catch {
         console.log(
           `Error checking preview for: ${asset.product_name} (${asset.preview_image})`
         );
@@ -160,72 +159,9 @@ export function PreviewGeneratorDialog({
     setCurrentCheckingAsset("");
   };
 
-  const retryFailedPreviews = async () => {
-    if (failedUrls.length === 0) return;
-
-    const assetsToRetry = assets.filter((asset) =>
-      failedUrls.some((failed) => failed.id === asset.id)
-    );
-
-    if (assetsToRetry.length === 0) return;
-
-    setProcessing(true);
-    setProgress(0);
-    setError(null);
-    setFailedAssets([]);
-
-    try {
-      for (const asset of assetsToRetry) {
-        setCurrentAsset(asset.product_name);
-        const previewUrl = await generatePreview(asset);
-        const response = await fetch(previewUrl);
-        const blob = await response.blob();
-        const file = new File([blob], `${asset.id}_preview.png`, {
-          type: "image/png",
-        });
-
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("fileName", `${asset.id}_preview.png`);
-
-        const uploadResponse = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error("Upload failed");
-        }
-
-        const { url } = await uploadResponse.json();
-        const supabase = createClient();
-        await supabase
-          .from("assets")
-          .update({ preview_image: url })
-          .eq("id", asset.id);
-
-        URL.revokeObjectURL(previewUrl);
-        setProgress(100);
-      }
-      await refetch();
-      setTimeout(() => {
-        setProcessing(false);
-        setCurrentAsset("");
-        checkPreviewUrls(); // Recheck URLs after retry
-      }, 1500);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to retry previews"
-      );
-      setProcessing(false);
-      setCurrentAsset("");
-    }
-  };
-
   const waitForModelLoad = async (
     modelViewer: any,
-    asset: Asset,
-    retryCount = 0
+    asset: Asset
   ): Promise<void> => {
     let cleanup: (() => void) | undefined;
 
@@ -288,9 +224,6 @@ export function PreviewGeneratorDialog({
     const supabase = createClient();
 
     try {
-      console.log(
-        `Checking GLB file (attempt ${retryCount + 1}/${maxRetries + 1}): ${glbLink}`
-      );
       const response = await fetch(glbLink);
       console.log(`GLB file response status: ${response.status}`);
 

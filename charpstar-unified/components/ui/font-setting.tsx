@@ -1,19 +1,12 @@
 import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Slider } from "@/components/ui/slider";
 
 const FONT_OPTIONS = [
   { label: "Sans", value: "sans", className: "font-sans" },
   { label: "Serif", value: "serif", className: "font-serif" },
   { label: "Mono", value: "mono", className: "font-mono" },
 ];
-
-const FONT_SIZES = {
-  min: 14,
-  max: 22,
-  step: 1,
-};
 
 export function FontSettings() {
   // Get initial from localStorage or default
@@ -22,11 +15,6 @@ export function FontSettings() {
       ? localStorage.getItem("font-type") || "sans"
       : "sans"
   );
-  const [fontSize, setFontSize] = useState(() =>
-    typeof window !== "undefined"
-      ? Number(localStorage.getItem("font-size")) || 16
-      : 16
-  );
 
   // Set CSS variables on body
   useEffect(() => {
@@ -34,12 +22,7 @@ export function FontSettings() {
       "--user-font-family",
       getFontFamily(fontType)
     );
-    document.body.style.setProperty("--user-font-size", `${fontSize}px`);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("font-type", fontType);
-      localStorage.setItem("font-size", String(fontSize));
-    }
-  }, [fontType, fontSize]);
+  }, [fontType]);
 
   function getFontFamily(type: string) {
     if (type === "sans") return "Inter, system-ui, sans-serif";

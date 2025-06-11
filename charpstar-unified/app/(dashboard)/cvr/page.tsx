@@ -1,5 +1,8 @@
 // "use client";
 
+export default function CVRPage() {
+  return null; // Or some placeholder
+}
 // import React from "react";
 // import { useUser } from "@/contexts/useUser";
 // import { compToBq } from "@/utils/uiutils";

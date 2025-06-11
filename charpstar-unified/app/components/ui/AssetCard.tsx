@@ -11,7 +11,6 @@ import {
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
-import { useAssets } from "../../../hooks/use-assets";
 
 interface Asset {
   id: string;

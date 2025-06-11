@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { toast } from "@/components/ui/use-toast";
 
 export interface FeaturePermission {
@@ -20,23 +20,30 @@ export function useFeaturePermissions(enabled: boolean) {
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Group permissions by feature and role for easier access
-  const groupedPermissions: GroupedPermissions = permissions.reduce(
-    (acc, perm) => {
-      if (!acc[perm.resource]) {
-        acc[perm.resource] = {};
-      }
-      acc[perm.resource][perm.role] = perm;
-      return acc;
-    },
-    {} as GroupedPermissions
+  // Memoize grouped permissions
+  const groupedPermissions = useMemo(
+    () =>
+      permissions.reduce((acc, perm) => {
+        if (!acc[perm.resource]) {
+          acc[perm.resource] = {};
+        }
+        acc[perm.resource][perm.role] = perm;
+        return acc;
+      }, {} as GroupedPermissions),
+    [permissions]
   );
 
-  // Get unique features and roles
-  const features = [...new Set(permissions.map((p) => p.resource))].sort();
-  const roles = [...new Set(permissions.map((p) => p.role))].sort();
+  // Memoize unique features and roles for performance
+  const features = useMemo(
+    () => [...new Set(permissions.map((p) => p.resource))].sort(),
+    [permissions]
+  );
+  const roles = useMemo(
+    () => [...new Set(permissions.map((p) => p.role))].sort(),
+    [permissions]
+  );
 
-  // Helper function to check if a role has access to a specific feature
+  // Helper to check if a role has access to a specific feature
   const hasFeatureAccess = useCallback(
     (role: string | undefined, featureName: string): boolean => {
       if (!role) return false;
@@ -45,7 +52,7 @@ export function useFeaturePermissions(enabled: boolean) {
     [groupedPermissions]
   );
 
-  // Helper function to check multiple feature permissions at once
+  // Helper to check multiple feature permissions at once
   const getFeaturePermissions = useCallback(
     (
       role: string | undefined,
@@ -62,6 +69,7 @@ export function useFeaturePermissions(enabled: boolean) {
     [hasFeatureAccess]
   );
 
+  // Fetch feature permissions
   const fetchPermissions = useCallback(async () => {
     if (!enabled) return;
     setLoading(true);
@@ -74,16 +82,19 @@ export function useFeaturePermissions(enabled: boolean) {
       const data = await response.json();
       // Filter only feature permissions
       const featurePerms = data.filter(
-        (p: any) => p.permission_type === "feature"
+        (p: FeaturePermission) => p.permission_type === "feature"
       );
-
       setPermissions(featurePerms);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching feature permissions:", err);
-      setError(err.message || "Failed to load feature permissions");
+      let msg = "Failed to load feature permissions";
+      if (err instanceof Error) {
+        msg = err.message;
+      }
+      setError(msg);
       toast({
         title: "Error",
-        description: err.message || "Failed to load feature permissions",
+        description: msg,
         variant: "destructive",
       });
     } finally {
@@ -91,14 +102,14 @@ export function useFeaturePermissions(enabled: boolean) {
     }
   }, [enabled]);
 
-  // Fetch permissions on mount
+  // Fetch on mount or when enabled
   useEffect(() => {
     fetchPermissions();
   }, [fetchPermissions]);
 
+  // Update a single permission
   const updatePermission = useCallback(
     async (feature: string, role: string, updates: { can_access: boolean }) => {
-      // Find the specific permission
       const permission = groupedPermissions[feature]?.[role];
       if (!permission) {
         toast({
@@ -109,7 +120,7 @@ export function useFeaturePermissions(enabled: boolean) {
         return;
       }
 
-      // Optimistically update the UI
+      // Optimistic update
       setPermissions((prev) =>
         prev.map((p) =>
           p.resource === feature && p.role === role
@@ -121,9 +132,7 @@ export function useFeaturePermissions(enabled: boolean) {
       try {
         const response = await fetch("/api/permissions/update", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             role,
             resource: feature,
@@ -140,7 +149,7 @@ export function useFeaturePermissions(enabled: boolean) {
           title: "Success",
           description: "Feature permission updated successfully",
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Revert the optimistic update on error
         setPermissions((prev) =>
           prev.map((p) =>
@@ -149,18 +158,22 @@ export function useFeaturePermissions(enabled: boolean) {
               : p
           )
         );
-
         console.error("Error updating feature permission:", err);
+        let msg = "Failed to update feature permission";
+        if (err instanceof Error) {
+          msg = err.message;
+        }
         toast({
           title: "Error",
-          description: err.message || "Failed to update feature permission",
+          description: msg,
           variant: "destructive",
         });
       }
     },
-    [permissions, groupedPermissions]
+    [groupedPermissions]
   );
 
+  // Create a new feature permission
   const createPermission = useCallback(
     async (newPermission: {
       feature_name: string;
@@ -214,7 +227,7 @@ export function useFeaturePermissions(enabled: boolean) {
           title: "Success",
           description: "Feature permission created successfully",
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Remove the optimistic permission on error
         setPermissions((prev) =>
           prev.filter(
@@ -225,11 +238,14 @@ export function useFeaturePermissions(enabled: boolean) {
               )
           )
         );
-
         console.error("Error creating feature permission:", err);
+        let msg = "Failed to create feature permission";
+        if (err instanceof Error) {
+          msg = err.message;
+        }
         toast({
           title: "Error",
-          description: err.message || "Failed to create feature permission",
+          description: msg,
           variant: "destructive",
         });
         throw err;

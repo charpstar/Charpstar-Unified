@@ -12,7 +12,6 @@ import {
   Pencil,
   Plus,
   X,
-  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -30,8 +29,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 declare global {
-  namespace JSX {
-    interface IntrinsicElements {
+  interface JSX {
+    // This is necessary for TypeScript to recognize custom elements
+    // See: https://www.typescriptlang.org/docs/handbook/jsx.html#intrinsic-elements
+    IntrinsicElements: {
       "model-viewer": React.DetailedHTMLProps<
         React.HTMLAttributes<HTMLElement> & {
           src?: string;
@@ -51,7 +52,7 @@ declare global {
         },
         HTMLElement
       >;
-    }
+    };
   }
 }
 
@@ -112,7 +113,7 @@ export default function AssetDetailPage() {
         if (data.glb_link) {
           try {
             new URL(data.glb_link);
-          } catch (e) {
+          } catch {
             console.warn("Invalid GLB link:", data.glb_link);
             data.glb_link = null; // Set to null if not a valid URL
           }
@@ -120,8 +121,8 @@ export default function AssetDetailPage() {
 
         setAsset(data);
         setEditedAsset(data);
-      } catch (err) {
-        console.error("Error fetching asset:", err);
+      } catch {
+        console.error("Error fetching asset");
         setError("Failed to load asset details");
       } finally {
         setLoading(false);
@@ -370,6 +371,7 @@ export default function AssetDetailPage() {
                     }}
                   />
                 ) : asset.preview_image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={asset.preview_image}
                     alt={asset.product_name}

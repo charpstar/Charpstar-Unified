@@ -1,6 +1,5 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
@@ -25,7 +24,7 @@ export function SiteHeader() {
     !pathname.includes("/preview-generator")
   ) {
     // Extract the id from the URL
-    const id = pathname.split("/")[2];
+
     pageTitle = `Asset Details`;
   } else {
     pageTitle = TITLES[pathname as keyof typeof TITLES] || "Unified";

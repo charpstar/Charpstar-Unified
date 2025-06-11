@@ -32,7 +32,7 @@ export default function ResetPasswordPage() {
 
           if (type === "recovery" && accessToken) {
             // Set the session using the access token
-            const { data, error } = await supabase.auth.getSession();
+            const { error } = await supabase.auth.getSession();
             if (error) {
               setError("Invalid or expired recovery link.");
               return;
@@ -44,8 +44,7 @@ export default function ResetPasswordPage() {
           const code = searchParams.get("code");
 
           if (type === "recovery" && code) {
-            const { data, error } =
-              await supabase.auth.exchangeCodeForSession(code);
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
             if (error) {
               setError("Invalid or expired recovery link.");
               return;

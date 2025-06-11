@@ -11,15 +11,11 @@ import {
   Package,
   TrendingUp,
   Boxes,
-  Palette,
-  Layers,
   ChartBar,
   User2,
-  BarChart3,
   Shield,
 } from "lucide-react";
 import Link from "next/link";
-import { Label } from "@/components/ui/label";
 import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -54,10 +50,9 @@ interface AnalyticsProfile {
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [analyticsProfile, setAnalyticsProfile] =
-    useState<AnalyticsProfile | null>(null);
+  const [, setAnalyticsProfile] = useState<AnalyticsProfile | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const user = useUser() as User | null;
 
@@ -130,8 +125,8 @@ export default function DashboardPage() {
           totalMaterials: materials.size,
           totalColors: colors.size,
         });
-      } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
+      } catch {
+        console.error("Error fetching dashboard stats");
       } finally {
         setLoading(false);
       }
@@ -162,6 +157,7 @@ export default function DashboardPage() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const StatCard = ({
     title,
     value,
@@ -170,7 +166,7 @@ export default function DashboardPage() {
   }: {
     title: string;
     value: number | string;
-    icon: any;
+    icon: React.ElementType;
     description?: string;
   }) => (
     <Card>

@@ -10,6 +10,12 @@ export interface User {
   created_at: string;
 }
 
+type NewUser = {
+  name: string;
+  email: string;
+  role: string;
+};
+
 export function useUsers(enabled: boolean) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -25,19 +31,23 @@ export function useUsers(enabled: boolean) {
       const response = await fetch("/api/users");
       const data = await response.json();
       setUsers(data.users || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Client error while fetching users:", err);
-      setError(err.message || "Failed to load users");
+      if (err instanceof Error) {
+        setError(err.message || "Failed to load users");
+      } else {
+        setError("Failed to load users");
+      }
     } finally {
       setLoading(false);
     }
   }, [enabled]);
 
   const addUser = useCallback(
-    async (formData: any) => {
+    async (formData: NewUser) => {
       setIsAddingUser(true);
       const tempId = `temp-${Date.now()}`;
-      const optimisticUser = {
+      const optimisticUser: User = {
         id: tempId,
         name: formData.name,
         email: formData.email,
@@ -55,19 +65,22 @@ export function useUsers(enabled: boolean) {
         if (!response.ok)
           throw new Error(data.message || "Failed to create user");
 
-        // Refresh the users list to get the new user with correct data
         await fetchUsers();
         setOptimisticUsers(null);
         toast({ title: "Success", description: "User created successfully" });
         return { success: true };
-      } catch (err: any) {
+      } catch (err: unknown) {
         setOptimisticUsers(null);
+        let message = "Failed to create user";
+        if (err instanceof Error) {
+          message = err.message;
+        }
         toast({
           title: "Error",
-          description: err.message || "Failed to create user",
+          description: message,
           variant: "destructive",
         });
-        return { success: false, error: err.message };
+        return { success: false, error: message };
       } finally {
         setIsAddingUser(false);
       }

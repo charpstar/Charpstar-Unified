@@ -10,7 +10,6 @@ import {
   Shield,
   Mail,
   UserCog,
-  Loader2,
 } from "lucide-react";
 import {
   Table,
@@ -82,12 +81,13 @@ export default function UsersPage() {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | undefined>();
   const { users, loading: usersLoading, error, fetchUsers } = useUsers(true);
-  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   // Add feature permissions check
   const {
     getFeaturePermissions,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     loading: featureLoading,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     permissions,
   } = useFeaturePermissions(true);
   const permissionsResult = getFeaturePermissions(userRole, [
@@ -580,8 +580,6 @@ export default function UsersPage() {
                     <TableRow
                       key={user.id}
                       className="group transition-colors hover:bg-accent/30"
-                      onMouseEnter={() => setHoveredRow(user.id)}
-                      onMouseLeave={() => setHoveredRow(null)}
                     >
                       <TableCell>
                         <div className="flex items-center gap-3">

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
 export const ROLES = {
   ADMIN: "admin",
@@ -12,9 +11,10 @@ export const ROLES = {
   CLIENT: "client",
 } as const;
 
-export async function withRoleProtection(
-  handler: Function,
-  requiredRole: string
+// Accept a typed handler and (optionally) a requiredRole, which you could use in the future
+export function withRoleProtection(
+  handler: (request: Request) => Promise<Response> | Response
+  // requiredRole?: string   // Uncomment if/when you actually use this
 ) {
   return async function protectedHandler(request: Request) {
     try {
