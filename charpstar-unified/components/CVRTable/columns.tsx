@@ -46,7 +46,7 @@ export const createColumns = (showColumns: {
       ),
     },
     {
-      accessorKey: "AR_Button_Clicks",
+      accessorKey: "ar_sessions",
       header: ({ column }) => (
         <TooltipProvider>
           <Tooltip>
@@ -73,11 +73,11 @@ export const createColumns = (showColumns: {
         </TooltipProvider>
       ),
       cell: ({ row }) => (
-        <div className="text-right">{row.getValue("AR_Button_Clicks")}</div>
+        <div className="text-right">{row.getValue("ar_sessions")}</div>
       ),
     },
     {
-      accessorKey: "_3D_Button_Clicks",
+      accessorKey: "_3d_sessions",
       header: ({ column }) => (
         <TooltipProvider>
           <Tooltip>
@@ -104,7 +104,7 @@ export const createColumns = (showColumns: {
         </TooltipProvider>
       ),
       cell: ({ row }) => (
-        <div className="text-right">{row.getValue("_3D_Button_Clicks")}</div>
+        <div className="text-right">{row.getValue("_3d_sessions")}</div>
       ),
     },
     {

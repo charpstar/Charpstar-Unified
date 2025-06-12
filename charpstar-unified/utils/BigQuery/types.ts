@@ -7,8 +7,8 @@ export interface BigQueryResponse {
 
 export interface ProductMetrics {
   product_name: string;
-  _3D_Button_Clicks: number;
-  AR_Button_Clicks: number;
+  _3d_sessions: number;
+  ar_sessions: number;
   total_button_clicks: number;
   total_purchases: number;
   total_views: number;

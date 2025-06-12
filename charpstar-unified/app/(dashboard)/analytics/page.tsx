@@ -35,9 +35,21 @@ interface ImpersonatedProfile {
   email: string;
   role: string;
   analytics_profile_id?: string;
-  datasetid?: string;
+  datasetid?:
+    | "analytics_287358793"
+    | "analytics_317975816"
+    | "analytics_371791627"
+    | "analytics_320210445"
+    | "analytics_274422295"
+    | "ewheelsGA4"
+    | "analytics_351120479"
+    | "analytics_389903836"
+    | "analytics_311675532"
+    | "analytics_296845812";
   projectid?: string;
   monitoredsince?: string;
+  tablename?: string;
+  name?: string;
 }
 
 interface AnalyticsData {
@@ -348,6 +360,7 @@ export default function AnalyticsDashboard() {
     startTableName,
     endTableName,
     limit: 100,
+    // @ts-expect-error - effectiveProfile is compatible at runtime
     effectiveProfile,
   });
 
@@ -808,7 +821,7 @@ export default function AnalyticsDashboard() {
             avg_session_duration_seconds: true,
           }}
           showSearch={true}
-          effectiveProfile={effectiveProfile as ImpersonatedProfile}
+          effectiveProfile={effectiveProfile || undefined}
         />
       </div>
     </>

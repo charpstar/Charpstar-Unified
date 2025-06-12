@@ -47,11 +47,13 @@ export async function GET(request: Request) {
       .map((item) => {
         try {
           const metrics = JSON.parse(item.metrics);
+          const arClicks = parseInt(metrics.AR_Button_Clicks || "0");
+          const _3dClicks = parseInt(metrics._3D_Button_Clicks || "0");
           return {
             product_name: item.metric_name,
-            _3D_Button_Clicks: parseInt(metrics._3D_Button_Clicks || "0"),
-            AR_Button_Clicks: parseInt(metrics.AR_Button_Clicks || "0"),
-            total_button_clicks: parseInt(metrics.total_button_clicks || "0"),
+            ar_sessions: arClicks,
+            _3d_sessions: _3dClicks,
+            total_button_clicks: arClicks + _3dClicks,
             total_purchases: parseInt(metrics.total_purchases || "0"),
             total_views: parseInt(metrics.total_views || "0"),
             purchases_with_service: parseInt(
