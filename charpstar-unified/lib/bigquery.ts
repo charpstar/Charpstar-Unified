@@ -1,27 +1,31 @@
 import { BigQuery } from "@google-cloud/bigquery";
 
-// Parse credentials from environment variable with better error handling
-let credentials;
-try {
+// Function to safely load credentials from env variable
+function getCredentialsFromEnv() {
   const rawCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
-  console.log("Raw credentials length:", rawCredentials?.length);
-  console.log("First 50 chars:", rawCredentials?.substring(0, 50));
+  if (!rawCredentials) return undefined; // Return undefined to let ADC be used locally
 
-  if (!rawCredentials) {
-    throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON is not set");
+  try {
+    // Try to parse the JSON credentials string
+    return JSON.parse(rawCredentials);
+  } catch (error) {
+    console.error(
+      "Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON:",
+      error
+    );
+    console.error(
+      "Raw credentials string (first 100 chars):",
+      rawCredentials?.substring(0, 100)
+    );
+    throw new Error("Invalid Google credentials JSON in env variable.");
   }
-
-  credentials = JSON.parse(rawCredentials);
-} catch (error) {
-  console.error("Error parsing credentials:", error);
-  console.error(
-    "Raw credentials:",
-    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
-  );
-  credentials = {};
 }
 
-export const bigquery = new BigQuery({
-  credentials,
-  projectId: credentials.project_id,
-});
+const credentials = getCredentialsFromEnv();
+
+export const bigquery = credentials
+  ? new BigQuery({
+      credentials,
+      projectId: credentials.project_id, // Make sure projectId is set (sometimes needed)
+    })
+  : new BigQuery(); // Use ADC (works locally with gcloud etc.)

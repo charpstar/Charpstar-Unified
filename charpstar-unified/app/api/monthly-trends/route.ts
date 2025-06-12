@@ -1,27 +1,41 @@
 import { NextResponse } from "next/server";
 import { bigquery } from "@/lib/bigquery";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
   try {
-    // Get query parameters
-    const { searchParams } = new URL(request.url);
-    const months = parseInt(searchParams.get("months") || "12");
-    const projectId = searchParams.get("projectid");
-    const datasetId = searchParams.get("analytics_profile_id");
+    // 1. Get the user's session
+    const supabase = createRouteHandlerClient({ cookies });
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (!projectId || !datasetId) {
+    // 2. Check if user is authenticated
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // 3. Get user metadata
+    const { data: user } = await supabase
+      .from("users")
+      .select("metadata")
+      .eq("id", session.user.id)
+      .single();
+
+    // 4. Check if user has analytics profile
+    if (!user?.metadata?.analytics_profiles) {
       return NextResponse.json(
-        { error: "Missing required query parameters" },
-        { status: 400 }
+        { error: "No analytics profile found" },
+        { status: 404 }
       );
     }
 
-    if (isNaN(months) || months < 1 || months > 12) {
-      return NextResponse.json(
-        { error: "Invalid months parameter. Must be between 1 and 12." },
-        { status: 400 }
-      );
-    }
+    const analytics = user.metadata.analytics_profiles;
+    console.log("Using analytics profile:", analytics);
+
+    // Always use 6 months
+    const months = 6;
 
     // Build and execute query
     const query = `
@@ -30,7 +44,7 @@ export async function GET(request: Request) {
         FORMAT_TIMESTAMP('%Y-%m', TIMESTAMP_MICROS(event_timestamp)) as month,
         COUNT(CASE WHEN event_name = 'charpstAR_AR_Button_Click' THEN 1 END) as ar_clicks,
         COUNT(CASE WHEN event_name = 'charpstAR_3D_Button_Click' THEN 1 END) as threed_clicks
-      FROM \`${projectId}.${datasetId}.events_*\`
+      FROM \`${analytics.projectid}.${analytics.datasetid}.events_*\`
       WHERE
         _TABLE_SUFFIX >= FORMAT_DATE(
           '%Y%m%d',
@@ -45,7 +59,9 @@ export async function GET(request: Request) {
     ORDER BY month ASC
     `;
 
+    console.log("Executing BigQuery with project:", analytics.projectid);
     const [rows] = await bigquery.query({ query });
+    console.log("Query executed successfully, rows:", rows.length);
 
     // Return the data
     return NextResponse.json({
@@ -59,12 +75,18 @@ export async function GET(request: Request) {
           (sum: number, row: any) => sum + row.threed_clicks,
           0
         ),
-        total_page_views: 0,
+        total_page_views: 0, // These will be added when we extend the query
         total_unique_users: 0,
       },
     });
   } catch (error: any) {
     console.error("BigQuery API Error:", error);
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      details: error.details,
+    });
     return NextResponse.json(
       { error: error.message || "Failed to fetch data from BigQuery" },
       { status: 500 }
