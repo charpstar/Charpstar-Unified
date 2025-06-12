@@ -12,7 +12,6 @@ export async function GET(request: Request) {
     const datasetId = searchParams.get("analytics_profile_id");
     const startTableName = searchParams.get("startDate");
     const endTableName = searchParams.get("endDate");
-    const limit = searchParams.get("limit") || "100";
 
     if (!projectId || !datasetId || !startTableName || !endTableName) {
       return NextResponse.json(
