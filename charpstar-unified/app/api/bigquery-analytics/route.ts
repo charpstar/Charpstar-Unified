@@ -59,8 +59,8 @@ export async function GET(request: Request) {
               metrics.avg_session_duration_seconds || "0"
             ),
           };
-        } catch (e) {
-          console.error("Error parsing metrics for item:", item);
+        } catch (error) {
+          console.error("Error parsing metrics for item:", item, error);
           return null;
         }
       })
