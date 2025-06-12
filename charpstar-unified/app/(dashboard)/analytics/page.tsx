@@ -15,7 +15,7 @@ import { useClientQuery } from "@/queries/useClientQuery";
 import { compToBq } from "@/utils/uiutils";
 import { useUser } from "@/contexts/useUser";
 import { ProductMetrics } from "@/utils/BigQuery/types";
-import CVRTable from "@/components/CVRTable";
+import CVRTable from "@/components/CVRTable/index";
 import { usePagePermission } from "@/lib/usePagePermission";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";

@@ -111,11 +111,11 @@ export default function CVRTable({
         )}
         <div className="relative overflow-auto">
           <Table>
-            <TableHeader className="bg-muted/50">
+            <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="whitespace-nowrap">
+                    <TableHead key={header.id}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -133,7 +133,6 @@ export default function CVRTable({
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
-                    className="hover:bg-muted/50"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
