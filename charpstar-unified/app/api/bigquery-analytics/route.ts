@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { bigquery } from "@/lib/bigquery";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
