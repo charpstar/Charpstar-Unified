@@ -3,7 +3,7 @@ import { bigquery } from "@/lib/bigquery";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     // 1. Get the user's session
     const supabase = createRouteHandlerClient({ cookies });
