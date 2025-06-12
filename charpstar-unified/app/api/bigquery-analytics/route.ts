@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { bigquery } from "@/lib/bigquery";
 import { queries } from "@/utils/BigQuery/clientQueries";
 import { getEventsBetween } from "@/utils/BigQuery/utils";
-import type { BigQueryResponse } from "@/utils/BigQuery/types";
+import type { BigQueryResponse, ProductMetrics } from "@/utils/BigQuery/types";
 
 // GET handler for monthly AR/3D click analytics
 export async function GET(request: Request) {
@@ -41,24 +41,31 @@ export async function GET(request: Request) {
     const [job] = await bigquery.createQueryJob(options);
     const [response] = await job.getQueryResults();
 
-    // Filter for only product data_type and transform to match CVRTable format
+    // Filter for only product data_type and transform to match ProductMetrics format
     const productData = (response as BigQueryResponse[])
       .filter((item) => item.data_type === "product")
       .map((item) => {
         try {
           const metrics = JSON.parse(item.metrics);
           return {
-            metric_name: item.metric_name,
-            ar_sessions: parseInt(metrics.ar_sessions || "0"),
-            _3d_sessions: parseInt(metrics._3d_sessions || "0"),
+            product_name: item.metric_name,
+            _3D_Button_Clicks: parseInt(metrics._3D_Button_Clicks || "0"),
+            AR_Button_Clicks: parseInt(metrics.AR_Button_Clicks || "0"),
+            total_button_clicks: parseInt(metrics.total_button_clicks || "0"),
             total_purchases: parseInt(metrics.total_purchases || "0"),
+            total_views: parseInt(metrics.total_views || "0"),
             purchases_with_service: parseInt(
               metrics.purchases_with_service || "0"
             ),
+            product_conv_rate: parseFloat(metrics.product_conv_rate || "0"),
+            default_conv_rate: parseFloat(metrics.default_conv_rate || "0"),
             avg_session_duration_seconds: parseFloat(
               metrics.avg_session_duration_seconds || "0"
             ),
-          };
+            avg_combined_session_duration: parseFloat(
+              metrics.avg_combined_session_duration || "0"
+            ),
+          } as ProductMetrics;
         } catch (error) {
           console.error("Error parsing metrics for item:", item, error);
           return null;

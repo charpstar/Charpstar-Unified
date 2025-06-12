@@ -7,13 +7,30 @@ import { type TDatasets } from "@/utils/BigQuery/clientQueries";
 import { supabase } from "@/lib/supabaseClient";
 import { getEventsBetween } from "@/utils/BigQuery/utils";
 
-type AnalyticsProfile = {
-  name: string;
-  datasetid: TDatasets;
+interface AnalyticsProfile {
+  datasetid:
+    | "analytics_287358793"
+    | "analytics_317975816"
+    | "analytics_371791627"
+    | "analytics_320210445"
+    | "analytics_274422295"
+    | "ewheelsGA4"
+    | "analytics_351120479"
+    | "analytics_389903836"
+    | "analytics_311675532"
+    | "analytics_296845812";
   projectid: string;
   tablename: string;
   monitoredsince: string;
-};
+  name: string;
+}
+
+interface UserMetadata {
+  id: string;
+  client: string | null;
+  analytics_profile_id: string;
+  analytics_profiles: AnalyticsProfile[];
+}
 
 type RawMetric = {
   data_type: "overall" | "product";
@@ -70,15 +87,19 @@ export function useClientQuery({
   startTableName: string;
   endTableName: string;
   limit: number;
-  effectiveProfile?: any;
+  effectiveProfile?: AnalyticsProfile;
 }) {
   const user = useUser();
-  const profile = user?.metadata?.analytics_profiles as
-    | AnalyticsProfile
-    | undefined;
+
   // Prefer effectiveProfile if provided, else fallback to user
-  const projectId = effectiveProfile?.projectid || profile?.projectid;
-  const datasetId = effectiveProfile?.datasetid || profile?.datasetid;
+  const datasetId =
+    effectiveProfile?.datasetid ||
+    (user?.metadata as unknown as UserMetadata)?.analytics_profiles?.[0]
+      ?.datasetid;
+  const projectId =
+    effectiveProfile?.projectid ||
+    (user?.metadata as unknown as UserMetadata)?.analytics_profiles?.[0]
+      ?.projectid;
 
   const shouldEnableFetching = Boolean(
     projectId && datasetId && startTableName && endTableName
@@ -90,57 +111,28 @@ export function useClientQuery({
     error: queryError,
   } = useQuery({
     queryKey: [
-      "clientQuery",
-      projectId!,
-      datasetId!,
+      "client-query",
+      datasetId,
+      projectId,
       startTableName,
       endTableName,
-    ] as const,
-    queryFn: async ({ queryKey }) => {
-      // Ensure we have a valid session before making the query
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        // Try to refresh the session
-        const {
-          data: { session: refreshedSession },
-          error: refreshError,
-        } = await supabase.auth.refreshSession();
-
-        if (refreshError || !refreshedSession) {
-          throw new Error("Authentication failed. Please sign in again.");
-        }
+    ],
+    queryFn: async () => {
+      if (!datasetId || !projectId) {
+        throw new Error("Dataset ID or Project ID is missing");
       }
-
-      try {
-        const result = await executeClientQuery({
-          projectId: queryKey[1],
-          datasetId: queryKey[2],
-          startTableName: queryKey[3],
-          endTableName: queryKey[4],
-        });
-
-        // Transform the data
-        const transformedData = transformMetrics(
-          result as unknown as RawMetric[]
-        );
-        return transformedData;
-      } catch (error) {
-        console.error("Query execution error:", error);
-        throw error;
+      const response = await fetch(
+        `/api/bigquery-analytics?projectid=${projectId}&analytics_profile_id=${datasetId}&startDate=${startTableName}&endDate=${endTableName}&limit=${limit}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch CVR table data");
       }
+      return response.json();
     },
     enabled: shouldEnableFetching,
-    // Caching configuration
-    gcTime: 30 * 60 * 1000, // Keep unused data in cache for 30 minutes
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    staleTime: 1000 * 60 * 10, // 10 min "fresh"
     refetchOnWindowFocus: false,
     refetchOnMount: false,
-    retry: 1, // Only retry once on failure
-    retryDelay: 1000, // Wait 1 second before retrying
   });
 
   useEffect(() => {
