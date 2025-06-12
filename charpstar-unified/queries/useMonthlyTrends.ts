@@ -1,5 +1,4 @@
 import { useUser } from "@/contexts/useUser";
-import { getMonthlyTrends } from "@/utils/BigQuery/getMonthlyTrends";
 import { useQuery } from "@tanstack/react-query";
 
 interface AnalyticsProfile {
@@ -46,7 +45,13 @@ export function useMonthlyTrends(effectiveProfile?: AnalyticsProfile) {
       if (!datasetId || !projectId) {
         throw new Error("Dataset ID or Project ID is missing");
       }
-      return getMonthlyTrends({ datasetId, projectId });
+      const response = await fetch(
+        `/api/monthly-trends?projectid=${projectId}&analytics_profile_id=${datasetId}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch monthly trends");
+      }
+      return response.json();
     },
     enabled: !!datasetId && !!projectId,
     staleTime: 1000 * 60 * 10, // 10 min "fresh"

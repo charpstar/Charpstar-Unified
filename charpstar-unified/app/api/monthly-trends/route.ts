@@ -6,6 +6,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectid");
     const datasetId = searchParams.get("analytics_profile_id");
+    const months = searchParams.get("months") || "6";
 
     if (!projectId || !datasetId) {
       return NextResponse.json(
@@ -14,10 +15,6 @@ export async function GET(request: Request) {
       );
     }
 
-    // Always use 6 months
-    const months = 6;
-
-    // Build and execute query
     const query = `
     WITH monthly_data AS (
       SELECT
@@ -43,22 +40,7 @@ export async function GET(request: Request) {
     const [rows] = await bigquery.query({ query });
     console.log("Query executed successfully, rows:", rows.length);
 
-    // Return the data
-    return NextResponse.json({
-      data: {
-        monthly_data: rows,
-        total_ar_clicks: rows.reduce(
-          (sum: number, row: any) => sum + row.ar_clicks,
-          0
-        ),
-        total_3d_clicks: rows.reduce(
-          (sum: number, row: any) => sum + row.threed_clicks,
-          0
-        ),
-        total_page_views: 0, // These will be added when we extend the query
-        total_unique_users: 0,
-      },
-    });
+    return NextResponse.json(rows);
   } catch (error: any) {
     console.error("BigQuery API Error:", error);
     console.error("Error details:", {
