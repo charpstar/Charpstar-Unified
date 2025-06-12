@@ -41,10 +41,30 @@ export async function GET(request: Request) {
     const [job] = await bigquery.createQueryJob(options);
     const [response] = await job.getQueryResults();
 
-    // Filter for only product data_type if needed
-    const productData = (response as BigQueryResponse[]).filter(
-      (item) => item.data_type === "product"
-    );
+    // Filter for only product data_type and transform to match CVRTable format
+    const productData = (response as BigQueryResponse[])
+      .filter((item) => item.data_type === "product")
+      .map((item) => {
+        try {
+          const metrics = JSON.parse(item.metrics);
+          return {
+            metric_name: item.metric_name,
+            ar_sessions: parseInt(metrics.ar_sessions || "0"),
+            _3d_sessions: parseInt(metrics._3d_sessions || "0"),
+            total_purchases: parseInt(metrics.total_purchases || "0"),
+            purchases_with_service: parseInt(
+              metrics.purchases_with_service || "0"
+            ),
+            avg_session_duration_seconds: parseFloat(
+              metrics.avg_session_duration_seconds || "0"
+            ),
+          };
+        } catch (e) {
+          console.error("Error parsing metrics for item:", item);
+          return null;
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
 
     return NextResponse.json(productData);
   } catch (error) {
