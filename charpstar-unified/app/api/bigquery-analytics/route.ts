@@ -1,70 +1,89 @@
 import { NextResponse } from "next/server";
+import { queries } from "@/utils/BigQuery/clientQueries";
+import { getEventsBetween } from "@/utils/BigQuery/utils";
+import type { BigQueryResponse } from "@/utils/BigQuery/types";
 import { bigquery } from "@/lib/bigquery";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
-import { getUserWithMetadata } from "@/supabase/getUser";
 
+// GET handler for monthly AR/3D click analytics
 export async function GET(request: Request) {
   try {
-    // 1. Get the user's session and metadata
-    const supabase = createRouteHandlerClient({ cookies });
-    const user = await getUserWithMetadata(supabase);
-
-    // 2. Check if user is authenticated and has analytics profile
-    if (!user?.metadata?.analytics_profiles) {
-      return NextResponse.json(
-        { error: "No analytics profile found" },
-        { status: 404 }
-      );
-    }
-
-    // Type assertion for analytics profile
-    const analytics = user.metadata.analytics_profiles as unknown as {
-      projectid: string;
-      datasetid: string;
-    };
-
-    // Get query parameter
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get("query");
+    const projectId = searchParams.get("projectid");
+    const datasetId = searchParams.get("analytics_profile_id");
+    const startTableName = searchParams.get("startDate");
+    const endTableName = searchParams.get("endDate");
 
-    if (!query) {
+    if (!projectId || !datasetId || !startTableName || !endTableName) {
       return NextResponse.json(
-        { error: "Query parameter is required" },
+        { error: "Missing required query parameters" },
         { status: 400 }
       );
     }
 
-    // Execute query
-    console.log("Executing BigQuery with project:", analytics.projectid);
-    const [rows] = await bigquery.query({ query });
-    console.log("Query executed successfully, rows:", rows.length);
+    // Select the BigQuery query for this dataset
+    const query = queries[datasetId as keyof typeof queries](
+      getEventsBetween({ startTableName, endTableName })
+    );
 
-    // Transform the data to flatten nested objects
-    const transformedRows = rows.map((row: any) => {
-      const transformed: Record<string, any> = {};
-      Object.entries(row).forEach(([key, value]) => {
-        if (value && typeof value === "object" && "value" in value) {
-          transformed[key] = value.value;
-        } else {
-          transformed[key] = value;
-        }
-      });
-      return transformed;
-    });
+    if (!query) {
+      return NextResponse.json(
+        { error: `Query not found for datasetId: ${datasetId}` },
+        { status: 400 }
+      );
+    }
 
-    // Return the data
-    return NextResponse.json({ data: transformedRows });
-  } catch (error: any) {
+    // Run BigQuery
+    const options = {
+      query: query,
+      projectId,
+    };
+
+    const [job] = await bigquery.createQueryJob(options);
+    const [response] = await job.getQueryResults();
+
+    // Optionally, you can add totals or further process `response` here
+
+    return NextResponse.json(response as BigQueryResponse[]);
+  } catch (error) {
     console.error("BigQuery API Error:", error);
-    console.error("Error details:", {
-      message: error.message,
-      code: error.code,
-      status: error.status,
-      details: error.details,
-    });
     return NextResponse.json(
-      { error: error.message || "Failed to fetch data from BigQuery" },
+      { error: "Failed to fetch analytics data" },
+      { status: 500 }
+    );
+  }
+}
+
+// POST handler (optional, but for parity with your example)
+export async function POST(request: Request) {
+  try {
+    const { projectId, datasetId, startTableName, endTableName } =
+      await request.json();
+
+    // Select the BigQuery query for this dataset
+    const query = queries[datasetId as keyof typeof queries](
+      getEventsBetween({ startTableName, endTableName })
+    );
+
+    if (!query) {
+      return NextResponse.json(
+        { error: `Query not found for datasetId: ${datasetId}` },
+        { status: 400 }
+      );
+    }
+
+    const options = {
+      query: query,
+      projectId,
+    };
+
+    const [job] = await bigquery.createQueryJob(options);
+    const [response] = await job.getQueryResults();
+
+    return NextResponse.json(response as BigQueryResponse[]);
+  } catch (error) {
+    console.error("BigQuery API Error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch analytics data" },
       { status: 500 }
     );
   }
