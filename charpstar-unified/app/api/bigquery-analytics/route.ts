@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
+import { bigquery } from "@/lib/bigquery";
 import { queries } from "@/utils/BigQuery/clientQueries";
 import { getEventsBetween } from "@/utils/BigQuery/utils";
 import type { BigQueryResponse } from "@/utils/BigQuery/types";
-import { bigquery } from "@/lib/bigquery";
 
 // GET handler for monthly AR/3D click analytics
 export async function GET(request: Request) {
@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     const datasetId = searchParams.get("analytics_profile_id");
     const startTableName = searchParams.get("startDate");
     const endTableName = searchParams.get("endDate");
+    const limit = searchParams.get("limit") || "100";
 
     if (!projectId || !datasetId || !startTableName || !endTableName) {
       return NextResponse.json(
@@ -41,9 +42,12 @@ export async function GET(request: Request) {
     const [job] = await bigquery.createQueryJob(options);
     const [response] = await job.getQueryResults();
 
-    // Optionally, you can add totals or further process `response` here
+    // Filter for only product data_type if needed
+    const productData = (response as BigQueryResponse[]).filter(
+      (item) => item.data_type === "product"
+    );
 
-    return NextResponse.json(response as BigQueryResponse[]);
+    return NextResponse.json(productData);
   } catch (error) {
     console.error("BigQuery API Error:", error);
     return NextResponse.json(
