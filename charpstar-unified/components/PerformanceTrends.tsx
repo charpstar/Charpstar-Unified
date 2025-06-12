@@ -51,7 +51,7 @@ export default function PerformanceTrends({
     );
   }
 
-  const chartData = trends?.map((item) => ({
+  const chartData = trends?.map((item: any) => ({
     month: format(new Date(item.month), "MMM yy"),
     AR: item.ar_clicks,
     "3D": item.threed_clicks,
