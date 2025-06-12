@@ -63,7 +63,9 @@ interface ParsedMetric {
 }
 
 const fetcher = async (url: string) => {
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    credentials: "include", // <-- THIS IS CRITICAL!
+  });
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.error || "Failed to fetch analytics data");

@@ -3,8 +3,10 @@ import { queries } from "@/utils/BigQuery/clientQueries";
 import { getEventsBetween } from "@/utils/BigQuery/utils";
 import type { BigQueryResponse } from "@/utils/BigQuery/types";
 import { bigquery } from "@/lib/bigquery";
+import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
+  console.log("COOKIES RECEIVED:", (await cookies()).getAll());
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectid");
