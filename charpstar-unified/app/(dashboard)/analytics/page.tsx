@@ -446,384 +446,349 @@ export default function AnalyticsDashboard() {
 
   // --- Main dashboard ---
   return (
-    <>
-      <div className="p-6 space-y-6">
-        {/* Show impersonation banner if impersonating */}
-        {impersonatedProfile && (
-          <div className="mb-4 p-3 bg-banner border-l-4 border-banner-border text-banner-text rounded-md">
-            Viewing as <b>{impersonatedProfile.email}</b>
-          </div>
-        )}
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold mb-6">Analytics Dashboard</h1>
-          <div className="flex gap-2 items-end">
-            <DateRangePicker
-              value={pendingRange}
-              onChange={(newRange) => {
-                if (newRange?.from && newRange?.to) {
-                  setPendingRange(newRange);
-                }
-              }}
-              minDate={
-                effectiveProfile?.monitoredsince
-                  ? new Date(effectiveProfile.monitoredsince)
-                  : undefined
+    <div className="flex flex-1 flex-col p-4 sm:p-6">
+      <div className="flex flex-col space-y-4 mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold">Analytics Dashboard</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <DateRangePicker
+            value={pendingRange}
+            onChange={(newRange) => {
+              if (newRange?.from && newRange?.to) {
+                setPendingRange(newRange);
               }
-            />
-            <Button
-              variant={"outline"}
-              disabled={isApplyDisabled}
-              onClick={() => setAppliedRange(pendingRange)}
-            >
-              Apply
-            </Button>
-          </div>
+            }}
+            className="w-full sm:w-auto"
+          />
+          <Button
+            onClick={() => setAppliedRange(pendingRange)}
+            disabled={isApplyDisabled}
+            className="w-full sm:w-auto"
+          >
+            Apply
+          </Button>
         </div>
-
-        {analyticsLoading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 14 }).map((_, i) => (
-              <Skeleton
-                key={i}
-                className="h-30 w-full bg-background rounded-md "
-              />
-            ))}
-          </div>
-        ) : analyticsError ? (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-red-500">
-                Error: {analyticsError.message}
-              </div>
-            </CardContent>
-          </Card>
-        ) : stats ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Total Page Views"
-                      value={stats.total_page_views}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Total Views on CharpstAR service enabled PDPs</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Total Unique Users"
-                      value={stats.total_unique_users}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Total Unique Users on CharpstAR service enabled PDPs</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Total Users who activate our services"
-                      value={stats.total_users_with_service}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    Total Users on PDPs who click either of the AR/3D buttons
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Percentage of users using our service"
-                      value={capPercentage(stats.percentage_users_with_service)}
-                      suffix="%"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    The percentage of users who have visited a page with our
-                    script and have clicked either the AR or 3D Button <br />
-                    <br />
-                    <b>Formula:</b> (Total Unique Users with AR or 3D uses /
-                    Total Unique Users on entire store) × 100
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Conversion rate without AR/3D activation"
-                      value={stats.conversion_rate_without_ar}
-                      suffix="%"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    The average conversion rate of users who do not use our
-                    services <br />
-                    <br />
-                    <b>Formula:</b> (Total Purchases on entire store / Total
-                    Unique Users on entire store) × 100
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Conversion rate with AR/3D activation"
-                      value={stats.conversion_rate_with_ar}
-                      suffix="%"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    The average conversion rate of users when using either of
-                    our services <br />
-                    <br />
-                    <b>Formula:</b> (Total Purchases with AR or 3D / Total
-                    Unique Users with AR or 3D uses) × 100
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Total Purchases with AR/3D activation"
-                      value={stats.total_purchases_with_ar}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    Total Purchases made after interacting with our services
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Add to Cart Default"
-                      value={stats.add_to_cart_default}
-                      suffix="%"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    The percentage of users adding a product to cart when they
-                    have not interacted with CharpstAR services <br />
-                    <br />
-                    <b>Formula:</b> (Cart Additions on entire store / Total
-                    Unique Users on entire store) × 100
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Add to Cart with CharpstAR"
-                      value={stats.add_to_cart_with_ar}
-                      suffix="%"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    The percentage of users adding a product to cart after they
-                    have interacted with either of the AR/3D buttons <br />
-                    <br />
-                    <b>Formula:</b> (Cart Additions with AR or 3D uses / Total
-                    Unique Users with AR or 3D uses) × 100
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Average Order Value without AR/3D activation"
-                      value={stats.avg_order_value_without_ar}
-                      suffix="(Store currency)"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    The Average value in the store&apos;s default currency of
-                    orders made by customers when they have not interacted with
-                    CharpstAR services
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Average Order Value with AR/3D activation"
-                      value={stats.avg_order_value_with_ar}
-                      suffix="(Store currency)"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    The Average value in the store&apos;s default currency of
-                    orders made by customers after they have interacted with
-                    either of the AR/3D buttons
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Total AR Clicks"
-                      value={stats.total_ar_clicks}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    Total clicks by users on the &apos;View in AR&apos; Button
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Total 3D Clicks"
-                      value={stats.total_3d_clicks}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    Total clicks by users on the &apos;View in 3D&apos; Button
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Session time duration without AR/3D activation"
-                      value={stats.session_duration_without_ar}
-                      suffix="seconds"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    The average session time of users on CharpstAR service
-                    enabled PDPs when they have not interacted with our services
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <StatCard
-                      title="Session time duration with AR/3D activation"
-                      value={stats.session_duration_with_ar}
-                      suffix="seconds"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    The average session time of users who have visited a page
-                    with our services and clicked either the AR or 3D Button
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-gray-500">No analytics data available</div>
-            </CardContent>
-          </Card>
-        )}
-
-        <PerformanceTrends effectiveProfile={effectiveProfile} />
-
-        <CVRTable
-          isLoading={isQueryLoading}
-          data={clientQueryResult as ProductMetrics[]}
-          showColumns={{
-            ar_sessions: true,
-            _3d_sessions: true,
-            total_purchases: true,
-            purchases_with_service: true,
-            avg_session_duration_seconds: true,
-          }}
-          showSearch={true}
-          effectiveProfile={effectiveProfile || undefined}
-        />
       </div>
-    </>
+
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Total Page Views"
+                  value={stats?.total_page_views || 0}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Total Views on CharpstAR service enabled PDPs</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Total Unique Users"
+                  value={stats?.total_unique_users || 0}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Total Unique Users on CharpstAR service enabled PDPs</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Total Users who activate our services"
+                  value={stats?.total_users_with_service || 0}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Total Users on PDPs who click either of the AR/3D buttons</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Percentage of users using our service"
+                  value={capPercentage(
+                    stats?.percentage_users_with_service || 0
+                  )}
+                  suffix="%"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                The percentage of users who have visited a page with our script
+                and have clicked either the AR or 3D Button <br />
+                <br />
+                <b>Formula:</b> (Total Unique Users with AR or 3D uses / Total
+                Unique Users on entire store) × 100
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Conversion rate without AR/3D activation"
+                  value={stats?.conversion_rate_without_ar || 0}
+                  suffix="%"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                The average conversion rate of users who do not use our services{" "}
+                <br />
+                <br />
+                <b>Formula:</b> (Total Purchases on entire store / Total Unique
+                Users on entire store) × 100
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Conversion rate with AR/3D activation"
+                  value={stats?.conversion_rate_with_ar || 0}
+                  suffix="%"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                The average conversion rate of users when using either of our
+                services <br />
+                <br />
+                <b>Formula:</b> (Total Purchases with AR or 3D / Total Unique
+                Users with AR or 3D uses) × 100
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Total Purchases with AR/3D activation"
+                  value={stats?.total_purchases_with_ar || 0}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Total Purchases made after interacting with our services</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Add to Cart Default"
+                  value={stats?.add_to_cart_default || 0}
+                  suffix="%"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                The percentage of users adding a product to cart when they have
+                not interacted with CharpstAR services <br />
+                <br />
+                <b>Formula:</b> (Cart Additions on entire store / Total Unique
+                Users on entire store) × 100
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Add to Cart with CharpstAR"
+                  value={stats?.add_to_cart_with_ar || 0}
+                  suffix="%"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                The percentage of users adding a product to cart after they have
+                interacted with either of the AR/3D buttons <br />
+                <br />
+                <b>Formula:</b> (Cart Additions with AR or 3D uses / Total
+                Unique Users with AR or 3D uses) × 100
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Average Order Value without AR/3D activation"
+                  value={stats?.avg_order_value_without_ar || 0}
+                  suffix="(Store currency)"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                The Average value in the store's default currency of orders made
+                by customers when they have not interacted with CharpstAR
+                services
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Average Order Value with AR/3D activation"
+                  value={stats?.avg_order_value_with_ar || 0}
+                  suffix="(Store currency)"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                The Average value in the store's default currency of orders made
+                by customers after they have interacted with either of the AR/3D
+                buttons
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Total AR Clicks"
+                  value={stats?.total_ar_clicks || 0}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Total clicks by users on the 'View in AR' Button</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Total 3D Clicks"
+                  value={stats?.total_3d_clicks || 0}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Total clicks by users on the 'View in 3D' Button</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Session time duration without AR/3D activation"
+                  value={stats?.session_duration_without_ar || 0}
+                  suffix="seconds"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                The average session time of users on CharpstAR service enabled
+                PDPs when they have not interacted with our services
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <StatCard
+                  title="Session time duration with AR/3D activation"
+                  value={stats?.session_duration_with_ar || 0}
+                  suffix="seconds"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                The average session time of users who have visited a page with
+                our services and clicked either the AR or 3D Button
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      <div className="mt-6">
+        <div className="h-[500px] sm:h-[400px] bg-card rounded-lg border">
+          <PerformanceTrends effectiveProfile={effectiveProfile} />
+        </div>
+      </div>
+
+      <div className="mt-14 sm:mt-35">
+        <div className="bg-card rounded-lg border">
+          <CVRTable
+            isLoading={isQueryLoading}
+            data={clientQueryResult as ProductMetrics[]}
+            showColumns={{
+              ar_sessions: true,
+              _3d_sessions: true,
+              total_purchases: true,
+              purchases_with_service: true,
+              avg_session_duration_seconds: true,
+            }}
+            showSearch={true}
+            effectiveProfile={effectiveProfile || undefined}
+          />
+        </div>
+      </div>
+    </div>
   );
 }

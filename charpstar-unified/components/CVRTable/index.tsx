@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ProductMetrics } from "@/utils/BigQuery/types";
 import { createColumns } from "@/components/CVRTable/columns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -96,6 +96,9 @@ export default function CVRTable({
   return (
     <Card>
       <CardContent className="p-0">
+        <CardHeader>
+          <CardTitle>Conversion Rate Details</CardTitle>
+        </CardHeader>
         {showSearch && (
           <div className="flex items-center p-4 border-b">
             <Input

@@ -267,7 +267,7 @@ export function useAssets() {
   }, [filteredAssets]);
 
   return {
-    assets: filteredAssets,
+    assets,
     loading,
     error,
     refetch: fetchAssets,
@@ -275,5 +275,6 @@ export function useAssets() {
     setFilters,
     filterOptions,
     totalCount,
+    userProfile,
   };
 }

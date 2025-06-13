@@ -122,7 +122,7 @@ export default function AssetLibraryPage() {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const user = useUser();
-  const [, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -775,30 +775,38 @@ export default function AssetLibraryPage() {
               </Sheet>
 
               {/* Only show for admin */}
-              {user?.role === "admin" && (
+              {userRole === "admin" && (
                 <>
-                  <Button onClick={() => setPreviewDialogOpen(true)}>
-                    <span className="text-sm">Generate Previews</span>
-                  </Button>
-                  <PreviewGeneratorDialog
-                    isOpen={previewDialogOpen}
-                    onClose={() => setPreviewDialogOpen(false)}
-                  />
-                  <Button variant="default" asChild>
-                    <Link
-                      href="/asset-library/upload"
-                      className="flex items-center gap-2"
-                    >
-                      Upload Assets
-                    </Link>
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                    {/* Hide on mobile, show on sm+ screens */}
+                    <div className="hidden sm:flex gap-2">
+                      <Button onClick={() => setPreviewDialogOpen(true)}>
+                        <span className="text-sm">Generate Previews</span>
+                      </Button>
+
+                      <PreviewGeneratorDialog
+                        isOpen={previewDialogOpen}
+                        onClose={() => setPreviewDialogOpen(false)}
+                      />
+
+                      <Button variant="default" asChild>
+                        <Link
+                          href="/asset-library/upload"
+                          className="flex items-center gap-2"
+                        >
+                          Upload Assets
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
           </div>
           <div>
             <div className="mb-8 space-y-4 max-w-full mx-auto">
-              <div className="flex items-center justify-between gap-4">
+              {/* Desktop Layout */}
+              <div className="hidden sm:flex items-center justify-between gap-4">
                 {/* Fixed height container for category navigation */}
                 <div className="relative w-full h-[120px] flex-1 max-w-[1200px] min-w-[400px]">
                   {/* Main Categories */}
@@ -833,8 +841,8 @@ export default function AssetLibraryPage() {
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-2 justify-start   ">
-                      <div className="flex items-center gap-1 ">
+                    <div className="flex items-center gap-2 justify-start">
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -849,7 +857,7 @@ export default function AssetLibraryPage() {
                       </div>
                       <div
                         ref={categoryContainerRef}
-                        className="flex items-center gap-2 overflow-x-auto  cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
+                        className="flex items-center gap-2 overflow-x-auto cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
                         onMouseDown={handleMouseDown}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseLeave}
@@ -871,7 +879,6 @@ export default function AssetLibraryPage() {
                         >
                           All Categories
                         </Button>
-
                         {filterOptions.categories.map((category) => (
                           <Button
                             key={category.id}
@@ -895,7 +902,7 @@ export default function AssetLibraryPage() {
                         ))}
                       </div>
 
-                      <div className="flex items-center gap-1 ">
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -913,7 +920,7 @@ export default function AssetLibraryPage() {
 
                   {/* Subcategory Navigation */}
                   <div
-                    className={`absolute inset-0  pt-3.5 ${
+                    className={`absolute inset-0 pt-3.5 ${
                       filters.category
                         ? "opacity-100"
                         : "opacity-0 pointer-events-none"
@@ -943,7 +950,7 @@ export default function AssetLibraryPage() {
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-2 ">
+                    <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
@@ -959,7 +966,7 @@ export default function AssetLibraryPage() {
                       </div>
                       <div
                         ref={subcategoryContainerRef}
-                        className="flex items-center gap-2 overflow-x-auto  cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
+                        className="flex items-center gap-2 overflow-x-auto cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
                         onMouseDown={handleMouseDown}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseLeave}
@@ -1027,17 +1034,21 @@ export default function AssetLibraryPage() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="relative w-[200px]">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Search assets..."
-                      value={searchValue}
-                      onChange={(e) => {
-                        setSearchValue(e.target.value);
-                        setCurrentPage(1); // Reset to first page when searching
-                      }}
-                      className="pl-9"
-                    />
+                  <div className="w-[200px]">
+                    {/* Input + Icon wrapper */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                      <Input
+                        placeholder="Search assets..."
+                        value={searchValue}
+                        onChange={(e) => {
+                          setSearchValue(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="pl-9"
+                      />
+                    </div>
+
                     {/* Active Filters */}
                     {(filters.category ||
                       filters.subcategory ||
@@ -1045,7 +1056,7 @@ export default function AssetLibraryPage() {
                       filters.material.length > 0 ||
                       filters.color.length > 0 ||
                       debouncedSearchValue) && (
-                      <div className="absolute -bottom-7 left-0 right-0 flex flex-row gap-1.5 max-w-[300px]">
+                      <div className="absolute  mt-2 flex flex-wrap gap-1.5">
                         {debouncedSearchValue && (
                           <Badge
                             variant="secondary"
@@ -1159,6 +1170,7 @@ export default function AssetLibraryPage() {
                       </div>
                     )}
                   </div>
+
                   <Select value={filters.sort} onValueChange={handleSortChange}>
                     <SelectTrigger className="w-[180px] cursor-pointer">
                       <SelectValue placeholder="Sort by" />
@@ -1216,34 +1228,692 @@ export default function AssetLibraryPage() {
                       </Button>
                     </SheetTrigger>
                   </Sheet>
-                  <div className="flex items-center gap-1 border rounded-md">
-                    <Button
-                      variant={viewMode === "grid" ? "default" : "ghost"}
-                      size="icon"
-                      className="h-9 w-9 cursor-pointer"
-                      onClick={() => setViewMode("grid")}
-                      aria-label="Grid View"
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={filters.sort}
+                      onValueChange={handleSortChange}
                     >
-                      <LayoutGrid className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={viewMode === "compactGrid" ? "default" : "ghost"}
-                      size="icon"
-                      className="h-9 w-9 cursor-pointer"
-                      onClick={() => setViewMode("compactGrid")}
-                      aria-label="Compact Grid View"
+                      <SelectTrigger className="w-full cursor-pointer">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="name-asc" className="cursor-pointer">
+                          Name (A-Z)
+                        </SelectItem>
+                        <SelectItem
+                          value="name-desc"
+                          className="cursor-pointer"
+                        >
+                          Name (Z-A)
+                        </SelectItem>
+                        <SelectItem value="date-asc" className="cursor-pointer">
+                          Date (Oldest First)
+                        </SelectItem>
+                        <SelectItem
+                          value="date-desc"
+                          className="cursor-pointer"
+                        >
+                          Date (Newest First)
+                        </SelectItem>
+                        <SelectItem
+                          value="updated-desc"
+                          className="cursor-pointer"
+                        >
+                          Latest Updated
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Sheet
+                      open={filterSheetOpen}
+                      onOpenChange={setFilterSheetOpen}
                     >
-                      <Grid className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant={viewMode === "colGrid" ? "default" : "ghost"}
-                      size="icon"
-                      className="h-9 w-9 cursor-pointer"
-                      onClick={() => setViewMode("colGrid")}
-                      aria-label="Column Grid View"
+                      <SheetTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 cursor-pointer flex-1"
+                        >
+                          <Filter className="h-4 w-4" />
+                          Filters
+                          {(filters.category ||
+                            filters.subcategory ||
+                            filters.client.length > 0 ||
+                            filters.material.length > 0 ||
+                            filters.color.length > 0) && (
+                            <Badge variant="secondary" className="ml-1">
+                              {
+                                [
+                                  filters.category,
+                                  filters.subcategory,
+                                  ...filters.client,
+                                  ...filters.material,
+                                  ...filters.color,
+                                ].filter(Boolean).length
+                              }
+                            </Badge>
+                          )}
+                        </Button>
+                      </SheetTrigger>
+                    </Sheet>
+
+                    {/* Desktop View Options */}
+                    <div className="hidden sm:flex items-center gap-1 border rounded-md">
+                      <Button
+                        variant={viewMode === "grid" ? "default" : "ghost"}
+                        size="icon"
+                        className="h-9 w-9 cursor-pointer"
+                        onClick={() => setViewMode("grid")}
+                        aria-label="Grid View"
+                      >
+                        <LayoutGrid className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant={
+                          viewMode === "compactGrid" ? "default" : "ghost"
+                        }
+                        size="icon"
+                        className="h-9 w-9 cursor-pointer"
+                        onClick={() => setViewMode("compactGrid")}
+                        aria-label="Compact Grid View"
+                      >
+                        <Grid className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant={viewMode === "colGrid" ? "default" : "ghost"}
+                        size="icon"
+                        className="h-9 w-9 cursor-pointer"
+                        onClick={() => setViewMode("colGrid")}
+                        aria-label="Column Grid View"
+                      >
+                        <Rows className="h-3 w-3" />
+                      </Button>
+                    </div>
+
+                    {/* Mobile View Options Dropdown */}
+                    <div className="sm:hidden">
+                      <Select
+                        value={viewMode}
+                        onValueChange={(
+                          value: "grid" | "compactGrid" | "colGrid"
+                        ) => setViewMode(value)}
+                      >
+                        <SelectTrigger className="w-[140px] cursor-pointer">
+                          <SelectValue>
+                            {viewMode === "grid" && (
+                              <div className="flex items-center gap-2">
+                                <LayoutGrid className="h-4 w-4" />
+                                <span>Grid</span>
+                              </div>
+                            )}
+                            {viewMode === "compactGrid" && (
+                              <div className="flex items-center gap-2">
+                                <Grid className="h-3 w-3" />
+                                <span>Compact</span>
+                              </div>
+                            )}
+                            {viewMode === "colGrid" && (
+                              <div className="flex items-center gap-2">
+                                <Rows className="h-3 w-3" />
+                                <span>Column</span>
+                              </div>
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="grid" className="cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <LayoutGrid className="h-4 w-4" />
+                              <span>Grid</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem
+                            value="compactGrid"
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Grid className="h-3 w-3" />
+                              <span>Compact</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem
+                            value="colGrid"
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Rows className="h-3 w-3" />
+                              <span>Column</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobile Layout */}
+              <div className="flex sm:hidden flex-col gap-4">
+                {/* Category Navigation */}
+                <div className="relative w-full z-10">
+                  {/* Main Categories */}
+                  <div
+                    className={`relative w-full ${
+                      !filters.category
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2.5">
+                      {breadcrumbItems.map((item, index) => (
+                        <div key={item.href} className="flex items-center">
+                          <ChevronRight className="h-4 w-4 mx-2" />
+                          <Link
+                            href={item.href}
+                            className={`hover:text-primary transition-colors flex items-center gap-1 cursor-pointer ${
+                              index === breadcrumbItems.length - 1
+                                ? "text-foreground font-medium"
+                                : ""
+                            }`}
+                            onClick={(e) => {
+                              if (item.onClick) {
+                                e.preventDefault();
+                                item.onClick();
+                              }
+                            }}
+                          >
+                            {item.label}
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 justify-start">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
+                          onClick={() =>
+                            categoryContainerRef.current &&
+                            scrollContainer("left", categoryContainerRef)
+                          }
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div
+                        ref={categoryContainerRef}
+                        className="flex items-center gap-2 overflow-x-auto cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
+                        onMouseDown={handleMouseDown}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseLeave}
+                        onMouseMove={handleMouseMove}
+                        style={{
+                          scrollbarWidth: "none",
+                          msOverflowStyle: "none",
+                        }}
+                      >
+                        <Button
+                          variant={!filters.category ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleFilterChange("category", null)}
+                          className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
+                            !filters.category
+                              ? "bg-primary text-primary-foreground"
+                              : "border-border hover:bg-muted/50"
+                          }`}
+                        >
+                          All Categories
+                        </Button>
+                        {filterOptions.categories.map((category) => (
+                          <Button
+                            key={category.id}
+                            variant={
+                              filters.category === category.id
+                                ? "default"
+                                : "outline"
+                            }
+                            size="sm"
+                            onClick={() =>
+                              handleFilterChange("category", category.id)
+                            }
+                            className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
+                              filters.category === category.id
+                                ? "bg-primary text-primary-foreground"
+                                : "border-border hover:bg-muted/50"
+                            }`}
+                          >
+                            {category.name || "Uncategorized"}
+                          </Button>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
+                          onClick={() =>
+                            categoryContainerRef.current &&
+                            scrollContainer("right", categoryContainerRef)
+                          }
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subcategory Navigation */}
+                  <div
+                    className={`absolute inset-0 ${
+                      filters.category
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2.5">
+                      {breadcrumbItems.map((item, index) => (
+                        <div key={item.href} className="flex items-center">
+                          <ChevronRight className="h-4 w-4 mx-2" />
+                          <Link
+                            href={item.href}
+                            className={`hover:text-primary transition-colors flex items-center gap-1 cursor-pointer ${
+                              index === breadcrumbItems.length - 1
+                                ? "text-foreground font-medium"
+                                : ""
+                            }`}
+                            onClick={(e) => {
+                              if (item.onClick) {
+                                e.preventDefault();
+                                item.onClick();
+                              }
+                            }}
+                          >
+                            {item.label}
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
+                          onClick={() =>
+                            subcategoryContainerRef.current &&
+                            scrollContainer("left", subcategoryContainerRef)
+                          }
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div
+                        ref={subcategoryContainerRef}
+                        className="flex items-center gap-2 overflow-x-auto cursor-grab active:cursor-grabbing select-none max-w-[1300px] scroll-smooth"
+                        onMouseDown={handleMouseDown}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseLeave}
+                        onMouseMove={handleMouseMove}
+                        style={{
+                          scrollbarWidth: "none",
+                          msOverflowStyle: "none",
+                        }}
+                      >
+                        <Button
+                          variant={!filters.subcategory ? "default" : "outline"}
+                          size="sm"
+                          onClick={() =>
+                            handleFilterChange("subcategory", null)
+                          }
+                          className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
+                            !filters.subcategory
+                              ? "bg-primary/80 text-primary-foreground"
+                              : "border-border hover:bg-muted/50"
+                          }`}
+                        >
+                          All
+                        </Button>
+
+                        {filterOptions.categories
+                          .find((c) => c.id === filters.category)
+                          ?.subcategories.map((sub) => (
+                            <Button
+                              key={sub.id}
+                              variant={
+                                filters.subcategory === sub.id
+                                  ? "default"
+                                  : "outline"
+                              }
+                              size="sm"
+                              onClick={() =>
+                                handleFilterChange("subcategory", sub.id)
+                              }
+                              className={`shrink-0 h-8 px-4 text-sm font-medium transition-colors duration-200 rounded-md cursor-pointer ${
+                                filters.subcategory === sub.id
+                                  ? "bg-primary/80 text-primary-foreground"
+                                  : "border-border hover:bg-muted/50"
+                              }`}
+                            >
+                              {sub.name || "Uncategorized"}
+                            </Button>
+                          ))}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-foreground hover:text-primary transition-colors h-8 w-8 cursor-pointer"
+                          onClick={() =>
+                            subcategoryContainerRef.current &&
+                            scrollContainer("right", subcategoryContainerRef)
+                          }
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search and Controls */}
+                <div className="flex flex-col gap-2 mt-4">
+                  <div className="relative w-full">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search assets..."
+                        value={searchValue}
+                        onChange={(e) => {
+                          setSearchValue(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="pl-9"
+                      />
+                    </div>
+                    {/* Active Filters */}
+                    {(filters.category ||
+                      filters.subcategory ||
+                      filters.client.length > 0 ||
+                      filters.material.length > 0 ||
+                      filters.color.length > 0 ||
+                      debouncedSearchValue) && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {debouncedSearchValue && (
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() => {
+                              setSearchValue("");
+                              setDebouncedSearchValue("");
+                            }}
+                          >
+                            Search: {debouncedSearchValue}
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {filters.category && (
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() => handleFilterChange("category", null)}
+                          >
+                            Category:{" "}
+                            {
+                              filterOptions.categories.find(
+                                (c) => c.id === filters.category
+                              )?.name
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {filters.subcategory && (
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange("subcategory", null)
+                            }
+                          >
+                            Subcategory:{" "}
+                            {
+                              filterOptions.categories
+                                .find((c) => c.id === filters.category)
+                                ?.subcategories.find(
+                                  (s) => s.id === filters.subcategory
+                                )?.name
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {filters.client.map((client) => (
+                          <Badge
+                            key={client}
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange(
+                                "client",
+                                filters.client.filter((c) => c !== client)
+                              )
+                            }
+                          >
+                            Client:{" "}
+                            {
+                              filterOptions.clients.find(
+                                (c) => c.value === client
+                              )?.label
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        ))}
+                        {filters.material.map((material) => (
+                          <Badge
+                            key={material}
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange(
+                                "material",
+                                filters.material.filter((m) => m !== material)
+                              )
+                            }
+                          >
+                            Material:{" "}
+                            {
+                              filterOptions.materials.find(
+                                (m) => m.value === material
+                              )?.label
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        ))}
+                        {filters.color.map((color) => (
+                          <Badge
+                            key={color}
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange(
+                                "color",
+                                filters.color.filter((c) => c !== color)
+                              )
+                            }
+                          >
+                            Color:{" "}
+                            {
+                              filterOptions.colors.find(
+                                (c) => c.value === color
+                              )?.label
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={filters.sort}
+                      onValueChange={handleSortChange}
                     >
-                      <Rows className="h-3 w-3" />
-                    </Button>
+                      <SelectTrigger className="w-full cursor-pointer">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="name-asc" className="cursor-pointer">
+                          Name (A-Z)
+                        </SelectItem>
+                        <SelectItem
+                          value="name-desc"
+                          className="cursor-pointer"
+                        >
+                          Name (Z-A)
+                        </SelectItem>
+                        <SelectItem value="date-asc" className="cursor-pointer">
+                          Date (Oldest)
+                        </SelectItem>
+                        <SelectItem
+                          value="date-desc"
+                          className="cursor-pointer"
+                        >
+                          Date (Newest)
+                        </SelectItem>
+                        <SelectItem
+                          value="updated-desc"
+                          className="cursor-pointer"
+                        >
+                          Last Updated
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Sheet
+                      open={filterSheetOpen}
+                      onOpenChange={setFilterSheetOpen}
+                    >
+                      <SheetTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 cursor-pointer flex-1"
+                        >
+                          <Filter className="h-4 w-4" />
+                          Filters
+                          {(filters.category ||
+                            filters.subcategory ||
+                            filters.client.length > 0 ||
+                            filters.material.length > 0 ||
+                            filters.color.length > 0) && (
+                            <Badge variant="secondary" className="ml-1">
+                              {
+                                [
+                                  filters.category,
+                                  filters.subcategory,
+                                  ...filters.client,
+                                  ...filters.material,
+                                  ...filters.color,
+                                ].filter(Boolean).length
+                              }
+                            </Badge>
+                          )}
+                        </Button>
+                      </SheetTrigger>
+                    </Sheet>
+
+                    {/* Desktop View Options */}
+                    <div className="hidden sm:flex items-center gap-1 border rounded-md">
+                      <Button
+                        variant={viewMode === "grid" ? "default" : "ghost"}
+                        size="icon"
+                        className="h-9 w-9 cursor-pointer"
+                        onClick={() => setViewMode("grid")}
+                        aria-label="Grid View"
+                      >
+                        <LayoutGrid className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant={
+                          viewMode === "compactGrid" ? "default" : "ghost"
+                        }
+                        size="icon"
+                        className="h-9 w-9 cursor-pointer"
+                        onClick={() => setViewMode("compactGrid")}
+                        aria-label="Compact Grid View"
+                      >
+                        <Grid className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant={viewMode === "colGrid" ? "default" : "ghost"}
+                        size="icon"
+                        className="h-9 w-9 cursor-pointer"
+                        onClick={() => setViewMode("colGrid")}
+                        aria-label="Column Grid View"
+                      >
+                        <Rows className="h-3 w-3" />
+                      </Button>
+                    </div>
+
+                    {/* Mobile View Options Dropdown */}
+                    <div className="sm:hidden">
+                      <Select
+                        value={viewMode}
+                        onValueChange={(
+                          value: "grid" | "compactGrid" | "colGrid"
+                        ) => setViewMode(value)}
+                      >
+                        <SelectTrigger className="w-[70px] cursor-pointer">
+                          <SelectValue>
+                            {viewMode === "grid" && (
+                              <div className="flex items-center gap-2">
+                                <LayoutGrid className="h-4 w-4" />
+                              </div>
+                            )}
+                            {viewMode === "compactGrid" && (
+                              <div className="flex items-center gap-2">
+                                <Grid className="h-3 w-3" />
+                              </div>
+                            )}
+                            {viewMode === "colGrid" && (
+                              <div className="flex items-center gap-2">
+                                <Rows className="h-3 w-3" />
+                              </div>
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="grid" className="cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <LayoutGrid className="h-4 w-4" />
+                              <span>Grid</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem
+                            value="compactGrid"
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Grid className="h-3 w-3" />
+                              <span>Compact</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem
+                            value="colGrid"
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Rows className="h-3 w-3" />
+                              <span>Column</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </div>

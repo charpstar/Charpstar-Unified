@@ -50,9 +50,10 @@ interface AnalyticsProfile {
 }
 
 export default function DashboardPage() {
-  const [, setStats] = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [, setAnalyticsProfile] = useState<AnalyticsProfile | null>(null);
+  const [analyticsProfile, setAnalyticsProfile] =
+    useState<AnalyticsProfile | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const user = useUser() as User | null;
 
@@ -238,16 +239,16 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+    <div className="flex flex-1 flex-col p-4 sm:p-6">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold">Dashboard</h1>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
         <div className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <User2 className="h-4 w-4" />
                 User Profile
               </CardTitle>

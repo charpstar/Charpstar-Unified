@@ -592,7 +592,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="w-full max-w-[98vw] h-[98vh] sm:max-w-5xl sm:h-[58vh] flex flex-col p-2 sm:p-6"
+        className="w-full max-w-[98vw] h-[85vh] sm:max-w-6xl max-w-6xl sm:h-[58vh] flex flex-col p-2 sm:p-6"
         style={{ minWidth: 0 }}
         onPointerDownOutside={(e) => {
           e.preventDefault();
@@ -602,18 +602,39 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         <VisuallyHidden>
           <DialogTitle>Settings</DialogTitle>
         </VisuallyHidden>
+
         {user ? (
           <Tabs
             value={activeTab}
             onValueChange={handleTabChange}
             className="w-full flex-1 flex flex-col"
           >
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 gap-2 inline-flex ">
+            {/* Mobile Dropdown */}
+            <div className="sm:hidden mb-4 pt-15">
+              <Select value={activeTab} onValueChange={handleTabChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a tab" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="account">Account</SelectItem>
+                  {user?.role === "admin" && (
+                    <>
+                      <SelectItem value="team">Team</SelectItem>
+                      <SelectItem value="permissions">Permissions</SelectItem>
+                      <SelectItem value="clients">Clients</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Tabs List (visible only on sm and up) */}
+            <TabsList className="hidden sm:grid w-full grid-cols-1 sm:grid-cols-4 gap-2">
               <TabsTrigger
                 value="account"
-                className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
+                className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-full"
               >
-                <User2 className="w-4 h-4" />
+                <User2 className="w-4 h-5" />
                 Account
               </TabsTrigger>
               {user?.role === "admin" && (
@@ -719,7 +740,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </div>
                       ) : (
                         <>
-                          <div className="flex flex-col sm:flex-row gap-4 items-start items-center">
+                          {/* Filters */}
+                          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
                             <div className="relative flex-1 w-full">
                               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                               <Input
@@ -729,7 +751,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                 className="pl-9 w-full"
                               />
                             </div>
-                            <div className="flex gap-2 w-full sm:w-auto">
+
+                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                               <Select
                                 value={selectedRole}
                                 onValueChange={(
@@ -754,6 +777,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                   ))}
                                 </SelectContent>
                               </Select>
+
                               {userPermissions.add_user && (
                                 <Dialog
                                   open={isAddUserDialogOpen}
@@ -762,7 +786,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                   <DialogTrigger asChild>
                                     <Button
                                       variant="default"
-                                      className="whitespace-nowrap h-9 cursor-pointer"
+                                      className="whitespace-nowrap h-9 cursor-pointer w-full sm:w-auto"
                                     >
                                       <UserPlus className="w-4 h-4 mr-2" />
                                       Add User
@@ -782,7 +806,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             </div>
                           </div>
 
-                          <div className="rounded-md border max-h-[65vh] sm:max-h-[42vh] overflow-y-auto w-full overflow-x-auto">
+                          {/* Table for md+ screens */}
+                          <div className="rounded-md border max-h-[65vh] sm:max-h-[42vh] overflow-y-auto w-full overflow-x-auto hidden md:block">
                             <Table className="min-w-[600px]">
                               <TableHeader className="sticky top-0 bg-background z-10">
                                 <TableRow className="bg-muted/50">
@@ -807,6 +832,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                   )}
                                 </TableRow>
                               </TableHeader>
+
                               <TableBody>
                                 {usersLoading ? (
                                   <TableRow>
@@ -869,6 +895,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                           </div>
                                         </div>
                                       </TableCell>
+
                                       <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                         <div className="flex items-center gap-2">
                                           <Badge
@@ -893,9 +920,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                           )}
                                         </div>
                                       </TableCell>
+
                                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                         {formatDate(user.created_at)}
                                       </TableCell>
+
                                       {hasActionPermissions && (
                                         <TableCell className="text-right align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                           <DropdownMenu>
@@ -948,6 +977,129 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               </TableBody>
                             </Table>
                           </div>
+
+                          {/* Mobile card list */}
+                          <div className="md:hidden space-y-4">
+                            {usersLoading ? (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
+                                  Loading users...
+                                </div>
+                              </div>
+                            ) : error ? (
+                              <div className="text-center py-8 text-destructive">
+                                Error loading users: {error}
+                              </div>
+                            ) : filteredUsers.length === 0 ? (
+                              <div className="text-center text-muted-foreground py-8">
+                                <UserCog className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                                <p>No users found</p>
+                              </div>
+                            ) : (
+                              // 🎯 Make only this part scrollable
+                              <div className="max-h-[40vh] overflow-y-auto space-y-4 pr-1">
+                                {filteredUsers.map((user) => (
+                                  <div
+                                    key={user.id}
+                                    className="border rounded-md p-4 space-y-2 cursor-pointer hover:bg-accent/30"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <Avatar className="h-8 w-8 border border-border">
+                                        <AvatarImage
+                                          src={user.avatar}
+                                          alt={user.name}
+                                        />
+                                        <AvatarFallback className="bg-primary/10 text-muted-foreground">
+                                          {getInitials(user.name)}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex flex-col flex-1">
+                                        <p className="font-medium text-base">
+                                          {user.name}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                          <Mail className="h-3 w-3" />
+                                          {user.email}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge
+                                        variant={
+                                          getRoleBadgeVariant(user.role) as
+                                            | "default"
+                                            | "destructive"
+                                            | "secondary"
+                                            | "outline"
+                                            | null
+                                            | undefined
+                                        }
+                                        className="text-xs"
+                                      >
+                                        {user.role.charAt(0).toUpperCase() +
+                                          user.role.slice(1)}
+                                      </Badge>
+                                      {user.role === "admin" && (
+                                        <Shield className="h-3 w-3 text-primary" />
+                                      )}
+                                      <span className="text-xs text-muted-foreground ml-auto">
+                                        {formatDate(user.created_at)}
+                                      </span>
+                                    </div>
+
+                                    {hasActionPermissions && (
+                                      <div className="flex justify-end">
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-8 w-8 p-0 cursor-pointer"
+                                            >
+                                              <MoreHorizontal className="h-4 w-4" />
+                                              <span className="sr-only">
+                                                Open menu
+                                              </span>
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end">
+                                            {userPermissions.edit_user && (
+                                              <DropdownMenuItem
+                                                className="cursor-pointer"
+                                                onClick={() =>
+                                                  handleEditUserClick(user)
+                                                }
+                                              >
+                                                <Pencil className="w-4 h-4 mr-2" />
+                                                Edit user
+                                              </DropdownMenuItem>
+                                            )}
+                                            {userPermissions.edit_user &&
+                                              userPermissions.delete_user && (
+                                                <DropdownMenuSeparator />
+                                              )}
+                                            {userPermissions.delete_user && (
+                                              <DropdownMenuItem
+                                                className="cursor-pointer text-destructive focus:text-destructive"
+                                                onClick={() =>
+                                                  handleDeleteUser(user.id)
+                                                }
+                                              >
+                                                <Trash2 className="w-4 h-4 mr-2" />
+                                                Delete user
+                                              </DropdownMenuItem>
+                                            )}
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </>
                       )}
                     </div>
@@ -976,7 +1128,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                           </div>
                         </div>
                       ) : (
-                        <>
+                        <div className="max-h-[70vh] overflow-y-auto space-y-4 p-1">
                           {/* Page Access */}
                           <Card className="rounded-xl shadow-sm border border-border">
                             <CardHeader>
@@ -987,8 +1139,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               </CardDescription>
                             </CardHeader>
                             <CardContent className="p-0">
-                              <div className="rounded-md overflow-hidden">
-                                <Table>
+                              <div className="rounded-md overflow-x-auto w-full">
+                                <Table className="min-w-[600px]">
                                   <TableHeader>
                                     <TableRow>
                                       <TableHead className="text-right font-bold text-foreground bg-muted">
@@ -1018,7 +1170,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                             "hover:bg-muted transition-colors"
                                           )}
                                         >
-                                          <TableCell className="font-medium text-foreground pl-4">
+                                          <TableCell className="font-medium text-foreground pl-4 whitespace-nowrap">
                                             {role}
                                           </TableCell>
                                           {pageResources.map((res) => {
@@ -1042,25 +1194,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                                         ? `Disable ${role} access to ${res}`
                                                         : `Enable ${role} access to ${res}`
                                                     }
-                                                    className="
-                                                    data-[state=checked]:bg-green-600
-                                                    dark:data-[state=checked]:bg-green-400
-                                                    data-[state=unchecked]:bg-red-500
-                                                    dark:data-[state=unchecked]:bg-red-400
-                                                    border border-border
-                                                    shadow
-                                                    relative
-                                                    transition-colors
-                                                    focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
-                                                    dark:focus-visible:ring-offset-background
-                                                    [&>span]:bg-white
-                                                    dark:[&>span]:bg-zinc-700
-                                                    [&>span]:shadow-lg
-                                                    [&>span]:size-5
-                                                    [&>span]:transition-all
-                                                    [&>span]:duration-200
-                                                    cursor-pointer
-                                                  "
+                                                    className="data-[state=checked]:bg-green-600 dark:data-[state=checked]:bg-green-400 data-[state=unchecked]:bg-red-500 dark:data-[state=unchecked]:bg-red-400 border border-border shadow relative transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:focus-visible:ring-offset-background [&>span]:bg-white dark:[&>span]:bg-zinc-700 [&>span]:shadow-lg [&>span]:size-5 [&>span]:transition-all [&>span]:duration-200 cursor-pointer"
                                                   />
                                                 ) : (
                                                   <span className="text-muted-foreground select-none">
@@ -1088,8 +1222,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               </CardDescription>
                             </CardHeader>
                             <CardContent className="p-0">
-                              <div className="rounded-md overflow-hidden">
-                                <Table>
+                              <div className="rounded-md overflow-x-auto w-full">
+                                <Table className="min-w-[600px]">
                                   <TableHeader>
                                     <TableRow>
                                       <TableHead className="text-left font-bold text-foreground bg-muted">
@@ -1118,7 +1252,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                             "hover:bg-muted transition-colors"
                                           )}
                                         >
-                                          <TableCell className="font-medium text-foreground pl-4">
+                                          <TableCell className="font-medium text-foreground pl-4 whitespace-nowrap">
                                             {role}
                                           </TableCell>
                                           {featureResources.map((res) => {
@@ -1145,25 +1279,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                                         ? `Disable ${role} access to ${res}`
                                                         : `Enable ${role} access to ${res}`
                                                     }
-                                                    className="
-                                                    data-[state=checked]:bg-green-600
-                                                    dark:data-[state=checked]:bg-green-400
-                                                    data-[state=unchecked]:bg-red-500
-                                                    dark:data-[state=unchecked]:bg-red-400
-                                                    border border-border
-                                                    shadow
-                                                    relative
-                                                    transition-colors
-                                                    focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
-                                                    dark:focus-visible:ring-offset-background
-                                                    [&>span]:bg-white
-                                                    dark:[&>span]:bg-zinc-700
-                                                    [&>span]:shadow-lg
-                                                    [&>span]:size-5
-                                                    [&>span]:transition-all
-                                                    [&>span]:duration-200
-                                                    cursor-pointer
-                                                  "
+                                                    className="data-[state=checked]:bg-green-600 dark:data-[state=checked]:bg-green-400 data-[state=unchecked]:bg-red-500 dark:data-[state=unchecked]:bg-red-400 border border-border shadow relative transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:focus-visible:ring-offset-background [&>span]:bg-white dark:[&>span]:bg-zinc-700 [&>span]:shadow-lg [&>span]:size-5 [&>span]:transition-all [&>span]:duration-200 cursor-pointer"
                                                   />
                                                 ) : (
                                                   <span className="text-muted-foreground select-none">
@@ -1181,7 +1297,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               </div>
                             </CardContent>
                           </Card>
-                        </>
+                        </div>
                       )}
                     </div>
                   </TabsContent>
