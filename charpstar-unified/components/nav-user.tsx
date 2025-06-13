@@ -37,7 +37,7 @@ export function NavUser() {
         .map((n) => n[0])
         .join("")
         .toUpperCase()
-    : "U";
+    : ";)";
 
   // Use metadata for name/email/avatar or fallback to main user fields
   const name =
