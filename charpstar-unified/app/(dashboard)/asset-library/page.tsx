@@ -775,24 +775,25 @@ export default function AssetLibraryPage() {
               </Sheet>
 
               {/* Only show for admin */}
-
-              <>
-                <Button onClick={() => setPreviewDialogOpen(true)}>
-                  <span className="text-sm">Generate Previews</span>
-                </Button>
-                <PreviewGeneratorDialog
-                  isOpen={previewDialogOpen}
-                  onClose={() => setPreviewDialogOpen(false)}
-                />
-                <Button variant="default" asChild>
-                  <Link
-                    href="/asset-library/upload"
-                    className="flex items-center gap-2"
-                  >
-                    Upload Assets
-                  </Link>
-                </Button>
-              </>
+              {user?.role === "admin" && (
+                <>
+                  <Button onClick={() => setPreviewDialogOpen(true)}>
+                    <span className="text-sm">Generate Previews</span>
+                  </Button>
+                  <PreviewGeneratorDialog
+                    isOpen={previewDialogOpen}
+                    onClose={() => setPreviewDialogOpen(false)}
+                  />
+                  <Button variant="default" asChild>
+                    <Link
+                      href="/asset-library/upload"
+                      className="flex items-center gap-2"
+                    >
+                      Upload Assets
+                    </Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
           <div>
