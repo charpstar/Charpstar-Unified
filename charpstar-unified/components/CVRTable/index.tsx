@@ -25,6 +25,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { type ProductMetrics } from "@/utils/BigQuery/types";
 import { createColumns } from "@/components/CVRTable/columns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/skeleton";
 
 interface AnalyticsProfile {
   datasetid?: string;
@@ -86,11 +87,9 @@ export default function CVRTable({
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-0">
-          <div className="h-[600px] w-full animate-pulse bg-muted rounded-lg" />
-        </CardContent>
-      </Card>
+      <div className="flex justify-center items-center h-full">
+        <TableSkeleton />
+      </div>
     );
   }
 

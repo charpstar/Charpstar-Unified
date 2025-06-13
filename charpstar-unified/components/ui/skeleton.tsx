@@ -10,8 +10,8 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
       )}
       {...props}
     >
-      <div className="h-8 w-full bg-background rounded-lg dark:bg-muted mb-2.5"></div>
-      <div className="h-6 w-full bg-background rounded-lg dark:bg-muted"></div>
+      <div className="h-8 w-full bg-gray-100 rounded-lg dark:bg-muted mb-2.5"></div>
+      <div className="h-6 w-full bg-gray-100 rounded-lg dark:bg-muted"></div>
       <span className="sr-only">Loading...</span>
     </div>
   );
@@ -23,12 +23,27 @@ export function TableSkeleton() {
   return (
     <div
       role="status"
-      className="p-4 border border-gray-200 rounded shadow animate-pulse md:p-6 dark:border-gray-700"
+      className="p-4 border w-full h-full border-border rounded-lg shadow animate-pulse md:p-6 dark:border-border bg-muted dark:bg-background"
     >
-      <div className="h-2 bg-gray-200 rounded-full dark:bg-gray-700 mb-2.5"></div>
-      <div className="h-2 bg-gray-200 rounded-full dark:bg-gray-700 mb-2.5"></div>
-      <div className="h-2 bg-gray-200 rounded-full dark:bg-gray-700"></div>
-      <span className="sr-only">Loading...</span>
+      {/* Header row */}
+      <div className="flex gap-4 mb-4 w-full">
+        <div className="h-8 w-full bg-gray-200 rounded-lg dark:bg-muted"></div>
+        <div className="h-8 w-full bg-gray-200 rounded-lg dark:bg-muted"></div>
+        <div className="h-8 w-full bg-gray-200 rounded-lg dark:bg-muted"></div>
+        <div className="h-8 w-full bg-gray-200 rounded-lg dark:bg-muted"></div>
+        <div className="h-8 w-full bg-gray-200 rounded-lg dark:bg-muted"></div>
+        <div className="h-8 w-full bg-gray-200 rounded-lg dark:bg-muted"></div>
+        <div className="h-8 w-full bg-gray-200 rounded-lg dark:bg-muted"></div>
+      </div>
+
+      {/* Table rows */}
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex gap-4 mb-3 w-full">
+          <div className="h-6 w-full bg-gray-200 rounded-lg dark:bg-muted"></div>
+        </div>
+      ))}
+
+      <span className="sr-only">Loading table...</span>
     </div>
   );
 }

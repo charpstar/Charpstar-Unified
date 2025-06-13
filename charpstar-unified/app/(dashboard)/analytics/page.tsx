@@ -382,7 +382,7 @@ export default function AnalyticsDashboard() {
           {Array.from({ length: 14 }).map((_, i) => (
             <Skeleton
               key={i}
-              className="h-30 w-full bg-background rounded-md "
+              className="h-30 w-full bg-background border border-border rounded-md "
             />
           ))}
         </div>
