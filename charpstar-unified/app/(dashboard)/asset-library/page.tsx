@@ -24,7 +24,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { useAssets } from "../../../hooks/use-assets";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Script from "next/script";
 
@@ -114,7 +114,7 @@ export default function AssetLibraryPage() {
   } = useAssets();
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [viewMode, setViewMode] = useState<
     "grid" | "colGrid" | "compactGrid" | "list"
   >("compactGrid");
