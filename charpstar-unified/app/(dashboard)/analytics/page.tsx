@@ -207,11 +207,7 @@ export default function AnalyticsDashboard() {
   }
 
   // Fetch analytics data
-  const {
-    data: analyticsData,
-    error: analyticsError,
-    isLoading: analyticsLoading,
-  } = useSWR(
+  const { data: analyticsData } = useSWR(
     appliedRange.from && appliedRange.to && hasAnalyticsProfile
       ? getAnalyticsUrl(appliedRange.from, appliedRange.to)
       : null,
@@ -664,8 +660,8 @@ export default function AnalyticsDashboard() {
             </TooltipTrigger>
             <TooltipContent>
               <p>
-                The Average value in the store's default currency of orders made
-                by customers when they have not interacted with CharpstAR
+                The Average value in the store&apos;s default currency of orders
+                made by customers when they have not interacted with CharpstAR
                 services
               </p>
             </TooltipContent>
@@ -685,9 +681,9 @@ export default function AnalyticsDashboard() {
             </TooltipTrigger>
             <TooltipContent>
               <p>
-                The Average value in the store's default currency of orders made
-                by customers after they have interacted with either of the AR/3D
-                buttons
+                The Average value in the store&apos;s default currency of orders
+                made by customers after they have interacted with either of the
+                AR/3D buttons
               </p>
             </TooltipContent>
           </Tooltip>
@@ -704,7 +700,7 @@ export default function AnalyticsDashboard() {
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Total clicks by users on the 'View in AR' Button</p>
+              <p>Total clicks by users on the &apos;View in AR&apos; Button</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -720,7 +716,7 @@ export default function AnalyticsDashboard() {
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Total clicks by users on the 'View in 3D' Button</p>
+              <p>Total clicks by users on the &apos;View in 3D&apos; Button</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
