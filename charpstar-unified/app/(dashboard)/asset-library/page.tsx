@@ -24,7 +24,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { useAssets } from "../../../hooks/use-assets";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Script from "next/script";
 
@@ -113,6 +113,8 @@ export default function AssetLibraryPage() {
     totalCount,
   } = useAssets();
   const [searchValue, setSearchValue] = useState("");
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
+  const searchTimeoutRef = useRef<NodeJS.Timeout>();
   const [viewMode, setViewMode] = useState<
     "grid" | "colGrid" | "compactGrid" | "list"
   >("compactGrid");
@@ -144,10 +146,27 @@ export default function AssetLibraryPage() {
 
   const ITEMS_PER_PAGE = viewMode === "compactGrid" ? 60 : 52;
 
-  // Filter assets based on search and sort
+  // Debounce search value
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchValue(searchValue);
+    }, 300); // 300ms delay
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchValue]);
+
+  // Filter assets based on debounced search and sort
   const filteredAssets = assets
     .filter((asset) => {
-      const searchLower = searchValue.toLowerCase();
+      const searchLower = debouncedSearchValue.toLowerCase();
       if (!searchLower) return true;
 
       return (
@@ -193,6 +212,11 @@ export default function AssetLibraryPage() {
     if (key === "category" && value === null) {
       // When clearing category, also clear subcategory
       setFilters({ ...filters, category: null, subcategory: null });
+      setCurrentPage(1); // Reset to first page
+    } else if (key === "category" || key === "subcategory") {
+      // Reset to first page when changing category or subcategory
+      setFilters({ ...filters, [key]: value });
+      setCurrentPage(1);
     } else {
       setFilters({ ...filters, [key]: value });
     }
@@ -247,11 +271,11 @@ export default function AssetLibraryPage() {
       params.set("materials", filters.material.join(","));
     if (filters.color.length > 0) params.set("colors", filters.color.join(","));
     if (filters.sort !== "name-asc") params.set("sort", filters.sort);
-    if (searchValue) params.set("search", searchValue);
+    if (debouncedSearchValue) params.set("search", debouncedSearchValue);
 
     const newUrl = `${pathname}${params.toString() ? `?${params.toString()}` : ""}`;
     router.push(newUrl, { scroll: false });
-  }, [filters, searchValue, pathname, router]);
+  }, [filters, debouncedSearchValue, pathname, router]);
 
   // Initialize filters from URL on mount
   useEffect(() => {
@@ -433,7 +457,7 @@ export default function AssetLibraryPage() {
                         <div className="flex items-center gap-2 overflow-x-auto">
                           {Array.from({ length: 8 }).map((_, i) => (
                             <div
-                              key={i}
+                              key={`category-skeleton-${i}`}
                               className="h-8 w-27 bg-muted rounded-md animate-pulse shrink-0"
                             />
                           ))}
@@ -548,7 +572,20 @@ export default function AssetLibraryPage() {
             <div className="flex items-center gap-4 mb-6">
               <h1 className="text-2xl font-bold">Library</h1>
               <Badge variant="secondary" className="text-sm">
-                {totalCount === 1 ? "Model:" : "Total Models:"} {totalCount}
+                {filters.category ||
+                filters.subcategory ||
+                filters.client.length > 0 ||
+                filters.material.length > 0 ||
+                filters.color.length > 0 ||
+                debouncedSearchValue ? (
+                  <>
+                    Showing {filteredAssets.length} of {totalCount} Models
+                  </>
+                ) : (
+                  <>
+                    {totalCount === 1 ? "Model:" : "Total Models:"} {totalCount}
+                  </>
+                )}
               </Badge>
             </div>
             <div className="flex items-center gap-2">
@@ -994,7 +1031,10 @@ export default function AssetLibraryPage() {
                     <Input
                       placeholder="Search assets..."
                       value={searchValue}
-                      onChange={(e) => setSearchValue(e.target.value)}
+                      onChange={(e) => {
+                        setSearchValue(e.target.value);
+                        setCurrentPage(1); // Reset to first page when searching
+                      }}
                       className="pl-9"
                     />
                     {/* Active Filters */}
@@ -1003,15 +1043,18 @@ export default function AssetLibraryPage() {
                       filters.client.length > 0 ||
                       filters.material.length > 0 ||
                       filters.color.length > 0 ||
-                      searchValue) && (
+                      debouncedSearchValue) && (
                       <div className="absolute -bottom-7 left-0 right-0 flex flex-row gap-1.5 max-w-[300px]">
-                        {searchValue && (
+                        {debouncedSearchValue && (
                           <Badge
                             variant="secondary"
                             className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
-                            onClick={() => setSearchValue("")}
+                            onClick={() => {
+                              setSearchValue("");
+                              setDebouncedSearchValue("");
+                            }}
                           >
-                            Search: {searchValue}
+                            Search: {debouncedSearchValue}
                             <X className="h-3 w-3" />
                           </Badge>
                         )}
@@ -1223,11 +1266,11 @@ export default function AssetLibraryPage() {
               </div>
               <h3 className="text-lg font-semibold mb-2">No matches found</h3>
               <p className="text-muted-foreground text-center max-w-md">
-                {searchValue ? (
+                {debouncedSearchValue ? (
                   <>
                     No assets found matching{" "}
                     <span className="font-medium text-foreground">
-                      &quot;{searchValue}&quot;
+                      &quot;{debouncedSearchValue}&quot;
                     </span>
                     {filters.category ||
                     filters.subcategory ||
@@ -1250,7 +1293,7 @@ export default function AssetLibraryPage() {
                   </>
                 )}
               </p>
-              {(searchValue ||
+              {(debouncedSearchValue ||
                 filters.category ||
                 filters.subcategory ||
                 filters.client.length > 0 ||
@@ -1261,6 +1304,7 @@ export default function AssetLibraryPage() {
                   className="mt-4"
                   onClick={() => {
                     setSearchValue("");
+                    setDebouncedSearchValue("");
                     clearFilters();
                   }}
                 >
