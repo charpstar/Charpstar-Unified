@@ -276,5 +276,6 @@ export function useAssets() {
     filterOptions,
     totalCount,
     userProfile,
+    filteredAssets,
   };
 }

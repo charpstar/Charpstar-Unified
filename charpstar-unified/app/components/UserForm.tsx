@@ -50,7 +50,7 @@ export function UserForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="  bg-background  p-6 space-y-6 ">
+    <form onSubmit={handleSubmit} className="  bg-background  p-6 space-y-10  ">
       <div className="flex flex-col gap-2">
         <Label htmlFor="email" className="text-sm text-foreground">
           Email

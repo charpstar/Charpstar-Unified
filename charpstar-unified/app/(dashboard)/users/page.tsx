@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  EditUserDialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -113,6 +114,7 @@ export default function UsersPage() {
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
@@ -681,28 +683,23 @@ export default function UsersPage() {
 
       {/* Edit User Dialog */}
       {userPermissions.edit_user && (
-        <Dialog
-          open={isEditUserDialogOpen}
-          onOpenChange={setIsEditUserDialogOpen}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
-            </DialogHeader>
-            {editingUser && (
-              <UserForm
-                onSubmit={handleEditUser}
-                isLoading={isProcessing}
-                initialData={{
-                  name: editingUser.name,
-                  email: editingUser.email,
-                  role: editingUser.role as "admin" | "client" | "user",
-                  password: "",
-                }}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
+        <EditUserDialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+          </DialogHeader>
+          {editingUser && (
+            <UserForm
+              onSubmit={handleEditUser}
+              isLoading={isProcessing}
+              initialData={{
+                name: editingUser.name,
+                email: editingUser.email,
+                role: editingUser.role as "admin" | "client" | "user",
+                password: "",
+              }}
+            />
+          )}
+        </EditUserDialogContent>
       )}
 
       <Toaster />

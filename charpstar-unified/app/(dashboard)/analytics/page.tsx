@@ -207,7 +207,7 @@ export default function AnalyticsDashboard() {
   }
 
   // Fetch analytics data
-  const { data: analyticsData } = useSWR(
+  const { data: analyticsData, isLoading: isAnalyticsLoading } = useSWR(
     appliedRange.from && appliedRange.to && hasAnalyticsProfile
       ? getAnalyticsUrl(appliedRange.from, appliedRange.to)
       : null,
@@ -374,14 +374,7 @@ export default function AnalyticsDashboard() {
           <div className="flex gap-2 items-end"></div>
         </div>
         <div></div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <Skeleton
-              key={i}
-              className="h-30 w-full bg-background border border-border rounded-md "
-            />
-          ))}
-        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"></div>
       </div>
     );
   }
@@ -443,6 +436,26 @@ export default function AnalyticsDashboard() {
   // --- Main dashboard ---
   return (
     <div className="flex flex-1 flex-col p-4 sm:p-6">
+      {impersonatedProfile && (
+        <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-800 dark:text-yellow-200">
+                Viewing analytics as: {impersonatedProfile.email}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/analytics")}
+              className="text-yellow-800 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-800/50"
+            >
+              Exit
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col space-y-4 mb-6">
         <h1 className="text-xl sm:text-2xl font-bold">Analytics Dashboard</h1>
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -470,10 +483,14 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Total Page Views"
-                  value={stats?.total_page_views || 0}
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Total Page Views"
+                    value={stats?.total_page_views || 0}
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -486,10 +503,14 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Total Unique Users"
-                  value={stats?.total_unique_users || 0}
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Total Unique Users"
+                    value={stats?.total_unique_users || 0}
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -502,10 +523,14 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Total Users who activate our services"
-                  value={stats?.total_users_with_service || 0}
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Total Users who activate our services"
+                    value={stats?.total_users_with_service || 0}
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -518,13 +543,17 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Percentage of users using our service"
-                  value={capPercentage(
-                    stats?.percentage_users_with_service || 0
-                  )}
-                  suffix="%"
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Percentage of users using our service"
+                    value={capPercentage(
+                      stats?.percentage_users_with_service || 0
+                    )}
+                    suffix="%"
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -543,11 +572,15 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Conversion rate without AR/3D activation"
-                  value={stats?.conversion_rate_without_ar || 0}
-                  suffix="%"
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Conversion rate without AR/3D activation"
+                    value={stats?.conversion_rate_without_ar || 0}
+                    suffix="%"
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -566,11 +599,15 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Conversion rate with AR/3D activation"
-                  value={stats?.conversion_rate_with_ar || 0}
-                  suffix="%"
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Conversion rate with AR/3D activation"
+                    value={stats?.conversion_rate_with_ar || 0}
+                    suffix="%"
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -589,10 +626,14 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Total Purchases with AR/3D activation"
-                  value={stats?.total_purchases_with_ar || 0}
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Total Purchases with AR/3D activation"
+                    value={stats?.total_purchases_with_ar || 0}
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -605,11 +646,15 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Add to Cart Default"
-                  value={stats?.add_to_cart_default || 0}
-                  suffix="%"
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Add to Cart Default"
+                    value={stats?.add_to_cart_default || 0}
+                    suffix="%"
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -628,11 +673,15 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Add to Cart with CharpstAR"
-                  value={stats?.add_to_cart_with_ar || 0}
-                  suffix="%"
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Add to Cart with CharpstAR"
+                    value={stats?.add_to_cart_with_ar || 0}
+                    suffix="%"
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -651,11 +700,15 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Average Order Value without AR/3D activation"
-                  value={stats?.avg_order_value_without_ar || 0}
-                  suffix="(Store currency)"
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Average Order Value without AR/3D activation"
+                    value={stats?.avg_order_value_without_ar || 0}
+                    suffix="(Store currency)"
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -672,11 +725,15 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Average Order Value with AR/3D activation"
-                  value={stats?.avg_order_value_with_ar || 0}
-                  suffix="(Store currency)"
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Average Order Value with AR/3D activation"
+                    value={stats?.avg_order_value_with_ar || 0}
+                    suffix="(Store currency)"
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -693,10 +750,14 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Total AR Clicks"
-                  value={stats?.total_ar_clicks || 0}
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Total AR Clicks"
+                    value={stats?.total_ar_clicks || 0}
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -709,10 +770,14 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Total 3D Clicks"
-                  value={stats?.total_3d_clicks || 0}
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Total 3D Clicks"
+                    value={stats?.total_3d_clicks || 0}
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -725,11 +790,15 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Session time duration without AR/3D activation"
-                  value={stats?.session_duration_without_ar || 0}
-                  suffix="seconds"
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Session time duration without AR/3D activation"
+                    value={stats?.session_duration_without_ar || 0}
+                    suffix="seconds"
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -745,11 +814,15 @@ export default function AnalyticsDashboard() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <StatCard
-                  title="Session time duration with AR/3D activation"
-                  value={stats?.session_duration_with_ar || 0}
-                  suffix="seconds"
-                />
+                {isAnalyticsLoading ? (
+                  <Skeleton className="bg-background" />
+                ) : (
+                  <StatCard
+                    title="Session time duration with AR/3D activation"
+                    value={stats?.session_duration_with_ar || 0}
+                    suffix="seconds"
+                  />
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent>
