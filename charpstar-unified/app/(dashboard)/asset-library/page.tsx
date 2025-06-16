@@ -38,7 +38,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
-import { AssetCardSkeleton } from "@/components/ui/asset-card-skeleton";
 import { PreviewGeneratorDialog } from "./components/preview-generator-dialog";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
