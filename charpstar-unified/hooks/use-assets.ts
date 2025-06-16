@@ -3,6 +3,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import _ from "lodash";
 import { useUser } from "@/contexts/useUser";
+import { useQuery } from "@tanstack/react-query";
 
 export type SortOption =
   | "name-asc"
@@ -51,10 +52,75 @@ interface Asset {
   updated_at?: string;
 }
 
+interface AssetsResponse {
+  assets: Asset[];
+  totalCount: number;
+}
+
+const fetchAssets = async (
+  user: any,
+  userProfile: any
+): Promise<AssetsResponse> => {
+  if (!user || !userProfile) return { assets: [], totalCount: 0 };
+
+  const supabase = createClient();
+
+  // First get the total count
+  let countQuery = supabase
+    .from("assets")
+    .select("*", { count: "exact", head: true });
+
+  // Only apply client filter if user is not admin
+  if (userProfile.role !== "admin") {
+    countQuery = countQuery.eq("client", userProfile.client);
+  }
+
+  const { count } = await countQuery;
+
+  // Then fetch all assets with pagination
+  let allAssets: Asset[] = [];
+  let page = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    let dataQuery = supabase
+      .from("assets")
+      .select("*")
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    // Only apply client filter if user is not admin
+    if (userProfile.role !== "admin") {
+      dataQuery = dataQuery.eq("client", userProfile.client);
+    }
+
+    const { data, error } = await dataQuery;
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    allAssets = [...allAssets, ...data];
+    page++;
+
+    // If we got less than pageSize items, we've reached the end
+    if (data.length < pageSize) break;
+  }
+
+  // Parse materials, colors, and tags from string arrays
+  const parsedAssets = allAssets.map((item) => ({
+    ...item,
+    materials: Array.isArray(item.materials)
+      ? item.materials
+      : JSON.parse(item.materials || "[]"),
+    colors: Array.isArray(item.colors)
+      ? item.colors
+      : JSON.parse(item.colors || "[]"),
+    tags: Array.isArray(item.tags) ? item.tags : JSON.parse(item.tags || "[]"),
+  }));
+
+  return { assets: parsedAssets, totalCount: count || 0 };
+};
+
 export function useAssets() {
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     search: [],
     category: null,
@@ -65,8 +131,6 @@ export function useAssets() {
     sort: "name-asc",
   });
   const user = useUser();
-  const [totalCount, setTotalCount] = useState(0);
-
   const [userProfile, setUserProfile] = useState<{
     client: string;
     role: string;
@@ -95,89 +159,20 @@ export function useAssets() {
     fetchUserProfile();
   }, [user]);
 
-  const fetchAssets = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Don't fetch if user is not loaded yet
-      if (!user || !userProfile) {
-        setLoading(false);
-        return;
-      }
-
-      const supabase = createClient();
-
-      // First get the total count
-      let countQuery = supabase
-        .from("assets")
-        .select("*", { count: "exact", head: true });
-
-      // Only apply client filter if user is not admin
-      if (userProfile.role !== "admin") {
-        countQuery = countQuery.eq("client", userProfile.client);
-      }
-
-      const { count } = await countQuery;
-
-      // Then fetch all assets with pagination
-      let allAssets: Asset[] = [];
-      let page = 0;
-      const pageSize = 1000;
-
-      while (true) {
-        let dataQuery = supabase
-          .from("assets")
-          .select("*")
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-
-        // Only apply client filter if user is not admin
-        if (userProfile.role !== "admin") {
-          dataQuery = dataQuery.eq("client", userProfile.client);
-        }
-
-        const { data, error } = await dataQuery;
-
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-
-        allAssets = [...allAssets, ...data];
-        page++;
-
-        // If we got less than pageSize items, we've reached the end
-        if (data.length < pageSize) break;
-      }
-
-      // Parse materials, colors, and tags from string arrays
-      const parsedAssets = allAssets.map((item) => ({
-        ...item,
-        materials: Array.isArray(item.materials)
-          ? item.materials
-          : JSON.parse(item.materials || "[]"),
-        colors: Array.isArray(item.colors)
-          ? item.colors
-          : JSON.parse(item.colors || "[]"),
-        tags: Array.isArray(item.tags)
-          ? item.tags
-          : JSON.parse(item.tags || "[]"),
-      }));
-
-      setAssets(parsedAssets);
-      setTotalCount(count || 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAssets();
-  }, [user, userProfile]);
+  // Use React Query to fetch and cache assets
+  const { data, isLoading, error, refetch } = useQuery<AssetsResponse>({
+    queryKey: ["assets", user?.id, userProfile?.client, userProfile?.role],
+    queryFn: () => fetchAssets(user, userProfile),
+    enabled: !!user && !!userProfile,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    gcTime: 30 * 60 * 1000, // Keep data in cache for 30 minutes
+  });
 
   // Filter assets based on current filters
   const filteredAssets = useMemo(() => {
-    return assets.filter((asset) => {
+    if (!data?.assets) return [];
+
+    return data.assets.filter((asset: Asset) => {
       // Category filter
       if (filters.category && asset.category !== filters.category) {
         return false;
@@ -203,7 +198,7 @@ export function useAssets() {
         return false;
       }
 
-      // Color filter - show only products that have ALL selected colors
+      // Color filter
       if (
         filters.color.length > 0 &&
         !filters.color.every((color) => asset.colors.includes(color))
@@ -213,10 +208,56 @@ export function useAssets() {
 
       return true;
     });
-  }, [assets, filters]);
+  }, [data?.assets, filters]);
 
   // Generate filter options based on filtered assets
   const filterOptions = useMemo(() => {
+    if (!data?.assets)
+      return {
+        categories: [],
+        clients: [],
+        materials: [],
+        colors: [],
+      };
+
+    // First filter assets based on current filters
+    let filteredAssets = data.assets;
+
+    // Apply category filter
+    if (filters.category) {
+      filteredAssets = filteredAssets.filter(
+        (asset) => asset.category === filters.category
+      );
+    }
+
+    // Apply subcategory filter
+    if (filters.subcategory) {
+      filteredAssets = filteredAssets.filter(
+        (asset) => asset.subcategory === filters.subcategory
+      );
+    }
+
+    // Apply client filter
+    if (filters.client.length > 0) {
+      filteredAssets = filteredAssets.filter((asset) =>
+        filters.client.includes(asset.client)
+      );
+    }
+
+    // Apply material filter
+    if (filters.material.length > 0) {
+      filteredAssets = filteredAssets.filter((asset) =>
+        filters.material.every((material) => asset.materials.includes(material))
+      );
+    }
+
+    // Apply color filter
+    if (filters.color.length > 0) {
+      filteredAssets = filteredAssets.filter((asset) =>
+        filters.color.every((color) => asset.colors.includes(color))
+      );
+    }
+
     // Get unique categories and subcategories from filtered assets
     const categories = Array.from(
       new Set(filteredAssets.map((asset) => asset.category))
@@ -267,18 +308,17 @@ export function useAssets() {
       materials,
       colors,
     };
-  }, [filteredAssets]);
+  }, [data?.assets, filters]);
 
   return {
-    assets,
-    loading,
-    error,
-    refetch: fetchAssets,
+    assets: data?.assets || [],
+    loading: isLoading,
+    error: error ? (error as Error).message : null,
+    refetch,
     filters,
     setFilters,
     filterOptions,
-    totalCount,
-    userProfile,
+    totalCount: data?.totalCount || 0,
     filteredAssets,
   };
 }

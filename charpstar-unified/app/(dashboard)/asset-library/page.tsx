@@ -925,7 +925,7 @@ export default function AssetLibraryPage() {
                         align: "start",
                         loop: false,
                       }}
-                      className="w-full z-10 pr-10 pl-10 flex justify-center"
+                      className="w-full z-10 pr-10 pl-10 flex justify-start"
                     >
                       <CarouselContent className="-ml-2">
                         <CarouselItem className="pl-2 basis-auto">
@@ -1070,20 +1070,137 @@ export default function AssetLibraryPage() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="w-[200px]">
-                    {/* Input + Icon wrapper */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                      <Input
-                        placeholder="Search assets..."
-                        value={searchValue}
-                        onChange={(e) => {
-                          setSearchValue(e.target.value);
-                          setCurrentPage(1);
-                        }}
-                        className="pl-9"
-                      />
-                    </div>
+                  <div className="relative w-[200px]">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search assets..."
+                      value={searchValue}
+                      onChange={(e) => {
+                        setSearchValue(e.target.value);
+                        setCurrentPage(1); // Reset to first page when searching
+                      }}
+                      className="pl-9"
+                    />
+                    {/* Active Filters */}
+                    {(filters.category ||
+                      filters.subcategory ||
+                      filters.client.length > 0 ||
+                      filters.material.length > 0 ||
+                      filters.color.length > 0 ||
+                      debouncedSearchValue) && (
+                      <div className="absolute -bottom-7 left-0 right-0 flex flex-row gap-1.5 max-w-[300px]">
+                        {debouncedSearchValue && (
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() => {
+                              setSearchValue("");
+                              setDebouncedSearchValue("");
+                            }}
+                          >
+                            Search: {debouncedSearchValue}
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {filters.category && (
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() => handleFilterChange("category", null)}
+                          >
+                            Category:{" "}
+                            {
+                              filterOptions.categories.find(
+                                (c) => c.id === filters.category
+                              )?.name
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {filters.subcategory && (
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange("subcategory", null)
+                            }
+                          >
+                            Subcategory:{" "}
+                            {
+                              filterOptions.categories
+                                .find((c) => c.id === filters.category)
+                                ?.subcategories.find(
+                                  (s) => s.id === filters.subcategory
+                                )?.name
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {filters.client.map((client) => (
+                          <Badge
+                            key={client}
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange(
+                                "client",
+                                filters.client.filter((c) => c !== client)
+                              )
+                            }
+                          >
+                            Client:{" "}
+                            {
+                              filterOptions.clients.find(
+                                (c) => c.value === client
+                              )?.label
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        ))}
+                        {filters.material.map((material) => (
+                          <Badge
+                            key={material}
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange(
+                                "material",
+                                filters.material.filter((m) => m !== material)
+                              )
+                            }
+                          >
+                            Material:{" "}
+                            {
+                              filterOptions.materials.find(
+                                (m) => m.value === material
+                              )?.label
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        ))}
+                        {filters.color.map((color) => (
+                          <Badge
+                            key={color}
+                            variant="secondary"
+                            className="h-5 px-1.5 py-0.5 text-xs font-medium bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            onClick={() =>
+                              handleFilterChange(
+                                "color",
+                                filters.color.filter((c) => c !== color)
+                              )
+                            }
+                          >
+                            Color:{" "}
+                            {
+                              filterOptions.colors.find(
+                                (c) => c.value === color
+                              )?.label
+                            }
+                            <X className="h-3 w-3" />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <Select value={filters.sort} onValueChange={handleSortChange}>
