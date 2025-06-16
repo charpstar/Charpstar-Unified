@@ -117,7 +117,7 @@ export default function AssetLibraryPage() {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [viewMode, setViewMode] = useState<
     "grid" | "colGrid" | "compactGrid" | "list"
-  >("compactGrid");
+  >("grid");
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
