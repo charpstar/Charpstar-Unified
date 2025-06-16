@@ -225,7 +225,7 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
         touch-action="pan-y"
         src={modelUrl}
         alt={alt}
-        className="w-full h-[900px]"
+        className="w-full h-[300px] sm:h-[200px] md:h-[500px] lg:h-[1000px]"
       >
         <button
           slot="hotspot-dot+X-Y+Z"
@@ -308,7 +308,9 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
         </svg>
 
         <div id="controls" className="dim glass">
-          <label htmlFor="show-dimensions">Show Dimensions:</label>
+          <label htmlFor="show-dimensions" className="text-xs sm:text-sm">
+            Show Dimensions:
+          </label>
           <input id="show-dimensions" type="checkbox" defaultChecked />
         </div>
         {/* @ts-expect-error -- model-viewer is a custom element */}
@@ -349,7 +351,7 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
             Futura,
             Helvetica Neue,
             sans-serif;
-          font-size: 1em;
+          font-size: 0.75rem;
           font-weight: 700;
           max-width: 128px;
           overflow-wrap: break-word;
@@ -362,9 +364,15 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
           --min-hotspot-opacity: 0;
         }
 
-        @media only screen and (max-width: 800px) {
+        @media (min-width: 640px) {
           .dim {
-            font-size: 3vw;
+            font-size: 0.875rem;
+          }
+        }
+
+        @media (min-width: 768px) {
+          .dim {
+            font-size: 1rem;
           }
         }
 
