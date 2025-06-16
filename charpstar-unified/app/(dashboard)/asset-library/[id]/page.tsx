@@ -27,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ModelViewer } from "./components/model-viewer";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -69,6 +70,7 @@ interface Asset {
   zip_link?: string;
   created_at?: string;
   article_id?: string;
+  modelUrl?: string;
 }
 
 export default function AssetDetailPage() {
@@ -333,26 +335,11 @@ export default function AssetDetailPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 h-[calc(100%-4rem)]">
             {/* Left Side - Model Viewer */}
             <div className="flex flex-col gap-4 h-full">
-              <div className="w-full h-[300px] sm:h-full rounded-lg bg-muted overflow-hidden">
+              <div className="w-full h-[900px]">
                 {asset.glb_link ? (
-                  // @ts-expect-error -- model-viewer is a custom element
-                  <model-viewer
-                    src={asset.glb_link}
-                    alt={asset.product_name}
-                    auto-rotate
-                    camera-controls
-                    shadow-intensity="1"
-                    camera-orbit="0deg 75deg 160%"
-                    min-camera-orbit="auto auto 50%"
-                    max-camera-orbit="auto auto 150%"
-                    interaction-prompt="auto"
-                    environment-image="neutral"
-                    exposure="1"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      backgroundColor: "transparent",
-                    }}
+                  <ModelViewer
+                    modelUrl={asset.glb_link}
+                    alt={`3D model of ${asset.product_name}`}
                   />
                 ) : asset.preview_image ? (
                   // eslint-disable-next-line @next/next/no-img-element
