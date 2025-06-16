@@ -296,12 +296,12 @@ export default function AssetDetailPage() {
         type="module"
         src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
       />
-      <div className="p-6 h-[calc(100vh-10rem)]">
+      <div className="p-4 sm:p-6 h-[calc(100vh-10rem)]">
         <div className="h-full">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-4 sm:mb-6">
             <Link href="/asset-library">
               <Button variant="ghost" className="cursor-pointer">
-                <ArrowLeft className="mr-2 h-4 w-4 " />
+                <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Asset Library
               </Button>
             </Link>
@@ -316,28 +316,24 @@ export default function AssetDetailPage() {
                 }}
               >
                 {isEditing ? (
-                  <>
-                    <Button variant="ghost" className="cursor-pointer">
-                      <X className="mr-2 h-4 w-4" />
-                      Cancel Edit
-                    </Button>
-                  </>
+                  <Button variant="ghost" className="cursor-pointer">
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel Edit
+                  </Button>
                 ) : (
-                  <>
-                    <Button variant="ghost" className="cursor-pointer">
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit Product
-                    </Button>
-                  </>
+                  <Button variant="ghost" className="cursor-pointer">
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit Product
+                  </Button>
                 )}
               </Button>
             )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100%-4rem)]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 h-[calc(100%-4rem)]">
             {/* Left Side - Model Viewer */}
             <div className="flex flex-col gap-4 h-full">
-              <div className="w-full h-full rounded-lg bg-muted overflow-hidden">
+              <div className="w-full h-[300px] sm:h-full rounded-lg bg-muted overflow-hidden">
                 {asset.glb_link ? (
                   // @ts-expect-error -- model-viewer is a custom element
                   <model-viewer
@@ -374,10 +370,10 @@ export default function AssetDetailPage() {
             </div>
 
             {/* Right Side - Details */}
-            <div className="flex flex-col gap-6 space-y-6 h-full overflow-y-auto pr-4">
+            <div className="flex flex-col gap-4 sm:gap-6 space-y-4 sm:space-y-6 h-full overflow-y-auto pr-2 sm:pr-4">
               {isEditing ? (
-                <div className="space-y-6 h-full overflow-y-auto p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4 sm:space-y-6 h-full overflow-y-auto p-2 sm:p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="product_name">Product Name</Label>
                       <Input
@@ -458,7 +454,7 @@ export default function AssetDetailPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="product_link">Product Link</Label>
                       <Input
@@ -489,7 +485,7 @@ export default function AssetDetailPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* Materials */}
                     <div className="grid gap-2">
                       <Label>Materials</Label>
@@ -646,11 +642,11 @@ export default function AssetDetailPage() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-8">
+                <div className="space-y-6 sm:space-y-8">
                   <div>
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 mb-4 sm:mb-6">
                       <div>
-                        <h1 className="text-3xl font-bold mb-3">
+                        <h1 className="text-2xl sm:text-3xl font-bold mb-3">
                           {asset.product_name}
                         </h1>
                         <div className="flex flex-wrap gap-2">
@@ -667,8 +663,12 @@ export default function AssetDetailPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="default" className="group/btn" asChild>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <Button
+                          variant="default"
+                          className="group/btn flex-1 sm:flex-none"
+                          asChild
+                        >
                           <a
                             href={asset.product_link}
                             target="_blank"
@@ -729,14 +729,14 @@ export default function AssetDetailPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-8">
+                  <div className="grid grid-cols-1 gap-4 sm:gap-8">
                     {/* Basic Information */}
-                    <div className="space-y-4 bg-muted/30 rounded-lg p-6">
-                      <h2 className="text-xl font-bold flex items-center gap-2">
+                    <div className="space-y-4 bg-muted/30 rounded-lg p-4 sm:p-6">
+                      <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
                         <span className="h-6 w-1 bg-primary rounded-full"></span>
                         Basic Information
                       </h2>
-                      <div className="grid grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         <div className="space-y-1.5">
                           <span className="text-sm font-medium text-muted-foreground">
                             Article ID
@@ -768,8 +768,8 @@ export default function AssetDetailPage() {
                     </div>
 
                     {/* Specifications */}
-                    <div className="space-y-4 bg-muted/30 rounded-lg p-6">
-                      <h2 className="text-xl font-bold flex items-center gap-2">
+                    <div className="space-y-4 bg-muted/30 rounded-lg p-4 sm:p-6">
+                      <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
                         <span className="h-6 w-1 bg-primary rounded-full"></span>
                         Specifications
                       </h2>
@@ -844,8 +844,8 @@ export default function AssetDetailPage() {
 
                     {/* Description */}
                     {asset.description && (
-                      <div className="space-y-4 bg-muted/30 rounded-lg p-6">
-                        <h2 className="text-xl font-bold flex items-center gap-2">
+                      <div className="space-y-4 bg-muted/30 rounded-lg p-4 sm:p-6">
+                        <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
                           <span className="h-6 w-1 bg-primary rounded-full"></span>
                           Description
                         </h2>

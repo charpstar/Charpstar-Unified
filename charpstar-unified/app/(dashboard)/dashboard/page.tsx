@@ -241,33 +241,33 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+    <div className="flex flex-1 flex-col p-4 sm:p-6">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold">Dashboard</h1>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <User2 className="h-4 w-4" />
                 User Profile
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16 border border-border">
-                    <AvatarFallback className="bg-primary/10 text-muted-foreground text-lg">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                  <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border border-border">
+                    <AvatarFallback className="bg-primary/10 text-muted-foreground text-base sm:text-lg">
                       {getInitials(user?.email || "")}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="space-y-1">
-                    <p className="text-lg font-medium">
+                  <div className="space-y-1 text-center sm:text-left">
+                    <p className="text-base sm:text-lg font-medium">
                       {user?.email || "User"}
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center sm:justify-start gap-2">
                       <Badge
                         variant={
                           getRoleBadgeVariant(userProfile?.role || "") as any
@@ -293,13 +293,13 @@ export default function DashboardPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <TrendingUp className="h-4 w-4" />
                 Quick Actions
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-1">
                 <Button
                   asChild
                   variant="outline"
