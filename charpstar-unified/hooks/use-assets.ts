@@ -53,7 +53,7 @@ interface Asset {
 
 export function useAssets() {
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     search: [],
@@ -101,7 +101,10 @@ export function useAssets() {
       setError(null);
 
       // Don't fetch if user is not loaded yet
-      if (!user || !userProfile) return;
+      if (!user || !userProfile) {
+        setLoading(false);
+        return;
+      }
 
       const supabase = createClient();
 

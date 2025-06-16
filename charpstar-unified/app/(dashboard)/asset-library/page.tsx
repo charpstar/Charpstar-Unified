@@ -50,6 +50,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
+import { AssetLibrarySkeleton } from "@/components/ui/asset-library-skeleton";
 
 type SortOption =
   | "name-asc"
@@ -453,22 +454,64 @@ export default function AssetLibraryPage() {
 
   // Show loading state while user profile is being fetched
   if (!user) {
-    return (
-      <div className="p-6">
+    <div className="p-6 space-y-6">
+      <Script
+        type="module"
+        src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
+      />
+      <div>
         <div className="flex flex-col gap-4">
-          <div className="flex  items-center">
-            <div className="flex items-center gap-4">
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4 mb-6">
               <h1 className="text-2xl font-bold">Library</h1>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <AssetCardSkeleton key={i} />
-            ))}
+
+          {/* Controls */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative w-full h-[120px] flex-1 max-w-[1000px] min-w-[400px]">
+              <div className="absolute inset-0 pt-3.5">
+                {/* Categories skeleton */}
+                <div className="flex items-center gap-2 justify-center pt-5">
+                  <div className="flex items-center gap-1">
+                    <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div
+                        key={`category-skeleton-${i}`}
+                        className="h-8 w-25 bg-muted rounded-md animate-pulse shrink-0"
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Search and filters skeleton */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative w-[300px]">
+                <div className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 bg-muted rounded animate-pulse" />
+                <div className="h-10 w-full bg-muted rounded animate-pulse" />
+              </div>
+              <div className="h-10 w-[180px] bg-muted rounded animate-pulse" />
+              <div className="flex items-center gap-1 border-border rounded-md">
+                <div className="h-9 w-9 bg-muted rounded animate-pulse" />
+                <div className="h-9 w-9 bg-muted rounded animate-pulse" />
+                <div className="h-9 w-9 bg-muted rounded animate-pulse" />
+              </div>
+            </div>
           </div>
+
+          {/* Asset Cards Grid */}
+          <AssetLibrarySkeleton />
         </div>
       </div>
-    );
+    </div>;
   }
 
   if (loading) {
@@ -527,23 +570,7 @@ export default function AssetLibraryPage() {
             </div>
 
             {/* Asset Cards Grid */}
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-w-full mx-auto">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <Card
-                  key={i}
-                  className="group relative overflow-hidden border border-border/40 rounded-xl"
-                >
-                  <div className="relative aspect-square overflow-hidden rounded-lg">
-                    <div className="w-full h-full bg-muted animate-pulse" />
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent opacity-0 duration-300">
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <div className="h-8 w-full bg-muted rounded-lg animate-pulse" />
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+            <AssetLibrarySkeleton />
           </div>
         </div>
       </div>
@@ -584,9 +611,7 @@ export default function AssetLibraryPage() {
         </h1>
         <div className="flex justify-center items-center h-64">
           <p className="text-muted-foreground">
-            {client
-              ? `No assets found for client: ${client}`
-              : "No assets found"}
+            {client ? `No assets found for client: ${client}` : ""}
           </p>
         </div>
       </div>

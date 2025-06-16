@@ -160,77 +160,49 @@ export default function DashboardPage() {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const StatCard = ({
-    title,
-    value,
-    icon: Icon,
-    description,
-  }: {
-    title: string;
-    value: number | string;
-    icon: React.ElementType;
-    description?: string;
-  }) => (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col p-6">
-        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* User Profile Skeleton */}
+      <div className="flex flex-1 flex-col p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold">Dashboard</h1>
+        </div>
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-4 w-4" />
-                  <Skeleton className="h-5 w-24" />
-                </div>
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <User2 className="h-4 w-4" />
+                  User Profile
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-16 w-16 rounded-full" />
-                    <div className="space-y-1 flex-1">
-                      <Skeleton className="h-5 w-32" />
-                      <div className="flex items-center gap-2">
-                        <Skeleton className="h-5 w-14 rounded-full" />
-                        <Skeleton className="h-4 w-4 rounded" />
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                    <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border border-border">
+                      <AvatarFallback className="bg-primary/10 text-muted-foreground text-base sm:text-lg">
+                        {getInitials(user?.email || "")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="space-y-1 text-center sm:text-left">
+                      <p className="text-base sm:text-lg font-medium">
+                        {user?.email || "User"}
+                      </p>
+                      <div className="flex items-center justify-center sm:justify-start gap-2">
+                        <Badge
+                          variant={
+                            getRoleBadgeVariant(userProfile?.role || "") as any
+                          }
+                        >
+                          {(userProfile?.role || "User")
+                            .charAt(0)
+                            .toUpperCase() +
+                            (userProfile?.role || "User").slice(1)}
+                        </Badge>
                       </div>
                     </div>
                   </div>
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          {/* Quick Actions Skeleton */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-4 w-4" />
-                  <Skeleton className="h-5 w-24" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <Skeleton className="h-10 w-full rounded" />
-                  <Skeleton className="h-10 w-full rounded" />
-                  <Skeleton className="h-10 w-full rounded" />
+
+                  <div className="space-y-2"></div>
                 </div>
               </CardContent>
             </Card>
