@@ -10,8 +10,10 @@ interface ModelViewerProps {
 
 // Add type declaration for model-viewer element
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
     interface IntrinsicElements {
+      // @ts-expect-error -- model-viewer is a custom element
       "model-viewer": React.DetailedHTMLProps<
         React.HTMLAttributes<HTMLElement> & {
           src: string;
@@ -209,7 +211,7 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
   return (
     <>
       <Script src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js" />
-      {/* @ts-ignore */}
+      {/* @ts-expect-error -- model-viewer is a custom element */}
       <model-viewer
         ref={modelViewerRef}
         id="dimension-demo"
@@ -309,6 +311,7 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
           <label htmlFor="show-dimensions">Show Dimensions:</label>
           <input id="show-dimensions" type="checkbox" defaultChecked />
         </div>
+        {/* @ts-expect-error -- model-viewer is a custom element */}
       </model-viewer>
 
       <style jsx>{`
