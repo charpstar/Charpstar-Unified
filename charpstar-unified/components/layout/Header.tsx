@@ -36,7 +36,7 @@ const Header: React.FC<HeaderProps> = ({
   const isDemoMode = isClientView && isDemoView;
 
   return (
-    <header className="h-12 bg-white text-[#111827] flex items-center justify-between px-6 border-b border-gray-200 shadow-sm w-full">
+    <header className="h-12 bg-card text-foreground flex items-center justify-between px-6 border-b border-border shadow-sm w-full">
       <div className="flex items-center space-x-4">
         {/* Navigation between editor and demo */}
         {isClientView && (

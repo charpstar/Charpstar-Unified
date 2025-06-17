@@ -109,17 +109,17 @@ export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
       {/* Poster Preview Panel */}
       {posterImage && (
         <div
-          className="mb-2 bg-white rounded-md shadow-lg border border-gray-200 overflow-hidden"
+          className="mb-2 bg-card rounded-md shadow-lg border border-border overflow-hidden"
           style={{ width: "300px", maxWidth: "100%" }}
         >
-          <div className="flex justify-between items-center px-3 py-1.5 bg-gray-100 border-b border-gray-200">
-            <h3 className="text-xs font-medium text-gray-800">
+          <div className="flex justify-between items-center px-3 py-1.5 bg-muted border-b border-border">
+            <h3 className="text-xs font-medium text-foreground">
               {currentView} View Poster
             </h3>
             <div className="flex space-x-2">
               <button
                 onClick={downloadPoster}
-                className="text-gray-600 hover:text-gray-900"
+                className="text-muted-foreground hover:text-foreground"
                 title="Download poster"
               >
                 <svg
@@ -140,7 +140,7 @@ export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
               </button>
               <button
                 onClick={closePoster}
-                className="text-gray-600 hover:text-gray-900"
+                className="text-muted-foreground hover:text-foreground"
                 title="Close preview"
               >
                 <svg
@@ -172,9 +172,9 @@ export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
       )}
 
       {/* Camera Controls Panel */}
-      <div className="bg-white/95 rounded-md shadow-md border border-gray-200 overflow-hidden">
-        <div className="flex justify-between items-center px-3 py-1.5 bg-gray-100 border-b border-gray-200">
-          <h3 className="text-xs font-medium text-gray-800">Camera Views</h3>
+      <div className="bg-card/95 rounded-md shadow-md border border-border overflow-hidden">
+        <div className="flex justify-between items-center px-3 py-1.5 bg-muted border-b border-border">
+          <h3 className="text-xs font-medium text-foreground">Camera Views</h3>
         </div>
 
         <div className="p-2 grid grid-cols-6 gap-1">
@@ -182,14 +182,14 @@ export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
             <button
               key={preset.name}
               onClick={() => setCameraView(preset.orbit, preset.name)}
-              className={`flex flex-col items-center justify-center p-2 rounded hover:bg-gray-100 transition-colors
-                ${isGenerating && currentView === preset.name ? "bg-blue-50 text-blue-600" : ""}
+              className={`flex flex-col items-center justify-center p-2 rounded hover:bg-muted transition-colors
+                ${isGenerating && currentView === preset.name ? "bg-accent text-accent-foreground" : ""}
               `}
               title={preset.name}
               disabled={isGenerating}
             >
-              <div className="text-gray-700">{preset.icon}</div>
-              <span className="text-xs mt-1 text-gray-600">
+              <div className="text-foreground">{preset.icon}</div>
+              <span className="text-xs mt-1 text-muted-foreground">
                 {preset.name}
                 {isGenerating && currentView === preset.name && "..."}
               </span>

@@ -230,18 +230,18 @@ export default function ClientDemoPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#F9FAFB]">
+    <div className="flex flex-col h-screen bg-background">
       <div className="flex-none">
         <Header modelViewerRef={modelViewerRef} />
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left side - Model navigation */}
-        <div className="w-1/10 border-r border-gray-200 bg-white shadow-inner flex flex-col">
+        <div className="w-1/10 border-r border-border bg-card shadow-inner flex flex-col">
           {/* Search and Filter Controls */}
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4 border-b border-border">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium text-gray-800">
+              <h2 className="text-lg font-medium text-foreground">
                 Model Catalog
               </h2>
               <div className="flex space-x-2">
@@ -266,7 +266,7 @@ export default function ClientDemoPage() {
 
             <div className="relative">
               <Search
-                className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400"
+                className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground"
                 size={16}
               />
               <Input
@@ -279,13 +279,13 @@ export default function ClientDemoPage() {
               {searchQuery && (
                 <button
                   onClick={handleClearSearch}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <span className="text-xs">✕</span>
                 </button>
               )}
               {searchQuery && (
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-muted-foreground mt-1">
                   Found {totalModelCount} models in {categoryCount} categories
                 </div>
               )}
@@ -296,57 +296,60 @@ export default function ClientDemoPage() {
           <div className="flex-1 overflow-y-auto scrollbar-none">
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-gray-500">Loading models...</div>
+                <div className="text-muted-foreground">Loading models...</div>
               </div>
             ) : viewMode === "list" ? (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-border">
                 {Object.keys(filteredCategories).length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
+                  <div className="p-4 text-center text-muted-foreground">
                     No models found for &quot;{searchQuery}&quot;
                   </div>
                 ) : (
                   Object.keys(filteredCategories).map((category) => (
-                    <div key={category} className="border-b border-gray-100">
+                    <div key={category} className="border-b border-border">
                       <div
-                        className="flex items-center p-3 bg-gray-200 cursor-pointer hover:bg-gray-300"
+                        className="flex items-center p-3 bg-muted cursor-pointer hover:bg-muted/80"
                         onClick={() => toggleCategory(category)}
                       >
                         {expandedCategories[category] ? (
                           <ChevronDown
                             size={16}
-                            className="text-gray-700 mr-2"
+                            className="text-muted-foreground mr-2"
                           />
                         ) : (
                           <ChevronRight
                             size={16}
-                            className="text-gray-700 mr-2"
+                            className="text-muted-foreground mr-2"
                           />
                         )}
-                        <span className="font-semibold text-gray-800">
+                        <span className="font-semibold text-foreground">
                           {category}
                         </span>
-                        <span className="ml-2 text-xs font-medium text-gray-600">
+                        <span className="ml-2 text-xs font-medium text-muted-foreground">
                           ({filteredCategories[category].length})
                         </span>
                       </div>
 
                       {expandedCategories[category] && (
-                        <div className="bg-white">
+                        <div className="bg-card">
                           {filteredCategories[category].map((model) => (
                             <div
                               key={model}
-                              className={`px-8 py-2 cursor-pointer hover:bg-blue-50 flex items-center justify-between ${
+                              className={`px-8 py-2 cursor-pointer hover:bg-accent flex items-center justify-between ${
                                 selectedModel === model
-                                  ? "bg-blue-50 text-blue-700"
+                                  ? "bg-accent text-accent-foreground"
                                   : ""
                               }`}
                               onClick={() => handleSelectModel(model)}
                             >
-                              <div className="text-sm truncate">
+                              <div className="text-sm truncate text-foreground">
                                 {parseModelName(model).displayName}
                               </div>
                               {selectedModel === model && (
-                                <Eye size={14} className="text-blue-600 ml-2" />
+                                <Eye
+                                  size={14}
+                                  className="text-accent-foreground ml-2"
+                                />
                               )}
                             </div>
                           ))}
@@ -359,48 +362,48 @@ export default function ClientDemoPage() {
             ) : (
               <div className="p-4 grid grid-cols-2 gap-3">
                 {Object.keys(filteredCategories).length === 0 ? (
-                  <div className="col-span-2 p-4 text-center text-gray-500">
+                  <div className="col-span-2 p-4 text-center text-muted-foreground">
                     No models found for &quot;{searchQuery}&quot;
                   </div>
                 ) : (
                   Object.keys(filteredCategories).map((category) => (
                     <div key={category} className="col-span-2 mb-4">
                       <div
-                        className="flex items-center p-2 bg-gray-100 cursor-pointer hover:bg-gray-200"
+                        className="flex items-center p-2 bg-muted cursor-pointer hover:bg-muted/80"
                         onClick={() => toggleCategory(category)}
                       >
                         {expandedCategories[category] ? (
                           <ChevronDown
                             size={16}
-                            className="text-gray-700 mr-2"
+                            className="text-muted-foreground mr-2"
                           />
                         ) : (
                           <ChevronRight
                             size={16}
-                            className="text-gray-700 mr-2"
+                            className="text-muted-foreground mr-2"
                           />
                         )}
-                        <span className="font-semibold text-gray-800">
+                        <span className="font-semibold text-foreground">
                           {category}
                         </span>
-                        <span className="ml-2 text-xs font-medium text-gray-600">
+                        <span className="ml-2 text-xs font-medium text-muted-foreground">
                           ({filteredCategories[category].length})
                         </span>
                       </div>
 
                       {expandedCategories[category] && (
-                        <div className="grid grid-cols-2 gap-2 p-2 border border-gray-100 rounded-b-lg">
+                        <div className="grid grid-cols-2 gap-2 p-2 border border-border rounded-b-lg">
                           {filteredCategories[category].map((model) => (
                             <div
                               key={model}
-                              className={`p-2 cursor-pointer hover:bg-blue-50 rounded border ${
+                              className={`p-2 cursor-pointer hover:bg-accent rounded border ${
                                 selectedModel === model
-                                  ? "border-blue-500 bg-blue-50"
-                                  : "border-gray-200"
+                                  ? "border-accent bg-accent text-accent-foreground"
+                                  : "border-border"
                               }`}
                               onClick={() => handleSelectModel(model)}
                             >
-                              <div className="text-xs text-center truncate">
+                              <div className="text-xs text-center truncate text-foreground">
                                 {parseModelName(model).displayName}
                               </div>
                             </div>
@@ -416,8 +419,8 @@ export default function ClientDemoPage() {
         </div>
 
         {/* Center - 3D Viewer */}
-        <div className="flex-1 p-4 bg-white">
-          <div className="h-full rounded-lg overflow-hidden shadow-md bg-[#F8F9FA] flex items-center justify-center relative">
+        <div className="flex-1 p-4 bg-card">
+          <div className="h-full rounded-lg overflow-hidden shadow-md bg-background flex items-center justify-center relative">
             {selectedModel ? (
               <>
                 <ModelViewer
@@ -439,9 +442,11 @@ export default function ClientDemoPage() {
                 )}
 
                 {modelLoadError && (
-                  <div className="absolute inset-0 bg-gray-100 bg-opacity-80 flex flex-col items-center justify-center">
-                    <div className="text-red-500 mb-2">Error loading model</div>
-                    <div className="text-gray-600 text-sm mb-4">
+                  <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center">
+                    <div className="text-destructive mb-2">
+                      Error loading model
+                    </div>
+                    <div className="text-muted-foreground text-sm mb-4">
                       The model might not be available in this location
                     </div>
                     <Button
@@ -457,7 +462,7 @@ export default function ClientDemoPage() {
                 )}
               </>
             ) : (
-              <div className="text-gray-500 text-center p-8">
+              <div className="text-muted-foreground text-center p-8">
                 {isLoading ? "Loading models..." : "Select a model to view"}
               </div>
             )}
@@ -465,11 +470,11 @@ export default function ClientDemoPage() {
         </div>
 
         {/* Right side - Variants panel */}
-        <div className="w-1/10 border-l border-gray-200 bg-white shadow-inner flex flex-col">
-          <div className="p-2 border-b border-gray-200">
+        <div className="w-1/10 border-l border-border bg-card shadow-inner flex flex-col">
+          <div className="p-2 border-b border-border">
             <div className="flex items-center space-x-1.5">
-              <Palette size={14} className="text-gray-600" />
-              <h3 className="text-xs font-medium text-gray-800">
+              <Palette size={14} className="text-muted-foreground" />
+              <h3 className="text-xs font-medium text-foreground">
                 Material Variants
               </h3>
             </div>
@@ -483,8 +488,8 @@ export default function ClientDemoPage() {
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <Palette size={20} className="text-gray-300 mb-2" />
-                <p className="text-xs text-gray-400">
+                <Palette size={20} className="text-muted-foreground/50 mb-2" />
+                <p className="text-xs text-muted-foreground">
                   {isLoading
                     ? "Loading..."
                     : modelLoadError

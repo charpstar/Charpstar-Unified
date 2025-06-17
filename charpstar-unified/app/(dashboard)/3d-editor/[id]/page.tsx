@@ -329,7 +329,7 @@ export default function ClientPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen ">
+    <div className="flex flex-col h-screen bg-background">
       {shouldLoadScript && <SimpleClientViewerScript />}
       {/* Save Progress Overlay */}
       <SaveProgressOverlay

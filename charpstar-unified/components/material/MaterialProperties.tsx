@@ -477,7 +477,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
   if (!selectedNode || selectedNode.type !== "Mesh" || !material) {
     return (
       <div className="space-y-2">
-        <div className="text-gray-600 text-xs">
+        <div className="text-muted-foreground text-xs">
           {!selectedNode
             ? "Select a mesh to view its material properties."
             : selectedNode.type !== "Mesh"
@@ -486,7 +486,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
         </div>
 
         {selectedNode && (
-          <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
+          <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
             Debug: Selected {selectedNode.name} ({selectedNode.type})
             <br />
             UUID: {selectedNode.uuid}
@@ -538,12 +538,14 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
   return (
     <div className="text-sm">
       {/* Material header with color swatch */}
-      <div className="flex items-center mb-4 pb-2 border-b border-gray-200">
+      <div className="flex items-center mb-4 pb-2 border-b border-border">
         <div
           className="w-6 h-6 rounded-full mr-2"
           style={{ backgroundColor: getColorHex(material.color) }}
         ></div>
-        <span className="font-medium">{material.name || "Material"}</span>
+        <span className="font-medium text-foreground">
+          {material.name || "Material"}
+        </span>
       </div>
 
       {/* Base Properties */}
@@ -564,7 +566,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
 
         {/* Roughness */}
         <div className="flex items-center justify-between">
-          <label className="text-sm">Roughness</label>
+          <label className="text-sm text-foreground">Roughness</label>
           <div className="flex items-center">
             <SliderWithInput
               min={0}
@@ -588,7 +590,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
 
         {/* Metalness */}
         <div className="flex items-center justify-between">
-          <label className="text-sm">Metalness</label>
+          <label className="text-sm text-foreground">Metalness</label>
           <div className="flex items-center">
             <SliderWithInput
               min={0}
@@ -619,7 +621,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
         {/* Normal Map Intensity - only show if normal map exists */}
         {material.normalMap && (
           <div className="flex items-center justify-between">
-            <label className="text-sm">Normal Intensity</label>
+            <label className="text-sm text-foreground">Normal Intensity</label>
             <div className="flex items-center">
               <SliderWithInput
                 min={0}
@@ -645,14 +647,14 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
           material.roughnessMap ||
           material.metalnessMap ||
           material.alphaMap) && (
-          <div className="mt-4 space-y-2 p-2 rounded border border-gray-200">
+          <div className="mt-4 space-y-2 p-2 rounded border border-border">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-medium text-gray-700">
+              <div className="text-xs font-medium text-foreground">
                 Texture Tiling
               </div>
               <button
                 onClick={() => setUniformTiling(!uniformTiling)}
-                className="flex items-center text-xs text-gray-600 p-1 rounded hover:bg-gray-100"
+                className="flex items-center text-xs text-muted-foreground p-1 rounded hover:bg-muted"
                 title={
                   uniformTiling
                     ? "Using uniform tiling (X=Y)"
@@ -665,7 +667,9 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
 
             {uniformTiling ? (
               <div className="flex items-center justify-between">
-                <label className="text-xs text-gray-600">Uniform Tiling</label>
+                <label className="text-xs text-muted-foreground">
+                  Uniform Tiling
+                </label>
                 <input
                   type="number"
                   min="0.1"
@@ -674,13 +678,15 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
                   onChange={(e) =>
                     handleUniformTilingChange(parseFloat(e.target.value))
                   }
-                  className="w-20 text-xs p-1 border rounded"
+                  className="w-20 text-xs p-1 border rounded bg-background text-foreground"
                 />
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between">
-                  <label className="text-xs text-gray-600">Tiling X</label>
+                  <label className="text-xs text-muted-foreground">
+                    Tiling X
+                  </label>
                   <input
                     type="number"
                     min="0.1"
@@ -689,11 +695,13 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
                     onChange={(e) =>
                       handleSharedTilingChange("x", parseFloat(e.target.value))
                     }
-                    className="w-20 text-xs p-1 border rounded"
+                    className="w-20 text-xs p-1 border rounded bg-background text-foreground"
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <label className="text-xs text-gray-600">Tiling Y</label>
+                  <label className="text-xs text-muted-foreground">
+                    Tiling Y
+                  </label>
                   <input
                     type="number"
                     min="0.1"
@@ -702,7 +710,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
                     onChange={(e) =>
                       handleSharedTilingChange("y", parseFloat(e.target.value))
                     }
-                    className="w-20 text-xs p-1 border rounded"
+                    className="w-20 text-xs p-1 border rounded bg-background text-foreground"
                   />
                 </div>
               </>
@@ -719,7 +727,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
         {/* AO Map Intensity (only show if AO map exists) */}
         {material.aoMap && (
           <div className="flex items-center justify-between">
-            <label className="text-sm">AO Intensity</label>
+            <label className="text-sm text-foreground">AO Intensity</label>
             <div className="flex items-center">
               <SliderWithInput
                 min={0}
@@ -744,10 +752,10 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
       </div>
 
       {/* Separator for better visual distinction between base and advanced properties */}
-      <div className="my-6 border-t border-gray-300"></div>
+      <div className="my-6 border-t border-border"></div>
 
-      {/* Advanced options header - now just a label, not a toggle */}
-      <div className="flex items-center text-sm font-medium w-full justify-between py-1">
+      {/* Advanced options header */}
+      <div className="flex items-center text-sm font-medium w-full justify-between py-1 text-foreground">
         Advanced options
       </div>
 
@@ -781,11 +789,13 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
         {/* Sheen section - only show for MeshPhysicalMaterial */}
         {isMeshPhysicalMaterial ? (
           <div className="space-y-3">
-            <h3 className="text-sm font-medium">Sheen Properties</h3>
+            <h3 className="text-sm font-medium text-foreground">
+              Sheen Properties
+            </h3>
 
             {/* Sheen Roughness */}
             <div className="flex items-center justify-between">
-              <label className="text-sm">Sheen Roughness</label>
+              <label className="text-sm text-foreground">Sheen Roughness</label>
               <div className="flex items-center">
                 <SliderWithInput
                   min={0}
@@ -819,14 +829,14 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
 
             {/* Sheen Color Map Tiling (separate from base maps) */}
             {material.sheenColorMap && (
-              <div className="space-y-2 p-2 rounded border border-gray-200">
+              <div className="space-y-2 p-2 rounded border border-border">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-medium text-gray-700">
+                  <div className="text-xs font-medium text-foreground">
                     Sheen Tiling
                   </div>
                   <button
                     onClick={() => setUniformSheenTiling(!uniformSheenTiling)}
-                    className="flex items-center text-xs text-gray-600 p-1 rounded hover:bg-gray-100"
+                    className="flex items-center text-xs text-muted-foreground p-1 rounded hover:bg-muted"
                     title={
                       uniformSheenTiling
                         ? "Using uniform tiling (X=Y)"
@@ -843,7 +853,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
 
                 {uniformSheenTiling ? (
                   <div className="flex items-center justify-between">
-                    <label className="text-xs text-gray-600">
+                    <label className="text-xs text-muted-foreground">
                       Uniform Tiling
                     </label>
                     <input
@@ -856,13 +866,15 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
                           parseFloat(e.target.value)
                         )
                       }
-                      className="w-20 text-xs p-1 border rounded"
+                      className="w-20 text-xs p-1 border rounded bg-background text-foreground"
                     />
                   </div>
                 ) : (
                   <>
                     <div className="flex items-center justify-between">
-                      <label className="text-xs text-gray-600">Tiling X</label>
+                      <label className="text-xs text-muted-foreground">
+                        Tiling X
+                      </label>
                       <input
                         type="number"
                         min="0.1"
@@ -874,11 +886,13 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
                             parseFloat(e.target.value)
                           )
                         }
-                        className="w-20 text-xs p-1 border rounded"
+                        className="w-20 text-xs p-1 border rounded bg-background text-foreground"
                       />
                     </div>
                     <div className="flex items-center justify-between">
-                      <label className="text-xs text-gray-600">Tiling Y</label>
+                      <label className="text-xs text-muted-foreground">
+                        Tiling Y
+                      </label>
                       <input
                         type="number"
                         min="0.1"
@@ -890,7 +904,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
                             parseFloat(e.target.value)
                           )
                         }
-                        className="w-20 text-xs p-1 border rounded"
+                        className="w-20 text-xs p-1 border rounded bg-background text-foreground"
                       />
                     </div>
                   </>
@@ -926,7 +940,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
             </div>*/}
           </div>
         ) : (
-          <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
+          <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
             Sheen properties are only available for MeshPhysicalMaterial.
             Current material type: {material.type}
           </div>

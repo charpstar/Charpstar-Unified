@@ -281,9 +281,9 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
 
   // Smaller and more compact panel
   return (
-    <div className="absolute top-2 right-2 z-10 bg-white/95 rounded-md shadow-md border border-gray-200 overflow-hidden w-52">
-      <div className="flex justify-between items-center px-2 py-1 bg-gray-100 border-b border-gray-200">
-        <h3 className="text-xs font-medium text-gray-800 flex items-center">
+    <div className="absolute top-2 right-2 z-10 bg-card/95 rounded-md shadow-md border border-border overflow-hidden w-52">
+      <div className="flex justify-between items-center px-2 py-1 bg-muted border-b border-border">
+        <h3 className="text-xs font-medium text-foreground flex items-center">
           <Info size={11} className="mr-1" />
           Model Statistics
         </h3>
@@ -291,56 +291,61 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
 
       {stats.isLoading ? (
         <div className="p-2 flex items-center justify-center">
-          <Loader size={12} className="animate-spin text-gray-400 mr-1.5" />
-          <span className="text-xs text-gray-500">Loading stats...</span>
+          <Loader
+            size={12}
+            className="animate-spin text-muted-foreground mr-1.5"
+          />
+          <span className="text-xs text-muted-foreground">
+            Loading stats...
+          </span>
         </div>
       ) : (
         <div className="text-xs">
           {/* Geometry stats - direct display of triangles and vertices */}
-          <div className="px-2 py-1.5 border-b border-gray-200 grid grid-cols-2 gap-x-2 gap-y-1">
+          <div className="px-2 py-1.5 border-b border-border grid grid-cols-2 gap-x-2 gap-y-1">
             <div className="flex items-center">
-              <Copy size={10} className="mr-1.5 text-gray-500" />
-              <span className="text-gray-700">Triangles:</span>
+              <Copy size={10} className="mr-1.5 text-muted-foreground" />
+              <span className="text-foreground">Triangles:</span>
             </div>
-            <div className="text-right font-medium">
+            <div className="text-right font-medium text-foreground">
               {formatNumber(stats.triangles)}
             </div>
 
             <div className="flex items-center">
               <div className="w-2.5 h-2.5 mr-1.5 opacity-0"></div>
-              <span className="text-gray-700">Vertices:</span>
+              <span className="text-foreground">Vertices:</span>
             </div>
-            <div className="text-right font-medium">
+            <div className="text-right font-medium text-foreground">
               {formatNumber(stats.vertices)}
             </div>
           </div>
 
           {/* Mesh and Material Counts */}
-          <div className="px-2 py-1.5 border-b border-gray-200 grid grid-cols-2 gap-x-2 gap-y-1">
+          <div className="px-2 py-1.5 border-b border-border grid grid-cols-2 gap-x-2 gap-y-1">
             <div className="flex items-center">
-              <Layers size={10} className="mr-1.5 text-gray-500" />
-              <span className="text-gray-700">Meshes:</span>
+              <Layers size={10} className="mr-1.5 text-muted-foreground" />
+              <span className="text-foreground">Meshes:</span>
             </div>
-            <div className="text-right font-medium">
+            <div className="text-right font-medium text-foreground">
               {formatNumber(stats.meshCount)}
             </div>
 
             <div className="flex items-center">
-              <Brush size={10} className="mr-1.5 text-gray-500" />
-              <span className="text-gray-700">Materials:</span>
+              <Brush size={10} className="mr-1.5 text-muted-foreground" />
+              <span className="text-foreground">Materials:</span>
             </div>
-            <div className="text-right font-medium">
+            <div className="text-right font-medium text-foreground">
               {formatNumber(stats.materialCount)}
             </div>
           </div>
 
           {/* Variants Count */}
-          <div className="px-2 py-1.5 border-b border-gray-200 grid grid-cols-2 gap-x-2">
+          <div className="px-2 py-1.5 border-b border-border grid grid-cols-2 gap-x-2">
             <div className="flex items-center">
-              <Palette size={10} className="mr-1.5 text-gray-500" />
-              <span className="text-gray-700">Variants:</span>
+              <Palette size={10} className="mr-1.5 text-muted-foreground" />
+              <span className="text-foreground">Variants:</span>
             </div>
-            <div className="text-right font-medium">
+            <div className="text-right font-medium text-foreground">
               {formatNumber(stats.variantCount)}
             </div>
           </div>
@@ -348,7 +353,7 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
           {/* Double Sided Materials */}
           <div className="px-2 py-1.5">
             <div
-              className={`flex items-center justify-between ${stats.doubleSidedCount > 0 ? "cursor-pointer hover:bg-gray-50" : ""}`}
+              className={`flex items-center justify-between ${stats.doubleSidedCount > 0 ? "cursor-pointer hover:bg-muted" : ""}`}
               onClick={
                 stats.doubleSidedCount > 0
                   ? toggleDoubleSidedDetails
@@ -359,9 +364,9 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
                 <div
                   className={`w-2 h-2 rounded-full mr-1.5 ${stats.doubleSidedCount > 0 ? "bg-yellow-400" : "bg-green-400"}`}
                 ></div>
-                <span className="text-gray-700">Double Sided:</span>
+                <span className="text-foreground">Double Sided:</span>
               </div>
-              <span className="font-medium flex items-center">
+              <span className="font-medium flex items-center text-foreground">
                 {formatNumber(stats.doubleSidedCount)}
                 {stats.doubleSidedCount > 0 && (
                   <button className="ml-1 p-0.5">
@@ -400,11 +405,11 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
             </div>
 
             {showDoubleSidedDetails && stats.doubleSidedCount > 0 && (
-              <div className="mt-1 text-[10px] max-h-24 overflow-y-auto ml-3.5 bg-gray-50 p-1.5 rounded">
+              <div className="mt-1 text-[10px] max-h-24 overflow-y-auto ml-3.5 bg-muted p-1.5 rounded">
                 {stats.doubleSidedMaterials.map((material, index) => (
                   <div
                     key={index}
-                    className="text-gray-600 mb-0.5 flex items-center"
+                    className="text-muted-foreground mb-0.5 flex items-center"
                   >
                     <span className="w-1 h-1 bg-yellow-400 rounded-full mr-1"></span>
                     <span className="truncate">{material}</span>

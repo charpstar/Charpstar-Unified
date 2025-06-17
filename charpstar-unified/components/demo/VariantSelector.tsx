@@ -156,14 +156,16 @@ export const VariantSelector: React.FC<VariantSelectorProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
-        <div className="animate-pulse text-gray-400">Loading variants...</div>
+        <div className="animate-pulse text-muted-foreground">
+          Loading variants...
+        </div>
       </div>
     );
   }
 
   if (variants.length === 0) {
     return (
-      <div className="text-center p-4 text-gray-500">
+      <div className="text-center p-4 text-muted-foreground">
         No material variants available for this model
       </div>
     );
@@ -174,19 +176,19 @@ export const VariantSelector: React.FC<VariantSelectorProps> = ({
       {/* Search box */}
       <div className="relative mb-3">
         <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-          <Search size={16} className="text-gray-400" />
+          <Search size={16} className="text-muted-foreground" />
         </div>
         <Input
           type="text"
           placeholder="Search variants..."
           value={searchQuery}
           onChange={handleSearchChange}
-          className="pl-8 pr-8 py-1 h-8 text-sm bg-gray-50 border-gray-200 focus:ring-blue-500 focus:border-blue-500"
+          className="pl-8 pr-8 py-1 h-8 text-sm"
         />
         {searchQuery && (
           <button
             onClick={clearSearch}
-            className="absolute inset-y-0 right-0 pr-2 flex items-center text-gray-400 hover:text-gray-600"
+            className="absolute inset-y-0 right-0 pr-2 flex items-center text-muted-foreground hover:text-foreground"
           >
             <span className="text-xs">✕</span>
           </button>
@@ -194,7 +196,7 @@ export const VariantSelector: React.FC<VariantSelectorProps> = ({
       </div>
 
       {/* Variants count */}
-      <div className="text-xs text-gray-500 mb-2">
+      <div className="text-xs text-muted-foreground mb-2">
         {filteredVariants.length === variants.length
           ? `${variants.length} variants available`
           : `Showing ${filteredVariants.length} of ${variants.length} variants`}
@@ -203,7 +205,7 @@ export const VariantSelector: React.FC<VariantSelectorProps> = ({
       {/* Variants list */}
       <div className="grid grid-cols-1 gap-2 max-h-96 overflow">
         {filteredVariants.length === 0 ? (
-          <div className="text-gray-500 text-xs italic p-2 text-center">
+          <div className="text-muted-foreground text-xs italic p-2 text-center">
             No variants match your search
           </div>
         ) : (
@@ -212,15 +214,17 @@ export const VariantSelector: React.FC<VariantSelectorProps> = ({
               key={index}
               className={`p-2 cursor-pointer border rounded-sm ${
                 currentVariant === variant
-                  ? "bg-blue-50 border-blue-200"
-                  : "bg-white border-gray-200 hover:bg-gray-50"
+                  ? "bg-accent border-accent text-accent-foreground"
+                  : "bg-card border-border hover:bg-muted"
               }`}
               onClick={() => handleSelectVariant(variant)}
             >
               <div className="flex items-center justify-between">
-                <div className="text-sm truncate">{variant}</div>
+                <div className="text-sm truncate text-foreground">
+                  {variant}
+                </div>
                 {currentVariant === variant && (
-                  <div className="text-xs text-blue-600 ml-1">✓</div>
+                  <div className="text-xs text-accent-foreground ml-1">✓</div>
                 )}
               </div>
             </div>

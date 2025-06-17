@@ -61,8 +61,8 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   return (
     <div className="w-full select-none">
       <div
-        className={`w-full flex items-center py-1 px-0 hover:bg-gray-200 cursor-pointer ${
-          selectedNodeId === node.uuid ? "bg-[#EFEFEF]" : ""
+        className={`w-full flex items-center py-1 px-0 hover:bg-muted/50 cursor-pointer ${
+          selectedNodeId === node.uuid ? "bg-muted" : ""
         }`}
         onClick={handleSelect}
       >
