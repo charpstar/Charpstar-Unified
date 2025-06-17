@@ -2,7 +2,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { clients, isValidClient } from "@/config/clientConfig";
+import { clients, getClientConfig, isValidClient } from "@/config/clientConfig";
 import { useState, useEffect, useRef } from "react";
 import { SimpleLayout } from "@/components/layout/SimpleLayout";
 import Header from "@/components/layout/Header";
@@ -10,6 +10,7 @@ import SaveProgressOverlay from "@/components/SaveProgressOverlay";
 import SavePasswordDialog from "@/components/SavePasswordDialog";
 import InputLocker from "@/components/InputLocker";
 import { notFound } from "next/navigation";
+import SimpleClientViewerScript from "@/components/SimpleClientViewerScript";
 
 export default function ClientPage() {
   const params = useParams();
@@ -29,6 +30,16 @@ export default function ClientPage() {
 
   // Password dialog state
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [shouldLoadScript, setShouldLoadScript] = useState(false);
+
+  useEffect(() => {
+    if (clientName) {
+      const clientConfig = getClientConfig(clientName);
+      if (clientConfig) {
+        setShouldLoadScript(true);
+      }
+    }
+  }, [clientName]);
 
   // Validate client
   if (!isValidClient(clientName)) {
@@ -318,7 +329,8 @@ export default function ClientPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen ">
+      {shouldLoadScript && <SimpleClientViewerScript />}
       {/* Save Progress Overlay */}
       <SaveProgressOverlay
         isVisible={isSaving}

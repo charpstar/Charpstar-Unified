@@ -1,5 +1,5 @@
 "use client";
-import { usePathname } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
@@ -11,21 +11,29 @@ const TITLES = {
   "/asset-library/upload": "Upload Assets",
   "/asset-library/preview-generator": "Preview Generator",
   "/asset-library/[id]": "Asset Details",
+  "/3d-editor": "3D Editor",
 };
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const params = useParams();
+  const clientName = params?.id as string;
 
   let pageTitle = "Unified";
-  if (
+
+  if (pathname.startsWith("/3d-editor/")) {
+    if (pathname.includes("/demo")) {
+      pageTitle = `${clientName} Demo`;
+    } else {
+      pageTitle = `${clientName} Editor`;
+    }
+  } else if (
     pathname.startsWith("/asset-library/") &&
     pathname.split("/").length === 3 &&
     !pathname.includes("/upload") &&
     !pathname.includes("/preview-generator")
   ) {
-    // Extract the id from the URL
-
-    pageTitle = `Asset Details`;
+    pageTitle = "Asset Details";
   } else {
     pageTitle = TITLES[pathname as keyof typeof TITLES] || "Unified";
   }
