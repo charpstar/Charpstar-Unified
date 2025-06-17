@@ -10,6 +10,7 @@ import SimpleClientViewerScript from "@/components/SimpleClientViewerScript";
 export default function DemoPage() {
   const params = useParams();
   const clientName = params?.id as string;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [shouldLoadScript, setShouldLoadScript] = useState(false);
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export default function DemoPage() {
 
   return (
     <div className="w-full h-full">
-      {shouldLoadScript && <SimpleClientViewerScript />}
+      <SimpleClientViewerScript />
       <ClientDemoPage />
     </div>
   );
