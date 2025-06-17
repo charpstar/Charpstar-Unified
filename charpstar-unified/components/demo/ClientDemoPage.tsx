@@ -75,6 +75,7 @@ export default function ClientDemoPage() {
   const modelViewerRef = useRef<any>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [modelList, setModelList] = useState<string[]>([]);
   const [groupedModels, setGroupedModels] = useState<Record<string, string[]>>(
     {}
@@ -136,6 +137,7 @@ export default function ClientDemoPage() {
     };
 
     fetchModels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientName]);
 
   // Toggle category expansion
@@ -167,6 +169,7 @@ export default function ClientDemoPage() {
   };
 
   // Handle model load error
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleModelError = () => {
     console.error("[ClientDemoPage] Model load error occurred");
     setModelLoadError(true);
@@ -229,10 +232,7 @@ export default function ClientDemoPage() {
   return (
     <div className="flex flex-col h-screen bg-[#F9FAFB]">
       <div className="flex-none">
-        <Header
-          modelViewerRef={modelViewerRef}
-          title={`${clientName} Catalog`}
-        />
+        <Header modelViewerRef={modelViewerRef} />
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -302,7 +302,7 @@ export default function ClientDemoPage() {
               <div className="divide-y divide-gray-100">
                 {Object.keys(filteredCategories).length === 0 ? (
                   <div className="p-4 text-center text-gray-500">
-                    No models found for "{searchQuery}"
+                    No models found for &quot;{searchQuery}&quot;
                   </div>
                 ) : (
                   Object.keys(filteredCategories).map((category) => (
@@ -360,7 +360,7 @@ export default function ClientDemoPage() {
               <div className="p-4 grid grid-cols-2 gap-3">
                 {Object.keys(filteredCategories).length === 0 ? (
                   <div className="col-span-2 p-4 text-center text-gray-500">
-                    No models found for "{searchQuery}"
+                    No models found for &quot;{searchQuery}&quot;
                   </div>
                 ) : (
                   Object.keys(filteredCategories).map((category) => (

@@ -1,12 +1,7 @@
 // src/components/demo/CameraControlsPanel.tsx
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
-  Compass, // Default view
   Square, // Front view
-  BookOpen, // Back view
-  PanelRight, // Side view
-  ArrowDown, // Top view (arrow pointing down = viewing from top)
-  Table, // Table view
 } from "lucide-react";
 
 interface CameraControlsPanelProps {
@@ -166,6 +161,7 @@ export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
             </div>
           </div>
           <div className="p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={posterImage}
               alt={`${currentView} view`}

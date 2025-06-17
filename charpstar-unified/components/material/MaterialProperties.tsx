@@ -1,8 +1,8 @@
 "use client";
 console.log("MaterialProperties imported");
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronDown, ChevronUp, Link, Link2Off } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Link, Link2Off } from "lucide-react";
 import DebouncedColorPicker from "./DebouncedColorPicker";
 import { SliderWithInput } from "@/components/ui/slider-with-input";
 
@@ -239,6 +239,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
   };
 
   // Handle UV set change for sheen
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleUVSetChange = (channel: number) => {
     if (!modelViewerRef?.current || !selectedNode) return;
 
@@ -505,6 +506,7 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
   };
 
   // Helper component to display texture information (read-only)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const TextureInfo = ({
     label,
     hasTexture,

@@ -71,7 +71,7 @@ export default function AssetDetailPage() {
   const [newMaterial, setNewMaterial] = useState("");
   const [newColor, setNewColor] = useState("");
   const [newTag, setNewTag] = useState("");
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const [zipUrl, setZipUrl] = useState<string | null>(null);
   const user = useUser();
   const [userRole, setUserRole] = useState<string | null>(null);

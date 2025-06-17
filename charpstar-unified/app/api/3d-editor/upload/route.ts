@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     const clientConfig = getClientConfig(clientName);
 
     // Determine the appropriate folder based on file type
-    let targetFolder = clientConfig.bunnyCdn.resourcesFolder;
+    const targetFolder = clientConfig.bunnyCdn.resourcesFolder;
 
     // Construct the path for the file in BunnyCDN using client-specific paths
     const filePath = `${clientConfig.bunnyCdn.basePath}/${targetFolder}/${filename}`;

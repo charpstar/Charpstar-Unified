@@ -3,7 +3,7 @@
 console.log("MaterialVariants imported");
 
 import { useState, useEffect, useRef } from "react";
-import { ChevronRight, ChevronDown, Folder, Box, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface MaterialVariantsProps {
@@ -115,6 +115,7 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
         clearInterval(intervalRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelViewerRef]);
 
   // Set up polling for variants
@@ -156,6 +157,7 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
 
       hasMountedRef.current = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelViewerRef]);
 
   // Function to select a variant

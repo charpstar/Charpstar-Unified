@@ -1,7 +1,6 @@
 // src/components/layout/Header.tsx
 "use client";
 import React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Save, Download, ArrowLeft } from "lucide-react";
@@ -9,23 +8,22 @@ import { useParams, usePathname } from "next/navigation";
 import { isValidClient } from "@/config/clientConfig";
 
 interface HeaderProps {
-  modelViewerRef?: React.RefObject<any>;
   onExportGLB?: () => void;
   onExportGLTF?: () => void;
   onExportUSDZ?: () => void;
   onSave?: () => void;
   isSaving?: boolean;
-  title?: string; // Added title prop
+  modelViewerRef?: React.RefObject<any>;
 }
 
 const Header: React.FC<HeaderProps> = ({
-  modelViewerRef,
   onExportGLB,
   onExportGLTF,
   onExportUSDZ,
   onSave,
   isSaving = false,
-  title,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  modelViewerRef,
 }) => {
   const params = useParams();
   const pathname = usePathname();

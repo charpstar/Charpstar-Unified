@@ -18,6 +18,7 @@ const SavePasswordDialog: React.FC<SavePasswordDialogProps> = ({
 }) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isIncorrect, setIsIncorrect] = useState(false);
 
   if (!isOpen) return null;

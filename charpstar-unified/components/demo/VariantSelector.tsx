@@ -1,6 +1,6 @@
 // src/components/demo/VariantSelector.tsx
 import React, { useState, useEffect, useRef } from "react";
-import { Check, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface VariantSelectorProps {

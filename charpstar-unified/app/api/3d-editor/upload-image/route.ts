@@ -76,10 +76,10 @@ export async function POST(request: NextRequest) {
 
     try {
       // Save the file temporarily and validate it's a JPG
-      const { filepath, filename, contentType } = await saveFormFile(formData);
+      const { filepath, filename } = await saveFormFile(formData);
 
       // Get storage zone details
-      const { zoneName, basePath } = getStorageZoneDetails();
+      const { zoneName } = getStorageZoneDetails();
 
       // Get the client and target directory from the form data
       const clientName = (formData.get("client") as string) || DEFAULT_CLIENT;

@@ -1,7 +1,7 @@
 // src/components/SimpleClientViewerScript.tsx
 "use client";
 
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { useParams } from "next/navigation";
 import { getClientConfig } from "@/config/clientConfig";
 

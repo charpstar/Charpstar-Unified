@@ -27,8 +27,8 @@ const SaveProgressOverlay: React.FC<SaveProgressOverlayProps> = ({
         </div>
 
         <p className="text-sm text-gray-500">
-          Please don't close this tab or navigate away while changes are being
-          saved.
+          Please don&apos;t close this tab or navigate away while changes are
+          being saved.
         </p>
       </div>
     </div>
