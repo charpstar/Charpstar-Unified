@@ -1,20 +1,64 @@
 // src/components/SimpleClientViewerScript.tsx
 "use client";
 
-import React from "react";
-import Script from "next/script";
+import React, { useEffect } from "react";
 import { useParams } from "next/navigation";
 import { getClientConfig } from "@/config/clientConfig";
 
 const SimpleClientViewerScript = () => {
   const params = useParams();
   const clientName = params?.id as string;
-  console.log("clientName", clientName);
+  console.log(
+    "[SimpleClientViewerScript] Loading script for client:",
+    clientName
+  );
 
-  // Get the appropriate script for this client
-  const scriptSrc = getClientConfig(clientName).scriptPath;
+  useEffect(() => {
+    const loadScript = async () => {
+      try {
+        // Get the appropriate script for this client
+        const scriptSrc = getClientConfig(clientName).scriptPath;
+        console.log("[SimpleClientViewerScript] Loading script:", scriptSrc);
 
-  return <Script src={scriptSrc} strategy="beforeInteractive" type="module" />;
+        // Check if script is already loaded
+        if (document.querySelector(`script[src="${scriptSrc}"]`)) {
+          console.log("[SimpleClientViewerScript] Script already loaded");
+          return;
+        }
+
+        // Create and load the script
+        const script = document.createElement("script");
+        script.src = scriptSrc;
+        script.type = "module";
+
+        await new Promise((resolve, reject) => {
+          script.onload = () => {
+            console.log(
+              "[SimpleClientViewerScript] Script loaded successfully"
+            );
+            resolve(true);
+          };
+          script.onerror = (error) => {
+            console.error(
+              "[SimpleClientViewerScript] Error loading script:",
+              error
+            );
+            reject(error);
+          };
+          document.head.appendChild(script);
+        });
+      } catch (error) {
+        console.error(
+          "[SimpleClientViewerScript] Failed to load script:",
+          error
+        );
+      }
+    };
+
+    loadScript();
+  }, [clientName]);
+
+  return null;
 };
 
 export default SimpleClientViewerScript;

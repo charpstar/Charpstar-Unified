@@ -1,21 +1,30 @@
 // src/app/[client]/demo/page.tsx
 "use client";
 
-import ClientDemoPage from "@/components/demo/ClientDemoPage";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { isValidClient } from "@/config/clientConfig";
-import { notFound } from "next/navigation";
+import { getClientConfig } from "@/config/clientConfig";
+import ClientDemoPage from "@/components/demo/ClientDemoPage";
+import SimpleClientViewerScript from "@/components/SimpleClientViewerScript";
 
 export default function DemoPage() {
   const params = useParams();
-  const clientName = params.id as string; // Using 'id' instead of 'client'
+  const clientName = params?.id as string;
+  const [shouldLoadScript, setShouldLoadScript] = useState(false);
 
-  // Validate client
-  if (!isValidClient(clientName)) {
-    console.log("Demo: Invalid client name:", clientName);
-    notFound();
-  }
+  useEffect(() => {
+    if (clientName) {
+      const clientConfig = getClientConfig(clientName);
+      if (clientConfig) {
+        setShouldLoadScript(true);
+      }
+    }
+  }, [clientName]);
 
-  console.log("Demo page mounting for client:", clientName);
-  return <ClientDemoPage />;
+  return (
+    <div className="w-full h-full">
+      {shouldLoadScript && <SimpleClientViewerScript />}
+      <ClientDemoPage />
+    </div>
+  );
 }

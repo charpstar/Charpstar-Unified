@@ -9,64 +9,139 @@ import { getClientConfig } from "@/config/clientConfig";
 export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
   const params = useParams();
   const clientName = params?.id;
+  console.log(
+    "[ModelViewer] Initializing with client:",
+    clientName,
+    "clientModelUrl:",
+    clientModelUrl
+  );
+
   const [modelSrc, setModelSrc] = useState(clientModelUrl || null);
   const [isClient, setIsClient] = useState(false);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
   const fileNameRef = useRef("model");
   const modelLoadedRef = useRef(false);
   const modelViewerElementRef = useRef(null);
 
   // Get the appropriate environment image based on client
-  const environmentImage = getClientConfig(clientName).hdrPath;
+  const clientConfig = getClientConfig(clientName);
+  const environmentImage = clientConfig.hdrPath;
+  console.log("[ModelViewer] Environment image:", environmentImage);
+
+  // Check if script is loaded
+  useEffect(() => {
+    const checkScript = () => {
+      const scriptSrc = clientConfig.scriptPath;
+      const isLoaded = !!document.querySelector(`script[src="${scriptSrc}"]`);
+      console.log("[ModelViewer] Script loaded check:", isLoaded);
+      setScriptLoaded(isLoaded);
+    };
+
+    // Check immediately
+    checkScript();
+
+    // Set up an observer to watch for script loading
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === "childList") {
+          checkScript();
+        }
+      });
+    });
+
+    observer.observe(document.head, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [clientConfig.scriptPath]);
 
   useEffect(() => {
+    console.log("[ModelViewer] Setting isClient to true");
     setIsClient(true);
   }, []);
 
   // Update modelSrc when clientModelUrl changes
   useEffect(() => {
     if (clientModelUrl) {
+      console.log(
+        "[ModelViewer] Updating modelSrc with clientModelUrl:",
+        clientModelUrl
+      );
       setModelSrc(clientModelUrl);
     }
   }, [clientModelUrl]);
 
   // Effect to handle model load event
   useEffect(() => {
-    if (!isClient || !modelSrc) return;
+    console.log(
+      "[ModelViewer] Model load effect triggered. isClient:",
+      isClient,
+      "modelSrc:",
+      modelSrc,
+      "scriptLoaded:",
+      scriptLoaded
+    );
+
+    if (!isClient || !modelSrc || !scriptLoaded) {
+      console.log(
+        "[ModelViewer] Skipping model load setup - isClient:",
+        isClient,
+        "modelSrc:",
+        modelSrc,
+        "scriptLoaded:",
+        scriptLoaded
+      );
+      return;
+    }
 
     const modelViewer = document.getElementById("model-viewer");
+    console.log("[ModelViewer] Found model-viewer element:", !!modelViewer);
+
     if (modelViewer) {
       const handleLoad = () => {
-        console.log("Model loaded");
+        console.log("[ModelViewer] Model load event triggered");
 
         // Store references
         window.modelViewerElement = modelViewer;
         window.currentFileName = fileNameRef.current;
+        console.log("[ModelViewer] Stored global references");
 
         // Initialize our custom model viewer functions
         modelViewerElementRef.current = initializeModelViewer(modelViewer);
+        console.log("[ModelViewer] Initialized model viewer functions");
 
         // Set a small delay to ensure the model is fully processed
-        // Increased timeout to ensure model is fully loaded and processed
         setTimeout(() => {
           if (onModelLoaded && !modelLoadedRef.current) {
-            console.log("Triggering onModelLoaded callback");
+            console.log("[ModelViewer] Triggering onModelLoaded callback");
             modelLoadedRef.current = true;
             onModelLoaded();
           }
-        }, 500); // Increased from 100ms to 500ms
+        }, 500);
+      };
+
+      const handleError = (error) => {
+        console.error("[ModelViewer] Error loading model:", error);
+      };
+
+      const handleProgress = (event) => {
+        console.log(
+          "[ModelViewer] Loading progress:",
+          event.detail.totalProgress
+        );
       };
 
       modelViewer.addEventListener("load", handleLoad);
-
-      // For client models, we should NOT trigger the load handler immediately
-      // but rather wait for the actual 'load' event from the model-viewer
+      modelViewer.addEventListener("error", handleError);
+      modelViewer.addEventListener("progress", handleProgress);
 
       return () => {
         modelViewer.removeEventListener("load", handleLoad);
+        modelViewer.removeEventListener("error", handleError);
+        modelViewer.removeEventListener("progress", handleProgress);
         modelLoadedRef.current = false;
       };
     }
-  }, [isClient, modelSrc, onModelLoaded]);
+  }, [isClient, modelSrc, onModelLoaded, scriptLoaded]);
 
   // Only enable drag and drop if no client model URL is provided
   const handleDrop = (e) => {
@@ -113,7 +188,7 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
       className="w-full h-full flex items-center justify-center transition-colors duration-200 rounded-md bg-[#F8F9FA]"
     >
       <div className="w-full h-full flex items-center justify-center">
-        {isClient && modelSrc && (
+        {isClient && modelSrc && scriptLoaded && (
           <model-viewer
             src={modelSrc}
             alt="A 3D model"
@@ -130,15 +205,17 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
           ></model-viewer>
         )}
 
-        {!modelSrc && !clientModelUrl && (
+        {(!modelSrc || !scriptLoaded) && !clientModelUrl && (
           <div className="text-center p-6 rounded-lg border-2 border-dashed border-gray-300 bg-white">
             <p className="text-gray-600 text-sm mb-3">
-              Drag and drop a <strong>.glb</strong> or <strong>.gltf</strong>{" "}
-              file here to view it.
+              {!scriptLoaded
+                ? "Loading viewer..."
+                : "Drag and drop a model to view it."}
             </p>
             <p className="text-gray-500 text-xs">
-              The model structure will be displayed in the left panel once
-              loaded.
+              {!scriptLoaded
+                ? "Please wait while the viewer loads..."
+                : "The model structure will be displayed in the left panel once loaded."}
             </p>
           </div>
         )}

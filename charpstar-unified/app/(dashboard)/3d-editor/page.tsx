@@ -4,7 +4,6 @@
 import { useState, useEffect, useRef } from "react";
 import Header from "@/components/layout/Header";
 import { SimpleLayout } from "@/components/layout/SimpleLayout";
-console.log("SimpleLayout import:", SimpleLayout);
 
 export default function Home() {
   const [modelStructure, setModelStructure] = useState<any>(null);
