@@ -8,6 +8,7 @@ import {
   IconFileAi,
   IconFileDescription,
   IconFolder,
+  IconPyramid,
 } from "@tabler/icons-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -48,6 +49,11 @@ const data = {
       title: "Asset Library",
       url: "/asset-library",
       icon: IconFolder,
+    },
+    {
+      title: "3D Editor",
+      url: "/3d-editor",
+      icon: IconPyramid,
     },
   ],
   navClouds: [
