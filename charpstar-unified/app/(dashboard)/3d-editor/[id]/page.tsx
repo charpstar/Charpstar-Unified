@@ -206,7 +206,7 @@ export default function ClientPage() {
       if (resourceData.materials) {
         console.log("Uploading materials.json...");
 
-        const materialsResponse = await fetch("/api/upload", {
+        const materialsResponse = await fetch("/api/3d-editor/upload", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -214,7 +214,7 @@ export default function ClientPage() {
           body: JSON.stringify({
             data: resourceData.materials,
             filename: "materials.json",
-            client: clientName, // Add client name to request
+            client: clientName,
           }),
         });
 

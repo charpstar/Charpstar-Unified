@@ -26,6 +26,11 @@ export async function POST(request: NextRequest) {
   try {
     // Log request information for debugging
     console.log("Received upload request");
+    console.log(
+      "Request headers:",
+      Object.fromEntries(request.headers.entries())
+    );
+    console.log("Request content type:", request.headers.get("content-type"));
 
     // Parse the JSON body
     let requestBody;
