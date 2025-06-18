@@ -6,10 +6,12 @@ import {
 
 interface CameraControlsPanelProps {
   modelViewerRef: React.RefObject<any>;
+  isMobile?: boolean;
 }
 
 export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
   modelViewerRef,
+  isMobile = false,
 }) => {
   // State to track the generated poster image URL
   const [posterImage, setPosterImage] = useState<string | null>(null);
@@ -105,15 +107,42 @@ export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
   };
 
   return (
-    <div ref={controlsPanelRef} className="absolute bottom-4 left-4 z-10">
+    <div
+      ref={controlsPanelRef}
+      className={
+        isMobile
+          ? "w-full max-w-md mx-auto p-1"
+          : "absolute bottom-4 left-4 z-10"
+      }
+    >
       {/* Poster Preview Panel */}
       {posterImage && (
         <div
-          className="mb-2 bg-card rounded-md shadow-lg border border-border overflow-hidden"
-          style={{ width: "300px", maxWidth: "100%" }}
+          className={
+            isMobile
+              ? "mb-2 bg-card rounded-md shadow-lg border border-border overflow-hidden w-full"
+              : "mb-2 bg-card rounded-md shadow-lg border border-border overflow-hidden"
+          }
+          style={
+            isMobile
+              ? { width: "100%", maxWidth: 400 }
+              : { width: "300px", maxWidth: "100%" }
+          }
         >
-          <div className="flex justify-between items-center px-3 py-1.5 bg-muted border-b border-border">
-            <h3 className="text-xs font-medium text-foreground">
+          <div
+            className={
+              isMobile
+                ? "flex justify-between items-center px-2 py-1 bg-muted border-b border-border"
+                : "flex justify-between items-center px-3 py-1.5 bg-muted border-b border-border"
+            }
+          >
+            <h3
+              className={
+                isMobile
+                  ? "text-xs font-medium text-foreground"
+                  : "text-xs font-medium text-foreground"
+              }
+            >
               {currentView} View Poster
             </h3>
             <div className="flex space-x-2">
@@ -160,7 +189,7 @@ export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
               </button>
             </div>
           </div>
-          <div className="p-2">
+          <div className={isMobile ? "p-1" : "p-2"}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={posterImage}
@@ -172,19 +201,34 @@ export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
       )}
 
       {/* Camera Controls Panel */}
-      <div className="bg-card/95 rounded-md shadow-md border border-border overflow-hidden">
-        <div className="flex justify-between items-center px-3 py-1.5 bg-muted border-b border-border">
+      <div
+        className={
+          isMobile
+            ? "bg-card/95 rounded-md shadow-md border border-border overflow-hidden w-full"
+            : "bg-card/95 rounded-md shadow-md border border-border overflow-hidden"
+        }
+      >
+        <div
+          className={
+            isMobile
+              ? "flex justify-between items-center px-2 py-1 bg-muted border-b border-border"
+              : "flex justify-between items-center px-3 py-1.5 bg-muted border-b border-border"
+          }
+        >
           <h3 className="text-xs font-medium text-foreground">Camera Views</h3>
         </div>
-
-        <div className="p-2 grid grid-cols-6 gap-1">
+        <div
+          className={
+            isMobile
+              ? "p-1 grid grid-cols-3 gap-1"
+              : "p-2 grid grid-cols-6 gap-1"
+          }
+        >
           {cameraPresets.map((preset) => (
             <button
               key={preset.name}
               onClick={() => setCameraView(preset.orbit, preset.name)}
-              className={`flex flex-col items-center justify-center p-2 rounded hover:bg-muted transition-colors
-                ${isGenerating && currentView === preset.name ? "bg-accent text-accent-foreground" : ""}
-              `}
+              className={`flex flex-col items-center justify-center ${isMobile ? "p-1" : "p-2"} rounded hover:bg-muted transition-colors ${isGenerating && currentView === preset.name ? "bg-accent text-accent-foreground" : ""}`}
               title={preset.name}
               disabled={isGenerating}
             >

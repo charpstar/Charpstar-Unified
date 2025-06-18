@@ -5,6 +5,7 @@ import { Info, Loader, Copy, Layers, Brush, Palette } from "lucide-react";
 interface CompactModelStatsProps {
   modelViewerRef: React.RefObject<any>;
   modelName: string;
+  isMobile?: boolean;
 }
 
 interface ModelStatistics {
@@ -25,6 +26,7 @@ const formatNumber = (num: number): string => {
 export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
   modelViewerRef,
   modelName,
+  isMobile = false,
 }) => {
   const [stats, setStats] = useState<ModelStatistics>({
     vertices: 0,
@@ -281,16 +283,33 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
 
   // Smaller and more compact panel
   return (
-    <div className="absolute top-2 right-2 z-10 bg-card/95 rounded-md shadow-md border border-border overflow-hidden w-52">
-      <div className="flex justify-between items-center px-2 py-1 bg-muted border-b border-border">
+    <div
+      className={
+        isMobile
+          ? "bg-card/95 rounded-md shadow-md border border-border overflow-hidden w-full max-w-md mx-auto text-xs"
+          : "absolute top-2 right-2 z-10 bg-card/95 rounded-md shadow-md border border-border overflow-hidden w-52 text-xs"
+      }
+    >
+      <div
+        className={
+          isMobile
+            ? "flex justify-between items-center px-2 py-1 bg-muted border-b border-border"
+            : "flex justify-between items-center px-2 py-1 bg-muted border-b border-border"
+        }
+      >
         <h3 className="text-xs font-medium text-foreground flex items-center">
           <Info size={11} className="mr-1" />
           Model Statistics
         </h3>
       </div>
-
       {stats.isLoading ? (
-        <div className="p-2 flex items-center justify-center">
+        <div
+          className={
+            isMobile
+              ? "p-1 flex items-center justify-center"
+              : "p-2 flex items-center justify-center"
+          }
+        >
           <Loader
             size={12}
             className="animate-spin text-muted-foreground mr-1.5"
@@ -302,7 +321,13 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
       ) : (
         <div className="text-xs">
           {/* Geometry stats - direct display of triangles and vertices */}
-          <div className="px-2 py-1.5 border-b border-border grid grid-cols-2 gap-x-2 gap-y-1">
+          <div
+            className={
+              isMobile
+                ? "px-1 py-1 border-b border-border grid grid-cols-2 gap-x-2 gap-y-1"
+                : "px-2 py-1.5 border-b border-border grid grid-cols-2 gap-x-2 gap-y-1"
+            }
+          >
             <div className="flex items-center">
               <Copy size={10} className="mr-1.5 text-muted-foreground" />
               <span className="text-foreground">Triangles:</span>
@@ -321,7 +346,13 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
           </div>
 
           {/* Mesh and Material Counts */}
-          <div className="px-2 py-1.5 border-b border-border grid grid-cols-2 gap-x-2 gap-y-1">
+          <div
+            className={
+              isMobile
+                ? "px-1 py-1 border-b border-border grid grid-cols-2 gap-x-2 gap-y-1"
+                : "px-2 py-1.5 border-b border-border grid grid-cols-2 gap-x-2 gap-y-1"
+            }
+          >
             <div className="flex items-center">
               <Layers size={10} className="mr-1.5 text-muted-foreground" />
               <span className="text-foreground">Meshes:</span>
@@ -340,7 +371,13 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
           </div>
 
           {/* Variants Count */}
-          <div className="px-2 py-1.5 border-b border-border grid grid-cols-2 gap-x-2">
+          <div
+            className={
+              isMobile
+                ? "px-1 py-1 border-b border-border grid grid-cols-2 gap-x-2"
+                : "px-2 py-1.5 border-b border-border grid grid-cols-2 gap-x-2"
+            }
+          >
             <div className="flex items-center">
               <Palette size={10} className="mr-1.5 text-muted-foreground" />
               <span className="text-foreground">Variants:</span>
@@ -351,7 +388,7 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
           </div>
 
           {/* Double Sided Materials */}
-          <div className="px-2 py-1.5">
+          <div className={isMobile ? "px-1 py-1" : "px-2 py-1.5"}>
             <div
               className={`flex items-center justify-between ${stats.doubleSidedCount > 0 ? "cursor-pointer hover:bg-muted" : ""}`}
               onClick={

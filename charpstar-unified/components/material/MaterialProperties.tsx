@@ -35,12 +35,14 @@ interface MaterialPropertiesProps {
   selectedNode: any | null;
   modelViewerRef?: React.RefObject<any>;
   variantChangeCounter?: number; // Add this prop to force re-rendering
+  isMobile?: boolean;
 }
 
 export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
   selectedNode,
   modelViewerRef,
   variantChangeCounter = 0, // Default to 0
+  isMobile = false,
 }) => {
   const [material, setMaterial] = useState<Material | null>(null);
   const [isMeshPhysicalMaterial, setIsMeshPhysicalMaterial] = useState(false);

@@ -11,6 +11,19 @@ import SavePasswordDialog from "@/components/SavePasswordDialog";
 import InputLocker from "@/components/InputLocker";
 import { notFound } from "next/navigation";
 import SimpleClientViewerScript from "@/components/SimpleClientViewerScript";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Layers, Box, Palette } from "lucide-react";
+import { MaterialVariants } from "@/components/variant/MaterialVariants";
+import { MaterialProperties } from "@/components/material/MaterialProperties";
+import StructureTree from "@/components/scene/StructureTree";
+import { ModelViewer } from "@/components/ModelViewer";
 
 export default function ClientPage() {
   const params = useParams();
@@ -31,6 +44,11 @@ export default function ClientPage() {
   // Password dialog state
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [shouldLoadScript, setShouldLoadScript] = useState(false);
+
+  const isMobile = useIsMobile();
+  const [showSceneDrawer, setShowSceneDrawer] = useState(false);
+  const [showVariantsDrawer, setShowVariantsDrawer] = useState(false);
+  const [showMaterialDrawer, setShowMaterialDrawer] = useState(false);
 
   useEffect(() => {
     if (clientName) {
@@ -353,20 +371,128 @@ export default function ClientPage() {
           modelViewerRef={modelViewerRef}
           onSave={handleSave}
           isSaving={isSaving}
+          isMobile={isMobile}
         />
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <SimpleLayout
-          modelStructure={modelStructure}
-          selectedNode={selectedNode}
-          modelViewerRef={modelViewerRef}
-          onNodeSelect={handleNodeSelect}
-          onModelLoaded={handleModelLoaded}
-          onVariantChange={handleVariantChange}
-          clientModelUrl={clientConfig?.modelUrl} // Only in client page
-        />
-      </div>
+      {isMobile ? (
+        <>
+          {/* Mobile FABs for Scene, Variants, Material */}
+          <button
+            className="fixed bottom-4 left-4 z-30 bg-card border border-border rounded-full shadow-lg p-3 flex items-center justify-center active:scale-95 transition-transform"
+            onClick={() => setShowSceneDrawer(true)}
+            aria-label="Scene Tree"
+          >
+            <Layers size={22} />
+          </button>
+          <button
+            className="fixed bottom-4 left-1/2 z-30 bg-card border border-border rounded-full shadow-lg p-3 flex items-center justify-center active:scale-95 transition-transform -translate-x-1/2"
+            onClick={() => setShowVariantsDrawer(true)}
+            aria-label="Material Variants"
+          >
+            <Box size={22} />
+          </button>
+          <button
+            className="fixed bottom-4 right-4 z-30 bg-card border border-border rounded-full shadow-lg p-3 flex items-center justify-center active:scale-95 transition-transform"
+            onClick={() => setShowMaterialDrawer(true)}
+            aria-label="Material Properties"
+          >
+            <Palette size={22} />
+          </button>
+          {/* Scene Drawer */}
+          <Dialog open={showSceneDrawer} onOpenChange={setShowSceneDrawer}>
+            <DialogContent className="fixed bottom-0 left-0 w-full max-w-md mx-auto bg-card shadow-lg p-0 flex flex-col z-50 rounded-t-lg border-none min-h-0 h-fit !top-auto !left-1/2 !right-auto !translate-x-[-50%] !translate-y-0">
+              <DialogHeader className="flex items-center justify-between p-3 border-b border-border">
+                <DialogTitle className="font-semibold text-base">
+                  Scene Hierarchy
+                </DialogTitle>
+              </DialogHeader>
+              <div className="p-2">
+                {modelStructure ? (
+                  <StructureTree
+                    node={modelStructure}
+                    onNodeSelect={handleNodeSelect}
+                    selectedNode={selectedNode}
+                    isMobile={true}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <p className="text-muted-foreground text-xs mt-4">
+                      No model structure available
+                    </p>
+                    <p className="text-muted-foreground text-xs mt-2">
+                      Upload a model or select an object
+                    </p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+          {/* Variants Drawer */}
+          <Dialog
+            open={showVariantsDrawer}
+            onOpenChange={setShowVariantsDrawer}
+          >
+            <DialogContent className="fixed bottom-0 left-0 w-full max-w-md mx-auto bg-card shadow-lg p-0 flex flex-col z-50 rounded-t-lg border-none min-h-0 h-fit !top-auto !left-1/2 !right-auto !translate-x-[-50%] !translate-y-0">
+              <DialogHeader className="flex items-center justify-between p-3 border-b border-border">
+                <DialogTitle className="font-semibold text-base">
+                  Material Variants
+                </DialogTitle>
+              </DialogHeader>
+              <div className="p-2">
+                <MaterialVariants
+                  modelViewerRef={modelViewerRef}
+                  onVariantChange={handleVariantChange}
+                  selectedNode={selectedNode}
+                  isMobile={true}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+          {/* Material Properties Drawer */}
+          <Dialog
+            open={showMaterialDrawer}
+            onOpenChange={setShowMaterialDrawer}
+          >
+            <DialogContent className="fixed bottom-0 left-0 w-full max-w-md mx-auto bg-card shadow-lg p-0 flex flex-col z-50 rounded-t-lg border-none min-h-0 h-fit !top-auto !left-1/2 !right-auto !translate-x-[-50%] !translate-y-0">
+              <DialogHeader className="flex items-center justify-between p-3 border-b border-border">
+                <DialogTitle className="font-semibold text-base">
+                  Material Properties
+                </DialogTitle>
+              </DialogHeader>
+              <div className="p-2">
+                <MaterialProperties
+                  selectedNode={selectedNode}
+                  modelViewerRef={modelViewerRef}
+                  isMobile={true}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+          {/* 3D Viewer fills the rest of the screen */}
+          <div className="flex-1 p-2 bg-card relative">
+            <div className="h-[60vh] rounded-lg overflow-hidden shadow-md bg-background flex items-center justify-center relative">
+              <ModelViewer
+                onModelLoaded={handleModelLoaded}
+                clientModelUrl={clientConfig?.modelUrl || ""}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 overflow-hidden">
+          <SimpleLayout
+            modelStructure={modelStructure}
+            selectedNode={selectedNode}
+            modelViewerRef={modelViewerRef}
+            onNodeSelect={handleNodeSelect}
+            onModelLoaded={handleModelLoaded}
+            onVariantChange={handleVariantChange}
+            clientModelUrl={clientConfig?.modelUrl}
+            isMobile={false}
+          />
+        </div>
+      )}
     </div>
   );
 }

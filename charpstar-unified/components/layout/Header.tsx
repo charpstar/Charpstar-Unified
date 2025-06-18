@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Save, Download, ArrowLeft } from "lucide-react";
 import { useParams, usePathname } from "next/navigation";
 import { isValidClient } from "@/config/clientConfig";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface HeaderProps {
   onExportGLB?: () => void;
@@ -14,6 +15,7 @@ interface HeaderProps {
   onSave?: () => void;
   isSaving?: boolean;
   modelViewerRef?: React.RefObject<any>;
+  isMobile?: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -24,6 +26,7 @@ const Header: React.FC<HeaderProps> = ({
   isSaving = false,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   modelViewerRef,
+  isMobile = false,
 }) => {
   const params = useParams();
   const pathname = usePathname();
@@ -36,11 +39,11 @@ const Header: React.FC<HeaderProps> = ({
   const isDemoMode = isClientView && isDemoView;
 
   return (
-    <header className="h-12 bg-card text-foreground flex items-center justify-between px-6 border-b border-border shadow-sm w-full">
-      <div className="flex items-center space-x-4">
+    <header className="h-12 bg-card text-foreground flex items-center justify-between px-4 border-b border-border shadow-sm w-full">
+      <div className="flex items-center space-x-2">
         {/* Navigation between editor and demo */}
         {isClientView && (
-          <div className="mr-4">
+          <div className="">
             {isDemoMode ? (
               <Link href={`/3d-editor/${clientName}`}>
                 <Button variant="outline" size="sm" className="text-xs h-7">

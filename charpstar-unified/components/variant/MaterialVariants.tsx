@@ -10,12 +10,14 @@ interface MaterialVariantsProps {
   modelViewerRef: React.RefObject<any>;
   onVariantChange?: () => void;
   selectedNode?: any | null;
+  isMobile?: boolean;
 }
 
 export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
   modelViewerRef,
   onVariantChange,
   selectedNode,
+  isMobile = false,
 }) => {
   const [variants, setVariants] = useState<string[]>([]);
   const [currentVariant, setCurrentVariant] = useState<string | null>(null);

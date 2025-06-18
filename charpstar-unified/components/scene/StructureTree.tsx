@@ -20,6 +20,7 @@ interface TreeNodeProps {
   depth?: number;
   onSelectNode?: (node: Object3D) => void;
   selectedNodeId?: string;
+  isMobile?: boolean;
 }
 
 // Component to render a single node in the tree
@@ -28,6 +29,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   depth = 0,
   onSelectNode,
   selectedNodeId,
+  isMobile = false,
 }) => {
   const [expanded, setExpanded] = useState(depth < 2); // Auto-expand first two levels
   const hasChildren = node.children && node.children.length > 0;
@@ -115,6 +117,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
               depth={depth + 1}
               onSelectNode={onSelectNode}
               selectedNodeId={selectedNodeId}
+              isMobile={isMobile}
             />
           ))}
         </div>
@@ -128,7 +131,8 @@ const StructureTree: React.FC<{
   node: Object3D;
   onNodeSelect?: (node: Object3D) => void;
   selectedNode?: Object3D | null;
-}> = ({ node, onNodeSelect, selectedNode }) => {
+  isMobile?: boolean;
+}> = ({ node, onNodeSelect, selectedNode, isMobile = false }) => {
   const handleNodeSelect = (node: Object3D) => {
     console.log("Selecting node:", node.name, node.type, node.uuid);
     if (onNodeSelect) {
@@ -143,6 +147,7 @@ const StructureTree: React.FC<{
         node={node}
         onSelectNode={handleNodeSelect}
         selectedNodeId={selectedNode?.uuid}
+        isMobile={isMobile}
       />
     </div>
   );

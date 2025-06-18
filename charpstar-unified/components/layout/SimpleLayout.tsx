@@ -16,6 +16,7 @@ interface SimpleLayoutProps {
   onModelLoaded: () => void;
   onVariantChange: () => void;
   clientModelUrl?: string;
+  isMobile?: boolean;
 }
 
 export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
@@ -26,6 +27,7 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
   onModelLoaded,
   onVariantChange,
   clientModelUrl,
+  isMobile = false,
 }) => {
   console.log("SimpleLayout rendering with clientModelUrl:", clientModelUrl);
   console.log("SimpleLayout props:", {
@@ -44,6 +46,19 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
       onVariantChange();
     }
   };
+
+  if (isMobile) {
+    return (
+      <div className="flex h-full bg-background">
+        <div className="flex-1 bg-card shadow-md overflow-hidden">
+          <ModelViewer
+            onModelLoaded={onModelLoaded}
+            clientModelUrl={clientModelUrl || ""}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full bg-background">
