@@ -17,6 +17,14 @@ import {
 import Link from "next/link";
 import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { supabase } from "@/lib/supabaseClient";
+import React from "react";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartLegend,
+} from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis } from "recharts";
 
 interface User {
   id: string;
@@ -25,6 +33,7 @@ interface User {
   analytics_profile_id?: string;
   metadata?: {
     analytics_profile_id?: string;
+    role?: string;
   };
 }
 
@@ -46,6 +55,171 @@ interface AnalyticsProfile {
   projectid: string;
   datasetid: string;
   tablename: string;
+}
+
+type StatCardProps = { title: string; value: number; icon: React.ReactNode };
+function StatCard({ title, value, icon }: StatCardProps) {
+  return (
+    <div className="bg-card rounded shadow p-4 flex items-center space-x-3">
+      <div className="text-2xl">{icon}</div>
+      <div>
+        <div className="text-xs text-muted-foreground">{title}</div>
+        <div className="font-bold text-lg">{value}</div>
+      </div>
+    </div>
+  );
+}
+
+type ChartDatum = { date: string; uploads: number; registrations: number };
+function AdminDashboardWidgets() {
+  const [chartData, setChartData] = React.useState<ChartDatum[]>([]);
+  const [modelCount, setModelCount] = React.useState(0);
+  const [userCount, setUserCount] = React.useState(0);
+
+  React.useEffect(() => {
+    async function fetchData() {
+      const { data: uploads } = await supabase
+        .from("assets")
+        .select("created_at")
+        .gte(
+          "created_at",
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        );
+      const { data: users } = await supabase
+        .from("profiles")
+        .select("created_at")
+        .gte(
+          "created_at",
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        );
+      const days = Array.from({ length: 7 }).map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        return d.toISOString().slice(0, 10);
+      });
+      const uploadsByDay = days.map(
+        (date) =>
+          uploads?.filter((u) => u.created_at.slice(0, 10) === date).length || 0
+      );
+      const usersByDay = days.map(
+        (date) =>
+          users?.filter((u) => u.created_at.slice(0, 10) === date).length || 0
+      );
+      setChartData(
+        days.map((date, i) => ({
+          date,
+          uploads: uploadsByDay[i],
+          registrations: usersByDay[i],
+        }))
+      );
+      setModelCount(uploads?.length || 0);
+      setUserCount(users?.length || 0);
+    }
+    fetchData();
+  }, []);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="bg-card rounded shadow p-4 flex flex-col">
+        <StatCard title="Models Uploaded (7d)" value={modelCount} icon="📦" />
+        <div className="mt-2">
+          <ChartContainer
+            config={{ uploads: { label: "Uploads", color: "#6366f1" } }}
+          >
+            <BarChart data={chartData} height={60}>
+              <XAxis dataKey="date" fontSize={10} />
+              <YAxis allowDecimals={false} fontSize={10} width={24} />
+              <ChartTooltip />
+              <Bar dataKey="uploads" fill="var(--color-uploads)" barSize={7} />
+            </BarChart>
+          </ChartContainer>
+        </div>
+      </div>
+      <div className="bg-card rounded shadow p-4 flex flex-col">
+        <StatCard title="New Users (7d)" value={userCount} icon="👤" />
+        <div className="mt-2">
+          <ChartContainer
+            config={{
+              registrations: { label: "Registrations", color: "#22c55e" },
+            }}
+          >
+            <BarChart data={chartData} height={60}>
+              <XAxis dataKey="date" fontSize={10} />
+              <YAxis allowDecimals={false} fontSize={10} width={24} />
+              <ChartTooltip />
+              <Bar
+                dataKey="registrations"
+                fill="var(--color-registrations)"
+                barSize={7}
+              />
+            </BarChart>
+          </ChartContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModelUploadsWidget() {
+  const [uploads, setUploads] = React.useState<any[]>([]);
+  React.useEffect(() => {
+    async function fetchUploads() {
+      const { data } = await supabase
+        .from("assets")
+        .select("id, name, created_at, updated_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      setUploads(data || []);
+    }
+    fetchUploads();
+  }, []);
+  return (
+    <div className="mb-4 p-4 bg-card rounded shadow">
+      <h3 className="font-semibold mb-2">Recent Model Uploads/Edits</h3>
+      <ul>
+        {uploads.map((u) => (
+          <li key={u.id} className="text-sm mb-1">
+            <span className="font-medium">{u.name || u.id}</span> – Uploaded{" "}
+            {new Date(u.created_at).toLocaleString()}
+          </li>
+        ))}
+        {uploads.length === 0 && (
+          <li className="text-muted-foreground">No recent uploads.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+function UserRegistrationsWidget() {
+  const [users, setUsers] = React.useState<any[]>([]);
+  React.useEffect(() => {
+    async function fetchUsers() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, email, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      setUsers(data || []);
+    }
+    fetchUsers();
+  }, []);
+  return (
+    <div className="mb-4 p-4 bg-card rounded shadow">
+      <h3 className="font-semibold mb-2">Recent User Registrations</h3>
+      <ul>
+        {users.map((u) => (
+          <li key={u.id} className="text-sm mb-1">
+            <span className="font-medium">{u.email || u.id}</span> – Joined{" "}
+            {new Date(u.created_at).toLocaleString()}
+          </li>
+        ))}
+        {users.length === 0 && (
+          <li className="text-muted-foreground">No recent registrations.</li>
+        )}
+      </ul>
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -307,11 +481,30 @@ export default function DashboardPage() {
                     Analytics
                   </Link>
                 </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full justify-start"
+                >
+                  <Link
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    href={`/3d-editor/${(user?.metadata as any)?.client_config}`}
+                    className="flex items-center gap-2"
+                  >
+                    <Boxes className="h-4 w-4" />
+                    Editor
+                  </Link>
+                </Button>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
+      {user?.metadata?.role === "admin" && (
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 mt-4">
+          <AdminDashboardWidgets />
+        </div>
+      )}
     </div>
   );
 }
