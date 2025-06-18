@@ -39,54 +39,93 @@ const DEFAULT_CONFIG: ClientConfig = {
   },
 };
 
-// Client-specific configurations
-export const clients: Record<string, ClientConfig> = {
-  SweefV2: {
-    name: "SweevV2",
-    description: "Sweef Editor",
-    modelUrl: "https://cdn.charpstar.net/Client-Editor/SweefV2/TIG-2.gltf",
-    hdrPath: "https://sweef.charpstar.net/HDR/Sweef-HDR.hdr",
-    scriptPath: "/sweef-viewer-13.js",
-    resourcesPath: "SweefV2",
-    livePassword: "sweef2024",
-    bunnyCdn: {
-      basePath: "Client-Editor/SweefV2",
-      resourcesFolder: "resources",
-      imagesFolder: "images",
-    },
-  },
-  ArtwoodTest: {
-    name: "ArtwoodTest",
-    description: "Artwood Editor",
-    modelUrl: "https://cdn.charpstar.net/Client-Editor/ArtwoodTest/VAL-3.gltf",
-    hdrPath: "https://sweef.charpstar.net/HDR/Sweef-HDR.hdr",
-    scriptPath: "/sweef-viewer-13.js",
-    resourcesPath: "Artwood",
-    livePassword: "artwood2024",
-    bunnyCdn: {
-      basePath: "Client-Editor/ArtwoodTest",
-      resourcesFolder: "resources",
-      imagesFolder: "images",
-    },
-  },
+// Add Supabase fetch function
+import { supabase } from "../lib/supabaseClient";
+
+export const fetchClientConfig = async (
+  clientName: string
+): Promise<ClientConfig> => {
+  try {
+    console.log("Fetching config for client:", clientName);
+    const { data, error } = await supabase
+      .from("client_configs")
+      .select("*")
+      .eq("name", clientName)
+      .single();
+
+    if (error) {
+      console.error("Supabase error fetching client config:", error.message);
+      return DEFAULT_CONFIG;
+    }
+
+    if (!data) {
+      console.warn("No config found for client:", clientName);
+      return DEFAULT_CONFIG;
+    }
+
+    console.log("Fetched config for client:", clientName, data);
+    // Map snake_case to camelCase
+    const mapped: ClientConfig = {
+      name: data.name,
+      description: data.description,
+      modelUrl: data.model_url,
+      hdrPath: data.hdr_path,
+      scriptPath: data.script_path,
+      resourcesPath: data.resources_path,
+      livePassword: data.live_password,
+      bunnyCdn: {
+        basePath: data.bunny_base_path,
+        resourcesFolder: data.bunny_resources_folder,
+        imagesFolder: data.bunny_images_folder,
+      },
+    };
+    return mapped;
+  } catch (err) {
+    console.error("Unexpected error fetching client config:", err);
+    return DEFAULT_CONFIG;
+  }
 };
 
-// Helper function to get client configuration
-export const getClientConfig = (clientName: string): ClientConfig => {
-  return clients[clientName] || DEFAULT_CONFIG;
+// Helper function to get all available client names
+export const fetchAvailableClients = async (): Promise<string[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("client_configs")
+      .select("name")
+      .order("name");
+
+    if (error) {
+      console.error("Error fetching client names:", error.message);
+      return [];
+    }
+
+    if (!data || data.length === 0) {
+      console.warn("No clients found in the database");
+      return [];
+    }
+
+    console.log("Fetched clients:", data);
+    return data.map((client) => client.name);
+  } catch (err) {
+    console.error("Unexpected error fetching client names:", err);
+    return [];
+  }
 };
 
 // Helper function to get the default client name
-export const getDefaultClientName = (): string => {
-  return Object.keys(clients)[0] || "SweefV2";
+export const getDefaultClientName = async (): Promise<string> => {
+  const clients = await fetchAvailableClients();
+  return clients[0] || "Default";
 };
 
 // Helper to check if a client should use the Sweef viewer
-export const usesSweefViewer = (clientName: string): boolean => {
-  return getClientConfig(clientName).scriptPath === "/sweef-viewer-13.js";
+export const usesSweefViewer = async (clientName: string): Promise<boolean> => {
+  const config = await fetchClientConfig(clientName);
+  return config.scriptPath === "/sweef-viewer-13.js";
 };
 
 // Helper to check if a client is valid
-export const isValidClient = (clientName: string): boolean => {
-  return Object.keys(clients).includes(clientName);
+export const isValidClient = async (clientName: string): Promise<boolean> => {
+  const clients = await fetchAvailableClients();
+  return clients.includes(clientName);
 };

@@ -1,23 +1,46 @@
 // src/components/SimpleClientViewerScript.tsx
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { getClientConfig } from "@/config/clientConfig";
+import { fetchClientConfig } from "@/config/clientConfig";
 
-const SimpleClientViewerScript = () => {
+interface SimpleClientViewerScriptProps {
+  shouldLoad: boolean;
+}
+
+const SimpleClientViewerScript = ({
+  shouldLoad,
+}: SimpleClientViewerScriptProps) => {
   const params = useParams();
   const clientName = params?.id as string;
+  const [scriptSrc, setScriptSrc] = useState<string | null>(null);
+
   console.log(
     "[SimpleClientViewerScript] Loading script for client:",
     clientName
   );
 
+  // First fetch the client config
   useEffect(() => {
+    if (!shouldLoad) return;
+    const getConfig = async () => {
+      if (clientName) {
+        const config = await fetchClientConfig(clientName);
+        console.log("[SimpleClientViewerScript] fetched config:", config);
+        setScriptSrc(config.scriptPath);
+      }
+    };
+    getConfig();
+  }, [clientName, shouldLoad]);
+
+  // Then load the script once we have the scriptSrc
+  useEffect(() => {
+    if (!shouldLoad) return;
     const loadScript = async () => {
+      if (!scriptSrc) return;
+
       try {
-        // Get the appropriate script for this client
-        const scriptSrc = getClientConfig(clientName).scriptPath;
         console.log("[SimpleClientViewerScript] Loading script:", scriptSrc);
 
         // Check if script is already loaded
@@ -56,7 +79,7 @@ const SimpleClientViewerScript = () => {
     };
 
     loadScript();
-  }, [clientName]);
+  }, [scriptSrc, shouldLoad]);
 
   return null;
 };

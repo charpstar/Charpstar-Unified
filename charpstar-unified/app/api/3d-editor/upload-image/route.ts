@@ -5,7 +5,7 @@ import path from "path";
 import os from "os";
 import https from "https";
 import fs from "fs";
-import { getDefaultClientName, getClientConfig } from "@/config/clientConfig";
+import { getDefaultClientName, fetchClientConfig } from "@/config/clientConfig";
 
 const REGION = process.env.BUNNY_REGION || "";
 const BASE_HOSTNAME = "storage.bunnycdn.com";
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       const targetDirectory = (formData.get("targetDirectory") as string) || "";
 
       // Get client-specific BunnyCDN configuration
-      const clientConfig = getClientConfig(clientName);
+      const clientConfig = await fetchClientConfig(clientName as string);
 
       // Construct the target path for the file in BunnyCDN
       let filePath = `${clientConfig.bunnyCdn.basePath}/${clientConfig.bunnyCdn.imagesFolder}/`;

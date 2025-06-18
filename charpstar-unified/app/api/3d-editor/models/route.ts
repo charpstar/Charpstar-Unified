@@ -1,6 +1,9 @@
 // src/app/api/models/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { clients, getClientConfig } from "@/config/clientConfig";
+import {
+  fetchClientConfig,
+  fetchAvailableClients,
+} from "@/config/clientConfig";
 import https from "https";
 
 const REGION = process.env.BUNNY_REGION || "";
@@ -146,7 +149,7 @@ const fetchFilesFromBunnyCDN = async (path: string): Promise<string[]> => {
 // Get client models from BunnyCDN
 const getClientModels = async (clientName: string): Promise<string[]> => {
   try {
-    const clientConfig = getClientConfig(clientName);
+    const clientConfig = await fetchClientConfig(clientName);
     const basePath = clientConfig.bunnyCdn.basePath;
 
     console.log(
@@ -172,7 +175,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const clientName = searchParams.get("client");
 
-    if (!clientName || !clients[clientName]) {
+    const availableClients = await fetchAvailableClients();
+    if (!clientName || !availableClients.includes(clientName)) {
       return NextResponse.json(
         { error: "Invalid or missing client parameter" },
         { status: 400 }

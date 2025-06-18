@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
 import fetch from "node-fetch";
-import { getDefaultClientName, getClientConfig } from "@/config/clientConfig";
+import { getDefaultClientName, fetchClientConfig } from "@/config/clientConfig";
 
 const REGION = process.env.BUNNY_REGION || "";
 const BASE_HOSTNAME = "storage.bunnycdn.com";
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     const clientName = requestBody.client || DEFAULT_CLIENT;
 
     // Get client-specific BunnyCDN configuration
-    const clientConfig = getClientConfig(clientName);
+    const clientConfig = await fetchClientConfig(clientName as string);
 
     // Determine the appropriate folder based on file type
     const targetFolder = clientConfig.bunnyCdn.resourcesFolder;

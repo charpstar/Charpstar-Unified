@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeModelViewer } from "@/utils/modelViewerInitializer";
 import { useParams } from "next/navigation";
-import { getClientConfig } from "@/config/clientConfig";
+import { fetchClientConfig } from "@/config/clientConfig";
 
 export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
   const params = useParams();
@@ -19,17 +19,26 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
   const [modelSrc, setModelSrc] = useState(clientModelUrl || null);
   const [isClient, setIsClient] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [clientConfig, setClientConfig] = useState(null);
   const fileNameRef = useRef("model");
   const modelLoadedRef = useRef(false);
   const modelViewerElementRef = useRef(null);
 
-  // Get the appropriate environment image based on client
-  const clientConfig = getClientConfig(clientName);
-  const environmentImage = clientConfig.hdrPath;
-  console.log("[ModelViewer] Environment image:", environmentImage);
+  // Fetch client config
+  useEffect(() => {
+    const getConfig = async () => {
+      if (clientName) {
+        const config = await fetchClientConfig(clientName);
+        setClientConfig(config);
+      }
+    };
+    getConfig();
+  }, [clientName]);
 
   // Check if script is loaded
   useEffect(() => {
+    if (!clientConfig) return;
+
     const checkScript = () => {
       const scriptSrc = clientConfig.scriptPath;
       const isLoaded = !!document.querySelector(`script[src="${scriptSrc}"]`);
@@ -52,7 +61,7 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
     observer.observe(document.head, { childList: true, subtree: true });
 
     return () => observer.disconnect();
-  }, [clientConfig.scriptPath]);
+  }, [clientConfig]);
 
   useEffect(() => {
     console.log("[ModelViewer] Setting isClient to true");
@@ -188,7 +197,7 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
       className="w-full h-full flex items-center justify-center transition-colors duration-200 rounded-md bg-[#F8F9FA]"
     >
       <div className="w-full h-full flex items-center justify-center">
-        {isClient && modelSrc && scriptLoaded && (
+        {isClient && modelSrc && scriptLoaded && clientConfig && (
           <model-viewer
             src={modelSrc}
             alt="A 3D model"
@@ -196,7 +205,7 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
             disable-pan
             interaction-prompt="none"
             shadow-intensity="0"
-            environment-image={environmentImage}
+            environment-image={clientConfig.hdrPath}
             exposure="1"
             tone-mapping="auto"
             camera-orbit="0deg 75deg auto"
@@ -205,15 +214,15 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
           ></model-viewer>
         )}
 
-        {(!modelSrc || !scriptLoaded) && !clientModelUrl && (
+        {(!modelSrc || !scriptLoaded || !clientConfig) && !clientModelUrl && (
           <div className="text-center p-6 rounded-lg border-2 border-dashed border-gray-300 bg-white">
             <p className="text-gray-600 text-sm mb-3">
-              {!scriptLoaded
+              {!scriptLoaded || !clientConfig
                 ? "Loading viewer..."
                 : "Drag and drop a model to view it."}
             </p>
             <p className="text-gray-500 text-xs">
-              {!scriptLoaded
+              {!scriptLoaded || !clientConfig
                 ? "Please wait while the viewer loads..."
                 : "The model structure will be displayed in the left panel once loaded."}
             </p>

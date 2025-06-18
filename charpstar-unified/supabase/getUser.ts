@@ -28,7 +28,8 @@ export async function getUserMetadata(
       tablename,
       monitoredsince,
       name
-    )
+    ),
+    client_config
   `
     )
     .eq("id", user_id)
@@ -37,6 +38,7 @@ export async function getUserMetadata(
   return data as {
     id: string;
     client: string | null;
+
     role: string;
     analytics_profile_id: string;
     analytics_profiles: {
@@ -46,6 +48,7 @@ export async function getUserMetadata(
       monitoredsince: string;
       name: string;
     }[];
+    client_config: string | null;
   };
 }
 

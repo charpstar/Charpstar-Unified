@@ -17,6 +17,7 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
   modelViewerRef,
   onVariantChange,
   selectedNode,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isMobile = false,
 }) => {
   const [variants, setVariants] = useState<string[]>([]);
