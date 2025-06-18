@@ -19,11 +19,7 @@ import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/lib/supabaseClient";
 import React from "react";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartLegend,
-} from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis } from "recharts";
 
 interface User {
@@ -156,68 +152,6 @@ function AdminDashboardWidgets() {
           </ChartContainer>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ModelUploadsWidget() {
-  const [uploads, setUploads] = React.useState<any[]>([]);
-  React.useEffect(() => {
-    async function fetchUploads() {
-      const { data } = await supabase
-        .from("assets")
-        .select("id, name, created_at, updated_at")
-        .order("created_at", { ascending: false })
-        .limit(5);
-      setUploads(data || []);
-    }
-    fetchUploads();
-  }, []);
-  return (
-    <div className="mb-4 p-4 bg-card rounded shadow">
-      <h3 className="font-semibold mb-2">Recent Model Uploads/Edits</h3>
-      <ul>
-        {uploads.map((u) => (
-          <li key={u.id} className="text-sm mb-1">
-            <span className="font-medium">{u.name || u.id}</span> – Uploaded{" "}
-            {new Date(u.created_at).toLocaleString()}
-          </li>
-        ))}
-        {uploads.length === 0 && (
-          <li className="text-muted-foreground">No recent uploads.</li>
-        )}
-      </ul>
-    </div>
-  );
-}
-
-function UserRegistrationsWidget() {
-  const [users, setUsers] = React.useState<any[]>([]);
-  React.useEffect(() => {
-    async function fetchUsers() {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, email, created_at")
-        .order("created_at", { ascending: false })
-        .limit(5);
-      setUsers(data || []);
-    }
-    fetchUsers();
-  }, []);
-  return (
-    <div className="mb-4 p-4 bg-card rounded shadow">
-      <h3 className="font-semibold mb-2">Recent User Registrations</h3>
-      <ul>
-        {users.map((u) => (
-          <li key={u.id} className="text-sm mb-1">
-            <span className="font-medium">{u.email || u.id}</span> – Joined{" "}
-            {new Date(u.created_at).toLocaleString()}
-          </li>
-        ))}
-        {users.length === 0 && (
-          <li className="text-muted-foreground">No recent registrations.</li>
-        )}
-      </ul>
     </div>
   );
 }
