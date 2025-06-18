@@ -116,7 +116,7 @@ function AdminDashboardWidgets() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <div className="bg-card rounded shadow p-4 flex flex-col">
+      <div className="bg-card rounded-lg shadow p-4 flex flex-col border border-border">
         <StatCard title="Models Uploaded (7d)" value={modelCount} icon="📦" />
         <div className="mt-2">
           <ChartContainer
@@ -131,7 +131,7 @@ function AdminDashboardWidgets() {
           </ChartContainer>
         </div>
       </div>
-      <div className="bg-card rounded shadow p-4 flex flex-col">
+      <div className="bg-card rounded-lg shadow p-4 flex flex-col border border-border">
         <StatCard title="New Users (7d)" value={userCount} icon="👤" />
         <div className="mt-2">
           <ChartContainer
