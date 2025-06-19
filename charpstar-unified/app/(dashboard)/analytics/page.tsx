@@ -4,7 +4,6 @@ import * as React from "react";
 import { useState, useEffect } from "react";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent } from "@/components/ui/card";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
 import type { DateRange } from "react-day-picker";
 import { format, addDays } from "date-fns";
@@ -24,6 +23,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { TooltipContent } from "@/components/ui/tooltip";
 import { TooltipTrigger } from "@/components/ui/tooltip";
 import { useAnalyticsCheck } from "@/lib/analyticsCheck";
+import { useDateRange } from "@/contexts/DateRangeContext";
 
 interface AnalyticsRow {
   metric_name: string;
@@ -112,6 +112,9 @@ export default function AnalyticsDashboard() {
     "/analytics"
   );
 
+  // Use the date range from context instead of local state
+  const { appliedRange } = useDateRange();
+
   useEffect(() => {
     const fetchUserRole = async () => {
       const {
@@ -167,21 +170,6 @@ export default function AnalyticsDashboard() {
     }
     fetchImpersonatedProfile();
   }, [impersonateId, userRole]);
-
-  // --- Date range state with pending and applied states ---
-  const today = new Date();
-  const thirtyDaysAgo = addDays(today, -30);
-  const [pendingRange, setPendingRange] = useState<DateRange>({
-    from: thirtyDaysAgo,
-    to: today,
-  });
-  const [appliedRange, setAppliedRange] = useState<DateRange>(pendingRange);
-
-  // Only enable Apply if pending != applied
-  const isApplyDisabled =
-    (pendingRange.from?.getTime() || 0) ===
-      (appliedRange.from?.getTime() || 0) &&
-    (pendingRange.to?.getTime() || 0) === (appliedRange.to?.getTime() || 0);
 
   // Use impersonated profile if present
   const effectiveProfile = impersonatedProfile || analyticsProfile;
@@ -370,7 +358,6 @@ export default function AnalyticsDashboard() {
     return (
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
           <div className="flex gap-2 items-end"></div>
         </div>
         <div></div>
@@ -455,28 +442,6 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
       )}
-
-      <div className="flex flex-col space-y-4 mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold">Analytics Dashboard</h1>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <DateRangePicker
-            value={pendingRange}
-            onChange={(newRange) => {
-              if (newRange?.from && newRange?.to) {
-                setPendingRange(newRange);
-              }
-            }}
-            className="w-full sm:w-auto"
-          />
-          <Button
-            onClick={() => setAppliedRange(pendingRange)}
-            disabled={isApplyDisabled}
-            className="w-full sm:w-auto"
-          >
-            Apply
-          </Button>
-        </div>
-      </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <TooltipProvider>

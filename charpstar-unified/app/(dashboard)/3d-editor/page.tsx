@@ -2,58 +2,16 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Header from "@/components/layout/Header";
 import { SimpleLayout } from "@/components/layout/SimpleLayout";
+import React from "react";
+import { Header } from "@/components/Header";
 
 export default function Home() {
   const [modelStructure, setModelStructure] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const modelViewerRef = useRef<any>(null);
 
-  // Handler for node selection
-  const handleNodeSelect = (node: any) => {
-    console.log("Home component received selected node:", node.name, node.type);
-    setSelectedNode(node);
-  };
-
-  // Export functions
-  const handleExportGLB = () => {
-    if (
-      modelViewerRef.current &&
-      typeof modelViewerRef.current.exportGLB === "function"
-    ) {
-      console.log("Exporting GLB...");
-      modelViewerRef.current.exportGLB();
-    } else {
-      console.error("exportGLB method not available on model viewer");
-    }
-  };
-
-  const handleExportGLTF = () => {
-    if (
-      modelViewerRef.current &&
-      typeof modelViewerRef.current.exportGLTF === "function"
-    ) {
-      console.log("Exporting GLTF...");
-      modelViewerRef.current.exportGLTF();
-    } else {
-      console.error("exportGLTF method not available on model viewer");
-    }
-  };
-
-  const handleExportUSDZ = () => {
-    if (
-      modelViewerRef.current &&
-      typeof modelViewerRef.current.exportUSDZ === "function"
-    ) {
-      console.log("Exporting USDZ...");
-      modelViewerRef.current.exportUSDZ();
-    } else {
-      console.error("exportUSDZ method not available on model viewer");
-    }
-  };
-
-  // Function to fetch the model structure
+  // Enhanced function to fetch the model structure with retry logic
   const fetchModelStructure = () => {
     if (
       modelViewerRef.current &&
@@ -61,28 +19,67 @@ export default function Home() {
     ) {
       try {
         const structure = modelViewerRef.current.getModelStructure();
-        console.log("Model structure loaded:", structure);
-        setModelStructure(structure);
+
+        if (structure) {
+          console.log("Model structure loaded:", structure);
+          setModelStructure(structure);
+          return true;
+        } else {
+          console.warn("Model structure is empty or null");
+          return false;
+        }
       } catch (error) {
         console.error("Error fetching model structure:", error);
+        return false;
       }
     } else {
       console.warn("modelViewer or getModelStructure method not available");
+      return false;
     }
   };
 
-  // Set up a MutationObserver to detect when model-viewer element is loaded
+  // Set up retry logic for fetching model structure
+  useEffect(() => {
+    if (!modelStructure) {
+      console.log("Attempting to fetch model structure...");
+
+      // Try immediately first
+      if (!fetchModelStructure()) {
+        // If first attempt fails, set up a retry mechanism
+        const retryAttempts = 5;
+        let currentAttempt = 0;
+
+        const retryInterval = setInterval(() => {
+          currentAttempt++;
+          console.log(`Retry attempt ${currentAttempt} of ${retryAttempts}`);
+
+          if (fetchModelStructure() || currentAttempt >= retryAttempts) {
+            clearInterval(retryInterval);
+
+            if (currentAttempt >= retryAttempts && !modelStructure) {
+              console.error(
+                "Failed to fetch model structure after multiple attempts"
+              );
+            }
+          }
+        }, 500); // Try every 500ms
+
+        return () => clearInterval(retryInterval);
+      }
+    }
+  }, [modelStructure]);
+
+  // Set up model viewer reference
   useEffect(() => {
     const setupModelViewer = () => {
-      const modelViewer = document.querySelector("model-viewer");
+      const modelViewer = document.getElementById("model-viewer");
       if (modelViewer) {
         modelViewerRef.current = modelViewer;
 
         if (modelViewer.getAttribute("src")) {
-          fetchModelStructure();
+          // We don't call fetchModelStructure here anymore
+          // It will be called by the onModelLoaded handler
         }
-
-        modelViewer.addEventListener("load", fetchModelStructure);
       }
     };
 
@@ -101,45 +98,55 @@ export default function Home() {
 
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Add window resize event for responsive layout
-    const handleResize = () => {
-      if (
-        modelViewerRef.current &&
-        typeof modelViewerRef.current.requestRender === "function"
-      ) {
-        modelViewerRef.current.requestRender();
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-
     return () => {
       observer.disconnect();
-      window.removeEventListener("resize", handleResize);
-      if (modelViewerRef.current) {
-        modelViewerRef.current.removeEventListener("load", fetchModelStructure);
-      }
     };
   }, []);
+
+  // Handler for model loaded event
+  const handleModelLoaded = () => {
+    console.log("Model loaded event received");
+    fetchModelStructure();
+  };
 
   // Handler for variant change
   const handleVariantChange = () => {
     console.log("Variant changed, updating material view");
-    // This will trigger a re-render of material properties
+    fetchModelStructure();
+  };
+
+  // Handler for node selection
+  const handleNodeSelect = (node: any) => {
+    setSelectedNode(node);
+  };
+
+  // Export functions
+  const handleExportGLB = () => {
+    if (modelViewerRef.current?.exportGLB) {
+      modelViewerRef.current.exportGLB();
+    }
+  };
+
+  const handleExportGLTF = () => {
+    if (modelViewerRef.current?.exportGLTF) {
+      modelViewerRef.current.exportGLTF();
+    }
+  };
+
+  const handleExportUSDZ = () => {
+    if (modelViewerRef.current?.exportUSDZ) {
+      modelViewerRef.current.exportUSDZ();
+    }
   };
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Header */}
-      <div className="flex-none">
-        <Header
-          modelViewerRef={modelViewerRef}
-          onExportGLB={handleExportGLB}
-          onExportGLTF={handleExportGLTF}
-          onExportUSDZ={handleExportUSDZ}
-        />
-      </div>
-
+      <Header
+        modelViewerRef={modelViewerRef}
+        onExportGLB={handleExportGLB}
+        onExportGLTF={handleExportGLTF}
+        onExportUSDZ={handleExportUSDZ}
+      />
       {/* Main Area with SimpleLayout */}
       <div className="flex-1 overflow-hidden">
         <SimpleLayout

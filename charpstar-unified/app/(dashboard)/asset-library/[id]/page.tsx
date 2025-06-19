@@ -251,14 +251,80 @@ export default function AssetDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          <div className="h-8 w-48 bg-muted rounded animate-pulse" />
-          <div className="h-96 bg-muted rounded animate-pulse" />
-          <div className="space-y-4">
-            <div className="h-8 w-3/4 bg-muted rounded animate-pulse" />
-            <div className="h-4 w-full bg-muted rounded animate-pulse" />
-            <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
+      <div className="min-h-screen p-2 sm:p-4 md:p-6">
+        <div className="h-full">
+          {/* Header skeleton */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
+            <div className="h-10 w-32 bg-muted rounded animate-pulse" />
+            <div className="h-10 w-24 bg-muted rounded animate-pulse" />
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 p-2 sm:p-4 md:p-6">
+            {/* Left Side - Model Viewer skeleton */}
+            <div className="flex flex-col gap-4 h-full w-full lg:w-2/3">
+              <div className="w-full h-[400px] sm:h-[500px] md:h-[600px] lg:h-[1000px] bg-muted rounded-lg animate-pulse" />
+            </div>
+
+            {/* Right Side - Details skeleton */}
+            <div className="flex flex-col gap-4 sm:gap-6 w-full lg:w-1/3">
+              <div className="space-y-4">
+                {/* Product title and download buttons */}
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+                    <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+                    <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+                  </div>
+                </div>
+
+                {/* Description skeleton */}
+                <div className="space-y-2">
+                  <div className="h-5 w-24 bg-muted rounded animate-pulse" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                    <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+                    <div className="h-4 w-1/2 bg-muted rounded animate-pulse" />
+                  </div>
+                </div>
+
+                {/* Specifications skeleton */}
+                <div className="space-y-2">
+                  <div className="h-5 w-28 bg-muted rounded animate-pulse" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="space-y-1">
+                      <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-28 bg-muted rounded animate-pulse" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-4 w-12 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-4 w-14 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-18 bg-muted rounded animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tags skeleton */}
+                <div className="space-y-2">
+                  <div className="h-5 w-12 bg-muted rounded animate-pulse" />
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                    <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+                    <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
+                    <div className="h-6 w-14 bg-muted rounded-full animate-pulse" />
+                    <div className="h-6 w-18 bg-muted rounded-full animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

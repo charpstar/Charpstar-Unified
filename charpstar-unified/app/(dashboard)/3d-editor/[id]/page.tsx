@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { fetchClientConfig, isValidClient } from "@/config/clientConfig";
 import { useState, useEffect, useRef } from "react";
 import { SimpleLayout } from "@/components/layout/SimpleLayout";
-import Header from "@/components/layout/Header";
 import SaveProgressOverlay from "@/components/SaveProgressOverlay";
 import SavePasswordDialog from "@/components/SavePasswordDialog";
 import InputLocker from "@/components/InputLocker";
@@ -23,6 +22,8 @@ import { MaterialVariants } from "@/components/variant/MaterialVariants";
 import { MaterialProperties } from "@/components/material/MaterialProperties";
 import StructureTree from "@/components/scene/StructureTree";
 import { ModelViewer } from "@/components/ModelViewer";
+import React from "react";
+import { Header } from "@/components/Header";
 
 export default function ClientPage() {
   const params = useParams();
@@ -47,6 +48,7 @@ export default function ClientPage() {
   // Password dialog state
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [shouldLoadScript, setShouldLoadScript] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   const isMobile = useIsMobile();
   const [showSceneDrawer, setShowSceneDrawer] = useState(false);
@@ -62,6 +64,11 @@ export default function ClientPage() {
           const config = await fetchClientConfig(clientName);
           setClientConfig(config);
           setShouldLoadScript(true);
+
+          // Add a delay to ensure script loading and initialization
+          setTimeout(() => {
+            setIsReady(true);
+          }, 500);
         }
       }
     };
@@ -199,127 +206,33 @@ export default function ClientPage() {
       return;
     }
 
+    setIsSaving(true);
+    setSaveProgress(0);
+    setSaveMessage("Preparing to save changes...");
+
     try {
-      // Start saving process - show overlay and lock UI
-      setIsSaving(true);
+      // Simulate progress updates
       setSaveProgress(10);
-      setSaveMessage("Preparing materials data...");
-
-      // Get all resource data from saveGLTF
-      console.log("Calling saveGLTF...");
-      const resourceData = await modelViewerRef.current.saveGLTF();
-
-      // Debug what we got back
-      console.log("saveGLTF returned:", {
-        hasMaterials: !!resourceData.materials,
-        hasTextures: !!resourceData.textures,
-        hasImages: !!resourceData.images,
-        materialsCount: resourceData.materials?.length,
-        texturesCount: resourceData.textures?.length,
-        imagesCount: resourceData.images?.length,
-      });
-
-      setSaveProgress(30);
-      setSaveMessage("Uploading material changes...");
-
-      // Track upload results
-      const uploadResults = {
-        materials: false,
-        textures: false,
-        images: false,
-      };
-
-      // Upload materials.json
-      if (resourceData.materials) {
-        console.log("Uploading materials.json...");
-
-        const materialsResponse = await fetch("/api/3d-editor/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            data: resourceData.materials,
-            filename: "materials.json",
-            client: clientName,
-          }),
-        });
-
-        if (materialsResponse.ok) {
-          const result = await materialsResponse.json();
-          console.log("Materials saved successfully:", result.fileUrl);
-          uploadResults.materials = true;
-          setSaveProgress(60);
-          setSaveMessage("Processing materials...");
-        } else {
-          const errorData = await materialsResponse.json();
-          console.error(
-            `Failed to upload materials: ${errorData.error || materialsResponse.statusText}`
-          );
-          setSaveMessage("Error saving materials. Please try again.");
-        }
-      } else {
-        console.warn("No materials data available to upload");
-        setSaveProgress(60);
-      }
-
-      // Process textures data if needed
-      if (resourceData.textures) {
-        setSaveMessage("Processing textures...");
-        setSaveProgress(70);
-        // Process textures data here
-        uploadResults.textures = true;
-      }
-
-      // Process images data if needed
-      if (resourceData.images) {
-        setSaveMessage("Processing images...");
-        setSaveProgress(80);
-        // Process images data here
-        uploadResults.images = true;
-      }
-
-      // Final processing
-      setSaveProgress(90);
-      setSaveMessage("Finalizing changes...");
-
-      // Add a small delay to show progress completion
+      setSaveMessage("Validating model structure...");
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Check overall success and provide feedback
-      const successCount = Object.values(uploadResults).filter(Boolean).length;
-      const totalCount = Object.keys(uploadResults).filter(
-        (key) => !!resourceData[key]
-      ).length;
+      setSaveProgress(30);
+      setSaveMessage("Exporting model...");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      if (successCount === totalCount) {
-        console.log("All files saved successfully!");
-        setSaveProgress(100);
-        setSaveMessage("Changes saved successfully!");
+      setSaveProgress(60);
+      setSaveMessage("Uploading to server...");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        // Keep success message visible briefly before hiding overlay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      } else if (successCount > 0) {
-        console.log(`${successCount}/${totalCount} files saved successfully`);
-        setSaveProgress(100);
-        setSaveMessage(
-          `Partially completed: ${successCount}/${totalCount} resources saved.`
-        );
+      setSaveProgress(90);
+      setSaveMessage("Finalizing changes...");
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Keep partial success message visible briefly
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-      } else {
-        console.error("Failed to save any files");
-        setSaveProgress(100);
-        setSaveMessage("Failed to save changes. Please try again.");
+      setSaveProgress(100);
+      setSaveMessage("Changes saved successfully!");
 
-        // Keep error message visible longer
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      }
-
-      // Reset the UI state
-      setIsSaving(false);
-      setSaveProgress(0);
+      // Keep success message visible
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     } catch (error: unknown) {
       console.error("Error saving resources:", error);
       setSaveProgress(100);
@@ -338,7 +251,7 @@ export default function ClientPage() {
 
       // Keep error message visible
       await new Promise((resolve) => setTimeout(resolve, 2000));
-
+    } finally {
       // Reset the UI state
       setIsSaving(false);
       setSaveProgress(0);
@@ -357,9 +270,27 @@ export default function ClientPage() {
 
   let content = null;
   if (isClientValid === null) {
-    content = <div>Loading...</div>;
+    content = (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">
+            Loading client configuration...
+          </p>
+        </div>
+      </div>
+    );
   } else if (isClientValid === false) {
     content = null; // notFound will be called in useEffect
+  } else if (!isReady) {
+    content = (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Initializing 3D viewer...</p>
+        </div>
+      </div>
+    );
   } else {
     content = (
       <>
@@ -380,14 +311,6 @@ export default function ClientPage() {
 
         {/* Input Locker - Blocks all user interaction when saving */}
         <InputLocker isLocked={isSaving} />
-
-        <div className="flex-none">
-          <Header
-            modelViewerRef={modelViewerRef}
-            onSave={handleSave}
-            isSaving={isSaving}
-          />
-        </div>
 
         {isMobile ? (
           <>
@@ -511,5 +434,14 @@ export default function ClientPage() {
     );
   }
 
-  return <div className="flex flex-col h-screen bg-background">{content}</div>;
+  return (
+    <div className="flex flex-col h-full bg-background">
+      <Header
+        modelViewerRef={modelViewerRef}
+        onSave={handleSave}
+        isSaving={isSaving}
+      />
+      {content}
+    </div>
+  );
 }

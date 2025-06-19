@@ -16,7 +16,6 @@ import {
   RefreshCw,
   Palette,
 } from "lucide-react";
-import Header from "@/components/layout/Header";
 import { VariantSelector } from "@/components/demo/VariantSelector";
 import { CompactModelStats } from "@/components/demo/ModelStats";
 import { CameraControlsPanel } from "@/components/demo/CameraControlsPanel"; // Import the new component
@@ -237,10 +236,7 @@ export default function ClientDemoPage() {
 
   // Render
   return (
-    <div className="flex flex-col h-screen bg-background">
-      <div className="flex-none">
-        <Header modelViewerRef={modelViewerRef} />
-      </div>
+    <div className="flex flex-col h-full min-h-[calc(100vh-100px)]  bg-background">
       {isLoadingConfig ? (
         <div className="flex items-center justify-center h-full">
           Loading config...
@@ -512,7 +508,7 @@ export default function ClientDemoPage() {
               </Dialog>
               {/* 3D Viewer fills the rest of the screen */}
               <div className="flex-1 p-2 bg-card relative">
-                <div className="h-[60vh] rounded-lg overflow-hidden shadow-md bg-background flex items-center justify-center relative">
+                <div className="h-full rounded-lg overflow-hidden shadow-md bg-background flex items-center justify-center relative">
                   {selectedModel ? (
                     <>
                       <ModelViewer
@@ -645,7 +641,7 @@ export default function ClientDemoPage() {
             </>
           ) : (
             // Desktop layout (original)
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 overflow-hidden h-full max-h-[calc(100vh]">
               {/* Left side - Model navigation */}
               <div className="w-1/10 border-r border-border bg-card shadow-inner flex flex-col">
                 {/* Search and Filter Controls */}
@@ -830,7 +826,7 @@ export default function ClientDemoPage() {
                 </div>
               </div>
               {/* Center - 3D Viewer */}
-              <div className="flex-1 p-4 bg-card">
+              <div className="flex-1 p-4 bg-card h-full max-h-[calc(100vh-100px)]">
                 <div className="h-full rounded-lg overflow-hidden shadow-md bg-background flex items-center justify-center relative">
                   {selectedModel ? (
                     <>

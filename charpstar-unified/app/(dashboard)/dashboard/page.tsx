@@ -270,9 +270,6 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex flex-1 flex-col p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold">Dashboard</h1>
-        </div>
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
           <div className="space-y-4">
             <Card>
@@ -321,10 +318,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-1 flex-col p-4 sm:p-6">
-      <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold">Dashboard</h1>
-      </div>
-
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <div className="space-y-4">
           <Card>

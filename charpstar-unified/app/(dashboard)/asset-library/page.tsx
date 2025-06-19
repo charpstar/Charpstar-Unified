@@ -461,11 +461,7 @@ export default function AssetLibraryPage() {
       <div>
         <div className="flex flex-col gap-4">
           {/* Header */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4 mb-6">
-              <h1 className="text-2xl font-bold">Library</h1>
-            </div>
-          </div>
+          <div className="flex justify-end items-center"></div>
 
           {/* Controls */}
           <div className="flex items-center justify-between gap-4">
@@ -523,11 +519,7 @@ export default function AssetLibraryPage() {
         <div>
           <div className="flex flex-col gap-4">
             {/* Header */}
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-4 mb-6">
-                <h1 className="text-2xl font-bold">Library</h1>
-              </div>
-            </div>
+            <div className="flex justify-between items-center"></div>
 
             {/* Controls */}
             <div className="flex items-center justify-between gap-4">
@@ -580,7 +572,6 @@ export default function AssetLibraryPage() {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">
-          Library{" "}
           {client && (
             <span className="px-3 py-1 rounded bg-muted text-sm font-medium border border-border text-muted-foreground">
               Client: {client}
@@ -601,7 +592,6 @@ export default function AssetLibraryPage() {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">
-          Library{" "}
           {client && (
             <span className="px-3 py-1 rounded bg-muted text-sm font-medium border border-border text-muted-foreground">
               Client: {client}
@@ -624,29 +614,10 @@ export default function AssetLibraryPage() {
         src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
       />
       <div>
-        <div className="flex flex-col gap-4 ">
+        <div className="flex flex-col  ">
           {/* Breadcrumb Navigation */}
 
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4 mb-6">
-              <h1 className="text-2xl font-bold">Library</h1>
-              <Badge variant="secondary" className="text-sm">
-                {filters.category ||
-                filters.subcategory ||
-                filters.client.length > 0 ||
-                filters.material.length > 0 ||
-                filters.color.length > 0 ||
-                debouncedSearchValue ? (
-                  <>
-                    Showing {filteredAssets.length} of {totalCount} Models
-                  </>
-                ) : (
-                  <>
-                    {totalCount === 1 ? "Model:" : "Total Models:"} {totalCount}
-                  </>
-                )}
-              </Badge>
-            </div>
             <div className="flex items-center gap-2">
               <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
                 <SheetTrigger asChild></SheetTrigger>
@@ -833,54 +804,49 @@ export default function AssetLibraryPage() {
                   </div>
                 </SheetContent>
               </Sheet>
-
-              {/* Only show for admin */}
-              {userRole === "admin" && (
-                <>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-                    {/* Hide on mobile, show on sm+ screens */}
-                    <div className="hidden sm:flex gap-2">
-                      <Button onClick={() => setPreviewDialogOpen(true)}>
-                        <span className="text-sm">Generate Previews</span>
-                      </Button>
-
-                      <PreviewGeneratorDialog
-                        isOpen={previewDialogOpen}
-                        onClose={() => setPreviewDialogOpen(false)}
-                      />
-
-                      <Button variant="default" asChild>
-                        <Link
-                          href="/asset-library/upload"
-                          className="flex items-center gap-2"
-                        >
-                          Upload Assets
-                        </Link>
-                      </Button>
-
-                      <Button
-                        variant={isBatchEditMode ? "destructive" : "outline"}
-                        onClick={() => {
-                          setIsBatchEditMode(!isBatchEditMode);
-                          if (!isBatchEditMode) setSelectedAssets([]);
-                        }}
-                      >
-                        {isBatchEditMode ? "Cancel" : "Batch Edit"}
-                      </Button>
-
-                      {isBatchEditMode && selectedAssets.length > 0 && (
-                        <Button
-                          variant="destructive"
-                          onClick={handleBatchDelete}
-                        >
-                          Delete Selected ({selectedAssets.length})
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
+
+            {/* Only show for admin - moved to the right */}
+            {userRole === "admin" && (
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                {/* Hide on mobile, show on sm+ screens */}
+                <div className="hidden sm:flex gap-2">
+                  <Button onClick={() => setPreviewDialogOpen(true)}>
+                    <span className="text-sm">Generate Previews</span>
+                  </Button>
+
+                  <PreviewGeneratorDialog
+                    isOpen={previewDialogOpen}
+                    onClose={() => setPreviewDialogOpen(false)}
+                  />
+
+                  <Button variant="default" asChild>
+                    <Link
+                      href="/asset-library/upload"
+                      className="flex items-center gap-2"
+                    >
+                      Upload Assets
+                    </Link>
+                  </Button>
+
+                  <Button
+                    variant={isBatchEditMode ? "destructive" : "outline"}
+                    onClick={() => {
+                      setIsBatchEditMode(!isBatchEditMode);
+                      if (!isBatchEditMode) setSelectedAssets([]);
+                    }}
+                  >
+                    {isBatchEditMode ? "Cancel" : "Batch Edit"}
+                  </Button>
+
+                  {isBatchEditMode && selectedAssets.length > 0 && (
+                    <Button variant="destructive" onClick={handleBatchDelete}>
+                      Delete Selected ({selectedAssets.length})
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <div className="mb-8 space-y-4 max-w-full mx-auto">

@@ -37,12 +37,13 @@ export function DateRangePicker({
           <Button
             id="date"
             variant={"outline"}
+            size="sm"
             className={cn(
-              "w-[300px] justify-start text-left font-normal cursor-pointer bg-background dark:bg-background",
+              "w-[300px] justify-start text-left font-normal text-xs cursor-pointer bg-background dark:bg-background h-8 px-3 py-1",
               !value && "text-muted-foreground"
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
+            <CalendarIcon className="mr-2 h-3 w-3" />
             {value?.from ? (
               value.to ? (
                 <>

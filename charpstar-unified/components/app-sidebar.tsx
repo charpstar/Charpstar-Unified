@@ -35,7 +35,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isDark = currentTheme === "dark";
   const params = useParams();
   const user = useUser();
-  const clientName = user?.metadata?.client_config || params?.id || "SweefV2";
+  const clientName = user?.metadata?.client_config;
 
   const data = {
     user: {

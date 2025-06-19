@@ -1,35 +1,47 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
-import { buildDateRange } from "@/utils/uiutils";
-import { useUser } from "@/contexts/useUser";
-import dayjs from "@/utils/dayjs";
-
-interface DateRange {
-  startDate: string;
-  endDate: string;
-}
+import React, { createContext, useContext, useState, ReactNode } from "react";
+import type { DateRange } from "react-day-picker";
+import { addDays } from "date-fns";
 
 interface DateRangeContextType {
-  dateRange: DateRange;
-  setDateRange: (range: DateRange) => void;
+  pendingRange: DateRange;
+  appliedRange: DateRange;
+  setPendingRange: (range: DateRange) => void;
+  setAppliedRange: (range: DateRange) => void;
+  isApplyDisabled: boolean;
 }
 
 const DateRangeContext = createContext<DateRangeContextType | undefined>(
   undefined
 );
 
-export function DateRangeProvider({ children }: { children: React.ReactNode }) {
-  const user = useUser();
-  const monitoredSince =
-    user?.metadata?.analytics_profiles?.[0]?.monitoredsince;
+export function DateRangeProvider({ children }: { children: ReactNode }) {
+  const today = new Date();
+  const thirtyDaysAgo = addDays(today, -30);
 
-  const [dateRange, setDateRange] = useState<DateRange>(() =>
-    buildDateRange(monitoredSince ? dayjs(monitoredSince) : undefined)
-  );
+  const [pendingRange, setPendingRange] = useState<DateRange>({
+    from: thirtyDaysAgo,
+    to: today,
+  });
+  const [appliedRange, setAppliedRange] = useState<DateRange>(pendingRange);
+
+  // Only enable Apply if pending != applied
+  const isApplyDisabled =
+    (pendingRange.from?.getTime() || 0) ===
+      (appliedRange.from?.getTime() || 0) &&
+    (pendingRange.to?.getTime() || 0) === (appliedRange.to?.getTime() || 0);
 
   return (
-    <DateRangeContext.Provider value={{ dateRange, setDateRange }}>
+    <DateRangeContext.Provider
+      value={{
+        pendingRange,
+        appliedRange,
+        setPendingRange,
+        setAppliedRange,
+        isApplyDisabled,
+      }}
+    >
       {children}
     </DateRangeContext.Provider>
   );
