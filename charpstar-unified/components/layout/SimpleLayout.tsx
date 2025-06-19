@@ -6,7 +6,10 @@ import { ModelViewer } from "@/components/ModelViewer";
 import StructureTree from "@/components/scene/StructureTree";
 import { MaterialProperties } from "@/components/material/MaterialProperties";
 import { MaterialVariants } from "@/components/variant/MaterialVariants";
-import { Layers, Box, Palette } from "lucide-react";
+import { Layers, Box, Palette, Save, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 
 interface SimpleLayoutProps {
   modelStructure: any;
@@ -17,6 +20,8 @@ interface SimpleLayoutProps {
   onVariantChange: () => void;
   clientModelUrl?: string;
   isMobile?: boolean;
+  onSave?: () => void;
+  isSaving?: boolean;
 }
 
 export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
@@ -28,7 +33,12 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
   onVariantChange,
   clientModelUrl,
   isMobile = false,
+  onSave,
+  isSaving = false,
 }) => {
+  const params = useParams();
+  const clientName = params?.id as string;
+
   console.log("SimpleLayout rendering with clientModelUrl:", clientModelUrl);
   console.log("SimpleLayout props:", {
     modelStructure,
@@ -50,11 +60,32 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
   if (isMobile) {
     return (
       <div className="flex h-full bg-background">
-        <div className="flex-1 bg-card shadow-md overflow-hidden">
+        <div className="flex-1 bg-card shadow-md overflow-hidden relative">
           <ModelViewer
             onModelLoaded={onModelLoaded}
             clientModelUrl={clientModelUrl || ""}
           />
+          {/* Overlay buttons for mobile */}
+          <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+            <Link href={`/3d-editor/${clientName}/demo`}>
+              <Button variant="outline" size="sm" className="text-xs h-8">
+                <Eye size={14} className="mr-2" />
+                Demo
+              </Button>
+            </Link>
+            {onSave && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={onSave}
+                disabled={isSaving}
+                className="text-xs h-8 px-3"
+              >
+                <Save size={14} className="mr-2" />
+                {isSaving ? "Saving..." : "Save"}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -93,11 +124,32 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
       </div>
 
       {/* Center panel - 3D Viewer */}
-      <div className="flex-1 bg-card shadow-md overflow-hidden">
+      <div className="flex-1 bg-card shadow-md overflow-hidden relative">
         <ModelViewer
           onModelLoaded={onModelLoaded}
           clientModelUrl={clientModelUrl || ""}
         />
+        {/* Overlay buttons */}
+        <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+          <Link href={`/3d-editor/${clientName}/demo`}>
+            <Button variant="outline" size="sm" className="text-xs h-8">
+              <Eye size={14} className="mr-2" />
+              View Demo Catalog
+            </Button>
+          </Link>
+          {onSave && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onSave}
+              disabled={isSaving}
+              className="text-xs h-8 px-3"
+            >
+              <Save size={14} className="mr-2" />
+              {isSaving ? "Saving..." : "Save Changes to Live"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Right side panels container */}

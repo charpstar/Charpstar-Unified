@@ -15,6 +15,7 @@ import {
   Eye,
   RefreshCw,
   Palette,
+  ArrowLeft,
 } from "lucide-react";
 import { VariantSelector } from "@/components/demo/VariantSelector";
 import { CompactModelStats } from "@/components/demo/ModelStats";
@@ -28,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import Link from "next/link";
 
 // Helper function to parse model name and extract category
 const parseModelName = (filename: string) => {
@@ -834,12 +836,26 @@ export default function ClientDemoPage() {
                         clientModelUrl={currentModelUrl}
                         onModelLoaded={handleModelLoaded}
                       />
+                      {/* Back to Editor button overlay */}
+                      <div className="absolute top-4 right-4   z-10">
+                        <Link href={`/3d-editor/${clientName}`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-8"
+                          >
+                            <ArrowLeft size={14} className="mr-2" />
+                            Back to Editor
+                          </Button>
+                        </Link>
+                      </div>
                       {!modelLoadError && (
                         <CompactModelStats
                           modelViewerRef={modelViewerRef}
                           modelName={selectedModel}
                         />
                       )}
+
                       {!modelLoadError && (
                         <CameraControlsPanel modelViewerRef={modelViewerRef} />
                       )}

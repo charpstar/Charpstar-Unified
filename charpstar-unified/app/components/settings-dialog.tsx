@@ -27,6 +27,9 @@ import {
   Shield,
   Mail,
   UserCog,
+  Eye,
+  X,
+  Box,
 } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -624,6 +627,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         <SelectItem value="team">Team</SelectItem>
                         <SelectItem value="permissions">Permissions</SelectItem>
                         <SelectItem value="clients">Clients</SelectItem>
+                        <SelectItem value="3d-editor">3D Editor</SelectItem>
                       </>
                     )}
                   </SelectContent>
@@ -631,7 +635,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </div>
 
               {/* Tabs List (visible only on sm and up) */}
-              <TabsList className="hidden sm:grid w-full grid-cols-1 sm:grid-cols-4 gap-2">
+              <TabsList className="hidden sm:grid w-full grid-cols-1 sm:grid-cols-5 gap-2">
                 <TabsTrigger
                   value="account"
                   className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-full"
@@ -661,6 +665,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     >
                       <Users className="w-4 h-4" />
                       Clients
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="3d-editor"
+                      className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
+                    >
+                      <Box className="w-4 h-4" />
+                      3D Editor
                     </TabsTrigger>
                   </>
                 )}
@@ -1415,6 +1426,88 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             )}
                           </TableBody>
                         </Table>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="3d-editor" className="space-y-6">
+                      <div className="space-y-4">
+                        <div className="text-center">
+                          <h3 className="text-lg font-semibold mb-2">
+                            3D Editor Access
+                          </h3>
+                          <p className="text-sm text-muted-foreground mb-6">
+                            Quick access to 3D editor clients
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="border rounded-lg p-4 hover:bg-accent/30 transition-colors">
+                            <div className="flex items-center gap-3 mb-3">
+                              <Box className="w-5 h-5 text-primary" />
+                              <h4 className="font-medium">ArtwoodTest</h4>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-4">
+                              Access the ArtwoodTest 3D editor environment
+                            </p>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() =>
+                                  (window.location.href =
+                                    "/3d-editor/ArtwoodTest")
+                                }
+                                className="flex-1"
+                              >
+                                Open Editor
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  (window.location.href =
+                                    "/3d-editor/ArtwoodTest/demo")
+                                }
+                                className="flex-1"
+                              >
+                                View Demo
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="border rounded-lg p-4 hover:bg-accent/30 transition-colors">
+                            <div className="flex items-center gap-3 mb-3">
+                              <Box className="w-5 h-5 text-primary" />
+                              <h4 className="font-medium">SweefV2</h4>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-4">
+                              Access the SweefV2 3D editor environment
+                            </p>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() =>
+                                  (window.location.href = "/3d-editor/SweefV2")
+                                }
+                                className="flex-1"
+                              >
+                                Open Editor
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  (window.location.href =
+                                    "/3d-editor/SweefV2/demo")
+                                }
+                                className="flex-1"
+                              >
+                                View Demo
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </TabsContent>
                   </>

@@ -287,7 +287,7 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
       className={
         isMobile
           ? "bg-card/95 rounded-md shadow-md border border-border overflow-hidden w-full max-w-md mx-auto text-xs"
-          : "absolute top-2 right-2 z-10 bg-card/95 rounded-md shadow-md border border-border overflow-hidden w-52 text-xs"
+          : "absolute top-16 right-2 z-10 bg-card/95 rounded-md shadow-md border border-border overflow-hidden w-52 text-xs"
       }
     >
       <div

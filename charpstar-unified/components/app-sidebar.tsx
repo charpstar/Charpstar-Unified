@@ -37,34 +37,45 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const user = useUser();
   const clientName = user?.metadata?.client_config;
 
+  // Base navigation items
+  const baseNavItems = [
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: IconDashboard,
+    },
+    {
+      title: "Analytics",
+      url: "/analytics",
+      icon: IconChartBar,
+    },
+    {
+      title: "Asset Library",
+      url: "/asset-library",
+      icon: IconFolder,
+    },
+  ];
+
+  // Add 3D Editor only if user has client_config
+  const navMain =
+    clientName && clientName.trim() !== ""
+      ? [
+          ...baseNavItems,
+          {
+            title: "3D Editor",
+            url: `/3d-editor/${clientName}`,
+            icon: IconPyramid,
+          },
+        ]
+      : baseNavItems;
+
   const data = {
     user: {
       name: "shadcn",
       email: "m@example.com",
       avatar: "/avatars/shadcn.jpg",
     },
-    navMain: [
-      {
-        title: "Dashboard",
-        url: "/dashboard",
-        icon: IconDashboard,
-      },
-      {
-        title: "Analytics",
-        url: "/analytics",
-        icon: IconChartBar,
-      },
-      {
-        title: "Asset Library",
-        url: "/asset-library",
-        icon: IconFolder,
-      },
-      {
-        title: "3D Editor",
-        url: `/3d-editor/${clientName}`,
-        icon: IconPyramid,
-      },
-    ],
+    navMain,
     navClouds: [
       {
         title: "Capture",

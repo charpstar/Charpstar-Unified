@@ -11,6 +11,8 @@ import InputLocker from "@/components/InputLocker";
 import { notFound } from "next/navigation";
 import SimpleClientViewerScript from "@/components/SimpleClientViewerScript";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useUser } from "@/contexts/useUser";
+
 import {
   Dialog,
   DialogContent,
@@ -28,6 +30,17 @@ import { Header } from "@/components/Header";
 export default function ClientPage() {
   const params = useParams();
   const clientName = params.id as string;
+  const user = useUser();
+
+  // Access control check - redirect if user doesn't have client_config
+  if (
+    user &&
+    (!user.metadata?.client_config || user.metadata.client_config.trim() === "")
+  ) {
+    // Redirect to dashboard if user doesn't have access
+    window.location.href = "/dashboard";
+    return null;
+  }
 
   const [modelStructure, setModelStructure] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
@@ -427,6 +440,8 @@ export default function ClientPage() {
               onVariantChange={handleVariantChange}
               clientModelUrl={clientConfig?.modelUrl}
               isMobile={false}
+              onSave={handleSave}
+              isSaving={isSaving}
             />
           </div>
         )}
@@ -434,14 +449,5 @@ export default function ClientPage() {
     );
   }
 
-  return (
-    <div className="flex flex-col h-full bg-background">
-      <Header
-        modelViewerRef={modelViewerRef}
-        onSave={handleSave}
-        isSaving={isSaving}
-      />
-      {content}
-    </div>
-  );
+  return <div className="flex flex-col h-full bg-background">{content}</div>;
 }
