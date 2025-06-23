@@ -1,6 +1,5 @@
 // src/components/variant/MaterialVariants.tsx
 "use client";
-console.log("MaterialVariants imported");
 
 import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
@@ -17,8 +16,6 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
   modelViewerRef,
   onVariantChange,
   selectedNode,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  isMobile = false,
 }) => {
   const [variants, setVariants] = useState<string[]>([]);
   const [currentVariant, setCurrentVariant] = useState<string | null>(null);
@@ -71,7 +68,6 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
   useEffect(() => {
     // Reset polling on component mount or when modelViewerRef changes
     const resetPolling = () => {
-      console.log("Resetting variant polling");
       setVariants([]);
       setCurrentVariant(null);
       setLoading(true);
@@ -118,7 +114,6 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
         clearInterval(intervalRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelViewerRef]);
 
   // Set up polling for variants
@@ -160,7 +155,6 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
 
       hasMountedRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelViewerRef]);
 
   // Function to select a variant

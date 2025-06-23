@@ -117,7 +117,6 @@ export default function AssetLibraryPage() {
     filterOptions,
     filters,
     setFilters,
-    totalCount,
     filteredAssets: hookFilteredAssets,
   } = useAssets();
   const [searchValue, setSearchValue] = useState("");

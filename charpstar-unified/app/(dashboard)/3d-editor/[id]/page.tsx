@@ -12,6 +12,7 @@ import { notFound } from "next/navigation";
 import SimpleClientViewerScript from "@/components/SimpleClientViewerScript";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/contexts/useUser";
+import { ThreeDEditorSkeleton } from "@/components/ui/3d-editor-skeleton";
 
 import {
   Dialog,
@@ -25,30 +26,17 @@ import { MaterialProperties } from "@/components/material/MaterialProperties";
 import StructureTree from "@/components/scene/StructureTree";
 import { ModelViewer } from "@/components/ModelViewer";
 import React from "react";
-import { Header } from "@/components/Header";
 
 export default function ClientPage() {
   const params = useParams();
   const clientName = params.id as string;
   const user = useUser();
 
-  // Access control check - redirect if user doesn't have client_config
-  if (
-    user &&
-    (!user.metadata?.client_config || user.metadata.client_config.trim() === "")
-  ) {
-    // Redirect to dashboard if user doesn't have access
-    window.location.href = "/dashboard";
-    return null;
-  }
-
   const [modelStructure, setModelStructure] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const modelViewerRef = useRef<any>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [clientConfig, setClientConfig] = useState<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isValidatingClient, setIsValidatingClient] = useState(true);
   const [isClientValid, setIsClientValid] = useState<null | boolean>(null);
 
   // Save progress state
@@ -62,15 +50,29 @@ export default function ClientPage() {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [shouldLoadScript, setShouldLoadScript] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [hasAccess, setHasAccess] = useState(true);
 
   const isMobile = useIsMobile();
   const [showSceneDrawer, setShowSceneDrawer] = useState(false);
   const [showVariantsDrawer, setShowVariantsDrawer] = useState(false);
   const [showMaterialDrawer, setShowMaterialDrawer] = useState(false);
 
+  // Access control check - redirect if user doesn't have client_config
+  useEffect(() => {
+    if (
+      user &&
+      (!user.metadata?.client_config ||
+        user.metadata.client_config.trim() === "")
+    ) {
+      setHasAccess(false);
+      // Redirect to dashboard if user doesn't have access
+      window.location.href = "/dashboard";
+    }
+  }, [user]);
+
   useEffect(() => {
     const validateAndFetchConfig = async () => {
-      if (clientName) {
+      if (clientName && hasAccess) {
         const valid = await isValidClient(clientName);
         setIsClientValid(valid);
         if (valid) {
@@ -86,7 +88,7 @@ export default function ClientPage() {
       }
     };
     validateAndFetchConfig();
-  }, [clientName]);
+  }, [clientName, hasAccess]);
 
   // Call notFound in an effect if client is invalid
   useEffect(() => {
@@ -105,11 +107,9 @@ export default function ClientPage() {
         const structure = modelViewerRef.current.getModelStructure();
 
         if (structure) {
-          console.log("Model structure loaded:", structure);
           setModelStructure(structure);
           return true;
         } else {
-          console.warn("Model structure is empty or null");
           return false;
         }
       } catch (error) {
@@ -117,7 +117,6 @@ export default function ClientPage() {
         return false;
       }
     } else {
-      console.warn("modelViewer or getModelStructure method not available");
       return false;
     }
   };
@@ -125,10 +124,6 @@ export default function ClientPage() {
   // Set up retry logic for fetching model structure
   useEffect(() => {
     if (modelLoaded && !modelStructure) {
-      console.log(
-        "Model loaded but structure not yet available, attempting to fetch..."
-      );
-
       // Try immediately first
       if (!fetchModelStructure()) {
         // If first attempt fails, set up a retry mechanism
@@ -137,7 +132,6 @@ export default function ClientPage() {
 
         const retryInterval = setInterval(() => {
           currentAttempt++;
-          console.log(`Retry attempt ${currentAttempt} of ${retryAttempts}`);
 
           if (fetchModelStructure() || currentAttempt >= retryAttempts) {
             clearInterval(retryInterval);
@@ -161,11 +155,6 @@ export default function ClientPage() {
       const modelViewer = document.getElementById("model-viewer");
       if (modelViewer) {
         modelViewerRef.current = modelViewer;
-
-        if (modelViewer.getAttribute("src")) {
-          // We don't call fetchModelStructure here anymore
-          // It will be called by the onModelLoaded handler
-        }
       }
     };
 
@@ -191,14 +180,12 @@ export default function ClientPage() {
 
   // Handler for model loaded event
   const handleModelLoaded = () => {
-    console.log("Model loaded event received");
     setModelLoaded(true);
     fetchModelStructure();
   };
 
   // Handler for variant change
   const handleVariantChange = () => {
-    console.log("Variant changed, updating material view");
     fetchModelStructure();
   };
 
@@ -281,29 +268,17 @@ export default function ClientPage() {
     return isCorrect; // Return whether the password was correct
   };
 
+  if (!hasAccess) {
+    return null;
+  }
+
   let content = null;
   if (isClientValid === null) {
-    content = (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">
-            Loading client configuration...
-          </p>
-        </div>
-      </div>
-    );
+    content = <ThreeDEditorSkeleton isMobile={isMobile} />;
   } else if (isClientValid === false) {
     content = null; // notFound will be called in useEffect
   } else if (!isReady) {
-    content = (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Initializing 3D viewer...</p>
-        </div>
-      </div>
-    );
+    content = <ThreeDEditorSkeleton isMobile={isMobile} />;
   } else {
     content = (
       <>

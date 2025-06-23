@@ -4,10 +4,8 @@ import { Button } from "@/components/ui/button";
 import { usePathname, useParams } from "next/navigation";
 import Link from "next/link";
 import { Save, Download, ArrowLeft } from "lucide-react";
-import { useRef } from "react";
 
 interface HeaderProps {
-  modelViewerRef?: React.RefObject<any>;
   onSave?: () => void;
   isSaving?: boolean;
   onExportGLB?: () => void;
@@ -16,7 +14,6 @@ interface HeaderProps {
 }
 
 export function Header({
-  modelViewerRef,
   onSave,
   isSaving = false,
   onExportGLB,

@@ -103,12 +103,6 @@ export default function Home() {
     };
   }, []);
 
-  // Handler for model loaded event
-  const handleModelLoaded = () => {
-    console.log("Model loaded event received");
-    fetchModelStructure();
-  };
-
   // Handler for variant change
   const handleVariantChange = () => {
     console.log("Variant changed, updating material view");
@@ -142,7 +136,6 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen">
       <Header
-        modelViewerRef={modelViewerRef}
         onExportGLB={handleExportGLB}
         onExportGLTF={handleExportGLTF}
         onExportUSDZ={handleExportUSDZ}

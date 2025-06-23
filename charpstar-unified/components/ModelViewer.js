@@ -307,7 +307,7 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
-      className="w-full h-full flex items-center justify-center transition-colors duration-200 rounded-md bg-[#F8F9FA] p-4  "
+      className="w-full h-full flex items-center justify-center transition-colors duration-200 rounded-md bg-background "
     >
       <div className="w-full h-full flex items-center justify-center">
         {isClient &&
@@ -333,8 +333,8 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
 
         {(!modelSrc || !scriptLoaded || !clientConfig || !modelViewerReady) &&
           !clientModelUrl && (
-            <div className="text-center p-6 rounded-lg border-2 border-dashed border-gray-300 bg-white">
-              <p className="text-gray-600 text-sm mb-3">
+            <div className="text-center p-6 rounded-lg border-2 border-dashed border-gray-300 bg-muted/30 text-muted-foreground">
+              <p className="text-gray-600 text-sm font-medium mb-3">
                 {!scriptLoaded || !clientConfig || !modelViewerReady
                   ? "Loading viewer..."
                   : "Drag and drop a model to view it."}

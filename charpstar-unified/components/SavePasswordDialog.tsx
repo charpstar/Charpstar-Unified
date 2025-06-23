@@ -18,8 +18,6 @@ const SavePasswordDialog: React.FC<SavePasswordDialogProps> = ({
 }) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isIncorrect, setIsIncorrect] = useState(false);
 
   if (!isOpen) return null;
 
@@ -32,7 +30,6 @@ const SavePasswordDialog: React.FC<SavePasswordDialogProps> = ({
 
     const isCorrect = onConfirm(password);
     if (!isCorrect) {
-      setIsIncorrect(true);
       setError("Incorrect password. Please try again.");
     }
   };
@@ -40,25 +37,24 @@ const SavePasswordDialog: React.FC<SavePasswordDialogProps> = ({
   const handleClose = () => {
     setPassword("");
     setError("");
-    setIsIncorrect(false);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 relative">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+      <div className="bg-card rounded-lg shadow-xl p-6 max-w-md w-full mx-4 relative border border-border">
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
         >
           <X size={20} />
         </button>
 
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+        <h3 className="text-lg font-medium text-foreground mb-4">
           Confirm Save to Live
         </h3>
 
-        <p className="text-sm text-gray-600 mb-4">{message}</p>
+        <p className="text-sm text-muted-foreground mb-4">{message}</p>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -69,12 +65,11 @@ const SavePasswordDialog: React.FC<SavePasswordDialogProps> = ({
               onChange={(e) => {
                 setPassword(e.target.value);
                 setError("");
-                setIsIncorrect(false);
               }}
-              className={error ? "border-red-500" : ""}
+              className={error ? "border-destructive" : ""}
               autoFocus
             />
-            {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+            {error && <p className="text-destructive text-sm mt-1">{error}</p>}
           </div>
 
           <div className="flex justify-end space-x-3">

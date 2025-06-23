@@ -1,7 +1,7 @@
 // src/components/demo/ClientDemoPage.tsx (updated with camera controls)
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { fetchClientConfig, isValidClient } from "@/config/clientConfig";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { VariantSelector } from "@/components/demo/VariantSelector";
 import { CompactModelStats } from "@/components/demo/ModelStats";
-import { CameraControlsPanel } from "@/components/demo/CameraControlsPanel"; // Import the new component
+import { CameraControlsPanel } from "@/components/demo/CameraControlsPanel";
 import { ModelViewer } from "@/components/ModelViewer";
 import { notFound } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -99,9 +99,6 @@ export default function ClientDemoPage() {
   const isMobile = useIsMobile();
   const [showCatalog, setShowCatalog] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [showCameraDrawer, setShowCameraDrawer] = useState(false);
-
   const [showStatsDrawer, setShowStatsDrawer] = useState(false);
 
   useEffect(() => {
@@ -116,6 +113,17 @@ export default function ClientDemoPage() {
     };
     validateAndFetchConfig();
   }, [clientName]);
+
+  const getModelUrl = useCallback(
+    (modelName: string) => {
+      if (!clientConfig?.modelUrl) return "";
+      // This would be replaced with actual URL construction
+      const baseUrl = clientConfig.modelUrl.split("/");
+      baseUrl.pop(); // Remove the file name
+      return `${baseUrl.join("/")}/${modelName}`;
+    },
+    [clientConfig?.modelUrl]
+  );
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -144,8 +152,7 @@ export default function ClientDemoPage() {
       }
     };
     fetchModels();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientName]);
+  }, [clientName, getModelUrl]);
 
   // Toggle category expansion
   const toggleCategory = (category: string) => {
@@ -157,10 +164,8 @@ export default function ClientDemoPage() {
 
   // Select a model to view
   const handleSelectModel = (model: string) => {
-    console.log("[ClientDemoPage] Selecting model:", model);
     setSelectedModel(model);
     const modelUrl = getModelUrl(model);
-    console.log("[ClientDemoPage] Model URL:", modelUrl);
     setCurrentModelUrl(modelUrl);
     setModelLoadError(false);
   };
@@ -173,13 +178,6 @@ export default function ClientDemoPage() {
   // Clear search
   const handleClearSearch = () => {
     setSearchQuery("");
-  };
-
-  // Handle model load error
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleModelError = () => {
-    console.error("[ClientDemoPage] Model load error occurred");
-    setModelLoadError(true);
   };
 
   // Filter models based on search query
@@ -200,14 +198,6 @@ export default function ClientDemoPage() {
       )
     : groupedModels;
 
-  // Get model URL
-  const getModelUrl = (modelName: string) => {
-    // This would be replaced with actual URL construction
-    const baseUrl = clientConfig.modelUrl.split("/");
-    baseUrl.pop(); // Remove the file name
-    return `${baseUrl.join("/")}/${modelName}`;
-  };
-
   // Model categories stats
   const categoryCount = Object.keys(filteredCategories).length;
   const totalModelCount = Object.values(filteredCategories).reduce(
@@ -217,21 +207,12 @@ export default function ClientDemoPage() {
 
   // Handle model loaded event
   const handleModelLoaded = () => {
-    console.log("[ClientDemoPage] Model loaded callback received");
-
     // After the model loads, store a reference to the model-viewer element
     setTimeout(() => {
       // Get the initialized model-viewer element with our custom functions attached
       const modelViewer = window.modelViewerElement;
-      console.log(
-        "[ClientDemoPage] Model viewer element found:",
-        !!modelViewer
-      );
       if (modelViewer && !modelViewerRef.current) {
         modelViewerRef.current = modelViewer;
-        console.log(
-          "[ClientDemoPage] Stored model-viewer reference with custom functions"
-        );
       }
     }, 100);
   };
@@ -828,7 +809,7 @@ export default function ClientDemoPage() {
                 </div>
               </div>
               {/* Center - 3D Viewer */}
-              <div className="flex-1 p-4 bg-card h-full max-h-[calc(100vh-100px)]">
+              <div className="flex-1 p-4 bg-muted/30 h-full max-h-[calc(100vh]">
                 <div className="h-full rounded-lg overflow-hidden shadow-md bg-background flex items-center justify-center relative">
                   {selectedModel ? (
                     <>

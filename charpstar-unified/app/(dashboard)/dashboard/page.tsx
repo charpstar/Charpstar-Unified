@@ -414,7 +414,6 @@ export default function DashboardPage() {
                   className="w-full justify-start"
                 >
                   <Link
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     href={`/3d-editor/${(user?.metadata as any)?.client_config}`}
                     className="flex items-center gap-2"
                   >

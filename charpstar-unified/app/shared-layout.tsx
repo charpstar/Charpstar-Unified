@@ -27,7 +27,7 @@ export function SharedLayout({ children }: { children: React.ReactNode }) {
       <div className={mainContentClass}>
         {!hideSidebar && <SiteHeader />}
         {/* Main content, no w-full! */}
-        <div className="flex-1 overflow-hidden rounded-b-lg justify-center items-center bg-background h-full max-h-[calc(100vh-80px)]">
+        <div className="flex-1 overflow-y-auto rounded-b-lg justify-center items-center bg-background h-full max-h-[calc(100vh-80px)]">
           {children}
         </div>
       </div>

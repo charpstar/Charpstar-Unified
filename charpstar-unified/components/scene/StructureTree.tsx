@@ -1,6 +1,5 @@
 "use client";
 // components/StructureTree.tsx
-console.log("StructureTree imported");
 
 import { useState } from "react";
 import { ChevronRight, ChevronDown, Folder, Box } from "lucide-react";
@@ -134,7 +133,6 @@ const StructureTree: React.FC<{
   isMobile?: boolean;
 }> = ({ node, onNodeSelect, selectedNode, isMobile = false }) => {
   const handleNodeSelect = (node: Object3D) => {
-    console.log("Selecting node:", node.name, node.type, node.uuid);
     if (onNodeSelect) {
       onNodeSelect(node);
     }

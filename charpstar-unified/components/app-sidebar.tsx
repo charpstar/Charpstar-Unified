@@ -26,14 +26,13 @@ import {
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { theme, systemTheme } = useTheme();
   const currentTheme = theme === "system" ? systemTheme : theme;
   const isDark = currentTheme === "dark";
-  const params = useParams();
+
   const user = useUser();
   const clientName = user?.metadata?.client_config;
 

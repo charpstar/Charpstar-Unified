@@ -1,5 +1,4 @@
 "use client";
-console.log("MaterialProperties imported");
 
 import { useState, useEffect, useCallback } from "react";
 import { Link, Link2Off } from "lucide-react";
@@ -236,33 +235,6 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
       }
     } catch (error) {
       console.error(`Error updating ${property}:`, error);
-    }
-  };
-
-  // Handle UV set change for sheen
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleUVSetChange = (channel: number) => {
-    if (!modelViewerRef?.current || !selectedNode) return;
-
-    try {
-      const object = modelViewerRef.current.getObjectByUuid(selectedNode.uuid);
-      if (object && object.material && object.material.sheenColorMap) {
-        object.material.sheenColorMap.channel = channel;
-        object.material.needsUpdate = true;
-
-        // Update local state
-        setMaterial((prev) => {
-          if (!prev) return null;
-          return { ...prev, sheenColorMap_channel: channel };
-        });
-
-        // Request a render update
-        if (typeof modelViewerRef.current.requestRender === "function") {
-          modelViewerRef.current.requestRender();
-        }
-      }
-    } catch (error) {
-      console.error("Error updating sheen UV set:", error);
     }
   };
 
@@ -505,36 +477,6 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
     // Parse as float and convert to 0-1 range
     return parseFloat(cleaned) / 100;
   };
-
-  // Helper component to display texture information (read-only)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const TextureInfo = ({
-    label,
-    hasTexture,
-  }: {
-    label: string;
-    hasTexture: boolean;
-  }) => (
-    <div className="flex items-center justify-between">
-      <label className="text-sm">{label}</label>
-      <div className="flex items-center">
-        <div
-          className="w-24 h-6 bg-gray-100 rounded overflow-hidden flex items-center justify-center"
-          title={
-            hasTexture
-              ? `${label} texture is applied`
-              : `No ${label.toLowerCase()} texture applied`
-          }
-        >
-          <div
-            className={`text-xs ${hasTexture ? "text-gray-500" : "text-gray-400"} truncate px-1`}
-          >
-            {hasTexture ? "Texture ✓" : "None"}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="text-sm">

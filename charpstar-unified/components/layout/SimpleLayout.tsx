@@ -39,18 +39,10 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
   const params = useParams();
   const clientName = params?.id as string;
 
-  console.log("SimpleLayout rendering with clientModelUrl:", clientModelUrl);
-  console.log("SimpleLayout props:", {
-    modelStructure,
-    selectedNode,
-    modelViewerRef: !!modelViewerRef?.current,
-  });
-
   const [variantChangeCounter, setVariantChangeCounter] = useState(0);
 
   // Handler for variant changes to force re-render of material panel
   const handleVariantChange = () => {
-    console.log("SimpleLayout: Variant change triggered");
     setVariantChangeCounter((prev) => prev + 1);
     if (onVariantChange) {
       onVariantChange();
@@ -60,7 +52,7 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
   if (isMobile) {
     return (
       <div className="flex h-full bg-background">
-        <div className="flex-1 bg-card shadow-md overflow-hidden relative">
+        <div className="flex-1 bg-muted/30 p-4 shadow-md overflow-hidden relative">
           <ModelViewer
             onModelLoaded={onModelLoaded}
             clientModelUrl={clientModelUrl || ""}
@@ -95,7 +87,7 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
     <div className="flex h-full bg-background">
       {/* Left panel - Scene */}
       <div className="w-64 bg-card shadow-md overflow-hidden flex flex-col">
-        <div className="bg-muted p-3 border-b border-border">
+        <div className=" p-3 border-b border-border">
           <div className="flex items-center space-x-2">
             <Layers size={18} className="text-muted-foreground" />
             <h3 className="text-sm font-medium text-foreground">
@@ -124,13 +116,13 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
       </div>
 
       {/* Center panel - 3D Viewer */}
-      <div className="flex-1 bg-card shadow-md overflow-hidden relative">
+      <div className="flex-1  shadow-md bg-muted/30 p-4  overflow-hidden relative">
         <ModelViewer
           onModelLoaded={onModelLoaded}
           clientModelUrl={clientModelUrl || ""}
         />
         {/* Overlay buttons */}
-        <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+        <div className="absolute top-8 right-8 flex flex-col gap-2 z-10">
           <Link href={`/3d-editor/${clientName}/demo`}>
             <Button variant="outline" size="sm" className="text-xs h-8">
               <Eye size={14} className="mr-2" />
@@ -156,7 +148,7 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
       <div className="flex mr-2">
         {/* Variant panel */}
         <div className="w-64 bg-card shadow-md overflow-hidden flex flex-col">
-          <div className="bg-muted p-3 border-b border-border">
+          <div className=" p-3 border-b border-border">
             <div className="flex items-center space-x-2">
               <Box size={18} className="text-muted-foreground" />
               <h3 className="text-sm font-medium text-foreground">Variants</h3>
@@ -173,7 +165,7 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
 
         {/* Material panel */}
         <div className="w-80 bg-card shadow-md ml-2 overflow-hidden flex flex-col">
-          <div className="bg-muted p-3 border-b border-border">
+          <div className=" p-3 border-b border-border">
             <div className="flex items-center space-x-2">
               <Palette size={18} className="text-muted-foreground" />
               <h3 className="text-sm font-medium text-foreground">

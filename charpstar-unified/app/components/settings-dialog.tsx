@@ -27,8 +27,6 @@ import {
   Shield,
   Mail,
   UserCog,
-  Eye,
-  X,
   Box,
 } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";

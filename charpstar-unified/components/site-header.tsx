@@ -75,7 +75,7 @@ export function SiteHeader() {
 
       return () => clearTimeout(timer);
     }
-  }, [isAnalyticsPage, showTourNotification, isLoaded]);
+  }, [isAnalyticsPage, showTourNotification, isLoaded, pathname]);
 
   return (
     <header className="bg-background flex h-(--header-height) shrink-0 items-center gap-2 border-b  rounded-t-lg border-border transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
