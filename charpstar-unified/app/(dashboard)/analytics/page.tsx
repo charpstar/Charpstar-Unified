@@ -800,7 +800,7 @@ export default function AnalyticsDashboard() {
       </div>
 
       <div className="mt-6">
-        <div className="h-[500px] sm:h-[400px] bg-card rounded-lg border">
+        <div className=" sm:h-[400px] bg-card rounded-lg border">
           <PerformanceTrends effectiveProfile={effectiveProfile} />
         </div>
       </div>

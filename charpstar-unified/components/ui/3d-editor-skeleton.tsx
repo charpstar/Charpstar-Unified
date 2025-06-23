@@ -39,7 +39,7 @@ export function ThreeDEditorSkeleton({
     <div className="flex h-full bg-background">
       {/* Left panel - Scene Hierarchy skeleton */}
       <div className="w-64 bg-background shadow-md overflow-hidden flex flex-col">
-        <div className="bg-muted p-3 border-b border-border">
+        <div className="bg-background p-3 border-b border-border">
           <div className="flex items-center space-x-2">
             <Layers size={18} className="text-muted-foreground" />
             <h3 className="text-sm font-medium text-foreground">
@@ -70,7 +70,7 @@ export function ThreeDEditorSkeleton({
       <div className="flex mr-2">
         {/* Variant panel skeleton */}
         <div className="w-64 bg-background shadow-md overflow-hidden flex flex-col">
-          <div className="bg-muted p-3 border-b border-border">
+          <div className="bg-background p-3 border-b border-border">
             <div className="flex items-center space-x-2">
               <Box size={18} className="text-muted-foreground" />
               <h3 className="text-sm font-medium text-foreground">Variants</h3>
@@ -83,7 +83,7 @@ export function ThreeDEditorSkeleton({
 
         {/* Material panel skeleton */}
         <div className="w-80 bg-background shadow-md ml-2 overflow-hidden flex flex-col">
-          <div className="bg-muted p-3 border-b border-border">
+          <div className="bg-background p-3 border-b border-border">
             <div className="flex items-center space-x-2">
               <Palette size={18} className="text-muted-foreground" />
               <h3 className="text-sm font-medium text-foreground">

@@ -31,6 +31,7 @@ interface User {
   metadata?: {
     analytics_profile_id?: string;
     role?: string;
+    client_config?: string;
   };
 }
 
@@ -409,19 +410,22 @@ export default function DashboardPage() {
                     Analytics
                   </Link>
                 </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="w-full justify-start"
-                >
-                  <Link
-                    href={`/3d-editor/${(user?.metadata as any)?.client_config}`}
-                    className="flex items-center gap-2"
-                  >
-                    <Box className="h-5 w-5" />
-                    Editor
-                  </Link>
-                </Button>
+                {user?.metadata?.client_config &&
+                  user.metadata.client_config.trim() !== "" && (
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="w-full justify-start"
+                    >
+                      <Link
+                        href={`/3d-editor/${user.metadata.client_config}`}
+                        className="flex items-center gap-2"
+                      >
+                        <Box className="h-5 w-5" />
+                        Editor
+                      </Link>
+                    </Button>
+                  )}
               </div>
             </CardContent>
           </Card>

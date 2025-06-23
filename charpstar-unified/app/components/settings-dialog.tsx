@@ -633,7 +633,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </div>
 
               {/* Tabs List (visible only on sm and up) */}
-              <TabsList className="hidden sm:grid w-full grid-cols-1 sm:grid-cols-5 gap-2">
+              <TabsList
+                className={`hidden sm:grid w-full gap-2 ${
+                  user?.role === "admin" ? "grid-cols-5" : "grid-cols-1"
+                }`}
+              >
                 <TabsTrigger
                   value="account"
                   className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-full"

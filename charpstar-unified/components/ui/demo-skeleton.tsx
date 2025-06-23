@@ -39,16 +39,16 @@ export function DemoPageSkeleton({ isMobile = false }: { isMobile?: boolean }) {
       {/* Left side - Model navigation skeleton */}
       <div className="w-1/10 border-r border-border bg-card shadow-inner flex flex-col">
         {/* Search and Filter Controls skeleton */}
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-4">
-            <div className="h-6 w-24 bg-muted/70 rounded animate-pulse" />
-            <div className="flex space-x-2">
-              <div className="h-8 w-8 bg-muted/70 rounded animate-pulse" />
-              <div className="h-8 w-8 bg-muted/70 rounded animate-pulse" />
+        <div className="w-60 bg-background shadow-md ml-2 overflow-hidden flex flex-col">
+          <div className="bg-background p-3 border-b border-border">
+            <div className="flex items-center space-x-2">
+              <h3 className="text-sm font-medium text-foreground">
+                Model Catalog
+              </h3>
             </div>
-          </div>
-          <div className="relative">
-            <div className="h-8 w-full bg-muted/70 rounded animate-pulse" />
+            <div className="flex-1 pr-5 overflow-auto">
+              <div className="h-8 mt-4 w-full bg-muted/70 rounded animate-pulse" />
+            </div>
           </div>
         </div>
 
@@ -68,14 +68,16 @@ export function DemoPageSkeleton({ isMobile = false }: { isMobile?: boolean }) {
       </div>
 
       {/* Right side - Variants panel skeleton */}
-      <div className="w-1/10 border-l border-border bg-card shadow-inner flex flex-col">
-        <div className="p-2 border-b border-border">
+      <div className="w-60 bg-background shadow-md  overflow-hidden flex flex-col">
+        <div className="bg-background p-2 border-b border-border">
           <div className="flex items-center space-x-1.5">
             <Palette size={14} className="text-muted-foreground" />
-            <div className="h-3 w-20 bg-muted/70 rounded animate-pulse" />
+            <h3 className="text-xs font-medium text-foreground">
+              Material Properties
+            </h3>
           </div>
         </div>
-        <div className="flex-1 p-2 overflow-y-auto scrollbar-thin">
+        <div className="p-3 flex-1 overflow-auto">
           <div className="h-full bg-muted/70 rounded animate-pulse" />
         </div>
       </div>
