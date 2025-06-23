@@ -22,6 +22,7 @@ interface SimpleLayoutProps {
   isMobile?: boolean;
   onSave?: () => void;
   isSaving?: boolean;
+  shouldRenderModelViewer?: boolean;
 }
 
 export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
@@ -35,6 +36,7 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
   isMobile = false,
   onSave,
   isSaving = false,
+  shouldRenderModelViewer = true,
 }) => {
   const params = useParams();
   const clientName = params?.id as string;
@@ -53,10 +55,17 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
     return (
       <div className="flex h-full bg-background">
         <div className="flex-1 bg-muted/30 p-4 shadow-md overflow-hidden relative">
-          <ModelViewer
-            onModelLoaded={onModelLoaded}
-            clientModelUrl={clientModelUrl || ""}
-          />
+          {shouldRenderModelViewer && clientModelUrl ? (
+            <ModelViewer
+              key={clientModelUrl}
+              onModelLoaded={onModelLoaded}
+              clientModelUrl={clientModelUrl}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-muted-foreground">Loading viewer...</div>
+            </div>
+          )}
           {/* Overlay buttons for mobile */}
           <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
             <Link href={`/3d-editor/${clientName}/demo`}>
@@ -116,11 +125,18 @@ export const SimpleLayout: React.FC<SimpleLayoutProps> = ({
       </div>
 
       {/* Center panel - 3D Viewer */}
-      <div className="flex-1  shadow-md bg-muted/30 p-4  overflow-hidden relative">
-        <ModelViewer
-          onModelLoaded={onModelLoaded}
-          clientModelUrl={clientModelUrl || ""}
-        />
+      <div className="flex-1   bg-muted/30 p-4  overflow-hidden relative">
+        {shouldRenderModelViewer && clientModelUrl ? (
+          <ModelViewer
+            key={clientModelUrl}
+            onModelLoaded={onModelLoaded}
+            clientModelUrl={clientModelUrl}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-muted-foreground">Loading viewer...</div>
+          </div>
+        )}
         {/* Overlay buttons */}
         <div className="absolute top-8 right-8 flex flex-col gap-2 z-10">
           <Link href={`/3d-editor/${clientName}/demo`}>

@@ -50,6 +50,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { AssetLibrarySkeleton } from "@/components/ui/asset-library-skeleton";
+import { translateSwedishToEnglish } from "@/utils/swedishTranslations";
 
 type SortOption =
   | "name-asc"
@@ -175,7 +176,10 @@ export default function AssetLibraryPage() {
   // Filter assets based on debounced search and sort
   const filteredAssets = hookFilteredAssets
     .filter((asset) => {
-      const searchLower = debouncedSearchValue.toLowerCase();
+      // Translate Swedish search terms to English for matching
+      const searchLower = translateSwedishToEnglish(
+        debouncedSearchValue.toLowerCase()
+      );
       if (!searchLower) return true;
 
       return (

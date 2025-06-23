@@ -389,7 +389,7 @@ export default function AnalyticsDashboard() {
           <CardContent className="pt-6">
             <div className="text-center py-8">
               <p className="text-gray-500">
-                § You don&apos;t have permission to view analytics.
+                You don&apos;t have permission to view analytics.
               </p>
             </div>
           </CardContent>

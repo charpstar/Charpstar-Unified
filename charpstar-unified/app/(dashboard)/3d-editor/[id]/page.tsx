@@ -79,11 +79,8 @@ export default function ClientPage() {
           const config = await fetchClientConfig(clientName);
           setClientConfig(config);
           setShouldLoadScript(true);
-
-          // Add a delay to ensure script loading and initialization
-          setTimeout(() => {
-            setIsReady(true);
-          }, 500);
+          // Set ready when we actually have config, not after arbitrary timeout
+          setIsReady(true);
         }
       }
     };
@@ -397,10 +394,15 @@ export default function ClientPage() {
             {/* 3D Viewer fills the rest of the screen */}
             <div className="flex-1 p-2 bg-card relative">
               <div className="h-[60vh] rounded-lg overflow-hidden shadow-md bg-background flex items-center justify-center relative">
-                <ModelViewer
-                  onModelLoaded={handleModelLoaded}
-                  clientModelUrl={clientConfig?.modelUrl || ""}
-                />
+                {clientConfig?.modelUrl && isReady ? (
+                  <ModelViewer
+                    key={clientConfig.modelUrl}
+                    onModelLoaded={handleModelLoaded}
+                    clientModelUrl={clientConfig.modelUrl}
+                  />
+                ) : (
+                  <ThreeDEditorSkeleton isMobile={isMobile} />
+                )}
               </div>
             </div>
           </>
@@ -417,6 +419,7 @@ export default function ClientPage() {
               isMobile={false}
               onSave={handleSave}
               isSaving={isSaving}
+              shouldRenderModelViewer={!!clientConfig?.modelUrl && isReady}
             />
           </div>
         )}
