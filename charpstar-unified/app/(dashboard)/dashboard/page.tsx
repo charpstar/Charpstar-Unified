@@ -9,10 +9,11 @@ import { createClient } from "@/utils/supabase/client";
 import {
   Package,
   TrendingUp,
-  Boxes,
   ChartBar,
   User2,
   Shield,
+  Box,
+  PackageSearch,
 } from "lucide-react";
 import Link from "next/link";
 import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
@@ -381,7 +382,7 @@ export default function DashboardPage() {
                     href="/asset-library/upload"
                     className="flex items-center gap-2"
                   >
-                    <Package className="h-4 w-4" />
+                    <Package className="h-5 w-5" />
                     Upload New Model
                   </Link>
                 </Button>
@@ -394,7 +395,7 @@ export default function DashboardPage() {
                     href="/asset-library"
                     className="flex items-center gap-2"
                   >
-                    <Boxes className="h-4 w-4" />
+                    <PackageSearch className="h-5 w-5" />
                     Browse Models
                   </Link>
                 </Button>
@@ -404,7 +405,7 @@ export default function DashboardPage() {
                   className="w-full justify-start"
                 >
                   <Link href="/analytics" className="flex items-center gap-2">
-                    <ChartBar className="h-4 w-4" />
+                    <ChartBar className="h-5 w-5" />
                     Analytics
                   </Link>
                 </Button>
@@ -417,7 +418,7 @@ export default function DashboardPage() {
                     href={`/3d-editor/${(user?.metadata as any)?.client_config}`}
                     className="flex items-center gap-2"
                   >
-                    <Boxes className="h-4 w-4" />
+                    <Box className="h-5 w-5" />
                     Editor
                   </Link>
                 </Button>
