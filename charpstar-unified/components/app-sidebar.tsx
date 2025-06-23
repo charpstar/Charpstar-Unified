@@ -8,7 +8,6 @@ import {
   IconFileAi,
   IconFileDescription,
   IconFolder,
-  IconPyramid,
 } from "@tabler/icons-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -27,6 +26,7 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useUser } from "@/contexts/useUser";
+import { Box } from "lucide-react";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { theme, systemTheme } = useTheme();
@@ -63,7 +63,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {
             title: "3D Editor",
             url: `/3d-editor/${clientName}`,
-            icon: IconPyramid,
+            icon: Box,
           },
         ]
       : baseNavItems;
