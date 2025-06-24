@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { LoginForm } from "@/components/ui/login-form";
+import { LoginForm } from "@/components/ui/utilities";
 
 import Image from "next/image";
 import { getUserWithMetadata } from "@/supabase/getUser";

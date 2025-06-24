@@ -4,12 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   PreviewGeneratorDialogContent,
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";

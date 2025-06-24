@@ -10,6 +10,8 @@ export {
   ToastProvider,
   ToastTitle,
   ToastViewport,
+  type ToastProps,
+  type ToastActionElement,
 } from "./toast";
 export { Toaster } from "./toaster";
 export { Toaster as Sonner } from "./sonner";

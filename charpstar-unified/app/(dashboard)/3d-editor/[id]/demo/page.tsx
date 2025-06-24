@@ -3,8 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { fetchClientConfig, isValidClient } from "@/config/clientConfig";
-import { notFound } from "next/navigation";
+import { fetchClientConfig } from "@/config/clientConfig";
 import {
   ClientDemoPage,
   SimpleClientViewerScript,

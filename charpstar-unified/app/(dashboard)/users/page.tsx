@@ -23,8 +23,6 @@ import { Button } from "@/components/ui/display";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,

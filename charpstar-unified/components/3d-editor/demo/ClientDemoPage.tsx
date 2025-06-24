@@ -26,11 +26,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/containers";
 import Link from "next/link";
 
