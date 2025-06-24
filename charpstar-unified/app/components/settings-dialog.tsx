@@ -10,9 +10,8 @@ import {
   DialogTitle,
   DialogTrigger,
   EditUserDialogContent,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+} from "@/components/ui/containers";
+import { Button } from "@/components/ui/display";
 import {
   LogOut,
   User2,
@@ -29,26 +28,31 @@ import {
   UserCog,
   Box,
 } from "lucide-react";
-import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
+import { ThemeSwitcherCard } from "@/components/ui/utilities";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/interactive";
+import { Input } from "@/components/ui/inputs";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+} from "@/components/ui/inputs";
+import { Badge } from "@/components/ui/feedback";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useToast } from "@/components/ui/use-toast";
-import { Toaster } from "@/components/ui/toaster";
+} from "@/components/ui/interactive";
+import { useToast } from "@/components/ui/utilities";
+import { Toaster } from "@/components/ui/feedback";
 import {
   Table,
   TableBody,
@@ -56,12 +60,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+} from "@/components/ui/display";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/display";
 import { UserForm, UserFormValues } from "@/app/components/UserForm";
 import { useUsers } from "@/lib/useUsers";
 import { useFeaturePermissions } from "@/lib/useFeaturePermissions";
-import { Switch } from "@/components/ui/switch";
+import { Switch } from "@/components/ui/inputs";
 import { usePagePermission } from "@/lib/usePagePermission";
 import {
   Card,
@@ -69,9 +73,10 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/containers";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { Label } from "@/components/ui/display";
 
 interface UserProfile {
   id: string;

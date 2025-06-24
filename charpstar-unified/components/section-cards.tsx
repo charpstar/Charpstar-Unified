@@ -1,6 +1,6 @@
 import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react";
 
-import { Card } from "@/components/ui/card";
+import { Card } from "@/components/ui/containers";
 
 export function SectionCards() {
   return (

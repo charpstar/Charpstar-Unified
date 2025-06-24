@@ -18,35 +18,36 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+} from "@/components/ui/display";
+import { Button } from "@/components/ui/display";
 import {
   Dialog,
   DialogContent,
-  EditUserDialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/ui/containers";
 import { UserForm, UserFormValues } from "@/app/components/UserForm";
-import { useToast } from "@/components/ui/use-toast";
-import { Toaster } from "@/components/ui/toaster";
-import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/utilities";
+import { Toaster } from "@/components/ui/feedback";
+import { Input } from "@/components/ui/inputs";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+} from "@/components/ui/inputs";
+import { Badge } from "@/components/ui/feedback";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/ui/interactive";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { usePagePermission } from "@/lib/usePagePermission";
@@ -55,11 +56,12 @@ import { useFeaturePermissions } from "@/lib/useFeaturePermissions";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+} from "@/components/ui/containers";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/display";
+import { EditUserDialogContent } from "@/components/ui/containers";
 
 interface User {
   id: string;

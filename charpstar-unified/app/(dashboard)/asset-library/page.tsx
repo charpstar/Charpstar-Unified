@@ -1,16 +1,21 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/containers";
+import { Button } from "@/components/ui/display";
+import { Badge } from "@/components/ui/feedback";
+import { Input } from "@/components/ui/inputs";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
+} from "@/components/ui/containers";
 import {
   Download,
   ExternalLink,
@@ -34,11 +39,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+} from "@/components/ui/inputs";
+import { Separator } from "@/components/ui/containers";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
-import { PreviewGeneratorDialog } from "./components/preview-generator-dialog";
+import { PreviewGeneratorDialog } from "@/components/asset-library/dialogs/preview-generator-dialog";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
 
@@ -48,8 +53,8 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@/components/ui/carousel";
-import { AssetLibrarySkeleton } from "@/components/ui/asset-library-skeleton";
+} from "@/components/ui/interactive";
+import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
 import { translateSwedishToEnglish } from "@/utils/swedishTranslations";
 
 type SortOption =

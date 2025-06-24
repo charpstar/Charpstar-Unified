@@ -1,13 +1,18 @@
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+} from "@/components/ui/containers";
+import { Button } from "@/components/ui/display";
+import { Badge } from "@/components/ui/feedback";
 import { ExternalLink, Download, Heart } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/ui/skeletons";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/ui/display";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";

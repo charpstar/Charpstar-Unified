@@ -1,4 +1,4 @@
-import { AssetLibrarySkeleton } from "@/components/ui/asset-library-skeleton";
+import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
 
 export default function AssetLibraryLoading() {
   return <AssetLibrarySkeleton />;

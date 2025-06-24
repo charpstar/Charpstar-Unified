@@ -4,7 +4,7 @@ import "./globals.css";
 import { Providers } from "@/app/providers";
 import { SWRConfig } from "swr";
 import { localStorageProvider } from "@/lib/swrLocalStorageProvider";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/navigation";
 import { SharedLayout } from "./shared-layout";
 import { DateRangeProvider } from "@/contexts/DateRangeContext";
 

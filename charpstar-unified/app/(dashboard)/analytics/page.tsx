@@ -2,27 +2,28 @@
 
 import * as React from "react";
 import { useState, useEffect } from "react";
-import { StatCard } from "@/components/ui/stat-card";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/ui/display";
+import { Card, CardContent } from "@/components/ui/containers";
+import { Button } from "@/components/ui/display";
 import { format } from "date-fns";
 import useSWR from "swr";
-import { Skeleton } from "@/components/ui/skeleton";
-import PerformanceTrends from "@/components/PerformanceTrends";
+import { Skeleton } from "@/components/ui/skeletons";
+import { PerformanceTrends, CVRTable } from "@/components/analytics";
 import { useClientQuery } from "@/queries/useClientQuery";
 import { compToBq } from "@/utils/uiutils";
 import { useUser } from "@/contexts/useUser";
 import { ProductMetrics } from "@/utils/BigQuery/types";
-import CVRTable from "@/components/CVRTable/index";
 import { usePagePermission } from "@/lib/usePagePermission";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Tooltip } from "@/components/ui/tooltip";
-import { TooltipContent } from "@/components/ui/tooltip";
-import { TooltipTrigger } from "@/components/ui/tooltip";
 import { useAnalyticsCheck } from "@/lib/analyticsCheck";
 import { useDateRange } from "@/contexts/DateRangeContext";
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/display";
 
 interface AnalyticsRow {
   metric_name: string;

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/components/ui/utilities";
 
 export interface User {
   [x: string]: string | Blob | undefined;

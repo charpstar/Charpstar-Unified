@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/components/ui/utilities";
 
 export interface FeaturePermission {
   role: string;

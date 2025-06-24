@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useUser } from "@/contexts/useUser";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/containers";
+import { Button } from "@/components/ui/display";
+import { Badge } from "@/components/ui/feedback";
 import { createClient } from "@/utils/supabase/client";
 import {
   Package,
@@ -16,11 +21,11 @@ import {
   PackageSearch,
 } from "lucide-react";
 import Link from "next/link";
-import { ThemeSwitcherCard } from "@/components/ui/theme-switcher";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ThemeSwitcherCard } from "@/components/ui/utilities";
+import { Avatar, AvatarFallback } from "@/components/ui/display";
 import { supabase } from "@/lib/supabaseClient";
 import React from "react";
-import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip } from "@/components/ui/display";
 import { BarChart, Bar, XAxis, YAxis } from "recharts";
 
 interface User {

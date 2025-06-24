@@ -3,7 +3,7 @@
 "use client";
 
 import { ThemeProvider } from "next-themes";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/feedback";
 import { UserProvider } from "@/contexts/useUser";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";

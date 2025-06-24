@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/display";
+import { Input } from "@/components/ui/inputs";
+import { Button } from "@/components/ui/display";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Icons } from "@/components/ui/icons";
+} from "@/components/ui/inputs";
+import { Icons } from "@/app/components/ui/icons";
 
 export interface UserFormValues {
   email: string;

@@ -2,19 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/feedback";
+import { Button } from "@/components/ui/display";
 import { ArrowLeft, Download, ImageIcon, Pencil, Plus, X } from "lucide-react";
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/inputs";
+import { Label } from "@/components/ui/display";
 import { toast } from "sonner";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@/components/ui/inputs";
 import Script from "next/script";
 import { createClient } from "@/utils/supabase/client";
 import { useUser } from "@/contexts/useUser";
 
-import { ModelViewer } from "./components/model-viewer";
+import { ModelViewer } from "@/components/asset-library/viewers/model-viewer";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

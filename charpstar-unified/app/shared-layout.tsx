@@ -1,8 +1,8 @@
 "use client";
 
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebar } from "@/components/navigation";
 import { usePathname } from "next/navigation";
-import { SiteHeader } from "@/components/site-header";
+import { SiteHeader } from "@/components/navigation";
 
 export function SharedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

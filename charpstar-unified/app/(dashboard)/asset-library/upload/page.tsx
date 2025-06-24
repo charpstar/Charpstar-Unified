@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { BatchUploadSheet } from "../components/batch-upload-sheet";
+import { Button } from "@/components/ui/display";
+import { BatchUploadSheet } from "@/components/asset-library/components/batch-upload-sheet";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

@@ -8,17 +8,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/components/ui/display";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
+} from "@/components/ui/containers";
+import { Input } from "@/components/ui/inputs";
+import { Skeleton } from "@/components/ui/skeletons";
+import { Select, SelectTrigger, SelectValue } from "@/components/ui/inputs";
 
 export default function UsersLoading() {
   return (

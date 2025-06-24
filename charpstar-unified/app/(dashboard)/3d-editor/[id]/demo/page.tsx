@@ -3,11 +3,14 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { fetchClientConfig } from "@/config/clientConfig";
-import ClientDemoPage from "@/components/demo/ClientDemoPage";
-import SimpleClientViewerScript from "@/components/SimpleClientViewerScript";
+import { fetchClientConfig, isValidClient } from "@/config/clientConfig";
+import { notFound } from "next/navigation";
+import {
+  ClientDemoPage,
+  SimpleClientViewerScript,
+} from "@/components/3d-editor";
 import { useUser } from "@/contexts/useUser";
-import { DemoPageSkeleton } from "@/components/ui/demo-skeleton";
+import { DemoPageSkeleton } from "@/components/ui/skeletons";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function DemoPage() {

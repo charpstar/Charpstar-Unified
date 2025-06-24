@@ -4,27 +4,29 @@
 import { useParams } from "next/navigation";
 import { fetchClientConfig, isValidClient } from "@/config/clientConfig";
 import { useState, useEffect, useRef } from "react";
-import { SimpleLayout } from "@/components/layout/SimpleLayout";
-import SaveProgressOverlay from "@/components/SaveProgressOverlay";
-import SavePasswordDialog from "@/components/SavePasswordDialog";
-import InputLocker from "@/components/InputLocker";
+import {
+  SimpleLayout,
+  SaveProgressOverlay,
+  SavePasswordDialog,
+  InputLocker,
+  SimpleClientViewerScript,
+  MaterialVariants,
+  MaterialProperties,
+  StructureTree,
+  ModelViewer,
+} from "@/components/3d-editor";
 import { notFound } from "next/navigation";
-import SimpleClientViewerScript from "@/components/SimpleClientViewerScript";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/contexts/useUser";
-import { ThreeDEditorSkeleton } from "@/components/ui/3d-editor-skeleton";
+import { ThreeDEditorSkeleton } from "@/components/ui/skeletons";
 
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/ui/containers";
 import { Layers, Box, Palette } from "lucide-react";
-import { MaterialVariants } from "@/components/variant/MaterialVariants";
-import { MaterialProperties } from "@/components/material/MaterialProperties";
-import StructureTree from "@/components/scene/StructureTree";
-import { ModelViewer } from "@/components/ModelViewer";
 import React from "react";
 
 export default function ClientPage() {
