@@ -58,6 +58,7 @@ export function PreviewGeneratorDialog({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [currentAsset, setCurrentAsset] = useState<string>("");
+  const [currentPosition, setCurrentPosition] = useState<number>(0);
   const [modelViewerLoaded, setModelViewerLoaded] = useState(false);
   const [retakeAll, setRetakeAll] = useState(false);
   const [failedAssets, setFailedAssets] = useState<FailedAsset[]>([]);
@@ -339,6 +340,7 @@ export function PreviewGeneratorDialog({
       setProgress(0);
       setError(null);
       setFailedAssets([]);
+      setCurrentPosition(0);
 
       const modelViewer = modelViewerRef.current;
       if (!modelViewer) throw new Error("Model viewer component not found");
@@ -352,6 +354,7 @@ export function PreviewGeneratorDialog({
           console.log(`\n=== Processing asset: ${asset.product_name} ===`);
           console.log(`GLB Link: ${asset.glb_link}`);
           setCurrentAsset(asset.product_name);
+          setCurrentPosition(processed + 1);
 
           // Clear existing model
           console.log("Clearing existing model...");
@@ -487,6 +490,7 @@ export function PreviewGeneratorDialog({
     } finally {
       setProcessing(false);
       setCurrentAsset("");
+      setCurrentPosition(0);
       processingRef.current = false;
     }
   };
@@ -506,6 +510,7 @@ export function PreviewGeneratorDialog({
     setProgress(0);
     setError(null);
     setFailedAssets([]);
+    setCurrentPosition(0);
 
     try {
       const supabase = createClient();
@@ -514,6 +519,7 @@ export function PreviewGeneratorDialog({
         console.log(`\n=== Processing asset: ${asset.product_name} ===`);
         console.log(`GLB Link: ${asset.glb_link}`);
         setCurrentAsset(asset.product_name);
+        setCurrentPosition(processed + 1);
         try {
           // Ensure model-viewer is ready for each asset
           const modelViewer = modelViewerRef.current;
@@ -642,6 +648,7 @@ export function PreviewGeneratorDialog({
       setTimeout(() => {
         setProcessing(false);
         setCurrentAsset("");
+        setCurrentPosition(0);
         checkPreviewUrls();
       }, 1500);
     } catch (error) {
@@ -651,6 +658,7 @@ export function PreviewGeneratorDialog({
       );
       setProcessing(false);
       setCurrentAsset("");
+      setCurrentPosition(0);
     }
   };
 
@@ -900,15 +908,18 @@ export function PreviewGeneratorDialog({
           {processing && (
             <div className="bg-muted backdrop-blur-sm rounded-xl p-4 border border-border shadow-lg animate-in fade-in-50">
               <div className="relative">
-                <div className="w-full h-3 bg-muted rounded-full overflow-hidden shadow-inner">
+                <div className="w-full h-3 bg-background rounded-full overflow-hidden shadow-inner">
                   <div
-                    className="bg-success h-full transition-all duration-300 ease-out rounded-full shadow-sm"
-                    style={{ width: `${progress}%` }}
+                    className="bg-primary h-full transition-all duration-300 ease-out rounded-full shadow-sm animate-pulse animate-infinite animate-duration-1000 animate-ease-linear"
+                    style={{
+                      width: `${progress}%`,
+                    }}
                   />
                 </div>
                 <div className="flex justify-between items-center mt-2">
                   <p className="text-xs font-medium text-foreground">
-                    Processing... {progress}%
+                    Processing... {progress}% ({currentPosition}/
+                    {assetsNeedingPreview.length})
                   </p>
                 </div>
                 {currentAsset && (

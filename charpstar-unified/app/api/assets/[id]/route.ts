@@ -58,6 +58,11 @@ export async function PUT(
         client: body.client,
         materials: JSON.stringify(body.materials || []),
         colors: JSON.stringify(body.colors || []),
+        tags: JSON.stringify(body.tags || []),
+        product_link: body.product_link,
+        glb_link: body.glb_link,
+        article_id: body.article_id,
+        dimensions: body.dimensions,
         updated_at: new Date().toISOString(),
       })
       .eq("id", (await params).id)
@@ -69,7 +74,21 @@ export async function PUT(
       return new NextResponse("Asset not found", { status: 404 });
     }
 
-    // ...rest of your code
+    // Parse materials and colors from string arrays to actual arrays for response
+    const parsedData = {
+      ...data,
+      materials: Array.isArray(data.materials)
+        ? data.materials
+        : JSON.parse(data.materials || "[]"),
+      colors: Array.isArray(data.colors)
+        ? data.colors
+        : JSON.parse(data.colors || "[]"),
+      tags: Array.isArray(data.tags)
+        ? data.tags
+        : JSON.parse(data.tags || "[]"),
+    };
+
+    return NextResponse.json(parsedData);
   } catch (error) {
     console.error("Error updating asset:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
