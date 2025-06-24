@@ -15,11 +15,11 @@ import { useUser } from "@/contexts/useUser";
 import { PreviewGeneratorDialog } from "@/components/asset-library/dialogs/preview-generator-dialog";
 import { BatchUploadSheet } from "@/components/asset-library/components/batch-upload-sheet";
 import { createClient } from "@/utils/supabase/client";
-import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
-import { translateSwedishToEnglish } from "@/utils/swedishTranslations";
 import { AssetLibraryControlPanel } from "@/components/asset-library/AssetLibraryControlPanel";
 import { CategorySidebar } from "@/components/asset-library/CategorySidebar";
 import AssetCard from "@/app/components/ui/AssetCard";
+import { translateSwedishToEnglish } from "@/utils/swedishTranslations";
+import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
 
 type SortOption =
   | "name-asc"
@@ -458,35 +458,29 @@ export default function AssetLibraryPage() {
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* Control Panel Skeleton */}
-          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-            <div className="p-4 space-y-4">
-              {/* Breadcrumbs skeleton */}
-              <div className="flex items-center space-x-1">
-                <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-                <div className="h-4 w-4 bg-muted rounded animate-pulse" />
-                <div className="h-4 w-24 bg-muted rounded animate-pulse" />
-              </div>
 
-              {/* Controls skeleton */}
-              <div className="flex items-center gap-4">
-                <div className="flex-1 max-w-md">
-                  <div className="h-10 bg-muted rounded animate-pulse" />
-                </div>
-                <div className="w-48 h-10 bg-muted rounded animate-pulse" />
-                <div className="h-10 w-20 bg-muted rounded animate-pulse" />
-                <div className="flex items-center border rounded-md">
-                  <div className="h-9 w-9 bg-muted rounded animate-pulse" />
-                  <div className="h-9 w-9 bg-muted rounded animate-pulse" />
-                  <div className="h-9 w-9 bg-muted rounded animate-pulse" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-10 w-20 bg-muted rounded animate-pulse" />
-                  <div className="h-10 w-10 bg-muted rounded animate-pulse" />
-                </div>
-              </div>
-            </div>
-          </div>
-
+          <AssetLibraryControlPanel
+            breadcrumbs={breadcrumbItems}
+            searchValue={searchValue}
+            onClearSearch={handleClearSearch}
+            onSearch={handleSearch}
+            sortValue={filters.sort}
+            setSortValue={handleSortChange}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            onBatchEdit={handleBatchEdit}
+            onGeneratePreviews={handleGeneratePreviews}
+            userRole={userRole}
+            materials={dynamicFilterOptions.materials}
+            selectedMaterials={selectedMaterials}
+            setSelectedMaterials={setSelectedMaterials}
+            colors={dynamicFilterOptions.colors}
+            selectedColors={selectedColors}
+            setSelectedColors={setSelectedColors}
+            companies={dynamicFilterOptions.companies}
+            selectedCompanies={selectedCompanies}
+            setSelectedCompanies={setSelectedCompanies}
+          />
           {/* Asset Grid Skeleton */}
           <div className="flex-1 p-6">
             <AssetLibrarySkeleton />
