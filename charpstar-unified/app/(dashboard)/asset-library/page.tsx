@@ -31,7 +31,6 @@ import {
 import { useAssets } from "../../../hooks/use-assets";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Script from "next/script";
 
 import {
   Select,
@@ -462,10 +461,6 @@ export default function AssetLibraryPage() {
   // Show loading state while user profile is being fetched
   if (!user) {
     <div className="p-6 space-y-6">
-      <Script
-        type="module"
-        src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
-      />
       <div>
         <div className="flex flex-col gap-4">
           {/* Header */}
@@ -520,10 +515,6 @@ export default function AssetLibraryPage() {
   if (loading) {
     return (
       <div className="p-6 space-y-6">
-        <Script
-          type="module"
-          src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
-        />
         <div>
           <div className="flex flex-col gap-4">
             {/* Header */}
@@ -617,10 +608,6 @@ export default function AssetLibraryPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <Script
-        type="module"
-        src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
-      />
       <div>
         <div className="flex flex-col  ">
           {/* Breadcrumb Navigation */}
