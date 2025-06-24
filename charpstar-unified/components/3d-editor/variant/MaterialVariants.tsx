@@ -1,7 +1,7 @@
 // src/components/variant/MaterialVariants.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/inputs";
 
@@ -24,44 +24,33 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
   const hasMountedRef = useRef(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // More robust variant fetching with polling
-  const fetchVariants = () => {
+  const fetchVariants = useCallback(() => {
     if (!modelViewerRef.current) {
-      setLoading(true);
       return false;
     }
 
     try {
-      // Get available variants from the model-viewer
+      // Get all available variants
       const availableVariants = modelViewerRef.current.availableVariants || [];
-      const variantsList = Array.isArray(availableVariants)
-        ? availableVariants
-        : [];
 
-      // Get the currently selected variant if any
-      const currentVariantName = modelViewerRef.current.variantName;
+      if (availableVariants.length > 0) {
+        setVariants(availableVariants);
+        setLoading(false);
 
-      // Only update if there's a change
-      if (
-        JSON.stringify(variantsList) !== JSON.stringify(variants) ||
-        currentVariantName !== currentVariant
-      ) {
-        setVariants(variantsList);
-        setCurrentVariant(currentVariantName || null);
+        // Set the current variant if none is selected
+        if (!currentVariant && availableVariants.length > 0) {
+          setCurrentVariant(availableVariants[0]);
+        }
+
+        return true;
       }
 
-      setLoading(false);
-
-      // Return true if variants are found
-      return variantsList.length > 0;
+      return false;
     } catch (error) {
-      console.error("Error fetching material variants:", error);
-      setVariants([]);
-      setCurrentVariant(null);
-      setLoading(false);
+      console.error("Error fetching variants:", error);
       return false;
     }
-  };
+  }, [modelViewerRef, currentVariant]);
 
   const startTimeRef = useRef(Date.now());
   // Add a reset function that's triggered when a new model is loaded
@@ -114,7 +103,7 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [modelViewerRef]);
+  }, [modelViewerRef, fetchVariants]);
 
   // Set up polling for variants
   useEffect(() => {
@@ -155,7 +144,7 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
 
       hasMountedRef.current = false;
     };
-  }, [modelViewerRef]);
+  }, [modelViewerRef, fetchVariants]);
 
   // Function to select a variant
   const selectVariant = (variantName: string) => {

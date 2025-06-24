@@ -855,7 +855,7 @@ export default function AssetDetailPage() {
                             <img
                               src={relatedAsset.preview_image}
                               alt={relatedAsset.product_name}
-                              className="object-cover w-full h-full transition-transform group-hover:scale-105"
+                              className="object-cover w-full h-full transition-transform "
                             />
                           ) : (
                             <div className="flex h-full items-center justify-center">

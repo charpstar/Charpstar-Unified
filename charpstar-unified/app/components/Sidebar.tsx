@@ -92,7 +92,7 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
             <Link href="/dashboard">
               <Button
                 variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-                className="w-full justify-start cursor-pointer hover:scale-105 transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
+                className="w-full justify-start cursor-pointer  transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
               >
                 <LayoutDashboard className="mr-2 h-4 w-4" />
                 Overview
@@ -103,7 +103,7 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
               <Link href="/analytics">
                 <Button
                   variant={pathname === "/analytics" ? "secondary" : "ghost"}
-                  className="w-full justify-start cursor-pointer hover:scale-105 transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
+                  className="w-full justify-start cursor-pointer  transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
                 >
                   <BarChart className="mr-2 h-4 w-4" />
                   Analytics
@@ -115,7 +115,7 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
               <Link href="/users">
                 <Button
                   variant={pathname === "/users" ? "secondary" : "ghost"}
-                  className="w-full justify-start cursor-pointer hover:scale-105 transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
+                  className="w-full justify-start cursor-pointer  transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Users
@@ -126,7 +126,7 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
             <Link href="/settings">
               <Button
                 variant={pathname === "/settings" ? "secondary" : "ghost"}
-                className="w-full justify-start cursor-pointer hover:scale-105 transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
+                className="w-full justify-start cursor-pointer  transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
               >
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
@@ -138,7 +138,7 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
               <Link href="/admin/permissions">
                 <Button
                   variant={pathname === "/permissions" ? "secondary" : "ghost"}
-                  className="w-full justify-start cursor-pointer hover:scale-105 transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
+                  className="w-full justify-start cursor-pointer  transition-all duration-300 hover:bg-accent hover:text-accent-foreground"
                 >
                   <ShieldCheck className="mr-2 h-4 w-4 hover:scale-110 transition-all duration-300" />
                   Permissions
@@ -154,7 +154,7 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
             <div className="px-4 py-2">
               <Button
                 variant="ghost"
-                className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-100 hover:scale-105 cursor-pointer  transition-all duration-300"
+                className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-100  cursor-pointer  transition-all duration-300"
                 onClick={handleSignOut}
               >
                 <LogOut className="mr-2 h-4 w-4" />
