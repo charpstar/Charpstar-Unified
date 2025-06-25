@@ -20,8 +20,13 @@ import {
   Calendar,
   Target,
   Zap,
+  Package,
 } from "lucide-react";
 import { SettingsDialog } from "@/app/components/settings-dialog";
+import { BarChart, XAxis, YAxis, Bar } from "recharts";
+import { supabase } from "@/lib/supabaseClient";
+import { useUser } from "@/contexts/useUser";
+import { ChartTooltip } from "@/components/ui/display";
 
 // Unified Widget Header Component
 interface WidgetHeaderProps {
@@ -349,6 +354,230 @@ export function SystemStatusWidget() {
             </span>
           </div>
         ))}
+      </div>
+    </WidgetContainer>
+  );
+}
+
+// New Users Chart Widget
+export function NewUsersChartWidget() {
+  const [chartData, setChartData] = React.useState<
+    { date: string; users: number }[]
+  >([]);
+  const [totalUsers, setTotalUsers] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function fetchData() {
+      try {
+        const { data: users } = await supabase
+          .from("profiles")
+          .select("created_at")
+          .gte(
+            "created_at",
+            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+          );
+
+        const days = Array.from({ length: 30 }).map((_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - (29 - i));
+          return d.toISOString().slice(0, 10);
+        });
+
+        const usersByDay = days.map(
+          (date) =>
+            users?.filter(
+              (u: { created_at: string }) => u.created_at.slice(0, 10) === date
+            ).length || 0
+        );
+
+        setChartData(
+          days.map((date, i) => ({
+            date,
+            users: usersByDay[i],
+          }))
+        );
+        setTotalUsers(users?.length || 0);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <WidgetContainer>
+        <WidgetHeader title="New Users (30d)" icon={Users} />
+        <div className="animate-pulse space-y-3">
+          <div className="h-6 bg-muted rounded w-1/3"></div>
+          <div className="h-32 bg-muted rounded"></div>
+        </div>
+      </WidgetContainer>
+    );
+  }
+
+  return (
+    <WidgetContainer>
+      <WidgetHeader title="New Users (30d)" icon={Users} />
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-2xl font-bold text-primary">{totalUsers}</div>
+            <div className="text-sm text-muted-foreground">Total new users</div>
+          </div>
+          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Users className="h-6 w-6 text-primary" />
+          </div>
+        </div>
+        <div className="h-32 w-full">
+          <BarChart data={chartData} height={150} width={460}>
+            <XAxis
+              dataKey="date"
+              fontSize={10}
+              tick={{ fill: "var(--muted-foreground)" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              allowDecimals={false}
+              fontSize={10}
+              width={30}
+              tick={{ fill: "var(--muted-foreground)" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <ChartTooltip
+              contentStyle={{
+                backgroundColor: "var(--background)",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              }}
+            />
+            <Bar
+              dataKey="users"
+              fill="var(--primary)"
+              radius={[4, 4, 0, 0]}
+              barSize={8}
+            />
+          </BarChart>
+        </div>
+      </div>
+    </WidgetContainer>
+  );
+}
+
+// New Models Chart Widget
+export function NewModelsChartWidget() {
+  const [chartData, setChartData] = React.useState<
+    { date: string; models: number }[]
+  >([]);
+  const [totalModels, setTotalModels] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function fetchData() {
+      try {
+        const { data: models } = await supabase
+          .from("assets")
+          .select("created_at")
+          .gte(
+            "created_at",
+            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+          );
+
+        const days = Array.from({ length: 30 }).map((_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - (29 - i));
+          return d.toISOString().slice(0, 10);
+        });
+
+        const modelsByDay = days.map(
+          (date) =>
+            models?.filter(
+              (m: { created_at: string }) => m.created_at.slice(0, 10) === date
+            ).length || 0
+        );
+
+        setChartData(
+          days.map((date, i) => ({
+            date,
+            models: modelsByDay[i],
+          }))
+        );
+        setTotalModels(models?.length || 0);
+      } catch (error) {
+        console.error("Error fetching model data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <WidgetContainer>
+        <WidgetHeader title="New Models (30d)" icon={Package} />
+        <div className="animate-pulse space-y-3">
+          <div className="h-6 bg-muted rounded w-1/3"></div>
+          <div className="h-32 bg-muted rounded"></div>
+        </div>
+      </WidgetContainer>
+    );
+  }
+
+  return (
+    <WidgetContainer>
+      <WidgetHeader title="New Models (30d)" icon={Package} />
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-2xl font-bold text-primary">{totalModels}</div>
+            <div className="text-sm text-muted-foreground">
+              Total new models
+            </div>
+          </div>
+          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Package className="h-6 w-6 text-primary" />
+          </div>
+        </div>
+        <div className="h-32 w-full">
+          <BarChart data={chartData} height={150} width={460}>
+            <XAxis
+              dataKey="date"
+              fontSize={10}
+              tick={{ fill: "var(--muted-foreground)" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              allowDecimals={false}
+              fontSize={10}
+              width={30}
+              tick={{ fill: "var(--muted-foreground)" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <ChartTooltip
+              contentStyle={{
+                backgroundColor: "var(--background)",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              }}
+            />
+            <Bar
+              dataKey="models"
+              fill="var(--primary)"
+              radius={[4, 4, 0, 0]}
+              barSize={8}
+            />
+          </BarChart>
+        </div>
       </div>
     </WidgetContainer>
   );

@@ -7,6 +7,8 @@ export {
   PerformanceWidget,
   CalendarWidget,
   SystemStatusWidget,
+  NewUsersChartWidget,
+  NewModelsChartWidget,
   WidgetHeader,
   WidgetContainer,
 } from "./dashboard-widgets";

@@ -43,6 +43,8 @@ import {
   PerformanceWidget,
   CalendarWidget,
   SystemStatusWidget,
+  NewUsersChartWidget,
+  NewModelsChartWidget,
 } from "@/components/dashboard";
 
 interface User {
@@ -500,6 +502,24 @@ export default function DashboardPage() {
         position: { x: 3, y: 2 },
         visible: true,
         content: <SystemStatusWidget />,
+      },
+      {
+        id: "new-users-chart",
+        title: "New Users Chart",
+        type: "custom" as const,
+        size: "small" as const,
+        position: { x: 0, y: 4 },
+        visible: true,
+        content: <NewUsersChartWidget />,
+      },
+      {
+        id: "new-models-chart",
+        title: "New Models Chart",
+        type: "custom" as const,
+        size: "small" as const,
+        position: { x: 2, y: 4 },
+        visible: true,
+        content: <NewModelsChartWidget />,
       },
     ],
     [

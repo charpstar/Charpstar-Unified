@@ -441,26 +441,32 @@ export function DraggableDashboard({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {widgets
           .filter((widget) => widget.visible)
-          .map((widget) => (
-            <div
-              key={widget.id}
-              className={`${getSizeClasses(widget.size)} ${
-                isEditMode ? "cursor-move" : ""
-              }`}
-              draggable={isEditMode}
-              onDragStart={(e) => handleDragStart(e, widget.id)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, widget.id)}
-              onDragEnd={handleDragEnd}
-            >
-              <Card className="h-full">
-                <CardContent className="pt-0">{widget.content}</CardContent>
-              </Card>
-            </div>
-          ))}
-      </div>
+          .map((widget) => {
+            const isDragging = draggedWidget === widget.id;
 
-      {/* Widget Toggle Panel (Edit Mode) */}
+            return (
+              <div
+                key={widget.id}
+                className={`${getSizeClasses(widget.size)} transition-all duration-200 ${
+                  isEditMode ? "cursor-move" : ""
+                } ${isDragging ? "opacity-50 scale-95" : ""}`}
+                draggable={isEditMode}
+                onDragStart={(e) => handleDragStart(e, widget.id)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, widget.id)}
+                onDragEnd={handleDragEnd}
+              >
+                <Card
+                  className={`h-full transition-all duration-200 ${
+                    isDragging ? "border-primary/50 shadow-lg" : ""
+                  }`}
+                >
+                  <CardContent className="pt-0">{widget.content}</CardContent>
+                </Card>
+              </div>
+            );
+          })}
+      </div>
     </div>
   );
 }
