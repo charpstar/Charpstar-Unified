@@ -24,6 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/display";
+import { Eye, TrendingUp, ShoppingCart, Activity } from "lucide-react";
 
 interface AnalyticsRow {
   metric_name: string;
@@ -443,361 +444,452 @@ export default function AnalyticsDashboard() {
         </div>
       )}
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Total Page Views"
-                    value={stats?.total_page_views || 0}
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Total Views on CharpstAR service enabled PDPs</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      <div className="space-y-8">
+        {/* User Engagement & Service Activation */}
+        <div className="space-y-6">
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
+            {/* User Engagement Metrics */}
+            <div className="lg:col-span-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-4 uppercase tracking-wide flex items-center gap-2">
+                <Eye className="h-4 w-4" />
+                User Engagement
+              </h3>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Total Page Views"
+                            value={stats?.total_page_views || 0}
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Total Views on CharpstAR service enabled PDPs</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Total Unique Users"
-                    value={stats?.total_unique_users || 0}
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Total Unique Users on CharpstAR service enabled PDPs</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Total Users who activate our services"
+                            value={stats?.total_users_with_service || 0}
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Total Users on PDPs who click either of the AR/3D
+                        buttons
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Total Users who activate our services"
-                    value={stats?.total_users_with_service || 0}
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Total Users on PDPs who click either of the AR/3D buttons</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Percentage of users using our service"
+                            value={capPercentage(
+                              stats?.percentage_users_with_service || 0
+                            )}
+                            suffix="%"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        The percentage of users who have visited a page with our
+                        script and have clicked either the AR or 3D Button{" "}
+                        <br />
+                        <br />
+                        <b>Formula:</b> (Total Unique Users with AR or 3D uses /
+                        Total Unique Users on entire store) × 100
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Percentage of users using our service"
-                    value={capPercentage(
-                      stats?.percentage_users_with_service || 0
-                    )}
-                    suffix="%"
-                  />
-                )}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Total Unique Users"
+                            value={stats?.total_unique_users || 0}
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Total Unique Users on CharpstAR service enabled PDPs
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                The percentage of users who have visited a page with our script
-                and have clicked either the AR or 3D Button <br />
-                <br />
-                <b>Formula:</b> (Total Unique Users with AR or 3D uses / Total
-                Unique Users on entire store) × 100
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            </div>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Conversion rate without AR/3D activation"
-                    value={stats?.conversion_rate_without_ar || 0}
-                    suffix="%"
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                The average conversion rate of users who do not use our services{" "}
-                <br />
-                <br />
-                <b>Formula:</b> (Total Purchases on entire store / Total Unique
-                Users on entire store) × 100
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            {/* Service Activation */}
+          </div>
+        </div>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Conversion rate with AR/3D activation"
-                    value={stats?.conversion_rate_with_ar || 0}
-                    suffix="%"
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                The average conversion rate of users when using either of our
-                services <br />
-                <br />
-                <b>Formula:</b> (Total Purchases with AR or 3D / Total Unique
-                Users with AR or 3D uses) × 100
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {/* Separator */}
+        <div className="border-t border-border/50" />
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Total Purchases with AR/3D activation"
-                    value={stats?.total_purchases_with_ar || 0}
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Total Purchases made after interacting with our services</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {/* Conversion & Performance Metrics */}
+        <div className="space-y-6">
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
+            {/* Conversion Metrics */}
+            <div className="lg:col-span-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-4 uppercase tracking-wide flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Conversion Performance
+              </h3>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Conversion rate without AR/3D activation"
+                            value={stats?.conversion_rate_without_ar || 0}
+                            suffix="%"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        The average conversion rate of users who do not use our
+                        services <br />
+                        <br />
+                        <b>Formula:</b> (Total Purchases on entire store / Total
+                        Unique Users on entire store) × 100
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Add to Cart Default"
-                    value={stats?.add_to_cart_default || 0}
-                    suffix="%"
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                The percentage of users adding a product to cart when they have
-                not interacted with CharpstAR services <br />
-                <br />
-                <b>Formula:</b> (Cart Additions on entire store / Total Unique
-                Users on entire store) × 100
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Add to Cart Default"
+                            value={stats?.add_to_cart_default || 0}
+                            suffix="%"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        The percentage of users adding a product to cart when
+                        they have not interacted with CharpstAR services <br />
+                        <br />
+                        <b>Formula:</b> (Cart Additions on entire store / Total
+                        Unique Users on entire store) × 100
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Add to Cart with CharpstAR"
-                    value={stats?.add_to_cart_with_ar || 0}
-                    suffix="%"
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                The percentage of users adding a product to cart after they have
-                interacted with either of the AR/3D buttons <br />
-                <br />
-                <b>Formula:</b> (Cart Additions with AR or 3D uses / Total
-                Unique Users with AR or 3D uses) × 100
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Add to Cart with CharpstAR"
+                            value={stats?.add_to_cart_with_ar || 0}
+                            suffix="%"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        The percentage of users adding a product to cart after
+                        they have interacted with either of the AR/3D buttons{" "}
+                        <br />
+                        <br />
+                        <b>Formula:</b> (Cart Additions with AR or 3D uses /
+                        Total Unique Users with AR or 3D uses) × 100
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Average Order Value without AR/3D activation"
-                    value={stats?.avg_order_value_without_ar || 0}
-                    suffix="(Store currency)"
-                  />
-                )}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Conversion rate with AR/3D activation"
+                            value={stats?.conversion_rate_with_ar || 0}
+                            suffix="%"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        The average conversion rate of users when using either
+                        of our services <br />
+                        <br />
+                        <b>Formula:</b> (Total Purchases with AR or 3D / Total
+                        Unique Users with AR or 3D uses) × 100
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                The Average value in the store&apos;s default currency of orders
-                made by customers when they have not interacted with CharpstAR
-                services
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            </div>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Average Order Value with AR/3D activation"
-                    value={stats?.avg_order_value_with_ar || 0}
-                    suffix="(Store currency)"
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                The Average value in the store&apos;s default currency of orders
-                made by customers after they have interacted with either of the
-                AR/3D buttons
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            {/* Cart Performance */}
+          </div>
+        </div>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Total AR Clicks"
-                    value={stats?.total_ar_clicks || 0}
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Total clicks by users on the &apos;View in AR&apos; Button</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {/* Separator */}
+        <div className="border-t border-border/50" />
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Total 3D Clicks"
-                    value={stats?.total_3d_clicks || 0}
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Total clicks by users on the &apos;View in 3D&apos; Button</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {/* Revenue & Purchase Metrics */}
+        <div className="space-y-6">
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
+            {/* Purchase Metrics */}
+            <div className="lg:col-span-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-4 uppercase tracking-wide flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                Purchase Metrics
+              </h3>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Total Purchases with AR/3D activation"
+                            value={stats?.total_purchases_with_ar || 0}
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Total Purchases made after interacting with our services
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Session time duration without AR/3D activation"
-                    value={stats?.session_duration_without_ar || 0}
-                    suffix="seconds"
-                  />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                The average session time of users on CharpstAR service enabled
-                PDPs when they have not interacted with our services
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Average Order Value with AR/3D activation"
+                            value={stats?.avg_order_value_with_ar || 0}
+                            suffix="(Store currency)"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        The Average value in the store&apos;s default currency
+                        of orders made by customers after they have interacted
+                        with either of the AR/3D buttons
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                {isAnalyticsLoading ? (
-                  <Skeleton className="bg-background" />
-                ) : (
-                  <StatCard
-                    title="Session time duration with AR/3D activation"
-                    value={stats?.session_duration_with_ar || 0}
-                    suffix="seconds"
-                  />
-                )}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Average Order Value without AR/3D activation"
+                            value={stats?.avg_order_value_without_ar || 0}
+                            suffix="(Store currency)"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        The Average value in the store&apos;s default currency
+                        of orders made by customers when they have not
+                        interacted with CharpstAR services
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>
-                The average session time of users who have visited a page with
-                our services and clicked either the AR or 3D Button
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            </div>
+          </div>
+        </div>
+
+        {/* Separator */}
+        <div className="border-t border-border/50" />
+
+        {/* User Interactions & Session Duration */}
+        <div className="space-y-6">
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
+            {/* Interaction Metrics */}
+            <div className="lg:col-span-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-4 uppercase tracking-wide flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                User Interactions
+              </h3>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Total AR Clicks"
+                            value={stats?.total_ar_clicks || 0}
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Total clicks by users on the &apos;View in AR&apos;
+                        Button
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Total 3D Clicks"
+                            value={stats?.total_3d_clicks || 0}
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Total clicks by users on the &apos;View in 3D&apos;
+                        Button
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Session time duration without AR/3D activation"
+                            value={stats?.session_duration_without_ar || 0}
+                            suffix="seconds"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        The average session time of users on CharpstAR service
+                        enabled PDPs when they have not interacted with our
+                        services
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        {isAnalyticsLoading ? (
+                          <Skeleton className="bg-background" />
+                        ) : (
+                          <StatCard
+                            title="Session time duration with AR/3D activation"
+                            value={stats?.session_duration_with_ar || 0}
+                            suffix="seconds"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        The average session time of users who have visited a
+                        page with our services and clicked either the AR or 3D
+                        Button
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+
+            {/* Session Duration */}
+            <div className="lg:col-span-2">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-4"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-6">

@@ -227,7 +227,7 @@ export default function AssetCard({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        variant="default"
+                        variant="outline"
                         size="default"
                         className="group/btn dark:bg-muted dark:text-white  w-24"
                         asChild
@@ -238,7 +238,6 @@ export default function AssetCard({
                           prefetch={true}
                         >
                           View
-                          <ExternalLink className="h-4 w-4" />
                         </Link>
                       </Button>
                     </TooltipTrigger>
@@ -343,7 +342,7 @@ export default function AssetCard({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      variant="default"
+                      variant="outline"
                       size={isCompactMode ? "sm" : "sm"}
                       className="flex-1 group/btn dark:bg-muted dark:text-white transition-all "
                       asChild
@@ -354,9 +353,6 @@ export default function AssetCard({
                         prefetch={true}
                       >
                         {isCompactMode ? "View" : "View"}
-                        {!isCompactMode && (
-                          <ExternalLink className="h-4 w-4 ml-1" />
-                        )}
                       </Link>
                     </Button>
                   </TooltipTrigger>

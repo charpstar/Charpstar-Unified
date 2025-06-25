@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/display";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/inputs";

@@ -29,8 +29,19 @@ export const UserProvider = ({ children }: React.PropsWithChildren<{}>) => {
       }
     );
 
+    // Listen for avatar update events
+    const handleAvatarUpdate = () => {
+      console.log(
+        "UserProvider: Received avatarUpdated event, refetching user metadata"
+      );
+      fetchUser();
+    };
+
+    window.addEventListener("avatarUpdated", handleAvatarUpdate);
+
     return () => {
       listener.subscription.unsubscribe();
+      window.removeEventListener("avatarUpdated", handleAvatarUpdate);
     };
   }, []);
 
@@ -41,5 +52,6 @@ export const useUser = () => {
   const context = React.useContext(UserContext);
   if (typeof context === "undefined")
     throw new Error("useUser must be used within a UserProvider");
-  return context; // may be null
+
+  return context; // Return the user directly, not the context object
 };

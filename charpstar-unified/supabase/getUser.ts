@@ -22,6 +22,7 @@ export async function getUserMetadata(
     client,
     role,
     analytics_profile_id,
+    avatar_url,
     analytics_profiles:analytics_profile_id (
       projectid,
       datasetid,
@@ -38,9 +39,9 @@ export async function getUserMetadata(
   return data as {
     id: string;
     client: string | null;
-
     role: string;
     analytics_profile_id: string;
+    avatar_url: string | null;
     analytics_profiles: {
       projectid: string;
       datasetid: TDatasets;

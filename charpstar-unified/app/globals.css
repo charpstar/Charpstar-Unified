@@ -93,11 +93,11 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
   --radius: 0.625rem;
 
   --sidebar: oklch(0.985 0 0);
@@ -112,16 +112,11 @@
   --switch-on: oklch(0.65 0.18 140);
   --switch-off: oklch(0.58 0.18 27);
   --switch-thumb: #fff;
-  --chart-1: 12 76% 61%;
-  --chart-2: 173 58% 39%;
-  --chart-3: 197 37% 24%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
 
   --banner: oklch(0.99 0.045 180); /* Even softer, lighter blue */
-  --banner-border: oklch(0.56 0.055 180); /* Gentle blue border */
-  --banner-text: oklch(0.31 0.01 180); /* Deep slate/navy text, easy to read */
-  --banner-text-foreground: oklch(0.99 0 0); /* Pure white for accents */
+  --banner-border: oklch(0.32 0.07 220); /* Lighter blue accent for border */
+  --banner-text: oklch(0.92 0.01 235); /* Near-white text for contrast */
+  --banner-text-foreground: oklch(0.72 0.02 235);
 
   /* White for highlighted/foreground text */
 }
@@ -170,6 +165,8 @@
   --switch-on: oklch(0.6 0.18 140);
   --switch-off: oklch(0.62 0.22 27);
   --switch-thumb: #18181b;
+
+  /* Chart colors based on primary */
   --chart-1: 220 70% 50%;
   --chart-2: 160 60% 45%;
   --chart-3: 30 80% 55%;

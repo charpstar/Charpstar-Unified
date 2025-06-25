@@ -42,7 +42,7 @@ export function CalendarTourNotification({
   return (
     <div
       className={cn(
-        "absolute z-50 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 shadow-lg max-w-xs animate-in slide-in-from-bottom-2 duration-300",
+        "absolute z-50 bg-primary text-primary-foreground border border-primary/20 rounded-lg p-3 shadow-lg max-w-xs animate-in slide-in-from-bottom-2 duration-300",
         "transform translate-y-2", // Position it slightly below
         className
       )}
@@ -54,16 +54,16 @@ export function CalendarTourNotification({
     >
       {/* Arrow pointing up to calendar */}
       <div className="absolute top-0 right-4 transform -translate-y-full">
-        <div className="w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-blue-200 dark:border-b-blue-800"></div>
+        <div className="w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-primary"></div>
       </div>
 
       <div className="flex items-start gap-2">
-        <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+        <Calendar className="h-4 w-4 text-primary-foreground/70 mt-0.5 flex-shrink-0" />
         <div className="flex-1">
-          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+          <p className="text-sm font-medium text-primary-foreground">
             Date Range Picker
           </p>
-          <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+          <p className="text-xs text-primary-foreground/70 mt-1">
             Click here to select your date range for analytics data
           </p>
         </div>
@@ -74,7 +74,7 @@ export function CalendarTourNotification({
             setIsVisible(false);
             setTimeout(onDismiss, 300); // Wait for animation
           }}
-          className="h-6 w-6 p-0 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900"
+          className="h-6 w-6 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
         >
           <X className="h-3 w-3" />
         </Button>

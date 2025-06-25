@@ -27,6 +27,13 @@ import {
   Mail,
   UserCog,
   Box,
+  User,
+  Crown,
+  Star,
+  Heart,
+  Zap,
+  Target,
+  Palette,
 } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/utilities";
 import {
@@ -42,6 +49,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  EditorThemePicker,
+  AvatarPicker,
 } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import {
@@ -85,7 +94,7 @@ interface UserProfile {
   name: string;
   updated_at: string;
   analytics_profile_id?: string;
-  avatar?: string;
+  avatar_url?: string | null;
 }
 
 interface AnalyticsProfile {
@@ -125,6 +134,7 @@ interface ClientUser {
   name: string;
   email: string;
   created_at: string;
+  avatar?: string;
 }
 
 // Add User type
@@ -394,6 +404,45 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     router.push("/auth");
   };
 
+  const handleAvatarChange = async (avatarUrl: string | null) => {
+    try {
+      const response = await fetch("/api/users/avatar", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          avatar_url: avatarUrl,
+          user_id: user?.id,
+        }),
+      });
+
+      if (response.ok) {
+        // Update local state
+        setUser((prev) => (prev ? { ...prev, avatar_url: avatarUrl } : null));
+
+        toast({
+          title: "Avatar updated",
+          description: "Your profile picture has been updated successfully.",
+        });
+      } else {
+        console.error("Failed to update avatar");
+        toast({
+          title: "Error",
+          description: "Failed to update avatar. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error updating avatar:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update avatar. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleAddUser = async (formData: UserFormValues) => {
     if (!userPermissions.add_user) {
       toast({
@@ -590,10 +639,80 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       name: user.name || "",
       updated_at: new Date().toISOString(),
       analytics_profile_id: user.analytics_profile_id,
-      avatar: user.avatar,
+      avatar_url: user.avatar,
     };
     setEditingUser(userProfile);
     setIsEditUserDialogOpen(true);
+  };
+
+  // Helper function to render avatars with support for both custom and preset avatars
+  const renderAvatar = (
+    avatar: string | Blob | null | undefined,
+    name: string,
+    size: "sm" | "md" | "lg" = "md"
+  ) => {
+    const sizeClasses = {
+      sm: "h-8 w-8",
+      md: "h-8 w-8 sm:h-9 sm:w-9",
+      lg: "h-12 w-12 sm:h-14 sm:w-14",
+    };
+
+    // Convert avatar to string if it's a Blob or handle null/undefined
+    const avatarString = typeof avatar === "string" ? avatar : null;
+
+    if (!avatarString) {
+      return (
+        <Avatar className={`${sizeClasses[size]} border border-border`}>
+          <AvatarFallback className="bg-primary/10 text-muted-foreground">
+            {getInitials(name)}
+          </AvatarFallback>
+        </Avatar>
+      );
+    }
+
+    if (avatarString.startsWith("http")) {
+      return (
+        <Avatar className={`${sizeClasses[size]} border border-border`}>
+          <AvatarImage src={avatarString} alt={name} />
+          <AvatarFallback className="bg-primary/10 text-muted-foreground">
+            {getInitials(name)}
+          </AvatarFallback>
+        </Avatar>
+      );
+    }
+
+    // Preset avatar
+    const presetAvatars = [
+      { id: "default", icon: User, color: "bg-blue-500" },
+      { id: "team", icon: Users, color: "bg-green-500" },
+      { id: "premium", icon: Crown, color: "bg-yellow-500" },
+      { id: "star", icon: Star, color: "bg-purple-500" },
+      { id: "heart", icon: Heart, color: "bg-pink-500" },
+      { id: "zap", icon: Zap, color: "bg-orange-500" },
+      { id: "target", icon: Target, color: "bg-red-500" },
+      { id: "palette", icon: Palette, color: "bg-indigo-500" },
+    ];
+
+    const preset = presetAvatars.find((p) => p.id === avatarString);
+    if (preset) {
+      const IconComponent = preset.icon;
+      return (
+        <Avatar className={`${sizeClasses[size]} border border-border`}>
+          <AvatarFallback className={`${preset.color} text-white`}>
+            <IconComponent className="h-4 w-4" />
+          </AvatarFallback>
+        </Avatar>
+      );
+    }
+
+    // Fallback to initials
+    return (
+      <Avatar className={`${sizeClasses[size]} border border-border`}>
+        <AvatarFallback className="bg-primary/10 text-muted-foreground">
+          {getInitials(name)}
+        </AvatarFallback>
+      </Avatar>
+    );
   };
 
   return (
@@ -686,7 +805,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
               <div className="flex-1 overflow-y-auto mt-3 sm:mt-6">
                 <TabsContent value="account" className="space-y-6">
-                  <div className="space-y-3 sm:space-y-6  px-1  text-xs sm:text-base  overflow-hidden">
+                  <div className="space-y-3 sm:space-y-6  px-1  text-xs sm:text-base max-h-[60vh] sm:max-h-[48vh] overflow-y-auto">
                     {/* Email and Role */}
                     <div className="flex flex-col gap-1">
                       <Label className="text-muted-foreground text-xs sm:text-sm">
@@ -704,9 +823,26 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         {user?.role || "User"}
                       </div>
                     </div>
+                    {/* Profile Picture */}
+                    {/* <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-3">
+                        {renderAvatar(
+                          user?.avatar_url,
+                          user?.name || "User",
+                          "lg"
+                        )}
+                        <div className="text-xs text-muted-foreground">
+                          Your profile picture
+                        </div>
+                      </div>
+                    </div> */}
                     {/* Theme toggle */}
                     <div className="flex flex-col gap-1">
                       <ThemeSwitcherCard />
+                    </div>
+                    {/* Editor Theme */}
+                    <div className="flex flex-col gap-1">
+                      <EditorThemePicker />
                     </div>
                     {/* Analytics Profile */}
                     <div className="flex flex-col gap-1">
@@ -897,15 +1033,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                       >
                                         <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                           <div className="flex items-center gap-3">
-                                            <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-border">
-                                              <AvatarImage
-                                                src={user.avatar}
-                                                alt={user.name}
-                                              />
-                                              <AvatarFallback className="bg-primary/10 text-muted-foreground">
-                                                {getInitials(user.name)}
-                                              </AvatarFallback>
-                                            </Avatar>
+                                            {renderAvatar(
+                                              user.avatar_url,
+                                              user.name
+                                            )}
                                             <div>
                                               <p className="font-medium text-sm sm:text-base">
                                                 {user.name}
@@ -1031,15 +1162,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                       className="border rounded-md p-4 space-y-2 cursor-pointer hover:bg-accent/30"
                                     >
                                       <div className="flex items-center gap-3">
-                                        <Avatar className="h-8 w-8 border border-border">
-                                          <AvatarImage
-                                            src={user.avatar}
-                                            alt={user.name}
-                                          />
-                                          <AvatarFallback className="bg-primary/10 text-muted-foreground">
-                                            {getInitials(user.name)}
-                                          </AvatarFallback>
-                                        </Avatar>
+                                        {renderAvatar(
+                                          user.avatar_url,
+                                          user.name
+                                        )}
                                         <div className="flex flex-col flex-1">
                                           <p className="font-medium text-base">
                                             {user.name}
@@ -1391,16 +1517,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                 >
                                   <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                     <div className="flex items-center gap-3">
-                                      <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-border">
-                                        <AvatarFallback className="bg-primary/10 text-muted-foreground">
-                                          {client.name
-                                            .split(" ")
-                                            .map((n) => n[0])
-                                            .join("")
-                                            .toUpperCase()
-                                            .substring(0, 2)}
-                                        </AvatarFallback>
-                                      </Avatar>
+                                      {renderAvatar(client.avatar, client.name)}
                                       <div>
                                         <p className="font-medium text-sm sm:text-base">
                                           {client.name}
@@ -1446,6 +1563,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             Quick access to 3D editor clients
                           </p>
                         </div>
+
+                        {/* Editor Theme Settings */}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="border rounded-lg p-4 hover:bg-accent/30 transition-colors">

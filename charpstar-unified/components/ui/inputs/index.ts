@@ -16,5 +16,7 @@ export { ToggleGroup, ToggleGroupItem } from "./toggle-group";
 export { Switch } from "./switch";
 export { MultiSelect } from "./multi-select";
 export { ColorThemePicker } from "./color-picker";
+export { EditorThemePicker } from "./editor-theme-picker";
 export { SliderWithInput } from "./slider-with-input";
 export { Combobox } from "./combobox";
+export { AvatarPicker } from "./avatar-picker";

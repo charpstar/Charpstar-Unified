@@ -20,6 +20,7 @@ import { CategorySidebar } from "@/components/asset-library/CategorySidebar";
 import AssetCard from "@/app/components/ui/AssetCard";
 import { translateSwedishToEnglish } from "@/utils/swedishTranslations";
 import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
+import { Search } from "lucide-react";
 
 type SortOption =
   | "name-asc"
@@ -332,6 +333,7 @@ export default function AssetLibraryPage() {
 
   const handleSearch = (value: string) => {
     setSearchValue(value);
+    setActiveSearchValue(value);
     setCurrentPage(1);
   };
 
@@ -696,26 +698,54 @@ export default function AssetLibraryPage() {
             </div>
           )}
 
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 p-1 overflow-hidden"
-                : viewMode === "compactGrid"
-                  ? "flex flex-col gap-3"
-                  : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 overflow-hidden"
-            }
-          >
-            {currentAssets.map((asset) => (
-              <AssetCard
-                key={asset.id}
-                asset={asset}
-                isBatchEditMode={isBatchEditMode}
-                isSelected={selectedAssets.includes(asset.id)}
-                onSelect={handleAssetSelect}
-                viewMode={viewMode}
-              />
-            ))}
-          </div>
+          {/* No Results State */}
+          {filteredAssets.length === 0 && assets.length > 0 && (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <div className="mb-6">
+                <Search className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  No assets found
+                </h3>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  {activeSearchValue
+                    ? `We couldn't find any assets matching "${activeSearchValue}". Try adjusting your search terms or filters.`
+                    : "No assets match your current filters. Try adjusting your selection to see more results."}
+                </p>
+                <Button
+                  onClick={handleClearAllFilters}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Search className="h-4 w-4" />
+                  Remove Filters
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Asset Grid */}
+          {filteredAssets.length > 0 && (
+            <div
+              className={
+                viewMode === "grid"
+                  ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 p-1 overflow-hidden"
+                  : viewMode === "compactGrid"
+                    ? "flex flex-col gap-3"
+                    : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 overflow-hidden"
+              }
+            >
+              {currentAssets.map((asset) => (
+                <AssetCard
+                  key={asset.id}
+                  asset={asset}
+                  isBatchEditMode={isBatchEditMode}
+                  isSelected={selectedAssets.includes(asset.id)}
+                  onSelect={handleAssetSelect}
+                  viewMode={viewMode}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (
