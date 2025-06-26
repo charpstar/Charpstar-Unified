@@ -12,7 +12,6 @@ import {
   Activity,
   Settings,
   FileText,
-  Target,
   Zap,
   Upload,
   Plus,
@@ -26,6 +25,7 @@ import {
   FileDown,
   FileUp,
   Package,
+  Folder,
 } from "lucide-react";
 import { SettingsDialog } from "@/app/components/settings-dialog";
 import { BarChart, XAxis, YAxis, Bar } from "recharts";
@@ -152,10 +152,10 @@ export function QuickActionsWidget() {
       },
     },
     {
-      name: "Create Model",
-      icon: Target,
+      name: "Asset Library",
+      icon: Folder,
       action: () => {
-        window.location.href = "/3d-editor";
+        window.location.href = "/asset-library";
       },
     },
     {
