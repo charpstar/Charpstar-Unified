@@ -44,6 +44,7 @@ export default function NavUser() {
   console.log("Full user object:", supaUser);
 
   // Get avatar from user metadata (same as dashboard)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const userAvatar = supaUser?.metadata?.avatar_url || null;
 
   // Add a fallback for when metadata is not loaded yet
@@ -175,6 +176,7 @@ export default function NavUser() {
   };
 
   // Fallback avatar (initials)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const initials = supaUser?.metadata?.analytics_profiles?.[0]?.name
     ? supaUser.metadata.analytics_profiles[0].name
         .split(" ")

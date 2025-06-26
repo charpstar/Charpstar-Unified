@@ -8,36 +8,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/containers";
-import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
-import { createClient } from "@/utils/supabase/client";
-import {
-  Package,
-  TrendingUp,
-  ChartBar,
-  User2,
-  Shield,
-  Box,
-  PackageSearch,
-  Users,
-  Activity,
-  Calendar,
-  Target,
-  Zap,
-} from "lucide-react";
-import Link from "next/link";
+import { Package, User2, Shield, Target } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/utilities";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/display";
 import { supabase } from "@/lib/supabaseClient";
 import React from "react";
-import { ChartContainer, ChartTooltip } from "@/components/ui/display";
-import { BarChart, Bar, XAxis, YAxis } from "recharts";
 import { EditorThemePicker, AvatarPicker } from "@/components/ui/inputs";
 import { useToast } from "@/components/ui/utilities";
 import { DraggableDashboard } from "@/components/dashboard";
 import {
   StatsWidget,
-  ProfileWidget,
   QuickActionsWidget,
   ActivityWidget,
   NewUsersChartWidget,
@@ -57,13 +37,6 @@ interface User {
   };
 }
 
-interface UserProfile {
-  id: string;
-  role: string;
-  user_id: string;
-  avatar_url?: string | null;
-}
-
 interface DashboardStats {
   totalModels: number;
   totalCategories: number;
@@ -78,108 +51,10 @@ interface AnalyticsProfile {
   tablename: string;
 }
 
-type StatCardProps = { title: string; value: number; icon: React.ReactNode };
-function StatCard({ title, value, icon }: StatCardProps) {
-  return (
-    <div className="bg-background rounded shadow p-4 flex items-center space-x-3">
-      <div className="text-2xl">{icon}</div>
-      <div>
-        <div className="text-xs text-muted-foreground">{title}</div>
-        <div className="font-bold text-lg">{value}</div>
-      </div>
-    </div>
-  );
-}
-
-type ChartDatum = { date: string; uploads: number; registrations: number };
-function AdminDashboardWidgets() {
-  const [chartData, setChartData] = React.useState<ChartDatum[]>([]);
-  const [modelCount, setModelCount] = React.useState(0);
-  const [userCount, setUserCount] = React.useState(0);
-
-  React.useEffect(() => {
-    async function fetchData() {
-      const { data: uploads } = await supabase
-        .from("assets")
-        .select("created_at")
-        .gte(
-          "created_at",
-          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-        );
-      const { data: users } = await supabase
-        .from("profiles")
-        .select("created_at")
-        .gte(
-          "created_at",
-          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-        );
-      const days = Array.from({ length: 7 }).map((_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (6 - i));
-        return d.toISOString().slice(0, 10);
-      });
-      const uploadsByDay = days.map(
-        (date) =>
-          uploads?.filter((u) => u.created_at.slice(0, 10) === date).length || 0
-      );
-      const usersByDay = days.map(
-        (date) =>
-          users?.filter((u) => u.created_at.slice(0, 10) === date).length || 0
-      );
-      setChartData(
-        days.map((date, i) => ({
-          date,
-          uploads: uploadsByDay[i],
-          registrations: usersByDay[i],
-        }))
-      );
-      setModelCount(uploads?.length || 0);
-      setUserCount(users?.length || 0);
-    }
-    fetchData();
-  }, []);
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <div className="bg-background rounded-lg shadow p-4 flex flex-col border border-border">
-        <StatCard title="Models Uploaded (7d)" value={modelCount} icon="📦" />
-        <div className="mt-2">
-          <ChartContainer
-            config={{ uploads: { label: "Uploads", color: "#6366f1" } }}
-          >
-            <BarChart data={chartData} height={60}>
-              <XAxis dataKey="date" fontSize={10} />
-              <YAxis allowDecimals={false} fontSize={10} width={24} />
-              <ChartTooltip />
-              <Bar dataKey="uploads" fill="var(--primary)" barSize={7} />
-            </BarChart>
-          </ChartContainer>
-        </div>
-      </div>
-      <div className="bg-background rounded-lg shadow p-4 flex flex-col border border-border">
-        <StatCard title="New Users (7d)" value={userCount} icon="👤" />
-        <div className="mt-2">
-          <ChartContainer
-            config={{
-              registrations: { label: "Registrations", color: "#22c55e" },
-            }}
-          >
-            <BarChart data={chartData} height={60}>
-              <XAxis dataKey="date" fontSize={10} />
-              <YAxis allowDecimals={false} fontSize={10} width={24} />
-              <ChartTooltip />
-              <Bar dataKey="registrations" fill="var(--primary)" barSize={7} />
-            </BarChart>
-          </ChartContainer>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [analyticsProfile, setAnalyticsProfile] =
     useState<AnalyticsProfile | null>(null);
   const [showAvatarPopup, setShowAvatarPopup] = useState(false);
@@ -325,39 +200,10 @@ export default function DashboardPage() {
     [user?.id, toast]
   );
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getRoleBadgeVariant = (role: string) => {
     // Use "default" variant for all roles to get bg-primary color
     return "default";
-  };
-
-  const renderAvatar = () => {
-    if (displayAvatar) {
-      return (
-        <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border border-border">
-          <AvatarImage src={displayAvatar} />
-          <AvatarFallback className="bg-primary/10 text-muted-foreground text-base sm:text-lg">
-            {getInitials(user?.email || "")}
-          </AvatarFallback>
-        </Avatar>
-      );
-    }
-
-    return (
-      <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border border-border">
-        <AvatarFallback className="bg-primary/10 text-muted-foreground text-base sm:text-lg">
-          {getInitials(user?.email || "")}
-        </AvatarFallback>
-      </Avatar>
-    );
   };
 
   // Memoize the default dashboard layout to prevent recreation on every render

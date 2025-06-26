@@ -8,9 +8,8 @@ import {
   CardTitle,
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
-import { Badge } from "@/components/ui/feedback";
 import { Switch } from "@/components/ui/inputs";
-import { Settings, Save, RotateCcw, X, Move, Eye } from "lucide-react";
+import { Settings, Save, RotateCcw, X, Eye } from "lucide-react";
 import { useToast } from "@/components/ui/utilities";
 import { supabase } from "@/lib/supabaseClient";
 import { useUser } from "@/contexts/useUser";
