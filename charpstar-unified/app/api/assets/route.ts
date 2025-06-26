@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { logActivityServer } from "@/lib/serverActivityLogger";
 
 export async function GET(request: Request) {
   try {
@@ -166,6 +167,29 @@ export async function POST(req: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    console.log("Asset created successfully:", data);
+    console.log("About to log activity for asset:", product_name);
+
+    // Log the asset creation activity using server-side logging
+    try {
+      await logActivityServer({
+        action: `Uploaded asset: ${product_name}`,
+        type: "upload",
+        resource_type: "asset",
+        resource_id: data.id,
+        metadata: {
+          asset_name: product_name,
+          category,
+          subcategory,
+          client,
+        },
+      });
+      console.log("Activity logged successfully for asset:", product_name);
+    } catch (activityError) {
+      console.error("Error logging activity for asset:", activityError);
+    }
+
     return NextResponse.json({ asset: data });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

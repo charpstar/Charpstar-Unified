@@ -1,12 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
+
 import { Button } from "@/components/ui/display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
@@ -17,16 +12,26 @@ import {
   Activity,
   Settings,
   FileText,
-  Calendar,
   Target,
   Zap,
+  Upload,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  LogIn,
+  LogOut,
+  Download,
+  Share2,
+  FileDown,
+  FileUp,
   Package,
 } from "lucide-react";
 import { SettingsDialog } from "@/app/components/settings-dialog";
 import { BarChart, XAxis, YAxis, Bar } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
-import { useUser } from "@/contexts/useUser";
 import { ChartTooltip } from "@/components/ui/display";
+import { useActivities } from "@/hooks/use-activities";
 
 // Unified Widget Header Component
 interface WidgetHeaderProps {
@@ -142,22 +147,30 @@ export function QuickActionsWidget() {
     {
       name: "Upload Asset",
       icon: FileText,
-      action: () => (window.location.href = "/asset-library/upload"),
+      action: () => {
+        window.location.href = "/asset-library/upload";
+      },
     },
     {
       name: "Create Model",
       icon: Target,
-      action: () => (window.location.href = "/3d-editor"),
+      action: () => {
+        window.location.href = "/3d-editor";
+      },
     },
     {
       name: "View Analytics",
       icon: TrendingUp,
-      action: () => (window.location.href = "/analytics"),
+      action: () => {
+        window.location.href = "/analytics";
+      },
     },
     {
       name: "Settings",
       icon: Settings,
-      action: () => setIsSettingsOpen(true),
+      action: () => {
+        setIsSettingsOpen(true);
+      },
     },
   ];
 
@@ -170,7 +183,7 @@ export function QuickActionsWidget() {
             key={action.name}
             variant="outline"
             size="sm"
-            className="h-55 p-4 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors"
+            className="h-55 p-4 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors cursor-pointer"
             onClick={action.action}
           >
             <action.icon className="h-5 w-5" />
@@ -187,173 +200,121 @@ export function QuickActionsWidget() {
 
 // Activity Widget
 export function ActivityWidget() {
-  const activities = [
-    {
-      id: 1,
-      action: "Uploaded new 3D model",
-      time: "2 hours ago",
-      type: "upload",
-    },
-    {
-      id: 2,
-      action: "Updated profile settings",
-      time: "4 hours ago",
-      type: "settings",
-    },
-    {
-      id: 3,
-      action: "Viewed analytics dashboard",
-      time: "1 day ago",
-      type: "view",
-    },
-    {
-      id: 4,
-      action: "Created new project",
-      time: "2 days ago",
-      type: "create",
-    },
-  ];
+  const { activities, isLoading, error, formatTimeAgo, getActivityIcon } =
+    useActivities({
+      limit: 8,
+      realtime: true,
+    });
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case "upload":
-        return <FileText className="h-4 w-4" />;
-      case "settings":
-        return <Settings className="h-4 w-4" />;
-      case "view":
-        return <Activity className="h-4 w-4" />;
-      case "create":
-        return <Target className="h-4 w-4" />;
-      default:
-        return <Activity className="h-4 w-4" />;
-    }
+  // Helper function to get Lucide React icon component
+  const getActivityIconComponent = (iconName: string) => {
+    const iconMap: {
+      [key: string]: React.ComponentType<{ className?: string }>;
+    } = {
+      Upload,
+      Plus,
+      Edit,
+      Trash2,
+      Eye,
+      Settings,
+      LogIn,
+      LogOut,
+      Download,
+      Share2,
+      FileDown,
+      FileUp,
+      Activity,
+    };
+
+    return iconMap[iconName] || Activity;
   };
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log("ActivityWidget - activities:", activities);
+    console.log("ActivityWidget - isLoading:", isLoading);
+    console.log("ActivityWidget - error:", error);
+  }, [activities, isLoading, error]);
+
+  if (isLoading) {
+    return (
+      <WidgetContainer>
+        <WidgetHeader title="Recent Activity" icon={Activity} />
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center space-x-3 p-2 rounded-lg bg-muted/50 animate-pulse"
+            >
+              <div className="h-8 w-8 rounded-full bg-muted" />
+              <div className="flex-1 space-y-1">
+                <div className="h-3 bg-muted rounded w-3/4" />
+                <div className="h-2 bg-muted rounded w-1/2" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </WidgetContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <WidgetContainer>
+        <WidgetHeader title="Recent Activity" icon={Activity} />
+        <div className="text-center py-4 text-muted-foreground">
+          <p>Failed to load activities</p>
+          <p className="text-xs">Please try refreshing the page</p>
+        </div>
+      </WidgetContainer>
+    );
+  }
 
   return (
     <WidgetContainer>
       <WidgetHeader title="Recent Activity" icon={Activity} />
-      <div className="space-y-2">
-        {activities.map((activity) => (
-          <div
-            key={activity.id}
-            className="flex items-center space-x-3 p-2 rounded-lg bg-muted/50"
-          >
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-              {getActivityIcon(activity.type)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{activity.action}</p>
-              <p className="text-xs text-muted-foreground">{activity.time}</p>
-            </div>
+      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+        {activities.length === 0 ? (
+          <div className="text-center py-4 text-muted-foreground">
+            <p>No recent activity</p>
+            <p className="text-xs">
+              Activities will appear here as you use the app
+            </p>
           </div>
-        ))}
-      </div>
-    </WidgetContainer>
-  );
-}
-
-// Performance Widget
-export function PerformanceWidget() {
-  const metrics = [
-    { name: "Models Created", value: 24, target: 30, color: "bg-blue-500" },
-    { name: "Assets Uploaded", value: 156, target: 200, color: "bg-green-500" },
-    {
-      name: "Projects Completed",
-      value: 8,
-      target: 12,
-      color: "bg-purple-500",
-    },
-  ];
-
-  return (
-    <WidgetContainer spacing="lg">
-      <WidgetHeader title="Performance Metrics" icon={TrendingUp} />
-      <div className="space-y-3">
-        {metrics.map((metric) => (
-          <div key={metric.name} className="space-y-1">
-            <div className="flex justify-between text-sm">
-              <span>{metric.name}</span>
-              <span>
-                {metric.value}/{metric.target}
-              </span>
+        ) : (
+          activities.map((activity) => (
+            <div
+              key={activity.id}
+              className="flex items-center space-x-3 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors cursor-pointer"
+            >
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm">
+                {React.createElement(
+                  getActivityIconComponent(getActivityIcon(activity.type)),
+                  { className: "h-4 w-4 text-primary" }
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {activity.action}
+                </p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{formatTimeAgo(activity.created_at)}</span>
+                  {activity.user_email && (
+                    <>
+                      <span>•</span>
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        <span className="truncate font-medium">
+                          {activity.user_email}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className={`h-2 rounded-full ${metric.color}`}
-                style={{ width: `${(metric.value / metric.target) * 100}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </WidgetContainer>
-  );
-}
-
-// Calendar Widget
-export function CalendarWidget() {
-  const events = [
-    { id: 1, title: "Team Meeting", date: "Today", time: "2:00 PM" },
-    { id: 2, title: "Project Review", date: "Tomorrow", time: "10:00 AM" },
-    { id: 3, title: "Client Call", date: "Dec 15", time: "3:30 PM" },
-  ];
-
-  return (
-    <WidgetContainer>
-      <WidgetHeader title="Upcoming Events" icon={Calendar} />
-      <div className="space-y-2">
-        {events.map((event) => (
-          <div
-            key={event.id}
-            className="flex items-center space-x-3 p-2 rounded-lg bg-muted/50"
-          >
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <Calendar className="h-4 w-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{event.title}</p>
-              <p className="text-xs text-muted-foreground">
-                {event.date} at {event.time}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </WidgetContainer>
-  );
-}
-
-// System Status Widget
-export function SystemStatusWidget() {
-  const systems = [
-    { name: "3D Editor", status: "online", uptime: "99.9%" },
-    { name: "Asset Library", status: "online", uptime: "99.8%" },
-    { name: "Analytics", status: "online", uptime: "99.7%" },
-    { name: "API", status: "online", uptime: "99.9%" },
-  ];
-
-  return (
-    <WidgetContainer>
-      <WidgetHeader title="System Status" icon={Target} />
-      <div className="space-y-2">
-        {systems.map((system) => (
-          <div
-            key={system.name}
-            className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
-          >
-            <div className="flex items-center space-x-2">
-              <div
-                className={`h-2 w-2 rounded-full ${
-                  system.status === "online" ? "bg-green-500" : "bg-red-500"
-                }`}
-              />
-              <span className="text-sm">{system.name}</span>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {system.uptime}
-            </span>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </WidgetContainer>
   );
@@ -366,6 +327,21 @@ export function NewUsersChartWidget() {
   >([]);
   const [totalUsers, setTotalUsers] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
+  const [chartWidth, setChartWidth] = React.useState(420);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const updateChartWidth = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        setChartWidth(Math.min(420, containerWidth - 40)); // 40px for padding
+      }
+    };
+
+    updateChartWidth();
+    window.addEventListener("resize", updateChartWidth);
+    return () => window.removeEventListener("resize", updateChartWidth);
+  }, []);
 
   React.useEffect(() => {
     async function fetchData() {
@@ -432,14 +408,21 @@ export function NewUsersChartWidget() {
             <Users className="h-6 w-6 text-primary" />
           </div>
         </div>
-        <div className="h-32 w-full">
-          <BarChart data={chartData} height={150} width={460}>
+        <div className="h-32 w-full" ref={containerRef}>
+          <BarChart
+            data={chartData}
+            height={150}
+            width={chartWidth}
+            className="w-full"
+          >
             <XAxis
               dataKey="date"
               fontSize={10}
               tick={{ fill: "var(--muted-foreground)" }}
               axisLine={false}
               tickLine={false}
+              interval="preserveStartEnd"
+              minTickGap={5}
             />
             <YAxis
               allowDecimals={false}
@@ -477,6 +460,21 @@ export function NewModelsChartWidget() {
   >([]);
   const [totalModels, setTotalModels] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
+  const [chartWidth, setChartWidth] = React.useState(420);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const updateChartWidth = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        setChartWidth(Math.min(420, containerWidth - 40)); // 40px for padding
+      }
+    };
+
+    updateChartWidth();
+    window.addEventListener("resize", updateChartWidth);
+    return () => window.removeEventListener("resize", updateChartWidth);
+  }, []);
 
   React.useEffect(() => {
     async function fetchData() {
@@ -545,14 +543,21 @@ export function NewModelsChartWidget() {
             <Package className="h-6 w-6 text-primary" />
           </div>
         </div>
-        <div className="h-32 w-full">
-          <BarChart data={chartData} height={150} width={460}>
+        <div className="h-32 w-full" ref={containerRef}>
+          <BarChart
+            data={chartData}
+            height={150}
+            width={chartWidth}
+            className="w-full"
+          >
             <XAxis
               dataKey="date"
               fontSize={10}
               tick={{ fill: "var(--muted-foreground)" }}
               axisLine={false}
               tickLine={false}
+              interval="preserveStartEnd"
+              minTickGap={5}
             />
             <YAxis
               allowDecimals={false}

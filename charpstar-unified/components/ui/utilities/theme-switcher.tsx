@@ -61,6 +61,10 @@ const themes = [
 export function ThemeSwitcherCard() {
   const { theme, setTheme } = useTheme();
 
+  const handleThemeChange = (newTheme: string) => {
+    setTheme(newTheme);
+  };
+
   return (
     <div>
       <div className="text-base font-medium text-foreground">Theme</div>
@@ -73,7 +77,7 @@ export function ThemeSwitcherCard() {
             key={t.value}
             type="button"
             aria-pressed={theme === t.value}
-            onClick={() => setTheme(t.value)}
+            onClick={() => handleThemeChange(t.value)}
             className={cn(
               "relative flex flex-col items-center justify-between rounded-xl transition-all p-3 w-36 border-2 outline-none ring-0 cursor-pointer",
               t.className,

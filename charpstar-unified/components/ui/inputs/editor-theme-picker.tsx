@@ -185,6 +185,10 @@ export function EditorThemePicker() {
     setEditorTheme(localStorage.getItem(key) || "shadcn");
   }, [isDark]);
 
+  const handleThemeChange = (newTheme: string) => {
+    setEditorTheme(newTheme);
+  };
+
   return (
     <div>
       <div className="text-base font-medium text-foreground">Editor Theme</div>
@@ -197,9 +201,9 @@ export function EditorThemePicker() {
             key={t.value}
             type="button"
             aria-pressed={editorTheme === t.value}
-            onClick={() => setEditorTheme(t.value)}
+            onClick={() => handleThemeChange(t.value)}
             className={cn(
-              "relative flex flex-col items-center justify-between rounded-xl transition-all p-3 w-32 border-2 outline-none ring-0",
+              "relative flex flex-col items-center justify-between rounded-xl transition-all p-3 w-32 border-2 outline-none ring-0 cursor-pointer",
               editorTheme === t.value
                 ? "border-primary ring-2 ring-primary shadow-lg"
                 : "border-muted hover:border-primary/60"

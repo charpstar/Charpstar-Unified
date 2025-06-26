@@ -50,7 +50,6 @@ import {
   SelectTrigger,
   SelectValue,
   EditorThemePicker,
-  AvatarPicker,
 } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import {
@@ -402,45 +401,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     setLoggingOut(true);
     await supabase.auth.signOut();
     router.push("/auth");
-  };
-
-  const handleAvatarChange = async (avatarUrl: string | null) => {
-    try {
-      const response = await fetch("/api/users/avatar", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          avatar_url: avatarUrl,
-          user_id: user?.id,
-        }),
-      });
-
-      if (response.ok) {
-        // Update local state
-        setUser((prev) => (prev ? { ...prev, avatar_url: avatarUrl } : null));
-
-        toast({
-          title: "Avatar updated",
-          description: "Your profile picture has been updated successfully.",
-        });
-      } else {
-        console.error("Failed to update avatar");
-        toast({
-          title: "Error",
-          description: "Failed to update avatar. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error updating avatar:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update avatar. Please try again.",
-        variant: "destructive",
-      });
-    }
   };
 
   const handleAddUser = async (formData: UserFormValues) => {

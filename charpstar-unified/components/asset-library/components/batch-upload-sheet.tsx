@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/display";
+import { ActivityLogger } from "@/lib/activityLogger";
 
 interface AssetRow {
   product_name: string;
@@ -589,6 +590,10 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           throw error;
         }
         console.log("Successfully inserted row:", data);
+
+        // Log the asset upload activity
+        await ActivityLogger.assetUploaded(row.product_name, data.id);
+
         results.push(data);
       }
       if (results.length === 0) {

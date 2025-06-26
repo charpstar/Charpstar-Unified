@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
-import { ExternalLink, Download, Check } from "lucide-react";
+import { Package, Download, Eye, Trash2, Check } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeletons";
 import {
   Tooltip,

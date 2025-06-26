@@ -1,6 +1,7 @@
 // app/api/users/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { ActivityLogger } from "@/lib/activityLogger";
 
 export async function GET(request: Request) {
   try {
@@ -91,6 +92,9 @@ export async function POST(request: Request) {
     if (profileError) {
       throw profileError;
     }
+
+    // Log the user creation activity
+    await ActivityLogger.userCreated(email);
 
     return NextResponse.json({ success: true, user: userData.user });
   } catch (err: any) {

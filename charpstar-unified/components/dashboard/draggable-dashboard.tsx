@@ -8,17 +8,9 @@ import {
   CardTitle,
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
+import { Badge } from "@/components/ui/feedback";
 import { Switch } from "@/components/ui/inputs";
-import {
-  GripVertical,
-  Settings,
-  Save,
-  RotateCcw,
-  Plus,
-  X,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { Settings, Save, RotateCcw, X, Move, Eye } from "lucide-react";
 import { useToast } from "@/components/ui/utilities";
 import { supabase } from "@/lib/supabaseClient";
 import { useUser } from "@/contexts/useUser";
@@ -34,13 +26,11 @@ interface DashboardWidget {
 }
 
 interface DraggableDashboardProps {
-  children?: React.ReactNode;
   onLayoutChange?: (layout: DashboardWidget[]) => void;
   defaultLayout?: DashboardWidget[];
 }
 
 export function DraggableDashboard({
-  children,
   onLayoutChange,
   defaultLayout = [],
 }: DraggableDashboardProps) {
@@ -110,6 +100,7 @@ export function DraggableDashboard({
 
         setWidgets(mergedLayout);
         setHasLoadedSavedLayout(true);
+
         toast({
           title: "Layout loaded!",
           description: "Your saved dashboard layout has been restored.",
@@ -328,7 +319,7 @@ export function DraggableDashboard({
               size="sm"
               onClick={saveLayout}
               disabled={isSaving}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 cursor-pointer"
             >
               <Save className="h-4 w-4" />
               {isSaving ? "Saving..." : "Save Layout"}
@@ -338,7 +329,7 @@ export function DraggableDashboard({
               size="sm"
               onClick={loadUserLayout}
               disabled={isLoading}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 cursor-pointer"
             >
               <RotateCcw className="h-4 w-4" />
               {isLoading ? "Loading..." : "Load Layout"}
@@ -347,7 +338,7 @@ export function DraggableDashboard({
               variant="outline"
               size="sm"
               onClick={resetLayout}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 cursor-pointer"
             >
               <X className="h-4 w-4" />
               Reset
@@ -398,7 +389,7 @@ export function DraggableDashboard({
                   <Switch
                     checked={widget.visible}
                     onCheckedChange={() => toggleWidget(widget.id)}
-                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
+                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer"
                   />
                 </div>
               ))}
@@ -415,7 +406,7 @@ export function DraggableDashboard({
                         prev.map((w) => ({ ...w, visible: true }))
                       );
                     }}
-                    className="h-7 px-2 text-xs"
+                    className="h-7 px-2 text-xs cursor-pointer"
                   >
                     Show All
                   </Button>
@@ -427,7 +418,7 @@ export function DraggableDashboard({
                         prev.map((w) => ({ ...w, visible: false }))
                       );
                     }}
-                    className="h-7 px-2 text-xs"
+                    className="h-7 px-2 text-xs cursor-pointer"
                   >
                     Hide All
                   </Button>
