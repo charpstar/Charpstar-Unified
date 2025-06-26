@@ -223,7 +223,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    // Show avatar popup for first 5 seconds only on first visit
+    // Show avatar popup for first 3 seconds only on first visit
     const hasSeenAvatarPopup = localStorage.getItem("hasSeenAvatarPopup");
 
     if (!hasSeenAvatarPopup) {
@@ -233,7 +233,7 @@ export default function DashboardPage() {
         setShowAvatarPopup(false);
         // Mark as seen in localStorage
         localStorage.setItem("hasSeenAvatarPopup", "true");
-      }, 5000);
+      }, 3000); // Changed from 5000 to 3000 (3 seconds)
 
       return () => {
         clearTimeout(timer);
@@ -379,13 +379,18 @@ export default function DashboardPage() {
                   onAvatarChange={handleAvatarChange}
                 />
                 {showAvatarPopup && (
-                  <div className="absolute -top-6 left-8 z-50 animate-in slide-in-from-bottom-2 duration-300">
+                  <div className="absolute -top-6 left-8 z-50 animate-in-out slide-in-from-bottom-2 duration-300">
                     <div className="bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg text-sm whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span>👋 Click to customize your avatar!</span>
                         <button
-                          onClick={() => setShowAvatarPopup(false)}
-                          className="text-primary-foreground/70 hover:text-primary-foreground"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setShowAvatarPopup(false);
+                            localStorage.setItem("hasSeenAvatarPopup", "true");
+                          }}
+                          className="text-primary-foreground/70 hover:text-primary-foreground transition-colors"
                         >
                           ✕
                         </button>
@@ -554,14 +559,9 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-1 flex-col p-4 sm:p-6">
-      <DraggableDashboard defaultLayout={defaultLayout}>
-        {/* Admin widgets are rendered separately */}
-        {user?.metadata?.role === "admin" && (
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 mt-4">
-            <AdminDashboardWidgets />
-          </div>
-        )}
-      </DraggableDashboard>
+      <DraggableDashboard defaultLayout={defaultLayout} />
+
+      {/* Admin widgets are rendered separately */}
     </div>
   );
 }

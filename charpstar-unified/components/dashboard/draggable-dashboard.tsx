@@ -40,6 +40,7 @@ export function DraggableDashboard({
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoadedSavedLayout, setHasLoadedSavedLayout] = useState(false);
+  const [showEditModeTip, setShowEditModeTip] = useState(false);
   const { toast } = useToast();
   const user = useUser();
 
@@ -64,6 +65,26 @@ export function DraggableDashboard({
       widgets.map((w) => ({ id: w.id, visible: w.visible }))
     );
   }, [widgets]);
+
+  // Show custom notification when entering edit mode (only once)
+  useEffect(() => {
+    if (isEditMode) {
+      const hasShownTip = localStorage.getItem("dashboard-edit-mode-tip-shown");
+      if (!hasShownTip) {
+        setShowEditModeTip(true);
+        localStorage.setItem("dashboard-edit-mode-tip-shown", "true");
+
+        // Auto-hide after 5 seconds
+        const timer = setTimeout(() => {
+          setShowEditModeTip(false);
+        }, 5000);
+
+        return () => clearTimeout(timer);
+      }
+    } else {
+      setShowEditModeTip(false);
+    }
+  }, [isEditMode]);
 
   // Load user's layout from Supabase
   const loadUserLayout = async () => {
@@ -346,6 +367,35 @@ export function DraggableDashboard({
           </div>
         )}
       </div>
+
+      {/* Edit Mode Tip Notification */}
+      {showEditModeTip && (
+        <div className="relative">
+          <div className="absolute top-0 left-0 z-50 animate-in slide-in-from-top-2 duration-300">
+            <div className="bg-primary text-primary-foreground px-4 py-3 rounded-lg shadow-lg max-w-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <Settings className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Edit Mode Enabled</p>
+                  <p className="text-xs opacity-90 mt-1">
+                    Tip: You can move around all the widgets freely and then
+                    save your layout!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowEditModeTip(false)}
+                  className="flex-shrink-0 text-primary-foreground/70 hover:text-primary-foreground transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isEditMode && (
         <Card className="mt-4">
           <CardHeader>
