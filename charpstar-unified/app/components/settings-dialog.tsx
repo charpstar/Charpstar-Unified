@@ -35,7 +35,6 @@ import {
   Target,
   Palette,
 } from "lucide-react";
-import { ThemeSwitcherCard } from "@/components/ui/utilities";
 import {
   Tabs,
   TabsContent,
@@ -49,7 +48,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  EditorThemePicker,
 } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import {
@@ -806,14 +804,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </div>
                       </div>
                     </div> */}
-                    {/* Theme toggle */}
-                    <div className="flex flex-col gap-1">
-                      <ThemeSwitcherCard />
-                    </div>
-                    {/* Editor Theme */}
-                    <div className="flex flex-col gap-1">
-                      <EditorThemePicker />
-                    </div>
                     {/* Analytics Profile */}
                     <div className="flex flex-col gap-1">
                       <Label className="text-muted-foreground mb-1 flex items-center gap-2 text-xs sm:text-sm">

@@ -71,18 +71,18 @@ export default function PerformanceTrends({
       <CardContent>
         <ChartContainer
           config={chartConfig}
-          className="h-[400px] w-full max-w-[600px] mx-auto"
+          className="h-[300px] sm:h-[400px] w-full"
         >
           <BarChart
             data={chartData}
             margin={{
               top: 5,
-              right: 20,
-              left: 20,
+              right: 10,
+              left: 10,
               bottom: 20,
             }}
-            barSize={80}
-            barGap={12}
+            barSize={60}
+            barGap={8}
           >
             <CartesianGrid
               vertical={false}

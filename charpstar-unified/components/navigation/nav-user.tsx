@@ -34,7 +34,12 @@ import {
   Zap,
   Target,
   Palette,
+  Moon,
+  Sun,
 } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Switch } from "@/components/ui/inputs";
+import { motion } from "framer-motion";
 
 export default function NavUser() {
   const supaUser = useUser() as any; // Type assertion to handle metadata property
@@ -193,6 +198,7 @@ export default function NavUser() {
   const email = supaUser?.email || "No email";
 
   const { isMobile } = useSidebar();
+  const { theme, setTheme } = useTheme();
 
   const handleLogout = async () => {
     // Remove any extra session data YOUR app stores
@@ -211,6 +217,34 @@ export default function NavUser() {
 
   return (
     <>
+      {/* Theme Toggle */}
+      <div className="px-3 py-2 border-b border-border/50">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sun className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Light</span>
+          </div>
+          <motion.div
+            initial={{ x: -10 }}
+            animate={{ x: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Switch
+              checked={theme === "dark"}
+              onCheckedChange={(checked) =>
+                setTheme(checked ? "dark" : "light")
+              }
+              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200"
+            />
+          </motion.div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Dark</span>
+            <Moon className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+      </div>
+
       <SidebarMenu>
         <SidebarMenuItem>
           <DropdownMenu>

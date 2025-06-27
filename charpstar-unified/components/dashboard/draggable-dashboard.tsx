@@ -397,41 +397,45 @@ export function DraggableDashboard({
       case "small":
         return "col-span-1 row-span-1";
       case "medium":
-        return "col-span-2 row-span-1";
+        return "col-span-1 md:col-span-2 row-span-1";
       case "large":
-        return "col-span-2 row-span-2";
+        return "col-span-1 md:col-span-2 lg:col-span-2 row-span-1 lg:row-span-2";
       default:
         return "col-span-1 row-span-1";
     }
   };
 
   return (
-    <div className="space-y-4 ">
+    <div className="space-y-4">
       {/* Dashboard Controls */}
       <motion.div
-        className="flex items-center justify-between p-4 bg-card max-w-fit rounded-lg border"
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-card max-w-fit rounded-lg border min-h-[68px] gap-4"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <div className="flex items-center gap-2">
             <Eye className="h-4 w-4" />
-            <span className="text-sm text-muted-foreground">View Mode</span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              View Mode
+            </span>
             <Switch
               checked={isEditMode}
               onCheckedChange={setIsEditMode}
               className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200"
             />
             <Settings className="h-4 w-4" />
-            <span className="text-sm text-muted-foreground">Edit Mode</span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              Edit Mode
+            </span>
           </div>
         </div>
 
         <AnimatePresence>
           {isEditMode && (
             <motion.div
-              className="flex items-center gap-2 pl-4 overflow-hidden"
+              className="flex flex-wrap items-center gap-2 pl-0 sm:pl-4 overflow-hidden w-full sm:w-auto"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -450,13 +454,14 @@ export function DraggableDashboard({
               >
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={saveLayout}
                   disabled={isSaving}
-                  className="flex items-center gap-2 cursor-pointer h-1 hover:bg-primary/10 transition-all duration-200 whitespace-nowrap min-w-0"
+                  className="flex items-center gap-2 cursor-pointer h-8 hover:bg-primary/10 transition-all duration-200 whitespace-nowrap min-w-0 text-xs sm:text-sm"
                 >
-                  <Save className="h-4 w-4 flex-shrink-0" />
+                  <Save className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                   <span className="truncate">
-                    {isSaving ? "Saving..." : "Save Layout"}
+                    {isSaving ? "Saving..." : "Save"}
                   </span>
                 </Button>
               </motion.div>
@@ -471,13 +476,14 @@ export function DraggableDashboard({
               >
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={loadUserLayout}
                   disabled={isLoading}
-                  className="flex items-center gap-2 cursor-pointer h-1 hover:bg-primary/10 transition-all duration-200 whitespace-nowrap min-w-0"
+                  className="flex items-center gap-2 cursor-pointer h-8 hover:bg-primary/10 transition-all duration-200 whitespace-nowrap min-w-0 text-xs sm:text-sm"
                 >
-                  <RotateCcw className="h-4 w-4 flex-shrink-0" />
+                  <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                   <span className="truncate">
-                    {isLoading ? "Loading..." : "Load Layout"}
+                    {isLoading ? "Loading..." : "Load"}
                   </span>
                 </Button>
               </motion.div>
@@ -492,10 +498,11 @@ export function DraggableDashboard({
               >
                 <Button
                   variant="ghost"
+                  size="sm"
                   onClick={resetLayout}
-                  className="flex items-center gap-2 cursor-pointer h-1 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 whitespace-nowrap min-w-0"
+                  className="flex items-center gap-2 cursor-pointer h-8 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 whitespace-nowrap min-w-0 text-xs sm:text-sm"
                 >
-                  <X className="h-4 w-4 flex-shrink-0" />
+                  <X className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                   <span className="truncate">Reset</span>
                 </Button>
               </motion.div>
@@ -517,7 +524,7 @@ export function DraggableDashboard({
                   className="h-8 w-8 p-0 hover:bg-primary/10 transition-all duration-200"
                   title="Undo (Ctrl+Z)"
                 >
-                  <Undo2 className="h-4 w-4" />
+                  <Undo2 className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -530,7 +537,7 @@ export function DraggableDashboard({
                   className="h-8 w-8 p-0 hover:bg-primary/10 transition-all duration-200"
                   title="Redo (Ctrl+Y)"
                 >
-                  <Redo2 className="h-4 w-4" />
+                  <Redo2 className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </motion.div>
             </motion.div>
@@ -541,16 +548,20 @@ export function DraggableDashboard({
         <AnimatePresence>
           {isEditMode && (
             <motion.div
-              className="text-xs text-muted-foreground mt-2"
+              className="text-xs text-muted-foreground mt-2 w-full sm:w-auto"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
               transition={{ duration: 0.3, ease: "easeOut", delay: 0.4 }}
             >
-              <span className="hidden sm:inline">
+              <span className="hidden lg:inline">
                 <Lightbulb className="h-4 w-4 inline-block" /> Tip: Use Ctrl+Z
                 to undo, Ctrl+Y to redo, Ctrl+S to save, or Escape to exit edit
                 mode
+              </span>
+              <span className="hidden sm:inline lg:hidden">
+                <Lightbulb className="h-4 w-4 inline-block" /> Tip: Use Ctrl+Z/Y
+                to undo/redo, Ctrl+S to save
               </span>
               <span className="sm:hidden">
                 <Lightbulb className="h-4 w-4 inline-block" /> Tip: Use Escape
@@ -654,7 +665,7 @@ export function DraggableDashboard({
                 </motion.div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {widgets.map((widget) => (
                     <motion.div
                       key={widget.id}
@@ -670,9 +681,9 @@ export function DraggableDashboard({
                           : "bg-muted/30 border-muted-foreground/20"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <motion.div
-                          className={`h-3 w-3 rounded-full ${
+                          className={`h-3 w-3 rounded-full flex-shrink-0 ${
                             widget.visible
                               ? "bg-primary"
                               : "bg-muted-foreground/30"
@@ -685,9 +696,9 @@ export function DraggableDashboard({
                             ease: "easeOut",
                           }}
                         />
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <span
-                            className={`text-sm font-medium ${
+                            className={`text-sm font-medium truncate block ${
                               widget.visible
                                 ? "text-foreground"
                                 : "text-muted-foreground"
@@ -703,7 +714,7 @@ export function DraggableDashboard({
                       <Switch
                         checked={widget.visible}
                         onCheckedChange={() => toggleWidget(widget.id)}
-                        className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200"
+                        className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200 flex-shrink-0"
                       />
                     </motion.div>
                   ))}
@@ -714,7 +725,7 @@ export function DraggableDashboard({
         )}
       </AnimatePresence>
       {/* Widget Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {widgets
           .filter((widget) => widget.visible)
           .map((widget, index) => {
@@ -758,7 +769,9 @@ export function DraggableDashboard({
                       isDragging ? "border-primary/50 shadow-lg" : ""
                     }`}
                   >
-                    <CardContent className="pt-0">{widget.content}</CardContent>
+                    <CardContent className="pt-0 p-4 sm:p-6">
+                      {widget.content}
+                    </CardContent>
                   </Card>
                 </motion.div>
               </div>
