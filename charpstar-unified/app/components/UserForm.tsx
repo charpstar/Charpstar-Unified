@@ -11,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/inputs";
-import { Icons } from "@/app/components/ui/icons";
 
 export interface UserFormValues {
   email: string;
@@ -163,19 +162,11 @@ export function UserForm({
 
       <Button
         type="submit"
+        loading={isLoading}
+        loadingText={isEditMode ? "Updating..." : "Creating..."}
         className="w-full rounded-[var(--radius)] bg-primary text-primary-foreground font-medium shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring transition flex items-center justify-center gap-2"
-        disabled={isLoading}
       >
-        {isLoading ? (
-          <>
-            <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-            {isEditMode ? "Updating..." : "Creating..."}
-          </>
-        ) : isEditMode ? (
-          "Update User"
-        ) : (
-          "Create User"
-        )}
+        {isEditMode ? "Update User" : "Create User"}
       </Button>
     </form>
   );

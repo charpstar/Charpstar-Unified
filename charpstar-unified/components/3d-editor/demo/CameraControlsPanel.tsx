@@ -112,7 +112,7 @@ export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
       className={
         isMobile
           ? "w-full max-w-md mx-auto p-1"
-          : "absolute bottom-4 left-4 z-10"
+          : "absolute bottom-8 left-4 z-10"
       }
     >
       {/* Poster Preview Panel */}

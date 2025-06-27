@@ -8,6 +8,7 @@ import { SidebarProvider } from "@/components/navigation";
 import { SharedLayout } from "./shared-layout";
 import { DateRangeProvider } from "@/contexts/DateRangeContext";
 import { Editor3DProvider } from "@/contexts/Editor3DContext";
+import { Suspense } from "react";
 
 // Root layout font configuration
 const montserrat = Montserrat({
@@ -200,7 +201,15 @@ export default function RootLayout({
                 <DateRangeProvider>
                   <Editor3DProvider>
                     {/* Shared layout handles the actual page structure */}
-                    <SharedLayout>{children}</SharedLayout>
+                    <Suspense
+                      fallback={
+                        <div className="flex items-center justify-center min-h-screen">
+                          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+                        </div>
+                      }
+                    >
+                      <SharedLayout>{children}</SharedLayout>
+                    </Suspense>
                   </Editor3DProvider>
                 </DateRangeProvider>
               </Providers>

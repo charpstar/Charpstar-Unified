@@ -1,21 +1,24 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { useUser } from "@/contexts/useUser";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  Suspense,
+} from "react";
+import { useUser } from "@/contexts/useUser";
 import { Badge } from "@/components/ui/feedback";
-import { Package, User2, Shield, Target } from "lucide-react";
+import { Package, Shield, Target } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/utilities";
 import { supabase } from "@/lib/supabaseClient";
 import React from "react";
 import { EditorThemePicker, AvatarPicker } from "@/components/ui/inputs";
 import { useToast } from "@/components/ui/utilities";
 import { DraggableDashboard } from "@/components/dashboard";
+import { useLoadingState } from "@/hooks/useLoadingState";
+import { DashboardSkeleton } from "@/components/ui/skeletons";
 import {
   StatsWidget,
   QuickActionsWidget,
@@ -61,6 +64,15 @@ export default function DashboardPage() {
   const user = useUser() as User | null;
   const { toast } = useToast();
   const popupTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const { withLoading } = useLoadingState({ showGlobalLoading: true });
+
+  // Development flag to force loading state for skeleton testing
+  const FORCE_LOADING = process.env.NODE_ENV === "development" && false; // Set to true to force loading
+  // Alternative: Use URL parameter ?skeleton=true to force loading
+  const urlParams = new URLSearchParams(
+    typeof window !== "undefined" ? window.location.search : ""
+  );
+  const FORCE_LOADING_VIA_URL = urlParams.get("skeleton") === "true";
 
   // Get avatar from user metadata (same as nav-user)
   const userAvatar = user?.metadata?.avatar_url || null;
@@ -126,56 +138,62 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const { data: assets } = await supabase
-          .from("assets")
-          .select("id, category, material, color");
+    const fetchDashboardData = async () => {
+      await withLoading(async () => {
+        const fetchStats = async () => {
+          try {
+            const { data: assets } = await supabase
+              .from("assets")
+              .select("id, category, material, color");
 
-        if (assets) {
-          const categories = new Set(assets.map((asset) => asset.category));
-          const materials = new Set(assets.map((asset) => asset.material));
-          const colors = new Set(assets.map((asset) => asset.color));
+            if (assets) {
+              const categories = new Set(assets.map((asset) => asset.category));
+              const materials = new Set(assets.map((asset) => asset.material));
+              const colors = new Set(assets.map((asset) => asset.color));
 
-          setStats({
-            totalModels: assets.length,
-            totalCategories: categories.size,
-            totalMaterials: materials.size,
-            totalColors: colors.size,
-          });
-        }
-      } catch (error) {
-        console.error("Error fetching stats:", error);
-      }
+              setStats({
+                totalModels: assets.length,
+                totalCategories: categories.size,
+                totalMaterials: materials.size,
+                totalColors: colors.size,
+              });
+            }
+          } catch (error) {
+            console.error("Error fetching stats:", error);
+          }
+        };
+
+        const fetchAnalyticsProfile = async () => {
+          if (!user?.analytics_profile_id) return;
+
+          try {
+            const { data: analytics } = await supabase
+              .from("analytics_profiles")
+              .select("*")
+              .eq("id", user.analytics_profile_id)
+              .single();
+
+            if (analytics) {
+              setAnalyticsProfile(analytics);
+            }
+          } catch (error) {
+            console.error("Error fetching analytics profile:", error);
+          }
+        };
+
+        await Promise.all([fetchStats(), fetchAnalyticsProfile()]);
+      });
+      setLoading(false);
     };
 
-    const fetchAnalyticsProfile = async () => {
-      if (!user?.analytics_profile_id) return;
-
-      try {
-        const { data: analytics } = await supabase
-          .from("analytics_profiles")
-          .select("*")
-          .eq("id", user.analytics_profile_id)
-          .single();
-
-        if (analytics) {
-          setAnalyticsProfile(analytics);
-        }
-      } catch (error) {
-        console.error("Error fetching analytics profile:", error);
-      }
-    };
-
-    Promise.all([fetchStats(), fetchAnalyticsProfile()]).finally(() =>
-      setLoading(false)
-    );
+    fetchDashboardData();
   }, [user?.analytics_profile_id]);
 
   // Memoize the handleAvatarChange function to prevent recreation on every render
   const handleAvatarChange = useCallback(
     async (avatarUrl: string | null) => {
       if (!user?.id) return;
+
       try {
         const response = await fetch("/api/users/avatar", {
           method: "PUT",
@@ -266,7 +284,7 @@ export default function DashboardPage() {
       },
       {
         id: "quick-actions",
-        title: "",
+        title: "Quick Actions",
         type: "actions" as const,
         size: "medium" as const,
         position: { x: 2, y: 0 },
@@ -343,85 +361,44 @@ export default function DashboardPage() {
     ]
   );
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col p-4 sm:p-6">
-        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <User2 className="h-4 w-4" />
-                  User Profile
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-                    <div className="space-y-1 text-center sm:text-left">
-                      <p className="text-base sm:text-lg font-medium">
-                        {user?.email || "User"}
-                      </p>
-                      <div className="flex items-center justify-center sm:justify-start gap-2 bg-primary">
-                        <Badge
-                          variant={
-                            getRoleBadgeVariant(user?.metadata?.role || "") as
-                              | "default"
-                              | "secondary"
-                              | "destructive"
-                              | "outline"
-                          }
-                        >
-                          {(user?.metadata?.role || "User")
-                            .charAt(0)
-                            .toUpperCase() +
-                            (user?.metadata?.role || "User").slice(1)}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2"></div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    );
+  if (loading || FORCE_LOADING || FORCE_LOADING_VIA_URL) {
+    return <DashboardSkeleton />;
   }
 
   return (
-    <div className="flex flex-1 flex-col p-4 sm:p-6">
-      <DraggableDashboard defaultLayout={defaultLayout} />
+    <Suspense fallback={<DashboardSkeleton />}>
+      <div className="flex flex-1 flex-col p-4 sm:p-6">
+        <DraggableDashboard defaultLayout={defaultLayout} />
 
-      {/* Avatar Popup - rendered outside the memoized layout */}
-      {showAvatarPopup && (
-        <div className="fixed top-35 left-40 z-50 animate-in slide-in-from-bottom-2 duration-300">
-          <div className="bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg text-sm whitespace-nowrap">
-            <div className="flex items-center gap-2">
-              <span>👋 Click to customize your avatar!</span>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowAvatarPopup(false);
-                  localStorage.setItem("hasSeenAvatarPopup", "true");
-                  // Clear the timer if it's still running
-                  if (popupTimerRef.current) {
-                    clearTimeout(popupTimerRef.current);
-                  }
-                }}
-                className="text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-              >
-                ✕
-              </button>
+        {/* Avatar Popup - rendered outside the memoized layout */}
+        {showAvatarPopup && (
+          <div className="fixed top-35 left-40 z-50 animate-in slide-in-from-bottom-2 duration-300">
+            <div className="bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg text-sm whitespace-nowrap">
+              <div className="flex items-center gap-2">
+                <span>👋 Click to customize your avatar!</span>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowAvatarPopup(false);
+                    localStorage.setItem("hasSeenAvatarPopup", "true");
+                    // Clear the timer if it's still running
+                    if (popupTimerRef.current) {
+                      clearTimeout(popupTimerRef.current);
+                    }
+                  }}
+                  className="text-primary-foreground/70 hover:text-primary-foreground transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-primary transform rotate-45"></div>
             </div>
-            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-primary transform rotate-45"></div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Admin widgets are rendered separately */}
-    </div>
+        {/* Admin widgets are rendered separately */}
+      </div>
+    </Suspense>
   );
 }

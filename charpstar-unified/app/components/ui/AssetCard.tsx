@@ -230,7 +230,6 @@ export default function AssetCard({
                         variant="outline"
                         size="default"
                         className="group/btn dark:bg-muted dark:text-white  w-24"
-                        asChild
                       >
                         <Link
                           href={`/asset-library/${asset.id}`}
@@ -250,7 +249,6 @@ export default function AssetCard({
                         variant="outline"
                         size="default"
                         className="w-24 hover:bg-muted/70 "
-                        asChild
                         disabled={!asset.glb_link}
                       >
                         <a
@@ -345,7 +343,6 @@ export default function AssetCard({
                       variant="outline"
                       size={isCompactMode ? "sm" : "sm"}
                       className="flex-1 group/btn dark:bg-muted dark:text-white transition-all "
-                      asChild
                     >
                       <Link
                         href={`/asset-library/${asset.id}`}
@@ -365,7 +362,6 @@ export default function AssetCard({
                       variant="outline"
                       size="icon"
                       className="h-9 w-9 hover:bg-muted/70  group/download "
-                      asChild
                       disabled={!asset.glb_link}
                     >
                       <a

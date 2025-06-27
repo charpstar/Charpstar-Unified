@@ -5,10 +5,11 @@
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/feedback";
 import { UserProvider } from "@/contexts/useUser";
+import { LoadingProvider } from "@/contexts/LoadingContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 
 // Create a persister
 const persister = createSyncStoragePersister({
@@ -34,17 +35,21 @@ export function Providers({ children }: { children: React.ReactNode }) {
         client={queryClient}
         persistOptions={{ persister }}
       >
-        <UserProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-            <Toaster />
-          </ThemeProvider>
-        </UserProvider>
+        <Suspense fallback={null}>
+          <LoadingProvider>
+            <UserProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
+                <Toaster />
+              </ThemeProvider>
+            </UserProvider>
+          </LoadingProvider>
+        </Suspense>
       </PersistQueryClientProvider>
     </QueryClientProvider>
   );

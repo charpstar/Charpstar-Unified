@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { LoginForm } from "@/components/ui/utilities";
@@ -9,6 +9,7 @@ import Image from "next/image";
 import { getUserWithMetadata } from "@/supabase/getUser";
 import { useTheme } from "next-themes";
 import { User } from "@supabase/supabase-js";
+
 export default function AuthPage() {
   const router = useRouter();
   const [formType, setFormType] = useState<"login" | "signup" | "reset">(
@@ -28,6 +29,19 @@ export default function AuthPage() {
     confirmPassword: "",
   });
   const [resetData, setResetData] = useState({ email: "" });
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) {
+        router.push("/dashboard");
+      }
+    };
+    checkAuth();
+  }, [router]);
 
   // Handlers for input changes
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {

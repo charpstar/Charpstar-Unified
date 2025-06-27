@@ -23,7 +23,26 @@ export default function DashboardLayout({
       }
       setIsLoading(false);
     };
+
+    // Initial auth check
     checkAuth();
+
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        setIsLoading(false);
+      } else if (event === "SIGNED_OUT") {
+        router.push("/auth");
+      } else if (event === "TOKEN_REFRESHED" && session) {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [router]);
 
   if (isLoading) {

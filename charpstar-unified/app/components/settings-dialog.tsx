@@ -85,6 +85,7 @@ import {
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Label } from "@/components/ui/display";
+import { useLoadingState } from "@/hooks/useLoadingState";
 
 interface UserProfile {
   id: string;
@@ -154,6 +155,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState("account");
   const router = useRouter();
   const { toast } = useToast();
+  const { withLoading } = useLoadingState();
 
   // Team management state
   const [userRole, setUserRole] = useState<string | undefined>();
@@ -398,9 +400,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   // Actions
   const handleLogout = async () => {
-    setLoggingOut(true);
-    await supabase.auth.signOut();
-    router.push("/auth");
+    await withLoading(async () => {
+      setLoggingOut(true);
+      await supabase.auth.signOut();
+      router.push("/auth");
+    });
   };
 
   const handleAddUser = async (formData: UserFormValues) => {
@@ -413,73 +417,77 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       return;
     }
 
-    setIsProcessing(true);
-    try {
-      const response = await fetch("/api/users", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+    await withLoading(async () => {
+      setIsProcessing(true);
+      try {
+        const response = await fetch("/api/users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create user");
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Failed to create user");
+        }
+
+        await fetchUsers();
+        setIsAddUserDialogOpen(false);
+        toast({
+          title: "Success",
+          description: "User created successfully",
+        });
+      } catch (err) {
+        console.error("Error adding user:", err);
+        toast({
+          title: "Error",
+          description:
+            err instanceof Error ? err.message : "Failed to create user",
+          variant: "destructive",
+        });
+      } finally {
+        setIsProcessing(false);
       }
-
-      await fetchUsers();
-      setIsAddUserDialogOpen(false);
-      toast({
-        title: "Success",
-        description: "User created successfully",
-      });
-    } catch (err) {
-      console.error("Error adding user:", err);
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error ? err.message : "Failed to create user",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+    });
   };
 
   const handleEditUser = async (userData: Partial<UserProfile>) => {
     if (!editingUser) return;
 
-    setIsProcessing(true);
-    try {
-      const response = await fetch(`/api/users/${editingUser.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
+    await withLoading(async () => {
+      setIsProcessing(true);
+      try {
+        const response = await fetch(`/api/users/${editingUser.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(userData),
+        });
 
-      if (!response.ok) {
-        throw new Error("Failed to update user");
+        if (!response.ok) {
+          throw new Error("Failed to update user");
+        }
+
+        await fetchUsers();
+        setIsEditUserDialogOpen(false);
+        toast({
+          title: "Success",
+          description: "User updated successfully",
+        });
+      } catch {
+        console.error("Error updating user");
+        toast({
+          title: "Error",
+          description: "Failed to update user",
+          variant: "destructive",
+        });
+      } finally {
+        setIsProcessing(false);
       }
-
-      await fetchUsers();
-      setIsEditUserDialogOpen(false);
-      toast({
-        title: "Success",
-        description: "User updated successfully",
-      });
-    } catch {
-      console.error("Error updating user");
-      toast({
-        title: "Error",
-        description: "Failed to update user",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+    });
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -494,33 +502,35 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
     if (!confirm("Are you sure you want to delete this user?")) return;
 
-    setIsProcessing(true);
-    try {
-      const response = await fetch(`/api/users/${userId}`, {
-        method: "DELETE",
-      });
+    await withLoading(async () => {
+      setIsProcessing(true);
+      try {
+        const response = await fetch(`/api/users/${userId}`, {
+          method: "DELETE",
+        });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to delete user");
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Failed to delete user");
+        }
+
+        await fetchUsers();
+        toast({
+          title: "Success",
+          description: "User deleted successfully",
+        });
+      } catch (err) {
+        console.error("Error deleting user:", err);
+        toast({
+          title: "Error",
+          description:
+            err instanceof Error ? err.message : "Failed to delete user",
+          variant: "destructive",
+        });
+      } finally {
+        setIsProcessing(false);
       }
-
-      await fetchUsers();
-      toast({
-        title: "Success",
-        description: "User deleted successfully",
-      });
-    } catch (err) {
-      console.error("Error deleting user:", err);
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error ? err.message : "Failed to delete user",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+    });
   };
 
   // Filter users based on search term and selected role
@@ -833,11 +843,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         variant="ghost"
                         size="sm"
                         onClick={handleLogout}
-                        disabled={loggingOut}
+                        loading={loggingOut}
+                        loadingText="Logging out..."
                         className="gap-2 cursor-pointer text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
                       >
                         <LogOut className="w-4 h-4" />
-                        {loggingOut ? "Logging out..." : "Log Out"}
+                        Log Out
                       </Button>
                     </div>
                   </div>

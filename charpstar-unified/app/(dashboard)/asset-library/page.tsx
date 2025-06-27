@@ -8,7 +8,7 @@ import {
   SheetTitle,
 } from "@/components/ui/containers";
 import { useAssets } from "../../../hooks/use-assets";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
@@ -21,6 +21,7 @@ import AssetCard from "@/app/components/ui/AssetCard";
 import { translateSwedishToEnglish } from "@/utils/swedishTranslations";
 import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
 import { Search } from "lucide-react";
+import { CategorySidebarSkeleton } from "@/components/ui/skeletons/CategorySidebarSkeleton";
 
 type SortOption =
   | "name-asc"
@@ -65,14 +66,94 @@ const isFuzzyMatch = (searchTerm: string, target: string): boolean => {
 
   // Return true if any of the search terms match
   return searchTerms.some((term) => {
+    // First check for exact substring match (highest priority)
+    if (targetLower.includes(term)) {
+      return true;
+    }
+
+    // Then check for word-by-word matching with stricter rules
     const words = term.split(" ");
     return words.every((word) => {
-      const distance = levenshteinDistance(word, targetLower);
-      // Allow 1 typo for every 4 characters, minimum 1 typo allowed
-      const maxDistance = Math.max(1, Math.floor(word.length / 4));
-      return distance <= maxDistance;
+      // Check if any word in the target contains this search word
+      const targetWords = targetLower.split(/\s+/);
+      const hasExactWordMatch = targetWords.some(
+        (targetWord) => targetWord.includes(word) || word.includes(targetWord)
+      );
+
+      if (hasExactWordMatch) {
+        return true;
+      }
+
+      // Only use Levenshtein distance for longer words (3+ characters)
+      if (word.length >= 3) {
+        const distance = levenshteinDistance(word, targetLower);
+        // Stricter distance calculation - only allow 1 typo for every 5 characters
+        const maxDistance = Math.max(1, Math.floor(word.length / 5));
+        return distance <= maxDistance;
+      }
+
+      return false;
     });
   });
+};
+
+// New function to calculate search relevance score
+const calculateSearchRelevance = (searchTerm: string, asset: any): number => {
+  if (!searchTerm || !asset) return 0;
+
+  const searchLower = searchTerm.toLowerCase();
+  const productName = asset.product_name?.toLowerCase() || "";
+  const materials = asset.materials?.map((m: string) => m.toLowerCase()) || [];
+  const colors = asset.colors?.map((c: string) => c.toLowerCase()) || [];
+  const tags = asset.tags?.map((t: string) => t.toLowerCase()) || [];
+
+  let score = 0;
+
+  // Exact matches get highest scores
+  if (productName.includes(searchLower)) {
+    score += 100;
+    // Bonus for exact product name match
+    if (productName === searchLower) score += 50;
+  }
+
+  // Material matches
+  materials.forEach((material: string) => {
+    if (material.includes(searchLower)) {
+      score += 30;
+      if (material === searchLower) score += 20;
+    }
+  });
+
+  // Color matches
+  colors.forEach((color: string) => {
+    if (color.includes(searchLower)) {
+      score += 25;
+      if (color === searchLower) score += 15;
+    }
+  });
+
+  // Tag matches
+  tags.forEach((tag: string) => {
+    if (tag.includes(searchLower)) {
+      score += 20;
+      if (tag === searchLower) score += 10;
+    }
+  });
+
+  // Word boundary matches (higher relevance)
+  const searchWords = searchLower.split(/\s+/);
+  searchWords.forEach((word) => {
+    if (word.length >= 3) {
+      // Check if word appears at word boundaries
+      const wordBoundaryRegex = new RegExp(`\\b${word}\\b`, "i");
+      if (wordBoundaryRegex.test(productName)) score += 40;
+      if (wordBoundaryRegex.test(materials.join(" "))) score += 25;
+      if (wordBoundaryRegex.test(colors.join(" "))) score += 20;
+      if (wordBoundaryRegex.test(tags.join(" "))) score += 15;
+    }
+  });
+
+  return score;
 };
 
 export default function AssetLibraryPage() {
@@ -172,7 +253,23 @@ export default function AssetLibraryPage() {
 
       return true;
     })
+    .map((asset) => {
+      // Add relevance score for search results
+      const relevanceScore = activeSearchValue
+        ? calculateSearchRelevance(activeSearchValue, asset)
+        : 0;
+
+      return { ...asset, relevanceScore };
+    })
     .sort((a, b) => {
+      // If there's an active search, sort by relevance first
+      if (activeSearchValue) {
+        if (b.relevanceScore !== a.relevanceScore) {
+          return b.relevanceScore - a.relevanceScore;
+        }
+      }
+
+      // Then apply the selected sort order
       switch (filters.sort) {
         case "name-asc":
           return a.product_name.localeCompare(b.product_name);
@@ -194,6 +291,14 @@ export default function AssetLibraryPage() {
         default:
           return 0;
       }
+    })
+    .filter((asset) => {
+      // Only show assets with reasonable relevance when searching
+      if (activeSearchValue) {
+        // Show only assets with relevance score > 0 (actual matches)
+        return asset.relevanceScore > 0;
+      }
+      return true;
     });
 
   // Calculate pagination
@@ -448,14 +553,7 @@ export default function AssetLibraryPage() {
     return (
       <div className="flex h-full">
         {/* Category Sidebar */}
-        <CategorySidebar
-          categories={filterOptions.categories}
-          selectedCategory={filters.category}
-          setSelectedCategory={handleSetCategory}
-          selectedSubcategory={filters.subcategory}
-          setSelectedSubcategory={handleSetSubcategory}
-          onClearAllFilters={handleClearAllFilters}
-        />
+        <CategorySidebarSkeleton />
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
@@ -496,14 +594,7 @@ export default function AssetLibraryPage() {
     return (
       <div className="flex h-full">
         {/* Category Sidebar */}
-        <CategorySidebar
-          categories={filterOptions.categories}
-          selectedCategory={filters.category}
-          setSelectedCategory={handleSetCategory}
-          selectedSubcategory={filters.subcategory}
-          setSelectedSubcategory={handleSetSubcategory}
-          onClearAllFilters={handleClearAllFilters}
-        />
+        <CategorySidebarSkeleton />
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
@@ -549,14 +640,7 @@ export default function AssetLibraryPage() {
     return (
       <div className="flex h-full">
         {/* Category Sidebar */}
-        <CategorySidebar
-          categories={filterOptions.categories}
-          selectedCategory={filters.category}
-          setSelectedCategory={handleSetCategory}
-          selectedSubcategory={filters.subcategory}
-          setSelectedSubcategory={handleSetSubcategory}
-          onClearAllFilters={handleClearAllFilters}
-        />
+        <CategorySidebarSkeleton />
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
@@ -600,201 +684,205 @@ export default function AssetLibraryPage() {
   }
 
   return (
-    <div className="flex h-full">
-      {/* Category Sidebar */}
-      <CategorySidebar
-        categories={filterOptions.categories}
-        selectedCategory={filters.category}
-        setSelectedCategory={handleSetCategory}
-        selectedSubcategory={filters.subcategory}
-        setSelectedSubcategory={handleSetSubcategory}
-        onClearAllFilters={handleClearAllFilters}
-      />
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Control Panel */}
-        <AssetLibraryControlPanel
-          breadcrumbs={breadcrumbItems}
-          searchValue={searchValue}
-          onClearSearch={handleClearSearch}
-          onSearch={handleSearch}
-          sortValue={filters.sort}
-          setSortValue={handleSortChange}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          onBatchEdit={handleBatchEdit}
-          onGeneratePreviews={handleGeneratePreviews}
-          userRole={userRole}
-          materials={dynamicFilterOptions.materials}
-          selectedMaterials={selectedMaterials}
-          setSelectedMaterials={setSelectedMaterials}
-          colors={dynamicFilterOptions.colors}
-          selectedColors={selectedColors}
-          setSelectedColors={setSelectedColors}
-          companies={dynamicFilterOptions.companies}
-          selectedCompanies={selectedCompanies}
-          setSelectedCompanies={setSelectedCompanies}
+    <Suspense fallback={<AssetLibrarySkeleton />}>
+      <div className="flex h-full">
+        {/* Category Sidebar */}
+        <CategorySidebar
+          categories={filterOptions.categories}
+          selectedCategory={filters.category}
+          setSelectedCategory={handleSetCategory}
+          selectedSubcategory={filters.subcategory}
+          setSelectedSubcategory={handleSetSubcategory}
+          onClearAllFilters={handleClearAllFilters}
         />
 
-        {/* Asset Grid */}
-        <div className="flex-1 p-6  max-h-[calc(100vh-80px)] overflow-y-auto">
-          {/* Asset Count and Page Info */}
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-sm text-muted-foreground">
-              Showing {currentAssets.length} of {filteredAssets.length} assets
-              {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
-            </p>
-          </div>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col">
+          {/* Control Panel */}
+          <AssetLibraryControlPanel
+            breadcrumbs={breadcrumbItems}
+            searchValue={searchValue}
+            onClearSearch={handleClearSearch}
+            onSearch={handleSearch}
+            sortValue={filters.sort}
+            setSortValue={handleSortChange}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            onBatchEdit={handleBatchEdit}
+            onGeneratePreviews={handleGeneratePreviews}
+            userRole={userRole}
+            materials={dynamicFilterOptions.materials}
+            selectedMaterials={selectedMaterials}
+            setSelectedMaterials={setSelectedMaterials}
+            colors={dynamicFilterOptions.colors}
+            selectedColors={selectedColors}
+            setSelectedColors={setSelectedColors}
+            companies={dynamicFilterOptions.companies}
+            selectedCompanies={selectedCompanies}
+            setSelectedCompanies={setSelectedCompanies}
+          />
 
-          {/* Batch Edit Controls */}
-          {isBatchEditMode && (
-            <div className="bg-muted/50 rounded-lg p-4 mb-4 border border-border">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium">
-                    {selectedAssets.length} asset(s) selected
-                  </span>
+          {/* Asset Grid */}
+          <div className="flex-1 p-6  max-h-[calc(100vh-80px)] overflow-y-auto">
+            {/* Asset Count and Page Info */}
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {currentAssets.length} of {filteredAssets.length} assets
+                {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
+              </p>
+            </div>
+
+            {/* Batch Edit Controls */}
+            {isBatchEditMode && (
+              <div className="bg-muted/50 rounded-lg p-4 mb-4 border border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium">
+                      {selectedAssets.length} asset(s) selected
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSelectAll}
+                        disabled={
+                          selectedAssets.length === currentAssets.length
+                        }
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDeselectAll}
+                        disabled={selectedAssets.length === 0}
+                      >
+                        Deselect All
+                      </Button>
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       size="sm"
-                      onClick={handleSelectAll}
-                      disabled={selectedAssets.length === currentAssets.length}
+                      onClick={handleDeleteSelected}
+                      disabled={selectedAssets.length === 0}
                     >
-                      Select All
+                      Delete Selected ({selectedAssets.length})
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleDeselectAll}
-                      disabled={selectedAssets.length === 0}
+                      onClick={() => {
+                        setIsBatchEditMode(false);
+                        setSelectedAssets([]);
+                      }}
                     >
-                      Deselect All
+                      Cancel
                     </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+              </div>
+            )}
+
+            {/* No Results State */}
+            {filteredAssets.length === 0 && assets.length > 0 && (
+              <div className="flex flex-col items-center justify-center h-64 text-center">
+                <div className="mb-6">
+                  <Search className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    No assets found
+                  </h3>
+                  <p className="text-muted-foreground mb-6 max-w-md">
+                    {activeSearchValue
+                      ? `We couldn't find any assets matching "${activeSearchValue}". Try adjusting your search terms or filters.`
+                      : "No assets match your current filters. Try adjusting your selection to see more results."}
+                  </p>
                   <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleDeleteSelected}
-                    disabled={selectedAssets.length === 0}
-                  >
-                    Delete Selected ({selectedAssets.length})
-                  </Button>
-                  <Button
+                    onClick={handleClearAllFilters}
                     variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsBatchEditMode(false);
-                      setSelectedAssets([]);
-                    }}
+                    className="gap-2"
                   >
-                    Cancel
+                    <Search className="h-4 w-4" />
+                    Remove Filters
                   </Button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* No Results State */}
-          {filteredAssets.length === 0 && assets.length > 0 && (
-            <div className="flex flex-col items-center justify-center h-64 text-center">
-              <div className="mb-6">
-                <Search className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  No assets found
-                </h3>
-                <p className="text-muted-foreground mb-6 max-w-md">
-                  {activeSearchValue
-                    ? `We couldn't find any assets matching "${activeSearchValue}". Try adjusting your search terms or filters.`
-                    : "No assets match your current filters. Try adjusting your selection to see more results."}
-                </p>
-                <Button
-                  onClick={handleClearAllFilters}
-                  variant="outline"
-                  className="gap-2"
-                >
-                  <Search className="h-4 w-4" />
-                  Remove Filters
-                </Button>
+            {/* Asset Grid */}
+            {filteredAssets.length > 0 && (
+              <div
+                className={
+                  viewMode === "grid"
+                    ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 p-1 overflow-hidden"
+                    : viewMode === "compactGrid"
+                      ? "flex flex-col gap-3"
+                      : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 overflow-hidden"
+                }
+              >
+                {currentAssets.map((asset) => (
+                  <AssetCard
+                    key={asset.id}
+                    asset={asset}
+                    isBatchEditMode={isBatchEditMode}
+                    isSelected={selectedAssets.includes(asset.id)}
+                    onSelect={handleAssetSelect}
+                    viewMode={viewMode}
+                  />
+                ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Asset Grid */}
-          {filteredAssets.length > 0 && (
-            <div
-              className={
-                viewMode === "grid"
-                  ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 p-1 overflow-hidden"
-                  : viewMode === "compactGrid"
-                    ? "flex flex-col gap-3"
-                    : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 overflow-hidden"
-              }
-            >
-              {currentAssets.map((asset) => (
-                <AssetCard
-                  key={asset.id}
-                  asset={asset}
-                  isBatchEditMode={isBatchEditMode}
-                  isSelected={selectedAssets.includes(asset.id)}
-                  onSelect={handleAssetSelect}
-                  viewMode={viewMode}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center mt-8 sticky bottom-0 bg-muted border-t border-border z-10 p-2 rounded-lg w-fit mx-auto">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center mt-8 sticky bottom-0 bg-muted border-t border-border z-10 p-2 rounded-lg w-fit mx-auto">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
+        {/* Admin Dialogs and Sheets */}
+        <PreviewGeneratorDialog
+          isOpen={previewDialogOpen}
+          onClose={() => setPreviewDialogOpen(false)}
+        />
+
+        <Sheet open={batchUploadOpen} onOpenChange={setBatchUploadOpen}>
+          <SheetContent side="right" className="w-full max-w-6xl p-0">
+            <SheetHeader className="px-6 py-4 border-b border-border">
+              <SheetTitle>Batch Upload Assets</SheetTitle>
+            </SheetHeader>
+            <BatchUploadSheet
+              onSuccess={() => {
+                setBatchUploadOpen(false);
+                refetch();
+              }}
+            />
+          </SheetContent>
+        </Sheet>
       </div>
-
-      {/* Admin Dialogs and Sheets */}
-      <PreviewGeneratorDialog
-        isOpen={previewDialogOpen}
-        onClose={() => setPreviewDialogOpen(false)}
-      />
-
-      <Sheet open={batchUploadOpen} onOpenChange={setBatchUploadOpen}>
-        <SheetContent side="right" className="w-full max-w-6xl p-0">
-          <SheetHeader className="px-6 py-4 border-b border-border">
-            <SheetTitle>Batch Upload Assets</SheetTitle>
-          </SheetHeader>
-          <BatchUploadSheet
-            onSuccess={() => {
-              setBatchUploadOpen(false);
-              refetch();
-            }}
-          />
-        </SheetContent>
-      </Sheet>
-    </div>
+    </Suspense>
   );
 }

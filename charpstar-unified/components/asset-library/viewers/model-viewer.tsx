@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Script from "next/script";
+import { Switch } from "@/components/ui/inputs";
+import { Ruler } from "lucide-react";
 
 interface ModelViewerProps {
   modelUrl: string;
@@ -35,6 +37,7 @@ declare global {
 
 export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
   const modelViewerRef = useRef<HTMLElement | null>(null);
+  const [showDimensions, setShowDimensions] = useState(true);
 
   useEffect(() => {
     if (!modelViewerRef.current) return;
@@ -197,9 +200,9 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
       });
 
       renderSVG();
-
-      modelViewer.addEventListener("camera-change", renderSVG);
     });
+
+    modelViewer.addEventListener("camera-change", renderSVG);
 
     return () => {
       modelViewer.removeEventListener("camera-change", renderSVG);
@@ -207,6 +210,26 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
       checkbox.removeEventListener("change", () => {});
     };
   }, [modelUrl]);
+
+  const handleDimensionToggle = (checked: boolean) => {
+    setShowDimensions(checked);
+
+    const modelViewer = modelViewerRef.current as any;
+    if (!modelViewer) return;
+
+    const dimElements = [
+      ...modelViewer.querySelectorAll("button"),
+      modelViewer.querySelector("#dimLines"),
+    ];
+
+    dimElements.forEach((element) => {
+      if (checked) {
+        element.classList.remove("hide");
+      } else {
+        element.classList.add("hide");
+      }
+    });
+  };
 
   return (
     <>
@@ -307,37 +330,38 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
           <line className="dimensionLine"></line>
         </svg>
 
-        <div id="controls" className="dim glass">
-          <label htmlFor="show-dimensions" className="text-xs sm:text-sm">
-            Show Dimensions:
-          </label>
-          <input id="show-dimensions" type="checkbox" defaultChecked />
+        <div id="controls" className="dimension-controls">
+          <div className="control-panel bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-xl p-3 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 flex items-center gap-3 min-w-[140px]">
+            <div className="control-header flex items-center gap-2 flex-1">
+              <Ruler className="control-icon w-4 h-4 text-gray-600 dark:text-gray-300 flex-shrink-0" />
+              <span className="control-label text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                Dimensions
+              </span>
+            </div>
+            <div className="control-switch flex-shrink-0">
+              <Switch
+                id="show-dimensions"
+                checked={showDimensions}
+                onCheckedChange={handleDimensionToggle}
+                className="scale-90"
+              />
+            </div>
+          </div>
         </div>
         {/* @ts-expect-error -- model-viewer is a custom element */}
       </model-viewer>
 
       <style jsx>{`
-        #controls {
+        .dimension-controls {
           position: absolute;
-          bottom: 16px;
-          left: 16px;
-          max-width: unset;
-          transform: unset;
-          pointer-events: auto;
+          bottom: 20px;
+          left: 20px;
           z-index: 100;
+          pointer-events: auto;
         }
 
         .dot {
           display: none;
-        }
-
-        .glass {
-          background: rgba(255, 255, 255, 0.37);
-          backdrop-filter: blur(8px) contrast(0.89) saturate(1.27);
-          -webkit-backdrop-filter: blur(8px) contrast(0.89) saturate(1.27);
-          border: 1px solid rgba(255, 255, 255, 0.4);
-          padding: 0.5rem;
-          border-radius: 0.5rem;
         }
 
         .dim {
@@ -362,6 +386,24 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
           transform: translate3d(-50%, -50%, 0);
           pointer-events: none;
           --min-hotspot-opacity: 0;
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(4px);
+        }
+
+        /* Dark mode styles for dimension hotspots */
+        @media (prefers-color-scheme: dark) {
+          .dim {
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.8);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+          }
+        }
+
+        /* Alternative approach using CSS custom properties for theme switching */
+        .dark .dim {
+          color: rgba(255, 255, 255, 0.9);
+          background: rgba(0, 0, 0, 0.8);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         @media (min-width: 640px) {

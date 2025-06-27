@@ -375,15 +375,15 @@ export default function AssetDetailPage() {
                 }}
               >
                 {isEditing ? (
-                  <Button variant="ghost" className="cursor-pointer">
+                  <>
                     <X className="mr-2 h-4 w-4" />
                     Cancel Edit
-                  </Button>
+                  </>
                 ) : (
-                  <Button variant="ghost" className="cursor-pointer">
+                  <>
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit Product
-                  </Button>
+                  </>
                 )}
               </Button>
             )}
@@ -725,7 +725,6 @@ export default function AssetDetailPage() {
                           variant="outline"
                           size="sm"
                           className="cursor-pointer"
-                          asChild
                         >
                           <a
                             href={asset.glb_link}
@@ -734,8 +733,10 @@ export default function AssetDetailPage() {
                             rel="noopener noreferrer"
                             className="flex items-center gap-2"
                           >
-                            <Download className="h-4 w-4" />
-                            GLB
+                            <span className="flex items-center gap-2">
+                              <Download className="h-4 w-4" />
+                              GLB
+                            </span>
                           </a>
                         </Button>
                       )}
@@ -744,7 +745,6 @@ export default function AssetDetailPage() {
                           variant="outline"
                           size="sm"
                           className="cursor-pointer"
-                          asChild
                         >
                           <a
                             href={zipUrl}
@@ -759,8 +759,10 @@ export default function AssetDetailPage() {
                               }
                             }}
                           >
-                            <Download className="h-4 w-4" />
-                            OBJ
+                            <span className="flex items-center gap-2">
+                              <Download className="h-4 w-4" />
+                              OBJ
+                            </span>
                           </a>
                         </Button>
                       )}
