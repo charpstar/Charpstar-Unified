@@ -220,7 +220,7 @@ export default function NavUser() {
       {/* Theme Toggle */}
       <div className="px-3 py-2 border-b border-border/50">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pb-2">
             <Sun className="h-4 w-4 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">Light</span>
           </div>
@@ -228,6 +228,7 @@ export default function NavUser() {
             initial={{ x: -10 }}
             animate={{ x: 0 }}
             transition={{ duration: 0.2 }}
+            className="items-center"
           >
             <Switch
               checked={theme === "dark"}
@@ -238,7 +239,7 @@ export default function NavUser() {
             />
           </motion.div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pb-2">
             <span className="text-xs text-muted-foreground">Dark</span>
             <Moon className="h-4 w-4 text-muted-foreground" />
           </div>
