@@ -14,7 +14,7 @@ import { Package, Shield, Target } from "lucide-react";
 import { ThemeSwitcherCard } from "@/components/ui/utilities";
 import { supabase } from "@/lib/supabaseClient";
 import React from "react";
-import { EditorThemePicker, AvatarPicker } from "@/components/ui/inputs";
+import { AvatarPicker } from "@/components/ui/inputs";
 import { useToast } from "@/components/ui/utilities";
 import { DraggableDashboard } from "@/components/dashboard";
 import { useLoadingState } from "@/hooks/useLoadingState";
@@ -277,7 +277,6 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-2">
               <ThemeSwitcherCard />
-              <EditorThemePicker />
             </div>
           </div>
         ),

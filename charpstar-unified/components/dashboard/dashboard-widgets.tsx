@@ -512,7 +512,7 @@ export function QuickActionsWidget() {
             key={action.name}
             variant="outline"
             size="sm"
-            className="h-55 p-4 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors cursor-pointer"
+            className="h-28 p-4 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors cursor-pointer"
             onClick={action.action}
           >
             <action.icon className="h-5 w-5" />

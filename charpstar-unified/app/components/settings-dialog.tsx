@@ -49,6 +49,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/inputs";
+import { EditorThemePicker } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import {
   DropdownMenu,
@@ -791,6 +792,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         {user?.role || "User"}
                       </div>
                     </div>
+                    <div className="space-y-4">
+                      <EditorThemePicker />
+                    </div>
                     {/* Profile Picture */}
                     {/* <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-3">
@@ -828,6 +832,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </div>
                       )}
                     </div>
+
+                    {/* Theme Settings */}
+
                     <div className="flex justify-start pt-2 sm:pt-4">
                       <Button
                         variant="ghost"
@@ -1311,7 +1318,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                                           ? `Disable ${role} access to ${res}`
                                                           : `Enable ${role} access to ${res}`
                                                       }
-                                                      className="data-[state=checked]:bg-green-600 dark:data-[state=checked]:bg-green-400 data-[state=unchecked]:bg-red-500 dark:data-[state=unchecked]:bg-red-400 border border-border shadow relative transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:focus-visible:ring-offset-background [&>span]:bg-white dark:[&>span]:bg-zinc-700 [&>span]:shadow-lg [&>span]:size-5 [&>span]:transition-all [&>span]:duration-200 cursor-pointer"
                                                     />
                                                   ) : (
                                                     <span className="text-muted-foreground select-none">
@@ -1397,7 +1403,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                                         ? `Disable ${role} access to ${res}`
                                                         : `Enable ${role} access to ${res}`
                                                     }
-                                                    className="data-[state=checked]:bg-green-600 dark:data-[state=checked]:bg-green-400 data-[state=unchecked]:bg-red-500 dark:data-[state=unchecked]:bg-red-400 border border-border shadow relative transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:focus-visible:ring-offset-background [&>span]:bg-white dark:[&>span]:bg-zinc-700 [&>span]:shadow-lg [&>span]:size-5 [&>span]:transition-all [&>span]:duration-200 cursor-pointer"
                                                   />
                                                 ) : (
                                                   <span className="text-muted-foreground select-none">
