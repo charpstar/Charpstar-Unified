@@ -197,10 +197,6 @@ export function DraggableDashboard({
         setWidgets(mergedLayout);
         saveToHistory(mergedLayout);
         setHasLoadedSavedLayout(true);
-        toast({
-          title: "Layout Loaded",
-          description: "Your saved layout has been loaded.",
-        });
       } else {
         // No saved layout found, mark as loaded to prevent overwriting
         setHasLoadedSavedLayout(true);

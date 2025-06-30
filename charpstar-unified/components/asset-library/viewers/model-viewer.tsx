@@ -200,6 +200,12 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
       });
 
       renderSVG();
+
+      // Unhide the SVG lines now that everything is ready
+      const dimLines = modelViewer.querySelector("#dimLines");
+      if (dimLines) {
+        dimLines.classList.remove("hide");
+      }
     });
 
     modelViewer.addEventListener("camera-change", renderSVG);
@@ -321,7 +327,7 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
           width="100%"
           height="100%"
           xmlns="http://www.w3.org/2000/svg"
-          className="dimensionLineContainer"
+          className="dimensionLineContainer hide"
         >
           <line className="dimensionLine"></line>
           <line className="dimensionLine"></line>

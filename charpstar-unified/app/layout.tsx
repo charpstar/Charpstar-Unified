@@ -9,6 +9,7 @@ import { SharedLayout } from "./shared-layout";
 import { DateRangeProvider } from "@/contexts/DateRangeContext";
 import { Editor3DProvider } from "@/contexts/Editor3DContext";
 import { Suspense } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 // Root layout font configuration
 const montserrat = Montserrat({
@@ -197,6 +198,7 @@ export default function RootLayout({
             >
               {/* Theme and other global providers */}
               <Providers>
+                <Analytics />
                 {/* Date range context for analytics and date-based features */}
                 <DateRangeProvider>
                   <Editor3DProvider>

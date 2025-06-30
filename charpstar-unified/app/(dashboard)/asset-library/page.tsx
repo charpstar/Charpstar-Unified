@@ -8,8 +8,14 @@ import {
   SheetTitle,
 } from "@/components/ui/containers";
 import { useAssets } from "../../../hooks/use-assets";
-import { useState, useEffect, useMemo, Suspense } from "react";
-
+import {
+  useState,
+  useEffect,
+  useMemo,
+  Suspense,
+  useCallback,
+  useRef,
+} from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { PreviewGeneratorDialog } from "@/components/asset-library/dialogs/preview-generator-dialog";
@@ -22,6 +28,24 @@ import { translateSwedishToEnglish } from "@/utils/swedishTranslations";
 import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
 import { Search } from "lucide-react";
 import { CategorySidebarSkeleton } from "@/components/ui/skeletons/CategorySidebarSkeleton";
+import React from "react";
+
+// Lazy load heavy components
+const LazyAssetCard = React.lazy(() => import("@/app/components/ui/AssetCard"));
+const LazyPreviewGeneratorDialog = React.lazy(() =>
+  import("@/components/asset-library/dialogs/preview-generator-dialog").then(
+    (module) => ({
+      default: module.PreviewGeneratorDialog,
+    })
+  )
+);
+const LazyBatchUploadSheet = React.lazy(() =>
+  import("@/components/asset-library/components/batch-upload-sheet").then(
+    (module) => ({
+      default: module.BatchUploadSheet,
+    })
+  )
+);
 
 type SortOption =
   | "name-asc"
@@ -182,10 +206,88 @@ export default function AssetLibraryPage() {
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [isBatchEditMode, setIsBatchEditMode] = useState(false);
 
+  // Mobile sidebar toggle state
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Lazy loading state
+  const [visibleAssets, setVisibleAssets] = useState<string[]>([]);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Filter state
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
+
+  // Debounced search function
+  const debouncedSearch = useCallback((value: string) => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setActiveSearchValue(value);
+      setCurrentPage(1);
+    }, 300);
+  }, []);
+
+  // Optimized search function with memoization
+  const optimizedSearch = useCallback(
+    (searchTerm: string, asset: any): boolean => {
+      if (!searchTerm || !asset) return false;
+
+      const searchLower = translateSwedishToEnglish(searchTerm.toLowerCase());
+      const productName = asset.product_name?.toLowerCase() || "";
+
+      // Quick exact match check first
+      if (productName.includes(searchLower)) return true;
+
+      // Then check other fields
+      return (
+        asset.materials?.some((material: string) =>
+          material.toLowerCase().includes(searchLower)
+        ) ||
+        asset.colors?.some((color: string) =>
+          color.toLowerCase().includes(searchLower)
+        ) ||
+        asset.tags?.some((tag: string) =>
+          tag.toLowerCase().includes(searchLower)
+        )
+      );
+    },
+    []
+  );
+
+  // Intersection Observer for lazy loading
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const assetId = entry.target.getAttribute("data-asset-id");
+            if (assetId) {
+              setVisibleAssets((prev) => [...new Set([...prev, assetId])]);
+            }
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: "100px" }
+    );
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -209,97 +311,97 @@ export default function AssetLibraryPage() {
   }, [activeSearchValue]);
 
   // Filter assets based on active search, category, and other filters
-  const filteredAssets = hookFilteredAssets
-    .filter((asset) => {
-      // Apply search filter
-      const searchLower = translateSwedishToEnglish(
-        activeSearchValue.toLowerCase()
-      );
-      if (searchLower) {
-        const matchesSearch =
-          isFuzzyMatch(searchLower, asset.product_name) ||
-          asset.materials?.some((material) =>
-            isFuzzyMatch(searchLower, material)
-          ) ||
-          asset.colors?.some((color) => isFuzzyMatch(searchLower, color)) ||
-          asset.tags?.some((tag) => isFuzzyMatch(searchLower, tag));
-
-        if (!matchesSearch) return false;
-      }
-
-      // Apply material filter
-      if (selectedMaterials.length > 0) {
-        const hasSelectedMaterial = asset.materials?.some((material) =>
-          selectedMaterials.includes(material)
-        );
-        if (!hasSelectedMaterial) return false;
-      }
-
-      // Apply color filter
-      if (selectedColors.length > 0) {
-        const hasSelectedColor = asset.colors?.some((color) =>
-          selectedColors.includes(color)
-        );
-        if (!hasSelectedColor) return false;
-      }
-
-      // Apply company/client filter
-      if (selectedCompanies.length > 0) {
-        const hasSelectedCompany = selectedCompanies.includes(
-          asset.client || ""
-        );
-        if (!hasSelectedCompany) return false;
-      }
-
-      return true;
-    })
-    .map((asset) => {
-      // Add relevance score for search results
-      const relevanceScore = activeSearchValue
-        ? calculateSearchRelevance(activeSearchValue, asset)
-        : 0;
-
-      return { ...asset, relevanceScore };
-    })
-    .sort((a, b) => {
-      // If there's an active search, sort by relevance first
-      if (activeSearchValue) {
-        if (b.relevanceScore !== a.relevanceScore) {
-          return b.relevanceScore - a.relevanceScore;
+  const filteredAssets = useMemo(() => {
+    return hookFilteredAssets
+      .filter((asset) => {
+        // Apply search filter with optimized search
+        if (activeSearchValue) {
+          if (!optimizedSearch(activeSearchValue, asset)) return false;
         }
-      }
 
-      // Then apply the selected sort order
-      switch (filters.sort) {
-        case "name-asc":
-          return a.product_name.localeCompare(b.product_name);
-        case "name-desc":
-          return b.product_name.localeCompare(a.product_name);
-        case "date-asc":
-          return (
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        // Apply material filter
+        if (selectedMaterials.length > 0) {
+          const hasSelectedMaterial = asset.materials?.some((material) =>
+            selectedMaterials.includes(material)
           );
-        case "date-desc":
-          return (
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          if (!hasSelectedMaterial) return false;
+        }
+
+        // Apply color filter
+        if (selectedColors.length > 0) {
+          const hasSelectedColor = asset.colors?.some((color) =>
+            selectedColors.includes(color)
           );
-        case "updated-desc":
-          return (
-            new Date(b.updated_at || b.created_at).getTime() -
-            new Date(a.updated_at || a.created_at).getTime()
+          if (!hasSelectedColor) return false;
+        }
+
+        // Apply company/client filter
+        if (selectedCompanies.length > 0) {
+          const hasSelectedCompany = selectedCompanies.includes(
+            asset.client || ""
           );
-        default:
-          return 0;
-      }
-    })
-    .filter((asset) => {
-      // Only show assets with reasonable relevance when searching
-      if (activeSearchValue) {
-        // Show only assets with relevance score > 0 (actual matches)
-        return asset.relevanceScore > 0;
-      }
-      return true;
-    });
+          if (!hasSelectedCompany) return false;
+        }
+
+        return true;
+      })
+      .map((asset) => {
+        // Add relevance score for search results
+        const relevanceScore = activeSearchValue
+          ? calculateSearchRelevance(activeSearchValue, asset)
+          : 0;
+
+        return { ...asset, relevanceScore };
+      })
+      .sort((a, b) => {
+        // If there's an active search, sort by relevance first
+        if (activeSearchValue) {
+          if (b.relevanceScore !== a.relevanceScore) {
+            return b.relevanceScore - a.relevanceScore;
+          }
+        }
+
+        // Then apply the selected sort order
+        switch (filters.sort) {
+          case "name-asc":
+            return a.product_name.localeCompare(b.product_name);
+          case "name-desc":
+            return b.product_name.localeCompare(a.product_name);
+          case "date-asc":
+            return (
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime()
+            );
+          case "date-desc":
+            return (
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+            );
+          case "updated-desc":
+            return (
+              new Date(b.updated_at || b.created_at).getTime() -
+              new Date(a.updated_at || a.created_at).getTime()
+            );
+          default:
+            return 0;
+        }
+      })
+      .filter((asset) => {
+        // Only show assets with reasonable relevance when searching
+        if (activeSearchValue) {
+          return asset.relevanceScore > 0;
+        }
+        return true;
+      });
+  }, [
+    hookFilteredAssets,
+    activeSearchValue,
+    selectedMaterials,
+    selectedColors,
+    selectedCompanies,
+    filters.sort,
+    optimizedSearch,
+  ]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredAssets.length / ITEMS_PER_PAGE);
@@ -438,8 +540,7 @@ export default function AssetLibraryPage() {
 
   const handleSearch = (value: string) => {
     setSearchValue(value);
-    setActiveSearchValue(value);
-    setCurrentPage(1);
+    debouncedSearch(value);
   };
 
   const handleGeneratePreviews = () => {
@@ -549,11 +650,34 @@ export default function AssetLibraryPage() {
       : []),
   ];
 
+  // Lazy loading asset card component
+  const LazyAssetCardWrapper = useCallback(({ asset, ...props }: any) => {
+    const cardRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      if (cardRef.current && observerRef.current) {
+        observerRef.current.observe(cardRef.current);
+      }
+    }, []);
+
+    return (
+      <div ref={cardRef} data-asset-id={asset.id}>
+        <Suspense
+          fallback={<div className="h-48 bg-muted animate-pulse rounded-lg" />}
+        >
+          <LazyAssetCard asset={asset} {...props} />
+        </Suspense>
+      </div>
+    );
+  }, []);
+
   if (loading) {
     return (
-      <div className="flex h-full">
-        {/* Category Sidebar */}
-        <CategorySidebarSkeleton />
+      <div className="flex flex-col lg:flex-row h-full">
+        {/* Category Sidebar - Hidden on mobile, shown on desktop */}
+        <div className="hidden lg:block">
+          <CategorySidebarSkeleton />
+        </div>
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
@@ -580,9 +704,13 @@ export default function AssetLibraryPage() {
             companies={dynamicFilterOptions.companies}
             selectedCompanies={selectedCompanies}
             setSelectedCompanies={setSelectedCompanies}
+            isMobileSidebarOpen={isMobileSidebarOpen}
+            onToggleMobileSidebar={() =>
+              setIsMobileSidebarOpen(!isMobileSidebarOpen)
+            }
           />
           {/* Asset Grid Skeleton */}
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-3 sm:p-6">
             <AssetLibrarySkeleton />
           </div>
         </div>
@@ -592,9 +720,11 @@ export default function AssetLibraryPage() {
 
   if (error) {
     return (
-      <div className="flex h-full">
-        {/* Category Sidebar */}
-        <CategorySidebarSkeleton />
+      <div className="flex flex-col lg:flex-row h-full">
+        {/* Category Sidebar - Hidden on mobile, shown on desktop */}
+        <div className="hidden lg:block">
+          <CategorySidebarSkeleton />
+        </div>
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
@@ -620,10 +750,14 @@ export default function AssetLibraryPage() {
             companies={dynamicFilterOptions.companies}
             selectedCompanies={selectedCompanies}
             setSelectedCompanies={setSelectedCompanies}
+            isMobileSidebarOpen={isMobileSidebarOpen}
+            onToggleMobileSidebar={() =>
+              setIsMobileSidebarOpen(!isMobileSidebarOpen)
+            }
           />
 
           {/* Error Content */}
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-3 sm:p-6">
             <div className="flex justify-center items-center h-64">
               <div className="text-center">
                 <p className="text-destructive mb-4">{error}</p>
@@ -638,9 +772,11 @@ export default function AssetLibraryPage() {
 
   if (assets.length === 0) {
     return (
-      <div className="flex h-full">
-        {/* Category Sidebar */}
-        <CategorySidebarSkeleton />
+      <div className="flex flex-col lg:flex-row h-full">
+        {/* Category Sidebar - Hidden on mobile, shown on desktop */}
+        <div className="hidden lg:block">
+          <CategorySidebarSkeleton />
+        </div>
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
@@ -666,10 +802,14 @@ export default function AssetLibraryPage() {
             companies={dynamicFilterOptions.companies}
             selectedCompanies={selectedCompanies}
             setSelectedCompanies={setSelectedCompanies}
+            isMobileSidebarOpen={isMobileSidebarOpen}
+            onToggleMobileSidebar={() =>
+              setIsMobileSidebarOpen(!isMobileSidebarOpen)
+            }
           />
 
           {/* Empty State */}
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-3 sm:p-6">
             <div className="flex justify-center items-center h-64">
               <p className="text-muted-foreground">
                 {client
@@ -685,16 +825,19 @@ export default function AssetLibraryPage() {
 
   return (
     <Suspense fallback={<AssetLibrarySkeleton />}>
-      <div className="flex h-full">
-        {/* Category Sidebar */}
-        <CategorySidebar
-          categories={filterOptions.categories}
-          selectedCategory={filters.category}
-          setSelectedCategory={handleSetCategory}
-          selectedSubcategory={filters.subcategory}
-          setSelectedSubcategory={handleSetSubcategory}
-          onClearAllFilters={handleClearAllFilters}
-        />
+      <div className="flex flex-col lg:flex-row h-full">
+        {/* Category Sidebar - Show on mobile when toggled, always on desktop */}
+        <div className={`${isMobileSidebarOpen ? "block" : "hidden"} lg:block`}>
+          <CategorySidebar
+            categories={filterOptions.categories}
+            selectedCategory={filters.category}
+            setSelectedCategory={handleSetCategory}
+            selectedSubcategory={filters.subcategory}
+            setSelectedSubcategory={handleSetSubcategory}
+            onClearAllFilters={handleClearAllFilters}
+            onClose={() => setIsMobileSidebarOpen(false)}
+          />
+        </div>
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
@@ -720,13 +863,17 @@ export default function AssetLibraryPage() {
             companies={dynamicFilterOptions.companies}
             selectedCompanies={selectedCompanies}
             setSelectedCompanies={setSelectedCompanies}
+            isMobileSidebarOpen={isMobileSidebarOpen}
+            onToggleMobileSidebar={() =>
+              setIsMobileSidebarOpen(!isMobileSidebarOpen)
+            }
           />
 
           {/* Asset Grid */}
-          <div className="flex-1 p-6  max-h-[calc(100vh-80px)] overflow-y-auto">
+          <div className="flex-1 p-3 sm:p-6 max-h-[calc(100vh-80px)] overflow-y-auto">
             {/* Asset Count and Page Info */}
             <div className="flex justify-between items-center mb-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Showing {currentAssets.length} of {filteredAssets.length} assets
                 {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
               </p>
@@ -734,9 +881,9 @@ export default function AssetLibraryPage() {
 
             {/* Batch Edit Controls */}
             {isBatchEditMode && (
-              <div className="bg-muted/50 rounded-lg p-4 mb-4 border border-border">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+              <div className="bg-muted/50 rounded-lg p-3 sm:p-4 mb-4 border border-border">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <span className="text-sm font-medium">
                       {selectedAssets.length} asset(s) selected
                     </span>
@@ -787,13 +934,13 @@ export default function AssetLibraryPage() {
 
             {/* No Results State */}
             {filteredAssets.length === 0 && assets.length > 0 && (
-              <div className="flex flex-col items-center justify-center h-64 text-center">
+              <div className="flex flex-col items-center justify-center h-64 text-center px-4">
                 <div className="mb-6">
-                  <Search className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                  <Search className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground/50 mx-auto mb-4" />
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2">
                     No assets found
                   </h3>
-                  <p className="text-muted-foreground mb-6 max-w-md">
+                  <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-md">
                     {activeSearchValue
                       ? `We couldn't find any assets matching "${activeSearchValue}". Try adjusting your search terms or filters.`
                       : "No assets match your current filters. Try adjusting your selection to see more results."}
@@ -815,14 +962,14 @@ export default function AssetLibraryPage() {
               <div
                 className={
                   viewMode === "grid"
-                    ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 p-1 overflow-hidden"
+                    ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 p-1 overflow-hidden"
                     : viewMode === "compactGrid"
                       ? "flex flex-col gap-3"
-                      : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 overflow-hidden"
+                      : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 overflow-hidden"
                 }
               >
                 {currentAssets.map((asset) => (
-                  <AssetCard
+                  <LazyAssetCardWrapper
                     key={asset.id}
                     asset={asset}
                     isBatchEditMode={isBatchEditMode}
@@ -836,7 +983,7 @@ export default function AssetLibraryPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex justify-center mt-8 sticky bottom-0 bg-muted border-t border-border z-10 p-2 rounded-lg w-fit mx-auto">
+              <div className="flex justify-center mt-6 sm:mt-8 sticky bottom-0 bg-muted border-t border-border z-10 p-2 rounded-lg w-fit mx-auto">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -846,7 +993,7 @@ export default function AssetLibraryPage() {
                   >
                     Previous
                   </Button>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-xs sm:text-sm text-muted-foreground">
                     Page {currentPage} of {totalPages}
                   </span>
                   <Button
@@ -864,22 +1011,28 @@ export default function AssetLibraryPage() {
         </div>
 
         {/* Admin Dialogs and Sheets */}
-        <PreviewGeneratorDialog
-          isOpen={previewDialogOpen}
-          onClose={() => setPreviewDialogOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <LazyPreviewGeneratorDialog
+            isOpen={previewDialogOpen}
+            onClose={() => setPreviewDialogOpen(false)}
+          />
+        </Suspense>
 
         <Sheet open={batchUploadOpen} onOpenChange={setBatchUploadOpen}>
           <SheetContent side="right" className="w-full max-w-6xl p-0">
             <SheetHeader className="px-6 py-4 border-b border-border">
               <SheetTitle>Batch Upload Assets</SheetTitle>
             </SheetHeader>
-            <BatchUploadSheet
-              onSuccess={() => {
-                setBatchUploadOpen(false);
-                refetch();
-              }}
-            />
+            <Suspense
+              fallback={<div className="p-6">Loading upload form...</div>}
+            >
+              <LazyBatchUploadSheet
+                onSuccess={() => {
+                  setBatchUploadOpen(false);
+                  refetch();
+                }}
+              />
+            </Suspense>
           </SheetContent>
         </Sheet>
       </div>

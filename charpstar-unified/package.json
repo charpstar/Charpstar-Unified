@@ -45,6 +45,7 @@
     "@tanstack/react-query-persist-client": "^5.76.1",
     "@tanstack/react-table": "^8.21.3",
     "@types/three": "^0.176.0",
+    "@vercel/analytics": "^1.5.0",
     "bcrypt": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

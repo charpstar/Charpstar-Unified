@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { StatCard } from "@/components/ui/display";
 import { Card, CardContent } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
@@ -25,6 +25,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/display";
 import { Eye, TrendingUp, ShoppingCart, Activity } from "lucide-react";
+
+// Lazy load heavy analytics components
+const LazyPerformanceTrends = lazy(() =>
+  import("@/components/analytics").then((module) => ({
+    default: module.PerformanceTrends,
+  }))
+);
+const LazyCVRTable = lazy(() =>
+  import("@/components/analytics").then((module) => ({
+    default: module.CVRTable,
+  }))
+);
 
 interface AnalyticsRow {
   metric_name: string;
@@ -894,25 +906,29 @@ export default function AnalyticsDashboard() {
 
       <div className="mt-6">
         <div className=" sm:h-[400px] bg-card rounded-lg border">
-          <PerformanceTrends effectiveProfile={effectiveProfile} />
+          <Suspense fallback={<Skeleton className="h-full w-full" />}>
+            <LazyPerformanceTrends effectiveProfile={effectiveProfile} />
+          </Suspense>
         </div>
       </div>
 
       <div className="mt-14 sm:mt-35">
         <div className="bg-card rounded-lg border">
-          <CVRTable
-            isLoading={isQueryLoading}
-            data={clientQueryResult as ProductMetrics[]}
-            showColumns={{
-              ar_sessions: true,
-              _3d_sessions: true,
-              total_purchases: true,
-              purchases_with_service: true,
-              avg_session_duration_seconds: true,
-            }}
-            showSearch={true}
-            effectiveProfile={effectiveProfile || undefined}
-          />
+          <Suspense fallback={<Skeleton className="h-full w-full" />}>
+            <LazyCVRTable
+              isLoading={isQueryLoading}
+              data={clientQueryResult as ProductMetrics[]}
+              showColumns={{
+                ar_sessions: true,
+                _3d_sessions: true,
+                total_purchases: true,
+                purchases_with_service: true,
+                avg_session_duration_seconds: true,
+              }}
+              showSearch={true}
+              effectiveProfile={effectiveProfile || undefined}
+            />
+          </Suspense>
         </div>
       </div>
     </div>

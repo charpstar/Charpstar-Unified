@@ -7,6 +7,7 @@ import {
   useCallback,
   useRef,
   Suspense,
+  lazy,
 } from "react";
 import { useUser } from "@/contexts/useUser";
 import { Badge } from "@/components/ui/feedback";
@@ -19,13 +20,33 @@ import { useToast } from "@/components/ui/utilities";
 import { DraggableDashboard } from "@/components/dashboard";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { DashboardSkeleton } from "@/components/ui/skeletons";
-import {
-  StatsWidget,
-  QuickActionsWidget,
-  ActivityWidget,
-  NewUsersChartWidget,
-  NewModelsChartWidget,
-} from "@/components/dashboard";
+
+// Lazy load heavy dashboard widgets
+const LazyStatsWidget = lazy(() =>
+  import("@/components/dashboard").then((module) => ({
+    default: module.StatsWidget,
+  }))
+);
+const LazyQuickActionsWidget = lazy(() =>
+  import("@/components/dashboard").then((module) => ({
+    default: module.QuickActionsWidget,
+  }))
+);
+const LazyActivityWidget = lazy(() =>
+  import("@/components/dashboard").then((module) => ({
+    default: module.ActivityWidget,
+  }))
+);
+const LazyNewUsersChartWidget = lazy(() =>
+  import("@/components/dashboard").then((module) => ({
+    default: module.NewUsersChartWidget,
+  }))
+);
+const LazyNewModelsChartWidget = lazy(() =>
+  import("@/components/dashboard").then((module) => ({
+    default: module.NewModelsChartWidget,
+  }))
+);
 
 interface User {
   id: string;
@@ -65,14 +86,6 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const popupTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { withLoading } = useLoadingState({ showGlobalLoading: true });
-
-  // Development flag to force loading state for skeleton testing
-  const FORCE_LOADING = process.env.NODE_ENV === "development" && false; // Set to true to force loading
-  // Alternative: Use URL parameter ?skeleton=true to force loading
-  const urlParams = new URLSearchParams(
-    typeof window !== "undefined" ? window.location.search : ""
-  );
-  const FORCE_LOADING_VIA_URL = urlParams.get("skeleton") === "true";
 
   // Get avatar from user metadata (same as nav-user)
   const userAvatar = user?.metadata?.avatar_url || null;
@@ -288,7 +301,15 @@ export default function DashboardPage() {
         size: "medium" as const,
         position: { x: 2, y: 0 },
         visible: true,
-        content: <QuickActionsWidget />,
+        content: (
+          <Suspense
+            fallback={
+              <div className="h-32 bg-muted animate-pulse rounded-lg" />
+            }
+          >
+            <LazyQuickActionsWidget />
+          </Suspense>
+        ),
       },
       {
         id: "stats-models",
@@ -298,11 +319,17 @@ export default function DashboardPage() {
         position: { x: 0, y: 1 },
         visible: true,
         content: (
-          <StatsWidget
-            title="Total Models"
-            value={stats?.totalModels?.toString() || "0"}
-            icon={Package}
-          />
+          <Suspense
+            fallback={
+              <div className="h-24 bg-muted animate-pulse rounded-lg" />
+            }
+          >
+            <LazyStatsWidget
+              title="Total Models"
+              value={stats?.totalModels?.toString() || "0"}
+              icon={Package}
+            />
+          </Suspense>
         ),
       },
       {
@@ -313,11 +340,17 @@ export default function DashboardPage() {
         position: { x: 1, y: 1 },
         visible: true,
         content: (
-          <StatsWidget
-            title="Categories"
-            value={stats?.totalCategories?.toString() || "0"}
-            icon={Target}
-          />
+          <Suspense
+            fallback={
+              <div className="h-24 bg-muted animate-pulse rounded-lg" />
+            }
+          >
+            <LazyStatsWidget
+              title="Categories"
+              value={stats?.totalCategories?.toString() || "0"}
+              icon={Target}
+            />
+          </Suspense>
         ),
       },
       {
@@ -327,7 +360,15 @@ export default function DashboardPage() {
         size: "large" as const,
         position: { x: 2, y: 1 },
         visible: true,
-        content: <ActivityWidget />,
+        content: (
+          <Suspense
+            fallback={
+              <div className="h-64 bg-muted animate-pulse rounded-lg" />
+            }
+          >
+            <LazyActivityWidget />
+          </Suspense>
+        ),
       },
 
       {
@@ -337,7 +378,15 @@ export default function DashboardPage() {
         size: "small" as const,
         position: { x: 0, y: 4 },
         visible: true,
-        content: <NewUsersChartWidget />,
+        content: (
+          <Suspense
+            fallback={
+              <div className="h-48 bg-muted animate-pulse rounded-lg" />
+            }
+          >
+            <LazyNewUsersChartWidget />
+          </Suspense>
+        ),
       },
       {
         id: "new-models-chart",
@@ -346,7 +395,15 @@ export default function DashboardPage() {
         size: "small" as const,
         position: { x: 2, y: 4 },
         visible: true,
-        content: <NewModelsChartWidget />,
+        content: (
+          <Suspense
+            fallback={
+              <div className="h-48 bg-muted animate-pulse rounded-lg" />
+            }
+          >
+            <LazyNewModelsChartWidget />
+          </Suspense>
+        ),
       },
     ],
     [
@@ -360,7 +417,7 @@ export default function DashboardPage() {
     ]
   );
 
-  if (loading || FORCE_LOADING || FORCE_LOADING_VIA_URL) {
+  if (loading) {
     return <DashboardSkeleton />;
   }
 
