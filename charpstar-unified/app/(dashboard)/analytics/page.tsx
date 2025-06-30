@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/display";
 import { format } from "date-fns";
 import useSWR from "swr";
 import { Skeleton } from "@/components/ui/skeletons";
-import { PerformanceTrends, CVRTable } from "@/components/analytics";
+
 import { useClientQuery } from "@/queries/useClientQuery";
 import { compToBq } from "@/utils/uiutils";
 import { useUser } from "@/contexts/useUser";

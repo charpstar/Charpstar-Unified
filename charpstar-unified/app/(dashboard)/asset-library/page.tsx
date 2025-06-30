@@ -18,12 +18,9 @@ import {
 } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
-import { PreviewGeneratorDialog } from "@/components/asset-library/dialogs/preview-generator-dialog";
-import { BatchUploadSheet } from "@/components/asset-library/components/batch-upload-sheet";
 import { createClient } from "@/utils/supabase/client";
 import { AssetLibraryControlPanel } from "@/components/asset-library/AssetLibraryControlPanel";
 import { CategorySidebar } from "@/components/asset-library/CategorySidebar";
-import AssetCard from "@/app/components/ui/AssetCard";
 import { translateSwedishToEnglish } from "@/utils/swedishTranslations";
 import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
 import { Search } from "lucide-react";
@@ -54,78 +51,14 @@ type SortOption =
   | "date-desc"
   | "updated-desc";
 
-const levenshteinDistance = (a: string, b: string): number => {
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
-
-  const matrix = Array(b.length + 1)
-    .fill(null)
-    .map(() => Array(a.length + 1).fill(null));
-
-  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
-  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
-
-  for (let j = 1; j <= b.length; j++) {
-    for (let i = 1; i <= a.length; i++) {
-      const substitutionCost = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[j][i] = Math.min(
-        matrix[j][i - 1] + 1, // deletion
-        matrix[j - 1][i] + 1, // insertion
-        matrix[j - 1][i - 1] + substitutionCost // substitution
-      );
-    }
-  }
-
-  return matrix[b.length][a.length];
-};
-
-const isFuzzyMatch = (searchTerm: string, target: string): boolean => {
-  if (!searchTerm || !target) return false;
-
-  // Split search terms by comma and trim whitespace
-  const searchTerms = searchTerm
-    .split(",")
-    .map((term) => term.trim().toLowerCase());
-  const targetLower = target.toLowerCase();
-
-  // Return true if any of the search terms match
-  return searchTerms.some((term) => {
-    // First check for exact substring match (highest priority)
-    if (targetLower.includes(term)) {
-      return true;
-    }
-
-    // Then check for word-by-word matching with stricter rules
-    const words = term.split(" ");
-    return words.every((word) => {
-      // Check if any word in the target contains this search word
-      const targetWords = targetLower.split(/\s+/);
-      const hasExactWordMatch = targetWords.some(
-        (targetWord) => targetWord.includes(word) || word.includes(targetWord)
-      );
-
-      if (hasExactWordMatch) {
-        return true;
-      }
-
-      // Only use Levenshtein distance for longer words (3+ characters)
-      if (word.length >= 3) {
-        const distance = levenshteinDistance(word, targetLower);
-        // Stricter distance calculation - only allow 1 typo for every 5 characters
-        const maxDistance = Math.max(1, Math.floor(word.length / 5));
-        return distance <= maxDistance;
-      }
-
-      return false;
-    });
-  });
-};
-
 // New function to calculate search relevance score
 const calculateSearchRelevance = (searchTerm: string, asset: any): number => {
   if (!searchTerm || !asset) return 0;
 
-  const searchLower = searchTerm.toLowerCase();
+  const translatedSearch = translateSwedishToEnglish(searchTerm.toLowerCase());
+  const searchTerms = translatedSearch
+    .split(/,|\s+/)
+    .filter((term) => term.trim());
   const productName = asset.product_name?.toLowerCase() || "";
   const materials = asset.materials?.map((m: string) => m.toLowerCase()) || [];
   const colors = asset.colors?.map((c: string) => c.toLowerCase()) || [];
@@ -133,43 +66,43 @@ const calculateSearchRelevance = (searchTerm: string, asset: any): number => {
 
   let score = 0;
 
-  // Exact matches get highest scores
-  if (productName.includes(searchLower)) {
-    score += 100;
-    // Bonus for exact product name match
-    if (productName === searchLower) score += 50;
-  }
-
-  // Material matches
-  materials.forEach((material: string) => {
-    if (material.includes(searchLower)) {
-      score += 30;
-      if (material === searchLower) score += 20;
+  // Check each translated search term
+  searchTerms.forEach((searchTerm) => {
+    // Exact matches get highest scores
+    if (productName.includes(searchTerm)) {
+      score += 100;
+      // Bonus for exact product name match
+      if (productName === searchTerm) score += 50;
     }
-  });
 
-  // Color matches
-  colors.forEach((color: string) => {
-    if (color.includes(searchLower)) {
-      score += 25;
-      if (color === searchLower) score += 15;
-    }
-  });
+    // Material matches
+    materials.forEach((material: string) => {
+      if (material.includes(searchTerm)) {
+        score += 30;
+        if (material === searchTerm) score += 20;
+      }
+    });
 
-  // Tag matches
-  tags.forEach((tag: string) => {
-    if (tag.includes(searchLower)) {
-      score += 20;
-      if (tag === searchLower) score += 10;
-    }
-  });
+    // Color matches
+    colors.forEach((color: string) => {
+      if (color.includes(searchTerm)) {
+        score += 25;
+        if (color === searchTerm) score += 15;
+      }
+    });
 
-  // Word boundary matches (higher relevance)
-  const searchWords = searchLower.split(/\s+/);
-  searchWords.forEach((word) => {
-    if (word.length >= 3) {
+    // Tag matches
+    tags.forEach((tag: string) => {
+      if (tag.includes(searchTerm)) {
+        score += 20;
+        if (tag === searchTerm) score += 10;
+      }
+    });
+
+    // Word boundary matches (higher relevance)
+    if (searchTerm.length >= 3) {
       // Check if word appears at word boundaries
-      const wordBoundaryRegex = new RegExp(`\\b${word}\\b`, "i");
+      const wordBoundaryRegex = new RegExp(`\\b${searchTerm}\\b`, "i");
       if (wordBoundaryRegex.test(productName)) score += 40;
       if (wordBoundaryRegex.test(materials.join(" "))) score += 25;
       if (wordBoundaryRegex.test(colors.join(" "))) score += 20;
@@ -210,6 +143,7 @@ export default function AssetLibraryPage() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Lazy loading state
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [visibleAssets, setVisibleAssets] = useState<string[]>([]);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -235,24 +169,32 @@ export default function AssetLibraryPage() {
     (searchTerm: string, asset: any): boolean => {
       if (!searchTerm || !asset) return false;
 
-      const searchLower = translateSwedishToEnglish(searchTerm.toLowerCase());
+      const translatedSearch = translateSwedishToEnglish(
+        searchTerm.toLowerCase()
+      );
+      const searchTerms = translatedSearch
+        .split(/,|\s+/)
+        .filter((term) => term.trim());
       const productName = asset.product_name?.toLowerCase() || "";
 
-      // Quick exact match check first
-      if (productName.includes(searchLower)) return true;
+      // Check if any of the translated search terms match
+      return searchTerms.some((searchTerm) => {
+        // Quick exact match check first
+        if (productName.includes(searchTerm)) return true;
 
-      // Then check other fields
-      return (
-        asset.materials?.some((material: string) =>
-          material.toLowerCase().includes(searchLower)
-        ) ||
-        asset.colors?.some((color: string) =>
-          color.toLowerCase().includes(searchLower)
-        ) ||
-        asset.tags?.some((tag: string) =>
-          tag.toLowerCase().includes(searchLower)
-        )
-      );
+        // Then check other fields
+        return (
+          asset.materials?.some((material: string) =>
+            material.toLowerCase().includes(searchTerm)
+          ) ||
+          asset.colors?.some((color: string) =>
+            color.toLowerCase().includes(searchTerm)
+          ) ||
+          asset.tags?.some((tag: string) =>
+            tag.toLowerCase().includes(searchTerm)
+          )
+        );
+      });
     },
     []
   );
@@ -651,7 +593,7 @@ export default function AssetLibraryPage() {
   ];
 
   // Lazy loading asset card component
-  const LazyAssetCardWrapper = useCallback(({ asset, ...props }: any) => {
+  function LazyAssetCardWrapper({ asset, ...props }: any) {
     const cardRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -669,7 +611,7 @@ export default function AssetLibraryPage() {
         </Suspense>
       </div>
     );
-  }, []);
+  }
 
   if (loading) {
     return (
