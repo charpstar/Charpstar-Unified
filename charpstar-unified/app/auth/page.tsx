@@ -119,28 +119,11 @@ export default function AuthPage() {
     try {
       console.log("Sending password reset email to:", resetData.email);
 
-      // Determine the correct base URL for password reset
-      let baseUrl;
-      if (typeof window !== "undefined") {
-        // In browser environment
-        if (
-          window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1"
-        ) {
-          // Local development
-          baseUrl = window.location.origin;
-        } else {
-          // Production - use the actual domain
-          baseUrl = "https://charpstar-unified.vercel.app";
-        }
-      } else {
-        // Server-side fallback
-        baseUrl =
-          process.env.NEXT_PUBLIC_SITE_URL ||
-          "https://charpstar-unified.vercel.app";
-      }
-
+      // Use environment variable for production URL, fallback to window.location.origin
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const redirectUrl = `${baseUrl}/reset-password`;
+
       console.log("Using redirect URL:", redirectUrl);
 
       const { error } = await supabase.auth.resetPasswordForEmail(
