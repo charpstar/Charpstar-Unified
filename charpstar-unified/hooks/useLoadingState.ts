@@ -12,11 +12,24 @@ export function useLoadingState() {
     stopLoading();
   }, [stopLoading]);
 
+  const withLoading = useCallback(
+    async <T>(asyncFn: () => Promise<T>): Promise<T> => {
+      try {
+        startLoading();
+        return await asyncFn();
+      } finally {
+        stopLoading();
+      }
+    },
+    [startLoading, stopLoading]
+  );
+
   return {
     isLoading,
     startLoading,
     stopLoading,
     handleLinkClick,
     handleLinkComplete,
+    withLoading,
   };
 }
