@@ -18,3 +18,4 @@ export { LoginForm } from "./login-form";
 export { Calendar } from "./calendar";
 export { DateRangePicker } from "./date-range-picker";
 export { CalendarTourNotification } from "./calendar-tour-notification";
+export { LoadingLink } from "./LoadingLink";

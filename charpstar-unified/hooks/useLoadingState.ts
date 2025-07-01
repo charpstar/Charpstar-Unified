@@ -1,37 +1,22 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useLoading } from "@/contexts/LoadingContext";
 
-interface UseLoadingStateOptions {
-  showGlobalLoading?: boolean;
-  loadingText?: string;
-}
+export function useLoadingState() {
+  const { startLoading, stopLoading, isLoading } = useLoading();
 
-export function useLoadingState(options: UseLoadingStateOptions = {}) {
-  const { showGlobalLoading = false, loadingText } = options;
-  const [isLoading, setIsLoading] = useState(false);
-  const { startLoading, stopLoading } = useLoading();
+  const handleLinkClick = useCallback(() => {
+    startLoading();
+  }, [startLoading]);
 
-  const withLoading = useCallback(
-    async <T>(asyncFn: () => Promise<T>): Promise<T> => {
-      try {
-        setIsLoading(true);
-        if (showGlobalLoading) {
-          startLoading();
-        }
-        return await asyncFn();
-      } finally {
-        setIsLoading(false);
-        if (showGlobalLoading) {
-          stopLoading();
-        }
-      }
-    },
-    [showGlobalLoading, startLoading, stopLoading]
-  );
+  const handleLinkComplete = useCallback(() => {
+    stopLoading();
+  }, [stopLoading]);
 
   return {
     isLoading,
-    setIsLoading,
-    withLoading,
+    startLoading,
+    stopLoading,
+    handleLinkClick,
+    handleLinkComplete,
   };
 }
