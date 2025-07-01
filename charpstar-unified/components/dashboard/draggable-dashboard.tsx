@@ -406,9 +406,9 @@ export function DraggableDashboard({
       {/* Dashboard Controls */}
       <motion.div
         className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-card max-w-fit rounded-lg border min-h-[68px] gap-4"
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
+        transition={{ duration: 0.15, ease: "easeOut" }}
       >
         <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <div className="flex items-center gap-2">
@@ -419,7 +419,7 @@ export function DraggableDashboard({
             <Switch
               checked={isEditMode}
               onCheckedChange={setIsEditMode}
-              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200"
+              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-100"
             />
             <Settings className="h-4 w-4" />
             <span className="text-sm text-muted-foreground hidden sm:inline">
@@ -432,11 +432,11 @@ export function DraggableDashboard({
           {isEditMode && (
             <motion.div
               className="flex flex-wrap items-center gap-2 pl-0 sm:pl-4 overflow-hidden w-full sm:w-auto"
-              initial={{ opacity: 0, x: -20 }}
+              initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
+              exit={{ opacity: 0, x: -10 }}
               transition={{
-                duration: 0.3,
+                duration: 0.15,
                 ease: "easeOut",
               }}
             >
@@ -444,7 +444,7 @@ export function DraggableDashboard({
                 initial={{ width: 0, opacity: 0 }}
                 animate={{ width: "auto", opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
                 className="overflow-hidden"
                 style={{ minWidth: 0 }}
               >
@@ -453,7 +453,7 @@ export function DraggableDashboard({
                   size="sm"
                   onClick={saveLayout}
                   disabled={isSaving}
-                  className="flex items-center gap-2 cursor-pointer h-8 hover:bg-primary/10 transition-all duration-200 whitespace-nowrap min-w-0 text-xs sm:text-sm"
+                  className="flex items-center gap-2 cursor-pointer h-8 hover:bg-primary/10 transition-all duration-75 whitespace-nowrap min-w-0 text-xs sm:text-sm"
                 >
                   <Save className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                   <span className="truncate">
@@ -466,7 +466,7 @@ export function DraggableDashboard({
                 initial={{ width: 0, opacity: 0 }}
                 animate={{ width: "auto", opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+                transition={{ duration: 0.2, ease: "easeOut", delay: 0.05 }}
                 className="overflow-hidden"
                 style={{ minWidth: 0 }}
               >
@@ -475,7 +475,7 @@ export function DraggableDashboard({
                   size="sm"
                   onClick={loadUserLayout}
                   disabled={isLoading}
-                  className="flex items-center gap-2 cursor-pointer h-8 hover:bg-primary/10 transition-all duration-200 whitespace-nowrap min-w-0 text-xs sm:text-sm"
+                  className="flex items-center gap-2 cursor-pointer h-8 hover:bg-primary/10 transition-all duration-75 whitespace-nowrap min-w-0 text-xs sm:text-sm"
                 >
                   <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                   <span className="truncate">
@@ -488,7 +488,7 @@ export function DraggableDashboard({
                 initial={{ width: 0, opacity: 0 }}
                 animate={{ width: "auto", opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
+                transition={{ duration: 0.2, ease: "easeOut", delay: 0.1 }}
                 className="overflow-hidden"
                 style={{ minWidth: 0 }}
               >
@@ -496,7 +496,7 @@ export function DraggableDashboard({
                   variant="ghost"
                   size="sm"
                   onClick={resetLayout}
-                  className="flex items-center gap-2 cursor-pointer h-8 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 whitespace-nowrap min-w-0 text-xs sm:text-sm"
+                  className="flex items-center gap-2 cursor-pointer h-8 hover:bg-destructive/10 hover:text-destructive transition-all duration-75 whitespace-nowrap min-w-0 text-xs sm:text-sm"
                 >
                   <X className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                   <span className="truncate">Reset</span>
@@ -508,7 +508,7 @@ export function DraggableDashboard({
                 initial={{ width: 0, opacity: 0 }}
                 animate={{ width: "auto", opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut", delay: 0.3 }}
+                transition={{ duration: 0.2, ease: "easeOut", delay: 0.15 }}
                 className="overflow-hidden flex items-center gap-1"
                 style={{ minWidth: 0 }}
               >
@@ -548,7 +548,7 @@ export function DraggableDashboard({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.3, ease: "easeOut", delay: 0.4 }}
+              transition={{ duration: 0.15, ease: "easeOut", delay: 0.2 }}
             >
               <span className="hidden lg:inline">
                 <Lightbulb className="h-4 w-4 inline-block" /> Tip: Use Ctrl+Z
@@ -573,17 +573,17 @@ export function DraggableDashboard({
         {showEditModeTip && (
           <motion.div
             className="relative"
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
           >
             <motion.div
               className="absolute top-0 left-0 z-50"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+              transition={{ duration: 0.15, ease: "easeOut", delay: 0.05 }}
             >
               <div className="bg-primary text-primary-foreground px-4 py-3 rounded-lg shadow-lg max-w-sm">
                 <div className="flex items-start gap-3">
@@ -591,7 +591,7 @@ export function DraggableDashboard({
                     className="flex-shrink-0 mt-0.5"
                     initial={{ rotate: -10 }}
                     animate={{ rotate: 0 }}
-                    transition={{ duration: 0.3, ease: "easeOut", delay: 0.2 }}
+                    transition={{ duration: 0.15, ease: "easeOut", delay: 0.1 }}
                   >
                     <Settings className="h-4 w-4" />
                   </motion.div>
@@ -601,9 +601,9 @@ export function DraggableDashboard({
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{
-                        duration: 0.3,
+                        duration: 0.15,
                         ease: "easeOut",
-                        delay: 0.3,
+                        delay: 0.15,
                       }}
                     >
                       Edit Mode Enabled
@@ -613,9 +613,9 @@ export function DraggableDashboard({
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{
-                        duration: 0.3,
+                        duration: 0.15,
                         ease: "easeOut",
-                        delay: 0.4,
+                        delay: 0.2,
                       }}
                     >
                       Tip: You can move around all the widgets freely and then
@@ -628,7 +628,7 @@ export function DraggableDashboard({
                     whileTap={{ scale: 0.9 }}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.2, ease: "easeOut", delay: 0.5 }}
+                    transition={{ duration: 0.1, ease: "easeOut", delay: 0.25 }}
                   >
                     <X className="h-4 w-4" />
                   </motion.button>
@@ -642,17 +642,17 @@ export function DraggableDashboard({
       <AnimatePresence>
         {isEditMode && (
           <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
           >
             <Card className="mt-4">
               <CardHeader>
                 <motion.div
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+                  transition={{ duration: 0.15, ease: "easeOut", delay: 0.05 }}
                 >
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Settings className="h-4 w-4" />
@@ -668,7 +668,7 @@ export function DraggableDashboard({
                       initial={{ opacity: 0, y: 20, scale: 0.9 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{
-                        duration: 0.3,
+                        duration: 0.15,
                         ease: "easeOut",
                       }}
                       className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${
@@ -688,7 +688,7 @@ export function DraggableDashboard({
                             scale: widget.visible ? [1, 1.2, 1] : 1,
                           }}
                           transition={{
-                            duration: 0.3,
+                            duration: 0.15,
                             ease: "easeOut",
                           }}
                         />
@@ -710,7 +710,26 @@ export function DraggableDashboard({
                       <Switch
                         checked={widget.visible}
                         onCheckedChange={() => toggleWidget(widget.id)}
-                        className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200 flex-shrink-0"
+                        className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-75 flex-shrink-0"
+                        style={{
+                          transitionProperty:
+                            "background, box-shadow, transform",
+                          transitionDuration: "75ms",
+                        }}
+                        onClick={(e) => {
+                          const el = e.currentTarget;
+                          el.animate(
+                            [
+                              { transform: "scale(1)" },
+                              { transform: "scale(1.12)" },
+                              { transform: "scale(1)" },
+                            ],
+                            {
+                              duration: 120,
+                              easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+                            }
+                          );
+                        }}
                       />
                     </motion.div>
                   ))}
@@ -750,9 +769,9 @@ export function DraggableDashboard({
                     scale: isDragging ? 0.95 : 1,
                   }}
                   transition={{
-                    duration: 0.3,
+                    duration: 0.15,
                     ease: "easeOut",
-                    delay: index * 0.05,
+                    delay: index * 0.02,
                   }}
                   whileTap={{
                     scale: isEditMode ? 0.98 : 1,
