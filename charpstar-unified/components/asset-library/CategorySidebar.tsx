@@ -34,6 +34,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
     ? categories.find((cat) => cat.id === selectedCategory)?.subcategories || []
     : [];
 
+  console.log(categories);
   return (
     <div
       className={`w-full lg:w-62 h-full lg:h-cover bg-muted/30 border-b lg:border-b-0 lg:border-r border-border p-3 sm:p-4 space-y-3 sm:space-y-4 ${className}`}

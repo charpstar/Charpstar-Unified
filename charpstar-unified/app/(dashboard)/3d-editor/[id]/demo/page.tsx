@@ -80,7 +80,7 @@ export default function DemoPage() {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="flex-1 w-full max-h-[calc(100vh-48px)]">
+      <div className="flex-1 w-full h-full">
         <SimpleClientViewerScript shouldLoad={shouldLoadScript} />
         <ClientDemoPage />
       </div>

@@ -200,10 +200,6 @@ export function DraggableDashboard({
       } else {
         // No saved layout found, mark as loaded to prevent overwriting
         setHasLoadedSavedLayout(true);
-        toast({
-          title: "No Saved Layout",
-          description: "No saved layout found. Using default layout.",
-        });
       }
     } catch (error) {
       console.error("Error loading layout:", error);

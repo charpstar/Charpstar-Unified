@@ -219,7 +219,7 @@ export default function ClientDemoPage() {
 
   // Render
   return (
-    <div className="flex flex-col h-full min-h-[calc(100vh-100px)]  bg-background">
+    <div className="flex flex-col h-full min-h-[calc(100vh-200px)]  bg-background">
       {isLoadingConfig ? (
         <div className="flex items-center justify-center h-full">
           Loading config...
@@ -624,7 +624,7 @@ export default function ClientDemoPage() {
             </>
           ) : (
             // Desktop layout (original)
-            <div className="flex flex-1 overflow-hidden h-full max-h-[calc(100vh]">
+            <div className="flex flex-1 overflow-hidden h-full max-h-[calc(100vh-50px)]">
               {/* Left side - Model navigation */}
               <div className="w-1/10 border-r border-border bg-card shadow-inner flex flex-col">
                 {/* Search and Filter Controls */}
