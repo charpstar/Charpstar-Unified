@@ -1,15 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-function ResetPasswordContent() {
+export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
@@ -22,18 +18,37 @@ function ResetPasswordContent() {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        console.log("Initializing auth for password reset...");
+
         // Get the hash fragment from the URL
         const hashFragment = window.location.hash;
+        console.log("Hash fragment:", hashFragment);
+
         if (hashFragment) {
           // Remove the # and parse the parameters
           const params = new URLSearchParams(hashFragment.substring(1));
           const type = params.get("type");
           const accessToken = params.get("access_token");
+          const refreshToken = params.get("refresh_token");
+
+          console.log(
+            "Hash params - type:",
+            type,
+            "accessToken:",
+            accessToken ? "present" : "missing"
+          );
 
           if (type === "recovery" && accessToken) {
             // Set the session using the access token
-            const { error } = await supabase.auth.getSession();
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || "",
+            });
+
+            console.log("Session set result:", { data, error });
+
             if (error) {
+              console.error("Error setting session:", error);
               setError("Invalid or expired recovery link.");
               return;
             }
@@ -43,13 +58,36 @@ function ResetPasswordContent() {
           const type = searchParams.get("type");
           const code = searchParams.get("code");
 
+          console.log(
+            "Query params - type:",
+            type,
+            "code:",
+            code ? "present" : "missing"
+          );
+
           if (type === "recovery" && code) {
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            const { data, error } =
+              await supabase.auth.exchangeCodeForSession(code);
+            console.log("Code exchange result:", { data, error });
+
             if (error) {
+              console.error("Error exchanging code for session:", error);
               setError("Invalid or expired recovery link.");
               return;
             }
           }
+        }
+
+        // Check if we have a valid session after initialization
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        console.log("Final session check:", session ? "valid" : "invalid");
+
+        if (!session) {
+          setError(
+            "No active session. Please request a new password reset link."
+          );
         }
       } catch (err) {
         console.error("Auth initialization error:", err);
@@ -78,21 +116,31 @@ function ResetPasswordContent() {
 
     setLoading(true);
     try {
+      console.log("Submitting password reset form...");
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
+      console.log("Current session:", session ? "valid" : "invalid");
+
       if (!session) {
+        console.error("No session found during password reset");
         setError(
           "No active session. Please request a new password reset link."
         );
         return;
       }
 
+      console.log("Updating user password...");
       const { error } = await supabase.auth.updateUser({ password });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Password update error:", error);
+        throw error;
+      }
 
+      console.log("Password updated successfully");
       setMessage("Password updated successfully! Redirecting to login...");
 
       // Sign out the user after password reset
@@ -102,6 +150,7 @@ function ResetPasswordContent() {
         router.push("/auth");
       }, 2000);
     } catch (err: any) {
+      console.error("Password reset error:", err);
       setError(err.message || "Failed to reset password.");
     } finally {
       setLoading(false);
@@ -127,10 +176,23 @@ function ResetPasswordContent() {
             Invalid Recovery Link
           </h1>
           <p className="text-gray-600 mb-4">{error}</p>
+
+          {/* Debug information */}
+          <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
+            <p>
+              <strong>Debug Info:</strong>
+            </p>
+            <p>URL: {window.location.href}</p>
+            <p>Hash: {window.location.hash}</p>
+            <p>Search: {window.location.search}</p>
+            <p>Type param: {searchParams.get("type")}</p>
+            <p>Code param: {searchParams.get("code")}</p>
+          </div>
+
           <button
             onClick={() => router.push("/auth")}
             className={cn(
-              "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full"
+              "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full mt-4"
             )}
           >
             Return to Login
@@ -206,20 +268,5 @@ function ResetPasswordContent() {
         </form>
       </div>
     </div>
-  );
-}
-
-export default function ResetPasswordPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen w-full flex-col items-center justify-center px-4">
-          <div className="w-8 h-8 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      }
-    >
-      <ResetPasswordContent />
-    </Suspense>
   );
 }

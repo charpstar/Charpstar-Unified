@@ -1,24 +1,22 @@
 "use client";
 
+import { useUser } from "@/contexts/useUser";
+import { useToast } from "@/components/ui/utilities";
+import { AvatarPicker } from "@/components/ui/inputs";
+import { Badge } from "@/components/ui/feedback";
+import { ThemeSwitcherCard } from "@/components/ui/utilities";
+import { Shield, Package, Target } from "lucide-react";
 import {
-  useEffect,
-  useState,
-  useMemo,
-  useCallback,
-  useRef,
   Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
   lazy,
 } from "react";
-import { useUser } from "@/contexts/useUser";
-import { Badge } from "@/components/ui/feedback";
-import { Package, Shield, Target } from "lucide-react";
-import { ThemeSwitcherCard } from "@/components/ui/utilities";
-import { supabase } from "@/lib/supabaseClient";
 import React from "react";
-import { AvatarPicker } from "@/components/ui/inputs";
-import { useToast } from "@/components/ui/utilities";
 import { DraggableDashboard } from "@/components/dashboard";
-import { useLoadingState } from "@/hooks/useLoadingState";
 import { DashboardSkeleton } from "@/components/ui/skeletons";
 
 // Lazy load heavy dashboard widgets
@@ -48,19 +46,6 @@ const LazyNewModelsChartWidget = lazy(() =>
   }))
 );
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  analytics_profile_id?: string;
-  metadata?: {
-    analytics_profile_id?: string;
-    role?: string;
-    client_config?: string;
-    avatar_url?: string;
-  };
-}
-
 interface DashboardStats {
   totalModels: number;
   totalCategories: number;
@@ -68,24 +53,12 @@ interface DashboardStats {
   totalColors: number;
 }
 
-interface AnalyticsProfile {
-  id: string;
-  projectid: string;
-  datasetid: string;
-  tablename: string;
-}
-
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [analyticsProfile, setAnalyticsProfile] =
-    useState<AnalyticsProfile | null>(null);
   const [showAvatarPopup, setShowAvatarPopup] = useState(false);
-  const user = useUser() as User | null;
+  const user = useUser();
   const { toast } = useToast();
   const popupTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const { withLoading } = useLoadingState({ showGlobalLoading: true });
 
   // Get avatar from user metadata (same as nav-user)
   const userAvatar = user?.metadata?.avatar_url || null;
@@ -152,55 +125,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      await withLoading(async () => {
+      try {
         const fetchStats = async () => {
-          try {
-            const { data: assets } = await supabase
-              .from("assets")
-              .select("id, category, material, color");
-
-            if (assets) {
-              const categories = new Set(assets.map((asset) => asset.category));
-              const materials = new Set(assets.map((asset) => asset.material));
-              const colors = new Set(assets.map((asset) => asset.color));
-
-              setStats({
-                totalModels: assets.length,
-                totalCategories: categories.size,
-                totalMaterials: materials.size,
-                totalColors: colors.size,
-              });
-            }
-          } catch (error) {
-            console.error("Error fetching stats:", error);
+          const response = await fetch("/api/dashboard/layout");
+          if (response.ok) {
+            const data = await response.json();
+            setStats(data);
           }
         };
 
-        const fetchAnalyticsProfile = async () => {
-          if (!user?.analytics_profile_id) return;
-
-          try {
-            const { data: analytics } = await supabase
-              .from("analytics_profiles")
-              .select("*")
-              .eq("id", user.analytics_profile_id)
-              .single();
-
-            if (analytics) {
-              setAnalyticsProfile(analytics);
-            }
-          } catch (error) {
-            console.error("Error fetching analytics profile:", error);
-          }
-        };
-
-        await Promise.all([fetchStats(), fetchAnalyticsProfile()]);
-      });
-      setLoading(false);
+        await fetchStats();
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      }
     };
 
     fetchDashboardData();
-  }, [user?.analytics_profile_id]);
+  }, []);
 
   // Memoize the handleAvatarChange function to prevent recreation on every render
   const handleAvatarChange = useCallback(
@@ -414,10 +355,11 @@ export default function DashboardPage() {
       stats?.totalCategories,
       handleAvatarChange,
       displayAvatar,
+      userAvatar,
     ]
   );
 
-  if (loading) {
+  if (!user) {
     return <DashboardSkeleton />;
   }
 

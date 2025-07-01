@@ -251,7 +251,7 @@ export default function AssetDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen p-2 sm:p-4 md:p-6">
+      <div className=" p-2 sm:p-4 md:p-6">
         <div className="h-full">
           {/* Header skeleton */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
@@ -355,7 +355,7 @@ export default function AssetDetailPage() {
         type="module"
         src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"
       />
-      <div className="min-h-screen p-2 sm:p-4 md:p-6">
+      <div className=" p-2 sm:p-4 md:p-6">
         <div className="h-full">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
             <Link href="/asset-library">

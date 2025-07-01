@@ -139,7 +139,10 @@ export function useAssets() {
   // Fetch user profile when user changes
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!user) return;
+      if (!user) {
+        setUserProfile(null);
+        return;
+      }
 
       const supabase = createClient();
       const { data, error } = await supabase
@@ -150,22 +153,37 @@ export function useAssets() {
 
       if (error) {
         console.error("Error fetching user profile:", error);
+        setUserProfile(null);
         return;
       }
 
-      setUserProfile(data);
+      // Only update if the data is actually different
+      setUserProfile((prev) => {
+        if (!prev || prev.client !== data.client || prev.role !== data.role) {
+          return data;
+        }
+        return prev;
+      });
     };
 
     fetchUserProfile();
-  }, [user]);
+  }, [user?.id]); // Only depend on user.id, not the entire user object
+
+  // Create a stable query key
+  const queryKey = useMemo(() => {
+    if (!user?.id || !userProfile) return null;
+    return ["assets", user.id, userProfile.client, userProfile.role];
+  }, [user?.id, userProfile?.client, userProfile?.role]);
 
   // Use React Query to fetch and cache assets
   const { data, isLoading, error, refetch } = useQuery<AssetsResponse>({
-    queryKey: ["assets", user?.id, userProfile?.client, userProfile?.role],
+    queryKey: queryKey || ["assets"],
     queryFn: () => fetchAssets(user, userProfile),
-    enabled: !!user && !!userProfile,
+    enabled: !!user && !!userProfile && !!queryKey,
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     gcTime: 30 * 60 * 1000, // Keep data in cache for 30 minutes
+    refetchOnWindowFocus: false, // Prevent refetch on window focus
+    refetchOnMount: false, // Prevent refetch on mount if data exists
   });
 
   // Filter assets based on current filters
