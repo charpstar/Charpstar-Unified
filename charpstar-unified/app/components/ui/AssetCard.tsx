@@ -7,7 +7,7 @@ import {
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 import { Download, Check } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeletons";
+
 import {
   Tooltip,
   TooltipContent,
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/display";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Asset {
   id: string;
@@ -47,6 +47,24 @@ export default function AssetCard({
   const [imgLoaded, setImgLoaded] = useState(false);
 
   const isCompactMode = viewMode === "compactGrid";
+
+  // Reset imgLoaded when asset changes or when there's no preview image
+  useEffect(() => {
+    if (!asset.preview_image || asset.preview_image === "") {
+      setImgLoaded(true); // No image to load, so consider it "loaded"
+    } else {
+      setImgLoaded(false); // Reset for new image
+    }
+  }, [asset.preview_image]);
+
+  // Debug logging
+  console.log("AssetCard Debug:", {
+    assetId: asset.id,
+    previewImage: asset.preview_image,
+    previewImageType: typeof asset.preview_image,
+    previewImageLength: asset.preview_image?.length,
+    imgLoaded,
+  });
 
   return (
     <motion.div
@@ -103,18 +121,23 @@ export default function AssetCard({
                 className="block w-full h-full"
               >
                 <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
-                  {!imgLoaded && (
-                    <Skeleton className="w-full h-full absolute inset-0" />
+                  {asset.preview_image && asset.preview_image !== "" ? (
+                    <motion.img
+                      src={asset.preview_image}
+                      alt={asset.product_name}
+                      className={`w-full h-full object-contain transition-transform duration-500 ${
+                        imgLoaded ? "scale-100" : "scale-105 blur-sm"
+                      }`}
+                      onLoad={() => setImgLoaded(true)}
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur-sm flex items-center justify-center">
+                      <div className="text-muted-foreground/60 text-xs font-medium">
+                        No Preview
+                      </div>
+                    </div>
                   )}
-                  <motion.img
-                    src={asset.preview_image || "/placeholder.png"}
-                    alt={asset.product_name}
-                    className={`w-full h-full object-contain transition-transform duration-500 ${
-                      imgLoaded ? "scale-100" : "scale-105 blur-sm"
-                    }`}
-                    onLoad={() => setImgLoaded(true)}
-                    draggable={false}
-                  />
                 </div>
               </Link>
             </div>
@@ -282,20 +305,26 @@ export default function AssetCard({
               >
                 <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
                   {/* Image skeleton loader */}
-                  {!imgLoaded && (
-                    <Skeleton
-                      className={`w-full absolute inset-0 ${isCompactMode ? "h-24" : "h-36"}`}
+
+                  {asset.preview_image && asset.preview_image !== "" ? (
+                    <motion.img
+                      src={asset.preview_image}
+                      alt={asset.product_name}
+                      className={`w-full object-contain transition-transform duration-500 ${
+                        imgLoaded ? "scale-100" : "scale-105 blur-sm"
+                      } ${isCompactMode ? "h-24" : "h-36"}`}
+                      onLoad={() => setImgLoaded(true)}
+                      draggable={false}
                     />
+                  ) : (
+                    <div
+                      className={`w-full bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur-sm flex items-center justify-center ${isCompactMode ? "h-24" : "h-36"}`}
+                    >
+                      <div className="text-muted-foreground/60 text-xs font-medium">
+                        No Preview
+                      </div>
+                    </div>
                   )}
-                  <motion.img
-                    src={asset.preview_image || "/placeholder.png"}
-                    alt={asset.product_name}
-                    className={`w-full object-contain transition-transform duration-500 ${
-                      imgLoaded ? "scale-100" : "scale-105 blur-sm"
-                    } ${isCompactMode ? "h-24" : "h-36"}`}
-                    onLoad={() => setImgLoaded(true)}
-                    draggable={false}
-                  />
                   {/* Overlay gradient */}
                   <motion.div
                     initial={{ opacity: 0 }}
