@@ -6,6 +6,9 @@ export {
   ActivityWidget,
   NewUsersChartWidget,
   NewModelsChartWidget,
+  TotalModelsWidget,
+  CategoriesWidget,
   WidgetHeader,
   WidgetContainer,
 } from "./dashboard-widgets";
+export { OnboardingDashboard } from "./onboarding-dashboard";

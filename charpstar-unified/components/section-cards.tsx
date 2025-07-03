@@ -50,7 +50,7 @@ export function SectionCards() {
         </div>
       </Card>
 
-      {/* New Customers */}
+      {/* New Clients */}
       <Card
         className="
       w-[260px] 
@@ -68,7 +68,7 @@ export function SectionCards() {
       >
         <div className="flex items-start justify-between mb-2">
           <span className="text-[15px] font-medium text-muted-foreground">
-            New Customers
+            New Clients
           </span>
           <span
             className="

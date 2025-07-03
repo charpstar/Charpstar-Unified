@@ -8,6 +8,7 @@ import {
   IconFileAi,
   IconFileDescription,
   IconFolder,
+  IconUsers,
 } from "@tabler/icons-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -38,37 +39,73 @@ export default function AppSidebar({
   const user = useUser();
   const clientName = user?.metadata?.client_config;
 
-  // Base navigation items
-  const baseNavItems = [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: IconDashboard,
-    },
-    {
-      title: "Analytics",
-      url: "/analytics",
-      icon: IconChartBar,
-    },
-    {
-      title: "Asset Library",
-      url: "/asset-library",
-      icon: IconFolder,
-    },
-  ];
+  // Debug logging for onboarding navigation
+  console.log("Navigation Debug:", {
+    userRole: user?.metadata?.role,
+    userOnboarding: user?.metadata?.onboarding,
+    shouldHideNav:
+      user?.metadata?.role === "client" && user?.metadata?.onboarding === true,
+  });
+
+  // Base navigation items - only show when user data is loaded
+  const baseNavItems = user
+    ? [
+        {
+          title: "Dashboard",
+          url: "/dashboard",
+          icon: IconDashboard,
+        },
+        // Hide Analytics and Asset Library for clients in onboarding
+        ...(user?.metadata?.role === "client" &&
+        user?.metadata?.onboarding === true
+          ? []
+          : [
+              {
+                title: "Analytics",
+                url: "/analytics",
+                icon: IconChartBar,
+              },
+              {
+                title: "Asset Library",
+                url: "/asset-library",
+                icon: IconFolder,
+              },
+            ]),
+      ]
+    : [
+        // Show only dashboard while loading
+        {
+          title: "Dashboard",
+          url: "/dashboard",
+          icon: IconDashboard,
+        },
+      ];
+
+  // Admin-only navigation items
+  const adminNavItems =
+    user?.metadata?.role === "admin"
+      ? [
+          {
+            title: "Onboarding",
+            url: "/onboarding",
+            icon: IconUsers,
+          },
+        ]
+      : [];
 
   // Add 3D Editor only if user has client_config
   const navMain =
     clientName && clientName.trim() !== ""
       ? [
           ...baseNavItems,
+          ...adminNavItems,
           {
             title: "3D Editor",
             url: `/3d-editor/${clientName}`,
             icon: Box,
           },
         ]
-      : baseNavItems;
+      : [...baseNavItems, ...adminNavItems];
 
   const data = {
     user: {

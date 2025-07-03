@@ -18,11 +18,24 @@ import {
 import React from "react";
 import { DraggableDashboard } from "@/components/dashboard";
 import { DashboardSkeleton } from "@/components/ui/skeletons";
+import { OnboardingDashboard } from "@/components/dashboard/onboarding-dashboard";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ModelStatusWidget } from "@/components/dashboard/dashboard-widgets";
 
 // Lazy load heavy dashboard widgets
 const LazyStatsWidget = lazy(() =>
   import("@/components/dashboard").then((module) => ({
     default: module.StatsWidget,
+  }))
+);
+const LazyTotalModelsWidget = lazy(() =>
+  import("@/components/dashboard").then((module) => ({
+    default: module.TotalModelsWidget,
+  }))
+);
+const LazyCategoriesWidget = lazy(() =>
+  import("@/components/dashboard").then((module) => ({
+    default: module.CategoriesWidget,
   }))
 );
 const LazyQuickActionsWidget = lazy(() =>
@@ -59,6 +72,8 @@ export default function DashboardPage() {
   const user = useUser();
   const { toast } = useToast();
   const popupTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Get avatar from user metadata (same as nav-user)
   const userAvatar = user?.metadata?.avatar_url || null;
@@ -127,7 +142,7 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       try {
         const fetchStats = async () => {
-          const response = await fetch("/api/dashboard/layout");
+          const response = await fetch("/api/dashboard/stats");
           if (response.ok) {
             const data = await response.json();
             setStats(data);
@@ -142,6 +157,16 @@ export default function DashboardPage() {
 
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("refreshUser") === "1") {
+      // Option 1: Hard reload (guaranteed fresh user)
+      window.location.replace("/dashboard");
+      // Option 2: If you have refetchUser, call it here instead
+      // await refetchUser();
+      // router.replace("/dashboard");
+    }
+  }, [searchParams, router]);
 
   // Memoize the handleAvatarChange function to prevent recreation on every render
   const handleAvatarChange = useCallback(
@@ -188,8 +213,10 @@ export default function DashboardPage() {
   };
 
   // Memoize the default dashboard layout to prevent recreation on every render
-  const defaultLayout = useMemo(
-    () => [
+  const defaultLayout = useMemo(() => {
+    const isAdmin = user?.metadata?.role === "admin";
+
+    const baseWidgets = [
       {
         id: "profile",
         title: "Profile",
@@ -223,9 +250,7 @@ export default function DashboardPage() {
                     {(user?.metadata?.role || "User").charAt(0).toUpperCase() +
                       (user?.metadata?.role || "User").slice(1)}
                   </Badge>
-                  {user?.metadata?.role === "admin" && (
-                    <Shield className="h-4 w-4 text-primary" />
-                  )}
+                  {isAdmin && <Shield className="h-4 w-4 text-primary" />}
                 </div>
               </div>
             </div>
@@ -240,7 +265,7 @@ export default function DashboardPage() {
         title: "Quick Actions",
         type: "actions" as const,
         size: "medium" as const,
-        position: { x: 2, y: 0 },
+        position: { x: 1, y: 0 },
         visible: true,
         content: (
           <Suspense
@@ -252,115 +277,145 @@ export default function DashboardPage() {
           </Suspense>
         ),
       },
-      {
-        id: "stats-models",
-        title: "Total Models",
-        type: "stats" as const,
-        size: "small" as const,
-        position: { x: 0, y: 1 },
-        visible: true,
-        content: (
-          <Suspense
-            fallback={
-              <div className="h-24 bg-muted animate-pulse rounded-lg" />
-            }
-          >
-            <LazyStatsWidget
-              title="Total Models"
-              value={stats?.totalModels?.toString() || "0"}
-              icon={Package}
-            />
-          </Suspense>
-        ),
-      },
-      {
-        id: "stats-categories",
-        title: "Categories",
-        type: "stats" as const,
-        size: "small" as const,
-        position: { x: 1, y: 1 },
-        visible: true,
-        content: (
-          <Suspense
-            fallback={
-              <div className="h-24 bg-muted animate-pulse rounded-lg" />
-            }
-          >
-            <LazyStatsWidget
-              title="Categories"
-              value={stats?.totalCategories?.toString() || "0"}
-              icon={Target}
-            />
-          </Suspense>
-        ),
-      },
-      {
-        id: "activity",
-        title: "Recent Activity",
-        type: "custom" as const,
-        size: "large" as const,
-        position: { x: 2, y: 1 },
-        visible: true,
-        content: (
-          <Suspense
-            fallback={
-              <div className="h-64 bg-muted animate-pulse rounded-lg" />
-            }
-          >
-            <LazyActivityWidget />
-          </Suspense>
-        ),
-      },
+      // Insert ModelStatusWidget for clients only
+      ...(!isAdmin
+        ? [
+            {
+              id: "model-status",
+              title: "Model Status",
+              type: "custom" as const,
+              size: "medium" as const,
+              position: { x: 0, y: 1 },
+              visible: true,
+              content: <ModelStatusWidget />,
+            },
+          ]
+        : []),
+    ];
 
-      {
-        id: "new-users-chart",
-        title: "New Users Chart",
-        type: "custom" as const,
-        size: "small" as const,
-        position: { x: 0, y: 4 },
-        visible: true,
-        content: (
-          <Suspense
-            fallback={
-              <div className="h-48 bg-muted animate-pulse rounded-lg" />
-            }
-          >
-            <LazyNewUsersChartWidget />
-          </Suspense>
-        ),
-      },
-      {
-        id: "new-models-chart",
-        title: "New Models Chart",
-        type: "custom" as const,
-        size: "small" as const,
-        position: { x: 2, y: 4 },
-        visible: true,
-        content: (
-          <Suspense
-            fallback={
-              <div className="h-48 bg-muted animate-pulse rounded-lg" />
-            }
-          >
-            <LazyNewModelsChartWidget />
-          </Suspense>
-        ),
-      },
-    ],
-    [
-      user?.email,
-      user?.metadata?.avatar_url,
-      user?.metadata?.role,
-      stats?.totalModels,
-      stats?.totalCategories,
-      handleAvatarChange,
-      displayAvatar,
-      userAvatar,
-    ]
-  );
+    // Admin-only widgets
+    const adminWidgets = isAdmin
+      ? [
+          {
+            id: "stats-models",
+            title: "Total Models",
+            type: "custom" as const,
+            size: "medium" as const,
+            position: { x: 0, y: 1 },
+            visible: true,
+            content: (
+              <Suspense
+                fallback={
+                  <div className="h-48 bg-muted animate-pulse rounded-lg" />
+                }
+              >
+                <LazyTotalModelsWidget stats={stats} />
+              </Suspense>
+            ),
+          },
+          {
+            id: "stats-categories",
+            title: "Categories",
+            type: "custom" as const,
+            size: "medium" as const,
+            position: { x: 1, y: 1 },
+            visible: true,
+            content: (
+              <Suspense
+                fallback={
+                  <div className="h-48 bg-muted animate-pulse rounded-lg" />
+                }
+              >
+                <LazyCategoriesWidget stats={stats} />
+              </Suspense>
+            ),
+          },
+          {
+            id: "activity",
+            title: "Recent Activity",
+            type: "custom" as const,
+            size: "large" as const,
+            position: { x: 0, y: 2 },
+            visible: true,
+            content: (
+              <Suspense
+                fallback={
+                  <div className="h-64 bg-muted animate-pulse rounded-lg" />
+                }
+              >
+                <LazyActivityWidget />
+              </Suspense>
+            ),
+          },
+          {
+            id: "new-users-chart",
+            title: "New Users Chart",
+            type: "custom" as const,
+            size: "small" as const,
+            position: { x: 1, y: 2 },
+            visible: true,
+            content: (
+              <Suspense
+                fallback={
+                  <div className="h-48 bg-muted animate-pulse rounded-lg" />
+                }
+              >
+                <LazyNewUsersChartWidget />
+              </Suspense>
+            ),
+          },
+          {
+            id: "new-models-chart",
+            title: "New Models Chart",
+            type: "custom" as const,
+            size: "small" as const,
+            position: { x: 2, y: 2 },
+            visible: true,
+            content: (
+              <Suspense
+                fallback={
+                  <div className="h-48 bg-muted animate-pulse rounded-lg" />
+                }
+              >
+                <LazyNewModelsChartWidget />
+              </Suspense>
+            ),
+          },
+        ]
+      : [];
+
+    return [...baseWidgets, ...adminWidgets];
+  }, [
+    user?.email,
+    user?.metadata?.avatar_url,
+    user?.metadata?.role,
+    stats?.totalModels,
+    stats?.totalCategories,
+    handleAvatarChange,
+    displayAvatar,
+    userAvatar,
+  ]);
 
   if (!user) {
     return <DashboardSkeleton />;
+  }
+
+  // Debug logging for dashboard onboarding
+  console.log("Dashboard Debug:", {
+    userRole: user?.metadata?.role,
+    userOnboarding: user?.metadata?.onboarding,
+    shouldShowOnboarding: user?.metadata?.onboarding === true,
+  });
+
+  // Show onboarding dashboard if user is still in onboarding
+  if (user?.metadata?.onboarding === true) {
+    return (
+      <Suspense fallback={<DashboardSkeleton />}>
+        <div className="flex flex-1 flex-col p-4 sm:p-6">
+          <OnboardingDashboard />
+        </div>
+      </Suspense>
+    );
   }
 
   return (

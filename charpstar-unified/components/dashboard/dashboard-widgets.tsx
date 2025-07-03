@@ -1,6 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAssets } from "@/hooks/use-assets";
+import { useUser } from "@/contexts/useUser";
 
 import { Button } from "@/components/ui/display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/display";
@@ -25,12 +29,15 @@ import {
   FileUp,
   Package,
   Folder,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { SettingsDialog } from "@/app/components/settings-dialog";
 import { BarChart, XAxis, YAxis, Bar } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { ChartTooltip } from "@/components/ui/display";
 import { useActivities } from "@/hooks/use-activities";
+import { Card } from "@/components/ui/containers";
 
 // Unified Widget Header Component
 interface WidgetHeaderProps {
@@ -141,10 +148,10 @@ export function ProfileWidget({ user }: { user?: any }) {
           recentActivity: "Uploaded new furniture model",
           status: "active",
         };
-      case "customer":
+      case "client":
         return {
           icon: "👤",
-          title: "Customer",
+          title: "client",
           description: "Browse and visualize 3D models",
           stats: [
             { label: "Models Viewed", value: "89", trend: "+15%" },
@@ -179,7 +186,7 @@ export function ProfileWidget({ user }: { user?: any }) {
               categories: 18,
               avgQuality: "4.7/5",
             },
-            customers: {
+            client: {
               totalUsers: 25,
               modelsViewed: 1247,
               downloads: 389,
@@ -405,13 +412,13 @@ export function ProfileWidget({ user }: { user?: any }) {
                     Customers
                   </span>
                   <Badge variant="outline" className="text-xs ml-auto">
-                    {roleData.roleOverview.customers.totalUsers} users
+                    {roleData.roleOverview.client.totalUsers} users
                   </Badge>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="text-center">
                     <div className="font-semibold text-purple-700 dark:text-purple-300">
-                      {roleData.roleOverview.customers.modelsViewed}
+                      {roleData.roleOverview.client.modelsViewed}
                     </div>
                     <div className="text-purple-600 dark:text-purple-400">
                       Viewed
@@ -419,7 +426,7 @@ export function ProfileWidget({ user }: { user?: any }) {
                   </div>
                   <div className="text-center">
                     <div className="font-semibold text-purple-700 dark:text-purple-300">
-                      {roleData.roleOverview.customers.downloads}
+                      {roleData.roleOverview.client.downloads}
                     </div>
                     <div className="text-purple-600 dark:text-purple-400">
                       Downloads
@@ -427,7 +434,7 @@ export function ProfileWidget({ user }: { user?: any }) {
                   </div>
                   <div className="text-center">
                     <div className="font-semibold text-purple-700 dark:text-purple-300">
-                      {roleData.roleOverview.customers.favorites}
+                      {roleData.roleOverview.client.favorites}
                     </div>
                     <div className="text-purple-600 dark:text-purple-400">
                       Favorites
@@ -964,5 +971,404 @@ export function NewModelsChartWidget() {
         </div>
       </div>
     </WidgetContainer>
+  );
+}
+
+// Enhanced Total Models Widget
+export function TotalModelsWidget({ stats }: { stats?: any }) {
+  const router = useRouter();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [recentModels, setRecentModels] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { assets, totalCount, loading: assetsLoading } = useAssets();
+
+  useEffect(() => {
+    const fetchRecentModels = async () => {
+      setLoading(true);
+      try {
+        const { data } = await supabase
+          .from("assets")
+          .select("id, product_name, category, created_at, preview_image")
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        setRecentModels(data || []);
+      } catch (error) {
+        console.error("Error fetching recent models:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (isExpanded) {
+      fetchRecentModels();
+    }
+  }, [isExpanded]);
+
+  return (
+    <WidgetContainer>
+      <WidgetHeader title="Total Models" icon={Package}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="h-6 w-6 p-0"
+        >
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </Button>
+      </WidgetHeader>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-3xl font-bold text-primary">
+              {assetsLoading ? (
+                <div className="h-8 w-20 bg-muted animate-pulse rounded" />
+              ) : (
+                totalCount?.toLocaleString()
+              )}
+            </div>
+            <div className="text-sm text-muted-foreground">Total 3D models</div>
+          </div>
+          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Package className="h-6 w-6 text-primary" />
+          </div>
+        </div>
+
+        {(() => {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          const recentCount = assets.filter(
+            (asset) => new Date(asset.created_at) >= sevenDaysAgo
+          ).length;
+
+          return recentCount > 0 ? (
+            <div className="flex items-center gap-2 text-sm">
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="text-muted-foreground">
+                {recentCount} new in last 7 days
+              </span>
+            </div>
+          ) : null;
+        })()}
+
+        {isExpanded && (
+          <div className="space-y-3 pt-3 border-t border-border">
+            <div className="flex items-center justify-between">
+              <h5 className="text-sm font-medium">Recent Models</h5>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/asset-library")}
+              >
+                View All
+              </Button>
+            </div>
+
+            {loading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                    <div className="flex-1 space-y-1">
+                      <div className="h-3 bg-muted rounded animate-pulse w-3/4" />
+                      <div className="h-2 bg-muted rounded animate-pulse w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {recentModels.map((model) => (
+                  <div
+                    key={model.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="h-8 w-8 rounded overflow-hidden bg-muted flex items-center justify-center">
+                      {model.preview_image ? (
+                        <img
+                          src={model.preview_image}
+                          alt={model.product_name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">
+                        {model.product_name}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {model.category} •{" "}
+                        {new Date(model.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => router.push(`/asset-library/${model.id}`)}
+                    >
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </WidgetContainer>
+  );
+}
+
+// Enhanced Categories Widget
+export function CategoriesWidget({ stats }: { stats?: any }) {
+  const router = useRouter();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const { filterOptions, loading } = useAssets();
+
+  // Get category details from the expanded view
+  const [categoryDetails, setCategoryDetails] = useState<any[]>([]);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchCategoryDetails = async () => {
+      if (!isExpanded) return;
+
+      setDetailsLoading(true);
+      try {
+        const { data } = await supabase
+          .from("assets")
+          .select("category, subcategory");
+
+        if (data) {
+          const categoryStats: Record<
+            string,
+            { count: number; subcategories: Set<string> }
+          > = {};
+
+          data.forEach((item) => {
+            if (item.category && item.category.trim() !== "") {
+              if (!categoryStats[item.category]) {
+                categoryStats[item.category] = {
+                  count: 0,
+                  subcategories: new Set(),
+                };
+              }
+              categoryStats[item.category].count++;
+              if (item.subcategory && item.subcategory.trim() !== "") {
+                categoryStats[item.category].subcategories.add(
+                  item.subcategory
+                );
+              }
+            }
+          });
+
+          const categoryDetailsArray = Object.entries(categoryStats)
+            .map(([category, stats]) => ({
+              category,
+              count: stats.count,
+              subcategoryCount: stats.subcategories.size,
+            }))
+            .sort((a, b) => b.count - a.count);
+
+          setCategoryDetails(categoryDetailsArray);
+        }
+      } catch (error) {
+        console.error("Error fetching category details:", error);
+      } finally {
+        setDetailsLoading(false);
+      }
+    };
+
+    fetchCategoryDetails();
+  }, [isExpanded]);
+
+  return (
+    <WidgetContainer>
+      <WidgetHeader title="Categories" icon={Folder}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="h-6 w-6 p-0"
+        >
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </Button>
+      </WidgetHeader>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-3xl font-bold text-primary">
+              {loading ? (
+                <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+              ) : (
+                filterOptions.categories.length
+              )}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Unique categories
+            </div>
+          </div>
+          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Folder className="h-6 w-6 text-primary" />
+          </div>
+        </div>
+
+        {stats?.categoryBreakdown && stats.categoryBreakdown.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-muted-foreground">
+              Top Categories
+            </div>
+            {stats.categoryBreakdown
+              .slice(0, 3)
+              .map((cat: any, index: number) => (
+                <div
+                  key={cat.category}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-primary" />
+                    <span className="text-sm truncate">{cat.category}</span>
+                  </div>
+                  <span className="text-sm font-medium">{cat.count}</span>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {isExpanded && (
+          <div className="space-y-3 pt-3 border-t border-border">
+            <div className="flex items-center justify-between">
+              <h5 className="text-sm font-medium">Category Breakdown</h5>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/asset-library")}
+              >
+                View All
+              </Button>
+            </div>
+
+            {detailsLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="h-4 bg-muted rounded animate-pulse w-1/3" />
+                    <div className="h-4 bg-muted rounded animate-pulse w-8" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {categoryDetails.map((cat) => (
+                  <div
+                    key={cat.category}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">
+                        {cat.category}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {cat.subcategoryCount} subcategories
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{cat.count}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          router.push(
+                            `/asset-library?category=${encodeURIComponent(cat.category)}`
+                          )
+                        }
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </WidgetContainer>
+  );
+}
+
+const STATUS_LABELS = {
+  not_started: "Not Started",
+  in_production: "In Production",
+  revisions: "Revisions",
+  approved: "Approved",
+  delivered_by_artist: "Delivered by Artist",
+};
+
+type StatusKey = keyof typeof STATUS_LABELS;
+
+export function ModelStatusWidget() {
+  const user = useUser();
+  const [counts, setCounts] = useState<Record<StatusKey, number>>({
+    not_started: 0,
+    in_production: 0,
+    revisions: 0,
+    approved: 0,
+    delivered_by_artist: 0,
+  });
+
+  useEffect(() => {
+    async function fetchStatusCounts() {
+      if (!user?.metadata?.client) return;
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("status")
+        .eq("client", user.metadata.client);
+      if (!error && data) {
+        const newCounts: Record<StatusKey, number> = {
+          not_started: 0,
+          in_production: 0,
+          revisions: 0,
+          approved: 0,
+          delivered_by_artist: 0,
+        };
+        for (const row of data) {
+          const status = row.status as StatusKey;
+          if (status in newCounts) newCounts[status]++;
+        }
+        setCounts(newCounts);
+      }
+    }
+    fetchStatusCounts();
+  }, [user?.metadata?.client]);
+
+  return (
+    <Card className="p-6 rounded-xl shadow bg-muted">
+      <h3 className="text-lg font-bold mb-4">Number of Models</h3>
+      <div className="space-y-2">
+        {(Object.entries(STATUS_LABELS) as [StatusKey, string][]).map(
+          ([key, label]) => (
+            <div key={key} className="flex justify-between items-center">
+              <span className="font-medium">{label}</span>
+              <span className="text-xl font-bold text-primary">
+                {counts[key]}
+              </span>
+            </div>
+          )
+        )}
+      </div>
+    </Card>
   );
 }

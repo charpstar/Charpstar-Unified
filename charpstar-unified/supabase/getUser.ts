@@ -30,7 +30,19 @@ export async function getUserMetadata(
       monitoredsince,
       name
     ),
-    client_config
+    client_config,
+    title,
+    phone_number,
+    discord_name,
+    software_experience,
+    model_types,
+    daily_hours,
+    exclusive_work,
+    country,
+    portfolio_links,
+    onboarding,
+    csv_uploaded,
+    reference_images_uploaded
   `
     )
     .eq("id", user_id)
@@ -50,6 +62,18 @@ export async function getUserMetadata(
       name: string;
     }[];
     client_config: string | null;
+    title: string | null;
+    phone_number: string | null;
+    discord_name: string | null;
+    software_experience: string[] | null;
+    model_types: string[] | null;
+    daily_hours: number | null;
+    exclusive_work: boolean | null;
+    country: string | null;
+    portfolio_links: string[] | null;
+    onboarding: boolean;
+    csv_uploaded: boolean;
+    reference_images_uploaded: boolean;
   };
 }
 

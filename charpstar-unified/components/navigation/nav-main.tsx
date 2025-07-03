@@ -23,6 +23,12 @@ export default function NavMain({
   }[];
 }) {
   const pathname = usePathname();
+
+  // Don't render if no items (loading state)
+  if (!items || items.length === 0) {
+    return null;
+  }
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
