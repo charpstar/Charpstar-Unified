@@ -16,7 +16,6 @@ import {
   Eye,
   Upload,
   FileSpreadsheet,
-  Sparkles,
   ArrowRight,
   Check,
   AlertCircle,

@@ -28,9 +28,7 @@ import {
   CheckCircle,
   AlertCircle,
   ArrowLeft,
-  Plus,
   X,
-  ImageIcon,
   FolderOpen,
 } from "lucide-react";
 import Link from "next/link";
@@ -208,7 +206,7 @@ export default function AddModelsPage() {
 
       // Redirect to asset library
       router.push("/asset-library");
-    } catch (error) {
+    } catch {
       toast({
         title: "Upload failed",
         description:

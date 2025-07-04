@@ -106,8 +106,6 @@ export default function ReviewDashboardPage() {
       return next;
     });
   };
-  const selectAll = () => setSelected(new Set(paged.map((a) => a.id)));
-  const deselectAll = () => setSelected(new Set());
 
   return (
     <div className=" mx-auto p-6">

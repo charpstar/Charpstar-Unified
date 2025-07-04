@@ -58,7 +58,7 @@ export const MaterialVariants: React.FC<MaterialVariantsProps> = ({
       console.error("Error fetching variants:", error);
       return false;
     }
-  }, [modelViewerRef]); // Removed currentVariant from dependencies
+  }, [modelViewerRef]);
 
   // Single useEffect for polling and setup
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -18,21 +18,14 @@ import {
   ArrowRight,
   Building,
   Shield,
-  Mail,
-  Phone,
-  Globe,
-  Link,
   Clock,
-  Users,
   Sparkles,
   HelpCircle,
   ChevronRight,
   Play,
   Lock,
-  Star,
   Trophy,
   Target,
-  Zap,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -52,7 +45,6 @@ export function OnboardingDashboard() {
   const user = useUser();
   const router = useRouter();
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
-  const [hasReloaded, setHasReloaded] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
 
@@ -313,8 +305,8 @@ export function OnboardingDashboard() {
                 </div>
 
                 <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-                  {getRoleWelcomeMessage(user?.metadata?.role || "")} Let's get
-                  you set up and ready to work. Complete the steps below to
+                  {getRoleWelcomeMessage(user?.metadata?.role || "")} Let&apos;s
+                  get you set up and ready to work. Complete the steps below to
                   unlock full access to the platform.
                 </p>
 
@@ -606,8 +598,8 @@ export function OnboardingDashboard() {
                     All Steps Complete!
                   </h3>
                   <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                    Fantastic! You've successfully completed all onboarding
-                    steps. You're now ready to access the full CharpstAR
+                    Fantastic! You&apos;ve successfully completed all onboarding
+                    steps. You&apos;re now ready to access the full CharpstAR
                     platform
                   </p>
                 </div>

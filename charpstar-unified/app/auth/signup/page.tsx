@@ -309,11 +309,12 @@ export default function SignupPage() {
           userId = updateData.userId;
 
           // Sign in the user with the new password
-          const { data: signInData, error: signInError } =
-            await supabase.auth.signInWithPassword({
+          const { error: signInError } = await supabase.auth.signInWithPassword(
+            {
               email: formData.email,
               password: formData.password,
-            });
+            }
+          );
 
           if (signInError) {
             throw signInError;

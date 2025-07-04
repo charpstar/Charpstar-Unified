@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createServerClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
 
@@ -17,12 +17,7 @@ export async function GET() {
     }
 
     // Fetch dashboard statistics
-    const [
-      { count: totalModels, error: modelsError },
-      { count: totalCategories, error: categoriesError },
-      { count: totalMaterials, error: materialsError },
-      { count: totalColors, error: colorsError },
-    ] = await Promise.all([
+    const [{ count: totalModels, error: modelsError }] = await Promise.all([
       // Count total models (assets)
       supabase.from("assets").select("*", { count: "exact", head: true }),
 
@@ -48,15 +43,6 @@ export async function GET() {
     // Handle errors
     if (modelsError) {
       console.error("Error fetching total models:", modelsError);
-    }
-    if (categoriesError) {
-      console.error("Error fetching total categories:", categoriesError);
-    }
-    if (materialsError) {
-      console.error("Error fetching total materials:", materialsError);
-    }
-    if (colorsError) {
-      console.error("Error fetching total colors:", colorsError);
     }
 
     // Get unique categories count

@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAssets } from "@/hooks/use-assets";
 import { useUser } from "@/contexts/useUser";
-
+import Image from "next/image";
 import { Button } from "@/components/ui/display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
@@ -38,22 +37,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { ChartTooltip } from "@/components/ui/display";
 import { useActivities } from "@/hooks/use-activities";
 import { Card } from "@/components/ui/containers";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/display";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  Legend,
-} from "recharts";
+
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 // Unified Widget Header Component
 interface WidgetHeaderProps {
@@ -231,14 +216,6 @@ export function ProfileWidget({ user }: { user?: any }) {
   const userEmail = user?.email || "user@example.com";
   const userRole = user?.metadata?.role || "user";
 
-  // Debug logging to help identify the issue
-  console.log("ProfileWidget - user object:", user);
-  console.log("ProfileWidget - user.metadata:", user?.metadata);
-  console.log("ProfileWidget - user.metadata?.role:", user?.metadata?.role);
-  console.log("ProfileWidget - detected role:", userRole);
-  console.log("ProfileWidget - roleData:", roleData);
-  console.log("ProfileWidget - is admin check:", userRole === "admin");
-  console.log("ProfileWidget - roleData.roleOverview:", roleData.roleOverview);
   return (
     <WidgetContainer>
       <WidgetHeader title="Profile" icon={Users}>
@@ -246,8 +223,7 @@ export function ProfileWidget({ user }: { user?: any }) {
           variant="ghost"
           size="sm"
           onClick={() => setIsSettingsOpen(true)}
-          className="h-8 w-8 p-0 hover
-:bg-primary/10"
+          className="h-8 w-8 p-0 hover:bg-primary/10"
         >
           <Settings className="h-4 w-4" />
         </Button>
@@ -991,7 +967,7 @@ export function NewModelsChartWidget() {
 }
 
 // Enhanced Total Models Widget
-export function TotalModelsWidget({ stats }: { stats?: any }) {
+export function TotalModelsWidget() {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const [recentModels, setRecentModels] = useState<any[]>([]);
@@ -1106,10 +1082,12 @@ export function TotalModelsWidget({ stats }: { stats?: any }) {
                   >
                     <div className="h-8 w-8 rounded overflow-hidden bg-muted flex items-center justify-center">
                       {model.preview_image ? (
-                        <img
+                        <Image
                           src={model.preview_image}
                           alt={model.product_name}
                           className="w-full h-full object-cover"
+                          width={32}
+                          height={32}
                         />
                       ) : (
                         <Package className="h-4 w-4 text-muted-foreground" />
@@ -1246,20 +1224,18 @@ export function CategoriesWidget({ stats }: { stats?: any }) {
             <div className="text-sm font-medium text-muted-foreground">
               Top Categories
             </div>
-            {stats.categoryBreakdown
-              .slice(0, 3)
-              .map((cat: any, index: number) => (
-                <div
-                  key={cat.category}
-                  className="flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-primary" />
-                    <span className="text-sm truncate">{cat.category}</span>
-                  </div>
-                  <span className="text-sm font-medium">{cat.count}</span>
+            {stats.categoryBreakdown.slice(0, 3).map((cat: any) => (
+              <div
+                key={cat.category}
+                className="flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                  <span className="text-sm truncate">{cat.category}</span>
                 </div>
-              ))}
+                <span className="text-sm font-medium">{cat.count}</span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -1428,6 +1404,7 @@ export function StatusPieChartWidget() {
     approved: 0,
     delivered_by_artist: 0,
   });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -1494,7 +1471,7 @@ export function StatusPieChartWidget() {
                   label
                   isAnimationActive={true}
                 >
-                  {chartData.map((entry, idx) => (
+                  {chartData.map((entry) => (
                     <Cell
                       key={`cell-${entry.key}`}
                       fill={STATUS_COLORS[entry.key]}

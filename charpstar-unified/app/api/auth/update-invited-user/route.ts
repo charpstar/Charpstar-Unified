@@ -7,13 +7,12 @@ export async function POST(request: NextRequest) {
     const {
       email,
       password,
-      firstName,
-      lastName,
+
       client,
       role,
       title,
       phoneNumber,
-      discordName,
+
       softwareExperience,
       modelTypes,
       dailyHours,

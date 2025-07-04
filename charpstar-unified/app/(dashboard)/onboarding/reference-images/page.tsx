@@ -27,15 +27,11 @@ import {
   Sparkles,
   Target,
   Image,
-  Link,
   Plus,
-  Zap,
   Trophy,
   Star,
   Camera,
-  Palette,
   Layers,
-  Grid3X3,
   CheckSquare,
   Square,
   Save,
@@ -46,21 +42,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/display";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+
 import { Input } from "@/components/ui";
 
 export default function ReferenceImagesPage() {
   const user = useUser();
-  const router = useRouter();
   const [assets, setAssets] = useState<any[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogAssetIds, setDialogAssetIds] = useState<string[]>([]);
-  const [referenceLink, setReferenceLink] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [viewDialogRefs, setViewDialogRefs] = useState<string[]>([]);
   const [viewDialogAssetId, setViewDialogAssetId] = useState<string | null>(
     null
   );
@@ -123,7 +116,6 @@ export default function ReferenceImagesPage() {
   // Handle multi asset reference
   const handleMultiReference = () => {
     setDialogAssetIds(Array.from(selected));
-    setReferenceLink("");
     setDialogOpen(true);
   };
 
@@ -208,53 +200,6 @@ export default function ReferenceImagesPage() {
   };
   const deselectAll = () => setSelected(new Set());
 
-  // Delete reference for a single asset at a given index
-  const handleDeleteReference = async (assetId: string, refIdx: number) => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("onboarding_assets")
-      .select("reference")
-      .eq("id", assetId)
-      .single();
-    if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-      setLoading(false);
-      return;
-    }
-    let refs = getReferenceArray(data.reference);
-    // Get the reference to delete
-    const refToDelete = refs[refIdx];
-    // Remove that specific reference from the array
-    refs = refs.filter((ref) => ref !== refToDelete);
-    const { error: updateError } = await supabase
-      .from("onboarding_assets")
-      .update({ reference: refs })
-      .eq("id", assetId);
-    if (updateError) {
-      toast({
-        title: "Error",
-        description: updateError.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Reference Removed",
-        description: "Reference link deleted.",
-      });
-      // Update local assets state for this asset only
-      setAssets((prevAssets) =>
-        prevAssets.map((a) =>
-          a.id === assetId ? { ...a, reference: refs } : a
-        )
-      );
-    }
-    setLoading(false);
-  };
-
   // Open view dialog for references
   const handleViewReferences = (assetId: string) => {
     const asset = assets.find((a) => a.id === assetId);
@@ -267,26 +212,6 @@ export default function ReferenceImagesPage() {
     );
     setViewDialogAssetId(assetId);
     setViewDialogOpen(true);
-  };
-
-  // Save all 5 references for the asset
-  const handleSaveReferences = async () => {
-    setLoading(true);
-    const newRefs = referenceInputs.map((i) => i.value.trim()).filter(Boolean);
-    await supabase
-      .from("onboarding_assets")
-      .update({
-        reference: newRefs,
-      })
-      .eq("id", viewDialogAssetId);
-    // Refresh assets
-    const { data } = await supabase
-      .from("onboarding_assets")
-      .select("*")
-      .eq("client", user?.metadata.client);
-    setAssets(data || []);
-    setViewDialogOpen(false);
-    setLoading(false);
   };
 
   // Complete reference images step and redirect to dashboard
@@ -326,7 +251,7 @@ export default function ReferenceImagesPage() {
       setTimeout(() => {
         window.location.href = "/dashboard";
       }, 2000);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
@@ -598,7 +523,7 @@ export default function ReferenceImagesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border  text-sm text-muted-foreground overflow-scroll">
-                    {assets.map((asset, idx) => {
+                    {assets.map((asset) => {
                       const allReferences = getReferenceArray(asset.reference);
                       const filledReferences = allReferences.filter(Boolean);
                       const hasReferences = filledReferences.length > 0;

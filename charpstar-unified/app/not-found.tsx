@@ -2,8 +2,7 @@
 
 import { Suspense } from "react";
 import { Button } from "@/components/ui/display";
-import { Home, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 function NotFoundContent() {
   return (

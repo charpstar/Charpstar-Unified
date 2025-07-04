@@ -5,7 +5,7 @@ import { useToast } from "@/components/ui/utilities";
 import { AvatarPicker } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import { ThemeSwitcherCard } from "@/components/ui/utilities";
-import { Shield, Package, Target } from "lucide-react";
+import { Shield } from "lucide-react";
 import {
   Suspense,
   useCallback,
@@ -26,11 +26,6 @@ import {
 } from "@/components/dashboard/dashboard-widgets";
 
 // Lazy load heavy dashboard widgets
-const LazyStatsWidget = lazy(() =>
-  import("@/components/dashboard").then((module) => ({
-    default: module.StatsWidget,
-  }))
-);
 const LazyTotalModelsWidget = lazy(() =>
   import("@/components/dashboard").then((module) => ({
     default: module.TotalModelsWidget,
@@ -82,6 +77,7 @@ export default function DashboardPage() {
   const userAvatar = user?.metadata?.avatar_url || null;
 
   // Add a fallback for when metadata is not loaded yet
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [fallbackAvatar, setFallbackAvatar] = useState<string | null>(null);
 
   // Fetch avatar as fallback if metadata is not available
@@ -106,9 +102,6 @@ export default function DashboardPage() {
 
     fetchFallbackAvatar();
   }, [user?.id, user?.metadata?.avatar_url]);
-
-  // Use fallback avatar if metadata avatar is not available
-  const displayAvatar = user?.metadata?.avatar_url || fallbackAvatar;
 
   useEffect(() => {
     document.title = "CharpstAR Platform - Dashboard";
@@ -322,7 +315,7 @@ export default function DashboardPage() {
                   <div className="h-48 bg-muted animate-pulse rounded-lg" />
                 }
               >
-                <LazyTotalModelsWidget stats={stats} />
+                <LazyTotalModelsWidget />
               </Suspense>
             ),
           },
@@ -400,12 +393,9 @@ export default function DashboardPage() {
     return [...baseWidgets, ...adminWidgets];
   }, [
     user?.email,
-    user?.metadata?.avatar_url,
     user?.metadata?.role,
-    stats?.totalModels,
-    stats?.totalCategories,
+    stats,
     handleAvatarChange,
-    displayAvatar,
     userAvatar,
   ]);
 

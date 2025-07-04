@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@/contexts/useUser";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/display";
@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/containers";
 import {
   Mail,
-  Plus,
   X,
   CheckCircle,
   Clock,
@@ -81,14 +80,7 @@ export default function OnboardingPage() {
     }
   }, [user, router, toast]);
 
-  // Fetch invitations
-  useEffect(() => {
-    if (user?.metadata?.role === "admin") {
-      fetchInvitations();
-    }
-  }, [user]);
-
-  const fetchInvitations = async () => {
+  const fetchInvitations = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/invitations");
       if (response.ok) {
@@ -105,7 +97,14 @@ export default function OnboardingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Fetch invitations
+  useEffect(() => {
+    if (user?.metadata?.role === "admin") {
+      fetchInvitations();
+    }
+  }, [user, fetchInvitations]);
 
   const sendInvitation = async () => {
     if (!newInviteData.email || !newInviteData.client_name) {
