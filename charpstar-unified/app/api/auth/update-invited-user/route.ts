@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
       role,
       title,
       phoneNumber,
+      discordName,
 
       softwareExperience,
       modelTypes,
