@@ -353,7 +353,7 @@ export default function OnboardingPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">client Onboarding</h1>
+          <h1 className="text-3xl font-bold">Client onboarding</h1>
           <p className="text-muted-foreground">
             Manage client invitations and track onboarding progress
           </p>
@@ -365,9 +365,9 @@ export default function OnboardingPage() {
               Send Invitation
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className=" max-h-[85vh] h-fit overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Send client Invitation</DialogTitle>
+              <DialogTitle>Send Client Invitation</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -384,20 +384,51 @@ export default function OnboardingPage() {
                   }
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium">Client Name</label>
-                <Input
-                  type="text"
-                  placeholder="Company Name"
-                  value={newInviteData.client_name}
-                  onChange={(e) =>
-                    setNewInviteData((prev) => ({
-                      ...prev,
-                      client_name: e.target.value,
-                    }))
-                  }
-                />
-              </div>
+              {newInviteData.role === "client" ? (
+                <div>
+                  <label
+                    htmlFor="client_name"
+                    className="block text-sm font-medium mb-1"
+                  >
+                    Client Name
+                  </label>
+                  <Input
+                    id="client_name"
+                    type="text"
+                    placeholder="Enter client name"
+                    value={newInviteData.client_name}
+                    onChange={(e) =>
+                      setNewInviteData({
+                        ...newInviteData,
+                        client_name: e.target.value,
+                      })
+                    }
+                    required
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label
+                    htmlFor="client_name"
+                    className="block text-sm font-medium mb-1"
+                  >
+                    Name
+                  </label>
+                  <Input
+                    id="client_name"
+                    type="text"
+                    placeholder="Enter name"
+                    value={newInviteData.client_name}
+                    onChange={(e) =>
+                      setNewInviteData({
+                        ...newInviteData,
+                        client_name: e.target.value,
+                      })
+                    }
+                    required
+                  />
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium">Role</label>
                 <select

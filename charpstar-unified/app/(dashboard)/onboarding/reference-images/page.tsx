@@ -10,8 +10,36 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/containers";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/containers";
+import { Badge } from "@/components/ui/feedback";
 import { toast } from "@/components/ui/utilities";
-import { Paperclip, X, Eye, CheckCircle } from "lucide-react";
+import {
+  Paperclip,
+  X,
+  Eye,
+  CheckCircle,
+  ArrowRight,
+  Sparkles,
+  Target,
+  Image,
+  Link,
+  Plus,
+  Zap,
+  Trophy,
+  Star,
+  Camera,
+  Palette,
+  Layers,
+  Grid3X3,
+  CheckSquare,
+  Square,
+  Save,
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -19,6 +47,7 @@ import {
 } from "@/components/ui/display";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui";
 
 export default function ReferenceImagesPage() {
   const user = useUser();
@@ -36,6 +65,7 @@ export default function ReferenceImagesPage() {
     null
   );
   const [completing, setCompleting] = useState(false);
+  const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
   const referenceLabels = ["Top", "Front", "Back", "Left Side", "Right Side"];
   const [referenceInputs, setReferenceInputs] = useState(
     referenceLabels.map((label) => ({
@@ -264,6 +294,8 @@ export default function ReferenceImagesPage() {
     if (!user) return;
 
     setCompleting(true);
+    setShowCompletionAnimation(true);
+
     try {
       // Update user's onboarding progress using the proper API endpoint
       const response = await fetch("/api/users/complete-reference-images", {
@@ -290,8 +322,10 @@ export default function ReferenceImagesPage() {
         description: "You've successfully completed the reference images step.",
       });
 
-      // Force hard reload when redirecting to dashboard to update onboarding steps
-      window.location.href = "/dashboard";
+      // Wait for animation, then redirect
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 2000);
     } catch (error) {
       toast({
         title: "Error",
@@ -307,298 +341,591 @@ export default function ReferenceImagesPage() {
     return null;
   }
 
+  // Calculate progress
+  const totalAssets = assets.length;
+  const assetsWithReferences = assets.filter((asset) => {
+    const refs = getReferenceArray(asset.reference);
+    return refs.length > 0;
+  }).length;
+  const progressPercentage =
+    totalAssets > 0 ? (assetsWithReferences / totalAssets) * 100 : 0;
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex gap-4 mb-6">
-        <Button
-          onClick={handleMultiReference}
-          disabled={selected.size === 0}
-          size="lg"
-        >
-          + Add Reference To Selection
-        </Button>
-        <Button onClick={selectAll} variant="outline" size="lg">
-          Select All
-        </Button>
-        <Button onClick={deselectAll} variant="outline" size="lg">
-          Deselect All
-        </Button>
-        <div className="ml-auto">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      {/* Completion Animation Overlay */}
+      {showCompletionAnimation && (
+        <div className="fixed inset-0 bg-gradient-to-b from-transparent to-background/80 z-50 flex items-center justify-center">
+          <div className="text-center space-y-6">
+            <div className="relative">
+              <div className="h-24 w-24 mx-auto rounded-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+                <Trophy className="h-12 w-12 text-white" />
+              </div>
+              <Sparkles className="h-8 w-8 text-yellow-500 absolute -top-3 -right-3 animate-pulse" />
+              <Sparkles className="h-6 w-6 text-yellow-500 absolute -bottom-2 -left-2 animate-pulse delay-300" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-foreground mb-2">
+                Reference Images Complete! 🎉
+              </h3>
+              <p className="text-muted-foreground">
+                Redirecting to onboarding dashboard...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className=" mx-auto p-6 space-y-8">
+        {/* Enhanced Header */}
+        <Card className="relative overflow-hidden bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-primary/20">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent" />
+          <CardContent className="relative pt-8 pb-8">
+            <div className="text-center space-y-6">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
+                  <Image className="h-6 w-6 text-white" />
+                </div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  Reference Images Upload
+                </h1>
+              </div>
+
+              <p className="max-w-7xl text-lg text-muted-foreground mx-auto leading-relaxed">
+                <strong>
+                  Reference images are optional but highly recommended!
+                </strong>{" "}
+                Adding reference images from different angles helps our 3D
+                modelers understand your requirements and creates much better
+                results. You can skip this step if needed, but it significantly
+                improves the quality of your 3D models.
+              </p>
+
+              {/* Progress Overview */}
+              <div className="flex items-center justify-center gap-6 mt-6">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Target className="h-4 w-4" />
+                  <span>{totalAssets} products</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>{assetsWithReferences} with references</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Camera className="h-4 w-4" />
+                  <span
+                    className={`font-medium ${
+                      progressPercentage === 0
+                        ? "text-gray-500"
+                        : progressPercentage < 25
+                          ? "text-red-600"
+                          : progressPercentage < 50
+                            ? "text-yellow-600"
+                            : progressPercentage < 75
+                              ? "text-yellow-600"
+                              : "text-green-600"
+                    }`}
+                  >
+                    {Math.round(progressPercentage)}% complete
+                  </span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Progress Bar */}
+        <Card className="bg-gradient-to-r from-background to-muted/20 border-primary/10">
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Overall Progress</span>
+                <span className="text-sm text-muted-foreground">
+                  {assetsWithReferences} of {totalAssets} products have
+                  references
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground bg-blue-50 border border-blue-200 rounded-lg p-3">
+                💡 <strong>Tip:</strong> Reference images are optional but
+                highly recommended. They help our 3D modelers create much better
+                results. You can complete this step even with 0% progress if
+                needed.
+              </div>
+              <div className="relative">
+                <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                  <div
+                    className={`h-3 rounded-full transition-all duration-700 ease-out ${
+                      progressPercentage === 0
+                        ? "bg-gray-400"
+                        : progressPercentage < 25
+                          ? "bg-gradient-to-r from-red-500 to-red-600"
+                          : progressPercentage < 50
+                            ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
+                            : progressPercentage < 75
+                              ? "bg-gradient-to-r from-yellow-500 to-green-500"
+                              : "bg-gradient-to-r from-green-500 to-green-600"
+                    }`}
+                    style={{ width: `${progressPercentage}%` }}
+                  />
+                </div>
+                {progressPercentage > 0 && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={handleMultiReference}
+              disabled={selected.size === 0}
+              size="lg"
+              className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+            >
+              <Plus className="h-4 w-4" />
+              Add References ({selected.size})
+            </Button>
+            <Button
+              onClick={selectAll}
+              variant="outline"
+              size="lg"
+              className="gap-2"
+            >
+              <CheckSquare className="h-4 w-4" />
+              Select All
+            </Button>
+            <Button
+              onClick={deselectAll}
+              variant="outline"
+              size="lg"
+              className="gap-2"
+            >
+              <Square className="h-4 w-4" />
+              Deselect All
+            </Button>
+          </div>
+
           <Button
             onClick={handleCompleteReferenceImages}
             loading={completing}
             size="lg"
-            className="px-6"
+            className="gap-2 px-8 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg"
           >
-            Done - Complete Reference Images
+            {completing ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Completing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                Complete Reference Images
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
           </Button>
         </div>
-      </div>
-      <div className="overflow-x-auto bg-background rounded-2xl shadow-lg p-6">
-        {fetching ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="animate-spin h-10 w-10 text-primary" />
-          </div>
-        ) : assets.length === 0 ? (
-          <div className="text-center text-muted-foreground py-16 text-xl">
-            No onboarding assets found.
-          </div>
-        ) : (
-          <table className="min-w-full text-base border-separate border-spacing-y-1">
-            <thead className="sticky top-0 bg-background z-10 shadow-sm">
-              <tr>
-                <th className="p-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={
-                      selected.size === assets.length && assets.length > 0
-                    }
-                    onChange={
-                      selected.size === assets.length ? deselectAll : selectAll
-                    }
-                  />
-                </th>
-                <th className="p-3 text-left">Article ID</th>
-                <th className="p-3 text-left">Product Name</th>
-                <th className="p-3 text-left">Product Link</th>
 
-                <th className="p-3 text-left">Category</th>
-                <th className="p-3 text-left">Subcategory</th>
-                <th className="p-3 text-left">Client</th>
-                <th className="p-3 text-center">Reference</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assets.map((asset, idx) => {
-                const allReferences = getReferenceArray(asset.reference);
-                const filledReferences = allReferences.filter(Boolean);
-                return (
-                  <tr
-                    key={asset.id}
-                    className={`transition hover:bg-primary/10 ${idx % 2 === 0 ? "bg-muted/40" : "bg-background"}`}
-                    style={{ height: 64 }}
-                  >
-                    <td className="p-3 align-middle">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(asset.id)}
-                        onChange={() => toggleSelect(asset.id)}
-                        className="h-5 w-5"
-                      />
-                    </td>
-                    <td className="p-3 align-middle font-semibold">
-                      {asset.article_id}
-                    </td>
-                    <td className="p-3 align-middle">{asset.product_name}</td>
-                    <td className="p-3 align-middle">
-                      <a
-                        href={asset.product_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline text-blue-600 break-all"
-                      >
-                        {asset.product_link}
-                      </a>
-                    </td>
+        {/* Enhanced Assets Table */}
+        <Card className="bg-gradient-to-r from-background to-muted/20 border-primary/10 overflow-hidden">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-primary" />
+              Product Assets ({totalAssets})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              {fetching ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="text-center space-y-4">
+                    <Loader2 className="animate-spin h-12 w-12 text-primary mx-auto" />
+                    <p className="text-muted-foreground">
+                      Loading your products...
+                    </p>
+                  </div>
+                </div>
+              ) : assets.length === 0 ? (
+                <div className="text-center py-16 space-y-4">
+                  <div className="h-16 w-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+                    <Image className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      No products found
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Upload your CSV file first to see products here.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <table className="min-w-full text-base ">
+                  <thead className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border">
+                    <tr>
+                      <th className="p-4 text-left">
+                        <input
+                          type="checkbox"
+                          checked={
+                            selected.size === assets.length && assets.length > 0
+                          }
+                          onChange={
+                            selected.size === assets.length
+                              ? deselectAll
+                              : selectAll
+                          }
+                          className="h-4 w-4"
+                        />
+                      </th>
+                      <th className="p-4 text-left font-semibold">
+                        Article ID
+                      </th>
+                      <th className="p-4 text-left font-semibold">
+                        Product Name
+                      </th>
+                      <th className="p-4 text-left font-semibold">
+                        Product Link
+                      </th>
+                      <th className="p-4 text-left font-semibold">Category</th>
+                      <th className="p-4 text-left font-semibold">
+                        Subcategory
+                      </th>
+                      <th className="p-4 text-center font-semibold">
+                        References
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border  text-sm text-muted-foreground overflow-scroll">
+                    {assets.map((asset, idx) => {
+                      const allReferences = getReferenceArray(asset.reference);
+                      const filledReferences = allReferences.filter(Boolean);
+                      const hasReferences = filledReferences.length > 0;
 
-                    <td className="p-3 align-middle">{asset.category}</td>
-                    <td className="p-3 align-middle">{asset.subcategory}</td>
-                    <td className="p-3 align-middle">{asset.client}</td>
-                    <td className="p-3 align-middle text-center">
-                      <div className="flex items-center justify-center gap-2 flex-wrap">
-                        {/* Reference Count Badge */}
-
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              onClick={() => handleViewReferences(asset.id)}
-                              className="hover:bg-primary/20 rounded-full p-2"
+                      return (
+                        <tr
+                          key={asset.id}
+                          className={`transition-all duration-200 hover:bg-primary/5 ${
+                            selected.has(asset.id) ? "bg-primary/10" : ""
+                          }`}
+                        >
+                          <td className="p-4 align-middle">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(asset.id)}
+                              onChange={() => toggleSelect(asset.id)}
+                              className="h-4 w-4"
+                            />
+                          </td>
+                          <td className="p-4 align-middle">
+                            <Badge variant="outline" className="font-mono">
+                              {asset.article_id}
+                            </Badge>
+                          </td>
+                          <td className="p-4 align-middle font-medium">
+                            {asset.product_name}
+                          </td>
+                          <td className="p-4 align-middle">
+                            <a
+                              href={asset.product_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-700 underline break-all text-sm"
                             >
-                              <Eye className="inline h-6 w-6 text-muted-foreground hover:text-primary" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>View References</TooltipContent>
-                        </Tooltip>
-                        {filledReferences.length < 5 ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={() => handleSingleReference(asset.id)}
-                                className="hover:bg-primary/20 rounded-full p-2"
-                              >
-                                <Paperclip className="inline h-6 w-6 text-muted-foreground hover:text-primary" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent>Add Reference</TooltipContent>
-                          </Tooltip>
-                        ) : (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <CheckCircle className="h-6 w-6 text-green-600" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Max 5 references reached
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-muted">
-                          <span className="text-muted-foreground">
-                            {filledReferences.length}/5
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+                              {asset.product_link}
+                            </a>
+                          </td>
+                          <td className="p-4 align-middle">
+                            <Badge variant="secondary" className="text-xs">
+                              {asset.category}
+                            </Badge>
+                          </td>
+                          <td className="p-4 align-middle">
+                            <Badge variant="outline" className="text-xs">
+                              {asset.subcategory}
+                            </Badge>
+                          </td>
+                          <td className="p-4 align-middle">
+                            <div className="flex items-center justify-center gap-3">
+                              {/* Reference Status */}
+                              <div className="flex items-center gap-2">
+                                {hasReferences ? (
+                                  <div className="flex items-center gap-1">
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                    <span className="text-xs text-green-600 font-medium">
+                                      {filledReferences.length}/5
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <Star className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs text-muted-foreground">
+                                      0/5
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
 
-      {/* Done Button */}
-      <div className="flex justify-center mt-8">
-        <Button
-          onClick={handleCompleteReferenceImages}
-          loading={completing}
-          size="lg"
-          className="px-8"
-        >
-          Done - Complete Reference Images
-        </Button>
-      </div>
+                              {/* Action Buttons */}
+                              <div className="flex items-center gap-1">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleViewReferences(asset.id)
+                                      }
+                                      className="h-8 w-8 p-0 hover:bg-primary/10"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    View References
+                                  </TooltipContent>
+                                </Tooltip>
 
-      {/* Reference Link Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add Reference Links</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {referenceInputs.map((input, idx) => (
-              <div key={input.label} className="flex items-center gap-2">
-                <label className="w-28 font-medium">{input.label}</label>
-                {(() => {
-                  // Find the asset being edited
-                  const asset = assets.find((a) => a.id === dialogAssetIds[0]);
-                  const refs = getReferenceArray(asset?.reference);
-                  const currentValue = refs[idx] || "";
-                  if (currentValue) {
-                    return (
-                      <a
-                        href={currentValue}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 underline text-blue-600 break-all opacity-70 cursor-not-allowed"
-                        tabIndex={-1}
-                      >
-                        {currentValue}
-                      </a>
-                    );
-                  }
-                  return (
-                    <input
-                      type="url"
-                      className="flex-1 border-2 border-primary rounded-lg p-3 text-lg"
-                      placeholder={`Paste ${input.label.toLowerCase()} image link...`}
-                      value={input.value}
-                      onChange={(e) =>
-                        setReferenceInputs((inputs) =>
-                          inputs.map((inp, i) =>
-                            i === idx ? { ...inp, value: e.target.value } : inp
-                          )
-                        )
-                      }
-                      disabled={loading}
-                    />
-                  );
-                })()}
-              </div>
-            ))}
-            <div className="flex justify-end gap-4">
-              <Button
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                disabled={loading}
-                size="lg"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="default"
-                onClick={handleSaveReference}
-                loading={loading}
-                disabled={referenceInputs.every((inp) => !inp.value.trim())}
-                size="lg"
-              >
-                Save
-              </Button>
+                                {filledReferences.length < 5 ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleSingleReference(asset.id)
+                                        }
+                                        className="h-8 w-8 p-0 hover:bg-primary/10"
+                                      >
+                                        <Paperclip className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Add Reference
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="h-8 w-8 flex items-center justify-center">
+                                        <CheckCircle className="h-4 w-4 text-green-600" />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Max references reached
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Bottom Completion Button */}
+        {assets.length > 10 && (
+          <div className="flex justify-center">
+            <Button
+              onClick={handleCompleteReferenceImages}
+              loading={completing}
+              size="lg"
+              className="gap-2 px-8 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg"
+            >
+              {completing ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Completing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  Complete Reference Images
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-      {/* View References Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>References</DialogTitle>
-          </DialogHeader>
-          <ul className="space-y-2">
-            {referenceLabels.map((label, idx) => (
-              <li key={label} className="flex items-center gap-2">
-                <span className="w-28 font-medium">{label}</span>
-                {referenceInputs[idx]?.value ? (
-                  <>
-                    <a
-                      href={referenceInputs[idx].value}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline text-blue-600 break-all flex-1"
-                    >
-                      {referenceInputs[idx].value}
-                    </a>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={async () => {
-                        // Remove the link for this slot
-                        const newInputs = referenceInputs.map((inp, i) =>
-                          i === idx ? { ...inp, value: "" } : inp
+        )}
+
+        {/* Enhanced Reference Link Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-3xl h-fit overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <Image className="h-5 w-5 text-primary" />
+                Add Reference Images
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-sm text-muted-foreground">
+                  <strong>Optional but highly recommended:</strong> Add
+                  reference images from different angles to help our 3D modelers
+                  understand your product requirements. This significantly
+                  improves the quality of your 3D models.
+                </p>
+              </div>
+
+              <div className="grid gap-4">
+                {referenceInputs.map((input, idx) => (
+                  <div key={input.label} className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Camera className="h-4 w-4 text-primary" />
+                      {input.label} View
+                    </label>
+                    {(() => {
+                      // Find the asset being edited
+                      const asset = assets.find(
+                        (a) => a.id === dialogAssetIds[0]
+                      );
+                      const refs = getReferenceArray(asset?.reference);
+                      const currentValue = refs[idx] || "";
+                      if (currentValue) {
+                        return (
+                          <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <a
+                              href={currentValue}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-green-700 underline break-all text-sm"
+                            >
+                              {currentValue}
+                            </a>
+                          </div>
                         );
-                        setReferenceInputs(newInputs);
-                        setLoading(true);
+                      }
+                      return (
+                        <Input
+                          type="url"
+                          className="border-2 border-primary/20 focus:border-primary rounded-lg p-3"
+                          placeholder={`Paste ${input.label.toLowerCase()} image URL...`}
+                          value={input.value}
+                          onChange={(e) =>
+                            setReferenceInputs((inputs) =>
+                              inputs.map((inp, i) =>
+                                i === idx
+                                  ? { ...inp, value: e.target.value }
+                                  : inp
+                              )
+                            )
+                          }
+                          disabled={loading}
+                        />
+                      );
+                    })()}
+                  </div>
+                ))}
+              </div>
 
-                        // Filter out empty strings when saving to database
-                        const filteredRefs = newInputs
-                          .map((i) => i.value.trim())
-                          .filter(Boolean);
+              <div className="flex justify-end gap-4 pt-4 border-t border-border">
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  disabled={loading}
+                  size="lg"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={handleSaveReference}
+                  loading={loading}
+                  disabled={referenceInputs.every((inp) => !inp.value.trim())}
+                  size="lg"
+                  className="gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  Save References
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
-                        await supabase
-                          .from("onboarding_assets")
-                          .update({ reference: filteredRefs })
-                          .eq("id", viewDialogAssetId);
+        {/* Enhanced View References Dialog */}
+        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <DialogContent className="max-w-3xl h-fit">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <Eye className="h-5 w-5 text-primary" />
+                Reference Images
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid gap-4">
+                {referenceLabels.map((label, idx) => (
+                  <div
+                    key={label}
+                    className="flex items-center gap-4 p-4 border border-border rounded-lg"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <Camera className="h-4 w-4 text-primary flex-shrink-0" />
+                      <span className="font-medium text-sm">{label}</span>
+                    </div>
 
-                        // Refresh assets to update the UI
-                        const { data } = await supabase
-                          .from("onboarding_assets")
-                          .select("*")
-                          .eq("client", user?.metadata.client);
-                        setAssets(data || []);
+                    {referenceInputs[idx]?.value ? (
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <a
+                          href={referenceInputs[idx].value}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-700 underline break-all text-sm"
+                        >
+                          {referenceInputs[idx].value}
+                        </a>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            const newInputs = referenceInputs.map((inp, i) =>
+                              i === idx ? { ...inp, value: "" } : inp
+                            );
+                            setReferenceInputs(newInputs);
+                            setLoading(true);
 
-                        setLoading(false);
-                      }}
-                    >
-                      <X className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </>
-                ) : (
-                  <span className="text-muted-foreground flex-1">—</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </DialogContent>
-      </Dialog>
+                            const filteredRefs = newInputs
+                              .map((i) => i.value.trim())
+                              .filter(Boolean);
+
+                            await supabase
+                              .from("onboarding_assets")
+                              .update({ reference: filteredRefs })
+                              .eq("id", viewDialogAssetId);
+
+                            const { data } = await supabase
+                              .from("onboarding_assets")
+                              .select("*")
+                              .eq("client", user?.metadata.client);
+                            setAssets(data || []);
+
+                            setLoading(false);
+                          }}
+                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm flex-1">
+                        No reference added
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

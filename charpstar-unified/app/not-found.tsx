@@ -18,11 +18,8 @@ function NotFoundContent() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button asChild>
-            <Link href="/">
-              <Home className="h-4 w-4 mr-2" />
-              Go Home
-            </Link>
+          <Button onClick={() => (window.location.href = "/dashboard")}>
+            <span>Go Home</span>
           </Button>
           <Button variant="outline" onClick={() => window.history.back()}>
             <ArrowLeft className="h-4 w-4 mr-2" />

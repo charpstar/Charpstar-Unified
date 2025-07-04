@@ -24,14 +24,28 @@ import {
   Link,
   Clock,
   Users,
+  Sparkles,
+  HelpCircle,
+  ChevronRight,
+  Play,
+  Lock,
+  Star,
+  Trophy,
+  Target,
+  Zap,
 } from "lucide-react";
+import confetti from "canvas-confetti";
 
 interface OnboardingStep {
+  id: string;
   title: string;
   description: string;
   icon: React.ComponentType<any>;
   completed: boolean;
   action?: () => void;
+  disabled?: boolean;
+  helpText?: string;
+  estimatedTime?: string;
 }
 
 export function OnboardingDashboard() {
@@ -39,6 +53,8 @@ export function OnboardingDashboard() {
   const router = useRouter();
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
   const [hasReloaded, setHasReloaded] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [expandedStep, setExpandedStep] = useState<string | null>(null);
 
   const handleCompleteOnboarding = async () => {
     setCompletingOnboarding(true);
@@ -54,8 +70,22 @@ export function OnboardingDashboard() {
       });
 
       if (response.ok) {
-        // Refresh the page to show the regular dashboard
-        window.location.reload();
+        // Trigger confetti animation
+        setShowConfetti(true);
+
+        // Fire confetti with better configuration
+        confetti({
+          particleCount: 150,
+          spread: 90,
+          origin: { y: 0.6, x: 0.5 },
+          colors: ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"],
+          zIndex: 9999,
+        });
+
+        // Wait for confetti animation, then reload
+        setTimeout(() => {
+          window.location.reload();
+        }, 2500);
       } else {
         throw new Error("Failed to complete onboarding");
       }
@@ -70,27 +100,62 @@ export function OnboardingDashboard() {
     switch (role) {
       case "client":
         return (
-          <Badge variant="default" className="gap-1">
+          <Badge
+            variant="default"
+            className="gap-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0"
+          >
             <UserPlus className="h-3 w-3" />
             Client
           </Badge>
         );
       case "modeler":
         return (
-          <Badge variant="secondary" className="gap-1">
+          <Badge
+            variant="secondary"
+            className="gap-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0"
+          >
             <Building className="h-3 w-3" />
             3D Modeler
           </Badge>
         );
       case "qa":
         return (
-          <Badge variant="outline" className="gap-1">
+          <Badge
+            variant="outline"
+            className="gap-1 bg-gradient-to-r from-green-500 to-green-600 text-white border-0"
+          >
             <Shield className="h-3 w-3" />
             Quality Assurance
           </Badge>
         );
       default:
         return <Badge variant="secondary">{role}</Badge>;
+    }
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "client":
+        return <Target className="h-8 w-8 text-blue-500" />;
+      case "modeler":
+        return <Building className="h-8 w-8 text-purple-500" />;
+      case "qa":
+        return <Shield className="h-8 w-8 text-green-500" />;
+      default:
+        return <UserPlus className="h-8 w-8 text-muted-foreground" />;
+    }
+  };
+
+  const getRoleWelcomeMessage = (role: string) => {
+    switch (role) {
+      case "client":
+        return "Ready to bring your products to life with stunning 3D models?";
+      case "modeler":
+        return "Ready to showcase your 3D modeling expertise?";
+      case "qa":
+        return "Ready to ensure quality and excellence?";
+      default:
+        return "Welcome to the team!";
     }
   };
 
@@ -101,23 +166,37 @@ export function OnboardingDashboard() {
       case "client":
         return [
           {
+            id: "csv-upload",
             title: "CSV Upload",
-            description: "Upload your product data and specifications",
+            description:
+              "Upload your product data and specifications to get started",
             icon: Package,
             completed: user?.metadata?.csv_uploaded || false,
             action: () => router.push("/onboarding/csv-upload"),
+            disabled: false,
+            helpText:
+              "Upload a CSV file with your product information. We'll use this to create your 3D models.",
+            estimatedTime: "2-3 minutes",
           },
           {
+            id: "reference-images",
             title: "Reference Images Upload",
             description: "Upload reference images for your products",
             icon: Package,
             completed: user?.metadata?.reference_images_uploaded || false,
-            action: () => router.push("/onboarding/reference-images"),
+            action: user?.metadata?.csv_uploaded
+              ? () => router.push("/onboarding/reference-images")
+              : undefined,
+            disabled: !user?.metadata?.csv_uploaded,
+            helpText:
+              "Add reference images to help our modelers understand your product requirements.",
+            estimatedTime: "5-10 minutes",
           },
         ];
       case "modeler":
         return [
           {
+            id: "profile-setup",
             title: "Complete Profile Setup",
             description: "Add your experience, portfolio, and availability",
             icon: UserPlus,
@@ -127,41 +206,63 @@ export function OnboardingDashboard() {
               user?.metadata?.country &&
               user?.metadata?.portfolio_links?.length
             ),
+            helpText:
+              "Tell us about your experience and showcase your best work.",
+            estimatedTime: "10-15 minutes",
           },
           {
+            id: "portfolio",
             title: "Upload Portfolio",
             description: "Add your best work samples",
             icon: Package,
             completed: false,
+            helpText:
+              "Upload examples of your 3D modeling work to showcase your skills.",
+            estimatedTime: "15-20 minutes",
           },
           {
+            id: "guidelines",
             title: "Review Guidelines",
             description: "Read quality standards and requirements",
             icon: CheckCircle,
             completed: false,
+            helpText:
+              "Familiarize yourself with our quality standards and project requirements.",
+            estimatedTime: "5-10 minutes",
           },
         ];
       case "qa":
         return [
           {
+            id: "profile-setup",
             title: "Complete Profile Setup",
             description: "Add your contact information and Discord",
             icon: UserPlus,
             completed: !!(
               user?.metadata?.phone_number && user?.metadata?.discord_name
             ),
+            helpText:
+              "Provide your contact details and Discord username for team communication.",
+            estimatedTime: "5 minutes",
           },
           {
+            id: "quality-standards",
             title: "Review Quality Standards",
             description: "Understand testing requirements",
             icon: Shield,
             completed: false,
+            helpText:
+              "Learn about our quality assurance processes and testing criteria.",
+            estimatedTime: "10-15 minutes",
           },
           {
+            id: "test-environment",
             title: "Access Test Environment",
             description: "Get familiar with testing tools",
             icon: CheckCircle,
             completed: false,
+            helpText: "Set up and explore our testing environment and tools.",
+            estimatedTime: "15-20 minutes",
           },
         ];
       default:
@@ -172,193 +273,389 @@ export function OnboardingDashboard() {
   const steps = getOnboardingSteps();
   const completedSteps = steps.filter((step) => step.completed).length;
   const totalSteps = steps.length;
+  const progressPercentage =
+    totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
 
-  // Auto-refresh when all steps are complete - DISABLED to prevent infinite loops
-  // useEffect(() => {
-  //   if (
-  //     completedSteps === totalSteps &&
-  //     totalSteps > 0 &&
-  //     user?.metadata?.onboarding === true &&
-  //     !hasReloaded
-  //   ) {
-  //     // Wait a moment for the database trigger to update onboarding status
-  //     const timer = setTimeout(() => {
-  //       // Only reload if onboarding is still true (meaning the trigger hasn't updated yet)
-  //       if (user?.metadata?.onboarding === true && !hasReloaded) {
-  //         console.log("Auto-reloading due to completed onboarding steps");
-  //         setHasReloaded(true);
-  //         window.location.reload();
-  //       }
-  //     }, 3000); // Increased delay to give more time for the trigger
-
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [completedSteps, totalSteps, user?.metadata?.onboarding, hasReloaded]);
+  const getStepStatus = (step: OnboardingStep, index: number) => {
+    if (step.completed) return "completed";
+    if (step.disabled) return "locked";
+    if (index === 0 || steps[index - 1]?.completed) return "available";
+    return "locked";
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Header */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
-        <CardContent className="pt-6">
-          <div className="text-center space-y-4">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              {getRoleBadge(user?.metadata?.role || "")}
-            </div>
-            <h1 className="text-3xl font-bold text-foreground">
-              Welcome to CharpstAR!
-            </h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              We're excited to have you on board. Let's get you set up and ready
-              to work. Complete the steps below to unlock full access to the
-              platform.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="h-full bg-gradient-to-br from-background via-background to-muted/20">
+      {/* Confetti Overlay */}
+      {showConfetti && (
+        <div className="fixed inset-0 pointer-events-none z-50">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80" />
+        </div>
+      )}
 
-      {/* Progress Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-primary" />
-            Onboarding Progress
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Overall Progress</span>
-              <span className="text-sm text-muted-foreground">
-                {completedSteps} of {totalSteps} steps completed
-              </span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className="bg-primary h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(completedSteps / totalSteps) * 100}%` }}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="max-w-16xl mx-auto p-2 space-y-8">
+        {/* Enhanced Welcome Header */}
+        <Card className="relative overflow-hidden bg-muted/50">
+          <div className=" inset-0 bg-muted/50" />
+          <CardContent className="relative ">
+            <div className="text-center space-y-6">
+              {/* Role Badge */}
+              <div className="flex items-center justify-center gap-2 mb-6">
+                {getRoleBadge(user?.metadata?.role || "")}
+              </div>
 
-      {/* Onboarding Steps */}
-      <div className="grid gap-6 lg:gap-8">
-        {steps.map((step, index) => (
-          <Card
-            key={index}
-            className={`${
-              step.completed ? "border-primary/20 bg-primary/5" : ""
-            } transition-all duration-200 hover:shadow-md`}
-          >
-            <CardContent className="p-6 lg:p-8">
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
-                <div
-                  className={`flex-shrink-0 h-12 w-12 lg:h-16 lg:w-16 rounded-full flex items-center justify-center ${
-                    step.completed
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {step.completed ? (
-                    <CheckCircle className="h-6 w-6 lg:h-8 lg:w-8" />
-                  ) : (
-                    <step.icon className="h-6 w-6 lg:h-8 lg:w-8" />
+              {/* Welcome Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  {getRoleIcon(user?.metadata?.role || "")}
+                  <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                    Welcome to CharpstAR!
+                  </h1>
+                </div>
+
+                <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+                  {getRoleWelcomeMessage(user?.metadata?.role || "")} Let's get
+                  you set up and ready to work. Complete the steps below to
+                  unlock full access to the platform.
+                </p>
+
+                {/* Quick Stats */}
+                <div className="flex items-center justify-center gap-6 mt-6">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>~{Math.ceil(totalSteps * 5)} minutes total</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Target className="h-4 w-4" />
+                    <span>{totalSteps} steps to complete</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Enhanced Progress Overview */}
+        <Card className="bg-gradient-to-r from-background to-muted/20 border-primary/10">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <div className="relative">
+                <CheckCircle className="h-6 w-6 text-primary" />
+                {progressPercentage === 100 && (
+                  <Sparkles className="h-4 w-4 text-yellow-500 absolute -top-1 -right-1 animate-pulse" />
+                )}
+              </div>
+              Onboarding Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {/* Progress Bar */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Overall Progress</span>
+                  <span className="text-sm text-muted-foreground">
+                    {completedSteps} of {totalSteps} steps completed
+                  </span>
+                </div>
+                <div className="relative">
+                  <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                    <div
+                      className="bg-green-500 from-primary to-primary/80 h-3 rounded-full transition-all duration-700 ease-out"
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
+                  {progressPercentage > 0 && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <h3
-                      className={`text-lg lg:text-xl font-semibold ${
-                        step.completed ? "text-primary" : "text-foreground"
-                      }`}
-                    >
-                      {step.title}
-                    </h3>
-                    <div className="flex items-center gap-3">
-                      {step.completed ? (
-                        <Badge variant="default" className="gap-1 px-3 py-1">
-                          <CheckCircle className="h-4 w-4" />
-                          Completed
-                        </Badge>
-                      ) : (
-                        <>
-                          <Badge variant="outline" className="px-3 py-1">
-                            Pending
-                          </Badge>
-                          {step.action && (
-                            <Button
-                              size="default"
-                              onClick={step.action}
-                              className="gap-2 px-4 py-2"
-                            >
-                              Start
-                              <ArrowRight className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
+              </div>
+
+              {/* Progress Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 rounded-lg bg-primary/5 border border-primary/10">
+                  <div className="text-2xl font-bold text-primary">
+                    {completedSteps}
                   </div>
-                  <p className="text-base lg:text-lg text-muted-foreground leading-relaxed">
-                    {step.description}
-                  </p>
-                  {!step.completed && step.action && (
-                    <div className="pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={step.action}
-                        className="gap-2 lg:hidden"
-                      >
-                        Start This Step
-                        <ArrowRight className="h-3 w-3" />
-                      </Button>
+                  <div className="text-sm text-muted-foreground">Completed</div>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-muted/50 border border-border">
+                  <div className="text-2xl font-bold text-muted-foreground">
+                    {totalSteps - completedSteps}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Remaining</div>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-green-500/5 border border-green-500/10">
+                  <div className="text-2xl font-bold text-green-600">
+                    {Math.round(progressPercentage)}%
+                  </div>
+                  <div className="text-sm text-muted-foreground">Complete</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Enhanced Stepper Navigation */}
+        <div className="relative">
+          {/* Stepper Line */}
+
+          <div className="space-y-6">
+            {steps.map((step, index) => {
+              const status = getStepStatus(step, index);
+              const isExpanded = expandedStep === step.id;
+
+              return (
+                <Card
+                  key={step.id}
+                  className={`
+                    relative transition-all duration-300 hover:shadow-lg
+                    ${step.completed ? "border-primary/30 bg-primary/5" : ""}
+                    ${step.disabled ? "opacity-60" : ""}
+                    ${status === "available" ? "border-primary/20 hover:border-primary/40" : ""}
+                    ${isExpanded ? "ring-2 ring-primary/20" : ""}
+                  `}
+                >
+                  <CardContent className="p-6 lg:p-8">
+                    <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+                      {/* Step Icon */}
+                      <div className="relative flex-shrink-0">
+                        <div
+                          className={`
+                            h-16 w-16 rounded-full flex items-center justify-center transition-all duration-300
+                            ${
+                              step.completed
+                                ? "bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg"
+                                : status === "available"
+                                  ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg"
+                                  : status === "locked"
+                                    ? "bg-muted text-muted-foreground"
+                                    : "bg-muted text-muted-foreground"
+                            }
+                          `}
+                        >
+                          {step.completed ? (
+                            <CheckCircle className="h-8 w-8" />
+                          ) : status === "locked" ? (
+                            <Lock className="h-8 w-8" />
+                          ) : (
+                            <step.icon className="h-8 w-8" />
+                          )}
+                        </div>
+
+                        {/* Step Number */}
+                        <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background border-2 border-primary flex items-center justify-center">
+                          <span className="text-xs font-bold text-primary">
+                            {index + 1}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Step Content */}
+                      <div className="flex-1 min-w-0 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <h3
+                                className={`text-xl lg:text-2xl font-bold ${
+                                  step.completed
+                                    ? "text-green-600"
+                                    : "text-foreground"
+                                }`}
+                              >
+                                {step.title}
+                              </h3>
+                              {step.estimatedTime && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  {step.estimatedTime}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-base lg:text-lg text-muted-foreground leading-relaxed">
+                              {step.description}
+                            </p>
+                          </div>
+
+                          {/* Status and Actions */}
+                          <div className="flex items-center gap-3">
+                            {step.completed ? (
+                              <Badge
+                                variant="default"
+                                className="gap-2 px-4 py-2 bg-green-500 text-white"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                                Completed
+                              </Badge>
+                            ) : (
+                              <>
+                                {!step.disabled && status === "available" && (
+                                  <Badge
+                                    variant="outline"
+                                    className="px-4 py-2"
+                                  >
+                                    Available
+                                  </Badge>
+                                )}
+                                {step.disabled && (
+                                  <Badge
+                                    variant="outline"
+                                    className="px-4 py-2 text-muted-foreground"
+                                  >
+                                    <Lock className="h-3 w-3 mr-1" />
+                                    Locked
+                                  </Badge>
+                                )}
+                                {step.action && status === "available" && (
+                                  <Button
+                                    size="default"
+                                    onClick={step.action}
+                                    className="gap-2 px-6 py-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                                    disabled={step.disabled}
+                                  >
+                                    <Play className="h-4 w-4" />
+                                    Start
+                                    <ArrowRight className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Expandable Help Section */}
+                        {step.helpText && (
+                          <div className="space-y-3">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setExpandedStep(isExpanded ? null : step.id)
+                              }
+                              className="gap-2 text-muted-foreground hover:text-foreground"
+                            >
+                              <HelpCircle className="h-4 w-4" />
+                              {isExpanded ? "Hide" : "Show"} help
+                              <ChevronRight
+                                className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                              />
+                            </Button>
+
+                            {isExpanded && (
+                              <div className="p-4 bg-muted/50 rounded-lg border border-border">
+                                <p className="text-sm text-muted-foreground">
+                                  {step.helpText}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Mobile Action Button */}
+                        {!step.completed &&
+                          step.action &&
+                          status === "available" && (
+                            <div className="pt-2 lg:hidden">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={step.action}
+                                className="gap-2 w-full"
+                              >
+                                <Play className="h-3 w-3" />
+                                Start This Step
+                                <ArrowRight className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+
+                        {/* Disabled Message */}
+                        {step.disabled && (
+                          <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-border">
+                            <p className="text-sm text-muted-foreground flex items-center gap-2">
+                              <Lock className="h-4 w-4" />
+                              You must complete the CSV Upload step before
+                              uploading reference images.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Enhanced Completion Card */}
+        {completedSteps === totalSteps && totalSteps > 0 && (
+          <Card className="relative overflow-hidden bg-gradient-to-r from-green-500/10 via-green-500/5 to-green-500/10 border-green-500/20">
+            <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-transparent" />
+            <CardContent className="relative pt-8 pb-8">
+              <div className="text-center space-y-6">
+                {/* Celebration Icon */}
+                <div className="relative">
+                  <div className="h-20 w-20 mx-auto rounded-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+                    <Trophy className="h-10 w-10 text-white" />
+                  </div>
+                </div>
+
+                {/* Completion Message */}
+                <div className="space-y-3 ">
+                  <h3 className="text-2xl font-bold text-foreground">
+                    All Steps Complete!
+                  </h3>
+                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                    Fantastic! You've successfully completed all onboarding
+                    steps. You're now ready to access the full CharpstAR
+                    platform
+                  </p>
+                </div>
+
+                {/* Next Steps */}
+                <div className="bg-background/50 rounded-lg p-4 border border-green-500/20 w-fit mx-auto">
+                  <h4 className="font-semibold text-foreground mb-2">
+                    Ready to get started?
+                  </h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Explore your personalized dashboard</li>
+                    <li>• Keep track of the whole process of your project</li>
+                  </ul>
+                </div>
+
+                {/* Complete Button */}
+                <div className="space-y-3">
+                  <Button
+                    size="lg"
+                    className="gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg text-lg font-semibold"
+                    onClick={handleCompleteOnboarding}
+                    disabled={completingOnboarding}
+                  >
+                    {completingOnboarding ? (
+                      <>
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Completing Onboarding...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-5 w-5" />
+                        Complete Onboarding & Go to Dashboard
+                        <ArrowRight className="h-5 w-5" />
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    This will finalize your onboarding and take you to your main
+                    dashboard
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        )}
 
-      {/* Complete Onboarding Button */}
-      {completedSteps === totalSteps && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <div className="h-16 w-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                <CheckCircle className="h-8 w-8 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Onboarding Complete!
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  You've completed all the setup steps. You can now access the
-                  full platform.
-                </p>
-              </div>
-              <Button
-                size="lg"
-                className="gap-2"
-                onClick={handleCompleteOnboarding}
-                disabled={completingOnboarding}
-              >
-                {completingOnboarding ? (
-                  "Completing..."
-                ) : (
-                  <>
-                    Complete Onboarding
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        {/* Help Section */}
+      </div>
     </div>
   );
 }

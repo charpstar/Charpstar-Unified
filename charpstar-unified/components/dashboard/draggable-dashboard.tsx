@@ -780,7 +780,7 @@ export function DraggableDashboard({
                       isDragging ? "border-primary/50 shadow-lg" : ""
                     }`}
                   >
-                    <CardContent className="pt-0 p-4 sm:p-6">
+                    <CardContent className="pt-0 p-4 sm:p-3">
                       {widget.content}
                     </CardContent>
                   </Card>

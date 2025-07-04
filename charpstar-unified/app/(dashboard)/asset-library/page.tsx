@@ -26,6 +26,7 @@ import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
 import { Search } from "lucide-react";
 import { CategorySidebarSkeleton } from "@/components/ui/skeletons/CategorySidebarSkeleton";
 import React from "react";
+import { Card, CardContent } from "@/components/ui/containers/card";
 
 // Lazy load heavy components
 const LazyAssetCard = React.lazy(() => import("@/app/components/ui/AssetCard"));
@@ -614,41 +615,17 @@ export default function AssetLibraryPage() {
   // Show 'No assets found' only if not loading and assets.length === 0
   if (!loading && assets.length === 0) {
     return (
-      <div className="flex flex-col lg:flex-row h-full">
-        {/* Category Sidebar - Hidden on mobile, shown on desktop */}
-        <div className="hidden lg:block">
-          <CategorySidebarSkeleton />
-        </div>
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col">
-          <AssetLibraryControlPanel
-            breadcrumbs={breadcrumbItems}
-            searchValue={searchValue}
-            onClearSearch={handleClearSearch}
-            onSearch={handleSearch}
-            sortValue={filters.sort}
-            setSortValue={handleSortChange}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            onBatchEdit={handleBatchEdit}
-            onGeneratePreviews={handleGeneratePreviews}
-            userRole={userRole}
-            materials={dynamicFilterOptions.materials}
-            selectedMaterials={selectedMaterials}
-            setSelectedMaterials={setSelectedMaterials}
-            colors={dynamicFilterOptions.colors}
-            selectedColors={selectedColors}
-            setSelectedColors={setSelectedColors}
-            companies={dynamicFilterOptions.companies}
-            selectedCompanies={selectedCompanies}
-            setSelectedCompanies={setSelectedCompanies}
-            isMobileSidebarOpen={isMobileSidebarOpen}
-            onToggleMobileSidebar={() =>
-              setIsMobileSidebarOpen(!isMobileSidebarOpen)
-            }
-          />
-          <div className="flex-1 p-3 sm:p-6 flex items-center justify-center"></div>
-        </div>
+      <div className="p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <h2 className="text-2xl font-semibold mb-2">No Assets Found</h2>
+              <p className="text-gray-500">
+                You haven&apos;t uploaded any assets yet.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

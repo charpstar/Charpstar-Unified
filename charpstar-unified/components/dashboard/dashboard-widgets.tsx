@@ -38,6 +38,22 @@ import { supabase } from "@/lib/supabaseClient";
 import { ChartTooltip } from "@/components/ui/display";
 import { useActivities } from "@/hooks/use-activities";
 import { Card } from "@/components/ui/containers";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/display";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from "recharts";
 
 // Unified Widget Header Component
 interface WidgetHeaderProps {
@@ -223,7 +239,6 @@ export function ProfileWidget({ user }: { user?: any }) {
   console.log("ProfileWidget - roleData:", roleData);
   console.log("ProfileWidget - is admin check:", userRole === "admin");
   console.log("ProfileWidget - roleData.roleOverview:", roleData.roleOverview);
-
   return (
     <WidgetContainer>
       <WidgetHeader title="Profile" icon={Users}>
@@ -231,7 +246,8 @@ export function ProfileWidget({ user }: { user?: any }) {
           variant="ghost"
           size="sm"
           onClick={() => setIsSettingsOpen(true)}
-          className="h-8 w-8 p-0 hover:bg-primary/10"
+          className="h-8 w-8 p-0 hover
+:bg-primary/10"
         >
           <Settings className="h-4 w-4" />
         </Button>
@@ -488,10 +504,10 @@ export function QuickActionsWidget() {
       },
     },
     {
-      name: "Asset Library",
+      name: "Review Dashboard",
       icon: Folder,
       action: () => {
-        window.location.href = "/asset-library";
+        window.location.href = "/review";
       },
     },
     {
@@ -1319,6 +1335,14 @@ const STATUS_LABELS = {
 
 type StatusKey = keyof typeof STATUS_LABELS;
 
+const STATUS_COLORS: Record<StatusKey, string> = {
+  not_started: "#A3A3A3", // gray
+  in_production: "#FACC15", // yellow
+  revisions: "#F87171", // red
+  approved: "#4ADE80", // green
+  delivered_by_artist: "#60A5FA", // blue
+};
+
 export function ModelStatusWidget() {
   const user = useUser();
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
@@ -1328,13 +1352,91 @@ export function ModelStatusWidget() {
     approved: 0,
     delivered_by_artist: 0,
   });
+  const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchStatusCounts() {
       if (!user?.metadata?.client) return;
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("status")
+        .select("id, status, article_id, product_name")
+        .eq("client", user.metadata.client);
+      if (!error && data) {
+        const newCounts: Record<StatusKey, number> = {
+          not_started: 0,
+          in_production: 0,
+          revisions: 0,
+          approved: 0,
+          delivered_by_artist: 0,
+        };
+        for (const row of data) {
+          const status = row.status as StatusKey;
+          if (status in newCounts) newCounts[status]++;
+        }
+        setCounts(newCounts);
+        setProducts(data);
+      }
+    }
+    fetchStatusCounts();
+  }, [user?.metadata?.client]);
+
+  return (
+    <Card className="p-6 rounded-2xl shadow-lg bg-background w-full mx-auto flex flex-col items-center">
+      <h3 className="text-xl font-bold mb-1 text-foreground">
+        Total Models: {products.length}
+      </h3>
+      <p className="text-sm text-muted-foreground mb-4">
+        Track the progress of your onboarding assets
+      </p>
+      {products.length === 0 ? (
+        <div className="py-8 text-center text-muted-foreground">
+          <span className="text-4xl">🗂️</span>
+          <div className="mt-2 font-medium">No models found yet.</div>
+          <div className="text-xs">Upload your CSV to get started.</div>
+        </div>
+      ) : (
+        <div className="w-full space-y-3">
+          {(Object.entries(STATUS_LABELS) as [StatusKey, string][]).map(
+            ([key, label]) => (
+              <div
+                key={key}
+                className="flex items-center gap-3  border-b border-border"
+              >
+                <span
+                  className="inline-block w-3 h-3 rounded-full"
+                  style={{ background: STATUS_COLORS[key] }}
+                />
+                <span className="font-medium flex-1 text-sm">{label}</span>
+                <span className="font-bold text-lg text-primary tabular-nums">
+                  {counts[key]}
+                </span>
+              </div>
+            )
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export function StatusPieChartWidget() {
+  const user = useUser();
+  const [counts, setCounts] = useState<Record<StatusKey, number>>({
+    not_started: 0,
+    in_production: 0,
+    revisions: 0,
+    approved: 0,
+    delivered_by_artist: 0,
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchStatusCounts() {
+      if (!user?.metadata?.client) return;
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("id, status")
         .eq("client", user.metadata.client);
       if (!error && data) {
         const newCounts: Record<StatusKey, number> = {
@@ -1350,25 +1452,84 @@ export function ModelStatusWidget() {
         }
         setCounts(newCounts);
       }
+      setLoading(false);
     }
     fetchStatusCounts();
   }, [user?.metadata?.client]);
 
+  const chartData = Object.entries(STATUS_LABELS).map(([key, label]) => ({
+    name: label,
+    value: counts[key as StatusKey],
+    key: key as StatusKey,
+  }));
+
   return (
-    <Card className="p-6 rounded-xl shadow bg-muted">
-      <h3 className="text-lg font-bold mb-4">Number of Models</h3>
-      <div className="space-y-2">
-        {(Object.entries(STATUS_LABELS) as [StatusKey, string][]).map(
-          ([key, label]) => (
-            <div key={key} className="flex justify-between items-center">
-              <span className="font-medium">{label}</span>
-              <span className="text-xl font-bold text-primary">
-                {counts[key]}
-              </span>
-            </div>
-          )
-        )}
-      </div>
+    <Card className="p-6 rounded-2xl shadow-lg bg-background w-full  mx-auto flex flex-col items-center">
+      <h3 className="text-xl font-bold mb-1 text-foreground">
+        Model Status Distribution
+      </h3>
+      <p className="text-sm text-muted-foreground mb-4">
+        Visual breakdown of your onboarding assets
+      </p>
+      {chartData.every((entry) => entry.value === 0) ? (
+        <div className="py-8 text-center text-muted-foreground">
+          <span className="text-4xl">📊</span>
+          <div className="mt-2 font-medium">No data to display yet.</div>
+          <div className="text-xs">
+            Upload assets to see your status distribution.
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-row items-center gap-8 w-full justify-center">
+          <div className="w-48 h-48 drop-shadow-lg">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  label
+                  isAnimationActive={true}
+                >
+                  {chartData.map((entry, idx) => (
+                    <Cell
+                      key={`cell-${entry.key}`}
+                      fill={STATUS_COLORS[entry.key]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--background)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                    fontSize: 14,
+                  }}
+                  formatter={(value: number, name: string) => [value, name]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-col gap-3 min-w-[160px]">
+            {chartData.map((entry) => (
+              <div key={entry.key} className="flex items-center gap-3">
+                <span
+                  className="inline-block w-4 h-4 rounded-full"
+                  style={{ background: STATUS_COLORS[entry.key] }}
+                />
+                <span className="font-medium text-sm flex-1">{entry.name}</span>
+                <span className="font-bold text-base tabular-nums">
+                  {entry.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

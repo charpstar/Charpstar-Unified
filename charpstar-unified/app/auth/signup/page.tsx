@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/utilities";
 import { createClient } from "@/utils/supabase/client";
+import { PhoneInput } from "@/components/ui/inputs/phone-input";
 
 interface InvitationData {
   id: string;
@@ -482,17 +483,15 @@ export default function SignupPage() {
             </div>
             <div>
               <label className="text-sm font-medium">Phone Number</label>
-              <Input
-                type="tel"
-                placeholder="+1 (555) 123-4567"
+              <PhoneInput
                 value={formData.phoneNumber}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    phoneNumber: e.target.value,
-                  }))
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, phoneNumber: value || "" }))
                 }
+                defaultCountry="SE"
                 required
+                className="w-full"
+                placeholder="(xxx) xxx-xxxx"
               />
             </div>
           </div>
@@ -503,17 +502,15 @@ export default function SignupPage() {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Phone Number</label>
-              <Input
-                type="tel"
-                placeholder="+1 (555) 123-4567"
+              <PhoneInput
                 value={formData.phoneNumber}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    phoneNumber: e.target.value,
-                  }))
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, phoneNumber: value || "" }))
                 }
+                defaultCountry="SE"
                 required
+                className="w-full"
+                placeholder="(xxx) xxx-xxxx"
               />
             </div>
             <div>
@@ -613,17 +610,18 @@ export default function SignupPage() {
 
               <div>
                 <label className="text-sm font-medium">Phone Number</label>
-                <Input
-                  type="tel"
-                  placeholder="+1 (555) 123-4567"
+                <PhoneInput
                   value={formData.phoneNumber}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setFormData((prev) => ({
                       ...prev,
-                      phoneNumber: e.target.value,
+                      phoneNumber: value || "",
                     }))
                   }
+                  defaultCountry="SE"
                   required
+                  className="w-full"
+                  placeholder="(xxx) xxx-xxxx"
                 />
               </div>
 
@@ -803,7 +801,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+    <div className="h-full flex items-center justify-center bg-background dark:from-gray-900 dark:to-gray-800 p-4 overflow-y-hidden">
       <Card className="p-8 max-w-2xl w-full">
         <div className="text-center mb-6">
           <UserPlus className="h-12 w-12 text-blue-600 mx-auto mb-4" />

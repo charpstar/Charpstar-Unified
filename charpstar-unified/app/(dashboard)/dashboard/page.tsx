@@ -20,7 +20,10 @@ import { DraggableDashboard } from "@/components/dashboard";
 import { DashboardSkeleton } from "@/components/ui/skeletons";
 import { OnboardingDashboard } from "@/components/dashboard/onboarding-dashboard";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ModelStatusWidget } from "@/components/dashboard/dashboard-widgets";
+import {
+  ModelStatusWidget,
+  StatusPieChartWidget,
+} from "@/components/dashboard/dashboard-widgets";
 
 // Lazy load heavy dashboard widgets
 const LazyStatsWidget = lazy(() =>
@@ -215,6 +218,7 @@ export default function DashboardPage() {
   // Memoize the default dashboard layout to prevent recreation on every render
   const defaultLayout = useMemo(() => {
     const isAdmin = user?.metadata?.role === "admin";
+    const isClient = user?.metadata?.role === "client";
 
     const baseWidgets = [
       {
@@ -277,8 +281,8 @@ export default function DashboardPage() {
           </Suspense>
         ),
       },
-      // Insert ModelStatusWidget for clients only
-      ...(!isAdmin
+      // Insert ModelStatusWidget and StatusPieChartWidget for clients only
+      ...(isClient
         ? [
             {
               id: "model-status",
@@ -288,6 +292,15 @@ export default function DashboardPage() {
               position: { x: 0, y: 1 },
               visible: true,
               content: <ModelStatusWidget />,
+            },
+            {
+              id: "status-pie-chart",
+              title: "Model Status Chart",
+              type: "custom" as const,
+              size: "medium" as const,
+              position: { x: 1, y: 1 },
+              visible: true,
+              content: <StatusPieChartWidget />,
             },
           ]
         : []),
