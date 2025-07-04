@@ -359,7 +359,7 @@ export default function OnboardingPage() {
         </div>
         <Dialog open={newInviteDialog} onOpenChange={setNewInviteDialog}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2 cursor-pointer">
               <UserPlus className="h-4 w-4" />
               Send Invitation
             </Button>
@@ -431,7 +431,7 @@ export default function OnboardingPage() {
               <div>
                 <label className="text-sm font-medium">Role</label>
                 <select
-                  className="w-full p-2 border rounded-md"
+                  className="w-full p-2 border rounded-md cursor-pointer"
                   value={newInviteData.role}
                   onChange={(e) =>
                     setNewInviteData((prev) => ({
@@ -445,17 +445,18 @@ export default function OnboardingPage() {
                   <option value="qa">Quality Assurance</option>
                 </select>
               </div>
-              <div className="flex gap-2 pt-4">
+              <div className="flex gap-2">
                 <Button
                   onClick={sendInvitation}
                   disabled={sendingInvite}
-                  className="flex-1"
+                  className="flex-1 cursor-pointer"
                 >
                   {sendingInvite ? "Sending..." : "Send Invitation"}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => setNewInviteDialog(false)}
+                  className="cursor-pointer"
                 >
                   Cancel
                 </Button>
@@ -493,7 +494,7 @@ export default function OnboardingPage() {
                   deleteDialog.invitation &&
                   deleteInvitation(deleteDialog.invitation.id)
                 }
-                className="flex-1"
+                className="flex-1 cursor-pointer"
               >
                 Delete Permanently
               </Button>
@@ -502,6 +503,7 @@ export default function OnboardingPage() {
                 onClick={() =>
                   setDeleteDialog({ open: false, invitation: null })
                 }
+                className="cursor-pointer"
               >
                 Cancel
               </Button>
@@ -512,9 +514,11 @@ export default function OnboardingPage() {
 
       {/* Clear History Dialog */}
       <Dialog open={clearHistoryDialog} onOpenChange={setClearHistoryDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Clear Invitation History</DialogTitle>
+        <DialogContent className="max-h-[85vh] h-fit overflow-y-auto">
+          <DialogHeader className="pb-0">
+            <DialogTitle className="pb-0 mb-0">
+              Clear Invitation History
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-muted-foreground">
@@ -530,13 +534,14 @@ export default function OnboardingPage() {
               <Button
                 variant="destructive"
                 onClick={clearHistory}
-                className="flex-1"
+                className="flex-1 cursor-pointer"
               >
                 Clear History
               </Button>
               <Button
                 variant="outline"
                 onClick={() => setClearHistoryDialog(false)}
+                className="cursor-pointer"
               >
                 Cancel
               </Button>
@@ -605,7 +610,7 @@ export default function OnboardingPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setClearHistoryDialog(true)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
                 title={`Delete ${invitations.filter((inv) => inv.status !== "accepted").length} non-accepted invitations`}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
@@ -662,7 +667,7 @@ export default function OnboardingPage() {
                     <TableCell>{formatDate(invitation.invited_at)}</TableCell>
                     <TableCell>{formatDate(invitation.expires_at)}</TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
+                      <div className=" gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -670,6 +675,7 @@ export default function OnboardingPage() {
                             copyInvitationLink(invitation.invitation_link)
                           }
                           title="Copy invitation link"
+                          className="cursor-pointer"
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
@@ -679,25 +685,12 @@ export default function OnboardingPage() {
                             size="sm"
                             onClick={() => cancelInvitation(invitation.id)}
                             title="Cancel invitation"
+                            className="cursor-pointer"
                           >
                             <X className="h-4 w-4" />
                           </Button>
                         )}
-                        {invitation.status === "accepted" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              window.open(
-                                `/asset-library?client=${invitation.client_name}`,
-                                "_blank"
-                              )
-                            }
-                            title="View client assets"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        )}
+
                         {/* Delete button for non-accepted invitations */}
                         {invitation.status !== "accepted" && (
                           <Button
@@ -707,7 +700,7 @@ export default function OnboardingPage() {
                               setDeleteDialog({ open: true, invitation })
                             }
                             title="Delete invitation"
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

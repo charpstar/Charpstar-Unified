@@ -303,7 +303,7 @@ export default function CsvUploadPage() {
                 <Button
                   variant="default"
                   size="lg"
-                  className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 shadow-lg hover:shadow-xl cursor-pointer"
                 >
                   <Download className="h-5 w-5 mr-2" />
                   Download Template
@@ -404,7 +404,11 @@ export default function CsvUploadPage() {
                         : "You need to download the template before uploading"}
                     </p>
                     {progress.downloaded && (
-                      <Button variant="outline" size="lg" className="group">
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="group cursor-pointer"
+                      >
                         <Upload className="h-5 w-5 mr-2 group-hover:animate-bounce" />
                         Choose File
                       </Button>
@@ -510,13 +514,17 @@ export default function CsvUploadPage() {
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              className="cursor-pointer"
+            >
               Cancel
             </Button>
             <Button
               variant="default"
               onClick={handleConfirm}
-              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 cursor-pointer"
             >
               <ArrowRight className="h-4 w-4 mr-2" />
               Confirm Upload

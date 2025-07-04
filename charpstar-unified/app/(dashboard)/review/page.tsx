@@ -35,7 +35,7 @@ const STATUS_LABELS = {
   },
 };
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 18;
 
 export default function ReviewDashboardPage() {
   const user = useUser();
@@ -108,13 +108,13 @@ export default function ReviewDashboardPage() {
   };
 
   return (
-    <div className=" mx-auto p-6">
+    <div className=" mx-auto p-6 flex flex-col h-full">
       <h1 className="text-2xl font-bold mb-6">Review Dashboard</h1>
-      <Card className="p-6">
+      <Card className="p-6 flex-1 flex flex-col ">
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">
             <select
-              className="border rounded px-3 py-2 text-sm"
+              className="border rounded px-3 py-2 text-sm cursor-pointer"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -134,7 +134,7 @@ export default function ReviewDashboardPage() {
           </div>
           <div>
             <select
-              className="border rounded px-3 py-2 text-sm"
+              className="border rounded px-3 py-2 text-sm cursor-pointer"
               value={sort}
               onChange={(e) => setSort(e.target.value)}
             >
@@ -145,7 +145,7 @@ export default function ReviewDashboardPage() {
             </select>
           </div>
         </div>
-        <div className="overflow-x-auto rounded-lg border bg-background">
+        <div className="overflow-x-auto rounded-lg border bg-background flex-1">
           <Table>
             <TableHeader>
               <TableRow>
@@ -153,7 +153,7 @@ export default function ReviewDashboardPage() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
-                        className="p-1 rounded hover:bg-accent"
+                        className="p-1 rounded hover:bg-accent cursor-pointer"
                         aria-label="Sort"
                       >
                         <Menu className="h-5 w-5" />
@@ -226,7 +226,11 @@ export default function ReviewDashboardPage() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="cursor-pointer"
+                      >
                         <Eye className="h-5 w-5" />
                       </Button>
                     </TableCell>
@@ -236,8 +240,8 @@ export default function ReviewDashboardPage() {
             </TableBody>
           </Table>
         </div>
-        {/* Pagination */}
-        <div className="flex items-center justify-between mt-4">
+        {/* Pagination - Always at bottom */}
+        <div className="flex items-center justify-center mt-4 gap-2 mt-auto pt-4">
           <div className="text-sm text-muted-foreground">
             {filtered.length === 0
               ? "No items"
@@ -256,6 +260,7 @@ export default function ReviewDashboardPage() {
               size="icon"
               disabled={page === 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="cursor-pointer"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -264,6 +269,7 @@ export default function ReviewDashboardPage() {
               size="icon"
               disabled={page * PAGE_SIZE >= filtered.length}
               onClick={() => setPage((p) => p + 1)}
+              className="cursor-pointer"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>

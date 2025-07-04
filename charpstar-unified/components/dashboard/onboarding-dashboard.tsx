@@ -501,7 +501,7 @@ export function OnboardingDashboard() {
                                   <Button
                                     size="default"
                                     onClick={step.action}
-                                    className="gap-2 px-6 py-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                                    className="gap-2 px-6 py-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 cursor-pointer"
                                     disabled={step.disabled}
                                   >
                                     <Play className="h-4 w-4" />
@@ -619,7 +619,7 @@ export function OnboardingDashboard() {
                 <div className="space-y-3">
                   <Button
                     size="lg"
-                    className="gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg text-lg font-semibold"
+                    className="gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg text-lg font-semibold cursor-pointer"
                     onClick={handleCompleteOnboarding}
                     disabled={completingOnboarding}
                   >

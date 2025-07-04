@@ -407,7 +407,7 @@ export default function ReferenceImagesPage() {
               onClick={handleMultiReference}
               disabled={selected.size === 0}
               size="lg"
-              className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+              className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               Add References ({selected.size})
@@ -416,7 +416,7 @@ export default function ReferenceImagesPage() {
               onClick={selectAll}
               variant="outline"
               size="lg"
-              className="gap-2"
+              className="gap-2 cursor-pointer"
             >
               <CheckSquare className="h-4 w-4" />
               Select All
@@ -425,7 +425,7 @@ export default function ReferenceImagesPage() {
               onClick={deselectAll}
               variant="outline"
               size="lg"
-              className="gap-2"
+              className="gap-2 cursor-pointer"
             >
               <Square className="h-4 w-4" />
               Deselect All
@@ -436,7 +436,7 @@ export default function ReferenceImagesPage() {
             onClick={handleCompleteReferenceImages}
             loading={completing}
             size="lg"
-            className="gap-2 px-8 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg"
+            className="gap-2 px-8 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg cursor-pointer"
           >
             {completing ? (
               <>
@@ -501,7 +501,7 @@ export default function ReferenceImagesPage() {
                               ? deselectAll
                               : selectAll
                           }
-                          className="h-4 w-4"
+                          className="h-4 w-4 cursor-pointer"
                         />
                       </th>
                       <th className="p-4 text-left font-semibold">
@@ -540,7 +540,7 @@ export default function ReferenceImagesPage() {
                               type="checkbox"
                               checked={selected.has(asset.id)}
                               onChange={() => toggleSelect(asset.id)}
-                              className="h-4 w-4"
+                              className="h-4 w-4 cursor-pointer"
                             />
                           </td>
                           <td className="p-4 align-middle">
@@ -556,7 +556,7 @@ export default function ReferenceImagesPage() {
                               href={asset.product_link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-700 underline break-all text-sm"
+                              className="text-blue-600 hover:text-blue-700 underline break-all text-sm cursor-pointer"
                             >
                               {asset.product_link}
                             </a>
@@ -602,7 +602,7 @@ export default function ReferenceImagesPage() {
                                       onClick={() =>
                                         handleViewReferences(asset.id)
                                       }
-                                      className="h-8 w-8 p-0 hover:bg-primary/10"
+                                      className="h-8 w-8 p-0 hover:bg-primary/10 cursor-pointer"
                                     >
                                       <Eye className="h-4 w-4" />
                                     </Button>
@@ -621,7 +621,7 @@ export default function ReferenceImagesPage() {
                                         onClick={() =>
                                           handleSingleReference(asset.id)
                                         }
-                                        className="h-8 w-8 p-0 hover:bg-primary/10"
+                                        className="h-8 w-8 p-0 hover:bg-primary/10 cursor-pointer"
                                       >
                                         <Paperclip className="h-4 w-4" />
                                       </Button>
@@ -662,7 +662,7 @@ export default function ReferenceImagesPage() {
               onClick={handleCompleteReferenceImages}
               loading={completing}
               size="lg"
-              className="gap-2 px-8 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg"
+              className="gap-2 px-8 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg cursor-pointer"
             >
               {completing ? (
                 <>
@@ -721,7 +721,7 @@ export default function ReferenceImagesPage() {
                               href={currentValue}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-green-700 underline break-all text-sm"
+                              className="text-green-700 underline break-all text-sm cursor-pointer"
                             >
                               {currentValue}
                             </a>
@@ -757,6 +757,7 @@ export default function ReferenceImagesPage() {
                   onClick={() => setDialogOpen(false)}
                   disabled={loading}
                   size="lg"
+                  className="cursor-pointer"
                 >
                   Cancel
                 </Button>
@@ -766,7 +767,7 @@ export default function ReferenceImagesPage() {
                   loading={loading}
                   disabled={referenceInputs.every((inp) => !inp.value.trim())}
                   size="lg"
-                  className="gap-2"
+                  className="gap-2 cursor-pointer"
                 >
                   <Save className="h-4 w-4" />
                   Save References
@@ -803,7 +804,7 @@ export default function ReferenceImagesPage() {
                           href={referenceInputs[idx].value}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-700 underline break-all text-sm"
+                          className="text-blue-600 hover:text-blue-700 underline break-all text-sm cursor-pointer"
                         >
                           {referenceInputs[idx].value}
                         </a>
@@ -834,7 +835,7 @@ export default function ReferenceImagesPage() {
 
                             setLoading(false);
                           }}
-                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
                         >
                           <X className="h-3 w-3" />
                         </Button>
