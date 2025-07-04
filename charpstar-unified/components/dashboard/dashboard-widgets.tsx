@@ -470,6 +470,7 @@ export function ProfileWidget({ user }: { user?: any }) {
 // Quick Actions Widget
 export function QuickActionsWidget() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const user = useUser();
 
   const actions = [
     {
@@ -480,10 +481,12 @@ export function QuickActionsWidget() {
       },
     },
     {
-      name: "Review Dashboard",
+      name:
+        user?.metadata?.role === "admin" ? "Asset Library" : "Review Dashboard",
       icon: Folder,
       action: () => {
-        window.location.href = "/review";
+        window.location.href =
+          user?.metadata?.role === "admin" ? "/asset-library" : "/review";
       },
     },
     {

@@ -552,7 +552,7 @@ export default function OnboardingPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <Mail className="h-5 w-5 text-blue-500" />
             <div>
               <p className="text-sm text-muted-foreground">Total Invitations</p>
@@ -561,7 +561,7 @@ export default function OnboardingPage() {
           </div>
         </Card>
         <Card className="p-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <Clock className="h-5 w-5 text-yellow-500" />
             <div>
               <p className="text-sm text-muted-foreground">Pending</p>
@@ -572,7 +572,7 @@ export default function OnboardingPage() {
           </div>
         </Card>
         <Card className="p-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <CheckCircle className="h-5 w-5 text-green-500" />
             <div>
               <p className="text-sm text-muted-foreground">Accepted</p>
@@ -583,7 +583,7 @@ export default function OnboardingPage() {
           </div>
         </Card>
         <Card className="p-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <AlertCircle className="h-5 w-5 text-red-500" />
             <div>
               <p className="text-sm text-muted-foreground">Expired/Cancelled</p>
