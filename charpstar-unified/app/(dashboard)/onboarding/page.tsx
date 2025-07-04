@@ -30,7 +30,6 @@ import {
   UserPlus,
   AlertCircle,
   Copy,
-  ExternalLink,
   Trash2,
 } from "lucide-react";
 import { useToast } from "@/components/ui/utilities";
