@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@/contexts/useUser";
 import { useRouter } from "next/navigation";
+import { useLoading } from "@/contexts/LoadingContext";
 import { Button } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
@@ -51,6 +52,7 @@ export default function OnboardingPage() {
   const user = useUser();
   const router = useRouter();
   const { toast } = useToast();
+  const { startLoading } = useLoading();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendingInvite, setSendingInvite] = useState(false);
@@ -70,6 +72,7 @@ export default function OnboardingPage() {
   // Check if user is admin
   useEffect(() => {
     if (user && user.metadata?.role !== "admin") {
+      startLoading(); // Start loading before redirect
       router.push("/dashboard");
       toast({
         title: "Access Denied",
@@ -77,7 +80,7 @@ export default function OnboardingPage() {
         variant: "destructive",
       });
     }
-  }, [user, router, toast]);
+  }, [user, router, toast, startLoading]);
 
   const fetchInvitations = useCallback(async () => {
     try {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLoading } from "@/contexts/LoadingContext";
 import {
   Card,
   CardContent,
@@ -44,6 +45,7 @@ interface OnboardingStep {
 export function OnboardingDashboard() {
   const user = useUser();
   const router = useRouter();
+  const { startLoading } = useLoading();
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
@@ -164,7 +166,10 @@ export function OnboardingDashboard() {
               "Upload your product data and specifications to get started",
             icon: Package,
             completed: user?.metadata?.csv_uploaded || false,
-            action: () => router.push("/onboarding/csv-upload"),
+            action: () => {
+              startLoading();
+              router.push("/onboarding/csv-upload");
+            },
             disabled: false,
             helpText:
               "Upload a CSV file with your product information. We'll use this to create your 3D models.",
@@ -177,7 +182,10 @@ export function OnboardingDashboard() {
             icon: Package,
             completed: user?.metadata?.reference_images_uploaded || false,
             action: user?.metadata?.csv_uploaded
-              ? () => router.push("/onboarding/reference-images")
+              ? () => {
+                  startLoading();
+                  router.push("/onboarding/reference-images");
+                }
               : undefined,
             disabled: !user?.metadata?.csv_uploaded,
             helpText:

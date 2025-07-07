@@ -47,6 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script src="/model-viewer.js"></script>
         <script
           dangerouslySetInnerHTML={{
             __html: `

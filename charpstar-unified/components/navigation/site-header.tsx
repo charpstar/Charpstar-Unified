@@ -18,7 +18,13 @@ const TITLES = {
   "/users": "Users",
   "/admin": "Admin",
   "/cvr": "CVR",
+
   "/settings": "Settings",
+  "/onboarding": "Onboarding",
+  "/auth/signup": "Signup",
+  "/onboarding/csv-upload": "CSV Upload",
+  "/onboarding/reference-images": "Reference Upload",
+  "/review": "Review",
 };
 
 export default function SiteHeader() {

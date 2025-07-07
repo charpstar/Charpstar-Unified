@@ -23,6 +23,7 @@ import {
   CloudUpload,
 } from "lucide-react";
 import { useUser } from "@/contexts/useUser";
+import { useLoading } from "@/contexts/LoadingContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/utilities";
 import { useRouter } from "next/navigation";
@@ -53,6 +54,7 @@ export default function CsvUploadPage() {
   const user = useUser();
   const { toast } = useToast();
   const router = useRouter();
+  const { startLoading } = useLoading();
 
   // Animated progress effect
   useEffect(() => {
@@ -174,7 +176,10 @@ export default function CsvUploadPage() {
             title: "🚀 Onboarding Complete!",
             description: "CSV upload complete. Redirecting to dashboard...",
           });
-          setTimeout(() => router.push("/dashboard?refreshUser=1"), 1200);
+          setTimeout(() => {
+            startLoading(); // Start loading before redirect
+            router.push("/dashboard?refreshUser=1");
+          }, 1200);
         }
       } else {
         toast({

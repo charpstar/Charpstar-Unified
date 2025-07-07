@@ -1,45 +1,30 @@
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
 export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  req: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-  try {
-    const supabase = createRouteHandlerClient({ cookies });
+  const supabase = createRouteHandlerClient({ cookies });
+  const { id } = params;
+  const { data, error } = await supabase
+    .from("onboarding_assets")
+    .select("id, product_name, product_link")
+    .eq("id", id)
+    .single();
 
-    const { data, error } = await supabase
-      .from("assets")
-      .select("*")
-      .eq("id", (await params).id)
-      .single();
-
-    if (error) throw error;
-    if (!data) {
-      return new NextResponse("Asset not found", { status: 404 });
-    }
-
-    // Parse materials and colors from string arrays to actual arrays
-    const parsedData = {
-      ...data,
-      materials: Array.isArray(data.materials)
-        ? data.materials
-        : JSON.parse(data.materials || "[]"),
-      colors: Array.isArray(data.colors)
-        ? data.colors
-        : JSON.parse(data.colors || "[]"),
-      tags: Array.isArray(data.tags)
-        ? data.tags
-        : JSON.parse(data.tags || "[]"),
-    };
-
-    return NextResponse.json(parsedData);
-  } catch (error) {
-    console.error("Error fetching asset:", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+  if (error || !data) {
+    return new NextResponse("Asset not found", { status: 404 });
   }
+
+  return NextResponse.json({
+    id: data.id,
+    name: data.product_name,
+    product_link: data.product_link,
+  });
 }
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

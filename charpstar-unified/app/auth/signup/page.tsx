@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
+import { useLoading } from "@/contexts/LoadingContext";
 import { Button } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
 import { Card } from "@/components/ui/containers";
@@ -34,6 +35,7 @@ export default function SignupPage() {
   const searchParams = useSearchParams();
   const user = useUser();
   const { toast } = useToast();
+  const { startLoading } = useLoading();
 
   const [loading, setLoading] = useState(true);
   const [invitationData, setInvitationData] = useState<InvitationData | null>(
@@ -253,6 +255,7 @@ export default function SignupPage() {
     console.log("Role:", invitationData?.role);
 
     setSignupLoading(true);
+    startLoading(); // Start the nprogress bar
     try {
       const supabase = createClient();
       let userId: string;
@@ -414,12 +417,12 @@ export default function SignupPage() {
           description: "Welcome to CharpstAR. You can now access your account.",
         });
 
-        // Redirect to dashboard
-        router.push("/dashboard");
+        // Redirect to dashboard with refresh to ensure user metadata is loaded
+        router.push("/dashboard?refreshUser=1");
       } else {
         console.error("Failed to accept invitation");
         // Still redirect since account was created/updated
-        router.push("/dashboard");
+        router.push("/dashboard?refreshUser=1");
       }
     } catch (error: any) {
       console.error("Signup error:", error);

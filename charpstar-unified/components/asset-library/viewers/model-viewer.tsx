@@ -8,6 +8,10 @@ import { Ruler } from "lucide-react";
 interface ModelViewerProps {
   modelUrl: string;
   alt: string;
+  cameraControls?: boolean;
+  addHotspotMode?: boolean;
+  onAddHotspot?: (position: string, normal: string) => void;
+  children?: React.ReactNode;
 }
 
 // Add type declaration for model-viewer element
@@ -35,7 +39,15 @@ declare global {
   }
 }
 
-export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
+export function ModelViewer({
+  modelUrl,
+  alt,
+  cameraControls = true,
+  addHotspotMode = false,
+  onAddHotspot,
+  children,
+  ...props
+}: ModelViewerProps & React.HTMLAttributes<HTMLElement>) {
   const modelViewerRef = useRef<HTMLElement | null>(null);
   const [showDimensions, setShowDimensions] = useState(true);
 
@@ -217,6 +229,26 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
     };
   }, [modelUrl]);
 
+  // Hotspot placement logic
+  useEffect(() => {
+    const modelViewer = modelViewerRef.current;
+    if (!modelViewer || !addHotspotMode) return;
+
+    const handleClick = (event: MouseEvent) => {
+      const rect = modelViewer.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const hit = (modelViewer as any).positionAndNormalFromPoint(x, y);
+      if (hit && hit.position && hit.normal) {
+        const position = `${hit.position.x.toFixed(2)} ${hit.position.y.toFixed(2)} ${hit.position.z.toFixed(2)}`;
+        const normal = `${hit.normal.x.toFixed(2)} ${hit.normal.y.toFixed(2)} ${hit.normal.z.toFixed(2)}`;
+        onAddHotspot?.(position, normal);
+      }
+    };
+    modelViewer.addEventListener("click", handleClick);
+    return () => modelViewer.removeEventListener("click", handleClick);
+  }, [addHotspotMode, onAddHotspot]);
+
   const handleDimensionToggle = (checked: boolean) => {
     setShowDimensions(checked);
 
@@ -250,12 +282,14 @@ export function ModelViewer({ modelUrl, alt }: ModelViewerProps) {
         camera-orbit="-30deg auto auto"
         max-camera-orbit="auto 100deg auto"
         shadow-intensity="1"
-        camera-controls
         touch-action="pan-y"
         src={modelUrl}
         alt={alt}
         className="w-full h-[300px] sm:h-[200px] md:h-[500px] lg:h-[1000px]"
+        {...(cameraControls ? { "camera-controls": true } : {})}
+        {...props}
       >
+        {children}
         <button
           slot="hotspot-dot+X-Y+Z"
           className="dot"

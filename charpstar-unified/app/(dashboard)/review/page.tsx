@@ -20,6 +20,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/interactive/dropdown-menu";
+import { useRouter } from "next/navigation";
 
 const STATUS_LABELS = {
   not_started: { label: "Not Started", color: "bg-gray-200 text-gray-700" },
@@ -39,6 +40,7 @@ const PAGE_SIZE = 18;
 
 export default function ReviewDashboardPage() {
   const user = useUser();
+  const router = useRouter();
   const [assets, setAssets] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -109,7 +111,6 @@ export default function ReviewDashboardPage() {
 
   return (
     <div className=" mx-auto p-6 flex flex-col h-full">
-      <h1 className="text-2xl font-bold mb-6">Review Dashboard</h1>
       <Card className="p-6 flex-1 flex flex-col ">
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">
@@ -145,7 +146,7 @@ export default function ReviewDashboardPage() {
             </select>
           </div>
         </div>
-        <div className="overflow-x-auto rounded-lg border bg-background flex-1">
+        <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[79vh]">
           <Table>
             <TableHeader>
               <TableRow>
@@ -230,6 +231,7 @@ export default function ReviewDashboardPage() {
                         variant="ghost"
                         size="icon"
                         className="cursor-pointer"
+                        onClick={() => router.push(`/review/${asset.id}`)}
                       >
                         <Eye className="h-5 w-5" />
                       </Button>
@@ -241,7 +243,7 @@ export default function ReviewDashboardPage() {
           </Table>
         </div>
         {/* Pagination - Always at bottom */}
-        <div className="flex items-center justify-center mt-4 gap-2 mt-auto pt-4">
+        <div className="flex items-center justify-center  gap-2  ">
           <div className="text-sm text-muted-foreground">
             {filtered.length === 0
               ? "No items"

@@ -73,6 +73,19 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Intercept form submissions that might lead to navigation
+    const handleFormSubmit = (event: Event) => {
+      const form = event.target as HTMLFormElement;
+      if (
+        form &&
+        form.action &&
+        form.action.startsWith(window.location.origin)
+      ) {
+        // Start loading on form submission
+        startLoading();
+      }
+    };
+
     // Intercept navigation events
     const handleBeforeUnload = () => {
       startLoading();
@@ -81,14 +94,33 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
     // Add event listeners
     document.addEventListener("click", handleLinkClick);
     document.addEventListener("click", handleNextLinkClick);
+    document.addEventListener("submit", handleFormSubmit);
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       document.removeEventListener("click", handleLinkClick);
       document.removeEventListener("click", handleNextLinkClick);
+      document.removeEventListener("submit", handleFormSubmit);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
+
+  // Intercept programmatic navigation via router.push
+  useEffect(() => {
+    // Store the original push method
+    const originalPush = router.push;
+
+    // Override the push method to start loading
+    router.push = function (...args: Parameters<typeof originalPush>) {
+      startLoading();
+      return originalPush.apply(router, args);
+    };
+
+    // Restore the original method on cleanup
+    return () => {
+      router.push = originalPush;
+    };
+  }, [router]);
 
   // Handle route changes
   useEffect(() => {
