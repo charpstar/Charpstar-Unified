@@ -130,6 +130,7 @@ export default function CsvUploadPage() {
         subcategory,
         ,
         reference,
+        priority,
       ] = row;
       const { error } = await supabase.from("onboarding_assets").insert({
         client,
@@ -140,6 +141,7 @@ export default function CsvUploadPage() {
         category,
         subcategory,
         reference,
+        priority: priority ? parseInt(priority) || 2 : 2,
       });
       if (error) failCount++;
       else successCount++;

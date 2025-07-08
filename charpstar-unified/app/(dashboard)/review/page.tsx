@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { Card } from "@/components/ui/containers";
+import { Badge } from "@/components/ui/feedback";
 import {
   Table,
   TableBody,
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
-import { Eye, ChevronLeft, ChevronRight, Menu } from "lucide-react";
+import { Eye, ChevronLeft, ChevronRight, Menu, Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -21,6 +22,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/interactive/dropdown-menu";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 const STATUS_LABELS = {
   not_started: { label: "Not Started", color: "bg-gray-200 text-gray-700" },
@@ -38,17 +40,34 @@ const STATUS_LABELS = {
 
 const PAGE_SIZE = 18;
 
+const getPriorityColor = (priority: number) => {
+  if (priority === 1) return "bg-red-100 text-red-800";
+  if (priority === 2) return "bg-yellow-100 text-yellow-800";
+  return "bg-gray-100 text-gray-800";
+};
+
+const getPriorityLabel = (priority: number) => {
+  if (priority === 1) return "High";
+  if (priority === 2) return "Medium";
+  return "Low";
+};
+
 export default function ReviewDashboardPage() {
   const user = useUser();
   const router = useRouter();
   const [assets, setAssets] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [sort, setSort] = useState<string>("az");
+  const [sort, setSort] = useState<string>("batch");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [annotationCounts, setAnnotationCounts] = useState<
+    Record<string, number>
+  >({});
+  const [editingPriority, setEditingPriority] = useState<string | null>(null);
+  const [priorityValue, setPriorityValue] = useState<number>(2);
 
   // Fetch assets for this client
   useEffect(() => {
@@ -57,13 +76,43 @@ export default function ReviewDashboardPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("id, product_name, article_id, delivery_date, status")
+        .select(
+          "id, product_name, article_id, delivery_date, status, batch, priority"
+        )
         .eq("client", user.metadata.client);
       if (!error && data) setAssets(data);
       setLoading(false);
     }
     fetchAssets();
   }, [user?.metadata?.client]);
+
+  // Fetch annotation counts for assets
+  useEffect(() => {
+    async function fetchAnnotationCounts() {
+      if (assets.length === 0) return;
+
+      try {
+        const assetIds = assets.map((asset) => asset.id);
+        const { data, error } = await supabase
+          .from("asset_annotations")
+          .select("asset_id")
+          .in("asset_id", assetIds);
+
+        if (!error && data) {
+          const counts: Record<string, number> = {};
+          data.forEach((annotation) => {
+            counts[annotation.asset_id] =
+              (counts[annotation.asset_id] || 0) + 1;
+          });
+          setAnnotationCounts(counts);
+        }
+      } catch (error) {
+        console.error("Error fetching annotation counts:", error);
+      }
+    }
+
+    fetchAnnotationCounts();
+  }, [assets]);
 
   // Filtering, sorting, searching
   useEffect(() => {
@@ -89,6 +138,11 @@ export default function ReviewDashboardPage() {
       data.sort((a, b) =>
         (a.delivery_date || "").localeCompare(b.delivery_date || "")
       );
+    if (sort === "batch") data.sort((a, b) => (a.batch || 1) - (b.batch || 1));
+    if (sort === "priority")
+      data.sort((a, b) => (a.priority || 2) - (b.priority || 2));
+    if (sort === "priority-lowest")
+      data.sort((a, b) => (b.priority || 2) - (a.priority || 2));
     setFiltered(data);
     setPage(1); // Reset to first page on filter/sort/search
   }, [assets, statusFilter, sort, search]);
@@ -107,6 +161,43 @@ export default function ReviewDashboardPage() {
       else next.add(id);
       return next;
     });
+  };
+
+  const startEditPriority = (assetId: string, currentPriority: number) => {
+    setEditingPriority(assetId);
+    setPriorityValue(currentPriority);
+  };
+
+  const savePriority = async (assetId: string) => {
+    try {
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ priority: priorityValue })
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error updating priority:", error);
+        toast.error("Failed to update priority");
+        return;
+      }
+
+      // Update local state
+      setAssets((prev) =>
+        prev.map((asset) =>
+          asset.id === assetId ? { ...asset, priority: priorityValue } : asset
+        )
+      );
+
+      setEditingPriority(null);
+      toast.success("Priority updated successfully");
+    } catch (error) {
+      console.error("Error updating priority:", error);
+      toast.error("Failed to update priority");
+    }
+  };
+
+  const cancelEditPriority = () => {
+    setEditingPriority(null);
   };
 
   return (
@@ -133,17 +224,31 @@ export default function ReviewDashboardPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div>
+          <div className="flex gap-2">
             <select
               className="border rounded px-3 py-2 text-sm cursor-pointer"
               value={sort}
               onChange={(e) => setSort(e.target.value)}
             >
+              <option value="batch">Sort by: Batch (1, 2, 3...)</option>
               <option value="date">Sort by: Delivery Date (Newest)</option>
               <option value="date-oldest">
                 Sort by: Delivery Date (Oldest)
               </option>
+              <option value="priority">
+                Sort by: Priority (Highest First)
+              </option>
+              <option value="priority-lowest">
+                Sort by: Priority (Lowest First)
+              </option>
             </select>
+            <Button
+              onClick={() => router.push("/add-products")}
+              className="cursor-pointer"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Products
+            </Button>
           </div>
         </div>
         <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[79vh]">
@@ -161,6 +266,9 @@ export default function ReviewDashboardPage() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => setSort("batch")}>
+                        Batch
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setSort("az")}>
                         A-Z
                       </DropdownMenuItem>
@@ -175,6 +283,7 @@ export default function ReviewDashboardPage() {
                 </TableHead>
                 <TableHead>Model Name</TableHead>
                 <TableHead>Article ID</TableHead>
+                <TableHead>Priority</TableHead>
                 <TableHead>Delivery Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Review</TableHead>
@@ -203,11 +312,81 @@ export default function ReviewDashboardPage() {
                         onChange={() => toggleSelect(asset.id)}
                       />
                     </TableCell>
-                    <TableCell className="flex items-center gap-2">
-                      {/* Optionally add an icon here */}
-                      {asset.product_name}
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium">
+                          {asset.product_name}
+                        </span>
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {annotationCounts[asset.id] || 0} annotation
+                            {(annotationCounts[asset.id] || 0) !== 1 ? "s" : ""}
+                          </span>
+                          <span className="text-xs text-slate-500">•</span>
+                          <Badge variant="outline" className="text-xs">
+                            Batch {asset.batch || 1}
+                          </Badge>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>{asset.article_id}</TableCell>
+                    <TableCell>
+                      {editingPriority === asset.id ? (
+                        <div className="flex items-center gap-2 justify-center ">
+                          <Input
+                            type="number"
+                            min="1"
+                            max="3"
+                            value={priorityValue}
+                            onChange={(e) =>
+                              setPriorityValue(parseInt(e.target.value) || 2)
+                            }
+                            className="w-16 h-8 text-xs cursor-pointer"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                savePriority(asset.id);
+                              } else if (e.key === "Escape") {
+                                cancelEditPriority();
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => savePriority(asset.id)}
+                            className="h-6 px-2 text-xs cursor-pointer"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={cancelEditPriority}
+                            className="h-6 px-2 text-xs cursor-pointer"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <div
+                          className="flex items-center justify-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded transition-colors"
+                          onClick={() =>
+                            startEditPriority(asset.id, asset.priority || 2)
+                          }
+                        >
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(
+                              asset.priority || 5
+                            )}`}
+                          >
+                            {getPriorityLabel(asset.priority || 5)}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            ({asset.priority || 2})
+                          </span>
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell>{asset.delivery_date || "-"}</TableCell>
                     <TableCell>
                       <span

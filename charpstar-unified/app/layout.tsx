@@ -47,7 +47,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script src="/model-viewer.js"></script>
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -206,9 +205,7 @@ export default function RootLayout({
                     {/* Shared layout handles the actual page structure */}
                     <Suspense
                       fallback={
-                        <div className="flex items-center justify-center min-h-screen">
-                          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-                        </div>
+                        <div className="flex items-center justify-center min-h-screen"></div>
                       }
                     >
                       <SharedLayout>{children}</SharedLayout>

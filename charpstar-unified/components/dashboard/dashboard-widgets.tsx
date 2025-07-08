@@ -474,10 +474,15 @@ export function QuickActionsWidget() {
 
   const actions = [
     {
-      name: "Upload Asset",
+      name: user?.metadata?.role === "client" ? "Add Product" : "Upload Asset",
       icon: FileText,
       action: () => {
-        window.location.href = "/asset-library/upload";
+        // Redirect clients to add-products page, admins to asset-library upload
+        if (user?.metadata?.role === "client") {
+          window.location.href = "/add-products";
+        } else {
+          window.location.href = "/asset-library/upload";
+        }
       },
     },
     {

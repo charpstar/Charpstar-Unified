@@ -14,6 +14,12 @@ declare namespace JSX {
         "camera-controls"?: boolean;
         "auto-rotate"?: boolean;
         "ar-status"?: string;
+        "shadow-softness"?: string;
+        "min-field-of-view"?: string;
+        "max-field-of-view"?: string;
+        onLoad?: (event: any) => void;
+        onClick?: (event: any) => void;
+        ref?: React.RefObject<any>;
       },
       HTMLElement
     >;
