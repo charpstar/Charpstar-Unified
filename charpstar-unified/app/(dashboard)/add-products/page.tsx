@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/display";
 import { Input, Textarea } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeletons";
+import { useLoading } from "@/contexts/LoadingContext";
 import {
   Plus,
   ArrowLeft,
@@ -33,12 +35,12 @@ interface ProductForm {
   glb_link: string;
   category: string;
   subcategory: string;
-  reference: string;
   priority: number;
 }
 
 export default function AddProductsPage() {
   const user = useUser();
+  const { startLoading, stopLoading } = useLoading();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [currentBatch, setCurrentBatch] = useState<number>(1);
@@ -50,7 +52,6 @@ export default function AddProductsPage() {
       glb_link: "",
       category: "",
       subcategory: "",
-      reference: "",
       priority: 2,
     },
   ]);
@@ -58,6 +59,7 @@ export default function AddProductsPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<string[][] | null>(null);
   const [csvLoading, setCsvLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch current batch number for this client
@@ -65,6 +67,7 @@ export default function AddProductsPage() {
     async function fetchCurrentBatch() {
       if (!user?.metadata?.client) return;
 
+      startLoading();
       try {
         const { data, error } = await supabase
           .from("onboarding_assets")
@@ -81,6 +84,9 @@ export default function AddProductsPage() {
       } catch (error) {
         console.error("Error fetching current batch:", error);
         setCurrentBatch(1);
+      } finally {
+        setPageLoading(false);
+        stopLoading();
       }
     }
 
@@ -97,7 +103,6 @@ export default function AddProductsPage() {
         glb_link: "",
         category: "",
         subcategory: "",
-        reference: "",
         priority: 2,
       },
     ]);
@@ -150,7 +155,7 @@ export default function AddProductsPage() {
         glb_link: product.glb_link.trim() || null,
         category: product.category.trim() || null,
         subcategory: product.subcategory.trim() || null,
-        reference: product.reference.trim() || null,
+        reference: null, // No reference field in new format
         priority: product.priority,
         status: "not_started",
         delivery_date: null,
@@ -179,7 +184,7 @@ export default function AddProductsPage() {
           glb_link: "",
           category: "",
           subcategory: "",
-          reference: "",
+
           priority: 2,
         },
       ]);
@@ -195,15 +200,11 @@ export default function AddProductsPage() {
   };
 
   const downloadTemplate = () => {
-    const csvContent =
-      "article_id,product_name,product_link,glb_link,category,subcategory,reference,priority\nART001,Sample Product,https://example.com/product,https://example.com/model.glb,Furniture,Chairs,https://example.com/reference.jpg,2";
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
+    // Create a link to the actual CSV template file
     const a = document.createElement("a");
-    a.href = url;
+    a.href = "/csv-template.csv";
     a.download = "product-template.csv";
     a.click();
-    window.URL.revokeObjectURL(url);
   };
 
   const handleFile = (file: File) => {
@@ -262,11 +263,8 @@ export default function AddProductsPage() {
         article_id,
         product_name,
         product_link,
-        glb_link,
         category,
         subcategory,
-        ,
-        reference,
         priority,
       ] = row;
 
@@ -276,10 +274,10 @@ export default function AddProductsPage() {
         article_id,
         product_name,
         product_link,
-        glb_link: glb_link || null,
+        glb_link: product_link || null, // product_link column contains the GLB link
         category: category || null,
         subcategory: subcategory || null,
-        reference: reference || null,
+        reference: null, // No reference column in new format
         priority: priority ? parseInt(priority) || 2 : 2,
         status: "not_started",
         delivery_date: null,
@@ -305,6 +303,116 @@ export default function AddProductsPage() {
 
   if (!user) {
     return null;
+  }
+
+  const AddProductsSkeleton = () => (
+    <div className="h-full bg-gradient-to-br from-background via-background to-muted/20 flex flex-col p-6">
+      {/* Header Skeleton */}
+      <div className="mb-6">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+          <div>
+            <div className="h-8 w-48 bg-muted rounded animate-pulse mb-2" />
+            <div className="h-4 w-64 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="h-6 w-20 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-48 bg-muted rounded animate-pulse" />
+        </div>
+      </div>
+
+      <div className="flex-1 flex gap-6">
+        {/* Main Form Skeleton */}
+        <div className="flex-1">
+          <Card className="h-full">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="h-5 w-5 bg-muted rounded animate-pulse" />
+                <div className="h-6 w-32 bg-muted rounded animate-pulse" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="border rounded-lg p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="h-5 w-24 bg-muted rounded animate-pulse" />
+                    <div className="h-6 w-16 bg-muted rounded animate-pulse" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <div key={j}>
+                        <div className="h-4 w-20 bg-muted rounded animate-pulse mb-2" />
+                        <div className="h-10 w-full bg-muted rounded animate-pulse" />
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <div className="h-4 w-24 bg-muted rounded animate-pulse mb-2" />
+                    <div className="h-10 w-full bg-muted rounded animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="h-4 w-20 bg-muted rounded animate-pulse mb-2" />
+                    <div className="h-10 w-full bg-muted rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+              <div className="h-10 w-full bg-muted rounded animate-pulse" />
+              <div className="h-10 w-full bg-muted rounded animate-pulse" />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar Skeleton */}
+        <div className="w-80 space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="h-5 w-5 bg-muted rounded animate-pulse" />
+                <div className="h-6 w-24 bg-muted rounded animate-pulse" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
+                <div className="h-8 w-8 bg-muted rounded animate-pulse mx-auto mb-2" />
+                <div className="h-4 w-32 bg-muted rounded animate-pulse mx-auto mb-1" />
+                <div className="h-3 w-24 bg-muted rounded animate-pulse mx-auto mb-3" />
+                <div className="h-8 w-24 bg-muted rounded animate-pulse mx-auto" />
+              </div>
+              <div className="h-10 w-full bg-muted rounded animate-pulse" />
+              <div className="pt-4 border-t border-slate-200">
+                <div className="h-3 w-48 bg-muted rounded animate-pulse mb-3" />
+                <div className="h-8 w-full bg-muted rounded animate-pulse" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="h-5 w-5 bg-muted rounded animate-pulse" />
+                <div className="h-6 w-32 bg-muted rounded animate-pulse" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="h-4 w-24 bg-muted rounded animate-pulse mb-2" />
+                <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+              </div>
+              <div>
+                <div className="h-4 w-28 bg-muted rounded animate-pulse mb-2" />
+                <div className="h-8 w-20 bg-muted rounded animate-pulse" />
+              </div>
+              <div className="h-3 w-48 bg-muted rounded animate-pulse" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (pageLoading) {
+    return <AddProductsSkeleton />;
   }
 
   return (
@@ -449,20 +557,6 @@ export default function AddProductsPage() {
                         className="cursor-pointer"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-slate-700 mb-2 block">
-                      Reference Link
-                    </label>
-                    <Input
-                      value={product.reference}
-                      onChange={(e) =>
-                        updateProduct(index, "reference", e.target.value)
-                      }
-                      placeholder="https://example.com/reference.jpg"
-                      className="cursor-pointer"
-                    />
                   </div>
 
                   <div>

@@ -486,8 +486,7 @@ export function QuickActionsWidget() {
       },
     },
     {
-      name:
-        user?.metadata?.role === "admin" ? "Asset Library" : "Review Dashboard",
+      name: user?.metadata?.role === "admin" ? "Asset Library" : "Reviews",
       icon: Folder,
       action: () => {
         window.location.href =

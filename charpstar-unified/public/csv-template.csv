@@ -1,10 +1,4 @@
-Article ID,Product Name,Product Link,Category,Subcategory,Client,Reference,Priority
-12345,Sample Product,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones,,,2
-12345,Sample Product,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones,,,2
-12345,Sample Product,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones,,,2
-12345,Sample Product,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones,,,2
-12345,Sample Product,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones,,,2
-12345,Sample Product,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones,,,2
-12345,Sample Product,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones,,,2
-12345,Sample Product,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones,,,2
-12345,Sample Product,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones,,,2
+Article ID,Product Name,product_link,Category,Subcategory
+12345,Sample Product,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
+12346,Another Product,https://aj.charpstar.net/Android/60192.glb,Electronics,Speakers
+12347,Third Product,https://aj.charpstar.net/Android/60193.glb,Electronics,Microphones
