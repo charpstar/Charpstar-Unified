@@ -17,6 +17,12 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeletons";
 import { useLoading } from "@/contexts/LoadingContext";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/containers/dialog";
+import {
   Plus,
   ArrowLeft,
   Package,
@@ -26,6 +32,7 @@ import {
   CheckCircle,
   Loader2,
   X,
+  Eye,
 } from "lucide-react";
 
 interface ProductForm {
@@ -60,6 +67,7 @@ export default function AddProductsPage() {
   const [csvPreview, setCsvPreview] = useState<string[][] | null>(null);
   const [csvLoading, setCsvLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch current batch number for this client
@@ -697,25 +705,36 @@ export default function AddProductsPage() {
                 )}
               </div>
 
-              {/* Upload Button */}
-              {csvPreview && (
-                <Button
-                  onClick={handleCsvUpload}
-                  disabled={loading}
-                  className="w-full cursor-pointer"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload {csvPreview.length - 1} Products
-                    </>
-                  )}
-                </Button>
+              {/* Preview and Upload Buttons */}
+              {csvPreview && csvPreview.length > 1 && (
+                <div className="space-y-3">
+                  <Button
+                    onClick={() => setShowPreviewDialog(true)}
+                    variant="outline"
+                    className="w-full cursor-pointer"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Preview {csvPreview.length - 1} Products
+                  </Button>
+
+                  <Button
+                    onClick={handleCsvUpload}
+                    disabled={loading}
+                    className="w-full cursor-pointer"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload {csvPreview.length - 1} Products
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
 
               {/* Template Download */}
@@ -794,6 +813,114 @@ export default function AddProductsPage() {
           </Card>
         </div>
       </div>
+
+      {/* CSV Preview Dialog */}
+      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+        <DialogContent className="min-w-[70vw] max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5" />
+              CSV Preview ({csvPreview?.length ? csvPreview.length - 1 : 0}{" "}
+              products)
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden">
+            <div className="h-full overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      Article ID
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      Product Name
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      GLB Link
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      Category
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      Priority
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {csvPreview?.slice(1).map((row, index) => {
+                    const [
+                      articleId,
+                      productName,
+                      glbLink,
+                      category,
+                      subcategory,
+                      priority,
+                    ] = row;
+                    return (
+                      <tr
+                        key={index}
+                        className="border-t border-slate-100 hover:bg-slate-50"
+                      >
+                        <td className="px-4 py-3 text-slate-900 font-medium">
+                          {articleId || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-slate-900">
+                          {productName || "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {glbLink ? (
+                            <a
+                              href={glbLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 underline truncate block max-w-48"
+                              title={glbLink}
+                            >
+                              {glbLink.length > 50
+                                ? `${glbLink.substring(0, 50)}...`
+                                : glbLink}
+                            </a>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          <div>
+                            <span className="font-medium">
+                              {category || "-"}
+                            </span>
+                            {subcategory && (
+                              <span className="text-xs text-slate-500 block">
+                                {subcategory}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              priority === "1"
+                                ? "bg-red-100 text-red-800"
+                                : priority === "2"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : priority === "3"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-slate-100 text-slate-800"
+                            }`}
+                          >
+                            {priority || "2"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
