@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const fileName = `annotation-${timestamp}.${fileExtension}`;
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from("annotation-images")
       .upload(fileName, file, {
         cacheControl: "3600",

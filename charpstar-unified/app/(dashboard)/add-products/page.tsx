@@ -11,10 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
-import { Input, Textarea } from "@/components/ui/inputs";
+import { Input } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeletons";
 import { useLoading } from "@/contexts/LoadingContext";
 import {
   Dialog,
@@ -245,7 +244,7 @@ export default function AddProductsPage() {
         .map((row) => row.split(","));
       // Validate rows
       const errors: { row: number; message: string }[] = [];
-      const header = rows[0] || [];
+
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         if (!row[0] || !row[1] || !row[3]) {
@@ -454,30 +453,18 @@ export default function AddProductsPage() {
     <div className="h-full bg-gradient-to-br from-background via-background to-muted/20 flex flex-col p-6 overflow-hidden">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.push("/review")}
-            className="hover:bg-slate-100/60 transition-all duration-200 rounded-xl cursor-pointer"
+            className="hover:bg-primary/8 transition-all duration-200 rounded-lg cursor-pointer"
           >
             <ArrowLeft className="h-5 w-5 text-slate-600" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Add Products</h1>
-            <p className="text-slate-600">
-              Add new products to your asset library
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
           <Badge variant="outline" className="text-sm">
             Batch #{currentBatch}
           </Badge>
-          <span className="text-sm text-slate-500">
-            Products will be added to batch {currentBatch}
-          </span>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 // components/ModelViewer.js
-// @ts-nocheck
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";

@@ -25,6 +25,8 @@ const TITLES = {
   "/onboarding/csv-upload": "CSV Upload",
   "/onboarding/reference-images": "Reference Upload",
   "/review": "Review",
+  "/review/[id]": "Review Asset",
+  "/add-products": "Add Products",
 };
 
 export default function SiteHeader() {
@@ -52,6 +54,11 @@ export default function SiteHeader() {
     !pathname.includes("/preview-generator")
   ) {
     pageTitle = "Asset Details";
+  } else if (
+    pathname.startsWith("/review/") &&
+    pathname.split("/").length === 3
+  ) {
+    pageTitle = "Review Asset";
   } else {
     pageTitle = TITLES[pathname as keyof typeof TITLES] || "Unified";
   }

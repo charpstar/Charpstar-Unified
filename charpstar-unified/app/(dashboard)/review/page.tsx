@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/interactive/dropdown-menu";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeletons";
 import { useLoading } from "@/contexts/LoadingContext";
 
 const STATUS_LABELS = {

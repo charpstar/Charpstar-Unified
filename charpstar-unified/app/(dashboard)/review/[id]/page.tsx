@@ -1,7 +1,6 @@
-//@ts-nocheck
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
@@ -30,14 +29,13 @@ import {
   X,
   Edit3,
   Upload,
-  Image,
+  Image as LucideImage,
   FileImage,
   Eye,
   Camera,
   MoreVertical,
   Trash2,
   Maximize2,
-  Save,
   ChevronLeft,
   ChevronRight,
   MessageSquare,
@@ -47,6 +45,7 @@ import {
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
+import Image from "next/image";
 
 import "./annotation-styles.css";
 
@@ -136,7 +135,6 @@ export default function ReviewPage() {
   const [viewerEditComment, setViewerEditComment] = useState("");
   const [isSwitchingEdit, setIsSwitchingEdit] = useState(false);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
-  const [showReferenceImages, setShowReferenceImages] = useState(false);
   const [selectedReferenceIndex, setSelectedReferenceIndex] = useState<
     number | null
   >(0); // Always start with the first image selected
@@ -145,7 +143,6 @@ export default function ReviewPage() {
   const [activeTab, setActiveTab] = useState<"annotations" | "comments">(
     "annotations"
   );
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [rightPanelTab, setRightPanelTab] = useState<"images" | "feedback">(
     "images"
   );
@@ -163,8 +160,6 @@ export default function ReviewPage() {
 
   // Comment state variables
   const [newCommentText, setNewCommentText] = useState("");
-  const [editingComment, setEditingComment] = useState<string | null>(null);
-  const [editCommentText, setEditCommentText] = useState("");
   const [inlineEditingCommentId, setInlineEditingCommentId] = useState<
     string | null
   >(null);
@@ -932,43 +927,7 @@ export default function ReviewPage() {
     }
   };
 
-  const updateComment = async (commentId: string) => {
-    if (!editCommentText.trim()) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("asset_comments")
-        .update({ comment: editCommentText.trim() })
-        .eq("id", commentId)
-        .select(
-          `
-          *,
-          profiles:created_by (
-            title,
-            role,
-            email
-          )
-        `
-        )
-        .single();
-
-      if (error) {
-        console.error("Error updating comment:", error);
-        toast.error("Failed to update comment");
-        return;
-      }
-
-      setComments((prev) =>
-        prev.map((comment) => (comment.id === commentId ? data : comment))
-      );
-      setEditingComment(null);
-      setEditCommentText("");
-      toast.success("Comment updated successfully");
-    } catch (error) {
-      console.error("Error updating comment:", error);
-      toast.error("Failed to update comment");
-    }
-  };
+  // Removed unused updateComment function
 
   const deleteComment = async (commentId: string) => {
     try {
@@ -1111,7 +1070,10 @@ export default function ReviewPage() {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <p className="text-muted-foreground">Asset not found</p>
-          <Button onClick={() => router.push("/review")} className="mt-4">
+          <Button
+            onClick={() => router.push("/review")}
+            className="mt-4 hover:bg-primary/8 transition-all duration-200 rounded-lg cursor-pointer"
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Review
           </Button>
@@ -1130,7 +1092,7 @@ export default function ReviewPage() {
               variant="ghost"
               size="icon"
               onClick={() => router.push("/review")}
-              className="w-10 h-10 rounded-xl hover:bg-accent transition-colors cursor-pointer"
+              className="w-10 h-10 rounded-xl hover:bg-primary/8 transition-colors cursor-pointer"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -1189,7 +1151,7 @@ export default function ReviewPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden bg-background">
         {/* Main Content (3D Viewer) */}
         <div className="flex-1 relative bg-background m-6 rounded-lg shadow-lg border border-border/50">
           <Script
@@ -1199,6 +1161,7 @@ export default function ReviewPage() {
 
           {asset.glb_link ? (
             <div className="w-full h-full rounded-lg overflow-hidden">
+              {/* @ts-expect-error cant really fix viewer errors */}
               <model-viewer
                 ref={modelViewerRef}
                 src={asset.product_link}
@@ -1277,7 +1240,6 @@ export default function ReviewPage() {
                           <div className="hotspot-pulse"></div>
                         </div>
 
-                        {/* Comment label - always visible when comment exists */}
                         {hotspot.comment && (
                           <div className="hotspot-comment">
                             {viewerEditingId === hotspot.id ? (
@@ -1337,6 +1299,7 @@ export default function ReviewPage() {
                       </div>
                     )
                 )}
+                {/* @ts-expect-error cant really fix viewer errors */}
               </model-viewer>
             </div>
           ) : (
@@ -1373,7 +1336,7 @@ export default function ReviewPage() {
               }`}
             >
               <div className="flex items-center gap-2">
-                <Image className="h-4 w-4" />
+                <LucideImage className="h-4 w-4" />
                 Reference Images ({referenceImages.length})
               </div>
             </button>
@@ -1437,7 +1400,10 @@ export default function ReviewPage() {
                     onMouseLeave={handleImageMouseLeave}
                     onWheel={handleImageWheel}
                   >
-                    <img
+                    <Image
+                      width={640}
+                      height={360}
+                      unoptimized
                       src={referenceImages[0]}
                       alt="Reference 1"
                       className="w-full h-full object-cover transition-transform duration-200"
@@ -1459,7 +1425,7 @@ export default function ReviewPage() {
                       style={{ display: "none" }}
                     >
                       <div className="text-center">
-                        <Image className="h-8 w-8 mx-auto mb-2" />
+                        <LucideImage className="h-8 w-8 mx-auto mb-2" />
                         Invalid image URL
                       </div>
                     </div>
@@ -1550,7 +1516,10 @@ export default function ReviewPage() {
                           onClick={() => setSelectedReferenceIndex(index)}
                         >
                           <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-border/50 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md">
-                            <img
+                            <Image
+                              width={80}
+                              height={80}
+                              unoptimized
                               src={imageUrl}
                               alt={`Reference ${index + 1}`}
                               className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
@@ -1593,7 +1562,7 @@ export default function ReviewPage() {
               {/* Empty State */}
               {referenceImages.length === 0 && (
                 <div className="text-center py-12">
-                  <Image className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <LucideImage className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground mb-3">
                     No reference images yet
                   </p>
@@ -1972,7 +1941,7 @@ export default function ReviewPage() {
                                   Preview:
                                 </label>
                                 <div
-                                  className="relative w-full h-32 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                                  className="relative w-full h-52 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
                                   onClick={() =>
                                     handleImageClick(
                                       editImageUrl,
@@ -1980,7 +1949,10 @@ export default function ReviewPage() {
                                     )
                                   }
                                 >
-                                  <img
+                                  <Image
+                                    width={320}
+                                    height={28}
+                                    unoptimized
                                     src={editImageUrl}
                                     alt="Reference"
                                     className="w-full h-full object-cover"
@@ -2084,7 +2056,7 @@ export default function ReviewPage() {
                                   Reference Image:
                                 </label>
                                 <div
-                                  className="relative w-full h-32 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                                  className="relative w-full h-52 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
                                   onClick={() =>
                                     handleImageClick(
                                       annotation.image_url!,
@@ -2092,7 +2064,10 @@ export default function ReviewPage() {
                                     )
                                   }
                                 >
-                                  <img
+                                  <Image
+                                    width={320}
+                                    height={128}
+                                    unoptimized
                                     src={annotation.image_url}
                                     alt="Reference"
                                     className="w-full h-full object-cover"
@@ -2136,7 +2111,8 @@ export default function ReviewPage() {
                           No annotations yet
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                          Click "Add Annotation" to start reviewing this model
+                          Click &quot;Add Annotation&quot; to start reviewing
+                          this model
                         </p>
                       </div>
                     )}
@@ -2424,7 +2400,10 @@ export default function ReviewPage() {
                       handleImageClick(newImageUrl, "Image Preview")
                     }
                   >
-                    <img
+                    <Image
+                      width={480}
+                      height={192}
+                      unoptimized
                       src={newImageUrl}
                       alt="Reference"
                       className="w-full h-full object-cover"
@@ -2545,7 +2524,10 @@ export default function ReviewPage() {
               onMouseMove={handleDialogImageMouseMove}
               onWheel={handleDialogImageWheel}
             >
-              <img
+              <Image
+                width={1200}
+                height={800}
+                unoptimized
                 src={selectedImage}
                 alt={selectedImageTitle}
                 className="w-full h-full object-contain bg-background transition-transform duration-200"

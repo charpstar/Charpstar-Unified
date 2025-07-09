@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useUser } from "@/contexts/useUser";
 import { useLoading } from "@/contexts/LoadingContext";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/display";
 import {
@@ -50,7 +49,7 @@ import { Input } from "@/components/ui";
 export default function ReferenceImagesPage() {
   const user = useUser();
   const { startLoading } = useLoading();
-  const router = useRouter();
+
   const [assets, setAssets] = useState<any[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
