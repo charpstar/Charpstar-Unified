@@ -1595,11 +1595,7 @@ export default function ReviewPage() {
                   <h3 className="text-sm  ">Asset Status</h3>
                   <Badge
                     variant={
-                      asset?.status === "approved"
-                        ? "default"
-                        : asset?.status === "revisions"
-                          ? "destructive"
-                          : "secondary"
+                      asset?.status === "approved" ? "default" : "secondary"
                     }
                     className="text-xs"
                   >
@@ -1628,10 +1624,14 @@ export default function ReviewPage() {
                     onClick={() => updateAssetStatus("revisions")}
                     disabled={asset?.status === "revisions" || statusUpdating}
                     variant={
-                      asset?.status === "revisions" ? "destructive" : "outline"
+                      asset?.status === "revisions" ? "outline" : "outline"
                     }
                     size="sm"
-                    className="flex-1 cursor-pointer"
+                    className={`flex-1 cursor-pointer ${
+                      asset?.status === "revisions"
+                        ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                        : ""
+                    }`}
                   >
                     {statusUpdating ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1687,7 +1687,7 @@ export default function ReviewPage() {
                         Annotations
                       </h2>
                       <Button
-                        variant={deleteMode ? "destructive" : "outline"}
+                        variant={deleteMode ? "outline" : "outline"}
                         size="sm"
                         onClick={() => {
                           setDeleteMode(!deleteMode);
@@ -1698,7 +1698,7 @@ export default function ReviewPage() {
                         }}
                         className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
                           deleteMode
-                            ? "bg-destructive hover:bg-destructive/90 shadow-sm"
+                            ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30 shadow-sm"
                             : "border-border hover:bg-accent hover:border-border"
                         }`}
                       >
@@ -1723,21 +1723,21 @@ export default function ReviewPage() {
 
                   {/* Multi-Delete Actions */}
                   {deleteMode && selectedAnnotations.length > 0 && (
-                    <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-6 mb-6">
+                    <div className="bg-red-50/50 border border-red-200/50 rounded-xl p-6 mb-6 dark:bg-red-950/10 dark:border-red-800/30">
                       <div className="flex flex-col items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-destructive/10 rounded-full flex items-center justify-center">
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center dark:bg-red-900/30">
+                            <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
                           </div>
-                          <span className="font-semibold text-destructive">
+                          <span className="font-semibold text-red-700 dark:text-red-400">
                             {selectedAnnotations.length} annotation(s) selected
                           </span>
                         </div>
                         <Button
-                          variant="destructive"
+                          variant="outline"
                           size="sm"
                           onClick={() => setShowDeleteWarning(true)}
-                          className="shadow-sm cursor-pointer"
+                          className="shadow-sm cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete Selected
@@ -1756,7 +1756,7 @@ export default function ReviewPage() {
                             ? "ring-2 ring-primary bg-primary/5 shadow-lg"
                             : deleteMode &&
                                 selectedAnnotations.includes(annotation.id)
-                              ? "ring-2 ring-destructive bg-destructive/5 shadow-lg"
+                              ? "ring-2 ring-red-300 bg-red-50/50 shadow-lg dark:ring-red-700 dark:bg-red-950/10"
                               : "hover:shadow-md hover:border-border"
                         }`}
                       >
@@ -1771,7 +1771,7 @@ export default function ReviewPage() {
                                 onChange={() =>
                                   handleAnnotationSelect(annotation.id)
                                 }
-                                className="h-4 w-4 text-destructive border-border rounded focus:ring-destructive cursor-pointer"
+                                className="h-4 w-4 text-red-600 border-border rounded focus:ring-red-500 cursor-pointer dark:text-red-400 dark:focus:ring-red-400"
                               />
                             )}
                             <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
@@ -1839,7 +1839,7 @@ export default function ReviewPage() {
                                   onClick={() =>
                                     confirmDeleteAnnotation(annotation.id)
                                   }
-                                  className="text-destructive hover:text-destructive"
+                                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                                 >
                                   <X className="h-3 w-3 mr-2" />
                                   Delete Annotation
@@ -2464,7 +2464,7 @@ export default function ReviewPage() {
         <Dialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
           <DialogContent className="sm:max-w-[425px] h-fit">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-destructive">
+              <DialogTitle className="text-xl font-bold text-red-700 dark:text-red-400">
                 Delete Annotation{selectedAnnotations.length > 0 ? "s" : ""}
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
@@ -2477,7 +2477,7 @@ export default function ReviewPage() {
             </DialogHeader>
             <div className="flex gap-3 pt-4">
               <Button
-                variant="destructive"
+                variant="outline"
                 onClick={() => {
                   if (singleDeleteId) {
                     handleSingleDelete();
@@ -2486,7 +2486,7 @@ export default function ReviewPage() {
                     setShowDeleteWarning(false);
                   }
                 }}
-                className="flex-1 cursor-pointer"
+                className="flex-1 cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete{" "}
