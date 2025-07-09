@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/containers";
-import { Button } from "@/components/ui/display";
+import { Button, Label } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import { toast } from "sonner";
@@ -497,9 +497,9 @@ export default function AddProductsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
                         Article ID *
-                      </label>
+                      </Label>
                       <Input
                         value={product.article_id}
                         onChange={(e) =>
@@ -511,9 +511,9 @@ export default function AddProductsPage() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
                         Product Name *
-                      </label>
+                      </Label>
                       <Input
                         value={product.product_name}
                         onChange={(e) =>
@@ -525,9 +525,9 @@ export default function AddProductsPage() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
                         Product Link *
-                      </label>
+                      </Label>
                       <Input
                         value={product.product_link}
                         onChange={(e) =>
@@ -539,9 +539,9 @@ export default function AddProductsPage() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
                         GLB Link
-                      </label>
+                      </Label>
                       <Input
                         value={product.glb_link}
                         onChange={(e) =>
@@ -553,9 +553,9 @@ export default function AddProductsPage() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
                         Category *
-                      </label>
+                      </Label>
                       <Input
                         value={product.category}
                         required={true}
@@ -568,9 +568,9 @@ export default function AddProductsPage() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
                         Subcategory
-                      </label>
+                      </Label>
                       <Input
                         value={product.subcategory}
                         onChange={(e) =>
@@ -583,9 +583,9 @@ export default function AddProductsPage() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-700 mb-2 block">
+                    <Label className="text-sm font-medium text-slate-700 mb-2 block">
                       Priority (1-3)
-                    </label>
+                    </Label>
                     <Input
                       type="number"
                       min="1"
