@@ -12,7 +12,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/display";
-import { Input } from "@/components/ui/inputs";
+import {
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
 import { Eye, ChevronLeft, ChevronRight, Menu, Plus } from "lucide-react";
 import {
@@ -277,18 +284,21 @@ export default function ReviewDashboardPage() {
       <Card className="p-6 flex-1 flex flex-col ">
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">
-            <select
-              className="border rounded px-3 py-2 text-sm cursor-pointer"
+            <Select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onValueChange={(value) => setStatusFilter(value)}
             >
-              <option value="">Status</option>
-              {Object.entries(STATUS_LABELS).map(([key, val]) => (
-                <option key={key} value={key}>
-                  {val.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(STATUS_LABELS).map(([key, val]) => (
+                  <SelectItem key={key} value={key}>
+                    {val.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               className="w-full md:w-64"
               placeholder="Search by name or article ID"
@@ -297,23 +307,28 @@ export default function ReviewDashboardPage() {
             />
           </div>
           <div className="flex gap-2">
-            <select
-              className="border rounded px-3 py-2 text-sm cursor-pointer"
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-            >
-              <option value="batch">Sort by: Batch (1, 2, 3...)</option>
-              <option value="date">Sort by: Delivery Date (Newest)</option>
-              <option value="date-oldest">
-                Sort by: Delivery Date (Oldest)
-              </option>
-              <option value="priority">
-                Sort by: Priority (Highest First)
-              </option>
-              <option value="priority-lowest">
-                Sort by: Priority (Lowest First)
-              </option>
-            </select>
+            <Select value={sort} onValueChange={(value) => setSort(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="batch">
+                  Sort by: Batch (1, 2, 3...)
+                </SelectItem>
+                <SelectItem value="date">
+                  Sort by: Delivery Date (Newest)
+                </SelectItem>
+                <SelectItem value="date-oldest">
+                  Sort by: Delivery Date (Oldest)
+                </SelectItem>
+                <SelectItem value="priority">
+                  Sort by: Priority (Highest First)
+                </SelectItem>
+                <SelectItem value="priority-lowest">
+                  Sort by: Priority (Lowest First)
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               onClick={() => router.push("/add-products")}
               className="cursor-pointer hover:bg-primary/8 transition-all duration-200 rounded-lg"
