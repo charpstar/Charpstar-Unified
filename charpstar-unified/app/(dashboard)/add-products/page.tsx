@@ -35,6 +35,8 @@ import {
   Eye,
 } from "lucide-react";
 
+import * as saveAs from "file-saver";
+
 interface ProductForm {
   article_id: string;
   product_name: string;
@@ -68,7 +70,11 @@ export default function AddProductsPage() {
   const [csvLoading, setCsvLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [csvErrors, setCsvErrors] = useState<
+    { row: number; message: string }[]
+  >([]);
 
   // Fetch current batch number for this client
   useEffect(() => {
@@ -215,9 +221,20 @@ export default function AddProductsPage() {
     a.click();
   };
 
+  const getValidProducts = () => {
+    return products.filter(
+      (product) =>
+        product.article_id.trim() &&
+        product.product_name.trim() &&
+        product.product_link.trim() &&
+        product.category.trim()
+    );
+  };
+
   const handleFile = (file: File) => {
     setCsvFile(file);
     setCsvLoading(true);
+    setCsvErrors([]);
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
@@ -226,7 +243,17 @@ export default function AddProductsPage() {
         .split(/\r?\n/)
         .filter(Boolean)
         .map((row) => row.split(","));
+      // Validate rows
+      const errors: { row: number; message: string }[] = [];
+      const header = rows[0] || [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row[0] || !row[1] || !row[3]) {
+          errors.push({ row: i + 1, message: "Missing required fields" });
+        }
+      }
       setCsvPreview(rows);
+      setCsvErrors(errors);
       setCsvLoading(false);
     };
     reader.readAsText(file);
@@ -424,7 +451,7 @@ export default function AddProductsPage() {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-background via-background to-muted/20 flex flex-col p-6">
+    <div className="h-full bg-gradient-to-br from-background via-background to-muted/20 flex flex-col p-6 overflow-hidden">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">
@@ -456,8 +483,8 @@ export default function AddProductsPage() {
 
       <div className="flex-1 flex gap-6">
         {/* Main Form */}
-        <div className="flex-1">
-          <Card className="h-full">
+        <div className="flex-1 overflow-y-auto max-h-[calc(100vh-15rem)]">
+          <Card className="h-fit">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
@@ -540,10 +567,11 @@ export default function AddProductsPage() {
 
                     <div>
                       <label className="text-sm font-medium text-slate-700 mb-2 block">
-                        Category
+                        Category *
                       </label>
                       <Input
                         value={product.category}
+                        required={true}
                         onChange={(e) =>
                           updateProduct(index, "category", e.target.value)
                         }
@@ -604,8 +632,8 @@ export default function AddProductsPage() {
 
               <div className="flex gap-4 pt-4">
                 <Button
-                  onClick={handleSubmit}
-                  disabled={loading}
+                  onClick={() => setShowConfirmDialog(true)}
+                  disabled={loading || getValidProducts().length === 0}
                   className="flex-1 cursor-pointer"
                 >
                   {loading ? (
@@ -636,6 +664,9 @@ export default function AddProductsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="text-sm text-slate-600 mb-2">
+                Upload a CSV to add multiple products at once.
+              </div>
               {/* Drag & Drop Zone */}
               <div
                 ref={fileInputRef}
@@ -677,6 +708,7 @@ export default function AddProductsPage() {
                       onClick={() => {
                         setCsvFile(null);
                         setCsvPreview(null);
+                        setCsvErrors([]);
                       }}
                       className="mt-2 cursor-pointer"
                     >
@@ -801,14 +833,6 @@ export default function AddProductsPage() {
                 <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
                 <p>Optional fields can be left empty</p>
               </div>
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <p>Products will be added to the current batch number</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <p>Batch number auto-increments after each submission</p>
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -824,7 +848,49 @@ export default function AddProductsPage() {
               products)
             </DialogTitle>
           </DialogHeader>
-
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm text-slate-700">
+              {csvPreview?.length
+                ? `${csvPreview.length - 1} products found. Please review before confirming.`
+                : ""}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setCsvFile(null);
+                setCsvPreview(null);
+                setCsvErrors([]);
+                setShowPreviewDialog(false);
+              }}
+              className="cursor-pointer"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Remove file & re-upload
+            </Button>
+          </div>
+          {csvErrors.length > 0 && (
+            <div className="mb-2 p-2 bg-red-50 border border-red-200 text-red-700 rounded text-sm flex items-center gap-2">
+              <span>Some rows are missing required fields.</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!csvPreview) return;
+                  const errorCsv = [
+                    csvPreview[0],
+                    ...csvErrors.map((e) => [e.row, e.message]),
+                  ]
+                    .map((r) => r.join(","))
+                    .join("\n");
+                  const blob = new Blob([errorCsv], { type: "text/csv" });
+                  saveAs.saveAs(blob, "csv-errors.csv");
+                }}
+              >
+                Download error report
+              </Button>
+            </div>
+          )}
           <div className="flex-1 overflow-hidden">
             <div className="h-full overflow-y-auto">
               <table className="w-full text-sm">
@@ -857,10 +923,11 @@ export default function AddProductsPage() {
                       subcategory,
                       priority,
                     ] = row;
+                    const hasError = csvErrors.some((e) => e.row === index + 2);
                     return (
                       <tr
                         key={index}
-                        className="border-t border-slate-100 hover:bg-slate-50"
+                        className={`border-t border-slate-100 hover:bg-slate-50 ${hasError ? "bg-red-50" : ""}`}
                       >
                         <td className="px-4 py-3 text-slate-900 font-medium">
                           {articleId || "-"}
@@ -918,6 +985,180 @@ export default function AddProductsPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4 items-center">
+            <Button
+              variant="outline"
+              onClick={() => setShowPreviewDialog(false)}
+              className="cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCsvUpload}
+              disabled={loading || csvErrors.length > 0}
+              className="cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Confirming...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Confirm & Add to Batch {currentBatch}
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Products Confirmation Dialog */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="min-w-[70vw] max-h-[calc(74vh-15rem)] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Review Products Before Adding to Batch {currentBatch}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden">
+            <div className="h-full overflow-y-auto min-h-[calc(74vh-15rem)]">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      Article ID
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      Product Name
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      Product Link
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      GLB Link
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      Category
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-700">
+                      Priority
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getValidProducts().map((product, index) => (
+                    <tr
+                      key={index}
+                      className="border-t border-slate-100 hover:bg-slate-50"
+                    >
+                      <td className="px-4 py-3 text-slate-900 font-medium">
+                        {product.article_id || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-900">
+                        {product.product_name || "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {product.product_link ? (
+                          <a
+                            href={product.product_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline truncate block max-w-48"
+                            title={product.product_link}
+                          >
+                            {product.product_link.length > 50
+                              ? `${product.product_link.substring(0, 50)}...`
+                              : product.product_link}
+                          </a>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {product.glb_link ? (
+                          <a
+                            href={product.glb_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline truncate block max-w-48"
+                            title={product.glb_link}
+                          >
+                            {product.glb_link.length > 50
+                              ? `${product.glb_link.substring(0, 50)}...`
+                              : product.glb_link}
+                          </a>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        <div>
+                          <span className="font-medium">
+                            {product.category || "-"}
+                          </span>
+                          {product.subcategory && (
+                            <span className="text-xs text-slate-500 block">
+                              {product.subcategory}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            product.priority === 1
+                              ? "bg-red-100 text-red-800"
+                              : product.priority === 2
+                                ? "bg-yellow-100 text-yellow-800"
+                                : product.priority === 3
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-slate-100 text-slate-800"
+                          }`}
+                        >
+                          {product.priority}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="flex  justify-end gap-3 pt-4 border-t border-border max-h-[100px] items-center">
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirmDialog(false)}
+              className="cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowConfirmDialog(false);
+                handleSubmit();
+              }}
+              disabled={loading}
+              className="cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Confirming...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Confirm & Add to Batch {currentBatch}
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
