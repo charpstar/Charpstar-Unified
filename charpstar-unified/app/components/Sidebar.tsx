@@ -15,11 +15,13 @@ import {
   BarChart,
 } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
   const [role, setRole] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const getUserAndRole = async () => {
@@ -47,7 +49,7 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/auth";
+    router.push("/auth");
   };
 
   return (

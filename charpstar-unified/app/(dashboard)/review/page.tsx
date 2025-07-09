@@ -316,7 +316,8 @@ export default function ReviewDashboardPage() {
             </select>
             <Button
               onClick={() => router.push("/add-products")}
-              className="cursor-pointer"
+              className="cursor-pointer hover:bg-primary/8 transition-all duration-200 rounded-lg"
+              variant="ghost"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Products

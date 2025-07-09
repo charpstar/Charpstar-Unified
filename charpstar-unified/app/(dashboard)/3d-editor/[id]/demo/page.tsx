@@ -11,8 +11,10 @@ import {
 import { useUser } from "@/contexts/useUser";
 import { DemoPageSkeleton } from "@/components/ui/skeletons";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useRouter } from "next/navigation";
 
 export default function DemoPage() {
+  const router = useRouter();
   const params = useParams();
   const clientName = params?.id as string;
   const user = useUser();
@@ -32,7 +34,7 @@ export default function DemoPage() {
     ) {
       setHasAccess(false);
       // Redirect to dashboard if user doesn't have access
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     }
   }, [user]);
 

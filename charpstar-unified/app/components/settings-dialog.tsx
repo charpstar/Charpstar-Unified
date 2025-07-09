@@ -684,6 +684,19 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     );
   };
 
+  // Replace window.location.href calls with router.push
+  const handleViewDashboardAs = (clientId: string) => {
+    router.push(`/analytics?impersonate=${clientId}`);
+  };
+
+  const handleOpenEditor = (clientName: string) => {
+    router.push(`/3d-editor/${clientName}`);
+  };
+
+  const handleViewDemo = (clientName: string) => {
+    router.push(`/3d-editor/${clientName}/demo`);
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1505,7 +1518,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                       variant="outline"
                                       className="text-xs"
                                       onClick={() =>
-                                        (window.location.href = `/analytics?impersonate=${client.id}`)
+                                        handleViewDashboardAs(client.id)
                                       }
                                     >
                                       View Dashboard as
@@ -1545,10 +1558,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               <Button
                                 size="sm"
                                 variant="default"
-                                onClick={() =>
-                                  (window.location.href =
-                                    "/3d-editor/ArtwoodTest")
-                                }
+                                onClick={() => handleOpenEditor("ArtwoodTest")}
                                 className="flex-1"
                               >
                                 Open Editor
@@ -1556,10 +1566,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() =>
-                                  (window.location.href =
-                                    "/3d-editor/ArtwoodTest/demo")
-                                }
+                                onClick={() => handleViewDemo("ArtwoodTest")}
                                 className="flex-1"
                               >
                                 View Demo
@@ -1579,9 +1586,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               <Button
                                 size="sm"
                                 variant="default"
-                                onClick={() =>
-                                  (window.location.href = "/3d-editor/SweefV2")
-                                }
+                                onClick={() => handleOpenEditor("SweefV2")}
                                 className="flex-1"
                               >
                                 Open Editor
@@ -1589,10 +1594,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() =>
-                                  (window.location.href =
-                                    "/3d-editor/SweefV2/demo")
-                                }
+                                onClick={() => handleViewDemo("SweefV2")}
                                 className="flex-1"
                               >
                                 View Demo

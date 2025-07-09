@@ -9,6 +9,8 @@ import {
   IconFileDescription,
   IconFolder,
   IconUsers,
+  IconClipboardList,
+  IconEye,
 } from "@tabler/icons-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -71,6 +73,17 @@ export default function AppSidebar({
                 icon: IconFolder,
               },
             ]),
+        // Add Products and Review pages for all users
+        {
+          title: "Add Products",
+          url: "/add-products",
+          icon: IconClipboardList,
+        },
+        {
+          title: "Review",
+          url: "/review",
+          icon: IconEye,
+        },
       ]
     : [
         // Show only dashboard while loading

@@ -40,10 +40,12 @@ import {
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/inputs";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 export default function NavUser() {
   const supaUser = useUser() as any; // Type assertion to handle metadata property
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const router = useRouter();
 
   console.log("NavUser component rendered, user:", supaUser?.id);
   console.log("Full user object:", supaUser);
@@ -212,7 +214,7 @@ export default function NavUser() {
     await supabase.auth.signOut();
 
     // Redirect to login/auth page
-    window.location.href = "/auth";
+    router.push("/auth");
   };
 
   return (

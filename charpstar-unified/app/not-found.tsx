@@ -3,8 +3,11 @@
 import { Suspense } from "react";
 import { Button } from "@/components/ui/display";
 import { ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 function NotFoundContent() {
+  const router = useRouter();
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
       <div className="max-w-md space-y-6">
@@ -17,7 +20,7 @@ function NotFoundContent() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button onClick={() => (window.location.href = "/dashboard")}>
+          <Button onClick={() => router.push("/dashboard")}>
             <span>Go Home</span>
           </Button>
           <Button variant="outline" onClick={() => window.history.back()}>

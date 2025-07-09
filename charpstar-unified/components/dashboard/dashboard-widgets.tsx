@@ -119,6 +119,7 @@ export function StatsWidget({
 // Profile Widget
 export function ProfileWidget({ user }: { user?: any }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const router = useRouter();
 
   // Helper function to get role-specific metadata
   const getRoleMetadata = (role: string) => {
@@ -453,7 +454,7 @@ export function ProfileWidget({ user }: { user?: any }) {
             variant="outline"
             size="sm"
             className="flex-1 text-xs"
-            onClick={() => (window.location.href = "/asset-library")}
+            onClick={() => router.push("/asset-library")}
           >
             <Folder className="h-3 w-3 mr-1" />
             Library
@@ -471,6 +472,7 @@ export function ProfileWidget({ user }: { user?: any }) {
 export function QuickActionsWidget() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const user = useUser();
+  const router = useRouter();
 
   const actions = [
     {
@@ -479,9 +481,9 @@ export function QuickActionsWidget() {
       action: () => {
         // Redirect clients to add-products page, admins to asset-library upload
         if (user?.metadata?.role === "client") {
-          window.location.href = "/add-products";
+          router.push("/add-products");
         } else {
-          window.location.href = "/asset-library/upload";
+          router.push("/asset-library/upload");
         }
       },
     },
@@ -489,15 +491,16 @@ export function QuickActionsWidget() {
       name: user?.metadata?.role === "admin" ? "Asset Library" : "Reviews",
       icon: Folder,
       action: () => {
-        window.location.href =
-          user?.metadata?.role === "admin" ? "/asset-library" : "/review";
+        router.push(
+          user?.metadata?.role === "admin" ? "/asset-library" : "/review"
+        );
       },
     },
     {
       name: "View Analytics",
       icon: TrendingUp,
       action: () => {
-        window.location.href = "/analytics";
+        router.push("/analytics");
       },
     },
     {

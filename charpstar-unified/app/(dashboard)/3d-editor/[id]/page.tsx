@@ -1,7 +1,7 @@
 // src/app/[client]/page.tsx
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { fetchClientConfig, isValidClient } from "@/config/clientConfig";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -33,6 +33,7 @@ export default function ClientPage() {
   const params = useParams();
   const clientName = params.id as string;
   const user = useUser();
+  const router = useRouter();
 
   const [modelStructure, setModelStructure] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
@@ -68,7 +69,7 @@ export default function ClientPage() {
     ) {
       setHasAccess(false);
       // Redirect to dashboard if user doesn't have access
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     }
   }, [user]);
 

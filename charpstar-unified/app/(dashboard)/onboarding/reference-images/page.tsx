@@ -45,10 +45,12 @@ import {
 import { Loader2 } from "lucide-react";
 
 import { Input } from "@/components/ui";
+import { useRouter } from "next/navigation";
 
 export default function ReferenceImagesPage() {
   const user = useUser();
   const { startLoading } = useLoading();
+  const router = useRouter();
 
   const [assets, setAssets] = useState<any[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -253,7 +255,7 @@ export default function ReferenceImagesPage() {
       // Wait for animation, then redirect with page reload to refresh user metadata
       setTimeout(() => {
         startLoading(); // Start loading before redirect
-        window.location.href = "/dashboard?refreshUser=1";
+        router.push("/dashboard?refreshUser=1");
       }, 2000);
     } catch {
       toast({
