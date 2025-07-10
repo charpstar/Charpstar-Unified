@@ -108,6 +108,11 @@ export default function AppSidebar({
             url: "/onboarding",
             icon: IconUsers,
           },
+          {
+            title: "Admin Review",
+            url: "/admin-review",
+            icon: IconEye,
+          },
         ]
       : [];
 

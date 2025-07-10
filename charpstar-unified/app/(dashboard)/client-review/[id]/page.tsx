@@ -1981,7 +1981,7 @@ export default function ReviewPage() {
                 {/* Revision History Dropdown */}
                 {revisionHistory.length > 0 && (
                   <div className="mt-4">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-start mb-3">
                       <h3 className="text-sm font-semibold text-foreground">
                         Revision History
                       </h3>
