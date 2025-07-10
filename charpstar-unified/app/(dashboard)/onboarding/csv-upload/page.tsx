@@ -27,6 +27,7 @@ import { useLoading } from "@/contexts/LoadingContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/utilities";
 import { useRouter } from "next/navigation";
+import { Alert, AlertDescription } from "@/components/ui/feedback";
 
 const steps = [
   {
@@ -452,18 +453,13 @@ export default function CsvUploadPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="bg-muted/30 rounded-lg p-4">
-              <div className="flex items-center space-x-2 mb-2">
-                <AlertCircle className="h-4 w-4 text-yellow-500" />
-                <span className="text-sm font-medium">
-                  Preview your data before confirming
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Review the data below to ensure everything looks correct before
-                uploading.
-              </p>
-            </div>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Preview your data before confirming. Review the data below to
+                ensure everything looks correct before uploading.
+              </AlertDescription>
+            </Alert>
 
             <div className="border rounded-lg overflow-hidden">
               <div

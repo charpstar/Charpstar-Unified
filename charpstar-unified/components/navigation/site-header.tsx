@@ -24,8 +24,8 @@ const TITLES = {
   "/auth/signup": "Signup",
   "/onboarding/csv-upload": "CSV Upload",
   "/onboarding/reference-images": "Reference Upload",
-  "/review": "Review",
-  "/review/[id]": "Review Asset",
+  "/client-review": "Client Review",
+  "/client-review/[id]": "Review Asset",
   "/add-products": "Add Products",
 };
 
@@ -55,10 +55,10 @@ export default function SiteHeader() {
   ) {
     pageTitle = "Asset Details";
   } else if (
-    pathname.startsWith("/review/") &&
+    pathname.startsWith("/client-review/") &&
     pathname.split("/").length === 3
   ) {
-    pageTitle = "Review Asset";
+    pageTitle = "Client Asset Review";
   } else {
     pageTitle = TITLES[pathname as keyof typeof TITLES] || "Unified";
   }

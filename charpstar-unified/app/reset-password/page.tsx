@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/feedback";
+import { CheckCircle } from "lucide-react";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -216,9 +218,10 @@ export default function ResetPasswordPage() {
         <form onSubmit={handleSubmit} className="w-full">
           <div className="grid gap-4 w-full">
             {message && (
-              <div className="p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-                {message}
-              </div>
+              <Alert>
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
             )}
             <div className="grid gap-2">
               <label className="text-sm font-medium" htmlFor="password">

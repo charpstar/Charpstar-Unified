@@ -165,6 +165,10 @@ export default function ReviewPage() {
   >(null);
   const [inlineEditCommentText, setInlineEditCommentText] = useState("");
 
+  // Reference image URL input state
+  const [referenceImageUrl, setReferenceImageUrl] = useState("");
+  const [showUrlDialog, setShowUrlDialog] = useState(false);
+
   const modelViewerRef = useRef<any>(null);
 
   // Function to get a title-specific badge color
@@ -721,6 +725,43 @@ export default function ReviewPage() {
     }
   };
 
+  // Handle adding reference image URLs
+  const handleAddReferenceImageUrl = async () => {
+    if (!referenceImageUrl.trim() || !assetId) return;
+
+    try {
+      // Validate URL format
+      const url = new URL(referenceImageUrl.trim());
+      if (!url.protocol.startsWith("http")) {
+        toast.error("Please enter a valid HTTP/HTTPS URL");
+        return;
+      }
+
+      // Add new URL to existing reference images
+      const newReferenceImages = [...referenceImages, referenceImageUrl.trim()];
+
+      // Update the asset in the database
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ reference: newReferenceImages })
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error updating reference images:", error);
+        toast.error("Failed to save reference image URL");
+        return;
+      }
+
+      // Update local state
+      setReferenceImages(newReferenceImages);
+      setReferenceImageUrl(""); // Clear the input
+      toast.success("Reference image URL added successfully!");
+    } catch (error) {
+      console.error("Error adding reference image URL:", error);
+      toast.error("Please enter a valid image URL");
+    }
+  };
+
   const updateAssetStatus = async (newStatus: string) => {
     if (!assetId) return;
 
@@ -1071,11 +1112,11 @@ export default function ReviewPage() {
         <div className="text-center">
           <p className="text-muted-foreground">Asset not found</p>
           <Button
-            onClick={() => router.push("/review")}
+            onClick={() => router.push("/client-review")}
             className="mt-4 hover:bg-primary/8 transition-all duration-200 rounded-lg cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Review
+            Back to Client Review
           </Button>
         </div>
       </div>
@@ -1091,7 +1132,7 @@ export default function ReviewPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.push("/review")}
+              onClick={() => router.push("/client-review")}
               className="w-10 h-10 rounded-xl hover:bg-primary/8 transition-colors cursor-pointer"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -1308,9 +1349,9 @@ export default function ReviewPage() {
                 <p className="text-muted-foreground mb-4">
                   No 3D model available for this asset
                 </p>
-                <Button onClick={() => router.push("/review")}>
+                <Button onClick={() => router.push("/client-review")}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Review
+                  Back to Client Review
                 </Button>
               </div>
             </div>
@@ -1363,29 +1404,42 @@ export default function ReviewPage() {
                   Reference Images
                 </h2>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const input = document.createElement("input");
-                    input.type = "file";
-                    input.accept = "image/*";
-                    input.multiple = true;
-                    input.onchange = async (e) => {
-                      const files = (e.target as HTMLInputElement).files;
-                      if (files && files.length > 0) {
-                        await handleUploadReferenceImages(files);
-                      }
-                    };
-                    input.click();
-                  }}
-                  className="h-7 px-2 text-xs cursor-pointer"
-                >
-                  <span className="text-xs text-muted-foreground pr-6">
-                    Upload Reference Image
-                  </span>
-                  <Upload className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const input = document.createElement("input");
+                      input.type = "file";
+                      input.accept = "image/*";
+                      input.multiple = true;
+                      input.onchange = async (e) => {
+                        const files = (e.target as HTMLInputElement).files;
+                        if (files && files.length > 0) {
+                          await handleUploadReferenceImages(files);
+                        }
+                      };
+                      input.click();
+                    }}
+                    className="h-7 px-2 text-xs cursor-pointer"
+                  >
+                    <span className="text-xs text-muted-foreground pr-6">
+                      Upload Image
+                    </span>
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowUrlDialog(true)}
+                    className="h-7 px-2 text-xs cursor-pointer"
+                  >
+                    <span className="text-xs text-muted-foreground pr-6">
+                      Add URL
+                    </span>
+                    <FileImage className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               {/* Carousel of Thumbnails */}
@@ -1566,26 +1620,6 @@ export default function ReviewPage() {
                   <p className="text-sm text-muted-foreground mb-3">
                     No reference images yet
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const input = document.createElement("input");
-                      input.type = "file";
-                      input.accept = "image/*";
-                      input.multiple = true;
-                      input.onchange = async (e) => {
-                        const files = (e.target as HTMLInputElement).files;
-                        if (files && files.length > 0) {
-                          await handleUploadReferenceImages(files);
-                        }
-                      };
-                      input.click();
-                    }}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Images
-                  </Button>
                 </div>
               )}
 
@@ -1871,17 +1905,7 @@ export default function ReviewPage() {
                                   }
                                   className="flex-1"
                                 />
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    const url = prompt("Enter image URL:");
-                                    if (url) setEditImageUrl(url);
-                                  }}
-                                  className="cursor-pointer"
-                                >
-                                  <Upload className="h-4 w-4" />
-                                </Button>
+
                                 <Button
                                   variant="outline"
                                   size="icon"
@@ -1929,7 +1953,7 @@ export default function ReviewPage() {
                                   }}
                                   className="cursor-pointer"
                                 >
-                                  <FileImage className="h-4 w-4" />
+                                  <Upload className="h-4 w-4" />
                                 </Button>
                               </div>
                             </div>
@@ -2335,17 +2359,7 @@ export default function ReviewPage() {
                     onChange={(e) => setNewImageUrl(e.target.value)}
                     className="flex-1 border-border focus:border-primary"
                   />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      const url = prompt("Enter image URL:");
-                      if (url) setNewImageUrl(url);
-                    }}
-                    className="border-border hover:bg-accent cursor-pointer"
-                  >
-                    <Upload className="h-4 w-4" />
-                  </Button>
+
                   <Button
                     variant="outline"
                     size="icon"
@@ -2383,7 +2397,7 @@ export default function ReviewPage() {
                     }}
                     className="border-border hover:bg-accent cursor-pointer"
                   >
-                    <FileImage className="h-4 w-4" />
+                    <Upload className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -2563,6 +2577,62 @@ export default function ReviewPage() {
                 className="cursor-pointer"
               >
                 Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Image URL Dialog */}
+        <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
+          <DialogContent className="sm:max-w-[500px] h-fit">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-foreground">
+                Add Reference Image URL
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Enter the URL of an image you want to add as a reference image.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">
+                  Image URL *
+                </label>
+                <Input
+                  type="url"
+                  placeholder="https://example.com/image.jpg"
+                  value={referenceImageUrl}
+                  onChange={(e) => setReferenceImageUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAddReferenceImageUrl();
+                      setShowUrlDialog(false);
+                    }
+                  }}
+                  className="border-border focus:border-primary"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-4 border-t border-border">
+              <Button
+                onClick={() => {
+                  handleAddReferenceImageUrl();
+                  setShowUrlDialog(false);
+                }}
+                disabled={!referenceImageUrl.trim()}
+                className="flex-1 bg-primary hover:bg-primary/90 font-medium cursor-pointer"
+              >
+                Add Image URL
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowUrlDialog(false);
+                  setReferenceImageUrl("");
+                }}
+                className="border-border hover:bg-accent cursor-pointer"
+              >
+                Cancel
               </Button>
             </div>
           </DialogContent>

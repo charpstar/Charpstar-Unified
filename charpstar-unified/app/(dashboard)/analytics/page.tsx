@@ -24,7 +24,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/display";
-import { Eye, TrendingUp, ShoppingCart, Activity } from "lucide-react";
+import {
+  Eye,
+  TrendingUp,
+  ShoppingCart,
+  Activity,
+  AlertTriangle,
+} from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/feedback";
 
 // Lazy load heavy analytics components
 const LazyPerformanceTrends = lazy(() =>
@@ -437,23 +444,19 @@ export default function AnalyticsDashboard() {
   return (
     <div className="flex flex-1 flex-col p-4 sm:p-6">
       {impersonatedProfile && (
-        <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-yellow-800 dark:text-yellow-200">
-                Viewing analytics as: {impersonatedProfile.email}
-              </span>
-            </div>
+        <Alert variant="default" className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Viewing analytics as: {impersonatedProfile.email}</span>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/analytics")}
-              className="text-yellow-800 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-800/50"
             >
               Exit
             </Button>
-          </div>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       <div className="space-y-8">

@@ -497,7 +497,9 @@ export default function ReviewDashboardPage() {
                           variant="ghost"
                           size="icon"
                           className="cursor-pointer"
-                          onClick={() => router.push(`/review/${asset.id}`)}
+                          onClick={() =>
+                            router.push(`/client-review/${asset.id}`)
+                          }
                         >
                           <Eye className="h-5 w-5" />
                         </Button>

@@ -17,7 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/containers";
-import { Badge } from "@/components/ui/feedback";
+import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
 import { toast } from "@/components/ui/utilities";
 import {
   Paperclip,
@@ -375,12 +375,14 @@ export default function ReferenceImagesPage() {
                   references
                 </span>
               </div>
-              <div className="text-xs text-muted-foreground bg-blue-50 border border-blue-200 rounded-lg p-3">
-                💡 <strong>Tip:</strong> Reference images are optional but
-                highly recommended. They help our 3D modelers create much better
-                results. You can complete this step even with 0% progress if
-                needed.
-              </div>
+              <Alert>
+                <AlertDescription>
+                  💡 <strong>Tip:</strong> Reference images are optional but
+                  highly recommended. They help our 3D modelers create much
+                  better results. You can complete this step even with 0%
+                  progress if needed.
+                </AlertDescription>
+              </Alert>
               <div className="relative">
                 <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
                   <div

@@ -30,6 +30,7 @@ import {
   ArrowLeft,
   X,
   FolderOpen,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/utilities";
@@ -630,7 +631,7 @@ export default function AddModelsPage() {
               >
                 {isUploading ? (
                   <>
-                    <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Uploading...
                   </>
                 ) : (

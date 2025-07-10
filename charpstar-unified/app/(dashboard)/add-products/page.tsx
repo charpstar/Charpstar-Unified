@@ -12,7 +12,15 @@ import {
 } from "@/components/ui/containers";
 import { Button, Label } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
-import { Badge } from "@/components/ui/feedback";
+import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/display";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import {
@@ -32,6 +40,7 @@ import {
   Loader2,
   X,
   Eye,
+  AlertTriangle,
 } from "lucide-react";
 
 import * as saveAs from "file-saver";
@@ -457,7 +466,7 @@ export default function AddProductsPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push("/review")}
+            onClick={() => router.push("/client-review")}
             className="hover:bg-primary/8 transition-all duration-200 rounded-lg cursor-pointer"
           >
             <ArrowLeft className="h-5 w-5 text-slate-600" />
@@ -506,7 +515,6 @@ export default function AddProductsPage() {
                           updateProduct(index, "article_id", e.target.value)
                         }
                         placeholder="ART001"
-                        className="cursor-pointer"
                       />
                     </div>
 
@@ -520,7 +528,6 @@ export default function AddProductsPage() {
                           updateProduct(index, "product_name", e.target.value)
                         }
                         placeholder="Product Name"
-                        className="cursor-pointer"
                       />
                     </div>
 
@@ -534,7 +541,6 @@ export default function AddProductsPage() {
                           updateProduct(index, "product_link", e.target.value)
                         }
                         placeholder="https://example.com/product"
-                        className="cursor-pointer"
                       />
                     </div>
 
@@ -548,7 +554,6 @@ export default function AddProductsPage() {
                           updateProduct(index, "glb_link", e.target.value)
                         }
                         placeholder="https://example.com/model.glb"
-                        className="cursor-pointer"
                       />
                     </div>
 
@@ -563,7 +568,6 @@ export default function AddProductsPage() {
                           updateProduct(index, "category", e.target.value)
                         }
                         placeholder="Furniture"
-                        className="cursor-pointer"
                       />
                     </div>
 
@@ -857,50 +861,43 @@ export default function AddProductsPage() {
             </Button>
           </div>
           {csvErrors.length > 0 && (
-            <div className="mb-2 p-2 bg-red-50 border border-red-200 text-red-700 rounded text-sm flex items-center gap-2">
-              <span>Some rows are missing required fields.</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (!csvPreview) return;
-                  const errorCsv = [
-                    csvPreview[0],
-                    ...csvErrors.map((e) => [e.row, e.message]),
-                  ]
-                    .map((r) => r.join(","))
-                    .join("\n");
-                  const blob = new Blob([errorCsv], { type: "text/csv" });
-                  saveAs.saveAs(blob, "csv-errors.csv");
-                }}
-              >
-                Download error report
-              </Button>
-            </div>
+            <Alert variant="destructive" className="mb-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="flex items-center gap-2">
+                <span>Some rows are missing required fields.</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!csvPreview) return;
+                    const errorCsv = [
+                      csvPreview[0],
+                      ...csvErrors.map((e) => [e.row, e.message]),
+                    ]
+                      .map((r) => r.join(","))
+                      .join("\n");
+                    const blob = new Blob([errorCsv], { type: "text/csv" });
+                    saveAs.saveAs(blob, "csv-errors.csv");
+                  }}
+                >
+                  Download error report
+                </Button>
+              </AlertDescription>
+            </Alert>
           )}
           <div className="flex-1 overflow-hidden">
             <div className="h-full overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 sticky top-0">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      Article ID
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      Product Name
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      GLB Link
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      Category
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      Priority
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Article ID</TableHead>
+                    <TableHead>Product Name</TableHead>
+                    <TableHead>GLB Link</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Priority</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {csvPreview?.slice(1).map((row, index) => {
                     const [
                       articleId,
@@ -912,17 +909,15 @@ export default function AddProductsPage() {
                     ] = row;
                     const hasError = csvErrors.some((e) => e.row === index + 2);
                     return (
-                      <tr
+                      <TableRow
                         key={index}
-                        className={`border-t border-slate-100 hover:bg-slate-50 ${hasError ? "bg-red-50" : ""}`}
+                        className={hasError ? "bg-red-50" : ""}
                       >
-                        <td className="px-4 py-3 text-slate-900 font-medium">
+                        <TableCell className="font-medium">
                           {articleId || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-slate-900">
-                          {productName || "-"}
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell>{productName || "-"}</TableCell>
+                        <TableCell className="flex items-center">
                           {glbLink ? (
                             <a
                               href={glbLink}
@@ -936,41 +931,42 @@ export default function AddProductsPage() {
                                 : glbLink}
                             </a>
                           ) : (
-                            <span className="text-slate-400">-</span>
+                            <span className="text-muted-foreground">-</span>
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-slate-700">
+                        </TableCell>
+                        <TableCell>
                           <div>
                             <span className="font-medium">
                               {category || "-"}
                             </span>
                             {subcategory && (
-                              <span className="text-xs text-slate-500 block">
+                              <span className="text-xs text-muted-foreground block">
                                 {subcategory}
                               </span>
                             )}
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
                               priority === "1"
-                                ? "bg-red-100 text-red-800"
+                                ? "destructive"
                                 : priority === "2"
-                                  ? "bg-yellow-100 text-yellow-800"
+                                  ? "secondary"
                                   : priority === "3"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-slate-100 text-slate-800"
-                            }`}
+                                    ? "default"
+                                    : "outline"
+                            }
+                            className="text-xs"
                           >
                             {priority || "2"}
-                          </span>
-                        </td>
-                      </tr>
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
 
@@ -1015,42 +1011,25 @@ export default function AddProductsPage() {
 
           <div className="flex-1 overflow-hidden">
             <div className="h-full overflow-y-auto min-h-[calc(74vh-15rem)]">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 sticky top-0">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      Article ID
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      Product Name
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      Product Link
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      GLB Link
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      Category
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">
-                      Priority
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Article ID</TableHead>
+                    <TableHead>Product Name</TableHead>
+                    <TableHead>Product Link</TableHead>
+                    <TableHead>GLB Link</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Priority</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {getValidProducts().map((product, index) => (
-                    <tr
-                      key={index}
-                      className="border-t border-slate-100 hover:bg-slate-50"
-                    >
-                      <td className="px-4 py-3 text-slate-900 font-medium">
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">
                         {product.article_id || "-"}
-                      </td>
-                      <td className="px-4 py-3 text-slate-900">
-                        {product.product_name || "-"}
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell>{product.product_name || "-"}</TableCell>
+                      <TableCell>
                         {product.product_link ? (
                           <a
                             href={product.product_link}
@@ -1064,10 +1043,10 @@ export default function AddProductsPage() {
                               : product.product_link}
                           </a>
                         ) : (
-                          <span className="text-slate-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell>
                         {product.glb_link ? (
                           <a
                             href={product.glb_link}
@@ -1081,40 +1060,41 @@ export default function AddProductsPage() {
                               : product.glb_link}
                           </a>
                         ) : (
-                          <span className="text-slate-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">
+                      </TableCell>
+                      <TableCell>
                         <div>
                           <span className="font-medium">
                             {product.category || "-"}
                           </span>
                           {product.subcategory && (
-                            <span className="text-xs text-slate-500 block">
+                            <span className="text-xs text-muted-foreground block">
                               {product.subcategory}
                             </span>
                           )}
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
                             product.priority === 1
-                              ? "bg-red-100 text-red-800"
+                              ? "destructive"
                               : product.priority === 2
-                                ? "bg-yellow-100 text-yellow-800"
+                                ? "secondary"
                                 : product.priority === 3
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-slate-100 text-slate-800"
-                          }`}
+                                  ? "default"
+                                  : "outline"
+                          }
+                          className="text-xs"
                         >
                           {product.priority}
-                        </span>
-                      </td>
-                    </tr>
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
 

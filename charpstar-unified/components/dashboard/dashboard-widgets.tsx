@@ -263,7 +263,10 @@ export function ProfileWidget({ user }: { user?: any }) {
                 {roleData.title}
               </Badge>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                <Badge
+                  variant="outline"
+                  className="h-2 w-2 p-0 bg-green-500 border-green-500"
+                ></Badge>
                 {roleData.status}
               </div>
             </div>
@@ -492,7 +495,7 @@ export function QuickActionsWidget() {
       icon: Folder,
       action: () => {
         router.push(
-          user?.metadata?.role === "admin" ? "/asset-library" : "/review"
+          user?.metadata?.role === "admin" ? "/asset-library" : "/client-review"
         );
       },
     },

@@ -73,17 +73,22 @@ export default function AppSidebar({
                 icon: IconFolder,
               },
             ]),
-        // Add Products and Review pages for all users
-        {
-          title: "Add Products",
-          url: "/add-products",
-          icon: IconClipboardList,
-        },
-        {
-          title: "Review",
-          url: "/review",
-          icon: IconEye,
-        },
+        // Add Products and Review pages for clients only
+        ...(user?.metadata?.role === "client" &&
+        user?.metadata?.onboarding === false
+          ? [
+              {
+                title: "Add Products",
+                url: "/add-products",
+                icon: IconClipboardList,
+              },
+              {
+                title: "Client Review",
+                url: "/client-review",
+                icon: IconEye,
+              },
+            ]
+          : []),
       ]
     : [
         // Show only dashboard while loading

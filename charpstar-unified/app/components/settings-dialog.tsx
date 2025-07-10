@@ -1138,97 +1138,99 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                 // 🎯 Make only this part scrollable
                                 <div className="max-h-[40vh] overflow-y-auto space-y-4 pr-1">
                                   {filteredUsers.map((user) => (
-                                    <div
+                                    <Card
                                       key={user.id}
-                                      className="border rounded-md p-4 space-y-2 cursor-pointer hover:bg-accent/30"
+                                      className="cursor-pointer hover:bg-accent/30 transition-colors"
                                     >
-                                      <div className="flex items-center gap-3">
-                                        {renderAvatar(
-                                          user.avatar_url,
-                                          user.name
-                                        )}
-                                        <div className="flex flex-col flex-1">
-                                          <p className="font-medium text-base">
-                                            {user.name}
-                                          </p>
-                                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                            <Mail className="h-3 w-3" />
-                                            {user.email}
-                                          </p>
+                                      <CardContent className="p-4 space-y-2">
+                                        <div className="flex items-center gap-3">
+                                          {renderAvatar(
+                                            user.avatar_url,
+                                            user.name
+                                          )}
+                                          <div className="flex flex-col flex-1">
+                                            <p className="font-medium text-base">
+                                              {user.name}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                              <Mail className="h-3 w-3" />
+                                              {user.email}
+                                            </p>
+                                          </div>
                                         </div>
-                                      </div>
 
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <Badge
-                                          variant={
-                                            getRoleBadgeVariant(user.role) as
-                                              | "default"
-                                              | "destructive"
-                                              | "secondary"
-                                              | "outline"
-                                              | null
-                                              | undefined
-                                          }
-                                          className="text-xs"
-                                        >
-                                          {user.role.charAt(0).toUpperCase() +
-                                            user.role.slice(1)}
-                                        </Badge>
-                                        {user.role === "admin" && (
-                                          <Shield className="h-3 w-3 text-primary" />
-                                        )}
-                                        <span className="text-xs text-muted-foreground ml-auto">
-                                          {formatDate(user.created_at)}
-                                        </span>
-                                      </div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <Badge
+                                            variant={
+                                              getRoleBadgeVariant(user.role) as
+                                                | "default"
+                                                | "destructive"
+                                                | "secondary"
+                                                | "outline"
+                                                | null
+                                                | undefined
+                                            }
+                                            className="text-xs"
+                                          >
+                                            {user.role.charAt(0).toUpperCase() +
+                                              user.role.slice(1)}
+                                          </Badge>
+                                          {user.role === "admin" && (
+                                            <Shield className="h-3 w-3 text-primary" />
+                                          )}
+                                          <span className="text-xs text-muted-foreground ml-auto">
+                                            {formatDate(user.created_at)}
+                                          </span>
+                                        </div>
 
-                                      {hasActionPermissions && (
-                                        <div className="flex justify-end">
-                                          <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 w-8 p-0 cursor-pointer"
-                                              >
-                                                <MoreHorizontal className="h-4 w-4" />
-                                                <span className="sr-only">
-                                                  Open menu
-                                                </span>
-                                              </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                              {userPermissions.edit_user && (
-                                                <DropdownMenuItem
-                                                  className="cursor-pointer"
-                                                  onClick={() =>
-                                                    handleEditUserClick(user)
-                                                  }
+                                        {hasActionPermissions && (
+                                          <div className="flex justify-end">
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-8 w-8 p-0 cursor-pointer"
                                                 >
-                                                  <Pencil className="w-4 h-4 mr-2" />
-                                                  Edit user
-                                                </DropdownMenuItem>
-                                              )}
-                                              {userPermissions.edit_user &&
-                                                userPermissions.delete_user && (
-                                                  <DropdownMenuSeparator />
+                                                  <MoreHorizontal className="h-4 w-4" />
+                                                  <span className="sr-only">
+                                                    Open menu
+                                                  </span>
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end">
+                                                {userPermissions.edit_user && (
+                                                  <DropdownMenuItem
+                                                    className="cursor-pointer"
+                                                    onClick={() =>
+                                                      handleEditUserClick(user)
+                                                    }
+                                                  >
+                                                    <Pencil className="w-4 h-4 mr-2" />
+                                                    Edit user
+                                                  </DropdownMenuItem>
                                                 )}
-                                              {userPermissions.delete_user && (
-                                                <DropdownMenuItem
-                                                  className="cursor-pointer text-destructive focus:text-destructive"
-                                                  onClick={() =>
-                                                    handleDeleteUser(user.id)
-                                                  }
-                                                >
-                                                  <Trash2 className="w-4 h-4 mr-2" />
-                                                  Delete user
-                                                </DropdownMenuItem>
-                                              )}
-                                            </DropdownMenuContent>
-                                          </DropdownMenu>
-                                        </div>
-                                      )}
-                                    </div>
+                                                {userPermissions.edit_user &&
+                                                  userPermissions.delete_user && (
+                                                    <DropdownMenuSeparator />
+                                                  )}
+                                                {userPermissions.delete_user && (
+                                                  <DropdownMenuItem
+                                                    className="cursor-pointer text-destructive focus:text-destructive"
+                                                    onClick={() =>
+                                                      handleDeleteUser(user.id)
+                                                    }
+                                                  >
+                                                    <Trash2 className="w-4 h-4 mr-2" />
+                                                    Delete user
+                                                  </DropdownMenuItem>
+                                                )}
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          </div>
+                                        )}
+                                      </CardContent>
+                                    </Card>
                                   ))}
                                 </div>
                               )}

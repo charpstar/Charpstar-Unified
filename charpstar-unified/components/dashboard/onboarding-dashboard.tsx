@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
+import { Progress } from "@/components/ui/feedback";
 import { useUser } from "@/contexts/useUser";
 import {
   UserPlus,
@@ -358,38 +359,42 @@ export function OnboardingDashboard() {
                   </span>
                 </div>
                 <div className="relative">
-                  <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-                    <div
-                      className="bg-green-500 from-primary to-primary/80 h-3 rounded-full transition-all duration-700 ease-out"
-                      style={{ width: `${progressPercentage}%` }}
-                    />
-                  </div>
-                  {progressPercentage > 0 && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
-                  )}
+                  <Progress value={progressPercentage} className="h-3" />
                 </div>
               </div>
 
               {/* Progress Stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 rounded-lg bg-primary/5 border border-primary/10">
-                  <div className="text-2xl font-bold text-primary">
-                    {completedSteps}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Completed</div>
-                </div>
-                <div className="text-center p-4 rounded-lg bg-muted/50 border border-border">
-                  <div className="text-2xl font-bold text-muted-foreground">
-                    {totalSteps - completedSteps}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Remaining</div>
-                </div>
-                <div className="text-center p-4 rounded-lg bg-green-500/5 border border-green-500/10">
-                  <div className="text-2xl font-bold text-green-600">
-                    {Math.round(progressPercentage)}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">Complete</div>
-                </div>
+                <Card className="text-center">
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-primary">
+                      {completedSteps}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Completed
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-muted-foreground">
+                      {totalSteps - completedSteps}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Remaining
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-green-600">
+                      {Math.round(progressPercentage)}%
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Complete
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </CardContent>
