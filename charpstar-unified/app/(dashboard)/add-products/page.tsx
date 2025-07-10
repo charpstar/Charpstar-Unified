@@ -256,8 +256,12 @@ export default function AddProductsPage() {
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        if (!row[0] || !row[1] || !row[3]) {
-          errors.push({ row: i + 1, message: "Missing required fields" });
+        if (!row[0] || !row[1] || !row[2] || !row[3]) {
+          errors.push({
+            row: i + 1,
+            message:
+              "Missing required fields (Article ID, Product Name, product_link, glb_link)",
+          });
         }
       }
       setCsvPreview(rows);
@@ -301,27 +305,46 @@ export default function AddProductsPage() {
     let failCount = 0;
 
     for (const row of rows) {
-      if (!row[0] && !row[1] && !row[2]) continue; // skip empty rows
+      // Skip empty rows (check first 4 required fields)
+      if (
+        !row[0]?.trim() &&
+        !row[1]?.trim() &&
+        !row[2]?.trim() &&
+        !row[3]?.trim()
+      )
+        continue;
+
       const [
         article_id,
         product_name,
         product_link,
+        glb_link,
         category,
         subcategory,
-        priority,
       ] = row;
+
+      // Validate required fields
+      if (
+        !article_id?.trim() ||
+        !product_name?.trim() ||
+        !product_link?.trim() ||
+        !glb_link?.trim()
+      ) {
+        failCount++;
+        continue;
+      }
 
       const { error } = await supabase.from("onboarding_assets").insert({
         client,
         batch: currentBatch,
-        article_id,
-        product_name,
-        product_link,
-        glb_link: product_link || null, // product_link column contains the GLB link
-        category: category || null,
-        subcategory: subcategory || null,
+        article_id: article_id.trim(),
+        product_name: product_name.trim(),
+        product_link: product_link.trim(),
+        glb_link: glb_link.trim(), // Use the actual glb_link from CSV
+        category: category?.trim() || null,
+        subcategory: subcategory?.trim() || null,
         reference: null, // No reference column in new format
-        priority: priority ? parseInt(priority) || 2 : 2,
+        priority: 2, // Default priority since not in template
         status: "not_started",
         delivery_date: null,
       });
@@ -894,9 +917,8 @@ export default function AddProductsPage() {
                   <TableRow>
                     <TableHead>Article ID</TableHead>
                     <TableHead>Product Name</TableHead>
-                    <TableHead>GLB Link</TableHead>
+                    <TableHead>Product Link</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead>Priority</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -904,10 +926,10 @@ export default function AddProductsPage() {
                     const [
                       articleId,
                       productName,
-                      glbLink,
+                      productLink,
+
                       category,
                       subcategory,
-                      priority,
                     ] = row;
                     const hasError = csvErrors.some((e) => e.row === index + 2);
                     return (
@@ -920,17 +942,17 @@ export default function AddProductsPage() {
                         </TableCell>
                         <TableCell>{productName || "-"}</TableCell>
                         <TableCell className="flex items-center">
-                          {glbLink ? (
+                          {productLink ? (
                             <a
-                              href={glbLink}
+                              href={productLink}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:text-blue-800 underline truncate block max-w-48"
-                              title={glbLink}
+                              title={productLink}
                             >
-                              {glbLink.length > 50
-                                ? `${glbLink.substring(0, 50)}...`
-                                : glbLink}
+                              {productLink.length > 50
+                                ? `${productLink.substring(0, 50)}...`
+                                : productLink}
                             </a>
                           ) : (
                             <span className="text-muted-foreground">-</span>
@@ -947,22 +969,6 @@ export default function AddProductsPage() {
                               </span>
                             )}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              priority === "1"
-                                ? "destructive"
-                                : priority === "2"
-                                  ? "secondary"
-                                  : priority === "3"
-                                    ? "default"
-                                    : "outline"
-                            }
-                            className="text-xs"
-                          >
-                            {priority || "2"}
-                          </Badge>
                         </TableCell>
                       </TableRow>
                     );

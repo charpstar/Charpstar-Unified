@@ -78,6 +78,18 @@ export default function CsvUploadPage() {
         .split(/\r?\n/)
         .filter(Boolean)
         .map((row) => row.split(","));
+
+      // Validate CSV structure matches template
+      if (rows.length > 0 && rows[0].length < 6) {
+        toast({
+          title: "Invalid CSV Format",
+          description:
+            "CSV must have at least 6 columns: Article ID, Product Name, product_link, glb_link, Category, Subcategory",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setCsvPreview(rows);
       setDialogOpen(true);
     };
@@ -121,7 +133,9 @@ export default function CsvUploadPage() {
     let failCount = 0;
 
     for (const row of rows) {
-      if (!row[0] && !row[1] && !row[2]) continue; // skip empty rows
+      // Skip empty rows (check first 3 required fields)
+      if (!row[0]?.trim() && !row[1]?.trim() && !row[2]?.trim()) continue;
+
       const [
         article_id,
         product_name,
@@ -129,20 +143,29 @@ export default function CsvUploadPage() {
         glb_link,
         category,
         subcategory,
-        ,
-        reference,
-        priority,
       ] = row;
+
+      // Validate required fields
+      if (
+        !article_id?.trim() ||
+        !product_name?.trim() ||
+        !product_link?.trim() ||
+        !glb_link?.trim()
+      ) {
+        failCount++;
+        continue;
+      }
+
       const { error } = await supabase.from("onboarding_assets").insert({
         client,
-        article_id,
-        product_name,
-        product_link,
-        glb_link,
-        category,
-        subcategory,
-        reference,
-        priority: priority ? parseInt(priority) || 2 : 2,
+        article_id: article_id.trim(),
+        product_name: product_name.trim(),
+        product_link: product_link.trim(),
+        glb_link: glb_link.trim(), // Use the actual glb_link from CSV
+        category: category?.trim() || null,
+        subcategory: subcategory?.trim() || null,
+        reference: null, // No reference column in template
+        priority: 2, // Default priority since not in template
       });
       if (error) failCount++;
       else successCount++;
@@ -224,7 +247,9 @@ export default function CsvUploadPage() {
             CSV Data Upload
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Upload your product data to get started with your 3D asset library
+            Upload your product data to get started with your 3D asset library.
+            The template includes: Article ID, Product Name, product_link,
+            glb_link, Category, and Subcategory.
           </p>
         </div>
       </div>
@@ -299,7 +324,9 @@ export default function CsvUploadPage() {
                     Step 1: Download Template
                   </h3>
                   <p className="text-muted-foreground">
-                    Get the CSV template to format your data correctly
+                    Get the CSV template with the correct column structure:
+                    Article ID, Product Name, product_link, glb_link, Category,
+                    Subcategory
                   </p>
                 </div>
               </div>
@@ -344,7 +371,7 @@ export default function CsvUploadPage() {
             {/* Enhanced Drag & Drop Zone */}
             <div className="relative">
               <div
-                className={`relative border-2 border-dashed rounded-xl h-80 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
+                className={`relative border-2 border-dashed  rounded-xl h-90 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
                   progress.downloaded
                     ? isDragOver
                       ? "border-primary bg-primary/10 scale-105"

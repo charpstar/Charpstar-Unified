@@ -1524,7 +1524,7 @@ export default function ReviewPage() {
               {/* @ts-expect-error cant really fix viewer errors */}
               <model-viewer
                 ref={modelViewerRef}
-                src={asset.product_link}
+                src={asset.glb_link}
                 alt={asset.product_name}
                 camera-controls={!annotationMode}
                 shadow-intensity="0.5"

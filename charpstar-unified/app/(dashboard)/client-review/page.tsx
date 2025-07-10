@@ -476,7 +476,7 @@ export default function ReviewDashboardPage() {
                       </TableCell>
                       <TableCell>{asset.delivery_date || "-"}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 justify-center">
                           <span
                             className={`px-2 py-1 rounded text-xs font-semibold ${
                               asset.status in STATUS_LABELS
