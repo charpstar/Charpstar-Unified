@@ -1674,9 +1674,12 @@ export default function ReviewPage() {
           {rightPanelTab === "images" && (
             <div className="flex-1 overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-foreground">
+                <h4
+                  className="
+                 text-muted-foreground font-semibold"
+                >
                   Reference Images
-                </h2>
+                </h4>
 
                 <div className="flex items-center gap-2">
                   <Button
@@ -1782,9 +1785,6 @@ export default function ReviewPage() {
                 <div className="relative">
                   {/* Carousel Header */}
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Reference Images ({referenceImages.length})
-                    </h3>
                     {referenceImages.length > 4 && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>
@@ -1838,7 +1838,7 @@ export default function ReviewPage() {
                           key={index}
                           className={`relative flex-shrink-0 cursor-pointer transition-all duration-300 ${
                             selectedReferenceIndex === index
-                              ? "ring-2 ring-primary ring-offset-2 rounded-lg"
+                              ? "ring-2 ring-primary/80 ring-offset-2 rounded-lg"
                               : "hover:ring-2 hover:ring-primary/50 ring-offset-2 rounded-lg"
                           }`}
                           onClick={() => setSelectedReferenceIndex(index)}
@@ -1899,14 +1899,14 @@ export default function ReviewPage() {
 
               {/* Functionality Disabled Warning */}
               {isFunctionalityDisabled() && (
-                <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-red-950/20 dark:border-red-800/30">
+                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-950/20 dark:border-yellow-800/30">
                   <div className="flex items-center gap-3">
-                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
                     <div>
-                      <h4 className="font-semibold text-red-800 dark:text-red-200">
+                      <h4 className="text-sm font-semibold text-yellow-700 dark:text-yellow-200">
                         Functionality Disabled
                       </h4>
-                      <p className="text-sm text-red-700 dark:text-red-300">
+                      <p className="text-xs text-yellow-700 dark:text-yellow-300">
                         Annotations and comments are disabled during revision
                         mode.
                         {revisionCount >= 3 &&
@@ -1920,7 +1920,9 @@ export default function ReviewPage() {
               {/* Asset Status Buttons */}
               <div className="mt-6 p-4 bg-muted/30 rounded-lg border border-border/50">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm">Asset Status</h3>
+                  <span className="text-xs text-muted-foreground font-semibold">
+                    Asset Status
+                  </span>
                   <div className="flex items-center gap-2">
                     <Badge
                       variant={
@@ -1982,9 +1984,6 @@ export default function ReviewPage() {
                 {revisionHistory.length > 0 && (
                   <div className="mt-4">
                     <div className="flex items-center justify-start mb-3">
-                      <h3 className="text-sm font-semibold text-foreground">
-                        Revision History
-                      </h3>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -2155,90 +2154,93 @@ export default function ReviewPage() {
               </div>
 
               {/* Annotations Tab */}
+
               {activeTab === "annotations" && (
                 <>
-                  <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-4">
-                      <h2 className="text-2xl font-bold text-foreground">
-                        Annotations
-                      </h2>
-                      <Button
-                        variant={deleteMode ? "outline" : "outline"}
-                        size="sm"
-                        onClick={() => {
-                          setDeleteMode(!deleteMode);
-                          setSelectedAnnotations([]);
-                          if (deleteMode) {
-                            setSelectedAnnotations([]);
-                          }
-                        }}
-                        className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
-                          deleteMode
-                            ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30 shadow-sm"
-                            : "border-border hover:bg-accent hover:border-border"
-                        }`}
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        {deleteMode ? "Cancel" : "Delete"}
-                      </Button>
-                    </div>
-                    <Button
-                      variant={annotationMode ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setAnnotationMode(!annotationMode)}
-                      disabled={isFunctionalityDisabled()}
-                      className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
-                        annotationMode
-                          ? "bg-primary hover:bg-primary/90 shadow-sm"
-                          : "border-border hover:bg-accent hover:border-border"
-                      } ${
-                        isFunctionalityDisabled()
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
-                      }`}
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      {annotationMode ? "Cancel" : "Add Annotation"}
-                    </Button>
-                  </div>
-
-                  {/* Annotations Disabled Banner */}
-                  {isFunctionalityDisabled() && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 dark:bg-yellow-950/20 dark:border-yellow-800/30">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                        <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                          Annotations disabled - Asset is in revision mode
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Multi-Delete Actions */}
-                  {deleteMode && selectedAnnotations.length > 0 && (
-                    <div className="bg-red-50/50 border border-red-200/50 rounded-xl p-6 mb-6 dark:bg-red-950/10 dark:border-red-800/30">
-                      <div className="flex flex-col items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center dark:bg-red-900/30">
-                            <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
-                          </div>
-                          <span className="font-semibold text-red-700 dark:text-red-400">
-                            {selectedAnnotations.length} annotation(s) selected
-                          </span>
-                        </div>
+                  <div className="mb-6 p-2">
+                    <div className="flex items-center justify-between mb-8">
+                      <div className="flex items-center gap-4">
+                        <h4 className=" text-muted-foreground font-semibold">
+                          Annotations
+                        </h4>
                         <Button
-                          variant="outline"
+                          variant={deleteMode ? "ghost" : "ghost"}
                           size="sm"
-                          onClick={() => setShowDeleteWarning(true)}
-                          className="shadow-sm cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                          onClick={() => {
+                            setDeleteMode(!deleteMode);
+                            setSelectedAnnotations([]);
+                            if (deleteMode) {
+                              setSelectedAnnotations([]);
+                            }
+                          }}
+                          className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                            deleteMode
+                              ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30 shadow-sm"
+                              : "border-border hover:bg-accent hover:border-border"
+                          }`}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete Selected
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          {deleteMode ? "Cancel" : "Delete"}
                         </Button>
                       </div>
+                      <Button
+                        variant={annotationMode ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setAnnotationMode(!annotationMode)}
+                        disabled={isFunctionalityDisabled()}
+                        className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                          annotationMode
+                            ? "bg-primary hover:bg-primary/90 shadow-sm"
+                            : "border-border hover:bg-accent hover:border-border"
+                        } ${
+                          isFunctionalityDisabled()
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        {annotationMode ? "Cancel" : "Add Annotation"}
+                      </Button>
                     </div>
-                  )}
 
+                    {/* Annotations Disabled Banner */}
+                    {isFunctionalityDisabled() && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4  dark:bg-yellow-950/20 dark:border-yellow-800/30">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                          <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
+                            Annotations disabled - Asset is in revision mode
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Multi-Delete Actions */}
+                    {deleteMode && selectedAnnotations.length > 0 && (
+                      <div className="bg-red-50/50 border border-red-200/50 rounded-xl p-6 mt-6 dark:bg-red-950/10 dark:border-red-800/30">
+                        <div className="flex flex-col items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center dark:bg-red-900/30">
+                              <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
+                            </div>
+                            <span className="font-semibold text-red-700 dark:text-red-400">
+                              {selectedAnnotations.length} annotation(s)
+                              selected
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowDeleteWarning(true)}
+                            className="shadow-sm cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Selected
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   {/* Existing Annotations */}
                   <div className="space-y-4 p-2">
                     {annotations.map((annotation) => (
@@ -2246,7 +2248,7 @@ export default function ReviewPage() {
                         key={annotation.id}
                         className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
                           selectedHotspotId === annotation.id
-                            ? "ring-2 ring-primary bg-primary/5 shadow-lg"
+                            ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
                             : deleteMode &&
                                 selectedAnnotations.includes(annotation.id)
                               ? "ring-2 ring-red-300 bg-red-50/50 shadow-lg dark:ring-red-700 dark:bg-red-950/10"
@@ -2632,9 +2634,9 @@ export default function ReviewPage() {
               {activeTab === "comments" && (
                 <>
                   <div className="mb-6 p-2">
-                    <h2 className="text-2xl font-bold text-foreground mb-4">
+                    <h4 className="text-muted-foreground font-semibold mb-8">
                       Comments
-                    </h2>
+                    </h4>
 
                     {/* Add New Comment */}
                     <div className="space-y-3 mb-6">
@@ -2676,7 +2678,7 @@ export default function ReviewPage() {
                   </div>
 
                   {/* Existing Comments */}
-                  <div className="space-y-4">
+                  <div className="space-y-4 p-2">
                     {comments.map((comment) => (
                       <Card
                         key={comment.id}
