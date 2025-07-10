@@ -36,7 +36,7 @@ import { BarChart, XAxis, YAxis, Bar } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { ChartTooltip } from "@/components/ui/display";
 import { useActivities } from "@/hooks/use-activities";
-import { Card } from "@/components/ui/containers";
+import { Card, CardTitle, CardHeader } from "@/components/ui/containers";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -517,14 +517,17 @@ export function QuickActionsWidget() {
 
   return (
     <WidgetContainer>
-      <WidgetHeader title="Quick Actions" icon={Zap} />
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold text-foreground text-center">
+          Quick Actions
+        </CardTitle>
+      </CardHeader>
       <div className="grid grid-cols-2 gap-2">
         {actions.map((action) => (
           <Button
             key={action.name}
             variant="outline"
-            size="sm"
-            className="h-28 p-4 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors cursor-pointer"
+            className="h-28 w-full flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors cursor-pointer"
             onClick={action.action}
           >
             <action.icon className="h-5 w-5" />
@@ -1371,9 +1374,11 @@ export function ModelStatusWidget() {
 
   return (
     <Card className="p-6 rounded-2xl shadow-lg bg-background w-full mx-auto flex flex-col items-center">
-      <h3 className="text-xl font-bold mb-1 text-foreground">
-        Total Models: {products.length}
-      </h3>
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold mb-1 text-foreground">
+          Total Models: {products.length}
+        </CardTitle>
+      </CardHeader>
       <p className="text-sm text-muted-foreground mb-4">
         Track the progress of your onboarding assets
       </p>
@@ -1396,7 +1401,7 @@ export function ModelStatusWidget() {
                   style={{ background: STATUS_COLORS[key] }}
                 />
                 <span className="font-medium flex-1 text-sm">{label}</span>
-                <span className="font-bold text-lg text-primary tabular-nums">
+                <span className="font-bold text-lg text-primary ">
                   {counts[key]}
                 </span>
               </div>
@@ -1455,9 +1460,11 @@ export function StatusPieChartWidget() {
 
   return (
     <Card className=" p-3 rounded-2xl shadow-lg bg-background w-full mx-auto flex flex-col items-center">
-      <h3 className="text-xl font-bold mb-1 text-foreground">
-        Model Status Distribution
-      </h3>
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold mb-1 text-foreground">
+          Model Status Distribution
+        </CardTitle>
+      </CardHeader>
 
       {chartData.every((entry) => entry.value === 0) ? (
         <div className="py-8 text-center text-muted-foreground">
@@ -1511,9 +1518,7 @@ export function StatusPieChartWidget() {
                   style={{ background: STATUS_COLORS[entry.key] }}
                 />
                 <span className="font-medium text-sm flex-1">{entry.name}</span>
-                <span className="font-bold text-base tabular-nums">
-                  {entry.value}
-                </span>
+                <span className="font-bold text-base ">{entry.value}</span>
               </div>
             ))}
           </div>

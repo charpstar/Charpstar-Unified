@@ -1450,9 +1450,9 @@ export default function ReviewPage() {
             </Button>
             <div className="flex items-center gap-6">
               <div>
-                <h1 className="text-2xl font-bold text-foreground tracking-tight">
+                <h3 className="text-lg font-semibold text-foreground">
                   {asset?.product_name || "Review Asset"}
-                </h1>
+                </h3>
                 <div className="flex items-center gap-4 mt-2">
                   <Badge
                     variant={
