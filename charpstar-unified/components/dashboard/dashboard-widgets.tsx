@@ -35,7 +35,12 @@ import { BarChart, XAxis, YAxis, Bar } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { ChartTooltip } from "@/components/ui/display";
 import { useActivities } from "@/hooks/use-activities";
-import { Card, CardTitle, CardHeader } from "@/components/ui/containers";
+import {
+  Card,
+  CardTitle,
+  CardHeader,
+  Separator,
+} from "@/components/ui/containers";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -1508,15 +1513,22 @@ export function StatusPieChartWidget() {
             </ResponsiveContainer>
           </div>
           <div className="flex flex-col gap-3 min-w-[160px] select-none">
-            {chartData.map((entry) => (
-              <div key={entry.key} className="flex items-center gap-3">
-                <span
-                  className="inline-block w-4 h-4 rounded-full"
-                  style={{ background: STATUS_COLORS[entry.key] }}
-                />
-                <span className="font-medium text-sm flex-1">{entry.name}</span>
-                <span className="">{entry.value}</span>
-              </div>
+            {chartData.map((entry, index) => (
+              <>
+                <div key={entry.key} className="flex items-center gap-3">
+                  <span
+                    className="inline-block w-4 h-4 rounded-full"
+                    style={{ background: STATUS_COLORS[entry.key] }}
+                  />
+                  <span className="font-medium text-sm flex-1">
+                    {entry.name}
+                  </span>
+                  <span className="pl-6">{entry.value}</span>
+                </div>
+                {index !== chartData.length - 1 && (
+                  <Separator className="w-full" />
+                )}
+              </>
             ))}
           </div>
         </div>
