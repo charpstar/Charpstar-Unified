@@ -416,14 +416,14 @@ export default function AddProductsPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
+              <div className="border-2 border-dashed border-slate-300 dark:border-primary rounded-lg p-6 text-center">
                 <div className="h-8 w-8 bg-muted rounded animate-pulse mx-auto mb-2" />
                 <div className="h-4 w-32 bg-muted rounded animate-pulse mx-auto mb-1" />
                 <div className="h-3 w-24 bg-muted rounded animate-pulse mx-auto mb-3" />
                 <div className="h-8 w-24 bg-muted rounded animate-pulse mx-auto" />
               </div>
               <div className="h-10 w-full bg-muted rounded animate-pulse" />
-              <div className="pt-4 border-t border-slate-200">
+              <div className="pt-4 border-t border-slate-200 dark:border-primary">
                 <div className="h-3 w-48 bg-muted rounded animate-pulse mb-3" />
                 <div className="h-8 w-full bg-muted rounded animate-pulse" />
               </div>
@@ -506,7 +506,7 @@ export default function AddProductsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Article ID *
                       </Label>
                       <Input
@@ -519,7 +519,7 @@ export default function AddProductsPage() {
                     </div>
 
                     <div>
-                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Product Name *
                       </Label>
                       <Input
@@ -532,7 +532,7 @@ export default function AddProductsPage() {
                     </div>
 
                     <div>
-                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Product Link *
                       </Label>
                       <Input
@@ -545,7 +545,7 @@ export default function AddProductsPage() {
                     </div>
 
                     <div>
-                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
                         GLB Link
                       </Label>
                       <Input
@@ -558,7 +558,7 @@ export default function AddProductsPage() {
                     </div>
 
                     <div>
-                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Category *
                       </Label>
                       <Input
@@ -572,7 +572,7 @@ export default function AddProductsPage() {
                     </div>
 
                     <div>
-                      <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Subcategory
                       </Label>
                       <Input
@@ -587,7 +587,7 @@ export default function AddProductsPage() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Priority (1-3)
                     </Label>
                     <Input
@@ -605,7 +605,7 @@ export default function AddProductsPage() {
                       placeholder="2"
                       className="cursor-pointer"
                     />
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       1 = Highest priority, 3 = Lowest priority
                     </p>
                   </div>
@@ -655,22 +655,22 @@ export default function AddProductsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="text-sm text-slate-600 mb-2">
+              <div className="text-sm text-muted-foreground mb-2">
                 Upload a CSV to add multiple products at once.
               </div>
               {/* Drag & Drop Zone */}
               <div
-                ref={fileInputRef}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
                   isDragOver
                     ? "border-primary bg-primary/5"
-                    : "border-slate-300 hover:border-slate-400"
+                    : "border-slate-300 dark:border-primary hover:border-slate-400"
                 }`}
               >
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept=".csv"
                   onChange={handleFileInput}
@@ -680,15 +680,17 @@ export default function AddProductsPage() {
                 {csvLoading ? (
                   <div className="flex flex-col items-center">
                     <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-                    <p className="text-sm text-slate-600">Processing CSV...</p>
+                    <p className="text-sm text-muted-foreground">
+                      Processing CSV...
+                    </p>
                   </div>
                 ) : csvFile ? (
                   <div className="flex flex-col items-center">
                     <CheckCircle className="h-8 w-8 text-green-500 mb-2" />
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-sm font-medium text-primary">
                       {csvFile.name}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       {csvPreview
                         ? `${csvPreview.length - 1} products ready to upload`
                         : "Processing..."}
@@ -710,10 +712,10 @@ export default function AddProductsPage() {
                 ) : (
                   <div className="flex flex-col items-center">
                     <Upload className="h-8 w-8 text-slate-400 mb-2" />
-                    <p className="text-sm font-medium text-slate-900 mb-1">
+                    <p className="text-sm font-medium text-primary mb-1">
                       Drop CSV file here
                     </p>
-                    <p className="text-xs text-slate-500 mb-3">
+                    <p className="text-xs text-muted-foreground mb-3">
                       or click to browse
                     </p>
                     <Button
@@ -761,8 +763,8 @@ export default function AddProductsPage() {
               )}
 
               {/* Template Download */}
-              <div className="pt-4 border-t border-slate-200">
-                <p className="text-sm text-slate-600 mb-3">
+              <div className="pt-4 border-t border-slate-200 dark:border-primary">
+                <p className="text-sm text-muted-foreground mb-3">
                   Download the CSV template to format your data
                 </p>
                 <Button
@@ -788,7 +790,7 @@ export default function AddProductsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-sm font-medium text-muted-foreground">
                   Current Batch
                 </p>
                 <p className="text-2xl font-bold text-primary">
@@ -796,14 +798,14 @@ export default function AddProductsPage() {
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-sm font-medium text-muted-foreground">
                   Products in Form
                 </p>
-                <p className="text-2xl font-bold text-slate-900">
+                <p className="text-2xl font-bold text-primary">
                   {products.length}
                 </p>
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-muted-foreground">
                 Products will be automatically assigned to batch {currentBatch}{" "}
                 when added
               </div>
@@ -815,7 +817,7 @@ export default function AddProductsPage() {
             <CardHeader>
               <CardTitle>Instructions</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-600">
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
               <div className="flex items-start gap-2">
                 <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
                 <p>Fill in the required fields (marked with *)</p>
@@ -840,7 +842,7 @@ export default function AddProductsPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm text-slate-700">
+            <span className="text-sm text-muted-foreground">
               {csvPreview?.length
                 ? `${csvPreview.length - 1} products found. Please review before confirming.`
                 : ""}
