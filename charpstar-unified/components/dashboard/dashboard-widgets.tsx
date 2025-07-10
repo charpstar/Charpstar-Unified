@@ -14,7 +14,6 @@ import {
   Activity,
   Settings,
   FileText,
-  Zap,
   Upload,
   Plus,
   Edit,
@@ -1373,7 +1372,7 @@ export function ModelStatusWidget() {
   }, [user?.metadata?.client]);
 
   return (
-    <Card className="p-6 rounded-2xl shadow-lg bg-background w-full mx-auto flex flex-col items-center">
+    <Card className="p-6 rounded-lg shadow- bg-background w-full mx-auto flex flex-col items-center">
       <CardHeader>
         <CardTitle className="text-lg font-semibold mb-1 text-foreground">
           Total Models: {products.length}
@@ -1401,9 +1400,7 @@ export function ModelStatusWidget() {
                   style={{ background: STATUS_COLORS[key] }}
                 />
                 <span className="font-medium flex-1 text-sm">{label}</span>
-                <span className="font-bold text-lg text-primary ">
-                  {counts[key]}
-                </span>
+                <span className=" text-lg ">{counts[key]}</span>
               </div>
             )
           )}
@@ -1459,7 +1456,7 @@ export function StatusPieChartWidget() {
   }));
 
   return (
-    <Card className=" p-3 rounded-2xl shadow-lg bg-background w-full mx-auto flex flex-col items-center">
+    <Card className=" p-3 rounded-lg  bg-background w-full mx-auto flex flex-col items-center">
       <CardHeader>
         <CardTitle className="text-lg font-semibold mb-1 text-foreground">
           Model Status Distribution
@@ -1518,7 +1515,7 @@ export function StatusPieChartWidget() {
                   style={{ background: STATUS_COLORS[entry.key] }}
                 />
                 <span className="font-medium text-sm flex-1">{entry.name}</span>
-                <span className="font-bold text-base ">{entry.value}</span>
+                <span className="">{entry.value}</span>
               </div>
             ))}
           </div>
