@@ -313,25 +313,25 @@ export default function ReviewPage() {
   }, [assetId]);
 
   // Fetch revision history
-  useEffect(() => {
-    async function fetchRevisionHistory() {
-      if (!assetId) return;
+  const fetchRevisionHistory = async () => {
+    if (!assetId) return;
 
-      try {
-        const { data, error } = await supabase
-          .from("revision_history")
-          .select("*")
-          .eq("asset_id", assetId)
-          .order("revision_number", { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from("revision_history")
+        .select("*")
+        .eq("asset_id", assetId)
+        .order("revision_number", { ascending: true });
 
-        if (!error && data) {
-          setRevisionHistory(data);
-        }
-      } catch (error) {
-        console.error("Error fetching revision history:", error);
+      if (!error && data) {
+        setRevisionHistory(data);
       }
+    } catch (error) {
+      console.error("Error fetching revision history:", error);
     }
+  };
 
+  useEffect(() => {
     fetchRevisionHistory();
   }, [assetId]);
 
@@ -884,6 +884,8 @@ export default function ReviewPage() {
         setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
         setRevisionCount((prev) => prev + 1);
         toast.success("Status updated to Revisions");
+        // Refresh revision history in real-time
+        await fetchRevisionHistory();
       }
     } catch (error) {
       console.error("Error updating asset status:", error);
@@ -933,6 +935,8 @@ export default function ReviewPage() {
         setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
         setRevisionCount((prev) => prev + 1);
         toast.success("Status updated to Revisions");
+        // Refresh revision history in real-time
+        await fetchRevisionHistory();
       }
     } catch (error) {
       console.error("Error updating asset status:", error);
@@ -984,6 +988,8 @@ export default function ReviewPage() {
         toast.success(
           `Status updated to Revisions (Revision ${revisionCount + 1})`
         );
+        // Refresh revision history in real-time
+        await fetchRevisionHistory();
       }
     } catch (error) {
       console.error("Error updating asset status:", error);
@@ -1044,6 +1050,55 @@ export default function ReviewPage() {
     ];
 
     return colors[revisionNumber] || colors[revisionNumber % colors.length];
+  };
+
+  // Filter annotations and comments for a specific revision
+  const getRevisionItems = (revisionNumber: number) => {
+    if (revisionNumber === 1) {
+      // For revision 1, get items created before the first revision was requested
+      const firstRevision = revisionHistory.find(
+        (r) => r.revision_number === 1
+      );
+      if (!firstRevision) return { annotations: [], comments: [] };
+
+      const revisionDate = new Date(firstRevision.created_at);
+
+      const revisionAnnotations = annotations.filter(
+        (annotation) => new Date(annotation.created_at) < revisionDate
+      );
+
+      const revisionComments = comments.filter(
+        (comment) => new Date(comment.created_at) < revisionDate
+      );
+
+      return { annotations: revisionAnnotations, comments: revisionComments };
+    } else {
+      // For subsequent revisions, get items created between this revision and the previous one
+      const currentRevision = revisionHistory.find(
+        (r) => r.revision_number === revisionNumber
+      );
+      const previousRevision = revisionHistory.find(
+        (r) => r.revision_number === revisionNumber - 1
+      );
+
+      if (!currentRevision || !previousRevision)
+        return { annotations: [], comments: [] };
+
+      const currentDate = new Date(currentRevision.created_at);
+      const previousDate = new Date(previousRevision.created_at);
+
+      const revisionAnnotations = annotations.filter((annotation) => {
+        const annotationDate = new Date(annotation.created_at);
+        return annotationDate >= previousDate && annotationDate < currentDate;
+      });
+
+      const revisionComments = comments.filter((comment) => {
+        const commentDate = new Date(comment.created_at);
+        return commentDate >= previousDate && commentDate < currentDate;
+      });
+
+      return { annotations: revisionAnnotations, comments: revisionComments };
+    }
   };
 
   const handleImageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -2027,24 +2082,35 @@ export default function ReviewPage() {
                                 </span>
                               </div>
                               <span className="text-xs text-muted-foreground">
-                                {revision.annotations?.length || 0} annotations,{" "}
-                                {revision.comments?.length || 0} comments
+                                {
+                                  getRevisionItems(revision.revision_number)
+                                    .annotations.length
+                                }{" "}
+                                annotations,{" "}
+                                {
+                                  getRevisionItems(revision.revision_number)
+                                    .comments.length
+                                }{" "}
+                                comments
                               </span>
                             </div>
 
                             {/* Annotations Summary */}
-                            {revision.annotations &&
-                              revision.annotations.length > 0 && (
+                            {(() => {
+                              const revisionAnnotations = getRevisionItems(
+                                revision.revision_number
+                              ).annotations;
+                              return revisionAnnotations.length > 0 ? (
                                 <div className="mb-3">
                                   <h4 className="text-xs font-medium text-foreground mb-2">
-                                    Annotations ({revision.annotations.length})
+                                    Annotations ({revisionAnnotations.length})
                                   </h4>
                                   <div className="space-y-2 max-h-32 overflow-y-auto">
-                                    {revision.annotations
+                                    {revisionAnnotations
                                       .slice(0, 3)
                                       .map((annotation: any, index: number) => (
                                         <div
-                                          key={index}
+                                          key={annotation.id || index}
                                           className="text-xs p-2 bg-background rounded border"
                                         >
                                           <div className="font-medium text-muted-foreground mb-1">
@@ -2057,29 +2123,33 @@ export default function ReviewPage() {
                                           </div>
                                         </div>
                                       ))}
-                                    {revision.annotations.length > 3 && (
+                                    {revisionAnnotations.length > 3 && (
                                       <div className="text-xs text-muted-foreground text-center py-1">
-                                        +{revision.annotations.length - 3} more
+                                        +{revisionAnnotations.length - 3} more
                                         annotations
                                       </div>
                                     )}
                                   </div>
                                 </div>
-                              )}
+                              ) : null;
+                            })()}
 
                             {/* Comments Summary */}
-                            {revision.comments &&
-                              revision.comments.length > 0 && (
+                            {(() => {
+                              const revisionComments = getRevisionItems(
+                                revision.revision_number
+                              ).comments;
+                              return revisionComments.length > 0 ? (
                                 <div>
                                   <h4 className="text-xs font-medium text-foreground mb-2">
-                                    Comments ({revision.comments.length})
+                                    Comments ({revisionComments.length})
                                   </h4>
                                   <div className="space-y-2 max-h-32 overflow-y-auto">
-                                    {revision.comments
+                                    {revisionComments
                                       .slice(0, 3)
                                       .map((comment: any, index: number) => (
                                         <div
-                                          key={index}
+                                          key={comment.id || index}
                                           className="text-xs p-2 bg-background rounded border"
                                         >
                                           <div className="flex items-center justify-between mb-1">
@@ -2101,15 +2171,16 @@ export default function ReviewPage() {
                                           </div>
                                         </div>
                                       ))}
-                                    {revision.comments.length > 3 && (
+                                    {revisionComments.length > 3 && (
                                       <div className="text-xs text-muted-foreground text-center py-1">
-                                        +{revision.comments.length - 3} more
+                                        +{revisionComments.length - 3} more
                                         comments
                                       </div>
                                     )}
                                   </div>
                                 </div>
-                              )}
+                              ) : null;
+                            })()}
                           </div>
                         ))}
                       </div>
