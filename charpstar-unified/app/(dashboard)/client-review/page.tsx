@@ -155,7 +155,7 @@ export default function ReviewDashboardPage() {
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count"
         )
         .eq("client", user.metadata.client);
       if (!error && data) setAssets(data);
@@ -476,21 +476,31 @@ export default function ReviewDashboardPage() {
                       </TableCell>
                       <TableCell>{asset.delivery_date || "-"}</TableCell>
                       <TableCell>
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-semibold ${
-                            asset.status in STATUS_LABELS
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${
+                              asset.status in STATUS_LABELS
+                                ? STATUS_LABELS[
+                                    asset.status as keyof typeof STATUS_LABELS
+                                  ].color
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {asset.status in STATUS_LABELS
                               ? STATUS_LABELS[
                                   asset.status as keyof typeof STATUS_LABELS
-                                ].color
-                              : "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {asset.status in STATUS_LABELS
-                            ? STATUS_LABELS[
-                                asset.status as keyof typeof STATUS_LABELS
-                              ].label
-                            : asset.status}
-                        </span>
+                                ].label
+                              : asset.status}
+                          </span>
+                          {(asset.revision_count || 0) > 0 && (
+                            <Badge
+                              variant="secondary"
+                              className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
+                            >
+                              R{asset.revision_count}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Button

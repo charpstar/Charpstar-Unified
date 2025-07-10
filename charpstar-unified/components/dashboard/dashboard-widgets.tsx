@@ -1454,13 +1454,11 @@ export function StatusPieChartWidget() {
   }));
 
   return (
-    <Card className="p-6 rounded-2xl shadow-lg bg-background w-full  mx-auto flex flex-col items-center">
+    <Card className=" p-3 rounded-2xl shadow-lg bg-background w-full mx-auto flex flex-col items-center">
       <h3 className="text-xl font-bold mb-1 text-foreground">
         Model Status Distribution
       </h3>
-      <p className="text-sm text-muted-foreground mb-4">
-        Visual breakdown of your onboarding assets
-      </p>
+
       {chartData.every((entry) => entry.value === 0) ? (
         <div className="py-8 text-center text-muted-foreground">
           <span className="text-4xl">📊</span>
@@ -1470,8 +1468,8 @@ export function StatusPieChartWidget() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-row items-center gap-8 w-full justify-center">
-          <div className="w-48 h-48 drop-shadow-lg">
+        <div className="flex flex-row items-center gap-8 w-full justify-center select-none">
+          <div className="w-64 h-64 drop-shadow-lg">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -1493,18 +1491,19 @@ export function StatusPieChartWidget() {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    background: "var(--background)",
-                    border: "1px solid var(--border)",
+                    backgroundColor: "white",
+                    border: "1px solid #e5e7eb",
                     borderRadius: 8,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                     fontSize: 14,
+                    color: "#111827",
                   }}
                   formatter={(value: number, name: string) => [value, name]}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex flex-col gap-3 min-w-[160px]">
+          <div className="flex flex-col gap-3 min-w-[160px] select-none">
             {chartData.map((entry) => (
               <div key={entry.key} className="flex items-center gap-3">
                 <span

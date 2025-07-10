@@ -169,6 +169,14 @@ export default function ReviewPage() {
   const [referenceImageUrl, setReferenceImageUrl] = useState("");
   const [showUrlDialog, setShowUrlDialog] = useState(false);
 
+  // Revision workflow state
+  const [showRevisionDialog, setShowRevisionDialog] = useState(false);
+  const [showSecondRevisionDialog, setShowSecondRevisionDialog] =
+    useState(false);
+  const [revisionCount, setRevisionCount] = useState(0);
+  const [revisionHistory, setRevisionHistory] = useState<any[]>([]);
+  const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
+
   const modelViewerRef = useRef<any>(null);
 
   // Function to get a title-specific badge color
@@ -218,6 +226,9 @@ export default function ReviewPage() {
       }
 
       setAsset(data);
+
+      // Set revision count
+      setRevisionCount(data.revision_count || 0);
 
       // Parse reference images
       if (data.reference) {
@@ -299,6 +310,29 @@ export default function ReviewPage() {
     }
 
     fetchComments();
+  }, [assetId]);
+
+  // Fetch revision history
+  useEffect(() => {
+    async function fetchRevisionHistory() {
+      if (!assetId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from("revision_history")
+          .select("*")
+          .eq("asset_id", assetId)
+          .order("revision_number", { ascending: true });
+
+        if (!error && data) {
+          setRevisionHistory(data);
+        }
+      } catch (error) {
+        console.error("Error fetching revision history:", error);
+      }
+    }
+
+    fetchRevisionHistory();
   }, [assetId]);
 
   // Handle model load
@@ -765,12 +799,29 @@ export default function ReviewPage() {
   const updateAssetStatus = async (newStatus: string) => {
     if (!assetId) return;
 
+    // Handle revision workflow
+    if (newStatus === "revisions") {
+      const currentRevisionCount = revisionCount + 1;
+
+      if (currentRevisionCount === 1 || currentRevisionCount === 2) {
+        setShowRevisionDialog(true);
+        return;
+      } else if (currentRevisionCount >= 3) {
+        setShowSecondRevisionDialog(true);
+        return;
+      }
+    }
+
     setStatusUpdating(true);
 
     try {
       const { error } = await supabase
         .from("onboarding_assets")
-        .update({ status: newStatus })
+        .update({
+          status: newStatus,
+          revision_count:
+            newStatus === "revisions" ? revisionCount + 1 : revisionCount,
+        })
         .eq("id", assetId);
 
       if (error) {
@@ -778,6 +829,9 @@ export default function ReviewPage() {
         toast.error("Failed to update status");
       } else {
         setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
+        if (newStatus === "revisions") {
+          setRevisionCount((prev) => prev + 1);
+        }
         toast.success(
           `Status updated to ${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}`
         );
@@ -788,6 +842,208 @@ export default function ReviewPage() {
     } finally {
       setStatusUpdating(false);
     }
+  };
+
+  // Handle revision confirmation
+  const handleRevisionConfirm = async () => {
+    setShowRevisionDialog(false);
+    setStatusUpdating(true);
+
+    try {
+      // Save current annotations and comments to history
+      const historyData = {
+        asset_id: assetId,
+        revision_number: revisionCount + 1,
+        annotations: annotations,
+        comments: comments,
+        created_at: new Date().toISOString(),
+        created_by: user?.id || "unknown",
+      };
+
+      const { error: historyError } = await supabase
+        .from("revision_history")
+        .insert(historyData);
+
+      if (historyError) {
+        console.error("Error saving revision history:", historyError);
+        // Continue with status update even if history save fails
+      }
+
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({
+          status: "revisions",
+          revision_count: revisionCount + 1,
+        })
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error updating asset status:", error);
+        toast.error("Failed to update status");
+      } else {
+        setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
+        setRevisionCount((prev) => prev + 1);
+        toast.success("Status updated to Revisions");
+      }
+    } catch (error) {
+      console.error("Error updating asset status:", error);
+      toast.error("Failed to update status");
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
+  // Handle second revision confirmation
+  const handleSecondRevisionConfirm = async () => {
+    setShowSecondRevisionDialog(false);
+    setStatusUpdating(true);
+
+    try {
+      // Save current annotations and comments to history
+      const historyData = {
+        asset_id: assetId,
+        revision_number: revisionCount + 1,
+        annotations: annotations,
+        comments: comments,
+        created_at: new Date().toISOString(),
+        created_by: user?.id || "unknown",
+      };
+
+      const { error: historyError } = await supabase
+        .from("revision_history")
+        .insert(historyData);
+
+      if (historyError) {
+        console.error("Error saving revision history:", historyError);
+        // Continue with status update even if history save fails
+      }
+
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({
+          status: "revisions",
+          revision_count: revisionCount + 1,
+        })
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error updating asset status:", error);
+        toast.error("Failed to update status");
+      } else {
+        setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
+        setRevisionCount((prev) => prev + 1);
+        toast.success("Status updated to Revisions");
+      }
+    } catch (error) {
+      console.error("Error updating asset status:", error);
+      toast.error("Failed to update status");
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
+  // Handle additional revision confirmation (3rd and beyond)
+  const handleAdditionalRevisionConfirm = async () => {
+    setShowSecondRevisionDialog(false);
+    setStatusUpdating(true);
+
+    try {
+      // Save current annotations and comments to history
+      const historyData = {
+        asset_id: assetId,
+        revision_number: revisionCount + 1,
+        annotations: annotations,
+        comments: comments,
+        created_at: new Date().toISOString(),
+        created_by: user?.id || "unknown",
+      };
+
+      const { error: historyError } = await supabase
+        .from("revision_history")
+        .insert(historyData);
+
+      if (historyError) {
+        console.error("Error saving revision history:", historyError);
+        // Continue with status update even if history save fails
+      }
+
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({
+          status: "revisions",
+          revision_count: revisionCount + 1,
+        })
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error updating asset status:", error);
+        toast.error("Failed to update status");
+      } else {
+        setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
+        setRevisionCount((prev) => prev + 1);
+        toast.success(
+          `Status updated to Revisions (Revision ${revisionCount + 1})`
+        );
+      }
+    } catch (error) {
+      console.error("Error updating asset status:", error);
+      toast.error("Failed to update status");
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
+  // Check if functionality should be disabled
+  const isFunctionalityDisabled = () => {
+    return asset?.status === "revisions" && revisionCount >= 1;
+  };
+
+  // Function to determine which revision an item was added in
+  const getRevisionForItem = (createdAt: string) => {
+    if (revisionHistory.length === 0) return null;
+
+    const itemDate = new Date(createdAt);
+
+    // Find the revision that was created after this item
+    for (let i = revisionHistory.length - 1; i >= 0; i--) {
+      const revisionDate = new Date(revisionHistory[i].created_at);
+      if (itemDate <= revisionDate) {
+        return revisionHistory[i].revision_number;
+      }
+    }
+
+    // If item was created before any revision, it's from the original (revision 0)
+    return 0;
+  };
+
+  // Function to get color classes for revision badges
+  const getRevisionBadgeColors = (revisionNumber: number) => {
+    const colors = [
+      // R0 - Original (Gray)
+      "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800/30 dark:text-gray-300 dark:border-gray-700/50",
+      // R1 - Blue
+      "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/50",
+      // R2 - Green
+      "bg-green-100 text-green-800 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/50",
+      // R3 - Purple
+      "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/50",
+      // R4 - Orange
+      "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/50",
+      // R5 - Red
+      "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800/50",
+      // R6 - Indigo
+      "bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800/50",
+      // R7 - Pink
+      "bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-950/30 dark:text-pink-300 dark:border-pink-800/50",
+      // R8 - Teal
+      "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800/50",
+      // R9 - Amber
+      "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50",
+      // R10 - Cyan
+      "bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-950/30 dark:text-cyan-300 dark:border-cyan-800/50",
+    ];
+
+    return colors[revisionNumber] || colors[revisionNumber % colors.length];
   };
 
   const handleImageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1163,6 +1419,14 @@ export default function ReviewPage() {
                   <span className="text-sm text-muted-foreground font-medium">
                     {asset?.article_id}
                   </span>
+                  {revisionCount > 0 && (
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-semibold ${getRevisionBadgeColors(revisionCount)}`}
+                    >
+                      R{revisionCount}
+                    </Badge>
+                  )}
                   {asset?.delivery_date && (
                     <span className="text-xs text-muted-foreground">
                       Due: {new Date(asset.delivery_date).toLocaleDateString()}
@@ -1315,6 +1579,7 @@ export default function ReviewPage() {
                                     : ""
                                 }`}
                                 onClick={(e) => {
+                                  if (isFunctionalityDisabled()) return;
                                   e.stopPropagation();
                                   // Find the annotation and start inline editing
                                   const annotation = annotations.find(
@@ -1324,8 +1589,17 @@ export default function ReviewPage() {
                                     switchToEditing(annotation, true);
                                   }
                                 }}
-                                style={{ cursor: "pointer" }}
-                                title="Click to edit comment"
+                                style={{
+                                  cursor: isFunctionalityDisabled()
+                                    ? "not-allowed"
+                                    : "pointer",
+                                  opacity: isFunctionalityDisabled() ? 0.5 : 1,
+                                }}
+                                title={
+                                  isFunctionalityDisabled()
+                                    ? "Editing disabled during revision"
+                                    : "Click to edit comment"
+                                }
                               >
                                 <div className="comment-text">
                                   {hotspot.comment}
@@ -1623,19 +1897,47 @@ export default function ReviewPage() {
                 </div>
               )}
 
+              {/* Functionality Disabled Warning */}
+              {isFunctionalityDisabled() && (
+                <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-red-950/20 dark:border-red-800/30">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    <div>
+                      <h4 className="font-semibold text-red-800 dark:text-red-200">
+                        Functionality Disabled
+                      </h4>
+                      <p className="text-sm text-red-700 dark:text-red-300">
+                        Annotations and comments are disabled during revision
+                        mode.
+                        {revisionCount >= 3 &&
+                          ` This is revision #${revisionCount} - additional costs may apply.`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Asset Status Buttons */}
               <div className="mt-6 p-4 bg-muted/30 rounded-lg border border-border/50">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm  ">Asset Status</h3>
-                  <Badge
-                    variant={
-                      asset?.status === "approved" ? "default" : "secondary"
-                    }
-                    className="text-xs"
-                  >
-                    {STATUS_LABELS[asset?.status as keyof typeof STATUS_LABELS]
-                      ?.label || "Unknown"}
-                  </Badge>
+                  <h3 className="text-sm">Asset Status</h3>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        asset?.status === "approved" ? "default" : "secondary"
+                      }
+                      className="text-xs"
+                    >
+                      {STATUS_LABELS[
+                        asset?.status as keyof typeof STATUS_LABELS
+                      ]?.label || "Unknown"}
+                    </Badge>
+                    {revisionCount > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        Revision {revisionCount}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-3">
                   <Button
@@ -1672,9 +1974,149 @@ export default function ReviewPage() {
                     ) : (
                       <AlertCircle className="h-4 w-4 mr-2" />
                     )}
-                    Revisions
+                    Revisions {revisionCount > 0 && `(${revisionCount})`}
                   </Button>
                 </div>
+
+                {/* Revision History Dropdown */}
+                {revisionHistory.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Revision History
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setShowHistoryDropdown(!showHistoryDropdown)
+                        }
+                        className="text-xs text-muted-foreground cursor-pointer"
+                      >
+                        {showHistoryDropdown ? "Hide" : "Show"} History
+                      </Button>
+                    </div>
+
+                    <div
+                      className={`transition-all duration-700 ease-in-out ${
+                        showHistoryDropdown
+                          ? "max-h-fit-content opacity-100"
+                          : "max-h-0 opacity-0 overflow-hidden"
+                      }`}
+                      style={{
+                        transitionDelay: showHistoryDropdown ? "0ms" : "200ms",
+                      }}
+                    >
+                      <div className="space-y-3 overflow-y-auto max-h-fit-content">
+                        {revisionHistory.map((revision) => (
+                          <div
+                            key={revision.id}
+                            className="p-4 border border-border rounded-lg bg-muted/30"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs font-semibold ${getRevisionBadgeColors(revision.revision_number)}`}
+                                >
+                                  R{revision.revision_number}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(
+                                    revision.created_at
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {revision.annotations?.length || 0} annotations,{" "}
+                                {revision.comments?.length || 0} comments
+                              </span>
+                            </div>
+
+                            {/* Annotations Summary */}
+                            {revision.annotations &&
+                              revision.annotations.length > 0 && (
+                                <div className="mb-3">
+                                  <h4 className="text-xs font-medium text-foreground mb-2">
+                                    Annotations ({revision.annotations.length})
+                                  </h4>
+                                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                                    {revision.annotations
+                                      .slice(0, 3)
+                                      .map((annotation: any, index: number) => (
+                                        <div
+                                          key={index}
+                                          className="text-xs p-2 bg-background rounded border"
+                                        >
+                                          <div className="font-medium text-muted-foreground mb-1">
+                                            Annotation {index + 1}
+                                          </div>
+                                          <div className="text-foreground">
+                                            {annotation.comment?.length > 100
+                                              ? `${annotation.comment.substring(0, 100)}...`
+                                              : annotation.comment}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    {revision.annotations.length > 3 && (
+                                      <div className="text-xs text-muted-foreground text-center py-1">
+                                        +{revision.annotations.length - 3} more
+                                        annotations
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                            {/* Comments Summary */}
+                            {revision.comments &&
+                              revision.comments.length > 0 && (
+                                <div>
+                                  <h4 className="text-xs font-medium text-foreground mb-2">
+                                    Comments ({revision.comments.length})
+                                  </h4>
+                                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                                    {revision.comments
+                                      .slice(0, 3)
+                                      .map((comment: any, index: number) => (
+                                        <div
+                                          key={index}
+                                          className="text-xs p-2 bg-background rounded border"
+                                        >
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="font-medium text-muted-foreground">
+                                              {comment.profiles?.name ||
+                                                comment.profiles?.email ||
+                                                "Unknown"}
+                                            </span>
+                                            <span className="text-muted-foreground">
+                                              {comment.profiles?.title ||
+                                                comment.profiles?.role ||
+                                                ""}
+                                            </span>
+                                          </div>
+                                          <div className="text-foreground">
+                                            {comment.comment?.length > 100
+                                              ? `${comment.comment.substring(0, 100)}...`
+                                              : comment.comment}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    {revision.comments.length > 3 && (
+                                      <div className="text-xs text-muted-foreground text-center py-1">
+                                        +{revision.comments.length - 3} more
+                                        comments
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1744,16 +2186,33 @@ export default function ReviewPage() {
                       variant={annotationMode ? "default" : "outline"}
                       size="sm"
                       onClick={() => setAnnotationMode(!annotationMode)}
+                      disabled={isFunctionalityDisabled()}
                       className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
                         annotationMode
                           ? "bg-primary hover:bg-primary/90 shadow-sm"
                           : "border-border hover:bg-accent hover:border-border"
+                      } ${
+                        isFunctionalityDisabled()
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
                       }`}
                     >
                       <Plus className="h-3 w-3 mr-1" />
                       {annotationMode ? "Cancel" : "Add Annotation"}
                     </Button>
                   </div>
+
+                  {/* Annotations Disabled Banner */}
+                  {isFunctionalityDisabled() && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 dark:bg-yellow-950/20 dark:border-yellow-800/30">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                        <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
+                          Annotations disabled - Asset is in revision mode
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Multi-Delete Actions */}
                   {deleteMode && selectedAnnotations.length > 0 && (
@@ -1861,6 +2320,12 @@ export default function ReviewPage() {
                                   setEditComment(annotation.comment);
                                   setEditImageUrl(annotation.image_url || "");
                                 }}
+                                disabled={isFunctionalityDisabled()}
+                                className={
+                                  isFunctionalityDisabled()
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : ""
+                                }
                               >
                                 <Edit3 className="h-3 w-3 mr-2" />
                                 Edit Annotation
@@ -2054,15 +2519,22 @@ export default function ReviewPage() {
                               </div>
                             ) : (
                               <div
-                                className={`text-sm text-foreground cursor-pointer hover:bg-muted/50 p-2 rounded-md transition-colors -m-2 group relative ${
+                                className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
                                   inlineEditingId === annotation.id
                                     ? "bg-primary/10 border border-primary/20"
-                                    : ""
+                                    : isFunctionalityDisabled()
+                                      ? "opacity-50 cursor-not-allowed"
+                                      : "cursor-pointer hover:bg-muted/50"
                                 }`}
                                 onClick={() =>
+                                  !isFunctionalityDisabled() &&
                                   switchToEditing(annotation, false)
                                 }
-                                title="Click to edit comment"
+                                title={
+                                  isFunctionalityDisabled()
+                                    ? "Editing disabled during revision"
+                                    : "Click to edit comment"
+                                }
                               >
                                 <div className="flex items-start justify-between">
                                   <span className="flex-1">
@@ -2119,9 +2591,21 @@ export default function ReviewPage() {
                           </div>
                         )}
 
-                        <div className="mt-4 text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full inline-block border border-border/50">
-                          Created on{" "}
-                          {new Date(annotation.created_at).toLocaleDateString()}
+                        <div className="mt-4 flex items-center gap-2">
+                          <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full inline-block border border-border/50">
+                            Created on{" "}
+                            {new Date(
+                              annotation.created_at
+                            ).toLocaleDateString()}
+                          </div>
+                          {revisionHistory.length > 0 && (
+                            <Badge
+                              variant="outline"
+                              className={`text-xs font-semibold ${getRevisionBadgeColors(getRevisionForItem(annotation.created_at) || 0)}`}
+                            >
+                              R{getRevisionForItem(annotation.created_at) || 0}
+                            </Badge>
+                          )}
                         </div>
                       </Card>
                     ))}
@@ -2154,17 +2638,38 @@ export default function ReviewPage() {
 
                     {/* Add New Comment */}
                     <div className="space-y-3 mb-6">
+                      {isFunctionalityDisabled() && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                            <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
+                              Comments disabled - Asset is in revision mode
+                            </span>
+                          </div>
+                        </div>
+                      )}
                       <Textarea
-                        placeholder="Add a comment about this asset..."
+                        placeholder={
+                          isFunctionalityDisabled()
+                            ? "Comments disabled during revision"
+                            : "Add a comment about this asset..."
+                        }
                         value={newCommentText}
                         onChange={(e) => setNewCommentText(e.target.value)}
                         onKeyDown={handleNewCommentKeyDown}
-                        className="min-h-[100px] border-border focus:border-primary focus:ring-primary"
+                        disabled={isFunctionalityDisabled()}
+                        className={`min-h-[100px] border-border focus:border-primary focus:ring-primary ${
+                          isFunctionalityDisabled()
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
                         rows={4}
                       />
                       <div className="flex gap-2 text-xs text-muted-foreground">
                         <span>
-                          Press Enter to send, Shift+Enter for new line
+                          {isFunctionalityDisabled()
+                            ? "Comments are disabled during revision mode"
+                            : "Press Enter to send, Shift+Enter for new line"}
                         </span>
                       </div>
                     </div>
@@ -2221,6 +2726,12 @@ export default function ReviewPage() {
                                 onClick={() => {
                                   startCommentInlineEdit(comment);
                                 }}
+                                disabled={isFunctionalityDisabled()}
+                                className={
+                                  isFunctionalityDisabled()
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : ""
+                                }
                               >
                                 <Edit3 className="h-3 w-3 mr-2" />
                                 Edit Comment
@@ -2261,11 +2772,21 @@ export default function ReviewPage() {
                           </div>
                         ) : (
                           <div
-                            className="text-sm text-foreground cursor-pointer hover:bg-muted/50 p-2 rounded-md transition-colors -m-2 group relative"
+                            className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
+                              isFunctionalityDisabled()
+                                ? "opacity-50 cursor-not-allowed"
+                                : "cursor-pointer hover:bg-muted/50"
+                            }`}
                             onClick={() => {
-                              startCommentInlineEdit(comment);
+                              if (!isFunctionalityDisabled()) {
+                                startCommentInlineEdit(comment);
+                              }
                             }}
-                            title="Click to edit comment"
+                            title={
+                              isFunctionalityDisabled()
+                                ? "Editing disabled during revision"
+                                : "Click to edit comment"
+                            }
                           >
                             <div className="flex items-start justify-between">
                               <div className="flex-1 break-words w-full">
@@ -2278,9 +2799,19 @@ export default function ReviewPage() {
                           </div>
                         )}
 
-                        <div className="mt-4 text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full inline-block border border-border/50">
-                          Created on{" "}
-                          {new Date(comment.created_at).toLocaleDateString()}
+                        <div className="mt-4 flex items-center gap-2">
+                          <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full inline-block border border-border/50">
+                            Created on{" "}
+                            {new Date(comment.created_at).toLocaleDateString()}
+                          </div>
+                          {revisionHistory.length > 0 && (
+                            <Badge
+                              variant="outline"
+                              className={`text-xs font-semibold ${getRevisionBadgeColors(getRevisionForItem(comment.created_at) || 0)}`}
+                            >
+                              R{getRevisionForItem(comment.created_at) || 0}
+                            </Badge>
+                          )}
                         </div>
                       </Card>
                     ))}
@@ -2630,6 +3161,121 @@ export default function ReviewPage() {
                   setShowUrlDialog(false);
                   setReferenceImageUrl("");
                 }}
+                className="border-border hover:bg-accent cursor-pointer"
+              >
+                Cancel
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* First Revision Dialog */}
+        <Dialog open={showRevisionDialog} onOpenChange={setShowRevisionDialog}>
+          <DialogContent className="sm:max-w-[500px] h-fit">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-foreground">
+                Confirm Revision Request
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Please review all annotations and comments before proceeding.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-200">
+                      Important Notice
+                    </h4>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                      Make sure all annotations and comments are correct. No
+                      more can be added until the 2nd revision.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p>
+                  • All annotation and comment functionality will be disabled
+                </p>
+                <p>• Only status updates will be allowed</p>
+                <p>• This action cannot be undone</p>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-4 border-t border-border">
+              <Button
+                onClick={handleRevisionConfirm}
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-medium cursor-pointer"
+              >
+                Confirm Revision Request
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowRevisionDialog(false)}
+                className="border-border hover:bg-accent cursor-pointer"
+              >
+                Cancel
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Additional Revisions Dialog */}
+        <Dialog
+          open={showSecondRevisionDialog}
+          onOpenChange={setShowSecondRevisionDialog}
+        >
+          <DialogContent className="sm:max-w-[500px] h-fit">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-red-700 dark:text-red-400">
+                ⚠️ Additional Revision Warning
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                This is revision #{revisionCount + 1} for this asset.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-950/20 dark:border-red-800/30">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-red-800 dark:text-red-200">
+                      Cost Warning
+                    </h4>
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      Additional revisions may incur costs if the changes are
+                      client requests and not due to modeling errors.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p>• This revision will be reviewed for billing purposes</p>
+                <p>• Client-requested changes may be added to invoice</p>
+                <p>• Modeling errors will not incur additional costs</p>
+                {revisionCount >= 3 && (
+                  <p className="font-medium text-red-600 dark:text-red-400">
+                    • This is revision #{revisionCount + 1} - fees will likely
+                    apply
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3 pt-4 border-t border-border">
+              <Button
+                onClick={
+                  revisionCount >= 2
+                    ? handleAdditionalRevisionConfirm
+                    : handleSecondRevisionConfirm
+                }
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
+              >
+                Proceed with Revision #{revisionCount + 1}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowSecondRevisionDialog(false)}
                 className="border-border hover:bg-accent cursor-pointer"
               >
                 Cancel
