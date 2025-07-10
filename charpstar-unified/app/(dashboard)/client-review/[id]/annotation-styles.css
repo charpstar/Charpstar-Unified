@@ -1,247 +1,151 @@
+:root {
+  --hotspot-neutral: #cbd5e1; /* slate-200 */
+  --hotspot-neutral-dark: #64748b; /* slate-500 */
+  --hotspot-neutral-bg: #f1f5f9; /* slate-50 */
+  --hotspot-blue: #60a5fa; /* blue-400 */
+  --hotspot-blue-light: #e0eaff; /* faded blue for subtle bg */
+}
+
 .annotation-hotspot {
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
+  appearance: none;
+  outline: none;
 }
 
-.annotation-dot {
-  width: 32px;
-  height: 32px;
-  background: rgba(59, 130, 246, 0.9);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
-}
-
-.annotation-dot:hover {
-  background: rgba(59, 130, 246, 1);
-  transform: scale(1.1);
-}
-
-/* Modern hotspot styles */
-.hotspot-annotation {
-  position: relative;
-  cursor: pointer;
-}
-
+/* Hotspot marker */
 .hotspot-marker {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    transform 0.18s,
+    box-shadow 0.17s;
 }
 
-.hotspot-marker.selected {
-  transform: scale(1.6);
-  z-index: 1000;
+.hotspot-marker.selected,
+.hotspot-marker:focus-within {
+  z-index: 10;
+  /* Subtle upsize for active/focus */
+  transform: scale(1.11);
 }
 
-.hotspot-marker.selected::before {
-  content: "";
-  position: absolute;
-  width: 80px;
-  height: 80px;
-  background: radial-gradient(
-    circle,
-    rgba(59, 130, 246, 0.3) 0%,
-    transparent 70%
-  );
-  border-radius: 50%;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(0.8);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(0.8);
-    opacity: 1;
-  }
-}
-
+/* Main dot: neutral grey, simple shadow */
+.hotspot-dot,
 .hotspot-icon {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, var(--hotspot-color, #606876), #575c6b);
+  width: 26px;
+  height: 26px;
+  background: linear-gradient(135deg, var(--hotspot-neutral) 90%, #fff 100%);
   border-radius: 50%;
-  box-shadow:
-    0 6px 20px rgba(59, 130, 246, 0.6),
-    0 0 20px rgba(59, 130, 246, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid var(--hotspot-neutral-dark);
+  box-shadow: 0 1px 4px rgba(80, 90, 110, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 3px solid rgba(255, 255, 255, 0.8);
+  color: var(--hotspot-neutral-dark);
+  font-weight: bold;
+  font-size: 18px;
+  transition:
+    border-color 0.17s,
+    background 0.18s,
+    color 0.14s,
+    box-shadow 0.18s,
+    transform 0.16s;
 }
 
+.hotspot-dot:hover,
 .hotspot-icon:hover {
-  transform: scale(1.2);
-  box-shadow:
-    0 8px 25px rgba(59, 130, 246, 0.8),
-    0 0 30px rgba(59, 130, 246, 0.4);
-  border-color: rgba(255, 255, 255, 1);
-}
-
-.hotspot-marker.selected .hotspot-icon {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  box-shadow:
-    0 8px 25px rgba(59, 130, 246, 0.9),
-    0 0 40px rgba(59, 130, 246, 0.6),
-    0 0 60px rgba(59, 130, 246, 0.3);
-  border: 4px solid rgba(255, 255, 255, 1);
+  border-color: var(--hotspot-blue);
+  background: linear-gradient(135deg, var(--hotspot-blue-light) 96%, #fff 100%);
+  color: var(--hotspot-blue);
+  box-shadow: 0 2px 8px rgba(96, 165, 250, 0.1);
   transform: scale(1.1);
 }
 
-.hotspot-dot {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, var(--hotspot-color, #3b82f6), #1c243d);
-  border-radius: 50%;
-  box-shadow:
-    0 6px 20px rgba(59, 130, 246, 0.6),
-    0 0 20px rgba(59, 130, 246, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px dashed rgba(255, 255, 255, 0.8);
+.hotspot-marker.selected .hotspot-dot,
+.hotspot-marker.selected .hotspot-icon,
+.hotspot-marker:focus-within .hotspot-dot,
+.hotspot-marker:focus-within .hotspot-icon {
+  border-color: var(--hotspot-blue);
+  background: linear-gradient(135deg, var(--hotspot-blue-light) 90%, #fff 100%);
+  color: var(--hotspot-blue);
 }
 
-.hotspot-dot:hover {
-  transform: scale(1.2);
-  box-shadow:
-    0 8px 25px rgba(59, 130, 246, 0.8),
-    0 0 30px rgba(59, 130, 246, 0.4);
-  border-color: rgba(255, 255, 255, 1);
-}
-
-.hotspot-marker.selected .hotspot-dot {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  box-shadow:
-    0 8px 25px rgba(59, 130, 246, 0.9),
-    0 0 40px rgba(59, 130, 246, 0.6),
-    0 0 60px rgba(59, 130, 246, 0.3);
-  border: 2px solid rgba(255, 255, 255, 1);
-  transform: scale(1.1);
-}
-
+/* Comment bubble: light glass, subtle shadow, grey border */
 .hotspot-comment {
   position: absolute;
   top: -60px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10;
+  z-index: 12;
 }
 
 .comment-bubble {
   background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(15px);
-  border: 2px solid rgba(59, 130, 246, 0.3);
-  border-radius: 16px;
-  padding: 16px 20px;
-  font-size: 14px;
-  color: #1e293b;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-  max-width: 280px;
+  border: 1.5px solid var(--hotspot-neutral);
+  border-radius: 14px 14px 14px 6px;
+  padding: 14px 19px;
+  font-size: 15px;
+  color: #334155;
+  box-shadow: 0 4px 20px rgba(100, 116, 139, 0.08);
+  max-width: 260px;
   word-wrap: break-word;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 16px 16px 16px 6px;
-  position: relative;
   font-weight: 500;
+  transition:
+    box-shadow 0.18s,
+    border-color 0.14s,
+    background 0.15s;
 }
 
-.comment-bubble:hover {
-  background: rgba(255, 255, 255, 1);
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.2);
-  transform: translateY(-3px);
-  border-color: rgba(59, 130, 246, 0.5);
-}
-
+.comment-bubble:hover,
 .hotspot-marker.selected .comment-bubble {
-  background: rgba(255, 255, 255, 1);
-  border: 3px solid rgba(59, 130, 246, 0.8);
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.25),
-    0 0 40px rgba(59, 130, 246, 0.2);
-  transform: translateY(-5px) scale(1.02);
-  z-index: 1001;
+  border-color: var(--hotspot-blue);
+  box-shadow: 0 6px 30px rgba(96, 165, 250, 0.1);
+  background: #fff;
 }
 
 .comment-bubble::before {
   content: "";
   position: absolute;
   bottom: -10px;
-  left: 50%;
+  left: 48%;
   transform: translateX(-50%);
   width: 0;
   height: 0;
   border-left: 10px solid transparent;
   border-right: 10px solid transparent;
-  border-top: 10px solid rgba(255, 255, 255, 0.98);
+  border-top: 10px solid #fff;
+  filter: drop-shadow(0 2px 2px rgba(100, 116, 139, 0.08));
 }
 
-.comment-text {
-  margin-bottom: 8px;
-  line-height: 1.5;
-  font-weight: 500;
-  color: #0f172a;
-}
-
+/* Optional: keep icon edit minimal/blue */
 .comment-edit-icon {
   position: absolute;
   top: 8px;
   right: 8px;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  color: var(--hotspot-blue);
+  transition: opacity 0.16s;
 }
-
-.comment-bubble:hover .comment-edit-icon,
-.comment-bubble.group:hover .comment-edit-icon {
+.comment-bubble:hover .comment-edit-icon {
   opacity: 1;
 }
 
-.comment-bubble.editing {
-  background: rgba(255, 255, 255, 1);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-  transform: translateY(-2px);
-  min-width: 200px;
-  max-width: 300px;
-  border: 2px solid rgba(59, 130, 246, 0.3);
-  z-index: 1000;
-}
-
-.comment-bubble.editing .comment-edit-icon {
-  opacity: 1;
-  color: #3b82f6;
-}
-
+/* Input/textarea styles - minimal */
 .comment-textarea {
-  width: 100%;
   background: transparent;
   border: none;
   outline: none;
-  font-size: 13px;
-  color: #1e293b;
-  font-family: inherit;
-  line-height: 1.4;
+  width: 100%;
+  color: #334155;
+  font-size: 15px;
   resize: none;
-  margin-bottom: 8px;
-}
-
-.comment-textarea::placeholder {
-  color: #94a3b8;
 }
 
 .comment-edit-hint {
@@ -249,20 +153,4 @@
   color: #64748b;
   font-style: italic;
   margin-top: 4px;
-}
-
-/* Hide scrollbar for carousel */
-.scrollbar-hide {
-  -ms-overflow-style: none; /* Internet Explorer 10+ */
-  scrollbar-width: none; /* Firefox */
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none; /* Safari and Chrome */
-}
-
-.comment-image {
-  border-top: 1px solid rgba(226, 232, 240, 0.6);
-  padding-top: 8px;
-  margin-top: 8px;
 }
