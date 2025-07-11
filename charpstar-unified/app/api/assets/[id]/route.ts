@@ -32,10 +32,10 @@ export async function GET(
       );
     }
 
-    // Get user's profile to get their client
+    // Get user's profile to get their client and role
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("client")
+      .select("client, role")
       .eq("id", session.user.id)
       .single();
 
@@ -52,9 +52,11 @@ export async function GET(
       return NextResponse.json({ error: "Asset ID required" }, { status: 400 });
     }
 
-    // Fetch the asset by ID, filtered by client if available
+    // Fetch the asset by ID
     let query = supabase.from("assets").select("*").eq("id", assetId);
-    if (profile?.client) {
+
+    // Only filter by client if user is not an admin
+    if (profile?.role !== "admin" && profile?.client) {
       query = query.eq("client", profile.client);
     }
     const { data: asset, error } = await query.single();
