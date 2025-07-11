@@ -2,16 +2,15 @@
 
 import * as React from "react";
 import {
-  IconCamera,
-  IconChartBar,
-  IconDashboard,
-  IconFileAi,
-  IconFileDescription,
-  IconFolder,
-  IconUsers,
-  IconClipboardList,
-  IconEye,
-} from "@tabler/icons-react";
+  Camera,
+  BarChart3,
+  LayoutDashboard,
+  FileText,
+  Folder,
+  Users,
+  ClipboardList,
+  Eye,
+} from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
 import NavSecondary from "@/components/navigation/nav-secondary";
@@ -55,7 +54,7 @@ export default function AppSidebar({
         {
           title: "Dashboard",
           url: "/dashboard",
-          icon: IconDashboard,
+          icon: LayoutDashboard,
         },
         // Hide Analytics and Asset Library for clients in onboarding
         ...(user?.metadata?.role === "client" &&
@@ -65,12 +64,12 @@ export default function AppSidebar({
               {
                 title: "Analytics",
                 url: "/analytics",
-                icon: IconChartBar,
+                icon: BarChart3,
               },
               {
                 title: "Asset Library",
                 url: "/asset-library",
-                icon: IconFolder,
+                icon: Folder,
               },
             ]),
         // Add Products and Review pages for clients only
@@ -80,12 +79,12 @@ export default function AppSidebar({
               {
                 title: "Add Products",
                 url: "/add-products",
-                icon: IconClipboardList,
+                icon: ClipboardList,
               },
               {
                 title: "Client Review",
                 url: "/client-review",
-                icon: IconEye,
+                icon: Eye,
               },
             ]
           : []),
@@ -95,7 +94,7 @@ export default function AppSidebar({
         {
           title: "Dashboard",
           url: "/dashboard",
-          icon: IconDashboard,
+          icon: LayoutDashboard,
         },
       ];
 
@@ -106,12 +105,12 @@ export default function AppSidebar({
           {
             title: "Onboarding",
             url: "/onboarding",
-            icon: IconUsers,
+            icon: Users,
           },
           {
             title: "Admin Review",
             url: "/admin-review",
-            icon: IconEye,
+            icon: Eye,
           },
         ]
       : [];
@@ -140,7 +139,7 @@ export default function AppSidebar({
     navClouds: [
       {
         title: "Capture",
-        icon: IconCamera,
+        icon: Camera,
         isActive: true,
         url: "#",
         items: [
@@ -156,7 +155,7 @@ export default function AppSidebar({
       },
       {
         title: "Proposal",
-        icon: IconFileDescription,
+        icon: FileText,
         url: "#",
         items: [
           {
@@ -171,7 +170,7 @@ export default function AppSidebar({
       },
       {
         title: "Prompts",
-        icon: IconFileAi,
+        icon: FileText,
         url: "#",
         items: [
           {

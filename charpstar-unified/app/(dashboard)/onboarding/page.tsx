@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@/contexts/useUser";
 import { useRouter } from "next/navigation";
 import { useLoading } from "@/contexts/LoadingContext";
-import { Button } from "@/components/ui/display";
+import { Button, Label } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import { Card } from "@/components/ui/containers";
@@ -34,6 +34,13 @@ import {
   Trash2,
 } from "lucide-react";
 import { useToast } from "@/components/ui/utilities";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/inputs/select";
 
 interface Invitation {
   id: string;
@@ -372,8 +379,14 @@ export default function OnboardingPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Email Address</label>
+                <Label
+                  className="text-sm font-medium mb-1"
+                  htmlFor="invite_email"
+                >
+                  Email Address
+                </Label>
                 <Input
+                  id="invite_email"
                   type="email"
                   placeholder="client@company.com"
                   value={newInviteData.email}
@@ -387,12 +400,12 @@ export default function OnboardingPage() {
               </div>
               {newInviteData.role === "client" ? (
                 <div>
-                  <label
+                  <Label
                     htmlFor="client_name"
                     className="block text-sm font-medium mb-1"
                   >
                     Client Name
-                  </label>
+                  </Label>
                   <Input
                     id="client_name"
                     type="text"
@@ -409,12 +422,12 @@ export default function OnboardingPage() {
                 </div>
               ) : (
                 <div>
-                  <label
+                  <Label
                     htmlFor="client_name"
                     className="block text-sm font-medium mb-1"
                   >
                     Name
-                  </label>
+                  </Label>
                   <Input
                     id="client_name"
                     type="text"
@@ -431,21 +444,22 @@ export default function OnboardingPage() {
                 </div>
               )}
               <div>
-                <label className="text-sm font-medium">Role</label>
-                <select
-                  className="w-full p-2 border rounded-md cursor-pointer"
+                <Label className="text-sm font-medium mb-1">Role</Label>
+                <Select
                   value={newInviteData.role}
-                  onChange={(e) =>
-                    setNewInviteData((prev) => ({
-                      ...prev,
-                      role: e.target.value,
-                    }))
+                  onValueChange={(value) =>
+                    setNewInviteData((prev) => ({ ...prev, role: value }))
                   }
                 >
-                  <option value="client">client</option>
-                  <option value="modeler">3D Modeler</option>
-                  <option value="qa">Quality Assurance</option>
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="client">client</SelectItem>
+                    <SelectItem value="modeler">3D Modeler</SelectItem>
+                    <SelectItem value="qa">Quality Assurance</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex gap-2">
                 <Button

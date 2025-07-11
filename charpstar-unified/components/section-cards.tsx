@@ -1,4 +1,4 @@
-import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 
 import { Card } from "@/components/ui/containers";
 
@@ -34,7 +34,7 @@ export function SectionCards() {
           shadow-sm
         "
           >
-            <IconTrendingUp className="w-4 h-4" />
+            <TrendingUp className="w-4 h-4" />
             +12.5%
           </span>
         </div>
@@ -43,7 +43,7 @@ export function SectionCards() {
         </div>
         <div className="flex items-center gap-2 font-semibold text-[15px] mb-0.5 text-[oklch(var(--foreground))]">
           Trending up this month
-          <IconTrendingUp className="w-4 h-4" />
+          <TrendingUp className="w-4 h-4" />
         </div>
         <div className="text-sm text-muted-foreground">
           Visitors for the last 6 months
@@ -80,7 +80,7 @@ export function SectionCards() {
 
         "
           >
-            <IconTrendingDown className="w-4 h-4" />
+            <TrendingDown className="w-4 h-4" />
             -20%
           </span>
         </div>
@@ -89,7 +89,7 @@ export function SectionCards() {
         </div>
         <div className="flex items-center gap-2 font-semibold text-[15px] mb-0.5 text-[oklch(var(--foreground))]">
           Down 20% this period
-          <IconTrendingDown className="w-4 h-4" />
+          <TrendingDown className="w-4 h-4" />
         </div>
         <div className="text-sm text-muted-foreground">
           Acquisition needs attention
@@ -125,7 +125,7 @@ export function SectionCards() {
           shadow-sm
         "
           >
-            <IconTrendingUp className="w-4 h-4" />
+            <TrendingUp className="w-4 h-4" />
             +12.5%
           </span>
         </div>
@@ -134,7 +134,7 @@ export function SectionCards() {
         </div>
         <div className="flex items-center gap-2 font-semibold text-[15px] mb-0.5 text-[oklch(var(--foreground))]">
           Strong user retention
-          <IconTrendingUp className="w-4 h-4" />
+          <TrendingUp className="w-4 h-4" />
         </div>
         <div className="text-sm text-muted-foreground">
           Engagement exceed targets
@@ -170,7 +170,7 @@ export function SectionCards() {
           shadow-sm
         "
           >
-            <IconTrendingUp className="w-4 h-4" />
+            <TrendingUp className="w-4 h-4" />
             +4.5%
           </span>
         </div>
@@ -179,7 +179,7 @@ export function SectionCards() {
         </div>
         <div className="flex items-center gap-2 font-semibold text-[15px] mb-0.5 text-[oklch(var(--foreground))]">
           Steady performance increase
-          <IconTrendingUp className="w-4 h-4" />
+          <TrendingUp className="w-4 h-4" />
         </div>
         <div className="text-sm text-muted-foreground">
           Meets growth projections

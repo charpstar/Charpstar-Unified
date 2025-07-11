@@ -586,12 +586,14 @@ export default function AssetDetailPage() {
                               className="flex items-center gap-1"
                             >
                               {material}
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => removeMaterial(index)}
-                                className="ml-1 hover:text-destructive"
+                                className="ml-1 h-auto p-0 hover:text-destructive"
                               >
-                                <X className="h-3 w-3 cursor-pointer" />
-                              </button>
+                                <X className="h-3 w-3" />
+                              </Button>
                             </Badge>
                           ))}
                       </div>
@@ -631,12 +633,14 @@ export default function AssetDetailPage() {
                               className="flex items-center gap-1"
                             >
                               {color}
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => removeColor(index)}
-                                className="ml-1 hover:text-destructive"
+                                className="ml-1 h-auto p-0 hover:text-destructive"
                               >
-                                <X className="h-3 w-3 cursor-pointer" />
-                              </button>
+                                <X className="h-3 w-3" />
+                              </Button>
                             </Badge>
                           ))}
                       </div>

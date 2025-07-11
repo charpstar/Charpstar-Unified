@@ -1,12 +1,8 @@
 "use client";
 
-import {
-  IconDotsVertical,
-  IconLogout,
-  IconSettings,
-} from "@tabler/icons-react";
-
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/display";
+import { MoreVertical, LogOut, Settings } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,16 +11,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/interactive";
+import { useUser } from "@/contexts/useUser";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/navigation/sidebar";
-import { useUser } from "@/contexts/useUser";
-import { supabase } from "@/lib/supabaseClient";
 import { SettingsDialog } from "@/app/components/settings-dialog";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import {
   User,
   Users,
@@ -40,7 +37,6 @@ import {
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/inputs";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
 
 export default function NavUser() {
   const supaUser = useUser() as any; // Type assertion to handle metadata property
@@ -263,7 +259,7 @@ export default function NavUser() {
                     {email}
                   </span>
                 </div>
-                <IconDotsVertical className="ml-auto size-4" />
+                <MoreVertical className="ml-auto size-4" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -289,7 +285,7 @@ export default function NavUser() {
                 onClick={() => setIsSettingsOpen(true)}
                 className="cursor-pointer"
               >
-                <IconSettings className="mr-2 h-4 w-4" />
+                <Settings className="mr-2 h-4 w-4" />
                 Settings
               </DropdownMenuItem>
 
@@ -297,7 +293,7 @@ export default function NavUser() {
                 onClick={handleLogout}
                 className="cursor-pointer"
               >
-                <IconLogout className="mr-2 h-4 w-4" />
+                <LogOut className="mr-2 h-4 w-4" />
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
