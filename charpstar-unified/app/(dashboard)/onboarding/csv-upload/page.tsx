@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Download,
   CloudUpload,
+  X,
 } from "lucide-react";
 import { useUser } from "@/contexts/useUser";
 import { useLoading } from "@/contexts/LoadingContext";
@@ -452,14 +453,36 @@ export default function CsvUploadPage() {
 
                   {csvFile && (
                     <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20">
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-primary" />
-                        <div>
-                          <p className="font-medium">{csvFile.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {(csvFile.size / 1024).toFixed(1)} KB
-                          </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <FileText className="h-5 w-5 text-primary" />
+                          <div>
+                            <p className="font-medium">{csvFile.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {(csvFile.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setCsvFile(null);
+                            setCsvPreview(null);
+                            setProgress((p) => ({
+                              ...p,
+                              read: false,
+                              confirmed: false,
+                            }));
+                            if (fileInputRef.current) {
+                              fileInputRef.current.value = "";
+                            }
+                          }}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                          title="Remove file"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   )}

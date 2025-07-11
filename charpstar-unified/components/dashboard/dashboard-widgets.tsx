@@ -1128,12 +1128,17 @@ export function ModelStatusWidget() {
           const status = row.status as StatusKey;
           if (status in newCounts) newCounts[status]++;
         }
+        // For clients, combine approved and delivered_by_artist into approved
+        if (user?.metadata?.role === "client") {
+          newCounts.approved += newCounts.delivered_by_artist;
+          newCounts.delivered_by_artist = 0;
+        }
         setCounts(newCounts);
         setProducts(data);
       }
     }
     fetchStatusCounts();
-  }, [user?.metadata?.client]);
+  }, [user?.metadata?.client, user?.metadata?.role]);
 
   return (
     <Card className="p-6 rounded-lg shadow- bg-background w-full mx-auto flex flex-col items-center">
@@ -1154,19 +1159,28 @@ export function ModelStatusWidget() {
       ) : (
         <div className="w-full space-y-3">
           {(Object.entries(STATUS_LABELS) as [StatusKey, string][]).map(
-            ([key, label]) => (
-              <div
-                key={key}
-                className="flex items-center gap-3  border-b border-border"
-              >
-                <span
-                  className="inline-block w-3 h-3 rounded-full"
-                  style={{ background: STATUS_COLORS[key] }}
-                />
-                <span className="font-medium flex-1 text-sm">{label}</span>
-                <span className=" text-lg ">{counts[key]}</span>
-              </div>
-            )
+            ([key, label]) => {
+              // Hide "Delivered by Artist" for clients
+              if (
+                user?.metadata?.role === "client" &&
+                key === "delivered_by_artist"
+              ) {
+                return null;
+              }
+              return (
+                <div
+                  key={key}
+                  className="flex items-center gap-3  border-b border-border"
+                >
+                  <span
+                    className="inline-block w-3 h-3 rounded-full"
+                    style={{ background: STATUS_COLORS[key] }}
+                  />
+                  <span className="font-medium flex-1 text-sm">{label}</span>
+                  <span className=" text-lg ">{counts[key]}</span>
+                </div>
+              );
+            }
           )}
         </div>
       )}
@@ -1206,18 +1220,39 @@ export function StatusPieChartWidget() {
           const status = row.status as StatusKey;
           if (status in newCounts) newCounts[status]++;
         }
+        // For clients, combine approved and delivered_by_artist into approved
+        if (user?.metadata?.role === "client") {
+          newCounts.approved += newCounts.delivered_by_artist;
+          newCounts.delivered_by_artist = 0;
+        }
         setCounts(newCounts);
       }
       setLoading(false);
     }
     fetchStatusCounts();
-  }, [user?.metadata?.client]);
+  }, [user?.metadata?.client, user?.metadata?.role]);
 
-  const chartData = Object.entries(STATUS_LABELS).map(([key, label]) => ({
-    name: label,
-    value: counts[key as StatusKey],
-    key: key as StatusKey,
-  }));
+  // Calculate total for percentage calculation
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+
+  const chartData = Object.entries(STATUS_LABELS)
+    .filter(([key]) => {
+      // Hide "Delivered by Artist" for clients
+      if (user?.metadata?.role === "client" && key === "delivered_by_artist") {
+        return false;
+      }
+      return true;
+    })
+    .map(([key, label]) => {
+      const count = counts[key as StatusKey];
+      const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+      return {
+        name: label,
+        value: count,
+        percentage,
+        key: key as StatusKey,
+      };
+    });
 
   return (
     <Card className="p-3 rounded-lg bg-background w-full mx-auto flex flex-col items-center pointer-events-none select-none">
@@ -1266,7 +1301,11 @@ export function StatusPieChartWidget() {
                     fontSize: 14,
                     color: "#111827",
                   }}
-                  formatter={(value: number, name: string) => [value, name]}
+                  formatter={(value: number, name: string) => {
+                    const entry = chartData.find((item) => item.name === name);
+                    const percentage = entry ? entry.percentage : 0;
+                    return [`${percentage}%`, name];
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -1282,7 +1321,7 @@ export function StatusPieChartWidget() {
                   <span className="font-medium text-sm flex-1">
                     {entry.name}
                   </span>
-                  <span className="pl-6">{entry.value}</span>
+                  <span className="pl-6 font-medium">{entry.percentage}%</span>
                 </div>
                 {index !== chartData.length - 1 && (
                   <Separator className="w-full" />

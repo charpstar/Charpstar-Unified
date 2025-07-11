@@ -176,6 +176,9 @@ export default function ReviewPage() {
   const [revisionCount, setRevisionCount] = useState(0);
   const [revisionHistory, setRevisionHistory] = useState<any[]>([]);
   const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
+  const [showRevisionDetailsDialog, setShowRevisionDetailsDialog] =
+    useState(false);
+  const [selectedRevision, setSelectedRevision] = useState<any>(null);
 
   const modelViewerRef = useRef<any>(null);
 
@@ -365,7 +368,7 @@ export default function ReviewPage() {
     // Add to annotations list immediately (will be replaced when saved)
     setAnnotations((prev) => {
       console.log("Previous annotations:", prev);
-      const newAnnotations = [tempAnnotation, ...prev];
+      const newAnnotations = [...prev, tempAnnotation];
       console.log("New annotations:", newAnnotations);
       return newAnnotations;
     });
@@ -1022,6 +1025,12 @@ export default function ReviewPage() {
     return 0;
   };
 
+  // Function to open revision details dialog
+  const openRevisionDetails = (revision: any) => {
+    setSelectedRevision(revision);
+    setShowRevisionDetailsDialog(true);
+  };
+
   // Function to get color classes for revision badges
   const getRevisionBadgeColors = (revisionNumber: number) => {
     const colors = [
@@ -1050,6 +1059,58 @@ export default function ReviewPage() {
     ];
 
     return colors[revisionNumber] || colors[revisionNumber % colors.length];
+  };
+
+  // Function to get annotation number color based on index
+  const getAnnotationNumberColor = (index: number) => {
+    const colors = [
+      "bg-amber-500", // 1 - warm yellow
+      "bg-red-500", // 2 - vibrant red
+      "bg-purple-500", // 3 - rich purple
+      "bg-cyan-500", // 4 - bright cyan
+      "bg-emerald-500", // 5 - fresh green
+      "bg-orange-500", // 6 - energetic orange
+      "bg-pink-500", // 7 - vibrant pink
+      "bg-blue-500", // 8 - classic blue
+      "bg-lime-500", // 9 - bright lime
+      "bg-violet-500", // 10 - deep violet
+      "bg-rose-500", // 11 - bright rose
+      "bg-green-500", // 12 - vibrant green
+      "bg-yellow-500", // 13 - golden yellow
+      "bg-teal-500", // 14 - ocean teal
+      "bg-orange-500", // 15 - sunset orange
+      "bg-violet-500", // 16 - royal violet
+      "bg-sky-500", // 17 - sky blue
+      "bg-pink-500", // 18 - hot pink
+      "bg-lime-500", // 19 - neon lime
+      "bg-purple-500", // 20 - deep purple
+    ];
+    return colors[index % colors.length];
+  };
+
+  // Function to get comments for selected annotation
+  const getCommentsForAnnotation = (annotationId: string) => {
+    return comments.filter((comment) => {
+      // Check if comment mentions this annotation or is related
+      const commentText = comment.comment.toLowerCase();
+
+      // Check for annotation number references (e.g., "annotation 1", "point 2")
+      const annotationIndex = annotations.findIndex(
+        (a) => a.id === annotationId
+      );
+      const annotationNumber = annotationIndex + 1;
+
+      return (
+        commentText.includes(`annotation ${annotationNumber}`) ||
+        commentText.includes(`point ${annotationNumber}`) ||
+        commentText.includes(`#${annotationNumber}`) ||
+        commentText.includes(`annotation ${annotationNumber}`) ||
+        commentText.includes(`point ${annotationNumber}`) ||
+        commentText.includes(`hotspot ${annotationNumber}`) ||
+        // If no specific annotation is selected, show all comments
+        !selectedHotspotId
+      );
+    });
   };
 
   // Filter annotations and comments for a specific revision
@@ -1581,6 +1642,15 @@ export default function ReviewPage() {
                           className={`hotspot-marker ${
                             selectedHotspotId === hotspot.id ? "selected" : ""
                           }`}
+                          data-annotation={
+                            annotations
+                              .sort(
+                                (a, b) =>
+                                  new Date(a.created_at).getTime() -
+                                  new Date(b.created_at).getTime()
+                              )
+                              .findIndex((a) => a.id === hotspot.id) + 1
+                          }
                           onClick={(e) => {
                             e.stopPropagation();
                             handleHotspotSelect(
@@ -1597,10 +1667,19 @@ export default function ReviewPage() {
                           ) : (
                             <div className="hotspot-dot"></div>
                           )}
+                          <div className="hotspot-number">
+                            {annotations
+                              .sort(
+                                (a, b) =>
+                                  new Date(a.created_at).getTime() -
+                                  new Date(b.created_at).getTime()
+                              )
+                              .findIndex((a) => a.id === hotspot.id) + 1}
+                          </div>
                           <div className="hotspot-pulse"></div>
                         </div>
 
-                        {hotspot.comment && (
+                        {hotspot.comment && hotspot.comment.trim() && (
                           <div className="hotspot-comment">
                             {viewerEditingId === hotspot.id ? (
                               <div className="comment-bubble editing">
@@ -1776,7 +1855,7 @@ export default function ReviewPage() {
 
               {/* Carousel of Thumbnails */}
 
-              {/* Large Selected Image - Always show first image if available */}
+              {/* Large Selected Image - Show selected image */}
               {referenceImages.length > 0 && (
                 <div className="relative mb-4">
                   <div
@@ -1790,8 +1869,8 @@ export default function ReviewPage() {
                       width={640}
                       height={360}
                       unoptimized
-                      src={referenceImages[0]}
-                      alt="Reference 1"
+                      src={referenceImages[selectedReferenceIndex || 0]}
+                      alt={`Reference ${(selectedReferenceIndex || 0) + 1}`}
                       className="w-full h-full object-cover transition-transform duration-200"
                       style={{
                         transform: `scale(${zoomLevel})`,
@@ -1822,8 +1901,8 @@ export default function ReviewPage() {
                       size="sm"
                       onClick={() =>
                         handleImageClick(
-                          referenceImages[0],
-                          "Reference Image 1"
+                          referenceImages[selectedReferenceIndex || 0],
+                          `Reference Image ${(selectedReferenceIndex || 0) + 1}`
                         )
                       }
                       className="h-10 w-10 p-0 bg-black/50 text-white hover:bg-black/70 cursor-pointer"
@@ -1832,7 +1911,8 @@ export default function ReviewPage() {
                     </Button>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground text-center">
-                    Reference 1 • Scroll to zoom (1x-3x)
+                    Reference {(selectedReferenceIndex || 0) + 1} • Scroll to
+                    zoom (1x-3x)
                   </div>
                 </div>
               )}
@@ -2127,6 +2207,16 @@ export default function ReviewPage() {
                                       <div className="text-xs text-muted-foreground text-center py-1">
                                         +{revisionAnnotations.length - 3} more
                                         annotations
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                            openRevisionDetails(revision)
+                                          }
+                                          className="ml-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
+                                        >
+                                          View All
+                                        </Button>
                                       </div>
                                     )}
                                   </div>
@@ -2175,6 +2265,16 @@ export default function ReviewPage() {
                                       <div className="text-xs text-muted-foreground text-center py-1">
                                         +{revisionComments.length - 3} more
                                         comments
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                            openRevisionDetails(revision)
+                                          }
+                                          className="ml-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
+                                        >
+                                          View All
+                                        </Button>
                                       </div>
                                     )}
                                   </div>
@@ -2314,7 +2414,7 @@ export default function ReviewPage() {
                   </div>
                   {/* Existing Annotations */}
                   <div className="space-y-4 p-2">
-                    {annotations.map((annotation) => (
+                    {annotations.map((annotation, index) => (
                       <Card
                         key={annotation.id}
                         className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
@@ -2340,8 +2440,16 @@ export default function ReviewPage() {
                                 className="h-4 w-4 text-red-600 border-border rounded focus:ring-red-500 cursor-pointer dark:text-red-400 dark:focus:ring-red-400"
                               />
                             )}
-                            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                              <MessageCircle className="h-4 w-4 text-primary" />
+                            <div className="relative">
+                              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                <MessageCircle className="h-4 w-4 text-primary" />
+                              </div>
+                              {/* Annotation Number Badge */}
+                              <div
+                                className={`absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(index)}`}
+                              >
+                                {index + 1}
+                              </div>
                             </div>
                             <div className="flex flex-col gap-1">
                               <span className="text-sm font-medium text-foreground">
@@ -2705,9 +2813,19 @@ export default function ReviewPage() {
               {activeTab === "comments" && (
                 <>
                   <div className="mb-6 p-2">
-                    <h4 className="text-muted-foreground font-semibold mb-8">
-                      Comments
-                    </h4>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className=" text-muted-foreground font-semibold">
+                        Comments
+                      </h4>
+                      {selectedHotspotId && (
+                        <Badge variant="outline" className="text-xs">
+                          Showing comments for Annotation{" "}
+                          {annotations.findIndex(
+                            (a) => a.id === selectedHotspotId
+                          ) + 1}
+                        </Badge>
+                      )}
+                    </div>
 
                     {/* Add New Comment */}
                     <div className="space-y-3 mb-6">
@@ -2725,7 +2843,9 @@ export default function ReviewPage() {
                         placeholder={
                           isFunctionalityDisabled()
                             ? "Comments disabled during revision"
-                            : "Add a comment about this asset..."
+                            : selectedHotspotId
+                              ? `Add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
+                              : "Add a comment about this asset..."
                         }
                         value={newCommentText}
                         onChange={(e) => setNewCommentText(e.target.value)}
@@ -2744,161 +2864,180 @@ export default function ReviewPage() {
                             ? "Comments are disabled during revision mode"
                             : "Press Enter to send, Shift+Enter for new line"}
                         </span>
+                        {selectedHotspotId && (
+                          <span className="text-primary">
+                            • Comment will be associated with Annotation{" "}
+                            {annotations.findIndex(
+                              (a) => a.id === selectedHotspotId
+                            ) + 1}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   {/* Existing Comments */}
                   <div className="space-y-4 p-2">
-                    {comments.map((comment) => (
-                      <Card
-                        key={comment.id}
-                        className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
-                      >
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                              <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <span className="text-sm font-medium text-foreground">
-                                {comment.profiles?.email || "Unknown"}
-                              </span>
-                              {comment.profiles?.title && (
-                                <Badge
-                                  variant={
-                                    getTitleBadgeVariant(
-                                      comment.profiles.title
-                                    ) as
-                                      | "default"
-                                      | "destructive"
-                                      | "secondary"
-                                      | "outline"
-                                      | null
-                                      | undefined
-                                  }
-                                  className="text-xs px-2 py-0.5 w-fit"
-                                >
-                                  {comment.profiles.title}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 cursor-pointer"
-                              >
-                                <MoreVertical className="h-5 w-5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  startCommentInlineEdit(comment);
-                                }}
-                                disabled={isFunctionalityDisabled()}
-                                className={
-                                  isFunctionalityDisabled()
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : ""
-                                }
-                              >
-                                <Edit3 className="h-3 w-3 mr-2" />
-                                Edit Comment
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => deleteComment(comment.id)}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <X className="h-3 w-3 mr-2" />
-                                Delete Comment
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        {inlineEditingCommentId === comment.id ? (
-                          <div className="space-y-2">
-                            <Textarea
-                              value={inlineEditCommentText}
-                              onChange={(e) =>
-                                setInlineEditCommentText(e.target.value)
-                              }
-                              onKeyDown={(e) =>
-                                handleCommentInlineEditKeyDown(e, comment.id)
-                              }
-                              onBlur={() => {
-                                submitCommentInlineEdit(comment.id);
-                              }}
-                              className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
-                              rows={3}
-                              autoFocus
-                              placeholder="Edit comment..."
-                            />
-                            <div className="flex gap-2 text-xs text-muted-foreground">
-                              <span>Press Enter to save, Escape to cancel</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div
-                            className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
-                              isFunctionalityDisabled()
-                                ? "opacity-50 cursor-not-allowed"
-                                : "cursor-pointer hover:bg-muted/50"
-                            }`}
-                            onClick={() => {
-                              if (!isFunctionalityDisabled()) {
-                                startCommentInlineEdit(comment);
-                              }
-                            }}
-                            title={
-                              isFunctionalityDisabled()
-                                ? "Editing disabled during revision"
-                                : "Click to edit comment"
-                            }
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1 break-words w-full">
-                                <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                                  {comment.comment}
-                                </pre>
+                    {getCommentsForAnnotation(selectedHotspotId || "").map(
+                      (comment) => (
+                        <Card
+                          key={comment.id}
+                          className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
+                        >
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                <MessageSquare className="h-4 w-4 text-muted-foreground" />
                               </div>
-                              <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
+                              <div className="flex flex-col gap-1">
+                                <span className="text-sm font-medium text-foreground">
+                                  {comment.profiles?.email || "Unknown"}
+                                </span>
+                                {comment.profiles?.title && (
+                                  <Badge
+                                    variant={
+                                      getTitleBadgeVariant(
+                                        comment.profiles.title
+                                      ) as
+                                        | "default"
+                                        | "destructive"
+                                        | "secondary"
+                                        | "outline"
+                                        | null
+                                        | undefined
+                                    }
+                                    className="text-xs px-2 py-0.5 w-fit"
+                                  >
+                                    {comment.profiles.title}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 cursor-pointer"
+                                >
+                                  <MoreVertical className="h-5 w-5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    startCommentInlineEdit(comment);
+                                  }}
+                                  disabled={isFunctionalityDisabled()}
+                                  className={
+                                    isFunctionalityDisabled()
+                                      ? "opacity-50 cursor-not-allowed"
+                                      : ""
+                                  }
+                                >
+                                  <Edit3 className="h-3 w-3 mr-2" />
+                                  Edit Comment
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => deleteComment(comment.id)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <X className="h-3 w-3 mr-2" />
+                                  Delete Comment
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
-                        )}
 
-                        <div className="mt-4 flex items-center gap-2">
-                          <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full inline-block border border-border/50">
-                            Created on{" "}
-                            {new Date(comment.created_at).toLocaleDateString()}
-                          </div>
-                          {revisionHistory.length > 0 && (
-                            <Badge
-                              variant="outline"
-                              className={`text-xs font-semibold ${getRevisionBadgeColors(getRevisionForItem(comment.created_at) || 0)}`}
+                          {inlineEditingCommentId === comment.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={inlineEditCommentText}
+                                onChange={(e) =>
+                                  setInlineEditCommentText(e.target.value)
+                                }
+                                onKeyDown={(e) =>
+                                  handleCommentInlineEditKeyDown(e, comment.id)
+                                }
+                                onBlur={() => {
+                                  submitCommentInlineEdit(comment.id);
+                                }}
+                                className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
+                                rows={3}
+                                autoFocus
+                                placeholder="Edit comment..."
+                              />
+                              <div className="flex gap-2 text-xs text-muted-foreground">
+                                <span>
+                                  Press Enter to save, Escape to cancel
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
+                                isFunctionalityDisabled()
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "cursor-pointer hover:bg-muted/50"
+                              }`}
+                              onClick={() => {
+                                if (!isFunctionalityDisabled()) {
+                                  startCommentInlineEdit(comment);
+                                }
+                              }}
+                              title={
+                                isFunctionalityDisabled()
+                                  ? "Editing disabled during revision"
+                                  : "Click to edit comment"
+                              }
                             >
-                              R{getRevisionForItem(comment.created_at) || 0}
-                            </Badge>
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 break-words w-full">
+                                  <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                    {comment.comment}
+                                  </pre>
+                                </div>
+                                <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
+                              </div>
+                            </div>
                           )}
-                        </div>
-                      </Card>
-                    ))}
 
-                    {comments.length === 0 && (
+                          <div className="mt-4 flex items-center gap-2">
+                            <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full inline-block border border-border/50">
+                              Created on{" "}
+                              {new Date(
+                                comment.created_at
+                              ).toLocaleDateString()}
+                            </div>
+                            {revisionHistory.length > 0 && (
+                              <Badge
+                                variant="outline"
+                                className={`text-xs font-semibold ${getRevisionBadgeColors(getRevisionForItem(comment.created_at) || 0)}`}
+                              >
+                                R{getRevisionForItem(comment.created_at) || 0}
+                              </Badge>
+                            )}
+                          </div>
+                        </Card>
+                      )
+                    )}
+
+                    {getCommentsForAnnotation(selectedHotspotId || "")
+                      .length === 0 && (
                       <div className="text-center py-12">
                         <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                           <MessageSquare className="h-8 w-8 text-muted-foreground" />
                         </div>
                         <h3 className="text-lg font-semibold text-foreground mb-2">
-                          No comments yet
+                          {selectedHotspotId
+                            ? `No comments for Annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}`
+                            : "No comments yet"}
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                          Be the first to add a comment!
+                          {selectedHotspotId
+                            ? `Be the first to add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}!`
+                            : "Be the first to add a comment!"}
                         </p>
                       </div>
                     )}
@@ -3352,6 +3491,162 @@ export default function ReviewPage() {
                 className="border-border hover:bg-accent cursor-pointer"
               >
                 Cancel
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Revision Details Dialog */}
+        <Dialog
+          open={showRevisionDetailsDialog}
+          onOpenChange={setShowRevisionDetailsDialog}
+        >
+          <DialogContent className="sm:max-w-[800px] h-fit min-h-[500px] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-foreground">
+                Revision {selectedRevision?.revision_number} Details
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                {selectedRevision &&
+                  new Date(selectedRevision.created_at).toLocaleDateString()}
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedRevision && (
+              <div className="space-y-6">
+                {/* Annotations Section */}
+                {(() => {
+                  const revisionAnnotations = getRevisionItems(
+                    selectedRevision.revision_number
+                  ).annotations;
+                  return revisionAnnotations.length > 0 ? (
+                    <div>
+                      <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2 ">
+                        <MessageCircle className="h-5 w-5" />
+                        Annotations ({revisionAnnotations.length})
+                      </h4>
+                      <div className="space-y-3 min-h-[300px] max-h-[600px] overflow-y-auto">
+                        {revisionAnnotations.map(
+                          (annotation: any, index: number) => (
+                            <Card key={annotation.id || index} className="p-4">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                    <MessageCircle className="h-4 w-4 text-primary" />
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-medium text-foreground">
+                                      {annotation.profiles?.email || "Unknown"}
+                                    </div>
+                                    {annotation.profiles?.title && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs mt-1"
+                                      >
+                                        {annotation.profiles.title}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(
+                                    annotation.created_at
+                                  ).toLocaleDateString()}
+                                </div>
+                              </div>
+                              <div className="text-sm text-foreground">
+                                {annotation.comment}
+                              </div>
+                              {annotation.image_url && (
+                                <div className="mt-3">
+                                  <div className="text-xs font-medium text-muted-foreground mb-2">
+                                    Reference Image:
+                                  </div>
+                                  <div className="relative w-full h-32 border rounded overflow-hidden">
+                                    <Image
+                                      width={320}
+                                      height={128}
+                                      unoptimized
+                                      src={annotation.image_url}
+                                      alt="Reference"
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        (
+                                          e.currentTarget as HTMLElement
+                                        ).style.display = "none";
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </Card>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Comments Section */}
+                {(() => {
+                  const revisionComments = getRevisionItems(
+                    selectedRevision.revision_number
+                  ).comments;
+                  return revisionComments.length > 0 ? (
+                    <div>
+                      <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5" />
+                        Comments ({revisionComments.length})
+                      </h4>
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {revisionComments.map((comment: any, index: number) => (
+                          <Card key={comment.id || index} className="p-4">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-foreground">
+                                    {comment.profiles?.email || "Unknown"}
+                                  </div>
+                                  {comment.profiles?.title && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs mt-1"
+                                    >
+                                      {comment.profiles.title}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(
+                                  comment.created_at
+                                ).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <div className="text-sm text-foreground">
+                              <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                {comment.comment}
+                              </pre>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-4 border-t border-border">
+              <Button
+                variant="outline"
+                onClick={() => setShowRevisionDetailsDialog(false)}
+                className="cursor-pointer"
+              >
+                Close
               </Button>
             </div>
           </DialogContent>

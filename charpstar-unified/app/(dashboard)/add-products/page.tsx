@@ -12,6 +12,13 @@ import {
 } from "@/components/ui/containers";
 import { Button, Label } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/inputs/select";
 import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
 import {
   Table,
@@ -611,23 +618,23 @@ export default function AddProductsPage() {
 
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground mb-2 block">
-                      Priority (1-3)
+                      Priority
                     </Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="3"
-                      value={product.priority}
-                      onChange={(e) =>
-                        updateProduct(
-                          index,
-                          "priority",
-                          parseInt(e.target.value) || 2
-                        )
+                    <Select
+                      value={product.priority.toString()}
+                      onValueChange={(value) =>
+                        updateProduct(index, "priority", parseInt(value))
                       }
-                      placeholder="2"
-                      className="cursor-pointer"
-                    />
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 - Highest Priority</SelectItem>
+                        <SelectItem value="2">2 - Medium Priority</SelectItem>
+                        <SelectItem value="3">3 - Lowest Priority</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <p className="text-xs text-muted-foreground mt-1">
                       1 = Highest priority, 3 = Lowest priority
                     </p>

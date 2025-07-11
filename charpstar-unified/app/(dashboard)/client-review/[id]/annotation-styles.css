@@ -3,6 +3,28 @@
   --hotspot-accent-dark: #1e40af; /* Tailwind blue-900 */
   --hotspot-glass-bg: rgba(255, 255, 255, 0.22);
   --hotspot-glass-border: rgba(59, 130, 246, 0.18); /* blue-500 @ 18% */
+
+  /* Annotation color variables - New vibrant palette */
+  --annotation-1: #f59e0b; /* amber-500 - warm yellow */
+  --annotation-2: #ef4444; /* red-500 - vibrant red */
+  --annotation-3: #8b5cf6; /* purple-500 - rich purple */
+  --annotation-4: #06b6d4; /* cyan-500 - bright cyan */
+  --annotation-5: #10b981; /* emerald-500 - fresh green */
+  --annotation-6: #f97316; /* orange-500 - energetic orange */
+  --annotation-7: #ec4899; /* pink-500 - vibrant pink */
+  --annotation-8: #3b82f6; /* blue-500 - classic blue */
+  --annotation-9: #84cc16; /* lime-500 - bright lime */
+  --annotation-10: #a855f7; /* violet-500 - deep violet */
+  --annotation-11: #f43f5e; /* rose-500 - bright rose */
+  --annotation-12: #22c55e; /* green-500 - vibrant green */
+  --annotation-13: #eab308; /* yellow-500 - golden yellow */
+  --annotation-14: #14b8a6; /* teal-500 - ocean teal */
+  --annotation-15: #f97316; /* orange-500 - sunset orange */
+  --annotation-16: #8b5cf6; /* violet-500 - royal violet */
+  --annotation-17: #06b6d4; /* sky-500 - sky blue */
+  --annotation-18: #ec4899; /* pink-500 - hot pink */
+  --annotation-19: #84cc16; /* lime-500 - neon lime */
+  --annotation-20: #a855f7; /* purple-500 - deep purple */
 }
 
 /* General Button Reset */
@@ -59,6 +81,21 @@
     border-color 0.18s cubic-bezier(0.72, 0, 0, 1),
     background 0.19s cubic-bezier(0.7, 0.1, 0.2, 1),
     transform 0.15s cubic-bezier(0.5, 1.5, 0.5, 1);
+  position: relative;
+}
+
+/* Number inside hotspot */
+.hotspot-number {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  z-index: 3;
+  pointer-events: none;
 }
 
 .hotspot-dot:hover,
@@ -81,6 +118,249 @@
   transform: scale(1.08);
 }
 
+/* Annotation-specific colors */
+.hotspot-marker[data-annotation="1"] .hotspot-dot,
+.hotspot-marker[data-annotation="1"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-1) 80%, #fff2 100%);
+  border-color: rgba(59, 130, 246, 0.42);
+}
+
+.hotspot-marker[data-annotation="2"] .hotspot-dot,
+.hotspot-marker[data-annotation="2"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-2) 80%, #fff2 100%);
+  border-color: rgba(16, 185, 129, 0.42);
+}
+
+.hotspot-marker[data-annotation="3"] .hotspot-dot,
+.hotspot-marker[data-annotation="3"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-3) 80%, #fff2 100%);
+  border-color: rgba(139, 92, 246, 0.42);
+}
+
+.hotspot-marker[data-annotation="4"] .hotspot-dot,
+.hotspot-marker[data-annotation="4"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-4) 80%, #fff2 100%);
+  border-color: rgba(249, 115, 22, 0.42);
+}
+
+.hotspot-marker[data-annotation="5"] .hotspot-dot,
+.hotspot-marker[data-annotation="5"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-5) 80%, #fff2 100%);
+  border-color: rgba(239, 68, 68, 0.42);
+}
+
+.hotspot-marker[data-annotation="6"] .hotspot-dot,
+.hotspot-marker[data-annotation="6"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-6) 80%, #fff2 100%);
+  border-color: rgba(99, 102, 241, 0.42);
+}
+
+.hotspot-marker[data-annotation="7"] .hotspot-dot,
+.hotspot-marker[data-annotation="7"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-7) 80%, #fff2 100%);
+  border-color: rgba(236, 72, 153, 0.42);
+}
+
+.hotspot-marker[data-annotation="8"] .hotspot-dot,
+.hotspot-marker[data-annotation="8"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-8) 80%, #fff2 100%);
+  border-color: rgba(20, 184, 166, 0.42);
+}
+
+.hotspot-marker[data-annotation="9"] .hotspot-dot,
+.hotspot-marker[data-annotation="9"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-9) 80%, #fff2 100%);
+  border-color: rgba(245, 158, 11, 0.42);
+}
+
+.hotspot-marker[data-annotation="10"] .hotspot-dot,
+.hotspot-marker[data-annotation="10"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-10) 80%, #fff2 100%);
+  border-color: rgba(6, 182, 212, 0.42);
+}
+
+/* Hover states for annotation-specific colors */
+.hotspot-marker[data-annotation="1"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="1"] .hotspot-icon:hover {
+  border-color: var(--annotation-1);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-1) 96%);
+}
+
+.hotspot-marker[data-annotation="2"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="2"] .hotspot-icon:hover {
+  border-color: var(--annotation-2);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-2) 96%);
+}
+
+.hotspot-marker[data-annotation="3"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="3"] .hotspot-icon:hover {
+  border-color: var(--annotation-3);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-3) 96%);
+}
+
+.hotspot-marker[data-annotation="4"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="4"] .hotspot-icon:hover {
+  border-color: var(--annotation-4);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-4) 96%);
+}
+
+.hotspot-marker[data-annotation="5"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="5"] .hotspot-icon:hover {
+  border-color: var(--annotation-5);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-5) 96%);
+}
+
+.hotspot-marker[data-annotation="6"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="6"] .hotspot-icon:hover {
+  border-color: var(--annotation-6);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-6) 96%);
+}
+
+.hotspot-marker[data-annotation="7"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="7"] .hotspot-icon:hover {
+  border-color: var(--annotation-7);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-7) 96%);
+}
+
+.hotspot-marker[data-annotation="8"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="8"] .hotspot-icon:hover {
+  border-color: var(--annotation-8);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-8) 96%);
+}
+
+.hotspot-marker[data-annotation="9"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="9"] .hotspot-icon:hover {
+  border-color: var(--annotation-9);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-9) 96%);
+}
+
+.hotspot-marker[data-annotation="10"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="10"] .hotspot-icon:hover {
+  border-color: var(--annotation-10);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-10) 96%);
+}
+
+.hotspot-marker[data-annotation="11"] .hotspot-dot,
+.hotspot-marker[data-annotation="11"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-11) 80%, #fff2 100%);
+  border-color: rgba(244, 63, 94, 0.42);
+}
+
+.hotspot-marker[data-annotation="12"] .hotspot-dot,
+.hotspot-marker[data-annotation="12"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-12) 80%, #fff2 100%);
+  border-color: rgba(34, 197, 94, 0.42);
+}
+
+.hotspot-marker[data-annotation="13"] .hotspot-dot,
+.hotspot-marker[data-annotation="13"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-13) 80%, #fff2 100%);
+  border-color: rgba(234, 179, 8, 0.42);
+}
+
+.hotspot-marker[data-annotation="14"] .hotspot-dot,
+.hotspot-marker[data-annotation="14"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-14) 80%, #fff2 100%);
+  border-color: rgba(20, 184, 166, 0.42);
+}
+
+.hotspot-marker[data-annotation="15"] .hotspot-dot,
+.hotspot-marker[data-annotation="15"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-15) 80%, #fff2 100%);
+  border-color: rgba(249, 115, 22, 0.42);
+}
+
+.hotspot-marker[data-annotation="16"] .hotspot-dot,
+.hotspot-marker[data-annotation="16"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-16) 80%, #fff2 100%);
+  border-color: rgba(139, 92, 246, 0.42);
+}
+
+.hotspot-marker[data-annotation="17"] .hotspot-dot,
+.hotspot-marker[data-annotation="17"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-17) 80%, #fff2 100%);
+  border-color: rgba(6, 182, 212, 0.42);
+}
+
+.hotspot-marker[data-annotation="18"] .hotspot-dot,
+.hotspot-marker[data-annotation="18"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-18) 80%, #fff2 100%);
+  border-color: rgba(236, 72, 153, 0.42);
+}
+
+.hotspot-marker[data-annotation="19"] .hotspot-dot,
+.hotspot-marker[data-annotation="19"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-19) 80%, #fff2 100%);
+  border-color: rgba(132, 204, 22, 0.42);
+}
+
+.hotspot-marker[data-annotation="20"] .hotspot-dot,
+.hotspot-marker[data-annotation="20"] .hotspot-icon {
+  background: linear-gradient(130deg, var(--annotation-20) 80%, #fff2 100%);
+  border-color: rgba(168, 85, 247, 0.42);
+}
+
+/* Hover states for new annotation colors */
+.hotspot-marker[data-annotation="11"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="11"] .hotspot-icon:hover {
+  border-color: var(--annotation-11);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-11) 96%);
+}
+
+.hotspot-marker[data-annotation="12"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="12"] .hotspot-icon:hover {
+  border-color: var(--annotation-12);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-12) 96%);
+}
+
+.hotspot-marker[data-annotation="13"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="13"] .hotspot-icon:hover {
+  border-color: var(--annotation-13);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-13) 96%);
+}
+
+.hotspot-marker[data-annotation="14"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="14"] .hotspot-icon:hover {
+  border-color: var(--annotation-14);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-14) 96%);
+}
+
+.hotspot-marker[data-annotation="15"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="15"] .hotspot-icon:hover {
+  border-color: var(--annotation-15);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-15) 96%);
+}
+
+.hotspot-marker[data-annotation="16"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="16"] .hotspot-icon:hover {
+  border-color: var(--annotation-16);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-16) 96%);
+}
+
+.hotspot-marker[data-annotation="17"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="17"] .hotspot-icon:hover {
+  border-color: var(--annotation-17);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-17) 96%);
+}
+
+.hotspot-marker[data-annotation="18"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="18"] .hotspot-icon:hover {
+  border-color: var(--annotation-18);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-18) 96%);
+}
+
+.hotspot-marker[data-annotation="19"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="19"] .hotspot-icon:hover {
+  border-color: var(--annotation-19);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-19) 96%);
+}
+
+.hotspot-marker[data-annotation="20"] .hotspot-dot:hover,
+.hotspot-marker[data-annotation="20"] .hotspot-icon:hover {
+  border-color: var(--annotation-20);
+  background: linear-gradient(130deg, #fff 14%, var(--annotation-20) 96%);
+}
+
 /* Replace .hotspot-icon with a symbol (ex: plus, dot, or emoji) as needed */
 
 /* Glassy Floating Comment Bubble */
@@ -92,6 +372,17 @@
   z-index: 15;
   pointer-events: none;
   transition: filter 0.18s;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease-in-out,
+    visibility 0.2s ease-in-out;
+}
+
+/* Show comment bubble only when hotspot is selected */
+.hotspot-annotation.selected .hotspot-comment {
+  opacity: 1;
+  visibility: visible;
 }
 
 .comment-bubble {

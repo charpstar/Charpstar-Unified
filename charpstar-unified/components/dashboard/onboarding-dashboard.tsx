@@ -28,6 +28,7 @@ import {
   Lock,
   Trophy,
   Target,
+  Trash2,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -38,6 +39,7 @@ interface OnboardingStep {
   icon: React.ComponentType<any>;
   completed: boolean;
   action?: () => void;
+  removeAction?: () => void;
   disabled?: boolean;
   helpText?: string;
   estimatedTime?: string;
@@ -50,6 +52,7 @@ export function OnboardingDashboard() {
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
+  const [removingCsv, setRemovingCsv] = useState(false);
 
   const handleCompleteOnboarding = async () => {
     setCompletingOnboarding(true);
@@ -88,6 +91,35 @@ export function OnboardingDashboard() {
       console.error("Error completing onboarding:", error);
     } finally {
       setCompletingOnboarding(false);
+    }
+  };
+
+  const handleRemoveCsv = async () => {
+    if (!user?.id) return;
+
+    setRemovingCsv(true);
+    try {
+      // Update user metadata to remove csv_uploaded flag
+      const response = await fetch("/api/users/complete-csv-upload", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user.id,
+        }),
+      });
+
+      if (response.ok) {
+        // Reload the page to reflect the changes
+        window.location.reload();
+      } else {
+        throw new Error("Failed to remove CSV upload");
+      }
+    } catch (error) {
+      console.error("Error removing CSV upload:", error);
+    } finally {
+      setRemovingCsv(false);
     }
   };
 
@@ -175,6 +207,9 @@ export function OnboardingDashboard() {
             helpText:
               "Upload a CSV file with your product information. We'll use this to create your 3D models.",
             estimatedTime: "2-3 minutes",
+            removeAction: user?.metadata?.csv_uploaded
+              ? handleRemoveCsv
+              : undefined,
           },
           {
             id: "reference-images",
@@ -484,13 +519,41 @@ export function OnboardingDashboard() {
                           {/* Status and Actions */}
                           <div className="flex items-center gap-3">
                             {step.completed ? (
-                              <Badge
-                                variant="default"
-                                className="gap-2 px-4 py-2 bg-green-500 text-white"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                                Completed
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant="default"
+                                  className="gap-2 px-4 py-2 bg-green-500 text-white"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  Completed
+                                </Badge>
+                                {step.removeAction && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={step.removeAction}
+                                    disabled={removingCsv}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                                    title="Remove CSV upload"
+                                  >
+                                    {removingCsv ? (
+                                      <>
+                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-500 border-t-transparent" />
+                                        <span className="ml-2">
+                                          Removing...
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Trash2 className="h-4 w-4" />
+                                        <span className="ml-2">
+                                          Remove Uploaded CSV
+                                        </span>
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
                             ) : (
                               <>
                                 {!step.disabled && status === "available" && (

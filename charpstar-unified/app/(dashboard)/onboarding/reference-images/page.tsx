@@ -33,9 +33,12 @@ import {
   Star,
   Camera,
   Layers,
-  CheckSquare,
-  Square,
   Save,
+  Upload,
+  File,
+  FileText,
+  FileImage,
+  FileArchive,
 } from "lucide-react";
 import {
   Tooltip,
@@ -71,6 +74,10 @@ export default function ReferenceImagesPage() {
       value: "",
     }))
   );
+  const [uploadingFiles, setUploadingFiles] = useState<{
+    [key: string]: boolean;
+  }>({});
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Fetch assets for this client
   useEffect(() => {
@@ -127,25 +134,32 @@ export default function ReferenceImagesPage() {
   // Save reference link(s) for all filled inputs (add dialog)
   const handleSaveReference = async () => {
     setLoading(true);
-    // For each asset, append all non-empty new links to the array (if < 5)
+    // For each asset, maintain the order of references based on their position
     const updates = dialogAssetIds.map(async (id) => {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("onboarding_assets")
         .select("reference")
         .eq("id", id)
         .single();
       if (error) return { error };
-      const refs = getReferenceArray(data.reference);
-      const newLinks = referenceInputs
-        .map((input) => input.value.trim())
-        .filter(Boolean);
-      if (refs.length + newLinks.length > 5)
+
+      // Create a new array that maintains the order of references
+      const newRefs: string[] = [];
+      referenceInputs.forEach((input, index) => {
+        newRefs[index] = input.value.trim();
+      });
+
+      // Ensure we don't exceed 5 references and maintain position
+      const finalRefs = newRefs.slice(0, 5);
+      if (finalRefs.filter(Boolean).length > 5) {
         return { error: { message: "Max 5 references allowed." } };
-      const newRefs = [...refs, ...newLinks].filter(Boolean);
+      }
+
       const result = await supabase
         .from("onboarding_assets")
-        .update({ reference: newRefs })
+        .update({ reference: finalRefs })
         .eq("id", id);
+
       // Always fetch the latest asset data for the view dialog if open
       if (viewDialogOpen && viewDialogAssetId === id) {
         const { data: updatedAsset } = await supabase
@@ -217,6 +231,98 @@ export default function ReferenceImagesPage() {
     );
     setViewDialogAssetId(assetId);
     setViewDialogOpen(true);
+  };
+
+  // File upload functions
+  const handleFileUpload = async (file: File, index: number) => {
+    if (!user?.metadata?.client) return;
+
+    const fileId = `${index}_${Date.now()}`;
+    setUploadingFiles((prev) => ({ ...prev, [fileId]: true }));
+
+    try {
+      // Upload file to Supabase Storage
+      const fileName = `${user.metadata.client}/${Date.now()}_${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("reference-files")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("reference-files")
+        .getPublicUrl(fileName);
+
+      // Update the reference input with the file URL
+      setReferenceInputs((prev) =>
+        prev.map((input, i) =>
+          i === index ? { ...input, value: urlData.publicUrl } : input
+        )
+      );
+
+      toast({
+        title: "File uploaded successfully",
+        description: `${file.name} has been uploaded.`,
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload file. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingFiles((prev) => ({ ...prev, [fileId]: false }));
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files[0], index);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+  };
+
+  const handleFileSelect = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    index: number
+  ) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      handleFileUpload(files[0], index);
+    }
+    e.target.value = ""; // Reset input
+  };
+
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext || "")) {
+      return <FileImage className="h-4 w-4" />;
+    } else if (["pdf"].includes(ext || "")) {
+      return <FileText className="h-4 w-4" />;
+    } else if (["zip", "rar", "7z"].includes(ext || "")) {
+      return <FileArchive className="h-4 w-4" />;
+    } else if (["glb", "gltf", "obj", "fbx", "stl"].includes(ext || "")) {
+      return <File className="h-4 w-4" />;
+    }
+    return <File className="h-4 w-4" />;
   };
 
   // Complete reference images step and redirect to dashboard
@@ -410,35 +516,15 @@ export default function ReferenceImagesPage() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-4 items-center justify-between">
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={handleMultiReference}
-              disabled={selected.size === 0}
-              size="lg"
-              className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              Add References ({selected.size})
-            </Button>
-            <Button
-              onClick={selectAll}
-              variant="outline"
-              size="lg"
-              className="gap-2 cursor-pointer"
-            >
-              <CheckSquare className="h-4 w-4" />
-              Select All
-            </Button>
-            <Button
-              onClick={deselectAll}
-              variant="outline"
-              size="lg"
-              className="gap-2 cursor-pointer"
-            >
-              <Square className="h-4 w-4" />
-              Deselect All
-            </Button>
-          </div>
+          <Button
+            onClick={handleMultiReference}
+            disabled={selected.size === 0}
+            size="lg"
+            className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            Add References ({selected.size})
+          </Button>
 
           <Button
             onClick={handleCompleteReferenceImages}
@@ -690,81 +776,173 @@ export default function ReferenceImagesPage() {
 
         {/* Enhanced Reference Link Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-3xl h-fit overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl">
                 <Image className="h-5 w-5 text-primary" />
-                Add Reference Images
+                Add Reference Files
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-6">
-              <div className="bg-muted/50 rounded-lg p-4">
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-lg p-3">
                 <p className="text-sm text-muted-foreground">
                   <strong>Optional but highly recommended:</strong> Add
-                  reference images from different angles to help our 3D modelers
-                  understand your product requirements. This significantly
-                  improves the quality of your 3D models.
+                  reference files from different angles. Supports images, PDFs,
+                  3D files, and archives.
                 </p>
               </div>
 
-              <div className="grid gap-4">
-                {referenceInputs.map((input, idx) => (
-                  <div key={input.label} className="space-y-2">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                      <Camera className="h-4 w-4 text-primary" />
-                      {input.label} View
-                    </label>
-                    {(() => {
-                      // Find the asset being edited
-                      const asset = assets.find(
-                        (a) => a.id === dialogAssetIds[0]
-                      );
-                      const refs = getReferenceArray(asset?.reference);
-                      const currentValue = refs[idx] || "";
-                      if (currentValue) {
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {referenceInputs.map((input, idx) => {
+                  // Custom ordering: Front (span 2), then Back, Left, Right, Top
+                  const orderMap = {
+                    Front: 0,
+                    Back: 1,
+                    Left: 2,
+                    Right: 3,
+                    Top: 5,
+                  };
+                  const order =
+                    orderMap[input.label as keyof typeof orderMap] || 0;
+
+                  return (
+                    <div
+                      key={input.label}
+                      className={`border border-border rounded-lg p-4 space-y-3 ${
+                        input.label === "Front" ? "md:col-span-2" : ""
+                      }`}
+                      style={{ order: order }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Camera className="h-4 w-4 text-primary" />
+                        <label className="text-sm font-medium">
+                          {input.label} View
+                        </label>
+                      </div>
+
+                      {(() => {
+                        // Find the asset being edited
+                        const asset = assets.find(
+                          (a) => a.id === dialogAssetIds[0]
+                        );
+                        const refs = getReferenceArray(asset?.reference);
+                        const currentValue = refs[idx] || input.value;
+
+                        if (currentValue) {
+                          return (
+                            <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                              <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                              <a
+                                href={currentValue}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-green-700 underline break-all text-xs cursor-pointer"
+                              >
+                                {currentValue.includes("/")
+                                  ? currentValue.split("/").pop() ||
+                                    currentValue
+                                  : currentValue}
+                              </a>
+                            </div>
+                          );
+                        }
+
                         return (
-                          <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                            <a
-                              href={currentValue}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-green-700 underline break-all text-sm cursor-pointer"
+                          <div className="space-y-3">
+                            {/* URL Input */}
+                            <Input
+                              type="url"
+                              className="border border-primary/20 focus:border-primary rounded-md p-2 text-sm"
+                              placeholder={`Paste ${input.label.toLowerCase()} URL...`}
+                              value={input.value}
+                              onChange={(e) =>
+                                setReferenceInputs((inputs) =>
+                                  inputs.map((inp, i) =>
+                                    i === idx
+                                      ? { ...inp, value: e.target.value }
+                                      : inp
+                                  )
+                                )
+                              }
+                              disabled={loading}
+                            />
+
+                            {/* Divider */}
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-px bg-border"></div>
+                              <span className="text-xs text-muted-foreground">
+                                OR
+                              </span>
+                              <div className="flex-1 h-px bg-border"></div>
+                            </div>
+
+                            {/* Drag & Drop Zone */}
+                            <div
+                              className={`relative border-2 border-dashed rounded-md p-4 text-center transition-all duration-200 ${
+                                dragOverIndex === idx
+                                  ? "border-primary bg-primary/10 scale-105"
+                                  : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
+                              }`}
+                              onDrop={(e) => handleDrop(e, idx)}
+                              onDragOver={(e) => handleDragOver(e, idx)}
+                              onDragLeave={handleDragLeave}
                             >
-                              {currentValue}
-                            </a>
+                              <input
+                                type="file"
+                                id={`file-input-${idx}`}
+                                className="hidden"
+                                accept="image/*,.pdf,.zip,.rar,.7z,.glb,.gltf,.obj,.fbx,.stl"
+                                onChange={(e) => handleFileSelect(e, idx)}
+                                disabled={loading}
+                              />
+
+                              {uploadingFiles[`${idx}_${Date.now()}`] ? (
+                                <div className="space-y-2">
+                                  <div className="h-6 w-6 mx-auto border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                                  <p className="text-xs text-muted-foreground">
+                                    Uploading...
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <Upload className="h-6 w-6 mx-auto text-muted-foreground" />
+                                  <div>
+                                    <p className="text-xs font-medium">
+                                      Drop files here
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      or click to browse
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      document
+                                        .getElementById(`file-input-${idx}`)
+                                        ?.click()
+                                    }
+                                    className="cursor-pointer text-xs h-7 px-2"
+                                  >
+                                    Browse
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
-                      }
-                      return (
-                        <Input
-                          type="url"
-                          className="border-2 border-primary/20 focus:border-primary rounded-lg p-3"
-                          placeholder={`Paste ${input.label.toLowerCase()} image URL...`}
-                          value={input.value}
-                          onChange={(e) =>
-                            setReferenceInputs((inputs) =>
-                              inputs.map((inp, i) =>
-                                i === idx
-                                  ? { ...inp, value: e.target.value }
-                                  : inp
-                              )
-                            )
-                          }
-                          disabled={loading}
-                        />
-                      );
-                    })()}
-                  </div>
-                ))}
+                      })()}
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="flex justify-end gap-4 pt-4 border-t border-border">
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
                 <Button
                   variant="outline"
                   onClick={() => setDialogOpen(false)}
                   disabled={loading}
-                  size="lg"
+                  size="sm"
                   className="cursor-pointer"
                 >
                   Cancel
@@ -774,7 +952,7 @@ export default function ReferenceImagesPage() {
                   onClick={handleSaveReference}
                   loading={loading}
                   disabled={referenceInputs.every((inp) => !inp.value.trim())}
-                  size="lg"
+                  size="sm"
                   className="gap-2 cursor-pointer"
                 >
                   <Save className="h-4 w-4" />
@@ -808,14 +986,20 @@ export default function ReferenceImagesPage() {
 
                     {referenceInputs[idx]?.value ? (
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <a
-                          href={referenceInputs[idx].value}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-700 underline break-all text-sm cursor-pointer"
-                        >
-                          {referenceInputs[idx].value}
-                        </a>
+                        <div className="flex items-center gap-2 flex-1">
+                          {getFileIcon(referenceInputs[idx].value)}
+                          <a
+                            href={referenceInputs[idx].value}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 underline break-all text-sm cursor-pointer"
+                          >
+                            {referenceInputs[idx].value.includes("/")
+                              ? referenceInputs[idx].value.split("/").pop() ||
+                                referenceInputs[idx].value
+                              : referenceInputs[idx].value}
+                          </a>
+                        </div>
                         <Button
                           variant="ghost"
                           size="sm"
