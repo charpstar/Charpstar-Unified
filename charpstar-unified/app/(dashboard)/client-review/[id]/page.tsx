@@ -1009,20 +1009,23 @@ export default function ReviewPage() {
 
   // Function to determine which revision an item was added in
   const getRevisionForItem = (createdAt: string) => {
-    if (revisionHistory.length === 0) return null;
+    if (revisionHistory.length === 0) return 0;
 
     const itemDate = new Date(createdAt);
 
-    // Find the revision that was created after this item
-    for (let i = revisionHistory.length - 1; i >= 0; i--) {
+    // Find the revision that was created before this item
+    // Items created before the first revision are from revision 0 (original)
+    // Items created after a revision are from that revision number
+    for (let i = 0; i < revisionHistory.length; i++) {
       const revisionDate = new Date(revisionHistory[i].created_at);
-      if (itemDate <= revisionDate) {
-        return revisionHistory[i].revision_number;
+      if (itemDate < revisionDate) {
+        // Item was created before this revision, so it belongs to the previous revision
+        return i === 0 ? 0 : revisionHistory[i - 1].revision_number;
       }
     }
 
-    // If item was created before any revision, it's from the original (revision 0)
-    return 0;
+    // If item was created after all revisions, it belongs to the latest revision
+    return revisionHistory[revisionHistory.length - 1].revision_number;
   };
 
   // Function to open revision details dialog
