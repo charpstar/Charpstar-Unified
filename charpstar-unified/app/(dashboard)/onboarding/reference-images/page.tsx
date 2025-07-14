@@ -242,10 +242,10 @@ export default function ReferenceImagesPage() {
 
     try {
       // Upload file to Supabase Storage
-      const fileName = `${user.metadata.client}/${Date.now()}_${file.name}`;
+      const fileName = `reference-files/${user.metadata.client}/${Date.now()}_${file.name}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("reference-files")
+        .from("assets")
         .upload(fileName, file);
 
       if (uploadError) {
@@ -254,7 +254,7 @@ export default function ReferenceImagesPage() {
 
       // Get public URL
       const { data: urlData } = supabase.storage
-        .from("reference-files")
+        .from("assets")
         .getPublicUrl(fileName);
 
       // Update the reference input with the file URL
