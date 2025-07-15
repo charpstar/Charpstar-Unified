@@ -14,7 +14,6 @@ import {
   Save,
   RotateCcw,
   X,
-  Eye,
   Undo2,
   Redo2,
   Lightbulb,
@@ -50,7 +49,7 @@ export function DraggableDashboard({
   const [widgets, setWidgets] = useState<DashboardWidget[]>(defaultLayout);
   const [isEditMode, setIsEditMode] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState<string | null>(null);
-  const [showEditModeTip, setShowEditModeTip] = useState(false);
+
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedWidget, setExpandedWidget] = useState<string | null>(null);
@@ -106,18 +105,6 @@ export function DraggableDashboard({
       });
     }
   }, [layoutHistory, toast]);
-
-  // Toggle edit mode
-  const toggleEditMode = useCallback(() => {
-    setIsEditMode((prev) => {
-      const newMode = !prev;
-      if (newMode && !showEditModeTip) {
-        setShowEditModeTip(true);
-        setTimeout(() => setShowEditModeTip(false), 5000);
-      }
-      return newMode;
-    });
-  }, [showEditModeTip]);
 
   // Save layout function
   const saveLayout = useCallback(async () => {
@@ -250,12 +237,12 @@ export function DraggableDashboard({
             break;
           case "e":
             e.preventDefault();
-            toggleEditMode();
+            setIsEditMode(!isEditMode);
             break;
         }
       } else if (e.key === "Escape") {
         if (isEditMode) {
-          toggleEditMode();
+          setIsEditMode(false);
         }
         if (expandedWidget) {
           setExpandedWidget(null);
@@ -265,7 +252,7 @@ export function DraggableDashboard({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isEditMode, expandedWidget, undo, redo, saveLayout, toggleEditMode]);
+  }, [isEditMode, expandedWidget, undo, redo, saveLayout]);
 
   // Initialize widgets when defaultLayout changes
   useEffect(() => {
@@ -284,26 +271,6 @@ export function DraggableDashboard({
       loadUserLayout();
     }
   }, [user?.id, hasLoadedSavedLayout, loadUserLayout]);
-
-  // Show custom notification when entering edit mode (only once)
-  useEffect(() => {
-    if (isEditMode) {
-      const hasShownTip = localStorage.getItem("dashboard-edit-mode-tip-shown");
-      if (!hasShownTip) {
-        setShowEditModeTip(true);
-        localStorage.setItem("dashboard-edit-mode-tip-shown", "true");
-
-        // Auto-hide after 5 seconds
-        const timer = setTimeout(() => {
-          setShowEditModeTip(false);
-        }, 5000);
-
-        return () => clearTimeout(timer);
-      }
-    } else {
-      setShowEditModeTip(false);
-    }
-  }, [isEditMode]);
 
   // Debug: Log widgets state changes
   useEffect(() => {
@@ -405,21 +372,18 @@ export function DraggableDashboard({
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.15, ease: "easeOut" }}
+        data-tour="dashboard-controls"
       >
         <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <div className="flex items-center gap-2">
-            <Eye className="h-4 w-4" />
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              View Mode
-            </span>
             <Switch
               checked={isEditMode}
               onCheckedChange={setIsEditMode}
-              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-100"
+              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200"
             />
             <Settings className="h-4 w-4" />
             <span className="text-sm text-muted-foreground hidden sm:inline">
-              Edit Mode
+              Edit Layout
             </span>
           </div>
         </div>
@@ -564,77 +528,6 @@ export function DraggableDashboard({
         </AnimatePresence>
       </motion.div>
 
-      {/* Edit Mode Tip Notification */}
-      <AnimatePresence>
-        {showEditModeTip && (
-          <motion.div
-            className="relative"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <motion.div
-              className="absolute top-0 left-0 z-50"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.15, ease: "easeOut", delay: 0.05 }}
-            >
-              <div className="bg-primary text-primary-foreground px-4 py-3 rounded-lg shadow-lg max-w-sm">
-                <div className="flex items-start gap-3">
-                  <motion.div
-                    className="flex-shrink-0 mt-0.5"
-                    initial={{ rotate: -10 }}
-                    animate={{ rotate: 0 }}
-                    transition={{ duration: 0.15, ease: "easeOut", delay: 0.1 }}
-                  >
-                    <Settings className="h-4 w-4" />
-                  </motion.div>
-                  <div className="flex-1">
-                    <motion.p
-                      className="text-sm font-medium"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{
-                        duration: 0.15,
-                        ease: "easeOut",
-                        delay: 0.15,
-                      }}
-                    >
-                      Edit Mode Enabled
-                    </motion.p>
-                    <motion.p
-                      className="text-xs opacity-90 mt-1"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{
-                        duration: 0.15,
-                        ease: "easeOut",
-                        delay: 0.2,
-                      }}
-                    >
-                      Tip: You can move around all the widgets freely and then
-                      save your layout!
-                    </motion.p>
-                  </div>
-                  <motion.button
-                    onClick={() => setShowEditModeTip(false)}
-                    className="flex-shrink-0 text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-                    whileTap={{ scale: 0.9 }}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.1, ease: "easeOut", delay: 0.25 }}
-                  >
-                    <X className="h-4 w-4" />
-                  </motion.button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <AnimatePresence>
         {isEditMode && (
           <motion.div
@@ -748,7 +641,7 @@ export function DraggableDashboard({
                 key={widget.id}
                 className={`${getSizeClasses(widget.size)} ${
                   isEditMode ? "cursor-move" : ""
-                } ${isExpanded ? "col-span-full row-span-2" : ""}`}
+                } ${isExpanded ? "col-span-full row-span-2" : ""} rounded-lg`}
                 draggable={isEditMode}
                 onDragStart={(e: React.DragEvent) =>
                   handleDragStart(e, widget.id)
@@ -756,6 +649,17 @@ export function DraggableDashboard({
                 onDragOver={(e: React.DragEvent) => handleDragOver(e)}
                 onDrop={(e: React.DragEvent) => handleDrop(e, widget.id)}
                 onDragEnd={() => handleDragEnd()}
+                data-tour={
+                  widget.id === "quick-actions"
+                    ? "quick-actions"
+                    : widget.id === "model-status"
+                      ? "model-status"
+                      : widget.id === "status-pie-chart"
+                        ? "status-chart"
+                        : widget.id === "profile"
+                          ? "profile"
+                          : undefined
+                }
               >
                 <motion.div
                   initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -776,8 +680,8 @@ export function DraggableDashboard({
                   layout
                 >
                   <Card
-                    className={`h-full transition-all duration-200 ${
-                      isDragging ? "border-primary/50 shadow-lg" : ""
+                    className={`h-full transition-all duration-200  rounded-lg ${
+                      isDragging ? "shadow-lg" : ""
                     }`}
                   >
                     <CardContent className="pt-0 p-4 sm:p-3">

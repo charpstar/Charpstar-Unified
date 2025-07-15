@@ -26,6 +26,7 @@ import {
   FileUp,
   Package,
   Folder,
+  Cog,
 } from "lucide-react";
 import { SettingsDialog } from "@/app/components/settings-dialog";
 import { BarChart, XAxis, YAxis, Bar } from "recharts";
@@ -37,6 +38,7 @@ import {
   CardTitle,
   CardHeader,
   Separator,
+  CardContent,
 } from "@/components/ui/containers";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
@@ -225,9 +227,12 @@ export function ProfileWidget({ user }: { user?: any }) {
           variant="ghost"
           size="sm"
           onClick={() => setIsSettingsOpen(true)}
-          className="h-8 w-8 p-0 hover:bg-primary/10"
+          className="h-9 w-9 p-0 hover:bg-primary/10 rounded-lg transition-all duration-200 hover:scale-105 group"
         >
-          <Settings className="h-4 w-4" />
+          <div className="relative">
+            <Cog className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
+            <div className="absolute inset-0 rounded-full bg-primary/0 group-hover:bg-primary/5 transition-all duration-200" />
+          </div>
         </Button>
       </WidgetHeader>
 
@@ -444,24 +449,31 @@ export function ProfileWidget({ user }: { user?: any }) {
         )}
 
         {/* Quick Actions */}
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 text-xs"
+            className="flex-1 text-xs group hover:bg-primary/5 transition-all duration-200"
             onClick={() => setIsSettingsOpen(true)}
           >
-            <Settings className="h-3 w-3 mr-1" />
-            Settings
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Cog className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
+                <div className="absolute inset-0 rounded-full bg-primary/0 group-hover:bg-primary/5 transition-all duration-200" />
+              </div>
+              <span className="font-medium">Settings</span>
+            </div>
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 text-xs"
+            className="flex-1 text-xs group hover:bg-primary/5 transition-all duration-200"
             onClick={() => router.push("/asset-library")}
           >
-            <Folder className="h-3 w-3 mr-1" />
-            Library
+            <div className="flex items-center gap-2">
+              <Folder className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
+              <span className="font-medium">Library</span>
+            </div>
           </Button>
         </div>
       </div>
@@ -1141,7 +1153,7 @@ export function ModelStatusWidget() {
   }, [user?.metadata?.client, user?.metadata?.role]);
 
   return (
-    <Card className="p-6 rounded-lg shadow- bg-background w-full mx-auto flex flex-col items-center">
+    <Card className="p-6 rounded-lg shadow- bg-background w-full mx-auto flex flex-col items-center border-0 shadow-none">
       <CardHeader>
         <CardTitle className="text-lg font-semibold mb-1 text-foreground">
           Total Models: {products.length}
@@ -1255,8 +1267,8 @@ export function StatusPieChartWidget() {
     });
 
   return (
-    <Card className="p-3 rounded-lg bg-background w-full mx-auto flex flex-col items-center pointer-events-none select-none">
-      <CardHeader>
+    <Card className="p-0  rounded-lg bg-background w-full mx-auto flex flex-col items-center pointer-events-none select-none border-0 shadow-none">
+      <CardHeader className="!pb-0">
         <CardTitle className="text-lg font-semibold mb-1 text-foreground">
           Model Status Distribution
         </CardTitle>
@@ -1271,65 +1283,71 @@ export function StatusPieChartWidget() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-row items-center gap-8 w-full justify-center select-none">
-          <div className="w-64 h-64 drop-shadow-lg pointer-events-auto">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={90}
-                  label
-                  isAnimationActive={true}
-                >
-                  {chartData.map((entry) => (
-                    <Cell
-                      key={`cell-${entry.key}`}
-                      fill={STATUS_COLORS[entry.key]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                    fontSize: 14,
-                    color: "#111827",
-                  }}
-                  formatter={(value: number, name: string) => {
-                    const entry = chartData.find((item) => item.name === name);
-                    const percentage = entry ? entry.percentage : 0;
-                    return [`${percentage}%`, name];
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-col gap-3 min-w-[160px] select-none">
-            {chartData.map((entry, index) => (
-              <>
-                <div key={entry.key} className="flex items-center gap-3">
-                  <span
-                    className="inline-block w-4 h-4 rounded-full"
-                    style={{ background: STATUS_COLORS[entry.key] }}
+        <CardContent className="!p-0">
+          <div className="flex flex-row items-center gap-18 w-full justify-center select-none">
+            <div className="w-64 h-64 drop-shadow-lg pointer-events-auto">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={90}
+                    label
+                    isAnimationActive={true}
+                  >
+                    {chartData.map((entry) => (
+                      <Cell
+                        key={`cell-${entry.key}`}
+                        fill={STATUS_COLORS[entry.key]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 8,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                      fontSize: 14,
+                      color: "#111827",
+                    }}
+                    formatter={(value: number, name: string) => {
+                      const entry = chartData.find(
+                        (item) => item.name === name
+                      );
+                      const percentage = entry ? entry.percentage : 0;
+                      return [`${percentage}%`, name];
+                    }}
                   />
-                  <span className="font-medium text-sm flex-1">
-                    {entry.name}
-                  </span>
-                  <span className="pl-6 font-medium">{entry.percentage}%</span>
-                </div>
-                {index !== chartData.length - 1 && (
-                  <Separator className="w-full" />
-                )}
-              </>
-            ))}
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col gap-3 min-w-[160px] select-none">
+              {chartData.map((entry, index) => (
+                <>
+                  <div key={entry.key} className="flex items-center gap-3">
+                    <span
+                      className="inline-block w-4 h-4 rounded-full"
+                      style={{ background: STATUS_COLORS[entry.key] }}
+                    />
+                    <span className="font-medium text-sm flex-1">
+                      {entry.name}
+                    </span>
+                    <span className="pl-6 font-medium">
+                      {entry.percentage}%
+                    </span>
+                  </div>
+                  {index !== chartData.length - 1 && (
+                    <Separator className="w-full" />
+                  )}
+                </>
+              ))}
+            </div>
           </div>
-        </div>
+        </CardContent>
       )}
     </Card>
   );

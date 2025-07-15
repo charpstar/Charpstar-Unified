@@ -32,6 +32,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/feedback";
+import { AnalyticsTour } from "@/components/analytics";
 
 // Lazy load heavy analytics components
 const LazyPerformanceTrends = lazy(() =>
@@ -120,6 +121,7 @@ export default function AnalyticsDashboard() {
   const [impersonatedProfile, setImpersonatedProfile] =
     useState<ImpersonatedProfile | null>(null);
   const [userRole, setUserRole] = useState<string | undefined>();
+  const [showAnalyticsTour, setShowAnalyticsTour] = useState(false);
   const isUserLoading = typeof user === "undefined";
   const {
     hasAnalyticsProfile,
@@ -158,6 +160,34 @@ export default function AnalyticsDashboard() {
 
     fetchUserRole();
   }, [router]);
+
+  // Check if analytics tour should be shown
+  useEffect(() => {
+    const analyticsTourCompleted = localStorage.getItem(
+      "analytics-tour-completed"
+    );
+    if (
+      !analyticsTourCompleted &&
+      hasAnalyticsProfile &&
+      !analyticsCheckLoading
+    ) {
+      // Small delay to ensure page is fully loaded
+      const timer = setTimeout(() => {
+        setShowAnalyticsTour(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [hasAnalyticsProfile, analyticsCheckLoading]);
+
+  const handleAnalyticsTourComplete = () => {
+    localStorage.setItem("analytics-tour-completed", "true");
+    setShowAnalyticsTour(false);
+  };
+
+  const handleAnalyticsTourSkip = () => {
+    localStorage.setItem("analytics-tour-completed", "true");
+    setShowAnalyticsTour(false);
+  };
 
   useEffect(() => {
     async function fetchImpersonatedProfile() {
@@ -443,6 +473,13 @@ export default function AnalyticsDashboard() {
   // --- Main dashboard ---
   return (
     <div className="flex flex-1 flex-col p-4 sm:p-6">
+      {showAnalyticsTour && (
+        <AnalyticsTour
+          onComplete={handleAnalyticsTourComplete}
+          onSkip={handleAnalyticsTourSkip}
+        />
+      )}
+
       {impersonatedProfile && (
         <Alert variant="default" className="mb-4">
           <AlertTriangle className="h-4 w-4" />

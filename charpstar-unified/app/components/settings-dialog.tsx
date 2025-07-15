@@ -34,6 +34,7 @@ import {
   Zap,
   Target,
   Palette,
+  RotateCcw,
 } from "lucide-react";
 import {
   Tabs,
@@ -399,11 +400,35 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   // Actions
   const handleLogout = async () => {
-    await withLoading(async () => {
-      setLoggingOut(true);
+    setLoggingOut(true);
+    try {
       await supabase.auth.signOut();
       router.push("/auth");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  const handleResetTour = () => {
+    // Clear the tour completion flag from localStorage
+    localStorage.removeItem("client-dashboard-tour-completed");
+
+    // Show success message
+    toast({
+      title: "Tour Reset",
+      description:
+        "The dashboard tour has been reset. It will start again on your next visit.",
     });
+
+    // Trigger the tour immediately by dispatching a custom event
+    window.dispatchEvent(new CustomEvent("resetDashboardTour"));
   };
 
   const handleAddUser = async (formData: UserFormValues) => {
@@ -805,8 +830,35 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         {user?.role || "User"}
                       </div>
                     </div>
-                    <div className="space-y-4">
-                      <EditorThemePicker />
+                    <div className="space-y-2">
+                      <Label className="text-muted-foreground text-xs sm:text-sm">
+                        Theme
+                      </Label>
+                      <div className="flex flex-col gap-2">
+                        <EditorThemePicker />
+                      </div>
+                    </div>
+
+                    {/* Reset Tour Guide */}
+                    <div className="space-y-2">
+                      <Label className="text-muted-foreground text-xs sm:text-sm">
+                        Help
+                      </Label>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleResetTour}
+                          className="gap-2 cursor-pointer text-xs max-w-[fit-content] sm:text-sm h-8 sm:h-10 px-2 sm:px-4 justify-start "
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Reset Dashboard Tour Guide
+                        </Button>
+                        <div className="text-xs text-muted-foreground">
+                          Restart the interactive tour to learn about dashboard
+                          features
+                        </div>
+                      </div>
                     </div>
                     {/* Profile Picture */}
                     {/* <div className="flex flex-col gap-1">

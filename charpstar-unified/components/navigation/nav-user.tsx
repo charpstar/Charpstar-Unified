@@ -229,11 +229,12 @@ export default function NavUser() {
             className="items-center"
           >
             <Switch
-              checked={theme === "dark"}
+              checked={theme === "light"}
               onCheckedChange={(checked) =>
-                setTheme(checked ? "dark" : "light")
+                setTheme(checked ? "light" : "dark")
               }
               className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200"
+              data-tour="theme-switcher"
             />
           </motion.div>
 
@@ -251,6 +252,7 @@ export default function NavUser() {
               <SidebarMenuButton
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer"
+                data-tour="user-profile"
               >
                 {renderAvatar(displayAvatar, name)}
                 <div className="grid flex-1 text-left text-sm leading-tight">

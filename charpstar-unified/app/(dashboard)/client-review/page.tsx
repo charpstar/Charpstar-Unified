@@ -61,7 +61,7 @@ const getPriorityLabel = (priority: number) => {
 };
 
 const ReviewTableSkeleton = () => (
-  <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[79vh]">
+  <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[78vh]">
     <Table>
       <TableHeader>
         <TableRow>
@@ -281,7 +281,7 @@ export default function ReviewDashboardPage() {
 
   return (
     <div className=" mx-auto p-6 flex flex-col h-full">
-      <Card className="p-6 flex-1 flex flex-col ">
+      <Card className="p-6 flex-1 flex flex-col border-0 shadow-none ">
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">
             <Select
@@ -342,7 +342,7 @@ export default function ReviewDashboardPage() {
         {loading ? (
           <ReviewTableSkeleton />
         ) : (
-          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[79vh]">
+          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[75vh]">
             <Table>
               <TableHeader>
                 <TableRow>

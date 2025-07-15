@@ -6,8 +6,8 @@ import { Separator } from "@/components/ui/containers";
 import { usePathname, useParams } from "next/navigation";
 import { DateRangePicker } from "@/components/ui/utilities";
 import { useDateRange } from "@/contexts/DateRangeContext";
-import { useAnalyticsTour } from "@/hooks/use-analytics-tour";
-import { CalendarTourNotification } from "@/components/ui/utilities";
+import { useAnalyticsCheck } from "@/lib/analyticsCheck";
+
 import { useState, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
 
@@ -35,8 +35,7 @@ export default function SiteHeader() {
   const clientName = params?.id as string;
   const { pendingRange, setPendingRange, setAppliedRange, isApplyDisabled } =
     useDateRange();
-  const { showTourNotification, dismissNotification, showNotification } =
-    useAnalyticsTour();
+  const { hasAnalyticsProfile } = useAnalyticsCheck();
   const [isLoaded, setIsLoaded] = useState(false);
 
   let pageTitle = "Unified";
@@ -73,23 +72,6 @@ export default function SiteHeader() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Show tour notification when user first visits analytics page
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    console.log("Site header effect running:", { isAnalyticsPage, pathname });
-    if (isAnalyticsPage) {
-      console.log("On analytics page, setting up tour notification");
-      // Small delay to ensure the page is fully loaded
-      const timer = setTimeout(() => {
-        console.log("Timer fired, calling showTourNotification");
-        showTourNotification();
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isAnalyticsPage, showTourNotification, isLoaded, pathname]);
-
   return (
     <header className="bg-background flex h-(--header-height) shrink-0 items-center gap-2 border-b  rounded-t-lg border-border transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
       <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
@@ -101,10 +83,11 @@ export default function SiteHeader() {
         <h1 className="text-base font-medium">{pageTitle}</h1>
 
         <div className="ml-auto flex items-center gap-2">
-          {isAnalyticsPage && isLoaded && (
-            <div className="flex items-center gap-2 relative">
+          {isAnalyticsPage && isLoaded && hasAnalyticsProfile && (
+            <div className="flex items-center gap-2 relative ">
               <div className="relative">
                 <DateRangePicker
+                  data-tour="date-range-picker"
                   value={pendingRange}
                   onChange={(newRange: DateRange | undefined) => {
                     if (newRange?.from && newRange?.to) {
@@ -113,9 +96,6 @@ export default function SiteHeader() {
                   }}
                   className="w-auto"
                 />
-                {showNotification && (
-                  <CalendarTourNotification onDismiss={dismissNotification} />
-                )}
               </div>
               <Button
                 onClick={() => setAppliedRange(pendingRange)}

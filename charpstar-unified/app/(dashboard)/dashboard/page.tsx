@@ -11,7 +11,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   lazy,
 } from "react";
@@ -24,6 +23,7 @@ import {
   ModelStatusWidget,
   StatusPieChartWidget,
 } from "@/components/dashboard/dashboard-widgets";
+import { ClientDashboardTour } from "@/components/dashboard/client-dashboard-tour";
 
 // Lazy load heavy dashboard widgets
 const LazyTotalModelsWidget = lazy(() =>
@@ -66,10 +66,8 @@ interface DashboardStats {
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [showAvatarPopup, setShowAvatarPopup] = useState(false);
   const user = useUser();
   const { toast } = useToast();
-  const popupTimerRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -105,33 +103,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     document.title = "CharpstAR Platform - Dashboard";
-  }, []);
-
-  useEffect(() => {
-    // Show avatar popup for first 3 seconds only on first visit
-    const hasSeenAvatarPopup = localStorage.getItem("hasSeenAvatarPopup");
-
-    if (!hasSeenAvatarPopup) {
-      setShowAvatarPopup(true);
-
-      // Clear any existing timer
-      if (popupTimerRef.current) {
-        clearTimeout(popupTimerRef.current);
-      }
-
-      // Set new timer
-      popupTimerRef.current = setTimeout(() => {
-        setShowAvatarPopup(false);
-        // Mark as seen in localStorage
-        localStorage.setItem("hasSeenAvatarPopup", "true");
-      }, 3000);
-
-      return () => {
-        if (popupTimerRef.current) {
-          clearTimeout(popupTimerRef.current);
-        }
-      };
-    }
   }, []);
 
   useEffect(() => {
@@ -221,6 +192,7 @@ export default function DashboardPage() {
         size: "medium" as const,
         position: { x: 0, y: 0 },
         visible: true,
+
         content: (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
@@ -424,34 +396,12 @@ export default function DashboardPage() {
   return (
     <Suspense fallback={<DashboardSkeleton />}>
       <div className="flex flex-1 flex-col p-4 sm:p-6">
-        <DraggableDashboard defaultLayout={defaultLayout} />
-
-        {/* Avatar Popup - rendered outside the memoized layout */}
-        {showAvatarPopup && (
-          <div className="fixed top-35 left-40 z-50 animate-in slide-in-from-bottom-2 duration-300">
-            <div className="bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg text-sm whitespace-nowrap">
-              <div className="flex items-center gap-2">
-                <span>👋 Click to customize your avatar!</span>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setShowAvatarPopup(false);
-                    localStorage.setItem("hasSeenAvatarPopup", "true");
-                    // Clear the timer if it's still running
-                    if (popupTimerRef.current) {
-                      clearTimeout(popupTimerRef.current);
-                    }
-                  }}
-                  className="text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-primary transform rotate-45"></div>
-            </div>
-          </div>
+        {/* Add the dashboard tour component for clients */}
+        {user?.metadata?.role === "client" && !user?.metadata?.onboarding && (
+          <ClientDashboardTour />
         )}
+
+        <DraggableDashboard defaultLayout={defaultLayout} />
 
         {/* Admin widgets are rendered separately */}
       </div>
