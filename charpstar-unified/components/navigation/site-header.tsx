@@ -21,6 +21,7 @@ const TITLES = {
 
   "/settings": "Settings",
   "/onboarding": "Onboarding",
+  "/production": "Production",
   "/auth/signup": "Signup",
   "/onboarding/csv-upload": "CSV Upload",
   "/onboarding/reference-images": "Reference Upload",

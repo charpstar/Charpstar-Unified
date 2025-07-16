@@ -510,7 +510,7 @@ export default function AddProductsPage() {
       <div className="flex-1 flex gap-6">
         {/* Main Form */}
         <div className="flex-1 overflow-y-auto max-h-[calc(100vh-15rem)]">
-          <Card className="h-fit">
+          <Card className="h-fit shadow-none border-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
@@ -821,7 +821,7 @@ export default function AddProductsPage() {
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Current Batch
+                  Batch
                 </p>
                 <p className="text-2xl font-bold text-primary">
                   {currentBatch}

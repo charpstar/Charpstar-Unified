@@ -21,14 +21,23 @@ import {
   SelectValue,
 } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
-import { ChevronLeft, ChevronRight, Menu, Users } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  Users,
+  Eye,
+  Package,
+  CheckCircle,
+  RotateCcw,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/interactive/dropdown-menu";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 
@@ -89,6 +98,9 @@ const AdminReviewTableSkeleton = () => (
           <TableHead>
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
+          <TableHead>
+            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -127,6 +139,9 @@ const AdminReviewTableSkeleton = () => (
             <TableCell>
               <div className="h-8 w-8 bg-muted rounded animate-pulse" />
             </TableCell>
+            <TableCell>
+              <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -138,10 +153,12 @@ export default function AdminReviewPage() {
   const user = useUser();
   const { startLoading, stopLoading } = useLoading();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [assets, setAssets] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [clientFilter, setClientFilter] = useState<string>("all");
+  const [batchFilter, setBatchFilter] = useState<string>("all");
   const [sort, setSort] = useState<string>("batch");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -151,6 +168,65 @@ export default function AdminReviewPage() {
     Record<string, number>
   >({});
   const [clients, setClients] = useState<string[]>([]);
+
+  // Calculate status totals based on filtered data
+  const statusTotals = useMemo(() => {
+    const totals = {
+      total: filtered.length,
+      not_started: 0,
+      in_production: 0,
+      revisions: 0,
+      approved: 0,
+      delivered_by_artist: 0,
+    };
+
+    filtered.forEach((asset) => {
+      if (asset.status && totals.hasOwnProperty(asset.status)) {
+        totals[asset.status as keyof typeof totals]++;
+      }
+    });
+
+    // Calculate percentages
+    const percentages = {
+      total: 100,
+      not_started:
+        filtered.length > 0
+          ? Math.round((totals.not_started / filtered.length) * 100)
+          : 0,
+      in_production:
+        filtered.length > 0
+          ? Math.round((totals.in_production / filtered.length) * 100)
+          : 0,
+      revisions:
+        filtered.length > 0
+          ? Math.round((totals.revisions / filtered.length) * 100)
+          : 0,
+      approved:
+        filtered.length > 0
+          ? Math.round((totals.approved / filtered.length) * 100)
+          : 0,
+      delivered_by_artist:
+        filtered.length > 0
+          ? Math.round((totals.delivered_by_artist / filtered.length) * 100)
+          : 0,
+    };
+
+    return { totals, percentages };
+  }, [filtered]);
+
+  // Handle URL parameters for client and batch filter
+  useEffect(() => {
+    const clientParam = searchParams.get("client");
+    const batchParam = searchParams.get("batch");
+
+    if (clientParam) {
+      setClientFilter(clientParam);
+    }
+
+    if (batchParam) {
+      setBatchFilter(batchParam);
+    }
+  }, [searchParams]);
 
   // Check if user is admin
   useEffect(() => {
@@ -222,6 +298,11 @@ export default function AdminReviewPage() {
       data = data.filter((a) => a.client === clientFilter);
     }
 
+    // Filter by batch
+    if (batchFilter && batchFilter !== "all") {
+      data = data.filter((a) => a.batch === parseInt(batchFilter));
+    }
+
     // Filter by status
     if (statusFilter) data = data.filter((a) => a.status === statusFilter);
 
@@ -259,7 +340,7 @@ export default function AdminReviewPage() {
 
     setFiltered(data);
     setPage(1); // Reset to first page on filter/sort/search
-  }, [assets, statusFilter, clientFilter, sort, search]);
+  }, [assets, statusFilter, clientFilter, batchFilter, sort, search]);
 
   // Pagination
   const paged = useMemo(() => {
@@ -318,6 +399,26 @@ export default function AdminReviewPage() {
               </SelectContent>
             </Select>
             <Select
+              value={batchFilter}
+              onValueChange={(value) => setBatchFilter(value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Batches" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Batches</SelectItem>
+                {Array.from(
+                  new Set(assets.map((asset) => asset.batch).filter(Boolean))
+                )
+                  .sort((a, b) => a - b)
+                  .map((batch) => (
+                    <SelectItem key={batch} value={batch.toString()}>
+                      Batch {batch}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <Select
               value={statusFilter}
               onValueChange={(value) => setStatusFilter(value)}
             >
@@ -365,10 +466,127 @@ export default function AdminReviewPage() {
             </Select>
           </div>
         </div>
+
+        {/* Status Cards */}
+        {!loading && (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Users className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {statusTotals.totals.total}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Package className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    In Progress
+                  </p>
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {statusTotals.totals.in_production +
+                      statusTotals.totals.revisions}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {statusTotals.percentages.in_production +
+                      statusTotals.percentages.revisions}
+                    %
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Approved
+                  </p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {statusTotals.totals.approved}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {statusTotals.percentages.approved}%
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <RotateCcw className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Returned for Revision
+                  </p>
+                  <p className="text-sm font-bold text-red-600">
+                    (Coming Soon)
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gray-100 rounded-lg">
+                  <Package className="h-5 w-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Not Started
+                  </p>
+                  <p className="text-2xl font-bold text-gray-600">
+                    {statusTotals.totals.not_started}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {statusTotals.percentages.not_started}%
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Delivered
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {statusTotals.totals.delivered_by_artist}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {statusTotals.percentages.delivered_by_artist}%
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {loading ? (
           <AdminReviewTableSkeleton />
         ) : (
-          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[79vh]">
+          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[70vh]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -407,12 +625,13 @@ export default function AdminReviewPage() {
                   <TableHead>Priority</TableHead>
                   <TableHead>Delivery Date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Review</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center">
+                    <TableCell colSpan={9} className="text-center">
                       No products found.
                     </TableCell>
                   </TableRow>
@@ -508,6 +727,18 @@ export default function AdminReviewPage() {
                             </Badge>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="cursor-pointer"
+                          onClick={() =>
+                            router.push(`/client-review/${asset.id}`)
+                          }
+                        >
+                          <Eye className="h-5 w-5" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))

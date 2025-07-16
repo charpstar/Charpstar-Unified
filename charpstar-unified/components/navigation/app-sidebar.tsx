@@ -10,6 +10,8 @@ import {
   Users,
   ClipboardList,
   Eye,
+  Factory,
+  UserPlus,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -108,9 +110,14 @@ export default function AppSidebar({
             icon: Users,
           },
           {
-            title: "Admin Review",
-            url: "/admin-review",
-            icon: Eye,
+            title: "Production",
+            url: "/production",
+            icon: Factory,
+          },
+          {
+            title: "Create Users",
+            url: "/create-users",
+            icon: UserPlus,
           },
         ]
       : [];

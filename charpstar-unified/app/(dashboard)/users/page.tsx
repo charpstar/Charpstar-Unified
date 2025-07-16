@@ -491,25 +491,36 @@ export default function UsersPage() {
       <div className="flex justify-between items-center ">
         <h1 className="text-2xl font-bold">Users</h1>
 
-        {userPermissions.add_user && (
-          <Dialog
-            open={isAddUserDialogOpen}
-            onOpenChange={setIsAddUserDialogOpen}
+        <div className="flex gap-2">
+          {userPermissions.add_user && (
+            <Dialog
+              open={isAddUserDialogOpen}
+              onOpenChange={setIsAddUserDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <Button variant="default">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add User
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New User</DialogTitle>
+                </DialogHeader>
+                <UserForm onSubmit={handleAddUser} isLoading={isAddingUser} />
+              </DialogContent>
+            </Dialog>
+          )}
+
+          <Button
+            variant="outline"
+            onClick={() => router.push("/create-users")}
+            className="flex items-center gap-2"
           >
-            <DialogTrigger asChild>
-              <Button variant="default">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add User
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New User</DialogTitle>
-              </DialogHeader>
-              <UserForm onSubmit={handleAddUser} isLoading={isAddingUser} />
-            </DialogContent>
-          </Dialog>
-        )}
+            <UserPlus className="w-4 h-4" />
+            Create User (Provisional)
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-4 items-center">

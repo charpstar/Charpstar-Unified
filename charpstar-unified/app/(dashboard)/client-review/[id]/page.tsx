@@ -212,15 +212,26 @@ export default function ReviewPage() {
   // Fetch asset data
   useEffect(() => {
     async function fetchAsset() {
-      if (!assetId || !user?.metadata?.client) return;
+      if (!assetId) return;
+
+      // For admin users, don't require client metadata
+      if (!user?.metadata?.client && user?.metadata?.role !== "admin") return;
 
       setLoading(true);
-      const { data, error } = await supabase
+
+      let query = supabase
         .from("onboarding_assets")
         .select("*")
-        .eq("id", assetId)
-        .eq("client", user.metadata.client)
-        .single();
+        .eq("id", assetId);
+
+      // Only filter by client if user is not admin
+      if (user?.metadata?.role !== "admin") {
+        query = query.eq("client", user.metadata.client);
+      }
+
+      const { data, error } = await query.single();
+
+      console.log("Asset response:", { data, error });
 
       if (error) {
         console.error("Error fetching asset:", error);
@@ -229,6 +240,7 @@ export default function ReviewPage() {
       }
 
       setAsset(data);
+      console.log("Asset set:", data?.product_name);
 
       // Set revision count
       setRevisionCount(data.revision_count || 0);
@@ -265,11 +277,15 @@ export default function ReviewPage() {
       if (!assetId) return;
 
       try {
+        console.log("Fetching annotations for asset:", assetId);
         const response = await fetch(`/api/annotations?asset_id=${assetId}`);
         const data = await response.json();
 
+        console.log("Annotations response:", response.status, data);
+
         if (response.ok) {
           setAnnotations(data.annotations || []);
+          console.log("Annotations set:", data.annotations?.length || 0);
         } else {
           console.error("Error fetching annotations:", data.error);
         }
@@ -287,6 +303,7 @@ export default function ReviewPage() {
       if (!assetId) return;
 
       try {
+        console.log("Fetching comments for asset:", assetId);
         const { data, error } = await supabase
           .from("asset_comments")
           .select(
@@ -302,10 +319,13 @@ export default function ReviewPage() {
           .eq("asset_id", assetId)
           .order("created_at", { ascending: false });
 
+        console.log("Comments response:", { data, error });
+
         if (error) {
           console.error("Error fetching comments:", error);
         } else {
           setComments(data || []);
+          console.log("Comments set:", data?.length || 0);
         }
       } catch (error) {
         console.error("Error fetching comments:", error);

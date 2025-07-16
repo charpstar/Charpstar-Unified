@@ -21,7 +21,17 @@ import {
   SelectValue,
 } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
-import { Eye, ChevronLeft, ChevronRight, Menu, Plus } from "lucide-react";
+import {
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  Plus,
+  Package,
+  Send,
+  CheckCircle,
+  RotateCcw,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -145,6 +155,26 @@ export default function ReviewDashboardPage() {
   >({});
   const [editingPriority, setEditingPriority] = useState<string | null>(null);
   const [priorityValue, setPriorityValue] = useState<number>(2);
+
+  // Calculate status totals
+  const statusTotals = useMemo(() => {
+    const totals = {
+      total: assets.length,
+      not_started: 0,
+      in_production: 0,
+      revisions: 0,
+      approved: 0,
+      delivered_by_artist: 0,
+    };
+
+    assets.forEach((asset) => {
+      if (asset.status && totals.hasOwnProperty(asset.status)) {
+        totals[asset.status as keyof typeof totals]++;
+      }
+    });
+
+    return totals;
+  }, [assets]);
 
   // Fetch assets for this client
   useEffect(() => {
@@ -339,10 +369,96 @@ export default function ReviewDashboardPage() {
             </Button>
           </div>
         </div>
+
+        {/* Status Summary Cards */}
+        {!loading && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <Card className="p-4 ">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Package className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total Models
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {statusTotals.total}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 ">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Send className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Sent for Review
+                  </p>
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {statusTotals.in_production + statusTotals.revisions}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 ">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Approved
+                  </p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {statusTotals.approved}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 ">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <RotateCcw className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Returned for Revision
+                  </p>
+                  <p className="text-sm font-bold text-red-600">
+                    (Coming Soon)
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 ">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gray-100 rounded-lg">
+                  <Package className="h-5 w-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Not Started
+                  </p>
+                  <p className="text-2xl font-bold text-gray-600">
+                    {statusTotals.not_started}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {loading ? (
           <ReviewTableSkeleton />
         ) : (
-          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[75vh]">
+          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[70vh]">
             <Table>
               <TableHeader>
                 <TableRow>
