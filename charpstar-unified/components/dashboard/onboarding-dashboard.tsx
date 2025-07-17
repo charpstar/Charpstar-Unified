@@ -9,8 +9,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/containers";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
-import { Badge } from "@/components/ui/feedback";
+import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
 import { Progress } from "@/components/ui/feedback";
 import { useUser } from "@/contexts/useUser";
 import {
@@ -29,6 +35,7 @@ import {
   Trophy,
   Target,
   Trash2,
+  AlertCircle,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -53,6 +60,7 @@ export function OnboardingDashboard() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
   const [removingCsv, setRemovingCsv] = useState(false);
+  const [showRemoveCsvDialog, setShowRemoveCsvDialog] = useState(false);
 
   const handleCompleteOnboarding = async () => {
     setCompletingOnboarding(true);
@@ -94,12 +102,16 @@ export function OnboardingDashboard() {
     }
   };
 
-  const handleRemoveCsv = async () => {
+  const handleRemoveCsv = () => {
+    setShowRemoveCsvDialog(true);
+  };
+
+  const confirmRemoveCsv = async () => {
     if (!user?.id) return;
 
     setRemovingCsv(true);
     try {
-      // Update user metadata to remove csv_uploaded flag
+      // Update user metadata to remove csv_uploaded flag and delete assets
       const response = await fetch("/api/users/complete-csv-upload", {
         method: "DELETE",
         headers: {
@@ -120,6 +132,7 @@ export function OnboardingDashboard() {
       console.error("Error removing CSV upload:", error);
     } finally {
       setRemovingCsv(false);
+      setShowRemoveCsvDialog(false);
     }
   };
 
@@ -127,30 +140,21 @@ export function OnboardingDashboard() {
     switch (role) {
       case "client":
         return (
-          <Badge
-            variant="default"
-            className="gap-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0"
-          >
+          <Badge variant="default" className="gap-1">
             <UserPlus className="h-3 w-3" />
             Client
           </Badge>
         );
       case "modeler":
         return (
-          <Badge
-            variant="secondary"
-            className="gap-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0"
-          >
+          <Badge variant="secondary" className="gap-1">
             <Building className="h-3 w-3" />
             3D Modeler
           </Badge>
         );
       case "qa":
         return (
-          <Badge
-            variant="outline"
-            className="gap-1 bg-gradient-to-r from-green-500 to-green-600 text-white border-0"
-          >
+          <Badge variant="outline" className="gap-1">
             <Shield className="h-3 w-3" />
             Quality Assurance
           </Badge>
@@ -464,9 +468,9 @@ export function OnboardingDashboard() {
                             h-16 w-16 rounded-full flex items-center justify-center transition-all duration-300
                             ${
                               step.completed
-                                ? "bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg"
+                                ? "bg-green-500 text-white"
                                 : status === "available"
-                                  ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg"
+                                  ? "bg-primary text-primary-foreground"
                                   : status === "locked"
                                     ? "bg-muted text-muted-foreground"
                                     : "bg-muted text-muted-foreground"
@@ -556,14 +560,6 @@ export function OnboardingDashboard() {
                               </div>
                             ) : (
                               <>
-                                {!step.disabled && status === "available" && (
-                                  <Badge
-                                    variant="outline"
-                                    className="px-4 py-2"
-                                  >
-                                    Available
-                                  </Badge>
-                                )}
                                 {step.disabled && (
                                   <Badge
                                     variant="outline"
@@ -577,7 +573,7 @@ export function OnboardingDashboard() {
                                   <Button
                                     size="default"
                                     onClick={step.action}
-                                    className="gap-2 px-6 py-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 cursor-pointer"
+                                    className="gap-2 px-6 py-2"
                                     disabled={step.disabled}
                                   >
                                     <Play className="h-4 w-4" />
@@ -657,13 +653,12 @@ export function OnboardingDashboard() {
 
         {/* Enhanced Completion Card */}
         {completedSteps === totalSteps && totalSteps > 0 && (
-          <Card className="relative overflow-hidden bg-gradient-to-r from-green-500/10 via-green-500/5 to-green-500/10 border-green-500/20">
-            <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-transparent" />
+          <Card className="relative overflow-hidden border-green-500/20">
             <CardContent className="relative pt-8 pb-8">
               <div className="text-center space-y-6">
                 {/* Celebration Icon */}
                 <div className="relative">
-                  <div className="h-20 w-20 mx-auto rounded-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+                  <div className="h-20 w-20 mx-auto rounded-full bg-green-500 flex items-center justify-center">
                     <Trophy className="h-10 w-10 text-white" />
                   </div>
                 </div>
@@ -695,7 +690,7 @@ export function OnboardingDashboard() {
                 <div className="space-y-3">
                   <Button
                     size="lg"
-                    className="gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg text-lg font-semibold cursor-pointer"
+                    className="gap-3 px-8 py-4 text-lg font-semibold"
                     onClick={handleCompleteOnboarding}
                     disabled={completingOnboarding}
                   >
@@ -723,6 +718,56 @@ export function OnboardingDashboard() {
         )}
 
         {/* Help Section */}
+
+        {/* Remove CSV Confirmation Dialog */}
+        <Dialog
+          open={showRemoveCsvDialog}
+          onOpenChange={setShowRemoveCsvDialog}
+        >
+          <DialogContent className="w-[400px] h-fit overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+                <span>Remove CSV Upload</span>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Are you sure you want to remove your CSV upload? This will
+                  also clear all the data that was uploaded from this file. This
+                  action cannot be undone.
+                </AlertDescription>
+              </Alert>
+            </div>
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setShowRemoveCsvDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmRemoveCsv}
+                disabled={removingCsv}
+              >
+                {removingCsv ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span className="ml-2">Removing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remove & Clear Data
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

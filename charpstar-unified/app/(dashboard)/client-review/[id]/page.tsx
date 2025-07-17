@@ -36,12 +36,11 @@ import {
   MoreVertical,
   Trash2,
   Maximize2,
-  ChevronLeft,
-  ChevronRight,
   MessageSquare,
   CheckCircle,
   AlertCircle,
   Loader2,
+  Ruler,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -138,7 +137,7 @@ export default function ReviewPage() {
   const [selectedReferenceIndex, setSelectedReferenceIndex] = useState<
     number | null
   >(0); // Always start with the first image selected
-  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [carouselIndex] = useState(0);
   const [comments, setComments] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"annotations" | "comments">(
     "annotations"
@@ -157,6 +156,9 @@ export default function ReviewPage() {
     x: 0,
     y: 0,
   });
+
+  // Dimensions state
+  const [showDimensions, setShowDimensions] = useState(false);
 
   // Comment state variables
   const [newCommentText, setNewCommentText] = useState("");
@@ -262,7 +264,22 @@ export default function ReviewPage() {
         } else if (data.reference) {
           refs = [data.reference];
         }
-        setReferenceImages(refs.filter(Boolean));
+        // Filter to only show image files in client review
+        const imageExtensions = [
+          ".jpg",
+          ".jpeg",
+          ".png",
+          ".gif",
+          ".bmp",
+          ".webp",
+          ".svg",
+        ];
+        const imageUrls = refs.filter((url) => {
+          if (!url) return false;
+          const lowerUrl = url.toLowerCase();
+          return imageExtensions.some((ext) => lowerUrl.includes(ext));
+        });
+        setReferenceImages(imageUrls);
       }
 
       setLoading(false);
@@ -360,8 +377,303 @@ export default function ReviewPage() {
 
   // Handle model load
   const handleModelLoaded = () => {
+    console.log("handleModelLoaded called");
     setModelLoaded(true);
-    console.log("Model loaded successfully");
+    console.log("Model loaded successfully, modelLoaded set to true");
+  };
+
+  // Set up dimension system (like asset library)
+  useEffect(() => {
+    if (!modelViewerRef.current) return;
+
+    const modelViewer = modelViewerRef.current as any;
+
+    // Check if modelViewer has the required methods
+    if (!modelViewer.querySelectorAll || !modelViewer.querySelector) {
+      console.warn("Model viewer not fully initialized");
+      return;
+    }
+
+    const handleLoad = () => {
+      console.log("Model load event fired");
+      setModelLoaded(true);
+      if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
+        initializeDimensions(modelViewer);
+      }
+    };
+
+    const handleCameraChange = () => {
+      if (modelViewer.querySelectorAll) {
+        renderDimensionLines(modelViewer);
+      }
+    };
+
+    // Check if model is already loaded
+    if (modelViewer.model) {
+      console.log("Model already loaded, setting state");
+      setModelLoaded(true);
+      if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
+        initializeDimensions(modelViewer);
+      }
+    }
+
+    modelViewer.addEventListener("load", handleLoad);
+    modelViewer.addEventListener("camera-change", handleCameraChange);
+
+    return () => {
+      if (modelViewer.removeEventListener) {
+        modelViewer.removeEventListener("camera-change", handleCameraChange);
+        modelViewer.removeEventListener("load", handleLoad);
+      }
+    };
+  }, [asset?.glb_link]);
+
+  // Initialize dimension hotspots and lines (like asset library)
+  const initializeDimensions = (modelViewer: any) => {
+    if (
+      !modelViewer ||
+      !modelViewer.getBoundingBoxCenter ||
+      !modelViewer.getDimensions ||
+      !modelViewer.updateHotspot ||
+      !modelViewer.querySelector
+    ) {
+      console.warn("Model viewer not ready for dimension initialization");
+      return;
+    }
+
+    try {
+      const center = modelViewer.getBoundingBoxCenter();
+      const size = modelViewer.getDimensions();
+      const x2 = size.x / 2;
+      const y2 = size.y / 2;
+      const z2 = size.z / 2;
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot+X-Y+Z",
+        position: `${center.x + x2} ${center.y - y2} ${center.z + z2}`,
+      });
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dim+X-Y",
+        position: `${center.x + x2 * 1.2} ${center.y - y2 * 1.1} ${center.z}`,
+      });
+      const dimXYElement = modelViewer.querySelector(
+        'button[slot="hotspot-dim+X-Y"]'
+      );
+      if (dimXYElement) {
+        dimXYElement.textContent = `${(size.z * 100).toFixed(0)} cm`;
+      }
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot+X-Y-Z",
+        position: `${center.x + x2} ${center.y - y2} ${center.z - z2}`,
+      });
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dim+X-Z",
+        position: `${center.x + x2 * 1.2} ${center.y} ${center.z - z2 * 1.2}`,
+      });
+      const dimXZElement = modelViewer.querySelector(
+        'button[slot="hotspot-dim+X-Z"]'
+      );
+      if (dimXZElement) {
+        dimXZElement.textContent = `${(size.y * 100).toFixed(0)} cm`;
+      }
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot+X+Y-Z",
+        position: `${center.x + x2} ${center.y + y2} ${center.z - z2}`,
+      });
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dim+Y-Z",
+        position: `${center.x} ${center.y + y2 * 1.1} ${center.z - z2 * 1.1}`,
+      });
+      const dimYZElement = modelViewer.querySelector(
+        'button[slot="hotspot-dim+Y-Z"]'
+      );
+      if (dimYZElement) {
+        dimYZElement.textContent = `${(size.x * 100).toFixed(0)} cm`;
+      }
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot-X+Y-Z",
+        position: `${center.x - x2} ${center.y + y2} ${center.z - z2}`,
+      });
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dim-X-Z",
+        position: `${center.x - x2 * 1.2} ${center.y} ${center.z - z2 * 1.2}`,
+      });
+      const dimXZ2Element = modelViewer.querySelector(
+        'button[slot="hotspot-dim-X-Z"]'
+      );
+      if (dimXZ2Element) {
+        dimXZ2Element.textContent = `${(size.y * 100).toFixed(0)} cm`;
+      }
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot-X-Y-Z",
+        position: `${center.x - x2} ${center.y - y2} ${center.z - z2}`,
+      });
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dim-X-Y",
+        position: `${center.x - x2 * 1.2} ${center.y - y2 * 1.1} ${center.z}`,
+      });
+      const dimXY2Element = modelViewer.querySelector(
+        'button[slot="hotspot-dim-X-Y"]'
+      );
+      if (dimXY2Element) {
+        dimXY2Element.textContent = `${(size.z * 100).toFixed(0)} cm`;
+      }
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot-X-Y+Z",
+        position: `${center.x - x2} ${center.y - y2} ${center.z + z2}`,
+      });
+
+      renderDimensionLines(modelViewer);
+
+      // Keep dimensions hidden by default (showDimensions state is false)
+      const dimLines = modelViewer.querySelector("#dimLines");
+      if (dimLines) {
+        dimLines.classList.add("hide");
+        console.log("Hidden dimLines element");
+      }
+
+      // Also hide all dimension hotspots by default
+      const dimElements = [
+        ...modelViewer.querySelectorAll('button[slot^="hotspot-dim"]'),
+        ...modelViewer.querySelectorAll('button[slot^="hotspot-dot"]'),
+        modelViewer.querySelector("#dimLines"),
+      ];
+
+      console.log("Hiding dimension elements:", dimElements.length);
+      dimElements.forEach((element) => {
+        if (element) {
+          element.classList.add("hide");
+        }
+      });
+    } catch (error) {
+      console.error("Error initializing dimensions:", error);
+    }
+  };
+
+  // Render dimension lines (like asset library)
+  const renderDimensionLines = (modelViewer: any) => {
+    if (
+      !modelViewer ||
+      !modelViewer.querySelectorAll ||
+      !modelViewer.queryHotspot
+    ) {
+      return;
+    }
+
+    function drawLine(
+      svgLine: SVGLineElement,
+      dotHotspot1: any,
+      dotHotspot2: any,
+      dimensionHotspot: any
+    ) {
+      if (
+        dotHotspot1 &&
+        dotHotspot2 &&
+        dotHotspot1.canvasPosition &&
+        dotHotspot2.canvasPosition
+      ) {
+        svgLine.setAttribute("x1", dotHotspot1.canvasPosition.x);
+        svgLine.setAttribute("y1", dotHotspot1.canvasPosition.y);
+        svgLine.setAttribute("x2", dotHotspot2.canvasPosition.x);
+        svgLine.setAttribute("y2", dotHotspot2.canvasPosition.y);
+
+        if (dimensionHotspot && !dimensionHotspot.facingCamera) {
+          svgLine.classList.add("hide");
+        } else {
+          svgLine.classList.remove("hide");
+        }
+      }
+    }
+
+    const dimLines = modelViewer.querySelectorAll("line");
+    if (!dimLines || dimLines.length === 0) {
+      return;
+    }
+
+    drawLine(
+      dimLines[0],
+      modelViewer.queryHotspot("hotspot-dot+X-Y+Z"),
+      modelViewer.queryHotspot("hotspot-dot+X-Y-Z"),
+      modelViewer.queryHotspot("hotspot-dim+X-Y")
+    );
+    drawLine(
+      dimLines[1],
+      modelViewer.queryHotspot("hotspot-dot+X-Y-Z"),
+      modelViewer.queryHotspot("hotspot-dot+X+Y-Z"),
+      modelViewer.queryHotspot("hotspot-dim+X-Z")
+    );
+    drawLine(
+      dimLines[2],
+      modelViewer.queryHotspot("hotspot-dot+X+Y-Z"),
+      modelViewer.queryHotspot("hotspot-dot-X+Y-Z"),
+      null
+    );
+    drawLine(
+      dimLines[3],
+      modelViewer.queryHotspot("hotspot-dot-X+Y-Z"),
+      modelViewer.queryHotspot("hotspot-dot-X-Y-Z"),
+      modelViewer.queryHotspot("hotspot-dim-X-Z")
+    );
+    drawLine(
+      dimLines[4],
+      modelViewer.queryHotspot("hotspot-dot-X-Y-Z"),
+      modelViewer.queryHotspot("hotspot-dot-X-Y+Z"),
+      modelViewer.queryHotspot("hotspot-dim-X-Y")
+    );
+  };
+
+  // Handle dimensions toggle (like asset library)
+  const handleDimensionsToggle = () => {
+    const newShowDimensions = !showDimensions;
+    console.log("Toggle dimensions:", {
+      current: showDimensions,
+      new: newShowDimensions,
+    });
+    setShowDimensions(newShowDimensions);
+
+    if (modelViewerRef.current) {
+      const modelViewer = modelViewerRef.current as any;
+
+      if (!modelViewer.querySelectorAll || !modelViewer.querySelector) {
+        console.warn("Model viewer not ready for dimension toggle");
+        return;
+      }
+
+      const dimElements = [
+        ...modelViewer.querySelectorAll('button[slot^="hotspot-dim"]'),
+        ...modelViewer.querySelectorAll('button[slot^="hotspot-dot"]'),
+        modelViewer.querySelector("#dimLines"),
+      ];
+
+      function setVisibility(visible: boolean) {
+        console.log("Setting dimension visibility:", visible);
+        dimElements.forEach((element) => {
+          if (element) {
+            if (visible) {
+              element.classList.remove("hide");
+            } else {
+              element.classList.add("hide");
+            }
+          }
+        });
+      }
+
+      setVisibility(newShowDimensions);
+
+      if (newShowDimensions) {
+        renderDimensionLines(modelViewer);
+      }
+    }
   };
 
   // Handle hotspot creation
@@ -394,6 +706,7 @@ export default function ReviewPage() {
     });
     setSelectedAnnotation(tempAnnotation);
     setNewComment("");
+    setNewImageUrl(""); // Clear the image URL for new annotations
     setAnnotationMode(false);
     setSelectedHotspotId(tempAnnotation.id);
   };
@@ -1519,1421 +1832,1182 @@ export default function ReviewPage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-muted">
-      {/* Enhanced Header */}
-      <div className="bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-sm">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-8">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/client-review")}
-              className="w-10 h-10 rounded-xl hover:bg-primary/8 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-6">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">
-                  {asset?.product_name || "Review Asset"}
-                </h3>
-                <div className="flex items-center gap-4 mt-2">
-                  <Badge
-                    variant={
-                      STATUS_LABELS[asset?.status as keyof typeof STATUS_LABELS]
-                        ?.color
-                        ? "outline"
-                        : "secondary"
-                    }
-                    className={`text-xs font-medium ${
-                      STATUS_LABELS[asset?.status as keyof typeof STATUS_LABELS]
-                        ?.color || ""
-                    }`}
-                  >
-                    {STATUS_LABELS[asset?.status as keyof typeof STATUS_LABELS]
-                      ?.label ||
-                      asset?.status ||
-                      "Unknown"}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground font-medium">
-                    {asset?.article_id}
-                  </span>
-                  {revisionCount > 0 && (
+    <>
+      <div className="h-full flex flex-col bg-muted">
+        {/* Enhanced Header */}
+        <div className="bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-sm">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-8">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push("/client-review")}
+                className="w-10 h-10 rounded-xl hover:bg-primary/8 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div className="flex items-center gap-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {asset?.product_name || "Review Asset"}
+                  </h3>
+                  <div className="flex items-center gap-4 mt-2">
                     <Badge
-                      variant="outline"
-                      className={`text-xs font-semibold ${getRevisionBadgeColors(revisionCount)}`}
+                      variant={
+                        STATUS_LABELS[
+                          asset?.status as keyof typeof STATUS_LABELS
+                        ]?.color
+                          ? "outline"
+                          : "secondary"
+                      }
+                      className={`text-xs font-medium ${
+                        STATUS_LABELS[
+                          asset?.status as keyof typeof STATUS_LABELS
+                        ]?.color || ""
+                      }`}
                     >
-                      R{revisionCount}
+                      {STATUS_LABELS[
+                        asset?.status as keyof typeof STATUS_LABELS
+                      ]?.label ||
+                        asset?.status ||
+                        "Unknown"}
                     </Badge>
-                  )}
-                  {asset?.delivery_date && (
-                    <span className="text-xs text-muted-foreground">
-                      Due: {new Date(asset.delivery_date).toLocaleDateString()}
+                    <span className="text-sm text-muted-foreground font-medium">
+                      {asset?.article_id}
                     </span>
-                  )}
+                    {revisionCount > 0 && (
+                      <Badge
+                        variant="outline"
+                        className={`text-xs font-semibold ${getRevisionBadgeColors(revisionCount)}`}
+                      >
+                        R{revisionCount}
+                      </Badge>
+                    )}
+                    {asset?.delivery_date && (
+                      <span className="text-xs text-muted-foreground">
+                        Due:{" "}
+                        {new Date(asset.delivery_date).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="text-center">
-                <div className="text-lg font-bold text-foreground">
-                  {annotations.length}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-foreground">
+                    {annotations.length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Annotations
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground">Annotations</div>
-              </div>
-              <div className="w-px h-8 bg-border"></div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-foreground">
-                  {comments.length}
+                <div className="w-px h-8 bg-border"></div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-foreground">
+                    {comments.length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Comments</div>
                 </div>
-                <div className="text-xs text-muted-foreground">Comments</div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex flex-1 overflow-hidden bg-background">
-        {/* Main Content (3D Viewer) */}
-        <div className="flex-1 relative bg-background m-6 rounded-lg shadow-lg border border-border/50">
-          <Script
-            type="module"
-            src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
-          />
+        <div className="flex flex-1 overflow-hidden bg-background">
+          {/* Main Content (3D Viewer) */}
+          <div className="flex-1 relative bg-background m-6 rounded-lg shadow-lg border border-border/50">
+            <Script
+              type="module"
+              src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+            />
 
-          {asset.glb_link ? (
-            <div className="w-full h-full rounded-lg overflow-hidden">
-              {/* @ts-expect-error cant really fix viewer errors */}
-              <model-viewer
-                ref={modelViewerRef}
-                src={asset.glb_link}
-                alt={asset.product_name}
-                camera-controls={!annotationMode}
-                shadow-intensity="0.5"
-                environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
-                exposure="1.2"
-                tone-mapping="aces"
-                shadow-softness="1"
-                min-field-of-view="5deg"
-                max-field-of-view="35deg"
-                style={{ width: "100%", height: "100%" }}
-                onLoad={handleModelLoaded}
-                onDoubleClick={(event: any) => {
-                  if (!annotationMode) return;
+            {asset.glb_link ? (
+              <div className="w-full h-full rounded-lg overflow-hidden">
+                {/* @ts-expect-error cant really fix viewer errors */}
+                <model-viewer
+                  ref={modelViewerRef}
+                  src={asset.glb_link}
+                  alt={asset.product_name}
+                  camera-controls={!annotationMode}
+                  shadow-intensity="0.5"
+                  environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
+                  exposure="1.2"
+                  tone-mapping="aces"
+                  shadow-softness="1"
+                  min-field-of-view="5deg"
+                  max-field-of-view="35deg"
+                  style={{ width: "100%", height: "100%" }}
+                  onLoad={handleModelLoaded}
+                  onDoubleClick={(event: any) => {
+                    if (!annotationMode) return;
 
-                  event.preventDefault();
-                  event.stopPropagation();
+                    event.preventDefault();
+                    event.stopPropagation();
 
-                  const positionData =
-                    modelViewerRef.current?.positionAndNormalFromPoint(
-                      event.clientX,
-                      event.clientY
-                    );
+                    const positionData =
+                      modelViewerRef.current?.positionAndNormalFromPoint(
+                        event.clientX,
+                        event.clientY
+                      );
 
-                  if (positionData) {
-                    handleHotspotCreate({
-                      x: positionData.position.x,
-                      y: positionData.position.y,
-                      z: positionData.position.z,
-                    });
-                  }
-                }}
-              >
-                {hotspots.map(
-                  (hotspot) =>
-                    hotspot.visible && (
-                      <div
-                        key={hotspot.id}
-                        slot={`hotspot-${hotspot.id}`}
-                        data-position={`${hotspot.position.x} ${hotspot.position.y} ${hotspot.position.z}`}
-                        data-normal="0 1 0"
-                        className={`hotspot-annotation ${
-                          selectedHotspotId === hotspot.id ? "selected" : ""
-                        }`}
-                        style={
-                          {
-                            "--hotspot-color":
-                              selectedHotspotId === hotspot.id
-                                ? "hsl(220, 100%, 60%)"
-                                : "hsl(220, 100%, 50%)",
-                          } as React.CSSProperties
-                        }
-                      >
+                    if (positionData) {
+                      handleHotspotCreate({
+                        x: positionData.position.x,
+                        y: positionData.position.y,
+                        z: positionData.position.z,
+                      });
+                    }
+                  }}
+                >
+                  {hotspots.map(
+                    (hotspot) =>
+                      hotspot.visible && (
                         <div
-                          className={`hotspot-marker ${
+                          key={hotspot.id}
+                          slot={`hotspot-${hotspot.id}`}
+                          data-position={`${hotspot.position.x} ${hotspot.position.y} ${hotspot.position.z}`}
+                          data-normal="0 1 0"
+                          className={`hotspot-annotation ${
                             selectedHotspotId === hotspot.id ? "selected" : ""
                           }`}
-                          data-annotation={
-                            annotations
-                              .sort(
-                                (a, b) =>
-                                  new Date(a.created_at).getTime() -
-                                  new Date(b.created_at).getTime()
-                              )
-                              .findIndex((a) => a.id === hotspot.id) + 1
+                          style={
+                            {
+                              "--hotspot-color":
+                                selectedHotspotId === hotspot.id
+                                  ? "hsl(220, 100%, 60%)"
+                                  : "hsl(220, 100%, 50%)",
+                            } as React.CSSProperties
                           }
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleHotspotSelect(
-                              selectedHotspotId === hotspot.id
-                                ? null
-                                : hotspot.id
-                            );
-                          }}
                         >
-                          {hotspot.image_url ? (
-                            <div className="hotspot-icon">
-                              <Camera className="h-4 w-4 text-white" />
-                            </div>
-                          ) : (
-                            <div className="hotspot-dot"></div>
-                          )}
-                          <div className="hotspot-number">
-                            {annotations
-                              .sort(
-                                (a, b) =>
-                                  new Date(a.created_at).getTime() -
-                                  new Date(b.created_at).getTime()
-                              )
-                              .findIndex((a) => a.id === hotspot.id) + 1}
-                          </div>
-                          <div className="hotspot-pulse"></div>
-                        </div>
-
-                        {hotspot.comment && hotspot.comment.trim() && (
-                          <div className="hotspot-comment">
-                            {viewerEditingId === hotspot.id ? (
-                              <div className="comment-bubble editing">
-                                <textarea
-                                  value={viewerEditComment}
-                                  onChange={(e) =>
-                                    setViewerEditComment(e.target.value)
-                                  }
-                                  onKeyDown={(e) =>
-                                    handleViewerEditKeyDown(e, hotspot.id)
-                                  }
-                                  onBlur={() => {
-                                    if (!isSwitchingEdit) {
-                                      submitViewerEdit(hotspot.id);
-                                    }
-                                  }}
-                                  className="comment-textarea"
-                                  autoFocus
-                                  placeholder="Edit comment..."
-                                  rows={3}
-                                />
-                                <div className="comment-edit-hint">
-                                  Press Enter to save, Escape to cancel
-                                </div>
+                          <div
+                            className={`hotspot-marker ${
+                              selectedHotspotId === hotspot.id ? "selected" : ""
+                            }`}
+                            data-annotation={
+                              annotations
+                                .sort(
+                                  (a, b) =>
+                                    new Date(a.created_at).getTime() -
+                                    new Date(b.created_at).getTime()
+                                )
+                                .findIndex((a) => a.id === hotspot.id) + 1
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleHotspotSelect(
+                                selectedHotspotId === hotspot.id
+                                  ? null
+                                  : hotspot.id
+                              );
+                            }}
+                          >
+                            {hotspot.image_url ? (
+                              <div className="hotspot-icon">
+                                <Camera className="h-4 w-4 text-white" />
                               </div>
                             ) : (
-                              <div
-                                className={`comment-bubble group ${
-                                  viewerEditingId === hotspot.id
-                                    ? "editing"
-                                    : ""
-                                }`}
-                                onClick={(e) => {
-                                  if (isFunctionalityDisabled()) return;
-                                  e.stopPropagation();
-                                  // Find the annotation and start inline editing
-                                  const annotation = annotations.find(
-                                    (ann) => ann.id === hotspot.id
-                                  );
-                                  if (annotation) {
-                                    switchToEditing(annotation, true);
-                                  }
-                                }}
-                                style={{
-                                  cursor: isFunctionalityDisabled()
-                                    ? "not-allowed"
-                                    : "pointer",
-                                  opacity: isFunctionalityDisabled() ? 0.5 : 1,
-                                }}
-                                title={
-                                  isFunctionalityDisabled()
-                                    ? "Editing disabled during revision"
-                                    : "Click to edit comment"
-                                }
-                              >
-                                <div className="comment-text">
-                                  {hotspot.comment}
-                                </div>
-                                <div className="comment-edit-icon">
-                                  <Edit3 className="h-3 w-3 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                              </div>
+                              <div className="hotspot-dot"></div>
                             )}
+                            <div className="hotspot-number">
+                              {annotations
+                                .sort(
+                                  (a, b) =>
+                                    new Date(a.created_at).getTime() -
+                                    new Date(b.created_at).getTime()
+                                )
+                                .findIndex((a) => a.id === hotspot.id) + 1}
+                            </div>
+                            <div className="hotspot-pulse"></div>
                           </div>
-                        )}
-                      </div>
-                    )
-                )}
-                {/* @ts-expect-error cant really fix viewer errors */}
-              </model-viewer>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <p className="text-muted-foreground mb-4">
-                  No 3D model available for this asset
-                </p>
-                <Button onClick={() => router.push("/client-review")}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Client Review
-                </Button>
-              </div>
-            </div>
-          )}
 
-          {annotationMode && (
-            <div className="absolute top-4 left-4 bg-primary text-primary-foreground text-sm px-4 py-2 rounded-full z-20 shadow-lg backdrop-blur-sm">
-              Double-click to add hotspot
-            </div>
-          )}
-        </div>
-
-        {/* Right Panel - Switchable between Reference Images and Feedback */}
-        <div className="w-[620px] max-w-full flex flex-col bg-background  shadow-lg border border-border/50 p-6 ">
-          {/* Tab Navigation */}
-          <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
-            <button
-              onClick={() => setRightPanelTab("images")}
-              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
-                rightPanelTab === "images"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <LucideImage className="h-4 w-4" />
-                Reference Images ({referenceImages.length})
-              </div>
-            </button>
-            <button
-              onClick={() => setRightPanelTab("feedback")}
-              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
-                rightPanelTab === "feedback"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <MessageCircle className="h-4 w-4" />
-                Feedback ({annotations.length + comments.length})
-              </div>
-            </button>
-          </div>
-
-          {/* Reference Images Tab */}
-          {rightPanelTab === "images" && (
-            <div className="flex-1 overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h4
-                  className="
-                 text-muted-foreground font-semibold"
-                >
-                  Reference Images
-                </h4>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const input = document.createElement("input");
-                      input.type = "file";
-                      input.accept = "image/*";
-                      input.multiple = true;
-                      input.onchange = async (e) => {
-                        const files = (e.target as HTMLInputElement).files;
-                        if (files && files.length > 0) {
-                          await handleUploadReferenceImages(files);
-                        }
-                      };
-                      input.click();
-                    }}
-                    className="h-7 px-2 text-xs cursor-pointer"
+                          {hotspot.comment && hotspot.comment.trim() && (
+                            <div className="hotspot-comment">
+                              {viewerEditingId === hotspot.id ? (
+                                <div className="comment-bubble editing">
+                                  <textarea
+                                    value={viewerEditComment}
+                                    onChange={(e) =>
+                                      setViewerEditComment(e.target.value)
+                                    }
+                                    onKeyDown={(e) =>
+                                      handleViewerEditKeyDown(e, hotspot.id)
+                                    }
+                                    onBlur={() => {
+                                      if (!isSwitchingEdit) {
+                                        submitViewerEdit(hotspot.id);
+                                      }
+                                    }}
+                                    className="comment-textarea"
+                                    autoFocus
+                                    placeholder="Edit comment..."
+                                    rows={3}
+                                  />
+                                  <div className="comment-edit-hint">
+                                    Press Enter to save, Escape to cancel
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  className={`comment-bubble group ${
+                                    viewerEditingId === hotspot.id
+                                      ? "editing"
+                                      : ""
+                                  }`}
+                                  onClick={(e) => {
+                                    if (isFunctionalityDisabled()) return;
+                                    e.stopPropagation();
+                                    // Find the annotation and start inline editing
+                                    const annotation = annotations.find(
+                                      (ann) => ann.id === hotspot.id
+                                    );
+                                    if (annotation) {
+                                      switchToEditing(annotation, true);
+                                    }
+                                  }}
+                                  style={{
+                                    cursor: isFunctionalityDisabled()
+                                      ? "not-allowed"
+                                      : "pointer",
+                                    opacity: isFunctionalityDisabled()
+                                      ? 0.5
+                                      : 1,
+                                  }}
+                                  title={
+                                    isFunctionalityDisabled()
+                                      ? "Editing disabled during revision"
+                                      : "Click to edit comment"
+                                  }
+                                >
+                                  <div className="comment-text">
+                                    {hotspot.comment}
+                                  </div>
+                                  <div className="comment-edit-icon">
+                                    <Edit3 className="h-3 w-3 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                  )}
+                  {/* Dimension hotspots and lines */}
+                  <button
+                    slot="hotspot-dot+X-Y+Z"
+                    className="dot"
+                    data-position="1 -1 1"
+                    data-normal="1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dim+X-Y"
+                    className="dim"
+                    data-position="1 -1 0"
+                    data-normal="1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dot+X-Y-Z"
+                    className="dot"
+                    data-position="1 -1 -1"
+                    data-normal="1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dim+X-Z"
+                    className="dim"
+                    data-position="1 0 -1"
+                    data-normal="1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dot+X+Y-Z"
+                    className="dot"
+                    data-position="1 1 -1"
+                    data-normal="0 1 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dim+Y-Z"
+                    className="dim"
+                    data-position="0 -1 -1"
+                    data-normal="0 1 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dot-X+Y-Z"
+                    className="dot"
+                    data-position="-1 1 -1"
+                    data-normal="0 1 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dim-X-Z"
+                    className="dim"
+                    data-position="-1 0 -1"
+                    data-normal="-1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dot-X-Y-Z"
+                    className="dot"
+                    data-position="-1 -1 -1"
+                    data-normal="-1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dim-X-Y"
+                    className="dim"
+                    data-position="-1 -1 0"
+                    data-normal="-1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dot-X-Y+Z"
+                    className="dot"
+                    data-position="-1 -1 1"
+                    data-normal="-1 0 0"
+                  ></button>
+                  <svg
+                    id="dimLines"
+                    width="100%"
+                    height="100%"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="dimensionLineContainer hide"
                   >
-                    <span className="text-xs text-muted-foreground pr-6">
-                      Upload Image
-                    </span>
-                    <Upload className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowUrlDialog(true)}
-                    className="h-7 px-2 text-xs cursor-pointer"
-                  >
-                    <span className="text-xs text-muted-foreground pr-6">
-                      Add URL
-                    </span>
-                    <FileImage className="h-4 w-4" />
+                    <line className="dimensionLine"></line>
+                    <line className="dimensionLine"></line>
+                    <line className="dimensionLine"></line>
+                    <line className="dimensionLine"></line>
+                    <line className="dimensionLine"></line>
+                  </svg>
+                  {/* @ts-expect-error cant really fix viewer errors */}
+                </model-viewer>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <p className="text-muted-foreground mb-4">
+                    No 3D model available for this asset
+                  </p>
+                  <Button onClick={() => router.push("/client-review")}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Client Review
                   </Button>
                 </div>
               </div>
+            )}
 
-              {/* Carousel of Thumbnails */}
+            {/* Dimensions Toggle Button */}
+            {asset.glb_link && (
+              <div className="absolute top-4 right-0 z-20 w-fit min-w-[200px]">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDimensionsToggle}
+                  disabled={!modelLoaded}
+                  className="bg-background/95 backdrop-blur-sm border-border/50 shadow-md cursor-pointer "
+                >
+                  <Ruler className="h-4 w-4 mr-2" />
+                  {showDimensions ? "Hide" : "Show"} Dimensions
+                </Button>
+              </div>
+            )}
 
-              {/* Large Selected Image - Show selected image */}
-              {referenceImages.length > 0 && (
-                <div className="relative mb-4">
-                  <div
-                    className="aspect-video bg-muted rounded-lg overflow-hidden border border-border relative cursor-pointer"
-                    onMouseMove={handleImageMouseMove}
-                    onMouseEnter={handleImageMouseEnter}
-                    onMouseLeave={handleImageMouseLeave}
-                    onWheel={handleImageWheel}
+            {annotationMode && (
+              <div className="absolute top-4 left-4 bg-primary text-primary-foreground text-sm px-4 py-2 rounded-full z-20 shadow-lg backdrop-blur-sm">
+                Double-click to add hotspot
+              </div>
+            )}
+          </div>
+
+          {/* Right Panel - Switchable between Reference Images and Feedback */}
+          <div className="w-[620px] max-w-full flex flex-col bg-background  shadow-lg border border-border/50 p-6 ">
+            {/* Tab Navigation */}
+            <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
+              <button
+                onClick={() => setRightPanelTab("images")}
+                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  rightPanelTab === "images"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <LucideImage className="h-4 w-4" />
+                  Reference Images ({referenceImages.length})
+                </div>
+              </button>
+              <button
+                onClick={() => setRightPanelTab("feedback")}
+                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  rightPanelTab === "feedback"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  Feedback ({annotations.length + comments.length})
+                </div>
+              </button>
+            </div>
+
+            {/* Asset Status Section - Always Visible */}
+            <div className="mb-6 p-4 bg-muted/30 rounded-lg border border-border/50">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-muted-foreground font-semibold">
+                  Asset Status
+                </span>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      asset?.status === "approved" ? "default" : "secondary"
+                    }
+                    className="text-xs"
                   >
-                    <Image
-                      width={640}
-                      height={360}
-                      unoptimized
-                      src={referenceImages[selectedReferenceIndex || 0]}
-                      alt={`Reference ${(selectedReferenceIndex || 0) + 1}`}
-                      className="w-full h-full object-cover transition-transform duration-200"
-                      style={{
-                        transform: `scale(${zoomLevel})`,
-                        transformOrigin: isZooming
-                          ? `${mousePosition.x}% ${mousePosition.y}%`
-                          : "center",
-                      }}
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = "none";
-                        (e.currentTarget
-                          .nextElementSibling as HTMLElement)!.style.display =
-                          "flex";
-                      }}
-                    />
-                    <div
-                      className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground"
-                      style={{ display: "none" }}
-                    >
-                      <div className="text-center">
-                        <LucideImage className="h-8 w-8 mx-auto mb-2" />
-                        Invalid image URL
-                      </div>
-                    </div>
-                  </div>
-                  <div className="absolute top-2 right-2 flex gap-1">
+                    {STATUS_LABELS[asset?.status as keyof typeof STATUS_LABELS]
+                      ?.label || "Unknown"}
+                  </Badge>
+                  {revisionCount > 0 && (
+                    <Badge variant="outline" className="text-xs">
+                      Revision {revisionCount}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => updateAssetStatus("approved")}
+                  disabled={asset?.status === "approved" || statusUpdating}
+                  variant={asset?.status === "approved" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 cursor-pointer"
+                >
+                  {statusUpdating ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Approve
+                </Button>
+                <Button
+                  onClick={() => updateAssetStatus("revisions")}
+                  disabled={asset?.status === "revisions" || statusUpdating}
+                  variant={
+                    asset?.status === "revisions" ? "outline" : "outline"
+                  }
+                  size="sm"
+                  className={`flex-1 cursor-pointer ${
+                    asset?.status === "revisions"
+                      ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                      : ""
+                  }`}
+                >
+                  {statusUpdating ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Revisions {revisionCount > 0 && `(${revisionCount})`}
+                </Button>
+              </div>
+
+              {/* Revision History Dropdown */}
+              {revisionHistory.length > 0 && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-start mb-3">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() =>
-                        handleImageClick(
-                          referenceImages[selectedReferenceIndex || 0],
-                          `Reference Image ${(selectedReferenceIndex || 0) + 1}`
-                        )
+                        setShowHistoryDropdown(!showHistoryDropdown)
                       }
-                      className="h-10 w-10 p-0 bg-black/50 text-white hover:bg-black/70 cursor-pointer"
+                      className="text-xs text-muted-foreground cursor-pointer"
                     >
-                      <Maximize2 className="h-3 w-3" />
+                      {showHistoryDropdown ? "Hide" : "Show"} History
                     </Button>
                   </div>
-                  <div className="mt-2 text-xs text-muted-foreground text-center">
-                    Reference {(selectedReferenceIndex || 0) + 1} • Scroll to
-                    zoom (1x-3x)
-                  </div>
-                </div>
-              )}
-              {referenceImages.length > 0 && (
-                <div className="relative">
-                  {/* Carousel Header */}
-                  <div className="flex items-center justify-between mb-4">
-                    {referenceImages.length > 4 && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>
-                          {carouselIndex + 1} -{" "}
-                          {Math.min(carouselIndex + 4, referenceImages.length)}{" "}
-                          of {referenceImages.length}
-                        </span>
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Carousel Container */}
-                  <div className="relative group">
-                    {/* Navigation Buttons */}
-                    {referenceImages.length > 4 && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            setCarouselIndex(Math.max(0, carouselIndex - 1))
-                          }
-                          disabled={carouselIndex === 0}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 p-0 bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm hover:bg-background/90 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            setCarouselIndex(
-                              Math.min(
-                                referenceImages.length - 4,
-                                carouselIndex + 1
-                              )
-                            )
-                          }
-                          disabled={carouselIndex >= referenceImages.length - 4}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 p-0 bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm hover:bg-background/90 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-
-                    {/* Thumbnails Container */}
-                    <div className="flex gap-3 overflow-x-auto p-1 scrollbar-hide">
-                      {referenceImages.map((imageUrl, index) => (
+                  <div
+                    className={`transition-all duration-700 ease-in-out ${
+                      showHistoryDropdown
+                        ? "max-h-fit-content opacity-100"
+                        : "max-h-0 opacity-0 overflow-hidden"
+                    }`}
+                    style={{
+                      transitionDelay: showHistoryDropdown ? "0ms" : "200ms",
+                    }}
+                  >
+                    <div className="space-y-3 overflow-y-auto max-h-fit-content">
+                      {revisionHistory.map((revision) => (
                         <div
-                          key={index}
-                          className={`relative flex-shrink-0 cursor-pointer transition-all duration-300 ${
-                            selectedReferenceIndex === index
-                              ? "ring-2 ring-primary/80 ring-offset-2 rounded-lg"
-                              : "hover:ring-2 hover:ring-primary/50 ring-offset-2 rounded-lg"
-                          }`}
-                          onClick={() => setSelectedReferenceIndex(index)}
+                          key={revision.id}
+                          className="p-4 border border-border rounded-lg bg-muted/30"
                         >
-                          <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-border/50 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md">
-                            <Image
-                              width={80}
-                              height={80}
-                              unoptimized
-                              src={imageUrl}
-                              alt={`Reference ${index + 1}`}
-                              className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLElement).style.display =
-                                  "none";
-                              }}
-                            />
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={`text-xs font-semibold ${getRevisionBadgeColors(revision.revision_number)}`}
+                              >
+                                R{revision.revision_number}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(
+                                  revision.created_at
+                                ).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {
+                                getRevisionItems(revision.revision_number)
+                                  .annotations.length
+                              }{" "}
+                              annotations,{" "}
+                              {
+                                getRevisionItems(revision.revision_number)
+                                  .comments.length
+                              }{" "}
+                              comments
+                            </span>
                           </div>
-                          <div className="absolute -top-1 -right-1 w-6 h-6 bg-primary text-white text-xs font-medium rounded-full flex items-center justify-center shadow-sm border-2 border-background">
-                            {index + 1}
-                          </div>
+
+                          {/* Annotations Summary */}
+                          {(() => {
+                            const revisionAnnotations = getRevisionItems(
+                              revision.revision_number
+                            ).annotations;
+                            return revisionAnnotations.length > 0 ? (
+                              <div className="mb-3">
+                                <h4 className="text-xs font-medium text-foreground mb-2">
+                                  Annotations ({revisionAnnotations.length})
+                                </h4>
+                                <div className="space-y-2 max-h-32 overflow-y-auto">
+                                  {revisionAnnotations
+                                    .slice(0, 3)
+                                    .map((annotation: any, index: number) => (
+                                      <div
+                                        key={annotation.id || index}
+                                        className="text-xs p-2 bg-background rounded border"
+                                      >
+                                        <div className="font-medium text-muted-foreground mb-1">
+                                          Annotation {index + 1}
+                                        </div>
+                                        <div className="text-foreground">
+                                          {annotation.comment?.length > 100
+                                            ? `${annotation.comment.substring(0, 100)}...`
+                                            : annotation.comment}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  {revisionAnnotations.length > 3 && (
+                                    <div className="text-xs text-muted-foreground text-center py-1">
+                                      +{revisionAnnotations.length - 3} more
+                                      annotations
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          openRevisionDetails(revision)
+                                        }
+                                        className="ml-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
+                                      >
+                                        View All
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+
+                          {/* Comments Summary */}
+                          {(() => {
+                            const revisionComments = getRevisionItems(
+                              revision.revision_number
+                            ).comments;
+                            return revisionComments.length > 0 ? (
+                              <div>
+                                <h4 className="text-xs font-medium text-foreground mb-2">
+                                  Comments ({revisionComments.length})
+                                </h4>
+                                <div className="space-y-2 max-h-32 overflow-y-auto">
+                                  {revisionComments
+                                    .slice(0, 3)
+                                    .map((comment: any, index: number) => (
+                                      <div
+                                        key={comment.id || index}
+                                        className="text-xs p-2 bg-background rounded border"
+                                      >
+                                        <div className="flex items-center justify-between mb-1">
+                                          <span className="font-medium text-muted-foreground">
+                                            {comment.profiles?.name ||
+                                              comment.profiles?.email ||
+                                              "Unknown"}
+                                          </span>
+                                          <span className="text-muted-foreground">
+                                            {comment.profiles?.title ||
+                                              comment.profiles?.role ||
+                                              ""}
+                                          </span>
+                                        </div>
+                                        <div className="text-foreground">
+                                          {comment.comment?.length > 100
+                                            ? `${comment.comment.substring(0, 100)}...`
+                                            : comment.comment}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  {revisionComments.length > 3 && (
+                                    <div className="text-xs text-muted-foreground text-center py-1">
+                                      +{revisionComments.length - 3} more
+                                      comments
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          openRevisionDetails(revision)
+                                        }
+                                        className="ml-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
+                                      >
+                                        View All
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
                         </div>
                       ))}
                     </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
-                    {/* Scroll Indicator */}
-                    {referenceImages.length > 4 && (
-                      <div className="flex justify-center mt-3">
-                        <div className="flex gap-1">
-                          {Array.from({
-                            length: Math.ceil(referenceImages.length / 4),
-                          }).map((_, i) => (
-                            <div
-                              key={i}
-                              className={`w-2 h-2 rounded-full transition-colors ${
-                                i === Math.floor(carouselIndex / 4)
-                                  ? "bg-primary"
-                                  : "bg-border"
-                              }`}
-                            />
-                          ))}
+            {/* Reference Images Tab */}
+            {rightPanelTab === "images" && (
+              <div className="flex-1 overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h4
+                    className="
+                 text-muted-foreground font-semibold"
+                  >
+                    Reference Images
+                  </h4>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const input = document.createElement("input");
+                        input.type = "file";
+                        input.accept = "image/*";
+                        input.multiple = true;
+                        input.onchange = async (e) => {
+                          const files = (e.target as HTMLInputElement).files;
+                          if (files && files.length > 0) {
+                            await handleUploadReferenceImages(files);
+                          }
+                        };
+                        input.click();
+                      }}
+                      className="h-7 px-2 text-xs cursor-pointer"
+                    >
+                      <span className="text-xs text-muted-foreground pr-6">
+                        Upload Image
+                      </span>
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowUrlDialog(true)}
+                      className="h-7 px-2 text-xs cursor-pointer"
+                    >
+                      <span className="text-xs text-muted-foreground pr-6">
+                        Add URL
+                      </span>
+                      <FileImage className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Carousel of Thumbnails */}
+
+                {/* Large Selected Image - Show selected image */}
+                {referenceImages.length > 0 && (
+                  <div className="relative mb-4">
+                    <div
+                      className="aspect-video bg-muted rounded-lg overflow-hidden border border-border relative cursor-pointer"
+                      onMouseMove={handleImageMouseMove}
+                      onMouseEnter={handleImageMouseEnter}
+                      onMouseLeave={handleImageMouseLeave}
+                      onWheel={handleImageWheel}
+                    >
+                      <Image
+                        width={640}
+                        height={360}
+                        unoptimized
+                        src={referenceImages[selectedReferenceIndex || 0]}
+                        alt={`Reference ${(selectedReferenceIndex || 0) + 1}`}
+                        className="w-full h-full object-contain transition-transform duration-200"
+                        style={{
+                          transform: `scale(${zoomLevel})`,
+                          transformOrigin: isZooming
+                            ? `${mousePosition.x}% ${mousePosition.y}%`
+                            : "center",
+                        }}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display =
+                            "none";
+                          (e.currentTarget
+                            .nextElementSibling as HTMLElement)!.style.display =
+                            "flex";
+                        }}
+                      />
+                      <div
+                        className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground"
+                        style={{ display: "none" }}
+                      >
+                        <div className="text-center">
+                          <LucideImage className="h-8 w-8 mx-auto mb-2" />
+                          Invalid image URL
                         </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Empty State */}
-              {referenceImages.length === 0 && (
-                <div className="text-center py-12">
-                  <LucideImage className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground mb-3">
-                    No reference images yet
-                  </p>
-                </div>
-              )}
-
-              {/* Functionality Disabled Warning */}
-              {isFunctionalityDisabled() && (
-                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-950/20 dark:border-yellow-800/30">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-                    <div>
-                      <h4 className="text-sm font-semibold text-yellow-700 dark:text-yellow-200">
-                        Functionality Disabled
-                      </h4>
-                      <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                        Annotations and comments are disabled during revision
-                        mode.
-                        {revisionCount >= 3 &&
-                          ` This is revision #${revisionCount} - additional costs may apply.`}
-                      </p>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Asset Status Buttons */}
-              <div className="mt-6 p-4 bg-muted/30 rounded-lg border border-border/50">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-muted-foreground font-semibold">
-                    Asset Status
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={
-                        asset?.status === "approved" ? "default" : "secondary"
-                      }
-                      className="text-xs"
-                    >
-                      {STATUS_LABELS[
-                        asset?.status as keyof typeof STATUS_LABELS
-                      ]?.label || "Unknown"}
-                    </Badge>
-                    {revisionCount > 0 && (
-                      <Badge variant="outline" className="text-xs">
-                        Revision {revisionCount}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={() => updateAssetStatus("approved")}
-                    disabled={asset?.status === "approved" || statusUpdating}
-                    variant={
-                      asset?.status === "approved" ? "default" : "outline"
-                    }
-                    size="sm"
-                    className="flex-1 cursor-pointer"
-                  >
-                    {statusUpdating ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                    )}
-                    Approve
-                  </Button>
-                  <Button
-                    onClick={() => updateAssetStatus("revisions")}
-                    disabled={asset?.status === "revisions" || statusUpdating}
-                    variant={
-                      asset?.status === "revisions" ? "outline" : "outline"
-                    }
-                    size="sm"
-                    className={`flex-1 cursor-pointer ${
-                      asset?.status === "revisions"
-                        ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
-                        : ""
-                    }`}
-                  >
-                    {statusUpdating ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 mr-2" />
-                    )}
-                    Revisions {revisionCount > 0 && `(${revisionCount})`}
-                  </Button>
-                </div>
-
-                {/* Revision History Dropdown */}
-                {revisionHistory.length > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-center justify-start mb-3">
+                    <div className="absolute top-2 right-2 flex gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() =>
-                          setShowHistoryDropdown(!showHistoryDropdown)
+                          handleImageClick(
+                            referenceImages[selectedReferenceIndex || 0],
+                            `Reference Image ${(selectedReferenceIndex || 0) + 1}`
+                          )
                         }
-                        className="text-xs text-muted-foreground cursor-pointer"
+                        className="h-10 w-10 p-0 bg-black/50 text-white hover:bg-black/70 cursor-pointer"
                       >
-                        {showHistoryDropdown ? "Hide" : "Show"} History
+                        <Maximize2 className="h-3 w-3" />
                       </Button>
                     </div>
+                    <div className="mt-2 text-xs text-muted-foreground text-center">
+                      Reference {(selectedReferenceIndex || 0) + 1} • Scroll to
+                      zoom (1x-3x)
+                    </div>
+                  </div>
+                )}
+                {referenceImages.length > 0 && (
+                  <div className="relative">
+                    {/* Carousel Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      {referenceImages.length > 4 && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>
+                            {carouselIndex + 1} -{" "}
+                            {Math.min(
+                              carouselIndex + 4,
+                              referenceImages.length
+                            )}{" "}
+                            of {referenceImages.length}
+                          </span>
+                        </div>
+                      )}
+                    </div>
 
-                    <div
-                      className={`transition-all duration-700 ease-in-out ${
-                        showHistoryDropdown
-                          ? "max-h-fit-content opacity-100"
-                          : "max-h-0 opacity-0 overflow-hidden"
-                      }`}
-                      style={{
-                        transitionDelay: showHistoryDropdown ? "0ms" : "200ms",
-                      }}
-                    >
-                      <div className="space-y-3 overflow-y-auto max-h-fit-content">
-                        {revisionHistory.map((revision) => (
+                    {/* Carousel Container */}
+                    <div className="relative">
+                      {/* Thumbnails Container */}
+                      <div className="flex gap-3 overflow-x-auto p-1 scrollbar-hide relative">
+                        {referenceImages.map((imageUrl, index) => (
                           <div
-                            key={revision.id}
-                            className="p-4 border border-border rounded-lg bg-muted/30"
+                            key={index}
+                            className={`relative flex-shrink-0 cursor-pointer transition-all duration-300 ${
+                              selectedReferenceIndex === index
+                                ? "ring-2 ring-primary/80 ring-offset-2 rounded-lg"
+                                : "hover:ring-2 hover:ring-primary/50 ring-offset-2 rounded-lg"
+                            }`}
+                            onClick={() => setSelectedReferenceIndex(index)}
                           >
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs font-semibold ${getRevisionBadgeColors(revision.revision_number)}`}
-                                >
-                                  R{revision.revision_number}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(
-                                    revision.created_at
-                                  ).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <span className="text-xs text-muted-foreground">
-                                {
-                                  getRevisionItems(revision.revision_number)
-                                    .annotations.length
-                                }{" "}
-                                annotations,{" "}
-                                {
-                                  getRevisionItems(revision.revision_number)
-                                    .comments.length
-                                }{" "}
-                                comments
-                              </span>
+                            <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-border/50 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md">
+                              <Image
+                                width={80}
+                                height={80}
+                                unoptimized
+                                src={imageUrl}
+                                alt={`Reference ${index + 1}`}
+                                className="w-full h-full object-contain cursor-pointer hover:scale-105 transition-transform duration-200"
+                                onError={(e) => {
+                                  (
+                                    e.currentTarget as HTMLElement
+                                  ).style.display = "none";
+                                }}
+                              />
                             </div>
+                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-primary text-white text-xs font-medium rounded-full flex items-center justify-center shadow-sm border-2 border-background">
+                              {index + 1}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async (e) => {
+                                e.stopPropagation();
 
-                            {/* Annotations Summary */}
-                            {(() => {
-                              const revisionAnnotations = getRevisionItems(
-                                revision.revision_number
-                              ).annotations;
-                              return revisionAnnotations.length > 0 ? (
-                                <div className="mb-3">
-                                  <h4 className="text-xs font-medium text-foreground mb-2">
-                                    Annotations ({revisionAnnotations.length})
-                                  </h4>
-                                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                                    {revisionAnnotations
-                                      .slice(0, 3)
-                                      .map((annotation: any, index: number) => (
-                                        <div
-                                          key={annotation.id || index}
-                                          className="text-xs p-2 bg-background rounded border"
-                                        >
-                                          <div className="font-medium text-muted-foreground mb-1">
-                                            Annotation {index + 1}
-                                          </div>
-                                          <div className="text-foreground">
-                                            {annotation.comment?.length > 100
-                                              ? `${annotation.comment.substring(0, 100)}...`
-                                              : annotation.comment}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    {revisionAnnotations.length > 3 && (
-                                      <div className="text-xs text-muted-foreground text-center py-1">
-                                        +{revisionAnnotations.length - 3} more
-                                        annotations
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() =>
-                                            openRevisionDetails(revision)
-                                          }
-                                          className="ml-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
-                                        >
-                                          View All
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ) : null;
-                            })()}
+                                try {
+                                  // Remove the image from the array
+                                  const newImages = referenceImages.filter(
+                                    (_, i) => i !== index
+                                  );
 
-                            {/* Comments Summary */}
-                            {(() => {
-                              const revisionComments = getRevisionItems(
-                                revision.revision_number
-                              ).comments;
-                              return revisionComments.length > 0 ? (
-                                <div>
-                                  <h4 className="text-xs font-medium text-foreground mb-2">
-                                    Comments ({revisionComments.length})
-                                  </h4>
-                                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                                    {revisionComments
-                                      .slice(0, 3)
-                                      .map((comment: any, index: number) => (
-                                        <div
-                                          key={comment.id || index}
-                                          className="text-xs p-2 bg-background rounded border"
-                                        >
-                                          <div className="flex items-center justify-between mb-1">
-                                            <span className="font-medium text-muted-foreground">
-                                              {comment.profiles?.name ||
-                                                comment.profiles?.email ||
-                                                "Unknown"}
-                                            </span>
-                                            <span className="text-muted-foreground">
-                                              {comment.profiles?.title ||
-                                                comment.profiles?.role ||
-                                                ""}
-                                            </span>
-                                          </div>
-                                          <div className="text-foreground">
-                                            {comment.comment?.length > 100
-                                              ? `${comment.comment.substring(0, 100)}...`
-                                              : comment.comment}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    {revisionComments.length > 3 && (
-                                      <div className="text-xs text-muted-foreground text-center py-1">
-                                        +{revisionComments.length - 3} more
-                                        comments
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() =>
-                                            openRevisionDetails(revision)
-                                          }
-                                          className="ml-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
-                                        >
-                                          View All
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ) : null;
-                            })()}
+                                  // Update the asset in the database
+                                  const { error } = await supabase
+                                    .from("onboarding_assets")
+                                    .update({ reference: newImages })
+                                    .eq("id", assetId);
+
+                                  if (error) {
+                                    console.error(
+                                      "Error updating reference images:",
+                                      error
+                                    );
+                                    toast.error(
+                                      "Failed to delete reference image"
+                                    );
+                                    return;
+                                  }
+
+                                  // Update local state
+                                  setReferenceImages(newImages);
+
+                                  // Adjust selected index if needed
+                                  if (selectedReferenceIndex === index) {
+                                    setSelectedReferenceIndex(
+                                      newImages.length > 0 ? 0 : null
+                                    );
+                                  } else if (
+                                    selectedReferenceIndex &&
+                                    selectedReferenceIndex > index
+                                  ) {
+                                    setSelectedReferenceIndex(
+                                      selectedReferenceIndex - 1
+                                    );
+                                  }
+
+                                  toast.success(
+                                    "Reference image deleted successfully"
+                                  );
+                                } catch (error) {
+                                  console.error(
+                                    "Error deleting reference image:",
+                                    error
+                                  );
+                                  toast.error(
+                                    "Failed to delete reference image"
+                                  );
+                                }
+                              }}
+                              className="absolute -top-1 -left-1 h-5 w-5 p-0 text-black/60 hover:text-black/80 hover:bg-black/5 rounded-full"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
                           </div>
                         ))}
+                      </div>
+
+                      {/* Scroll Hint */}
+                      {referenceImages.length > 4 && (
+                        <div className="flex justify-center mt-3">
+                          <p className="text-xs text-muted-foreground">
+                            Shift to scroll
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty State */}
+                {referenceImages.length === 0 && (
+                  <div className="text-center py-12">
+                    <LucideImage className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground mb-3">
+                      No reference images yet
+                    </p>
+                  </div>
+                )}
+
+                {/* Functionality Disabled Warning */}
+                {isFunctionalityDisabled() && (
+                  <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-950/20 dark:border-yellow-800/30">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                      <div>
+                        <h4 className="text-sm font-semibold text-yellow-700 dark:text-yellow-200">
+                          Functionality Disabled
+                        </h4>
+                        <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                          Annotations and comments are disabled during revision
+                          mode.
+                          {revisionCount >= 3 &&
+                            ` This is revision #${revisionCount} - additional costs may apply.`}
+                        </p>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Feedback Tab */}
-          {rightPanelTab === "feedback" && (
-            <div className="flex-1 overflow-y-auto">
-              {/* Tab Navigation for Feedback */}
-              <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
-                <button
-                  onClick={() => setActiveTab("annotations")}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
-                    activeTab === "annotations"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4" />
-                    Annotations ({annotations.length})
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab("comments")}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
-                    activeTab === "comments"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    Comments ({comments.length})
-                  </div>
-                </button>
-              </div>
-
-              {/* Annotations Tab */}
-
-              {activeTab === "annotations" && (
-                <>
-                  <div className="mb-6 p-2">
-                    <div className="flex items-center justify-between mb-8">
-                      <div className="flex items-center gap-4">
-                        <h4 className=" text-muted-foreground font-semibold">
-                          Annotations
-                        </h4>
-                        <Button
-                          variant={deleteMode ? "ghost" : "ghost"}
-                          size="sm"
-                          onClick={() => {
-                            setDeleteMode(!deleteMode);
-                            setSelectedAnnotations([]);
-                            if (deleteMode) {
-                              setSelectedAnnotations([]);
-                            }
-                          }}
-                          className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
-                            deleteMode
-                              ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30 shadow-sm"
-                              : "border-border hover:bg-accent hover:border-border"
-                          }`}
-                        >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          {deleteMode ? "Cancel" : "Delete"}
-                        </Button>
+            {/* Feedback Tab */}
+            {rightPanelTab === "feedback" && (
+              <div className="flex-1 overflow-y-auto">
+                {/* Sticky Tab Navigation */}
+                <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 pb-4">
+                  <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
+                    <button
+                      onClick={() => setActiveTab("annotations")}
+                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+                        activeTab === "annotations"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Annotations ({annotations.length})
                       </div>
-                      <Button
-                        variant={annotationMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setAnnotationMode(!annotationMode)}
-                        disabled={isFunctionalityDisabled()}
-                        className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
-                          annotationMode
-                            ? "bg-primary hover:bg-primary/90 shadow-sm"
-                            : "border-border hover:bg-accent hover:border-border"
-                        } ${
-                          isFunctionalityDisabled()
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        {annotationMode ? "Cancel" : "Add Annotation"}
-                      </Button>
-                    </div>
-
-                    {/* Annotations Disabled Banner */}
-                    {isFunctionalityDisabled() && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4  dark:bg-yellow-950/20 dark:border-yellow-800/30">
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                          <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                            Annotations disabled - Asset is in revision mode
-                          </span>
-                        </div>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("comments")}
+                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+                        activeTab === "comments"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4" />
+                        Comments ({comments.length})
                       </div>
-                    )}
+                    </button>
+                  </div>
 
-                    {/* Multi-Delete Actions */}
-                    {deleteMode && selectedAnnotations.length > 0 && (
-                      <div className="bg-red-50/50 border border-red-200/50 rounded-xl p-6 mt-6 dark:bg-red-950/10 dark:border-red-800/30">
-                        <div className="flex flex-col items-center justify-between gap-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center dark:bg-red-900/30">
-                              <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
-                            </div>
-                            <span className="font-semibold text-red-700 dark:text-red-400">
-                              {selectedAnnotations.length} annotation(s)
-                              selected
-                            </span>
-                          </div>
+                  {/* Sticky Annotations Header */}
+                  {activeTab === "annotations" && (
+                    <div className="p-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-4">
+                          <h4 className="text-muted-foreground font-semibold">
+                            Annotations
+                          </h4>
                           <Button
-                            variant="outline"
+                            variant={deleteMode ? "ghost" : "ghost"}
                             size="sm"
-                            onClick={() => setShowDeleteWarning(true)}
-                            className="shadow-sm cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                            onClick={() => {
+                              setDeleteMode(!deleteMode);
+                              setSelectedAnnotations([]);
+                              if (deleteMode) {
+                                setSelectedAnnotations([]);
+                              }
+                            }}
+                            className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                              deleteMode
+                                ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30 shadow-sm"
+                                : "border-border hover:bg-accent hover:border-border"
+                            }`}
                           >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Selected
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            {deleteMode ? "Cancel" : "Delete"}
                           </Button>
                         </div>
+                        <Button
+                          variant={annotationMode ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setAnnotationMode(!annotationMode)}
+                          disabled={isFunctionalityDisabled()}
+                          className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                            annotationMode
+                              ? "bg-primary hover:bg-primary/90 shadow-sm"
+                              : "border-border hover:bg-accent hover:border-border"
+                          } ${
+                            isFunctionalityDisabled()
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          {annotationMode ? "Cancel" : "Add Annotation"}
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                  {/* Existing Annotations */}
-                  <div className="space-y-4 p-2">
-                    {annotations.map((annotation, index) => (
-                      <Card
-                        key={annotation.id}
-                        className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
-                          selectedHotspotId === annotation.id
-                            ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
-                            : deleteMode &&
-                                selectedAnnotations.includes(annotation.id)
-                              ? "ring-2 ring-red-300 bg-red-50/50 shadow-lg dark:ring-red-700 dark:bg-red-950/10"
-                              : "hover:shadow-md hover:border-border"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center gap-3">
-                            {deleteMode && (
-                              <input
-                                type="checkbox"
-                                checked={selectedAnnotations.includes(
-                                  annotation.id
-                                )}
-                                onChange={() =>
-                                  handleAnnotationSelect(annotation.id)
-                                }
-                                className="h-4 w-4 text-red-600 border-border rounded focus:ring-red-500 cursor-pointer dark:text-red-400 dark:focus:ring-red-400"
-                              />
-                            )}
-                            <div className="relative">
-                              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                                <MessageCircle className="h-4 w-4 text-primary" />
-                              </div>
-                              {/* Annotation Number Badge */}
-                              <div
-                                className={`absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(index)}`}
-                              >
-                                {index + 1}
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <span className="text-sm font-medium text-foreground">
-                                {annotation.profiles?.email || "Unknown"}
-                              </span>
-                              {annotation.profiles?.title && (
-                                <Badge
-                                  variant={
-                                    getTitleBadgeVariant(
-                                      annotation.profiles.title
-                                    ) as
-                                      | "default"
-                                      | "destructive"
-                                      | "secondary"
-                                      | "outline"
-                                      | null
-                                      | undefined
-                                  }
-                                  className="text-xs px-2 py-0.5 w-fit"
-                                >
-                                  {annotation.profiles.title}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 cursor-pointer"
-                              >
-                                <MoreVertical className="h-5 w-5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleHotspotSelect(annotation.id)
-                                }
-                              >
-                                <Eye className="h-3 w-3 mr-2" />
-                                Focus on Hotspot
-                              </DropdownMenuItem>
 
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setEditingAnnotation(annotation.id);
-                                  setEditComment(annotation.comment);
-                                  setEditImageUrl(annotation.image_url || "");
-                                }}
-                                disabled={isFunctionalityDisabled()}
-                                className={
-                                  isFunctionalityDisabled()
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : ""
-                                }
-                              >
-                                <Edit3 className="h-3 w-3 mr-2" />
-                                Edit Annotation
-                              </DropdownMenuItem>
-
-                              <DropdownMenuSeparator />
-
-                              {!deleteMode && (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    confirmDeleteAnnotation(annotation.id)
-                                  }
-                                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                >
-                                  <X className="h-3 w-3 mr-2" />
-                                  Delete Annotation
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        {editingAnnotation === annotation.id ? (
-                          <div className="space-y-2">
-                            <Textarea
-                              value={editComment}
-                              onChange={(e) => setEditComment(e.target.value)}
-                              rows={3}
-                            />
-
-                            {/* Image Upload for Edit */}
-                            <div>
-                              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                                Reference Image (optional)
-                              </label>
-                              <div className="flex gap-2">
-                                <Input
-                                  placeholder="https://example.com/image.jpg or upload file"
-                                  value={editImageUrl}
-                                  onChange={(e) =>
-                                    setEditImageUrl(e.target.value)
-                                  }
-                                  className="flex-1"
-                                />
-
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    const input =
-                                      document.createElement("input");
-                                    input.type = "file";
-                                    input.accept = "image/*";
-                                    input.onchange = async (e) => {
-                                      const file = (
-                                        e.target as HTMLInputElement
-                                      ).files?.[0];
-                                      if (file) {
-                                        try {
-                                          const formData = new FormData();
-                                          formData.append("file", file);
-
-                                          const response = await fetch(
-                                            "/api/upload",
-                                            {
-                                              method: "POST",
-                                              body: formData,
-                                            }
-                                          );
-
-                                          const data = await response.json();
-
-                                          if (response.ok) {
-                                            setEditImageUrl(data.url);
-                                            toast.success(
-                                              "Image uploaded successfully!"
-                                            );
-                                          } else {
-                                            toast.error(
-                                              data.error || "Upload failed"
-                                            );
-                                          }
-                                        } catch (error) {
-                                          console.error("Upload error:", error);
-                                          toast.error("Upload failed");
-                                        }
-                                      }
-                                    };
-                                    input.click();
-                                  }}
-                                  className="cursor-pointer"
-                                >
-                                  <Upload className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-
-                            {/* Preview Image for Edit */}
-                            {editImageUrl && (
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                                  Preview:
-                                </label>
-                                <div
-                                  className="relative w-full h-52 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                                  onClick={() =>
-                                    handleImageClick(
-                                      editImageUrl,
-                                      "Preview Image"
-                                    )
-                                  }
-                                >
-                                  <Image
-                                    width={320}
-                                    height={28}
-                                    unoptimized
-                                    src={editImageUrl}
-                                    alt="Reference"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      (
-                                        e.currentTarget as HTMLElement
-                                      ).style.display = "none";
-                                      (e.currentTarget
-                                        .nextElementSibling as HTMLElement)!.style.display =
-                                        "flex";
-                                    }}
-                                  />
-                                  <div
-                                    className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs"
-                                    style={{ display: "none" }}
-                                  >
-                                    Invalid URL
-                                  </div>
-                                  <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full">
-                                    <Maximize2 className="h-3 w-3" />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="flex p-4 justify-around">
-                              <Button
-                                size="sm"
-                                onClick={() => updateAnnotation(annotation.id)}
-                                disabled={!editComment.trim()}
-                                className="cursor-pointer"
-                              >
-                                Update
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setEditingAnnotation(null);
-                                  setEditImageUrl("");
-                                }}
-                                className="cursor-pointer"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {inlineEditingId === annotation.id ? (
-                              <div className="space-y-2">
-                                <Textarea
-                                  value={inlineEditComment}
-                                  onChange={(e) =>
-                                    setInlineEditComment(e.target.value)
-                                  }
-                                  onKeyDown={(e) =>
-                                    handleInlineEditKeyDown(e, annotation.id)
-                                  }
-                                  onBlur={() => {
-                                    if (!isSwitchingEdit) {
-                                      submitInlineEdit(annotation.id);
-                                    }
-                                  }}
-                                  className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
-                                  rows={3}
-                                  autoFocus
-                                  placeholder="Edit comment..."
-                                />
-                                <div className="flex gap-2 text-xs text-muted-foreground">
-                                  <span>
-                                    Press Enter to save, Escape to cancel
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div
-                                className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
-                                  inlineEditingId === annotation.id
-                                    ? "bg-primary/10 border border-primary/20"
-                                    : isFunctionalityDisabled()
-                                      ? "opacity-50 cursor-not-allowed"
-                                      : "cursor-pointer hover:bg-muted/50"
-                                }`}
-                                onClick={() =>
-                                  !isFunctionalityDisabled() &&
-                                  switchToEditing(annotation, false)
-                                }
-                                title={
-                                  isFunctionalityDisabled()
-                                    ? "Editing disabled during revision"
-                                    : "Click to edit comment"
-                                }
-                              >
-                                <div className="flex items-start justify-between">
-                                  <span className="flex-1">
-                                    {annotation.comment}
-                                  </span>
-                                  <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Display reference image if exists */}
-                            {annotation.image_url && (
-                              <div className="mt-2">
-                                <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                                  Reference Image:
-                                </label>
-                                <div
-                                  className="relative w-full h-52 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                                  onClick={() =>
-                                    handleImageClick(
-                                      annotation.image_url!,
-                                      annotation.comment
-                                    )
-                                  }
-                                >
-                                  <Image
-                                    width={320}
-                                    height={128}
-                                    unoptimized
-                                    src={annotation.image_url}
-                                    alt="Reference"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      (
-                                        e.currentTarget as HTMLElement
-                                      ).style.display = "none";
-                                      (e.currentTarget
-                                        .nextElementSibling as HTMLElement)!.style.display =
-                                        "flex";
-                                    }}
-                                  />
-                                  <div
-                                    className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs"
-                                    style={{ display: "none" }}
-                                  >
-                                    Invalid URL
-                                  </div>
-                                  <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full">
-                                    <Maximize2 className="h-3 w-3" />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="mt-4 flex items-center gap-2">
-                          <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full inline-block border border-border/50">
-                            Created on{" "}
-                            {new Date(
-                              annotation.created_at
-                            ).toLocaleDateString()}
-                          </div>
-                          {revisionHistory.length > 0 && (
-                            <Badge
-                              variant="outline"
-                              className={`text-xs font-semibold ${getRevisionBadgeColors(getRevisionForItem(annotation.created_at) || 0)}`}
-                            >
-                              R{getRevisionForItem(annotation.created_at) || 0}
-                            </Badge>
-                          )}
-                        </div>
-                      </Card>
-                    ))}
-
-                    {annotations.length === 0 && (
-                      <div className="text-center py-12">
-                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                          <MessageCircle className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-foreground mb-2">
-                          No annotations yet
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          Click &quot;Add Annotation&quot; to start reviewing
-                          this model
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Comments Tab */}
-              {activeTab === "comments" && (
-                <>
-                  <div className="mb-6 p-2">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className=" text-muted-foreground font-semibold">
-                        Comments
-                      </h4>
-                      {selectedHotspotId && (
-                        <Badge variant="outline" className="text-xs">
-                          Showing comments for Annotation{" "}
-                          {annotations.findIndex(
-                            (a) => a.id === selectedHotspotId
-                          ) + 1}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Add New Comment */}
-                    <div className="space-y-3 mb-6">
+                      {/* Annotations Disabled Banner */}
                       {isFunctionalityDisabled() && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30">
                           <div className="flex items-center gap-2">
                             <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                             <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                              Comments disabled - Asset is in revision mode
+                              Annotations disabled - Asset is in revision mode
                             </span>
                           </div>
                         </div>
                       )}
-                      <Textarea
-                        placeholder={
-                          isFunctionalityDisabled()
-                            ? "Comments disabled during revision"
-                            : selectedHotspotId
-                              ? `Add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
-                              : "Add a comment about this asset..."
-                        }
-                        value={newCommentText}
-                        onChange={(e) => setNewCommentText(e.target.value)}
-                        onKeyDown={handleNewCommentKeyDown}
-                        disabled={isFunctionalityDisabled()}
-                        className={`min-h-[100px] border-border focus:border-primary focus:ring-primary ${
-                          isFunctionalityDisabled()
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                        rows={4}
-                      />
-                      <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span>
-                          {isFunctionalityDisabled()
-                            ? "Comments are disabled during revision mode"
-                            : "Press Enter to send, Shift+Enter for new line"}
-                        </span>
+
+                      {/* Multi-Delete Actions */}
+                      {deleteMode && selectedAnnotations.length > 0 && (
+                        <div className="bg-red-50/50 border border-red-200/50 rounded-xl p-4 dark:bg-red-950/10 dark:border-red-800/30">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center dark:bg-red-900/30">
+                                <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
+                              </div>
+                              <span className="font-semibold text-red-700 dark:text-red-400">
+                                {selectedAnnotations.length} annotation(s)
+                                selected
+                              </span>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowDeleteWarning(true)}
+                              className="shadow-sm cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete Selected
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Sticky Comments Header */}
+                  {activeTab === "comments" && (
+                    <div className="p-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-muted-foreground font-semibold">
+                          Comments
+                        </h4>
                         {selectedHotspotId && (
-                          <span className="text-primary">
-                            • Comment will be associated with Annotation{" "}
+                          <Badge variant="outline" className="text-xs">
+                            Showing comments for Annotation{" "}
                             {annotations.findIndex(
                               (a) => a.id === selectedHotspotId
                             ) + 1}
-                          </span>
+                          </Badge>
                         )}
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Existing Comments */}
-                  <div className="space-y-4 p-2">
-                    {getCommentsForAnnotation(selectedHotspotId || "").map(
-                      (comment) => (
+                      {/* Add New Comment */}
+                      <div className="space-y-3 mb-6">
+                        {isFunctionalityDisabled() && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                              <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
+                                Comments disabled - Asset is in revision mode
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        <Textarea
+                          placeholder={
+                            isFunctionalityDisabled()
+                              ? "Comments disabled during revision"
+                              : selectedHotspotId
+                                ? `Add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
+                                : "Add a comment about this asset..."
+                          }
+                          value={newCommentText}
+                          onChange={(e) => setNewCommentText(e.target.value)}
+                          onKeyDown={handleNewCommentKeyDown}
+                          disabled={isFunctionalityDisabled()}
+                          className={`min-h-[100px] border-border focus:border-primary focus:ring-primary ${
+                            isFunctionalityDisabled()
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                          rows={4}
+                        />
+                        <div className="flex gap-2 text-xs text-muted-foreground">
+                          <span>
+                            {isFunctionalityDisabled()
+                              ? "Comments are disabled during revision mode"
+                              : "Press Enter to send, Shift+Enter for new line"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Scrollable Content */}
+                <div className="p-2">
+                  {/* Annotations Tab Content */}
+                  {activeTab === "annotations" && (
+                    <div className="space-y-4">
+                      {annotations.map((annotation, index) => (
                         <Card
-                          key={comment.id}
-                          className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
+                          key={annotation.id}
+                          className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
+                            selectedHotspotId === annotation.id
+                              ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
+                              : deleteMode &&
+                                  selectedAnnotations.includes(annotation.id)
+                                ? "ring-2 ring-red-300 bg-red-50/50 shadow-lg dark:ring-red-700 dark:bg-red-950/10"
+                                : "hover:shadow-md hover:border-border"
+                          }`}
                         >
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                              {deleteMode && (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedAnnotations.includes(
+                                    annotation.id
+                                  )}
+                                  onChange={() =>
+                                    handleAnnotationSelect(annotation.id)
+                                  }
+                                  className="h-4 w-4 text-red-600 border-border rounded focus:ring-red-500 cursor-pointer dark:text-red-400 dark:focus:ring-red-400"
+                                />
+                              )}
+                              <div className="relative">
+                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                  <MessageCircle className="h-4 w-4 text-primary" />
+                                </div>
+                                {/* Annotation Number Badge */}
+                                <div
+                                  className={`absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(index)}`}
+                                >
+                                  {index + 1}
+                                </div>
                               </div>
                               <div className="flex flex-col gap-1">
                                 <span className="text-sm font-medium text-foreground">
-                                  {comment.profiles?.email || "Unknown"}
+                                  {annotation.profiles?.email || "Unknown"}
                                 </span>
-                                {comment.profiles?.title && (
+                                <div className="flex items-center gap-2">
+                                  {annotation.profiles?.title && (
+                                    <Badge
+                                      variant={
+                                        getTitleBadgeVariant(
+                                          annotation.profiles.title
+                                        ) as
+                                          | "default"
+                                          | "destructive"
+                                          | "secondary"
+                                          | "outline"
+                                          | null
+                                          | undefined
+                                      }
+                                      className="text-xs px-2 py-0.5 w-fit"
+                                    >
+                                      {annotation.profiles.title}
+                                    </Badge>
+                                  )}
+                                  {/* Revision Badge */}
                                   <Badge
-                                    variant={
-                                      getTitleBadgeVariant(
-                                        comment.profiles.title
-                                      ) as
-                                        | "default"
-                                        | "destructive"
-                                        | "secondary"
-                                        | "outline"
-                                        | null
-                                        | undefined
-                                    }
-                                    className="text-xs px-2 py-0.5 w-fit"
+                                    variant="outline"
+                                    className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(annotation.created_at))}`}
                                   >
-                                    {comment.profiles.title}
+                                    R{getRevisionForItem(annotation.created_at)}
                                   </Badge>
-                                )}
+                                </div>
                               </div>
                             </div>
                             <DropdownMenu>
@@ -2949,7 +3023,18 @@ export default function ReviewPage() {
                               <DropdownMenuContent align="end" className="w-40">
                                 <DropdownMenuItem
                                   onClick={() => {
-                                    startCommentInlineEdit(comment);
+                                    handleHotspotSelect(annotation.id);
+                                  }}
+                                >
+                                  <Eye className="h-3 w-3 mr-2" />
+                                  Focus on Hotspot
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingAnnotation(annotation.id);
+                                    setEditComment(annotation.comment);
+                                    setEditImageUrl(annotation.image_url || "");
                                   }}
                                   disabled={isFunctionalityDisabled()}
                                   className={
@@ -2959,722 +3044,1110 @@ export default function ReviewPage() {
                                   }
                                 >
                                   <Edit3 className="h-3 w-3 mr-2" />
-                                  Edit Comment
+                                  Edit Annotation
                                 </DropdownMenuItem>
+
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => deleteComment(comment.id)}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <X className="h-3 w-3 mr-2" />
-                                  Delete Comment
-                                </DropdownMenuItem>
+
+                                {!deleteMode && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      confirmDeleteAnnotation(annotation.id)
+                                    }
+                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                  >
+                                    <X className="h-3 w-3 mr-2" />
+                                    Delete Annotation
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
 
-                          {inlineEditingCommentId === comment.id ? (
+                          {editingAnnotation === annotation.id ? (
                             <div className="space-y-2">
                               <Textarea
-                                value={inlineEditCommentText}
-                                onChange={(e) =>
-                                  setInlineEditCommentText(e.target.value)
-                                }
-                                onKeyDown={(e) =>
-                                  handleCommentInlineEditKeyDown(e, comment.id)
-                                }
-                                onBlur={() => {
-                                  submitCommentInlineEdit(comment.id);
-                                }}
-                                className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
+                                value={editComment}
+                                onChange={(e) => setEditComment(e.target.value)}
                                 rows={3}
-                                autoFocus
-                                placeholder="Edit comment..."
                               />
-                              <div className="flex gap-2 text-xs text-muted-foreground">
-                                <span>
-                                  Press Enter to save, Escape to cancel
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div
-                              className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
-                                isFunctionalityDisabled()
-                                  ? "opacity-50 cursor-not-allowed"
-                                  : "cursor-pointer hover:bg-muted/50"
-                              }`}
-                              onClick={() => {
-                                if (!isFunctionalityDisabled()) {
-                                  startCommentInlineEdit(comment);
-                                }
-                              }}
-                              title={
-                                isFunctionalityDisabled()
-                                  ? "Editing disabled during revision"
-                                  : "Click to edit comment"
-                              }
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 break-words w-full">
-                                  <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                                    {comment.comment}
-                                  </pre>
-                                </div>
-                                <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
-                              </div>
-                            </div>
-                          )}
 
-                          <div className="mt-4 flex items-center gap-2">
-                            <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full inline-block border border-border/50">
-                              Created on{" "}
-                              {new Date(
-                                comment.created_at
-                              ).toLocaleDateString()}
-                            </div>
-                            {revisionHistory.length > 0 && (
-                              <Badge
-                                variant="outline"
-                                className={`text-xs font-semibold ${getRevisionBadgeColors(getRevisionForItem(comment.created_at) || 0)}`}
-                              >
-                                R{getRevisionForItem(comment.created_at) || 0}
-                              </Badge>
-                            )}
-                          </div>
-                        </Card>
-                      )
-                    )}
+                              {/* Image Upload for Edit */}
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                                  Reference Image (optional)
+                                </label>
+                                <div className="flex gap-2">
+                                  <Input
+                                    placeholder="https://example.com/image.jpg or upload file"
+                                    value={editImageUrl}
+                                    onChange={(e) =>
+                                      setEditImageUrl(e.target.value)
+                                    }
+                                    className="flex-1"
+                                  />
 
-                    {getCommentsForAnnotation(selectedHotspotId || "")
-                      .length === 0 && (
-                      <div className="text-center py-12">
-                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                          <MessageSquare className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-foreground mb-2">
-                          {selectedHotspotId
-                            ? `No comments for Annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}`
-                            : "No comments yet"}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedHotspotId
-                            ? `Be the first to add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}!`
-                            : "Be the first to add a comment!"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => {
+                                      const input =
+                                        document.createElement("input");
+                                      input.type = "file";
+                                      input.accept = "image/*";
+                                      input.onchange = async (e) => {
+                                        const file = (
+                                          e.target as HTMLInputElement
+                                        ).files?.[0];
+                                        if (file) {
+                                          try {
+                                            const formData = new FormData();
+                                            formData.append("file", file);
 
-        {/* New Annotation Dialog */}
-        <Dialog
-          open={selectedAnnotation?.id.startsWith("temp-") || false}
-          onOpenChange={(open) => {
-            if (!open) {
-              // Remove temporary annotation if canceling
-              if (selectedAnnotation?.id.startsWith("temp-")) {
-                setAnnotations((prev) =>
-                  prev.filter((ann) => ann.id !== selectedAnnotation.id)
-                );
-              }
-              setSelectedAnnotation(null);
-              setSelectedHotspotId(null);
-              setNewImageUrl("");
-            }
-          }}
-        >
-          <DialogContent className="sm:max-w-[500px] h-fit overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-foreground">
-                Add New Annotation
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Add a comment and optional reference image to this hotspot
-              </DialogDescription>
-            </DialogHeader>
+                                            const response = await fetch(
+                                              "/api/upload",
+                                              {
+                                                method: "POST",
+                                                body: formData,
+                                              }
+                                            );
 
-            <div className="space-y-6 py-4">
-              {/* Comment Section */}
-              <div className="space-y-3">
-                <label className="text-sm font-semibold text-foreground">
-                  Comment *
-                </label>
-                <Textarea
-                  placeholder="Describe what you want to highlight or comment on..."
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  className="min-h-[100px] border-border focus:border-primary focus:ring-primary"
-                  rows={4}
-                />
-              </div>
+                                            const data = await response.json();
 
-              {/* Image Upload Section */}
-              <div className="space-y-3">
-                <label className="text-sm font-semibold text-foreground">
-                  Reference Image (optional)
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="https://example.com/image.jpg or upload file"
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    className="flex-1 border-border focus:border-primary"
-                  />
-
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      const input = document.createElement("input");
-                      input.type = "file";
-                      input.accept = "image/*";
-                      input.onchange = async (e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
-                        if (file) {
-                          try {
-                            const formData = new FormData();
-                            formData.append("file", file);
-
-                            const response = await fetch("/api/upload", {
-                              method: "POST",
-                              body: formData,
-                            });
-
-                            const data = await response.json();
-
-                            if (response.ok) {
-                              setNewImageUrl(data.url);
-                              toast.success("Image uploaded successfully!");
-                            } else {
-                              toast.error(data.error || "Upload failed");
-                            }
-                          } catch (error) {
-                            console.error("Upload error:", error);
-                            toast.error("Upload failed");
-                          }
-                        }
-                      };
-                      input.click();
-                    }}
-                    className="border-border hover:bg-accent cursor-pointer"
-                  >
-                    <Upload className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Preview Image */}
-              {newImageUrl && (
-                <div className="space-y-3">
-                  <label className="text-sm font-semibold text-foreground">
-                    Image Preview
-                  </label>
-                  <div
-                    className="relative w-full h-48 border-2 border-border rounded-lg overflow-hidden bg-muted/50 cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() =>
-                      handleImageClick(newImageUrl, "Image Preview")
-                    }
-                  >
-                    <Image
-                      width={480}
-                      height={192}
-                      unoptimized
-                      src={newImageUrl}
-                      alt="Reference"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLElement).style.display = "none";
-                        (e.currentTarget
-                          .nextElementSibling as HTMLElement)!.style.display =
-                          "flex";
-                      }}
-                    />
-                    <div
-                      className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-sm"
-                      style={{ display: "none" }}
-                    >
-                      <div className="text-center">
-                        <div className="text-muted-foreground mb-2"></div>
-                        Invalid image URL
-                      </div>
-                    </div>
-                    <div className="absolute top-3 right-3 bg-black/50 text-white p-1.5 rounded-full">
-                      <Maximize2 className="h-3 w-3" />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t border-border">
-              <Button
-                onClick={saveAnnotation}
-                disabled={!newComment.trim()}
-                className="flex-1 bg-primary hover:bg-primary/90 font-medium cursor-pointer"
-              >
-                Save Annotation
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  // Remove temporary annotation if canceling
-                  if (selectedAnnotation?.id.startsWith("temp-")) {
-                    setAnnotations((prev) =>
-                      prev.filter((ann) => ann.id !== selectedAnnotation.id)
-                    );
-                  }
-                  setSelectedAnnotation(null);
-                  setSelectedHotspotId(null);
-                  setNewImageUrl("");
-                }}
-                className="border-border hover:bg-accent cursor-pointer"
-              >
-                Cancel
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Warning Dialog */}
-        <Dialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
-          <DialogContent className="sm:max-w-[425px] h-fit">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-red-700 dark:text-red-400">
-                Delete Annotation{selectedAnnotations.length > 0 ? "s" : ""}
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Are you sure you want to delete{" "}
-                {singleDeleteId
-                  ? "this annotation"
-                  : `${selectedAnnotations.length} annotation(s)`}
-                ? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (singleDeleteId) {
-                    handleSingleDelete();
-                  } else {
-                    deleteMultipleAnnotations(selectedAnnotations);
-                    setShowDeleteWarning(false);
-                  }
-                }}
-                className="flex-1 cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete{" "}
-                {singleDeleteId
-                  ? "Annotation"
-                  : `${selectedAnnotations.length} Annotation(s)`}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowDeleteWarning(false);
-                  setSingleDeleteId(null);
-                }}
-                className="flex-1 cursor-pointer"
-              >
-                Cancel
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Image Preview Dialog */}
-        <Dialog open={showImageDialog} onOpenChange={handleDialogClose}>
-          <DialogContent className="sm:max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
-            <DialogHeader className="px-6 py-4 border-b border-border">
-              <DialogTitle className="text-xl font-bold text-foreground">
-                {selectedImageTitle}
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Reference image for annotation • Scroll to zoom (1x-5x)
-              </DialogDescription>
-            </DialogHeader>
-            <div
-              className="relative w-full h-[70vh] bg-muted cursor-pointer"
-              onMouseMove={handleDialogImageMouseMove}
-              onWheel={handleDialogImageWheel}
-            >
-              <Image
-                width={1200}
-                height={800}
-                unoptimized
-                src={selectedImage}
-                alt={selectedImageTitle}
-                className="w-full h-full object-contain bg-background transition-transform duration-200"
-                style={{
-                  transform: `scale(${dialogZoomLevel})`,
-                  transformOrigin: dialogIsZooming
-                    ? `${dialogMousePosition.x}% ${dialogMousePosition.y}%`
-                    : "center",
-                }}
-                onError={(e) => {
-                  (e.currentTarget as HTMLElement).style.display = "none";
-                  (e.currentTarget
-                    .nextElementSibling as HTMLElement)!.style.display = "flex";
-                }}
-              />
-              <div
-                className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground"
-                style={{ display: "none" }}
-              >
-                <div className="text-center">
-                  <div className="text-muted-foreground mb-2 text-4xl"></div>
-                  <p className="text-lg font-medium">Invalid image URL</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    The image could not be loaded
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t border-border">
-              <Button
-                variant="outline"
-                onClick={handleDialogClose}
-                className="cursor-pointer"
-              >
-                Close
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Add Image URL Dialog */}
-        <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
-          <DialogContent className="sm:max-w-[500px] h-fit">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-foreground">
-                Add Reference Image URL
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Enter the URL of an image you want to add as a reference image.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">
-                  Image URL *
-                </label>
-                <Input
-                  type="url"
-                  placeholder="https://example.com/image.jpg"
-                  value={referenceImageUrl}
-                  onChange={(e) => setReferenceImageUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleAddReferenceImageUrl();
-                      setShowUrlDialog(false);
-                    }
-                  }}
-                  className="border-border focus:border-primary"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 pt-4 border-t border-border">
-              <Button
-                onClick={() => {
-                  handleAddReferenceImageUrl();
-                  setShowUrlDialog(false);
-                }}
-                disabled={!referenceImageUrl.trim()}
-                className="flex-1 bg-primary hover:bg-primary/90 font-medium cursor-pointer"
-              >
-                Add Image URL
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowUrlDialog(false);
-                  setReferenceImageUrl("");
-                }}
-                className="border-border hover:bg-accent cursor-pointer"
-              >
-                Cancel
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* First Revision Dialog */}
-        <Dialog open={showRevisionDialog} onOpenChange={setShowRevisionDialog}>
-          <DialogContent className="sm:max-w-[500px] h-fit">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-foreground">
-                Confirm Revision Request
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Please review all annotations and comments before proceeding.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-200">
-                      Important Notice
-                    </h4>
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                      Make sure all annotations and comments are correct. No
-                      more can be added until the 2nd revision.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                <p>
-                  • All annotation and comment functionality will be disabled
-                </p>
-                <p>• Only status updates will be allowed</p>
-                <p>• This action cannot be undone</p>
-              </div>
-            </div>
-            <div className="flex gap-3 pt-4 border-t border-border">
-              <Button
-                onClick={handleRevisionConfirm}
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-medium cursor-pointer"
-              >
-                Confirm Revision Request
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowRevisionDialog(false)}
-                className="border-border hover:bg-accent cursor-pointer"
-              >
-                Cancel
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Additional Revisions Dialog */}
-        <Dialog
-          open={showSecondRevisionDialog}
-          onOpenChange={setShowSecondRevisionDialog}
-        >
-          <DialogContent className="sm:max-w-[500px] h-fit">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-red-700 dark:text-red-400">
-                ⚠️ Additional Revision Warning
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                This is revision #{revisionCount + 1} for this asset.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-950/20 dark:border-red-800/30">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-red-800 dark:text-red-200">
-                      Cost Warning
-                    </h4>
-                    <p className="text-sm text-red-700 dark:text-red-300">
-                      Additional revisions may incur costs if the changes are
-                      client requests and not due to modeling errors.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                <p>• This revision will be reviewed for billing purposes</p>
-                <p>• Client-requested changes may be added to invoice</p>
-                <p>• Modeling errors will not incur additional costs</p>
-                {revisionCount >= 3 && (
-                  <p className="font-medium text-red-600 dark:text-red-400">
-                    • This is revision #{revisionCount + 1} - fees will likely
-                    apply
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-3 pt-4 border-t border-border">
-              <Button
-                onClick={
-                  revisionCount >= 2
-                    ? handleAdditionalRevisionConfirm
-                    : handleSecondRevisionConfirm
-                }
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
-              >
-                Proceed with Revision #{revisionCount + 1}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowSecondRevisionDialog(false)}
-                className="border-border hover:bg-accent cursor-pointer"
-              >
-                Cancel
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Revision Details Dialog */}
-        <Dialog
-          open={showRevisionDetailsDialog}
-          onOpenChange={setShowRevisionDetailsDialog}
-        >
-          <DialogContent className="sm:max-w-[800px] h-fit min-h-[500px] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-foreground">
-                Revision {selectedRevision?.revision_number} Details
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                {selectedRevision &&
-                  new Date(selectedRevision.created_at).toLocaleDateString()}
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedRevision && (
-              <div className="space-y-6">
-                {/* Annotations Section */}
-                {(() => {
-                  const revisionAnnotations = getRevisionItems(
-                    selectedRevision.revision_number
-                  ).annotations;
-                  return revisionAnnotations.length > 0 ? (
-                    <div>
-                      <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2 ">
-                        <MessageCircle className="h-5 w-5" />
-                        Annotations ({revisionAnnotations.length})
-                      </h4>
-                      <div className="space-y-3 min-h-[300px] max-h-[600px] overflow-y-auto">
-                        {revisionAnnotations.map(
-                          (annotation: any, index: number) => (
-                            <Card key={annotation.id || index} className="p-4">
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                                    <MessageCircle className="h-4 w-4 text-primary" />
-                                  </div>
-                                  <div>
-                                    <div className="text-sm font-medium text-foreground">
-                                      {annotation.profiles?.email || "Unknown"}
-                                    </div>
-                                    {annotation.profiles?.title && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs mt-1"
-                                      >
-                                        {annotation.profiles.title}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {new Date(
-                                    annotation.created_at
-                                  ).toLocaleDateString()}
+                                            if (response.ok) {
+                                              setEditImageUrl(data.url);
+                                              toast.success(
+                                                "Image uploaded successfully!"
+                                              );
+                                            } else {
+                                              toast.error(
+                                                data.error || "Upload failed"
+                                              );
+                                            }
+                                          } catch (error) {
+                                            console.error(
+                                              "Upload error:",
+                                              error
+                                            );
+                                            toast.error("Upload failed");
+                                          }
+                                        }
+                                      };
+                                      input.click();
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    <Upload className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </div>
-                              <div className="text-sm text-foreground">
-                                {annotation.comment}
-                              </div>
-                              {annotation.image_url && (
-                                <div className="mt-3">
-                                  <div className="text-xs font-medium text-muted-foreground mb-2">
-                                    Reference Image:
-                                  </div>
-                                  <div className="relative w-full h-32 border rounded overflow-hidden">
+
+                              {/* Preview Image for Edit */}
+                              {editImageUrl && (
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                                    Preview:
+                                  </label>
+                                  <div
+                                    className="relative w-full h-52 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() =>
+                                      handleImageClick(
+                                        editImageUrl,
+                                        "Preview Image"
+                                      )
+                                    }
+                                  >
                                     <Image
                                       width={320}
-                                      height={128}
+                                      height={28}
                                       unoptimized
-                                      src={annotation.image_url}
+                                      src={editImageUrl}
                                       alt="Reference"
-                                      className="w-full h-full object-cover"
+                                      className="w-full h-full object-contain"
                                       onError={(e) => {
                                         (
                                           e.currentTarget as HTMLElement
                                         ).style.display = "none";
+                                        (e.currentTarget
+                                          .nextElementSibling as HTMLElement)!.style.display =
+                                          "flex";
                                       }}
                                     />
+                                    <div
+                                      className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs"
+                                      style={{ display: "none" }}
+                                    >
+                                      Invalid URL
+                                    </div>
+                                    <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full">
+                                      <Maximize2 className="h-3 w-3" />
+                                    </div>
                                   </div>
                                 </div>
                               )}
-                            </Card>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
 
-                {/* Comments Section */}
-                {(() => {
-                  const revisionComments = getRevisionItems(
-                    selectedRevision.revision_number
-                  ).comments;
-                  return revisionComments.length > 0 ? (
-                    <div>
-                      <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5" />
-                        Comments ({revisionComments.length})
-                      </h4>
-                      <div className="space-y-3 max-h-60 overflow-y-auto">
-                        {revisionComments.map((comment: any, index: number) => (
-                          <Card key={comment.id || index} className="p-4">
-                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex p-4 justify-around">
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    updateAnnotation(annotation.id)
+                                  }
+                                  disabled={!editComment.trim()}
+                                  className="cursor-pointer"
+                                >
+                                  Update
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingAnnotation(null);
+                                    setEditImageUrl("");
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {inlineEditingId === annotation.id ? (
+                                <div className="space-y-2">
+                                  <Textarea
+                                    value={inlineEditComment}
+                                    onChange={(e) =>
+                                      setInlineEditComment(e.target.value)
+                                    }
+                                    onKeyDown={(e) =>
+                                      handleInlineEditKeyDown(e, annotation.id)
+                                    }
+                                    onBlur={() => {
+                                      if (!isSwitchingEdit) {
+                                        submitInlineEdit(annotation.id);
+                                      }
+                                    }}
+                                    className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
+                                    rows={3}
+                                    autoFocus
+                                    placeholder="Edit annotation..."
+                                  />
+                                  <div className="flex gap-2 text-xs text-muted-foreground">
+                                    <span>
+                                      Press Enter to save, Escape to cancel
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
+                                    isFunctionalityDisabled()
+                                      ? "opacity-50 cursor-not-allowed"
+                                      : "cursor-pointer hover:bg-muted/50"
+                                  }`}
+                                  onClick={() => {
+                                    if (!isFunctionalityDisabled()) {
+                                      startInlineEdit(annotation);
+                                    }
+                                  }}
+                                  title={
+                                    isFunctionalityDisabled()
+                                      ? "Editing disabled during revision"
+                                      : "Click to edit annotation"
+                                  }
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1 break-words w-full">
+                                      <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                        {annotation.comment}
+                                      </pre>
+                                    </div>
+                                    <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Image Display */}
+                              {annotation.image_url && (
+                                <div className="mt-4">
+                                  <div
+                                    className="relative w-full h-48 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() =>
+                                      handleImageClick(
+                                        annotation.image_url!,
+                                        "Annotation Image"
+                                      )
+                                    }
+                                  >
+                                    <Image
+                                      width={320}
+                                      height={192}
+                                      unoptimized
+                                      src={annotation.image_url}
+                                      alt="Annotation reference"
+                                      className="w-full h-full object-contain"
+                                      onError={(e) => {
+                                        (
+                                          e.currentTarget as HTMLElement
+                                        ).style.display = "none";
+                                        (e.currentTarget
+                                          .nextElementSibling as HTMLElement)!.style.display =
+                                          "flex";
+                                      }}
+                                    />
+                                    <div
+                                      className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs"
+                                      style={{ display: "none" }}
+                                    >
+                                      Invalid URL
+                                    </div>
+                                    <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full">
+                                      <Maximize2 className="h-3 w-3" />
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="mt-4 flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(
+                                    annotation.created_at
+                                  ).toLocaleDateString()}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  •
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(
+                                    annotation.created_at
+                                  ).toLocaleTimeString()}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </Card>
+                      ))}
+
+                      {annotations.length === 0 && (
+                        <div className="text-center py-12">
+                          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                            <MessageCircle className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-foreground mb-2">
+                            No annotations yet
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            Click &quot;Add Annotation&quot; to start reviewing
+                            this model
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Comments Tab Content */}
+                  {activeTab === "comments" && (
+                    <div className="space-y-4">
+                      {getCommentsForAnnotation(selectedHotspotId || "").map(
+                        (comment) => (
+                          <Card
+                            key={comment.id}
+                            className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
+                          >
+                            <div className="flex items-start justify-between mb-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
                                   <MessageSquare className="h-4 w-4 text-muted-foreground" />
                                 </div>
-                                <div>
-                                  <div className="text-sm font-medium text-foreground">
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-sm font-medium text-foreground">
                                     {comment.profiles?.email || "Unknown"}
-                                  </div>
-                                  {comment.profiles?.title && (
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {comment.profiles?.title && (
+                                      <Badge
+                                        variant={
+                                          getTitleBadgeVariant(
+                                            comment.profiles.title
+                                          ) as
+                                            | "default"
+                                            | "destructive"
+                                            | "secondary"
+                                            | "outline"
+                                            | null
+                                            | undefined
+                                        }
+                                        className="text-xs px-2 py-0.5 w-fit"
+                                      >
+                                        {comment.profiles.title}
+                                      </Badge>
+                                    )}
+                                    {/* Revision Badge */}
                                     <Badge
                                       variant="outline"
-                                      className="text-xs mt-1"
+                                      className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(comment.created_at))}`}
                                     >
-                                      {comment.profiles.title}
+                                      R{getRevisionForItem(comment.created_at)}
                                     </Badge>
-                                  )}
+                                  </div>
                                 </div>
                               </div>
-                              <div className="text-xs text-muted-foreground">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 cursor-pointer"
+                                  >
+                                    <MoreVertical className="h-5 w-5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-40"
+                                >
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      startCommentInlineEdit(comment);
+                                    }}
+                                    disabled={isFunctionalityDisabled()}
+                                    className={
+                                      isFunctionalityDisabled()
+                                        ? "opacity-50 cursor-not-allowed"
+                                        : ""
+                                    }
+                                  >
+                                    <Edit3 className="h-3 w-3 mr-2" />
+                                    Edit Comment
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => deleteComment(comment.id)}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <X className="h-3 w-3 mr-2" />
+                                    Delete Comment
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+
+                            {inlineEditingCommentId === comment.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={inlineEditCommentText}
+                                  onChange={(e) =>
+                                    setInlineEditCommentText(e.target.value)
+                                  }
+                                  onKeyDown={(e) =>
+                                    handleCommentInlineEditKeyDown(
+                                      e,
+                                      comment.id
+                                    )
+                                  }
+                                  onBlur={() => {
+                                    submitCommentInlineEdit(comment.id);
+                                  }}
+                                  className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
+                                  rows={3}
+                                  autoFocus
+                                  placeholder="Edit comment..."
+                                />
+                                <div className="flex gap-2 text-xs text-muted-foreground">
+                                  <span>
+                                    Press Enter to save, Escape to cancel
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
+                                  isFunctionalityDisabled()
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : "cursor-pointer hover:bg-muted/50"
+                                }`}
+                                onClick={() => {
+                                  if (!isFunctionalityDisabled()) {
+                                    startCommentInlineEdit(comment);
+                                  }
+                                }}
+                                title={
+                                  isFunctionalityDisabled()
+                                    ? "Editing disabled during revision"
+                                    : "Click to edit comment"
+                                }
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 break-words w-full">
+                                    <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                      {comment.comment}
+                                    </pre>
+                                  </div>
+                                  <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="mt-4 flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
                                 {new Date(
                                   comment.created_at
                                 ).toLocaleDateString()}
-                              </div>
-                            </div>
-                            <div className="text-sm text-foreground">
-                              <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                                {comment.comment}
-                              </pre>
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                •
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(
+                                  comment.created_at
+                                ).toLocaleTimeString()}
+                              </span>
                             </div>
                           </Card>
-                        ))}
-                      </div>
+                        )
+                      )}
+
+                      {getCommentsForAnnotation(selectedHotspotId || "")
+                        .length === 0 && (
+                        <div className="text-center py-12">
+                          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                            <MessageSquare className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-foreground mb-2">
+                            No comments yet
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedHotspotId
+                              ? `Be the first to add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}!`
+                              : "Be the first to add a comment!"}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  ) : null;
-                })()}
+                  )}
+                </div>
               </div>
             )}
+          </div>
 
-            <div className="flex justify-end pt-4 border-t border-border">
-              <Button
-                variant="outline"
-                onClick={() => setShowRevisionDetailsDialog(false)}
-                className="cursor-pointer"
+          {/* New Annotation Dialog */}
+          <Dialog
+            open={selectedAnnotation?.id.startsWith("temp-") || false}
+            onOpenChange={(open) => {
+              if (!open) {
+                // Remove temporary annotation if canceling
+                if (selectedAnnotation?.id.startsWith("temp-")) {
+                  setAnnotations((prev) =>
+                    prev.filter((ann) => ann.id !== selectedAnnotation.id)
+                  );
+                }
+                setSelectedAnnotation(null);
+                setSelectedHotspotId(null);
+                setNewImageUrl("");
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-[500px] h-fit overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-foreground">
+                  Add New Annotation
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Add a comment and optional reference image to this hotspot
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6 py-4">
+                {/* Comment Section */}
+                <div className="space-y-3">
+                  <label className="text-sm font-semibold text-foreground">
+                    Comment *
+                  </label>
+                  <Textarea
+                    placeholder="Describe what you want to highlight or comment on..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="min-h-[100px] border-border focus:border-primary focus:ring-primary"
+                    rows={4}
+                  />
+                </div>
+
+                {/* Image Upload Section */}
+                <div className="space-y-3">
+                  <label className="text-sm font-semibold text-foreground">
+                    Reference Image (optional)
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="https://example.com/image.jpg or upload file"
+                      value={newImageUrl}
+                      onChange={(e) => setNewImageUrl(e.target.value)}
+                      className="flex-1 border-border focus:border-primary"
+                    />
+
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const input = document.createElement("input");
+                        input.type = "file";
+                        input.accept = "image/*";
+                        input.onchange = async (e) => {
+                          const file = (e.target as HTMLInputElement)
+                            .files?.[0];
+                          if (file) {
+                            try {
+                              const formData = new FormData();
+                              formData.append("file", file);
+
+                              const response = await fetch("/api/upload", {
+                                method: "POST",
+                                body: formData,
+                              });
+
+                              const data = await response.json();
+
+                              if (response.ok) {
+                                setNewImageUrl(data.url);
+                                toast.success("Image uploaded successfully!");
+                              } else {
+                                toast.error(data.error || "Upload failed");
+                              }
+                            } catch (error) {
+                              console.error("Upload error:", error);
+                              toast.error("Upload failed");
+                            }
+                          }
+                        };
+                        input.click();
+                      }}
+                      className="border-border hover:bg-accent cursor-pointer"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Preview Image */}
+                {newImageUrl && (
+                  <div className="space-y-3">
+                    <label className="text-sm font-semibold text-foreground">
+                      Image Preview
+                    </label>
+                    <div
+                      className="relative w-full h-48 border-2 border-border rounded-lg overflow-hidden bg-muted/50 cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() =>
+                        handleImageClick(newImageUrl, "Image Preview")
+                      }
+                    >
+                      <Image
+                        width={480}
+                        height={192}
+                        unoptimized
+                        src={newImageUrl}
+                        alt="Reference"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display =
+                            "none";
+                          (e.currentTarget
+                            .nextElementSibling as HTMLElement)!.style.display =
+                            "flex";
+                        }}
+                      />
+                      <div
+                        className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-sm"
+                        style={{ display: "none" }}
+                      >
+                        <div className="text-center">
+                          <div className="text-muted-foreground mb-2"></div>
+                          Invalid image URL
+                        </div>
+                      </div>
+                      <div className="absolute top-3 right-3 bg-black/50 text-white p-1.5 rounded-full">
+                        <Maximize2 className="h-3 w-3" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-border">
+                <Button
+                  onClick={saveAnnotation}
+                  disabled={!newComment.trim()}
+                  className="flex-1 bg-primary hover:bg-primary/90 font-medium cursor-pointer"
+                >
+                  Save Annotation
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Remove temporary annotation if canceling
+                    if (selectedAnnotation?.id.startsWith("temp-")) {
+                      setAnnotations((prev) =>
+                        prev.filter((ann) => ann.id !== selectedAnnotation.id)
+                      );
+                    }
+                    setSelectedAnnotation(null);
+                    setSelectedHotspotId(null);
+                    setNewImageUrl("");
+                  }}
+                  className="border-border hover:bg-accent cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Warning Dialog */}
+          <Dialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
+            <DialogContent className="sm:max-w-[425px] h-fit">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-red-700 dark:text-red-400">
+                  Delete Annotation{selectedAnnotations.length > 0 ? "s" : ""}
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Are you sure you want to delete{" "}
+                  {singleDeleteId
+                    ? "this annotation"
+                    : `${selectedAnnotations.length} annotation(s)`}
+                  ? This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (singleDeleteId) {
+                      handleSingleDelete();
+                    } else {
+                      deleteMultipleAnnotations(selectedAnnotations);
+                      setShowDeleteWarning(false);
+                    }
+                  }}
+                  className="flex-1 cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete{" "}
+                  {singleDeleteId
+                    ? "Annotation"
+                    : `${selectedAnnotations.length} Annotation(s)`}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeleteWarning(false);
+                    setSingleDeleteId(null);
+                  }}
+                  className="flex-1 cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Image Preview Dialog */}
+          <Dialog open={showImageDialog} onOpenChange={handleDialogClose}>
+            <DialogContent className="sm:max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
+              <DialogHeader className="px-6 py-4 border-b border-border">
+                <DialogTitle className="text-xl font-bold text-foreground">
+                  {selectedImageTitle}
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Reference image for annotation • Scroll to zoom (1x-5x)
+                </DialogDescription>
+              </DialogHeader>
+              <div
+                className="relative w-full h-[70vh] bg-muted cursor-pointer"
+                onMouseMove={handleDialogImageMouseMove}
+                onWheel={handleDialogImageWheel}
               >
-                Close
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+                <Image
+                  width={1200}
+                  height={800}
+                  unoptimized
+                  src={selectedImage}
+                  alt={selectedImageTitle}
+                  className="w-full h-full object-contain bg-background transition-transform duration-200"
+                  style={{
+                    transform: `scale(${dialogZoomLevel})`,
+                    transformOrigin: dialogIsZooming
+                      ? `${dialogMousePosition.x}% ${dialogMousePosition.y}%`
+                      : "center",
+                  }}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = "none";
+                    (e.currentTarget
+                      .nextElementSibling as HTMLElement)!.style.display =
+                      "flex";
+                  }}
+                />
+                <div
+                  className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground"
+                  style={{ display: "none" }}
+                >
+                  <div className="text-center">
+                    <div className="text-muted-foreground mb-2 text-4xl"></div>
+                    <p className="text-lg font-medium">Invalid image URL</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      The image could not be loaded
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-border">
+                <Button
+                  variant="outline"
+                  onClick={handleDialogClose}
+                  className="cursor-pointer"
+                >
+                  Close
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Add Image URL Dialog */}
+          <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
+            <DialogContent className="sm:max-w-[500px] h-fit">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-foreground">
+                  Add Reference Image URL
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Enter the URL of an image you want to add as a reference
+                  image.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-foreground">
+                    Image URL *
+                  </label>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/image.jpg"
+                    value={referenceImageUrl}
+                    onChange={(e) => setReferenceImageUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleAddReferenceImageUrl();
+                        setShowUrlDialog(false);
+                      }
+                    }}
+                    className="border-border focus:border-primary"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4 border-t border-border">
+                <Button
+                  onClick={() => {
+                    handleAddReferenceImageUrl();
+                    setShowUrlDialog(false);
+                  }}
+                  disabled={!referenceImageUrl.trim()}
+                  className="flex-1 bg-primary hover:bg-primary/90 font-medium cursor-pointer"
+                >
+                  Add Image URL
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowUrlDialog(false);
+                    setReferenceImageUrl("");
+                  }}
+                  className="border-border hover:bg-accent cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* First Revision Dialog */}
+          <Dialog
+            open={showRevisionDialog}
+            onOpenChange={setShowRevisionDialog}
+          >
+            <DialogContent className="sm:max-w-[500px] h-fit">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-foreground">
+                  Confirm Revision Request
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Please review all annotations and comments before proceeding.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-yellow-800 dark:text-yellow-200">
+                        Important Notice
+                      </h4>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        Make sure all annotations and comments are correct. No
+                        more can be added until the 2nd revision.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <p>
+                    • All annotation and comment functionality will be disabled
+                  </p>
+                  <p>• Only status updates will be allowed</p>
+                  <p>• This action cannot be undone</p>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4 border-t border-border">
+                <Button
+                  onClick={handleRevisionConfirm}
+                  className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-medium cursor-pointer"
+                >
+                  Confirm Revision Request
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRevisionDialog(false)}
+                  className="border-border hover:bg-accent cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Additional Revisions Dialog */}
+          <Dialog
+            open={showSecondRevisionDialog}
+            onOpenChange={setShowSecondRevisionDialog}
+          >
+            <DialogContent className="sm:max-w-[500px] h-fit">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-red-700 dark:text-red-400">
+                  ⚠️ Additional Revision Warning
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  This is revision #{revisionCount + 1} for this asset.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-950/20 dark:border-red-800/30">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-red-800 dark:text-red-200">
+                        Cost Warning
+                      </h4>
+                      <p className="text-sm text-red-700 dark:text-red-300">
+                        Additional revisions may incur costs if the changes are
+                        client requests and not due to modeling errors.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <p>• This revision will be reviewed for billing purposes</p>
+                  <p>• Client-requested changes may be added to invoice</p>
+                  <p>• Modeling errors will not incur additional costs</p>
+                  {revisionCount >= 3 && (
+                    <p className="font-medium text-red-600 dark:text-red-400">
+                      • This is revision #{revisionCount + 1} - fees will likely
+                      apply
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4 border-t border-border">
+                <Button
+                  onClick={
+                    revisionCount >= 2
+                      ? handleAdditionalRevisionConfirm
+                      : handleSecondRevisionConfirm
+                  }
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
+                >
+                  Proceed with Revision #{revisionCount + 1}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSecondRevisionDialog(false)}
+                  className="border-border hover:bg-accent cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Revision Details Dialog */}
+          <Dialog
+            open={showRevisionDetailsDialog}
+            onOpenChange={setShowRevisionDetailsDialog}
+          >
+            <DialogContent className="sm:max-w-[800px] h-fit min-h-[500px] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-foreground">
+                  Revision {selectedRevision?.revision_number} Details
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  {selectedRevision &&
+                    new Date(selectedRevision.created_at).toLocaleDateString()}
+                </DialogDescription>
+              </DialogHeader>
+
+              {selectedRevision && (
+                <div className="space-y-6">
+                  {/* Annotations Section */}
+                  {(() => {
+                    const revisionAnnotations = getRevisionItems(
+                      selectedRevision.revision_number
+                    ).annotations;
+                    return revisionAnnotations.length > 0 ? (
+                      <div>
+                        <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2 ">
+                          <MessageCircle className="h-5 w-5" />
+                          Annotations ({revisionAnnotations.length})
+                        </h4>
+                        <div className="space-y-3 min-h-[300px] max-h-[600px] overflow-y-auto">
+                          {revisionAnnotations.map(
+                            (annotation: any, index: number) => (
+                              <Card
+                                key={annotation.id || index}
+                                className="p-4"
+                              >
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                      <MessageCircle className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div>
+                                      <div className="text-sm font-medium text-foreground">
+                                        {annotation.profiles?.email ||
+                                          "Unknown"}
+                                      </div>
+                                      {annotation.profiles?.title && (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs mt-1"
+                                        >
+                                          {annotation.profiles.title}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {new Date(
+                                      annotation.created_at
+                                    ).toLocaleDateString()}
+                                  </div>
+                                </div>
+                                <div className="text-sm text-foreground">
+                                  {annotation.comment}
+                                </div>
+                                {annotation.image_url && (
+                                  <div className="mt-3">
+                                    <div className="text-xs font-medium text-muted-foreground mb-2">
+                                      Reference Image:
+                                    </div>
+                                    <div className="relative w-full h-32 border rounded overflow-hidden">
+                                      <Image
+                                        width={320}
+                                        height={128}
+                                        unoptimized
+                                        src={annotation.image_url}
+                                        alt="Reference"
+                                        className="w-full h-full object-contain"
+                                        onError={(e) => {
+                                          (
+                                            e.currentTarget as HTMLElement
+                                          ).style.display = "none";
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </Card>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+
+                  {/* Comments Section */}
+                  {(() => {
+                    const revisionComments = getRevisionItems(
+                      selectedRevision.revision_number
+                    ).comments;
+                    return revisionComments.length > 0 ? (
+                      <div>
+                        <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                          <MessageSquare className="h-5 w-5" />
+                          Comments ({revisionComments.length})
+                        </h4>
+                        <div className="space-y-3 max-h-60 overflow-y-auto">
+                          {revisionComments.map(
+                            (comment: any, index: number) => (
+                              <Card key={comment.id || index} className="p-4">
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                    <div>
+                                      <div className="text-sm font-medium text-foreground">
+                                        {comment.profiles?.email || "Unknown"}
+                                      </div>
+                                      {comment.profiles?.title && (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs mt-1"
+                                        >
+                                          {comment.profiles.title}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {new Date(
+                                      comment.created_at
+                                    ).toLocaleDateString()}
+                                  </div>
+                                </div>
+                                <div className="text-sm text-foreground">
+                                  <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                    {comment.comment}
+                                  </pre>
+                                </div>
+                              </Card>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4 border-t border-border">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRevisionDetailsDialog(false)}
+                  className="cursor-pointer"
+                >
+                  Close
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

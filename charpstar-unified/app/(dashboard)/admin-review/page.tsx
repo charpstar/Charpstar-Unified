@@ -42,7 +42,6 @@ import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 
 const STATUS_LABELS = {
-  not_started: { label: "Not Started", color: "bg-gray-200 text-gray-700" },
   in_production: {
     label: "In Production",
     color: "bg-yellow-100 text-yellow-800",
@@ -173,7 +172,6 @@ export default function AdminReviewPage() {
   const statusTotals = useMemo(() => {
     const totals = {
       total: filtered.length,
-      not_started: 0,
       in_production: 0,
       revisions: 0,
       approved: 0,
@@ -181,18 +179,20 @@ export default function AdminReviewPage() {
     };
 
     filtered.forEach((asset) => {
-      if (asset.status && totals.hasOwnProperty(asset.status)) {
-        totals[asset.status as keyof typeof totals]++;
+      let displayStatus = asset.status;
+      // Treat "not_started" as "in_production" for client view
+      if (asset.status === "not_started") {
+        displayStatus = "in_production";
+      }
+
+      if (displayStatus && totals.hasOwnProperty(displayStatus)) {
+        totals[displayStatus as keyof typeof totals]++;
       }
     });
 
     // Calculate percentages
     const percentages = {
       total: 100,
-      not_started:
-        filtered.length > 0
-          ? Math.round((totals.not_started / filtered.length) * 100)
-          : 0,
       in_production:
         filtered.length > 0
           ? Math.round((totals.in_production / filtered.length) * 100)
@@ -469,7 +469,7 @@ export default function AdminReviewPage() {
 
         {/* Status Cards */}
         {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
             <Card className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -538,25 +538,6 @@ export default function AdminReviewPage() {
                   </p>
                   <p className="text-sm font-bold text-red-600">
                     (Coming Soon)
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <Package className="h-5 w-5 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Not Started
-                  </p>
-                  <p className="text-2xl font-bold text-gray-600">
-                    {statusTotals.totals.not_started}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {statusTotals.percentages.not_started}%
                   </p>
                 </div>
               </div>
@@ -703,21 +684,31 @@ export default function AdminReviewPage() {
                       <TableCell>{asset.delivery_date || "-"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${
-                              asset.status in STATUS_LABELS
-                                ? STATUS_LABELS[
-                                    asset.status as keyof typeof STATUS_LABELS
-                                  ].color
-                                : "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {asset.status in STATUS_LABELS
-                              ? STATUS_LABELS[
-                                  asset.status as keyof typeof STATUS_LABELS
-                                ].label
-                              : asset.status}
-                          </span>
+                          {(() => {
+                            let displayStatus = asset.status;
+                            // Treat "not_started" as "in_production" for client view
+                            if (asset.status === "not_started") {
+                              displayStatus = "in_production";
+                            }
+
+                            return (
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-semibold ${
+                                  displayStatus in STATUS_LABELS
+                                    ? STATUS_LABELS[
+                                        displayStatus as keyof typeof STATUS_LABELS
+                                      ].color
+                                    : "bg-gray-100 text-gray-600"
+                                }`}
+                              >
+                                {displayStatus in STATUS_LABELS
+                                  ? STATUS_LABELS[
+                                      displayStatus as keyof typeof STATUS_LABELS
+                                    ].label
+                                  : displayStatus}
+                              </span>
+                            );
+                          })()}
                           {(asset.revision_count || 0) > 0 && (
                             <Badge
                               variant="outline"

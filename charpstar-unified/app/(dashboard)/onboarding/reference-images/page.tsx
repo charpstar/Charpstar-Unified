@@ -21,7 +21,6 @@ import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
 import { toast } from "@/components/ui/utilities";
 import {
   Paperclip,
-  X,
   Eye,
   CheckCircle,
   ArrowRight,
@@ -32,23 +31,31 @@ import {
   Trophy,
   Star,
   Camera,
-  Layers,
   Save,
   Upload,
   File,
   FileText,
   FileImage,
   FileArchive,
+  Trash2,
+  Download,
+  FileVideo,
+  Package,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/display";
+
 import { Loader2 } from "lucide-react";
 
 import { Input } from "@/components/ui";
 import { useRouter } from "next/navigation";
+
+interface UploadedFile {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  uploadedAt: Date;
+}
 
 export default function ReferenceImagesPage() {
   const user = useUser();
@@ -57,27 +64,19 @@ export default function ReferenceImagesPage() {
 
   const [assets, setAssets] = useState<any[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogAssetIds, setDialogAssetIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [viewDialogAssetId, setViewDialogAssetId] = useState<string | null>(
-    null
-  );
   const [completing, setCompleting] = useState(false);
   const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
-  const referenceLabels = ["Top", "Front", "Back", "Left Side", "Right Side"];
-  const [referenceInputs, setReferenceInputs] = useState(
-    referenceLabels.map((label) => ({
-      label,
-      value: "",
-    }))
-  );
   const [uploadingFiles, setUploadingFiles] = useState<{
     [key: string]: boolean;
   }>({});
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [viewingFiles, setViewingFiles] = useState<UploadedFile[]>([]);
 
   // Fetch assets for this client
   useEffect(() => {
@@ -113,131 +112,11 @@ export default function ReferenceImagesPage() {
     return ref ? [ref] : [];
   }
 
-  // Handle single asset reference
-  const handleSingleReference = (assetId: string) => {
-    setDialogAssetIds([assetId]);
-    setReferenceInputs(
-      referenceLabels.map((label) => ({
-        label,
-        value: "",
-      }))
-    );
-    setDialogOpen(true);
-  };
-
-  // Handle multi asset reference
-  const handleMultiReference = () => {
-    setDialogAssetIds(Array.from(selected));
-    setDialogOpen(true);
-  };
-
-  // Save reference link(s) for all filled inputs (add dialog)
-  const handleSaveReference = async () => {
-    setLoading(true);
-    // For each asset, maintain the order of references based on their position
-    const updates = dialogAssetIds.map(async (id) => {
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .select("reference")
-        .eq("id", id)
-        .single();
-      if (error) return { error };
-
-      // Create a new array that maintains the order of references
-      const newRefs: string[] = [];
-      referenceInputs.forEach((input, index) => {
-        newRefs[index] = input.value.trim();
-      });
-
-      // Ensure we don't exceed 5 references and maintain position
-      const finalRefs = newRefs.slice(0, 5);
-      if (finalRefs.filter(Boolean).length > 5) {
-        return { error: { message: "Max 5 references allowed." } };
-      }
-
-      const result = await supabase
-        .from("onboarding_assets")
-        .update({ reference: finalRefs })
-        .eq("id", id);
-
-      // Always fetch the latest asset data for the view dialog if open
-      if (viewDialogOpen && viewDialogAssetId === id) {
-        const { data: updatedAsset } = await supabase
-          .from("onboarding_assets")
-          .select("reference")
-          .eq("id", id)
-          .single();
-        const updatedRefs = getReferenceArray(updatedAsset?.reference);
-        setReferenceInputs(
-          referenceLabels.map((label, idx) => ({
-            label,
-            value: updatedRefs[idx] || "",
-          }))
-        );
-      }
-      return result;
-    });
-    const results = await Promise.all(updates);
-    const hasError = results.some((r) => r.error);
-    if (hasError) {
-      toast({
-        title: "Error",
-        description:
-          "Failed to update some assets or max 5 references reached.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Reference Added",
-        description: "Reference link(s) saved.",
-      });
-      // Refresh assets
-      const { data } = await supabase
-        .from("onboarding_assets")
-        .select("*")
-        .eq("client", user?.metadata.client);
-      setAssets(data || []);
-      setSelected(new Set());
-    }
-    setDialogOpen(false);
-    setLoading(false);
-  };
-
-  // Toggle selection
-  const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  // Select all
-  const selectAll = () => {
-    setSelected(new Set(assets.map((a) => a.id)));
-  };
-  const deselectAll = () => setSelected(new Set());
-
-  // Open view dialog for references
-  const handleViewReferences = (assetId: string) => {
-    const asset = assets.find((a) => a.id === assetId);
-    const refs = getReferenceArray(asset?.reference);
-    setReferenceInputs(
-      referenceLabels.map((label, idx) => ({
-        label,
-        value: refs[idx] || "",
-      }))
-    );
-    setViewDialogAssetId(assetId);
-    setViewDialogOpen(true);
-  };
-
-  // File upload functions
-  const handleFileUpload = async (file: File, index: number) => {
+  // Handle file upload
+  const handleFileUpload = async (file: File) => {
     if (!user?.metadata?.client) return;
 
-    const fileId = `${index}_${Date.now()}`;
+    const fileId = `${Date.now()}_${Math.random()}`;
     setUploadingFiles((prev) => ({ ...prev, [fileId]: true }));
 
     try {
@@ -257,12 +136,17 @@ export default function ReferenceImagesPage() {
         .from("assets")
         .getPublicUrl(fileName);
 
-      // Update the reference input with the file URL
-      setReferenceInputs((prev) =>
-        prev.map((input, i) =>
-          i === index ? { ...input, value: urlData.publicUrl } : input
-        )
-      );
+      // Add to uploaded files list
+      const newFile: UploadedFile = {
+        id: fileId,
+        name: file.name,
+        url: urlData.publicUrl,
+        type: file.type,
+        size: file.size,
+        uploadedAt: new Date(),
+      };
+
+      setUploadedFiles((prev) => [...prev, newFile]);
 
       toast({
         title: "File uploaded successfully",
@@ -280,50 +164,226 @@ export default function ReferenceImagesPage() {
     }
   };
 
-  const handleDrop = (e: React.DragEvent, index: number) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setDragOverIndex(null);
+    setDragOver(false);
 
     const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileUpload(files[0], index);
-    }
+    files.forEach((file) => handleFileUpload(file));
   };
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setDragOverIndex(index);
+    setDragOver(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    setDragOverIndex(null);
+    setDragOver(false);
   };
 
-  const handleFileSelect = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    index: number
-  ) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      handleFileUpload(files[0], index);
-    }
+    files.forEach((file) => handleFileUpload(file));
     e.target.value = ""; // Reset input
   };
 
-  const getFileIcon = (fileName: string) => {
+  const removeFile = (fileId: string) => {
+    setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
+  };
+
+  const removeViewingFile = (fileId: string) => {
+    setViewingFiles((prev) => prev.filter((file) => file.id !== fileId));
+  };
+
+  const handleViewReferences = (assetId: string) => {
+    const asset = assets.find((a) => a.id === assetId);
+    const refs = getReferenceArray(asset?.reference);
+
+    const files: UploadedFile[] = refs.map((url, index) => ({
+      id: `existing_${index}`,
+      name: url.split("/").pop() || `File ${index + 1}`,
+      url,
+      type: "unknown",
+      size: 0,
+      uploadedAt: new Date(),
+    }));
+
+    setViewingFiles(files);
+    setSelectedAsset(assetId);
+    setShowViewDialog(true);
+  };
+
+  const getFileIcon = (fileName: string, fileType: string) => {
     const ext = fileName.split(".").pop()?.toLowerCase();
-    if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext || "")) {
+
+    // Image files
+    if (
+      ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "svg"].includes(
+        ext || ""
+      )
+    ) {
       return <FileImage className="h-4 w-4" />;
-    } else if (["pdf"].includes(ext || "")) {
+    }
+
+    // Video files
+    if (
+      ["mp4", "avi", "mov", "wmv", "flv", "webm", "mkv", "m4v"].includes(
+        ext || ""
+      ) ||
+      fileType.startsWith("video/")
+    ) {
+      return <FileVideo className="h-4 w-4" />;
+    }
+
+    // PDF files
+    if (["pdf"].includes(ext || "") || fileType === "application/pdf") {
       return <FileText className="h-4 w-4" />;
-    } else if (["zip", "rar", "7z"].includes(ext || "")) {
+    }
+
+    // Archive files
+    if (["zip", "rar", "7z", "tar", "gz"].includes(ext || "")) {
       return <FileArchive className="h-4 w-4" />;
-    } else if (["glb", "gltf", "obj", "fbx", "stl"].includes(ext || "")) {
+    }
+
+    // 3D model files
+    if (
+      [
+        "glb",
+        "gltf",
+        "obj",
+        "fbx",
+        "stl",
+        "dae",
+        "3ds",
+        "max",
+        "blend",
+      ].includes(ext || "")
+    ) {
       return <File className="h-4 w-4" />;
     }
+
+    // CAD files
+    if (["dwg", "dxf", "step", "stp", "iges", "igs"].includes(ext || "")) {
+      return <File className="h-4 w-4" />;
+    }
+
     return <File className="h-4 w-4" />;
   };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  // Save references to asset
+  const saveReferences = async () => {
+    if (!selectedAsset || uploadedFiles.length === 0) return;
+
+    setLoading(true);
+    try {
+      const fileUrls = uploadedFiles.map((file) => file.url);
+
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ reference: fileUrls })
+        .eq("id", selectedAsset);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "References saved",
+        description: "Reference files have been saved to the asset.",
+      });
+
+      // Refresh assets
+      const { data } = await supabase
+        .from("onboarding_assets")
+        .select("*")
+        .eq("client", user?.metadata.client);
+      setAssets(data || []);
+
+      // Reset state
+      setUploadedFiles([]);
+      setSelectedAsset(null);
+      setShowUploadDialog(false);
+    } catch (error) {
+      console.error("Error saving references:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save references. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save changes from view dialog
+  const saveViewChanges = async () => {
+    if (!selectedAsset) return;
+
+    setLoading(true);
+    try {
+      const fileUrls = viewingFiles.map((file) => file.url);
+
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ reference: fileUrls })
+        .eq("id", selectedAsset);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Changes saved",
+        description: "Reference files have been updated.",
+      });
+
+      // Refresh assets
+      const { data } = await supabase
+        .from("onboarding_assets")
+        .select("*")
+        .eq("client", user?.metadata.client);
+      setAssets(data || []);
+
+      // Reset state
+      setViewingFiles([]);
+      setSelectedAsset(null);
+      setShowViewDialog(false);
+    } catch (error) {
+      console.error("Error saving changes:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save changes. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Toggle selection
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Select all
+  const selectAll = () => {
+    setSelected(new Set(assets.map((a) => a.id)));
+  };
+  const deselectAll = () => setSelected(new Set());
 
   // Complete reference images step and redirect to dashboard
   const handleCompleteReferenceImages = async () => {
@@ -412,7 +472,7 @@ export default function ReferenceImagesPage() {
         </div>
       )}
 
-      <div className=" mx-auto p-6 space-y-8">
+      <div className="mx-auto p-6 space-y-8">
         {/* Enhanced Header */}
         <Card className="relative overflow-hidden bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-primary/20">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent" />
@@ -423,18 +483,18 @@ export default function ReferenceImagesPage() {
                   <Image className="h-6 w-6 text-white" />
                 </div>
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                  Reference Images Upload
+                  Reference Files Upload
                 </h1>
               </div>
 
               <p className="max-w-7xl text-lg text-muted-foreground mx-auto leading-relaxed">
                 <strong>
-                  Reference images are optional but highly recommended!
+                  Reference files are optional but highly recommended!
                 </strong>{" "}
-                Adding reference images from different angles helps our 3D
-                modelers understand your requirements and creates much better
-                results. You can skip this step if needed, but it significantly
-                improves the quality of your 3D models.
+                Upload any type of reference files (images, videos, PDFs, 3D
+                models, CAD files, etc.) to help our 3D modelers understand your
+                requirements. You can upload unlimited files and remove them as
+                needed.
               </p>
 
               {/* Progress Overview */}
@@ -448,295 +508,157 @@ export default function ReferenceImagesPage() {
                   <span>{assetsWithReferences} with references</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Camera className="h-4 w-4" />
-                  <span
-                    className={`font-medium ${
-                      progressPercentage === 0
-                        ? "text-gray-500"
-                        : progressPercentage < 25
-                          ? "text-red-600"
-                          : progressPercentage < 50
-                            ? "text-yellow-600"
-                            : progressPercentage < 75
-                              ? "text-yellow-600"
-                              : "text-green-600"
-                    }`}
-                  >
-                    {Math.round(progressPercentage)}% complete
-                  </span>
+                  <Star className="h-4 w-4" />
+                  <span>{Math.round(progressPercentage)}% complete</span>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Progress Bar */}
-        <Card className="bg-gradient-to-r from-background to-muted/20 border-primary/10">
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Overall Progress</span>
-                <span className="text-sm text-muted-foreground">
-                  {assetsWithReferences} of {totalAssets} products have
-                  references
-                </span>
-              </div>
-              <Alert>
-                <AlertDescription>
-                  💡 <strong>Tip:</strong> Reference images are optional but
-                  highly recommended. They help our 3D modelers create much
-                  better results. You can complete this step even with 0%
-                  progress if needed.
-                </AlertDescription>
-              </Alert>
-              <div className="relative">
-                <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+              {/* Progress Bar */}
+              <div className="w-full max-w-md mx-auto">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div
-                    className={`h-3 rounded-full transition-all duration-700 ease-out ${
-                      progressPercentage === 0
-                        ? "bg-gray-400"
-                        : progressPercentage < 25
-                          ? "bg-gradient-to-r from-red-500 to-red-600"
-                          : progressPercentage < 50
-                            ? "bg-gradient-to-r from-yellow-500 to-yellow-600"
-                            : progressPercentage < 75
-                              ? "bg-gradient-to-r from-yellow-500 to-green-500"
-                              : "bg-gradient-to-r from-green-500 to-green-600"
-                    }`}
+                    className="bg-gradient-to-r from-primary to-primary/60 h-2 rounded-full transition-all duration-500"
                     style={{ width: `${progressPercentage}%` }}
                   />
                 </div>
-                {progressPercentage > 0 && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
-                )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-4 items-center justify-between">
-          <Button
-            onClick={handleMultiReference}
-            disabled={selected.size === 0}
-            size="lg"
-            className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Add References ({selected.size})
-          </Button>
-
-          <Button
-            onClick={handleCompleteReferenceImages}
-            loading={completing}
-            size="lg"
-            className="gap-2 px-8 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg cursor-pointer"
-          >
-            {completing ? (
-              <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                Completing...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="h-4 w-4" />
-                Complete Reference Images
-                <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Enhanced Assets Table */}
-        <Card className="bg-gradient-to-r from-background to-muted/20 border-primary/10 overflow-hidden">
+        {/* Assets List */}
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-primary" />
-              Product Assets ({totalAssets})
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" />
+                <span>Your Products</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={selectAll}
+                  disabled={assets.length === 0}
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={deselectAll}
+                  disabled={selected.size === 0}
+                >
+                  Deselect All
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              {fetching ? (
-                <div className="flex justify-center items-center h-64">
-                  <div className="text-center space-y-4">
-                    <Loader2 className="animate-spin h-12 w-12 text-primary mx-auto" />
-                    <p className="text-muted-foreground">
-                      Loading your products...
-                    </p>
-                  </div>
-                </div>
-              ) : assets.length === 0 ? (
-                <div className="text-center py-16 space-y-4">
-                  <div className="h-16 w-16 mx-auto rounded-full bg-muted flex items-center justify-center">
-                    <Image className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">
-                      No products found
-                    </h3>
-                    <p className="text-muted-foreground">
-                      Upload your CSV file first to see products here.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <table className="min-w-full text-base ">
-                  <thead className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border">
-                    <tr>
-                      <th className="p-4 text-left">
-                        <input
+          <CardContent>
+            {fetching ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : assets.length === 0 ? (
+              <div className="text-center py-8">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  No products found. Please upload your CSV file first.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left p-3">
+                        <Input
                           type="checkbox"
-                          checked={
-                            selected.size === assets.length && assets.length > 0
+                          checked={selected.size === assets.length}
+                          onChange={(e) =>
+                            e.target.checked ? selectAll() : deselectAll()
                           }
-                          onChange={
-                            selected.size === assets.length
-                              ? deselectAll
-                              : selectAll
-                          }
-                          className="h-4 w-4 cursor-pointer"
+                          className="rounded"
                         />
                       </th>
-                      <th className="p-4 text-left font-semibold">
-                        Article ID
-                      </th>
-                      <th className="p-4 text-left font-semibold">
-                        Product Name
-                      </th>
-                      <th className="p-4 text-left font-semibold">
-                        Product Link
-                      </th>
-                      <th className="p-4 text-left font-semibold">Category</th>
-                      <th className="p-4 text-left font-semibold">
-                        Subcategory
-                      </th>
-                      <th className="p-4 text-center font-semibold">
-                        References
-                      </th>
+                      <th className="text-left p-3 font-medium">Product</th>
+                      <th className="text-left p-3 font-medium">Article ID</th>
+                      <th className="text-left p-3 font-medium">References</th>
+                      <th className="text-left p-3 font-medium">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border  text-sm text-muted-foreground overflow-scroll">
+                  <tbody>
                     {assets.map((asset) => {
-                      const allReferences = getReferenceArray(asset.reference);
-                      const filledReferences = allReferences.filter(Boolean);
-                      const hasReferences = filledReferences.length > 0;
+                      const refs = getReferenceArray(asset.reference);
+                      const hasReferences = refs.length > 0;
 
                       return (
                         <tr
                           key={asset.id}
-                          className={`transition-all duration-200 hover:bg-primary/5 ${
-                            selected.has(asset.id) ? "bg-primary/10" : ""
-                          }`}
+                          className="border-b border-border hover:bg-muted/30 transition-colors"
                         >
-                          <td className="p-4 align-middle">
-                            <input
+                          <td className="p-3">
+                            <Input
                               type="checkbox"
                               checked={selected.has(asset.id)}
                               onChange={() => toggleSelect(asset.id)}
-                              className="h-4 w-4 cursor-pointer"
+                              className="rounded"
                             />
                           </td>
-                          <td className="p-4 align-middle">
-                            <Badge variant="outline" className="font-mono">
+                          <td className="p-3">
+                            <div>
+                              <p className="font-medium">
+                                {asset.product_name}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {asset.category}{" "}
+                                {asset.subcategory && `• ${asset.subcategory}`}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <code className="text-sm bg-muted px-2 py-1 rounded">
                               {asset.article_id}
-                            </Badge>
+                            </code>
                           </td>
-                          <td className="p-4 align-middle font-medium">
-                            {asset.product_name}
-                          </td>
-                          <td className="p-4 align-middle">
-                            <a
-                              href={asset.product_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-700 underline break-all text-sm cursor-pointer"
-                            >
-                              {asset.product_link}
-                            </a>
-                          </td>
-                          <td className="p-4 align-middle">
-                            <Badge variant="secondary" className="text-xs">
-                              {asset.category}
-                            </Badge>
-                          </td>
-                          <td className="p-4 align-middle">
-                            <Badge variant="outline" className="text-xs">
-                              {asset.subcategory}
-                            </Badge>
-                          </td>
-                          <td className="p-4 align-middle">
-                            <div className="flex items-center justify-center gap-3">
-                              {/* Reference Status */}
+                          <td className="p-3">
+                            {hasReferences ? (
                               <div className="flex items-center gap-2">
-                                {hasReferences ? (
-                                  <div className="flex items-center gap-1">
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                    <span className="text-xs text-green-600 font-medium">
-                                      {filledReferences.length}/5
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1">
-                                    <Star className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-xs text-muted-foreground">
-                                      0/5
-                                    </span>
-                                  </div>
-                                )}
+                                <Badge variant="default" className="gap-1">
+                                  <CheckCircle className="h-3 w-3" />
+                                  {refs.length} file
+                                  {refs.length !== 1 ? "s" : ""}
+                                </Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleViewReferences(asset.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Eye className="h-3 w-3" />
+                                </Button>
                               </div>
-
-                              {/* Action Buttons */}
-                              <div className="flex items-center gap-1">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                        handleViewReferences(asset.id)
-                                      }
-                                      className="h-8 w-8 p-0 hover:bg-primary/10 cursor-pointer"
-                                    >
-                                      <Eye className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    View References
-                                  </TooltipContent>
-                                </Tooltip>
-
-                                {filledReferences.length < 5 ? (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleSingleReference(asset.id)
-                                        }
-                                        className="h-8 w-8 p-0 hover:bg-primary/10 cursor-pointer"
-                                      >
-                                        <Paperclip className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      Add Reference
-                                    </TooltipContent>
-                                  </Tooltip>
-                                ) : (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="h-8 w-8 flex items-center justify-center">
-                                        <CheckCircle className="h-4 w-4 text-green-600" />
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      Max references reached
-                                    </TooltipContent>
-                                  </Tooltip>
-                                )}
-                              </div>
+                            ) : (
+                              <Badge variant="outline" className="gap-1">
+                                <Paperclip className="h-3 w-3" />
+                                No files
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedAsset(asset.id);
+                                  setUploadedFiles([]);
+                                  setShowUploadDialog(true);
+                                }}
+                                className="h-8 w-8 p-0 hover:bg-primary/10 cursor-pointer"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -744,19 +666,19 @@ export default function ReferenceImagesPage() {
                     })}
                   </tbody>
                 </table>
-              )}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Bottom Completion Button */}
-        {assets.length > 10 && (
+        {assets.length > 0 && (
           <div className="flex justify-center">
             <Button
               onClick={handleCompleteReferenceImages}
               loading={completing}
               size="lg"
-              className="gap-2 px-8 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg cursor-pointer"
+              variant="default"
             >
               {completing ? (
                 <>
@@ -766,7 +688,7 @@ export default function ReferenceImagesPage() {
               ) : (
                 <>
                   <CheckCircle className="h-4 w-4" />
-                  Complete Reference Images
+                  Complete Reference Files
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -774,271 +696,242 @@ export default function ReferenceImagesPage() {
           </div>
         )}
 
-        {/* Enhanced Reference Link Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        {/* Upload Dialog */}
+        <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl">
                 <Image className="h-5 w-5 text-primary" />
-                Add Reference Files
+                Upload Reference Files
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="bg-muted/50 rounded-lg p-3">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Optional but highly recommended:</strong> Add
-                  reference files from different angles. Supports images, PDFs,
-                  3D files, and archives.
-                </p>
-              </div>
+            <div className="space-y-6">
+              <Alert>
+                <Camera className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Supported file types:</strong> Images (JPG, PNG, GIF,
+                  etc.), Videos (MP4, AVI, MOV, etc.), PDFs, 3D models (GLB,
+                  OBJ, FBX, STL, etc.), CAD files (DWG, STEP, etc.), and
+                  archives (ZIP, RAR, etc.). You can upload unlimited files and
+                  remove them as needed.
+                </AlertDescription>
+              </Alert>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {referenceInputs.map((input, idx) => {
-                  // Custom ordering: Front (span 2), then Back, Left, Right, Top
-                  const orderMap = {
-                    Front: 0,
-                    Back: 1,
-                    Left: 2,
-                    Right: 3,
-                    Top: 5,
-                  };
-                  const order =
-                    orderMap[input.label as keyof typeof orderMap] || 0;
+              {/* Upload Area */}
+              <div
+                className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
+                  dragOver
+                    ? "border-primary bg-primary/10 scale-105"
+                    : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
+                }`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+              >
+                <Input
+                  type="file"
+                  id="file-input"
+                  className="hidden"
+                  accept="*/*"
+                  multiple
+                  onChange={handleFileSelect}
+                  disabled={loading}
+                />
 
-                  return (
-                    <div
-                      key={input.label}
-                      className={`border border-border rounded-lg p-4 space-y-3 ${
-                        input.label === "Front" ? "md:col-span-2" : ""
-                      }`}
-                      style={{ order: order }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Camera className="h-4 w-4 text-primary" />
-                        <label className="text-sm font-medium">
-                          {input.label} View
-                        </label>
-                      </div>
-
-                      {(() => {
-                        // Find the asset being edited
-                        const asset = assets.find(
-                          (a) => a.id === dialogAssetIds[0]
-                        );
-                        const refs = getReferenceArray(asset?.reference);
-                        const currentValue = refs[idx] || input.value;
-
-                        if (currentValue) {
-                          return (
-                            <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md">
-                              <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
-                              <a
-                                href={currentValue}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-green-700 underline break-all text-xs cursor-pointer"
-                              >
-                                {currentValue.includes("/")
-                                  ? currentValue.split("/").pop() ||
-                                    currentValue
-                                  : currentValue}
-                              </a>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div className="space-y-3">
-                            {/* URL Input */}
-                            <Input
-                              type="url"
-                              className="border border-primary/20 focus:border-primary rounded-md p-2 text-sm"
-                              placeholder={`Paste ${input.label.toLowerCase()} URL...`}
-                              value={input.value}
-                              onChange={(e) =>
-                                setReferenceInputs((inputs) =>
-                                  inputs.map((inp, i) =>
-                                    i === idx
-                                      ? { ...inp, value: e.target.value }
-                                      : inp
-                                  )
-                                )
-                              }
-                              disabled={loading}
-                            />
-
-                            {/* Divider */}
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 h-px bg-border"></div>
-                              <span className="text-xs text-muted-foreground">
-                                OR
-                              </span>
-                              <div className="flex-1 h-px bg-border"></div>
-                            </div>
-
-                            {/* Drag & Drop Zone */}
-                            <div
-                              className={`relative border-2 border-dashed rounded-md p-4 text-center transition-all duration-200 ${
-                                dragOverIndex === idx
-                                  ? "border-primary bg-primary/10 scale-105"
-                                  : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
-                              }`}
-                              onDrop={(e) => handleDrop(e, idx)}
-                              onDragOver={(e) => handleDragOver(e, idx)}
-                              onDragLeave={handleDragLeave}
-                            >
-                              <input
-                                type="file"
-                                id={`file-input-${idx}`}
-                                className="hidden"
-                                accept="image/*,.pdf,.zip,.rar,.7z,.glb,.gltf,.obj,.fbx,.stl"
-                                onChange={(e) => handleFileSelect(e, idx)}
-                                disabled={loading}
-                              />
-
-                              {uploadingFiles[`${idx}_${Date.now()}`] ? (
-                                <div className="space-y-2">
-                                  <div className="h-6 w-6 mx-auto border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-                                  <p className="text-xs text-muted-foreground">
-                                    Uploading...
-                                  </p>
-                                </div>
-                              ) : (
-                                <div className="space-y-2">
-                                  <Upload className="h-6 w-6 mx-auto text-muted-foreground" />
-                                  <div>
-                                    <p className="text-xs font-medium">
-                                      Drop files here
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      or click to browse
-                                    </p>
-                                  </div>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      document
-                                        .getElementById(`file-input-${idx}`)
-                                        ?.click()
-                                    }
-                                    className="cursor-pointer text-xs h-7 px-2"
-                                  >
-                                    Browse
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })()}
+                {Object.values(uploadingFiles).some(Boolean) ? (
+                  <div className="space-y-4">
+                    <div className="h-12 w-12 mx-auto border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    <p className="text-lg font-semibold">Uploading files...</p>
+                    <p className="text-sm text-muted-foreground">
+                      Please wait while your files are being uploaded
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <div>
+                      <p className="text-lg font-semibold">Drop files here</p>
+                      <p className="text-sm text-muted-foreground">
+                        or click to browse files
+                      </p>
                     </div>
-                  );
-                })}
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={() =>
+                        document.getElementById("file-input")?.click()
+                      }
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Browse Files
+                    </Button>
+                  </div>
+                )}
               </div>
+
+              {/* Uploaded Files List */}
+              {uploadedFiles.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Uploaded Files</h3>
+                  <div className="grid gap-3 max-h-60 overflow-y-auto">
+                    {uploadedFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {getFileIcon(file.name, file.type)}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(file.size)} •{" "}
+                              {file.uploadedAt.toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(file.url, "_blank")}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(file.id)}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
                 <Button
                   variant="outline"
-                  onClick={() => setDialogOpen(false)}
+                  onClick={() => {
+                    setShowUploadDialog(false);
+                    setUploadedFiles([]);
+                    setSelectedAsset(null);
+                  }}
                   disabled={loading}
-                  size="sm"
-                  className="cursor-pointer"
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="default"
-                  onClick={handleSaveReference}
+                  onClick={saveReferences}
                   loading={loading}
-                  disabled={referenceInputs.every((inp) => !inp.value.trim())}
-                  size="sm"
-                  className="gap-2 cursor-pointer"
+                  disabled={uploadedFiles.length === 0}
                 >
-                  <Save className="h-4 w-4" />
-                  Save References
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Files
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
 
-        {/* Enhanced View References Dialog */}
-        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-          <DialogContent className="max-w-3xl h-fit">
+        {/* View Reference Dialog */}
+        <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl">
                 <Eye className="h-5 w-5 text-primary" />
-                Reference Images
+                View Reference Files
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid gap-4">
-                {referenceLabels.map((label, idx) => (
-                  <div
-                    key={label}
-                    className="flex items-center gap-4 p-4 border border-border rounded-lg"
-                  >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <Camera className="h-4 w-4 text-primary flex-shrink-0" />
-                      <span className="font-medium text-sm">{label}</span>
-                    </div>
+            <div className="space-y-6">
+              <Alert>
+                <Camera className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Manage your reference files:</strong> You can view,
+                  download, and remove files. Click &quot;Save Changes&quot; to
+                  apply your modifications.
+                </AlertDescription>
+              </Alert>
 
-                    {referenceInputs[idx]?.value ? (
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-1">
-                          {getFileIcon(referenceInputs[idx].value)}
-                          <a
-                            href={referenceInputs[idx].value}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-700 underline break-all text-sm cursor-pointer"
-                          >
-                            {referenceInputs[idx].value.includes("/")
-                              ? referenceInputs[idx].value.split("/").pop() ||
-                                referenceInputs[idx].value
-                              : referenceInputs[idx].value}
-                          </a>
+              {/* Files List */}
+              {viewingFiles.length > 0 ? (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Reference Files</h3>
+                  <div className="grid gap-3 max-h-60 overflow-y-auto">
+                    {viewingFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {getFileIcon(file.name, file.type)}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {file.uploadedAt.toLocaleDateString()}
+                            </p>
+                          </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={async () => {
-                            const newInputs = referenceInputs.map((inp, i) =>
-                              i === idx ? { ...inp, value: "" } : inp
-                            );
-                            setReferenceInputs(newInputs);
-                            setLoading(true);
-
-                            const filteredRefs = newInputs
-                              .map((i) => i.value.trim())
-                              .filter(Boolean);
-
-                            await supabase
-                              .from("onboarding_assets")
-                              .update({ reference: filteredRefs })
-                              .eq("id", viewDialogAssetId);
-
-                            const { data } = await supabase
-                              .from("onboarding_assets")
-                              .select("*")
-                              .eq("client", user?.metadata.client);
-                            setAssets(data || []);
-
-                            setLoading(false);
-                          }}
-                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(file.url, "_blank")}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeViewingFile(file.id)}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    ) : (
-                      <span className="text-muted-foreground text-sm flex-1">
-                        No reference added
-                      </span>
-                    )}
+                    ))}
                   </div>
-                ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    No reference files found
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowViewDialog(false);
+                    setViewingFiles([]);
+                    setSelectedAsset(null);
+                  }}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={saveViewChanges}
+                  loading={loading}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </Button>
               </div>
             </div>
           </DialogContent>

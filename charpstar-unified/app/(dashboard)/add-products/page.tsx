@@ -186,7 +186,7 @@ export default function AddProductsPage() {
         subcategory: product.subcategory.trim() || null,
         reference: null, // No reference field in new format
         priority: product.priority,
-        status: "not_started",
+        status: "in_production",
         delivery_date: null,
       }));
 
@@ -352,7 +352,7 @@ export default function AddProductsPage() {
         subcategory: subcategory?.trim() || null,
         reference: null, // No reference column in new format
         priority: 2, // Default priority since not in template
-        status: "not_started",
+        status: "in_production",
         delivery_date: null,
       });
 

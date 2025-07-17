@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Building, Shield, Users, X } from "lucide-react";
+import { Building, Shield, X } from "lucide-react";
 import { Badge } from "@/components/ui/feedback/badge";
 import { Button } from "@/components/ui/display/button";
 import {
@@ -49,35 +49,35 @@ export function TeamInfoTooltip({
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent
         side="top"
-        className="w-80 p-4 bg-background border shadow-lg"
-        sideOffset={5}
+        align="center"
+        className="w-84 p-3 bg-background border shadow-lg max-h-80 overflow-hidden"
+        sideOffset={8}
       >
-        <div className="space-y-3">
-          <div className="text-sm font-semibold text-foreground">
-            Assigned Team - {clientName} Batch {batchNumber}
+        <div className="space-y-2">
+          <div className="text-xs font-semibold text-foreground border-b pb-1">
+            Team - {clientName} Batch {batchNumber}
           </div>
 
-          {modelers.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <Building className="h-3 w-3 text-blue-500" />
-                Modelers ({modelers.length})
-              </div>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
+          <div className="space-y-2 max-h-68 overflow-y-auto">
+            {modelers.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1 text-xs font-medium text-blue-600">
+                  <Building className="h-3 w-3" />
+                  Modelers
+                </div>
                 {modelers.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between bg-muted/50 rounded px-2 py-1 text-xs"
+                    className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1 text-xs"
                   >
                     <div className="flex items-center gap-1 min-w-0 flex-1">
-                      <Users className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                      <span className="text-muted-foreground truncate">
+                      <span className="text-foreground truncate">
                         {user.email.split("@")[0]}
                       </span>
                       {user.title && (
                         <Badge
                           variant="outline"
-                          className="text-xs flex-shrink-0"
+                          className="text-xs flex-shrink-0 ml-1"
                         >
                           {user.title}
                         </Badge>
@@ -86,7 +86,7 @@ export function TeamInfoTooltip({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-5 w-5 p-0 hover:bg-destructive hover:text-destructive-foreground flex-shrink-0 ml-1"
+                      className="h-4 w-4 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/20 flex-shrink-0 ml-1"
                       onClick={(e) => {
                         e.stopPropagation();
                         onRemoveUser(
@@ -97,35 +97,32 @@ export function TeamInfoTooltip({
                         );
                       }}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-2.5 w-2.5" />
                     </Button>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {qa.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <Shield className="h-3 w-3 text-green-500" />
-                QA ({qa.length})
-              </div>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
+            {qa.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1 text-xs font-medium text-green-600">
+                  <Shield className="h-3 w-3" />
+                  QA
+                </div>
                 {qa.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between bg-muted/50 rounded px-2 py-1 text-xs"
+                    className="flex items-center justify-between bg-green-50 dark:bg-green-950/20 rounded px-2 py-1 text-xs"
                   >
                     <div className="flex items-center gap-1 min-w-0 flex-1">
-                      <Users className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                      <span className="text-muted-foreground truncate">
+                      <span className="text-foreground truncate">
                         {user.email.split("@")[0]}
                       </span>
                       {user.title && (
                         <Badge
                           variant="outline"
-                          className="text-xs flex-shrink-0"
+                          className="text-xs flex-shrink-0 ml-1"
                         >
                           {user.title}
                         </Badge>
@@ -134,19 +131,19 @@ export function TeamInfoTooltip({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-5 w-5 p-0 hover:bg-destructive hover:text-destructive-foreground flex-shrink-0 ml-1"
+                      className="h-4 w-4 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/20 flex-shrink-0 ml-1"
                       onClick={(e) => {
                         e.stopPropagation();
                         onRemoveUser([user.id], clientName, batchNumber, "qa");
                       }}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-2.5 w-2.5" />
                     </Button>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </TooltipContent>
     </Tooltip>

@@ -43,15 +43,14 @@ import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 
 const STATUS_LABELS = {
-  not_started: { label: "Not Started", color: "bg-gray-200 text-gray-700" },
   in_production: {
     label: "In Production",
     color: "bg-yellow-100 text-yellow-800",
   },
   revisions: { label: "Revisions", color: "bg-red-100 text-red-700" },
   approved: { label: "Approved", color: "bg-green-100 text-green-700" },
-  delivered_by_artist: {
-    label: "Delivered by Artist",
+  review: {
+    label: "Review",
     color: "bg-blue-100 text-blue-700",
   },
 };
@@ -153,23 +152,26 @@ export default function ReviewDashboardPage() {
   const [annotationCounts, setAnnotationCounts] = useState<
     Record<string, number>
   >({});
-  const [editingPriority, setEditingPriority] = useState<string | null>(null);
-  const [priorityValue, setPriorityValue] = useState<number>(2);
 
   // Calculate status totals
   const statusTotals = useMemo(() => {
     const totals = {
       total: assets.length,
-      not_started: 0,
       in_production: 0,
       revisions: 0,
       approved: 0,
-      delivered_by_artist: 0,
+      review: 0,
     };
 
     assets.forEach((asset) => {
-      if (asset.status && totals.hasOwnProperty(asset.status)) {
-        totals[asset.status as keyof typeof totals]++;
+      let displayStatus = asset.status;
+      // Treat "not_started" as "in_production" for client view
+      if (asset.status === "not_started") {
+        displayStatus = "in_production";
+      }
+
+      if (displayStatus && totals.hasOwnProperty(displayStatus)) {
+        totals[displayStatus as keyof typeof totals]++;
       }
     });
 
@@ -272,43 +274,6 @@ export default function ReviewDashboardPage() {
     });
   };
 
-  const startEditPriority = (assetId: string, currentPriority: number) => {
-    setEditingPriority(assetId);
-    setPriorityValue(currentPriority);
-  };
-
-  const savePriority = async (assetId: string) => {
-    try {
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({ priority: priorityValue })
-        .eq("id", assetId);
-
-      if (error) {
-        console.error("Error updating priority:", error);
-        toast.error("Failed to update priority");
-        return;
-      }
-
-      // Update local state
-      setAssets((prev) =>
-        prev.map((asset) =>
-          asset.id === assetId ? { ...asset, priority: priorityValue } : asset
-        )
-      );
-
-      setEditingPriority(null);
-      toast.success("Priority updated successfully");
-    } catch (error) {
-      console.error("Error updating priority:", error);
-      toast.error("Failed to update priority");
-    }
-  };
-
-  const cancelEditPriority = () => {
-    setEditingPriority(null);
-  };
-
   return (
     <div className=" mx-auto p-6 flex flex-col h-full">
       <Card className="p-6 flex-1 flex flex-col border-0 shadow-none ">
@@ -396,7 +361,7 @@ export default function ReviewDashboardPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Sent for Review
+                    In Production
                   </p>
                   <p className="text-2xl font-bold text-yellow-600">
                     {statusTotals.in_production + statusTotals.revisions}
@@ -423,6 +388,22 @@ export default function ReviewDashboardPage() {
 
             <Card className="p-4 ">
               <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Eye className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Review
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {statusTotals.review}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 ">
+              <div className="flex items-center gap-3">
                 <div className="p-2 bg-red-100 rounded-lg">
                   <RotateCcw className="h-5 w-5 text-red-600" />
                 </div>
@@ -432,22 +413,6 @@ export default function ReviewDashboardPage() {
                   </p>
                   <p className="text-sm font-bold text-red-600">
                     (Coming Soon)
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4 ">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <Package className="h-5 w-5 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Not Started
-                  </p>
-                  <p className="text-2xl font-bold text-gray-600">
-                    {statusTotals.not_started}
                   </p>
                 </div>
               </div>
@@ -534,80 +499,94 @@ export default function ReviewDashboardPage() {
                       </TableCell>
                       <TableCell>{asset.article_id}</TableCell>
                       <TableCell>
-                        {editingPriority === asset.id ? (
-                          <div className="flex items-center gap-2 justify-center ">
-                            <Input
-                              type="number"
-                              min="1"
-                              max="3"
-                              value={priorityValue}
-                              onChange={(e) =>
-                                setPriorityValue(parseInt(e.target.value) || 2)
-                              }
-                              className="w-16 h-8 text-xs cursor-pointer"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  savePriority(asset.id);
-                                } else if (e.key === "Escape") {
-                                  cancelEditPriority();
-                                }
-                              }}
-                              autoFocus
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => savePriority(asset.id)}
-                              className="h-6 px-2 text-xs cursor-pointer"
-                            >
-                              Save
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={cancelEditPriority}
-                              className="h-6 px-2 text-xs cursor-pointer"
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        ) : (
-                          <div
-                            className="flex items-center justify-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded transition-colors"
-                            onClick={() =>
-                              startEditPriority(asset.id, asset.priority || 2)
-                            }
+                        <div className="flex items-center justify-center gap-2">
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(
+                              asset.priority || 2
+                            )}`}
                           >
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(
-                                asset.priority || 2
-                              )}`}
-                            >
-                              {getPriorityLabel(asset.priority || 2)}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              ({asset.priority || 2})
-                            </span>
-                          </div>
-                        )}
+                            {getPriorityLabel(asset.priority || 2)}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            ({asset.priority || 2})
+                          </span>
+                          <Select
+                            value={(asset.priority || 2).toString()}
+                            onValueChange={(value) => {
+                              const newPriority = parseInt(value);
+                              setAssets((prev) =>
+                                prev.map((a) =>
+                                  a.id === asset.id
+                                    ? { ...a, priority: newPriority }
+                                    : a
+                                )
+                              );
+                              // Auto-save to database
+                              supabase
+                                .from("onboarding_assets")
+                                .update({ priority: newPriority })
+                                .eq("id", asset.id)
+                                .then(({ error }) => {
+                                  if (error) {
+                                    console.error(
+                                      "Error updating priority:",
+                                      error
+                                    );
+                                    toast.error("Failed to update priority");
+                                    // Revert on error
+                                    setAssets((prev) =>
+                                      prev.map((a) =>
+                                        a.id === asset.id
+                                          ? {
+                                              ...a,
+                                              priority: asset.priority || 2,
+                                            }
+                                          : a
+                                      )
+                                    );
+                                  } else {
+                                    toast.success("Priority updated");
+                                  }
+                                });
+                            }}
+                          >
+                            <SelectTrigger className="w-6 h-6 p-1 border-0 bg-transparent hover:bg-muted/50 rounded transition-colors"></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">High </SelectItem>
+                              <SelectItem value="2">Medium</SelectItem>
+                              <SelectItem value="3">Low </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </TableCell>
                       <TableCell>{asset.delivery_date || "-"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${
-                              asset.status in STATUS_LABELS
-                                ? STATUS_LABELS[
-                                    asset.status as keyof typeof STATUS_LABELS
-                                  ].color
-                                : "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {asset.status in STATUS_LABELS
-                              ? STATUS_LABELS[
-                                  asset.status as keyof typeof STATUS_LABELS
-                                ].label
-                              : asset.status}
-                          </span>
+                          {(() => {
+                            let displayStatus = asset.status;
+                            // Treat "not_started" as "in_production" for client view
+                            if (asset.status === "not_started") {
+                              displayStatus = "in_production";
+                            }
+
+                            return (
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-semibold ${
+                                  displayStatus in STATUS_LABELS
+                                    ? STATUS_LABELS[
+                                        displayStatus as keyof typeof STATUS_LABELS
+                                      ].color
+                                    : "bg-gray-100 text-gray-600"
+                                }`}
+                              >
+                                {displayStatus in STATUS_LABELS
+                                  ? STATUS_LABELS[
+                                      displayStatus as keyof typeof STATUS_LABELS
+                                    ].label
+                                  : displayStatus}
+                              </span>
+                            );
+                          })()}
                           {(asset.revision_count || 0) > 0 && (
                             <Badge
                               variant="secondary"

@@ -229,9 +229,9 @@ export default function NavUser() {
             className="items-center"
           >
             <Switch
-              checked={theme === "light"}
+              checked={theme === "dark"}
               onCheckedChange={(checked) =>
-                setTheme(checked ? "light" : "dark")
+                setTheme(checked ? "dark" : "light")
               }
               className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200"
               data-tour="theme-switcher"

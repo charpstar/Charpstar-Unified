@@ -44,6 +44,7 @@ export default function CsvUploadPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<string[][] | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [removeConfirmDialogOpen, setRemoveConfirmDialogOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -119,6 +120,45 @@ export default function CsvUploadPage() {
     if (e.target.files && e.target.files[0]) {
       handleFile(e.target.files[0]);
     }
+  };
+
+  const handleRemoveFile = () => {
+    setRemoveConfirmDialogOpen(true);
+  };
+
+  const confirmRemoveFile = async () => {
+    // Clear the uploaded data from database when file is removed
+    if (user?.metadata?.client) {
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .delete()
+        .eq("client", user.metadata.client);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to clear previous data: " + error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Data Cleared",
+          description: "Previous CSV data has been removed.",
+        });
+      }
+    }
+
+    setCsvFile(null);
+    setCsvPreview(null);
+    setProgress((p) => ({
+      ...p,
+      read: false,
+      confirmed: false,
+    }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    setRemoveConfirmDialogOpen(false);
   };
 
   const handleConfirm = async () => {
@@ -336,11 +376,7 @@ export default function CsvUploadPage() {
                 download
                 onClick={() => setProgress((p) => ({ ...p, downloaded: true }))}
               >
-                <Button
-                  variant="default"
-                  size="lg"
-                  className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 shadow-lg hover:shadow-xl cursor-pointer"
-                >
+                <Button variant="default" size="lg">
                   <Download className="h-5 w-5 mr-2" />
                   Download Template
                 </Button>
@@ -440,12 +476,8 @@ export default function CsvUploadPage() {
                         : "You need to download the template before uploading"}
                     </p>
                     {progress.downloaded && (
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="group cursor-pointer"
-                      >
-                        <Upload className="h-5 w-5 mr-2 group-hover:animate-bounce" />
+                      <Button variant="outline" size="lg">
+                        <Upload className="h-5 w-5 mr-2" />
                         Choose File
                       </Button>
                     )}
@@ -466,20 +498,9 @@ export default function CsvUploadPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            setCsvFile(null);
-                            setCsvPreview(null);
-                            setProgress((p) => ({
-                              ...p,
-                              read: false,
-                              confirmed: false,
-                            }));
-                            if (fileInputRef.current) {
-                              fileInputRef.current.value = "";
-                            }
-                          }}
+                          onClick={handleRemoveFile}
                           className="text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
-                          title="Remove file"
+                          title="Remove file and clear data"
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -567,20 +588,49 @@ export default function CsvUploadPage() {
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="default" onClick={handleConfirm}>
+              <ArrowRight className="h-4 w-4 mr-2" />
+              Confirm Upload
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove File Confirmation Dialog */}
+      <Dialog
+        open={removeConfirmDialogOpen}
+        onOpenChange={setRemoveConfirmDialogOpen}
+      >
+        <DialogContent className="w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <span>Remove CSV File</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Are you sure you want to remove this CSV file? This will also
+                clear all the data that was uploaded from this file. This action
+                cannot be undone.
+              </AlertDescription>
+            </Alert>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               variant="outline"
-              onClick={() => setDialogOpen(false)}
-              className="cursor-pointer"
+              onClick={() => setRemoveConfirmDialogOpen(false)}
             >
               Cancel
             </Button>
-            <Button
-              variant="default"
-              onClick={handleConfirm}
-              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 cursor-pointer"
-            >
-              <ArrowRight className="h-4 w-4 mr-2" />
-              Confirm Upload
+            <Button variant="destructive" onClick={confirmRemoveFile}>
+              <X className="h-4 w-4 mr-2" />
+              Remove & Clear Data
             </Button>
           </div>
         </DialogContent>

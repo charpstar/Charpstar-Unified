@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
-import { supabase } from "@/lib/supabaseClient";
 import {
   Card,
   CardContent,
@@ -12,7 +11,6 @@ import {
 } from "@/components/ui/containers";
 import { Button, Label } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
-import { Textarea } from "@/components/ui/inputs/textarea";
 import {
   Select,
   SelectContent,
@@ -37,20 +35,12 @@ import {
   Building,
   Shield,
   User,
-  Mail,
-  Phone,
-  MapPin,
   Link,
-  Clock,
   CheckCircle,
   Loader2,
   AlertTriangle,
   Users,
   Briefcase,
-  Palette,
-  Eye,
-  FileText,
-  Globe,
   X,
 } from "lucide-react";
 

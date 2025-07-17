@@ -20,6 +20,12 @@ import {
 } from "@/components/ui/inputs";
 import { UserSelectionDialog } from "@/components/production/UserSelectionDialog";
 import { TeamInfoTooltip } from "@/components/production/TeamInfoTooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/interactive";
 
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -31,11 +37,11 @@ import {
   Package,
   Search,
   Filter,
-  UserPlus,
   Shield,
   Building,
-  X,
   Users,
+  ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { toast } from "sonner";
@@ -395,8 +401,6 @@ export default function ProductionDashboard() {
         throw new Error(errorData.error || "Failed to assign users to batch");
       }
 
-      const result = await response.json();
-
       // Show success message
       const userEmails = users.map((user) => user.email).join(", ");
       toast.success(
@@ -550,10 +554,35 @@ export default function ProductionDashboard() {
             </Button>
           </div>
 
-          <Button variant="outline" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Performance Analytics
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Production Overview
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => router.push("/production")}
+                className="bg-accent"
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Production Overview
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/analytics/qa")}>
+                <Shield className="h-4 w-4 mr-2" />
+                QA Overview
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.push("/analytics/modeler")}
+              >
+                <Building className="h-4 w-4 mr-2" />
+                Modeler Overview
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -735,6 +764,39 @@ export default function ProductionDashboard() {
                         <span className="text-muted-foreground">Deadline:</span>
                         <span className="font-medium">{batch.deadline}</span>
                       </div>
+
+                      {/* Assigned Team Indicator */}
+                      {(batch.assignedUsers.modelers.length > 0 ||
+                        batch.assignedUsers.qa.length > 0) && (
+                        <TeamInfoTooltip
+                          modelers={batch.assignedUsers.modelers}
+                          qa={batch.assignedUsers.qa}
+                          clientName={batch.client}
+                          batchNumber={batch.batch}
+                          onRemoveUser={handleRemoveUsers}
+                        >
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                            <Users className="h-4 w-4" />
+                            <span>
+                              Team (
+                              {batch.assignedUsers.modelers.length +
+                                batch.assignedUsers.qa.length}
+                              )
+                            </span>
+                          </div>
+                        </TeamInfoTooltip>
+                      )}
+
+                      {/* Admin Review Button under Team */}
+                      <div
+                        className="flex w-[150px] items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        onClick={() =>
+                          handleAdminReview(batch.client, batch.batch)
+                        }
+                      >
+                        <ShieldCheck className="h-4 w-4" />
+                        <span>Admin Review</span>
+                      </div>
                     </div>
 
                     {/* Pie Chart */}
@@ -766,18 +828,11 @@ export default function ProductionDashboard() {
                           />
                         </PieChart>
                       </ResponsiveContainer>
-                      {/* Centered percentage label */}
+                      {/* Centered fraction label */}
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="text-center p-2 border-0 pointer-events-none">
                           <div className="text-2xl text-primary drop-shadow-sm pointer-events-none">
-                            {Math.round(
-                              (batch.statusCounts.approved /
-                                batch.totalModels) *
-                                100
-                            )}
-                            <span className="text-lg  text-muted-foreground">
-                              %
-                            </span>
+                            {batch.statusCounts.approved}/{batch.totalModels}
                           </div>
                           <div className="text-xs text-muted-foreground mt-1 font-medium tracking-wide">
                             Approved
@@ -818,54 +873,7 @@ export default function ProductionDashboard() {
                     </div>
                   </div>
 
-                  {/* Assigned Team Indicator */}
-                  {(batch.assignedUsers.modelers.length > 0 ||
-                    batch.assignedUsers.qa.length > 0) && (
-                    <TeamInfoTooltip
-                      modelers={batch.assignedUsers.modelers}
-                      qa={batch.assignedUsers.qa}
-                      clientName={batch.client}
-                      batchNumber={batch.batch}
-                      onRemoveUser={handleRemoveUsers}
-                    >
-                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                        <Users className="h-4 w-4" />
-                        <span>
-                          Team (
-                          {batch.assignedUsers.modelers.length +
-                            batch.assignedUsers.qa.length}
-                          )
-                        </span>
-                      </div>
-                    </TeamInfoTooltip>
-                  )}
-
                   {/* Action Buttons */}
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => {
-                        // Navigate to batch-specific view
-                        console.log(
-                          `View details for ${batch.client} - Batch ${batch.batch}`
-                        );
-                      }}
-                    >
-                      View Details
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() =>
-                        handleAdminReview(batch.client, batch.batch)
-                      }
-                    >
-                      Admin Review
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             );
