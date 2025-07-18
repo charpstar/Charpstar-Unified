@@ -1093,9 +1093,8 @@ export function CategoriesWidget({ stats }: { stats?: any }) {
 }
 
 const STATUS_LABELS = {
-  not_started: "Not Started",
   in_production: "In Production",
-  revisions: "Revisions",
+  revisions: "Ready for Revision",
   approved: "Approved",
   delivered_by_artist: "Delivered by Artist",
 };
@@ -1103,7 +1102,6 @@ const STATUS_LABELS = {
 type StatusKey = keyof typeof STATUS_LABELS;
 
 const STATUS_COLORS: Record<StatusKey, string> = {
-  not_started: "#A3A3A3", // gray
   in_production: "#FACC15", // yellow
   revisions: "#F87171", // red
   approved: "#4ADE80", // green
@@ -1113,7 +1111,6 @@ const STATUS_COLORS: Record<StatusKey, string> = {
 export function ModelStatusWidget() {
   const user = useUser();
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
-    not_started: 0,
     in_production: 0,
     revisions: 0,
     approved: 0,
@@ -1130,7 +1127,6 @@ export function ModelStatusWidget() {
         .eq("client", user.metadata.client);
       if (!error && data) {
         const newCounts: Record<StatusKey, number> = {
-          not_started: 0,
           in_production: 0,
           revisions: 0,
           approved: 0,
@@ -1203,7 +1199,6 @@ export function ModelStatusWidget() {
 export function StatusPieChartWidget() {
   const user = useUser();
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
-    not_started: 0,
     in_production: 0,
     revisions: 0,
     approved: 0,
@@ -1222,7 +1217,6 @@ export function StatusPieChartWidget() {
         .eq("client", user.metadata.client);
       if (!error && data) {
         const newCounts: Record<StatusKey, number> = {
-          not_started: 0,
           in_production: 0,
           revisions: 0,
           approved: 0,

@@ -85,12 +85,11 @@ interface Hotspot {
 }
 
 const STATUS_LABELS = {
-  not_started: { label: "Not Started", color: "bg-gray-200 text-gray-700" },
   in_production: {
     label: "In Production",
     color: "bg-yellow-100 text-yellow-800",
   },
-  revisions: { label: "Revisions", color: "bg-red-100 text-red-700" },
+  revisions: { label: "Ready for Revision", color: "bg-red-100 text-red-700" },
   approved: { label: "Approved", color: "bg-green-100 text-green-700" },
   delivered_by_artist: {
     label: "Delivered by Artist",
@@ -1219,7 +1218,7 @@ export default function ReviewPage() {
       } else {
         setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
         setRevisionCount((prev) => prev + 1);
-        toast.success("Status updated to Revisions");
+        toast.success("Status updated to Ready for Revision");
         // Refresh revision history in real-time
         await fetchRevisionHistory();
       }
@@ -1270,7 +1269,7 @@ export default function ReviewPage() {
       } else {
         setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
         setRevisionCount((prev) => prev + 1);
-        toast.success("Status updated to Revisions");
+        toast.success("Status updated to Ready for Revision");
         // Refresh revision history in real-time
         await fetchRevisionHistory();
       }
@@ -1322,7 +1321,7 @@ export default function ReviewPage() {
         setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
         setRevisionCount((prev) => prev + 1);
         toast.success(
-          `Status updated to Revisions (Revision ${revisionCount + 1})`
+          `Status updated to Ready for Revision (Revision ${revisionCount + 1})`
         );
         // Refresh revision history in real-time
         await fetchRevisionHistory();
@@ -2301,7 +2300,7 @@ export default function ReviewPage() {
                   ) : (
                     <AlertCircle className="h-4 w-4 mr-2" />
                   )}
-                  Revisions {revisionCount > 0 && `(${revisionCount})`}
+                  Ready for Revision {revisionCount > 0 && `(${revisionCount})`}
                 </Button>
               </div>
 
@@ -3922,7 +3921,7 @@ export default function ReviewPage() {
             </DialogContent>
           </Dialog>
 
-          {/* Additional Revisions Dialog */}
+          {/* Additional Ready for Revision Dialog */}
           <Dialog
             open={showSecondRevisionDialog}
             onOpenChange={setShowSecondRevisionDialog}

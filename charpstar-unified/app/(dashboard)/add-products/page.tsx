@@ -91,6 +91,19 @@ export default function AddProductsPage() {
     { row: number; message: string }[]
   >([]);
 
+  // Helper function to reset file input
+  const resetFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      // Force a small delay to ensure the browser processes the reset
+      setTimeout(() => {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }, 10);
+    }
+  };
+
   // Fetch current batch number for this client
   useEffect(() => {
     async function fetchCurrentBatch() {
@@ -253,11 +266,31 @@ export default function AddProductsPage() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      // Simple CSV parsing (no quotes/escapes)
+      // Improved CSV parsing with better handling of edge cases
       const rows = text
         .split(/\r?\n/)
         .filter(Boolean)
-        .map((row) => row.split(","));
+        .map((row) => {
+          // Split by comma but handle quoted fields
+          const result = [];
+          let current = "";
+          let inQuotes = false;
+
+          for (let i = 0; i < row.length; i++) {
+            const char = row[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === "," && !inQuotes) {
+              result.push(current.trim());
+              current = "";
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        });
+
       // Validate rows
       const errors: { row: number; message: string }[] = [];
 
@@ -267,7 +300,7 @@ export default function AddProductsPage() {
           errors.push({
             row: i + 1,
             message:
-              "Missing required fields (Article ID, Product Name, product_link, glb_link)",
+              "Missing required fields (Article ID, Product Name, Product Link, GLB Link)",
           });
         }
       }
@@ -318,8 +351,9 @@ export default function AddProductsPage() {
         !row[1]?.trim() &&
         !row[2]?.trim() &&
         !row[3]?.trim()
-      )
+      ) {
         continue;
+      }
 
       const [
         article_id,
@@ -356,13 +390,17 @@ export default function AddProductsPage() {
         delivery_date: null,
       });
 
-      if (error) failCount++;
-      else successCount++;
+      if (error) {
+        failCount++;
+      } else {
+        successCount++;
+      }
     }
 
     setLoading(false);
     setCsvFile(null);
     setCsvPreview(null);
+    resetFileInput();
 
     if (successCount > 0) {
       toast.success(`Successfully uploaded ${successCount} products!`);
@@ -732,6 +770,7 @@ export default function AddProductsPage() {
                         setCsvFile(null);
                         setCsvPreview(null);
                         setCsvErrors([]);
+                        resetFileInput();
                       }}
                       className="mt-2 cursor-pointer"
                     >
@@ -885,6 +924,7 @@ export default function AddProductsPage() {
                 setCsvPreview(null);
                 setCsvErrors([]);
                 setShowPreviewDialog(false);
+                resetFileInput();
               }}
               className="cursor-pointer"
             >

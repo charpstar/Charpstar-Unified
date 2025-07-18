@@ -46,7 +46,7 @@ const STATUS_LABELS = {
     label: "In Production",
     color: "bg-yellow-100 text-yellow-800",
   },
-  revisions: { label: "Revisions", color: "bg-red-100 text-red-700" },
+  revisions: { label: "Ready for Revision", color: "bg-red-100 text-red-700" },
   approved: { label: "Approved", color: "bg-green-100 text-green-700" },
   delivered_by_artist: {
     label: "Delivered by Artist",
@@ -179,11 +179,7 @@ export default function AdminReviewPage() {
     };
 
     filtered.forEach((asset) => {
-      let displayStatus = asset.status;
-      // Treat "not_started" as "in_production" for client view
-      if (asset.status === "not_started") {
-        displayStatus = "in_production";
-      }
+      const displayStatus = asset.status;
 
       if (displayStatus && totals.hasOwnProperty(displayStatus)) {
         totals[displayStatus as keyof typeof totals]++;
@@ -684,31 +680,21 @@ export default function AdminReviewPage() {
                       <TableCell>{asset.delivery_date || "-"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
-                          {(() => {
-                            let displayStatus = asset.status;
-                            // Treat "not_started" as "in_production" for client view
-                            if (asset.status === "not_started") {
-                              displayStatus = "in_production";
-                            }
-
-                            return (
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-semibold ${
-                                  displayStatus in STATUS_LABELS
-                                    ? STATUS_LABELS[
-                                        displayStatus as keyof typeof STATUS_LABELS
-                                      ].color
-                                    : "bg-gray-100 text-gray-600"
-                                }`}
-                              >
-                                {displayStatus in STATUS_LABELS
-                                  ? STATUS_LABELS[
-                                      displayStatus as keyof typeof STATUS_LABELS
-                                    ].label
-                                  : displayStatus}
-                              </span>
-                            );
-                          })()}
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${
+                              asset.status in STATUS_LABELS
+                                ? STATUS_LABELS[
+                                    asset.status as keyof typeof STATUS_LABELS
+                                  ].color
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {asset.status in STATUS_LABELS
+                              ? STATUS_LABELS[
+                                  asset.status as keyof typeof STATUS_LABELS
+                                ].label
+                              : asset.status}
+                          </span>
                           {(asset.revision_count || 0) > 0 && (
                             <Badge
                               variant="outline"

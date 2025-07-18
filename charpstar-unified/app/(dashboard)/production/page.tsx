@@ -136,16 +136,11 @@ export default function ProductionDashboard() {
         const batchProgress = batchMap.get(batchKey)!;
         batchProgress.totalModels++;
 
-        // Count by status - treat "not_started" as "in_production" for client view
+        // Count by status
         if (asset.status) {
-          let displayStatus = asset.status;
-          if (asset.status === "not_started") {
-            displayStatus = "in_production";
-          }
-
-          if (displayStatus in batchProgress.statusCounts) {
+          if (asset.status in batchProgress.statusCounts) {
             batchProgress.statusCounts[
-              displayStatus as keyof typeof batchProgress.statusCounts
+              asset.status as keyof typeof batchProgress.statusCounts
             ]++;
           }
         }
@@ -357,7 +352,7 @@ export default function ProductionDashboard() {
       case "in_production":
         return "In Production";
       case "revisions":
-        return "Revisions";
+        return "Ready for Revision";
       case "approved":
         return "Approved";
       case "delivered_by_artist":

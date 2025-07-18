@@ -47,7 +47,7 @@ const STATUS_LABELS = {
     label: "In Production",
     color: "bg-yellow-100 text-yellow-800",
   },
-  revisions: { label: "Revisions", color: "bg-red-100 text-red-700" },
+  revisions: { label: "Ready for Revision", color: "bg-red-100 text-red-700" },
   approved: { label: "Approved", color: "bg-green-100 text-green-700" },
   review: {
     label: "Review",
@@ -164,11 +164,7 @@ export default function ReviewDashboardPage() {
     };
 
     assets.forEach((asset) => {
-      let displayStatus = asset.status;
-      // Treat "not_started" as "in_production" for client view
-      if (asset.status === "not_started") {
-        displayStatus = "in_production";
-      }
+      const displayStatus = asset.status;
 
       if (displayStatus && totals.hasOwnProperty(displayStatus)) {
         totals[displayStatus as keyof typeof totals]++;
@@ -337,7 +333,7 @@ export default function ReviewDashboardPage() {
 
         {/* Status Summary Cards */}
         {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4 ">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -388,31 +384,15 @@ export default function ReviewDashboardPage() {
 
             <Card className="p-4 ">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Eye className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Review
-                  </p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {statusTotals.review}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4 ">
-              <div className="flex items-center gap-3">
                 <div className="p-2 bg-red-100 rounded-lg">
-                  <RotateCcw className="h-5 w-5 text-red-600" />
+                  <Eye className="h-5 w-5 text-red-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Returned for Revision
+                    Ready for Revision
                   </p>
-                  <p className="text-sm font-bold text-red-600">
-                    (Coming Soon)
+                  <p className="text-2xl font-bold text-red-600">
+                    {statusTotals.revisions}
                   </p>
                 </div>
               </div>
@@ -562,31 +542,21 @@ export default function ReviewDashboardPage() {
                       <TableCell>{asset.delivery_date || "-"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
-                          {(() => {
-                            let displayStatus = asset.status;
-                            // Treat "not_started" as "in_production" for client view
-                            if (asset.status === "not_started") {
-                              displayStatus = "in_production";
-                            }
-
-                            return (
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-semibold ${
-                                  displayStatus in STATUS_LABELS
-                                    ? STATUS_LABELS[
-                                        displayStatus as keyof typeof STATUS_LABELS
-                                      ].color
-                                    : "bg-gray-100 text-gray-600"
-                                }`}
-                              >
-                                {displayStatus in STATUS_LABELS
-                                  ? STATUS_LABELS[
-                                      displayStatus as keyof typeof STATUS_LABELS
-                                    ].label
-                                  : displayStatus}
-                              </span>
-                            );
-                          })()}
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${
+                              asset.status in STATUS_LABELS
+                                ? STATUS_LABELS[
+                                    asset.status as keyof typeof STATUS_LABELS
+                                  ].color
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {asset.status in STATUS_LABELS
+                              ? STATUS_LABELS[
+                                  asset.status as keyof typeof STATUS_LABELS
+                                ].label
+                              : asset.status}
+                          </span>
                           {(asset.revision_count || 0) > 0 && (
                             <Badge
                               variant="secondary"
