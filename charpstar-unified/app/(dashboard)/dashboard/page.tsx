@@ -24,6 +24,13 @@ import {
   StatusPieChartWidget,
 } from "@/components/dashboard/dashboard-widgets";
 import { ClientDashboardTour } from "@/components/dashboard/client-dashboard-tour";
+import {
+  ModelerStatsWidget,
+  AssignedModelsWidget,
+  ModelerEarningsWidget,
+  ModelerQuickActionsWidget,
+} from "@/components/dashboard/modeler-widgets";
+import ErrorBoundary from "@/components/dashboard/error-boundary";
 
 // Lazy load heavy dashboard widgets
 const LazyTotalModelsWidget = lazy(() =>
@@ -183,6 +190,7 @@ export default function DashboardPage() {
   const defaultLayout = useMemo(() => {
     const isAdmin = user?.metadata?.role === "admin";
     const isClient = user?.metadata?.role === "client";
+    const isModeler = user?.metadata?.role === "modeler";
 
     const baseWidgets = [
       {
@@ -242,7 +250,13 @@ export default function DashboardPage() {
               <div className="h-32 bg-muted animate-pulse rounded-lg" />
             }
           >
-            <LazyQuickActionsWidget />
+            {isModeler ? (
+              <ErrorBoundary>
+                <ModelerQuickActionsWidget />
+              </ErrorBoundary>
+            ) : (
+              <LazyQuickActionsWidget />
+            )}
           </Suspense>
         ),
       },
@@ -266,6 +280,51 @@ export default function DashboardPage() {
               position: { x: 1, y: 1 },
               visible: true,
               content: <StatusPieChartWidget />,
+            },
+          ]
+        : []),
+      // Insert modeler-specific widgets
+      ...(isModeler
+        ? [
+            {
+              id: "modeler-stats",
+              title: "My Statistics",
+              type: "custom" as const,
+              size: "large" as const,
+              position: { x: 0, y: 1 },
+              visible: true,
+              content: (
+                <ErrorBoundary>
+                  <ModelerStatsWidget />
+                </ErrorBoundary>
+              ),
+            },
+            {
+              id: "assigned-models",
+              title: "Assigned Models",
+              type: "custom" as const,
+              size: "medium" as const,
+              position: { x: 1, y: 1 },
+              visible: true,
+              content: (
+                <ErrorBoundary>
+                  <AssignedModelsWidget />
+                </ErrorBoundary>
+              ),
+            },
+
+            {
+              id: "modeler-earnings",
+              title: "Earnings Overview",
+              type: "custom" as const,
+              size: "large" as const,
+              position: { x: 1, y: 2 },
+              visible: true,
+              content: (
+                <ErrorBoundary>
+                  <ModelerEarningsWidget />
+                </ErrorBoundary>
+              ),
             },
           ]
         : []),

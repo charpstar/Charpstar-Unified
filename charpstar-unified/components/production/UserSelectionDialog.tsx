@@ -33,6 +33,7 @@ import {
   Clock,
   MapPin,
   Link,
+  Phone,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -253,81 +254,133 @@ export function UserSelectionDialog({
       </TableCell>
       <TableCell>
         {role === "modeler" ? (
-          <div className="space-y-1">
+          <div className="space-y-2">
             {user.software_experience &&
               user.software_experience.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {user.software_experience
-                    .slice(0, 3)
-                    .map((software, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="text-xs"
-                      >
-                        {software}
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">
+                    Software:
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {user.software_experience
+                      .slice(0, 4)
+                      .map((software, index) => (
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="text-xs"
+                        >
+                          {software}
+                        </Badge>
+                      ))}
+                    {user.software_experience.length > 4 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{user.software_experience.length - 4} more
                       </Badge>
-                    ))}
-                  {user.software_experience.length > 3 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{user.software_experience.length - 3} more
-                    </Badge>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
             {user.model_types && user.model_types.length > 0 && (
-              <div className="text-xs text-muted-foreground">
-                Types: {user.model_types.slice(0, 2).join(", ")}
-                {user.model_types.length > 2 &&
-                  ` +${user.model_types.length - 2} more`}
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">
+                  Model Types:
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {user.model_types.slice(0, 3).map((type, index) => (
+                    <Badge key={index} variant="outline" className="text-xs">
+                      {type}
+                    </Badge>
+                  ))}
+                  {user.model_types.length > 3 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{user.model_types.length - 3} more
+                    </Badge>
+                  )}
+                </div>
               </div>
             )}
           </div>
         ) : (
-          <div className="space-y-1">
-            {user.discord_name && (
-              <div className="flex items-center gap-1 text-sm">
-                <Shield className="h-3 w-3" />
-                {user.discord_name}
-              </div>
-            )}
-            {user.phone_number && (
-              <div className="text-xs text-muted-foreground">
-                {user.phone_number}
-              </div>
-            )}
-          </div>
+          <div className="text-xs text-muted-foreground">QA Specialist</div>
         )}
       </TableCell>
       <TableCell>
-        <div className="space-y-1">
-          {role === "modeler" && user.daily_hours && (
-            <div className="flex items-center gap-1 text-sm">
-              <Clock className="h-3 w-3" />
-              {user.daily_hours}h/day
-            </div>
+        <div className="space-y-2">
+          {role === "modeler" && (
+            <>
+              {user.daily_hours && (
+                <div className="flex items-center gap-1 text-sm">
+                  <Clock className="h-3 w-3" />
+                  <span className="font-medium">{user.daily_hours}h/day</span>
+                </div>
+              )}
+              {user.country && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  {user.country}
+                </div>
+              )}
+              {user.exclusive_work && (
+                <div className="flex items-center gap-1">
+                  <Badge
+                    variant="outline"
+                    className="text-xs bg-green-50 text-green-700 border-green-200"
+                  >
+                    Exclusive Work
+                  </Badge>
+                </div>
+              )}
+              {user.phone_number && (
+                <div className="text-xs text-muted-foreground">
+                  <Phone className="h-3 w-3" /> {user.phone_number}
+                </div>
+              )}
+            </>
           )}
-          {user.country && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3" />
-              {user.country}
-            </div>
-          )}
-          {role === "modeler" && user.exclusive_work && (
-            <Badge variant="outline" className="text-xs">
-              Exclusive
-            </Badge>
+          {role === "qa" && (
+            <>
+              {user.discord_name && (
+                <div className="flex items-center gap-1 text-sm">
+                  <Shield className="h-3 w-3" />
+                  {user.discord_name}
+                </div>
+              )}
+              {user.phone_number && (
+                <div className="text-xs text-muted-foreground">
+                  📞 {user.phone_number}
+                </div>
+              )}
+            </>
           )}
         </div>
       </TableCell>
       <TableCell>
-        {user.portfolio_links && user.portfolio_links.length > 0 && (
-          <div className="flex items-center gap-1">
-            <Link className="h-3 w-3 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">
-              {user.portfolio_links.length} portfolio
-              {user.portfolio_links.length !== 1 ? "s" : ""}
-            </span>
+        {user.portfolio_links && user.portfolio_links.length > 0 ? (
+          <div className="space-y-1">
+            <div className="flex items-center gap-1">
+              <Link className="h-3 w-3 text-muted-foreground" />
+              <span className="text-xs font-medium">
+                {user.portfolio_links.length} portfolio
+                {user.portfolio_links.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {user.portfolio_links.slice(0, 2).map((link, index) => (
+                <div key={index} className="truncate max-w-32">
+                  {link.replace(/^https?:\/\//, "").replace(/^www\./, "")}
+                </div>
+              ))}
+              {user.portfolio_links.length > 2 && (
+                <div className="text-xs text-muted-foreground">
+                  +{user.portfolio_links.length - 2} more
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            No portfolio links
           </div>
         )}
       </TableCell>
@@ -380,8 +433,8 @@ export function UserSelectionDialog({
                         <TableRow>
                           <TableHead className="w-12">Select</TableHead>
                           <TableHead>User</TableHead>
-                          <TableHead>Experience</TableHead>
-                          <TableHead>Details</TableHead>
+                          <TableHead>Software & Skills</TableHead>
+                          <TableHead>Availability & Location</TableHead>
                           <TableHead>Portfolio</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -399,7 +452,7 @@ export function UserSelectionDialog({
                     <TableRow>
                       <TableHead className="w-12">Select</TableHead>
                       <TableHead>User</TableHead>
-                      <TableHead>Contact</TableHead>
+                      <TableHead>Contact Info</TableHead>
                       <TableHead>Details</TableHead>
                       <TableHead>Portfolio</TableHead>
                     </TableRow>

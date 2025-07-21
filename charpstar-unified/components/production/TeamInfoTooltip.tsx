@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { Building, Shield, X } from "lucide-react";
+import { Building, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/feedback/badge";
-import { Button } from "@/components/ui/display/button";
+
 import {
   Tooltip,
   TooltipContent,
@@ -14,6 +14,8 @@ interface User {
   id: string;
   email: string;
   title?: string;
+  modelerCount?: number;
+  qaCount?: number;
 }
 
 interface TeamInfoTooltipProps {
@@ -21,12 +23,6 @@ interface TeamInfoTooltipProps {
   qa: User[];
   clientName: string;
   batchNumber: number;
-  onRemoveUser: (
-    userIds: string[],
-    clientName: string,
-    batchNumber: number,
-    role: "modeler" | "qa"
-  ) => void;
   children: React.ReactNode;
 }
 
@@ -35,7 +31,6 @@ export function TeamInfoTooltip({
   qa,
   clientName,
   batchNumber,
-  onRemoveUser,
   children,
 }: TeamInfoTooltipProps) {
   const hasTeamMembers = modelers.length > 0 || qa.length > 0;
@@ -70,35 +65,29 @@ export function TeamInfoTooltip({
                     key={user.id}
                     className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1 text-xs"
                   >
-                    <div className="flex items-center gap-1 min-w-0 flex-1">
-                      <span className="text-foreground truncate">
-                        {user.email.split("@")[0]}
-                      </span>
-                      {user.title && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs flex-shrink-0 ml-1"
-                        >
-                          {user.title}
-                        </Badge>
-                      )}
+                    <div className="flex items-center justify-between min-w-0 flex-1">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-foreground truncate">
+                          {user.email.split("@")[0]}
+                        </span>
+                        {user.modelerCount && user.modelerCount > 1 && (
+                          <Badge
+                            variant="secondary"
+                            className="text-xs flex-shrink-0 ml-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                          >
+                            {user.modelerCount} models
+                          </Badge>
+                        )}
+                        {user.title && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs flex-shrink-0 ml-1"
+                          >
+                            {user.title}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/20 flex-shrink-0 ml-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveUser(
-                          [user.id],
-                          clientName,
-                          batchNumber,
-                          "modeler"
-                        );
-                      }}
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </Button>
                   </div>
                 ))}
               </div>
@@ -115,30 +104,29 @@ export function TeamInfoTooltip({
                     key={user.id}
                     className="flex items-center justify-between bg-green-50 dark:bg-green-950/20 rounded px-2 py-1 text-xs"
                   >
-                    <div className="flex items-center gap-1 min-w-0 flex-1">
-                      <span className="text-foreground truncate">
-                        {user.email.split("@")[0]}
-                      </span>
-                      {user.title && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs flex-shrink-0 ml-1"
-                        >
-                          {user.title}
-                        </Badge>
-                      )}
+                    <div className="flex items-center justify-between min-w-0 flex-1">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-foreground truncate">
+                          {user.email.split("@")[0]}
+                        </span>
+                        {user.qaCount && user.qaCount > 1 && (
+                          <Badge
+                            variant="secondary"
+                            className="text-xs flex-shrink-0 ml-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                          >
+                            {user.qaCount} models
+                          </Badge>
+                        )}
+                        {user.title && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs flex-shrink-0 ml-1"
+                          >
+                            {user.title}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/20 flex-shrink-0 ml-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveUser([user.id], clientName, batchNumber, "qa");
-                      }}
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </Button>
                   </div>
                 ))}
               </div>

@@ -22,14 +22,15 @@ import {
 } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
 import {
+  Eye,
   ChevronLeft,
   ChevronRight,
   Menu,
-  Users,
-  Eye,
   Package,
+  Send,
   CheckCircle,
-  RotateCcw,
+  Upload,
+  MessageSquare,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -37,10 +38,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/interactive/dropdown-menu";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useLoading } from "@/contexts/LoadingContext";
-import { AssetAssignmentDialog } from "@/components/production/AssetAssignmentDialog";
+import { useLoadingState } from "@/hooks/useLoadingState";
 
 const STATUS_LABELS = {
   in_production: {
@@ -49,8 +49,8 @@ const STATUS_LABELS = {
   },
   revisions: { label: "Ready for Revision", color: "bg-red-100 text-red-700" },
   approved: { label: "Approved", color: "bg-green-100 text-green-700" },
-  delivered_by_artist: {
-    label: "Delivered by Artist",
+  review: {
+    label: "Review",
     color: "bg-blue-100 text-blue-700",
   },
 };
@@ -69,8 +69,8 @@ const getPriorityLabel = (priority: number) => {
   return "Low";
 };
 
-const AdminReviewTableSkeleton = () => (
-  <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[79vh]">
+const ReviewTableSkeleton = () => (
+  <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[78vh]">
     <Table>
       <TableHeader>
         <TableRow>
@@ -88,9 +88,6 @@ const AdminReviewTableSkeleton = () => (
           </TableHead>
           <TableHead>
             <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-          </TableHead>
-          <TableHead>
-            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
           <TableHead>
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
@@ -122,9 +119,6 @@ const AdminReviewTableSkeleton = () => (
               <div className="h-4 w-20 bg-muted rounded animate-pulse" />
             </TableCell>
             <TableCell>
-              <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-            </TableCell>
-            <TableCell>
               <div className="flex items-center gap-2">
                 <div className="h-6 w-16 bg-muted rounded animate-pulse" />
                 <div className="h-3 w-8 bg-muted rounded animate-pulse" />
@@ -149,18 +143,14 @@ const AdminReviewTableSkeleton = () => (
   </div>
 );
 
-export default function AdminReviewPage() {
+export default function ModelerReviewPage() {
   const user = useUser();
-  const { startLoading, stopLoading } = useLoading();
+  const { startLoading, stopLoading } = useLoadingState();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [assets, setAssets] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [clientFilter, setClientFilter] = useState<string>("all");
-  const [batchFilter, setBatchFilter] = useState<string>("all");
-  const [modelerFilter, setModelerFilter] = useState<string>("all");
-  const [sort, setSort] = useState<string>("batch");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sort, setSort] = useState<string>("priority");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -168,23 +158,18 @@ export default function AdminReviewPage() {
   const [annotationCounts, setAnnotationCounts] = useState<
     Record<string, number>
   >({});
-  const [clients, setClients] = useState<string[]>([]);
-  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
-  const [assignedAssets, setAssignedAssets] = useState<
-    Map<string, { email: string; name?: string }>
-  >(new Map());
 
-  // Calculate status totals based on filtered data
+  // Calculate status totals
   const statusTotals = useMemo(() => {
     const totals = {
-      total: filtered.length,
+      total: assets.length,
       in_production: 0,
       revisions: 0,
       approved: 0,
-      delivered_by_artist: 0,
+      review: 0,
     };
 
-    filtered.forEach((asset) => {
+    assets.forEach((asset) => {
       const displayStatus = asset.status;
 
       if (displayStatus && totals.hasOwnProperty(displayStatus)) {
@@ -192,84 +177,68 @@ export default function AdminReviewPage() {
       }
     });
 
-    // Calculate percentages
-    const percentages = {
-      total: 100,
-      in_production:
-        filtered.length > 0
-          ? Math.round((totals.in_production / filtered.length) * 100)
-          : 0,
-      revisions:
-        filtered.length > 0
-          ? Math.round((totals.revisions / filtered.length) * 100)
-          : 0,
-      approved:
-        filtered.length > 0
-          ? Math.round((totals.approved / filtered.length) * 100)
-          : 0,
-      delivered_by_artist:
-        filtered.length > 0
-          ? Math.round((totals.delivered_by_artist / filtered.length) * 100)
-          : 0,
-    };
+    return totals;
+  }, [assets]);
 
-    return { totals, percentages };
-  }, [filtered]);
-
-  // Handle URL parameters for client, batch, and modeler filter
+  // Fetch assigned assets for this modeler
   useEffect(() => {
-    const clientParam = searchParams.get("client");
-    const batchParam = searchParams.get("batch");
-    const modelerParam = searchParams.get("modeler");
-
-    if (clientParam) {
-      setClientFilter(clientParam);
-    }
-
-    if (batchParam) {
-      setBatchFilter(batchParam);
-    }
-
-    if (modelerParam) {
-      setModelerFilter(modelerParam);
-    }
-  }, [searchParams]);
-
-  // Check if user is admin
-  useEffect(() => {
-    if (user && user.metadata?.role !== "admin") {
-      router.push("/dashboard");
-      toast.error("Access denied. Admin privileges required.");
-    }
-  }, [user, router]);
-
-  // Fetch all assets for admin review
-  useEffect(() => {
-    async function fetchAssets() {
-      if (!user || user.metadata?.role !== "admin") return;
+    async function fetchAssignedAssets() {
+      if (!user?.id) return;
       startLoading();
       setLoading(true);
-      const { data, error } = await supabase
-        .from("onboarding_assets")
-        .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client"
-        );
-      if (!error && data) {
-        setAssets(data);
-        // Extract unique clients
-        const uniqueClients = [
-          ...new Set(data.map((asset) => asset.client).filter(Boolean)),
-        ];
-        setClients(uniqueClients);
 
-        // Fetch assigned assets
-        await fetchAssignedAssets(data.map((asset) => asset.id));
+      try {
+        // Get user's batch assignments
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from("user_batch_assignments")
+          .select("client_name, batch_number")
+          .eq("user_id", user.id)
+          .eq("role", "modeler");
+
+        if (assignmentsError) {
+          console.error("Error fetching assignments:", assignmentsError);
+          toast.error("Failed to fetch your assignments");
+          return;
+        }
+
+        if (!assignments || assignments.length === 0) {
+          setAssets([]);
+          return;
+        }
+
+        // Get assets for all assigned batches
+        const assetPromises = assignments.map(async (assignment) => {
+          const { data: assets, error: assetsError } = await supabase
+            .from("onboarding_assets")
+            .select(
+              "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, glb_link"
+            )
+            .eq("client", assignment.client_name)
+            .eq("batch", assignment.batch_number);
+
+          if (assetsError) {
+            console.error("Error fetching assets:", assetsError);
+            return [];
+          }
+
+          return assets || [];
+        });
+
+        const allAssetsArrays = await Promise.all(assetPromises);
+        const allAssets = allAssetsArrays.flat();
+
+        setAssets(allAssets);
+      } catch (error) {
+        console.error("Error fetching assigned assets:", error);
+        toast.error("Failed to fetch your assignments");
+      } finally {
+        setLoading(false);
+        stopLoading();
       }
-      setLoading(false);
-      stopLoading();
     }
-    fetchAssets();
-  }, [user?.metadata?.role, modelerFilter]);
+
+    fetchAssignedAssets();
+  }, [user?.id]);
 
   // Fetch annotation counts for assets
   useEffect(() => {
@@ -302,26 +271,8 @@ export default function AdminReviewPage() {
   // Filtering, sorting, searching
   useEffect(() => {
     let data = [...assets];
-
-    // Filter by client
-    if (clientFilter && clientFilter !== "all") {
-      data = data.filter((a) => a.client === clientFilter);
-    }
-
-    // Filter by batch
-    if (batchFilter && batchFilter !== "all") {
-      data = data.filter((a) => a.batch === parseInt(batchFilter));
-    }
-
-    // Filter by modeler (check if asset is assigned to the specific modeler)
-    if (modelerFilter && modelerFilter !== "all") {
-      data = data.filter((a) => assignedAssets.has(a.id));
-    }
-
-    // Filter by status
-    if (statusFilter) data = data.filter((a) => a.status === statusFilter);
-
-    // Search
+    if (statusFilter && statusFilter !== "all")
+      data = data.filter((a) => a.status === statusFilter);
     if (search) {
       const s = search.toLowerCase();
       data = data.filter(
@@ -331,8 +282,6 @@ export default function AdminReviewPage() {
           a.client?.toLowerCase().includes(s)
       );
     }
-
-    // Sorting
     if (sort === "az")
       data.sort((a, b) => a.product_name.localeCompare(b.product_name));
     if (sort === "za")
@@ -350,21 +299,9 @@ export default function AdminReviewPage() {
       data.sort((a, b) => (a.priority || 2) - (b.priority || 2));
     if (sort === "priority-lowest")
       data.sort((a, b) => (b.priority || 2) - (a.priority || 2));
-    if (sort === "client")
-      data.sort((a, b) => (a.client || "").localeCompare(b.client || ""));
-
     setFiltered(data);
     setPage(1); // Reset to first page on filter/sort/search
-  }, [
-    assets,
-    statusFilter,
-    clientFilter,
-    batchFilter,
-    modelerFilter,
-    sort,
-    search,
-    assignedAssets,
-  ]);
+  }, [assets, statusFilter, sort, search]);
 
   // Pagination
   const paged = useMemo(() => {
@@ -373,75 +310,6 @@ export default function AdminReviewPage() {
   }, [filtered, page]);
 
   // Selection
-  const fetchAssignedAssets = async (assetIds: string[]) => {
-    try {
-      let query = supabase
-        .from("asset_assignments")
-        .select(
-          `
-          asset_id,
-          user_id
-        `
-        )
-        .in("asset_id", assetIds)
-        .eq("role", "modeler");
-
-      // Filter by specific modeler if modelerFilter is set
-      if (modelerFilter && modelerFilter !== "all") {
-        query = query.eq("user_id", modelerFilter);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("Error fetching assigned assets:", error);
-        return;
-      }
-
-      // Get unique user IDs
-      const userIds = [
-        ...new Set(data?.map((assignment) => assignment.user_id) || []),
-      ];
-
-      // Fetch user profiles separately
-      const { data: profilesData, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, email, title")
-        .in("id", userIds);
-
-      if (profilesError) {
-        console.error("Error fetching profiles:", profilesError);
-        return;
-      }
-
-      // Create a map of user_id to profile
-      const profilesMap = new Map();
-      profilesData?.forEach((profile) => {
-        profilesMap.set(profile.id, profile);
-      });
-
-      const assignedAssetsMap = new Map<
-        string,
-        { email: string; name?: string }
-      >();
-      data?.forEach((assignment) => {
-        const profile = profilesMap.get(assignment.user_id);
-        if (profile) {
-          assignedAssetsMap.set(assignment.asset_id, {
-            email: profile.email,
-            name: profile.title,
-          });
-        }
-      });
-      console.log("Assigned assets data:", data);
-      console.log("Profiles data:", profilesData);
-      console.log("Assigned assets map:", assignedAssetsMap);
-      setAssignedAssets(assignedAssetsMap);
-    } catch (error) {
-      console.error("Error fetching assigned assets:", error);
-    }
-  };
-
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -451,66 +319,28 @@ export default function AdminReviewPage() {
     });
   };
 
-  if (user && user.metadata?.role !== "admin") {
+  if (!user) {
+    return null;
+  }
+
+  if (user.metadata?.role !== "modeler") {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex flex-1 flex-col p-4 sm:p-6">
         <div className="text-center">
+          <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">
-            Access denied. Admin privileges required.
+            This page is only available for modelers.
           </p>
-          <Button
-            onClick={() => router.push("/dashboard")}
-            className="mt-4 hover:bg-primary/8 transition-all duration-200 rounded-lg cursor-pointer"
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className=" mx-auto p-6 flex flex-col h-full">
-      <Card className="p-6 flex-1 flex flex-col ">
+    <div className="mx-auto p-6 flex flex-col h-full">
+      <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">
-            <Select
-              value={clientFilter}
-              onValueChange={(value) => setClientFilter(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Clients" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Clients</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client} value={client}>
-                    {client}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={batchFilter}
-              onValueChange={(value) => setBatchFilter(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Batches" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Batches</SelectItem>
-                {Array.from(
-                  new Set(assets.map((asset) => asset.batch).filter(Boolean))
-                )
-                  .sort((a, b) => a - b)
-                  .map((batch) => (
-                    <SelectItem key={batch} value={batch.toString()}>
-                      Batch {batch}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
             <Select
               value={statusFilter}
               onValueChange={(value) => setStatusFilter(value)}
@@ -519,6 +349,7 @@ export default function AdminReviewPage() {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
                 {Object.entries(STATUS_LABELS).map(([key, val]) => (
                   <SelectItem key={key} value={key}>
                     {val.label}
@@ -533,59 +364,56 @@ export default function AdminReviewPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
           <div className="flex gap-2">
             <Select value={sort} onValueChange={(value) => setSort(value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="batch">
-                  Sort by: Batch (1, 2, 3...)
-                </SelectItem>
-                <SelectItem value="client">Sort by: Client (A-Z)</SelectItem>
-                <SelectItem value="date">
-                  Sort by: Delivery Date (Newest)
-                </SelectItem>
-                <SelectItem value="date-oldest">
-                  Sort by: Delivery Date (Oldest)
-                </SelectItem>
                 <SelectItem value="priority">
                   Sort by: Priority (Highest First)
                 </SelectItem>
                 <SelectItem value="priority-lowest">
                   Sort by: Priority (Lowest First)
                 </SelectItem>
+                <SelectItem value="batch">
+                  Sort by: Batch (1, 2, 3...)
+                </SelectItem>
+                <SelectItem value="az">Sort by: Name (A-Z)</SelectItem>
+                <SelectItem value="za">Sort by: Name (Z-A)</SelectItem>
+                <SelectItem value="date">
+                  Sort by: Delivery Date (Newest)
+                </SelectItem>
+                <SelectItem value="date-oldest">
+                  Sort by: Delivery Date (Oldest)
+                </SelectItem>
               </SelectContent>
             </Select>
-
-            {/* Assignment Button */}
-            {selected.size > 0 && (
-              <Button
-                onClick={() => setAssignmentDialogOpen(true)}
-                className="flex items-center gap-2"
-              >
-                <Users className="h-4 w-4" />
-                Assign ({selected.size})
-              </Button>
-            )}
+            <Button
+              onClick={() => router.push("/my-assignments")}
+              className="cursor-pointer hover:bg-primary/8 transition-all duration-200 rounded-lg"
+              variant="ghost"
+            >
+              <Package className="h-4 w-4 mr-2" />
+              My Assignments
+            </Button>
           </div>
         </div>
 
-        {/* Status Cards */}
+        {/* Status Summary Cards */}
         {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
-                  <Users className="h-5 w-5 text-blue-600" />
+                  <Package className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Total
+                    Total Assigned
                   </p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {statusTotals.totals.total}
+                    {statusTotals.total}
                   </p>
                 </div>
               </div>
@@ -594,20 +422,14 @@ export default function AdminReviewPage() {
             <Card className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Package className="h-5 w-5 text-yellow-600" />
+                  <Send className="h-5 w-5 text-yellow-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     In Progress
                   </p>
                   <p className="text-2xl font-bold text-yellow-600">
-                    {statusTotals.totals.in_production +
-                      statusTotals.totals.revisions}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {statusTotals.percentages.in_production +
-                      statusTotals.percentages.revisions}
-                    %
+                    {statusTotals.in_production}
                   </p>
                 </div>
               </div>
@@ -620,13 +442,10 @@ export default function AdminReviewPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Approved
+                    Completed
                   </p>
                   <p className="text-2xl font-bold text-green-600">
-                    {statusTotals.totals.approved}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {statusTotals.percentages.approved}%
+                    {statusTotals.approved}
                   </p>
                 </div>
               </div>
@@ -635,33 +454,14 @@ export default function AdminReviewPage() {
             <Card className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-red-100 rounded-lg">
-                  <RotateCcw className="h-5 w-5 text-red-600" />
+                  <MessageSquare className="h-5 w-5 text-red-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Returned for Revision
+                    Ready for Revision
                   </p>
-                  <p className="text-sm font-bold text-red-600">
-                    (Coming Soon)
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Delivered
-                  </p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {statusTotals.totals.delivered_by_artist}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {statusTotals.percentages.delivered_by_artist}%
+                  <p className="text-2xl font-bold text-red-600">
+                    {statusTotals.revisions}
                   </p>
                 </div>
               </div>
@@ -670,7 +470,7 @@ export default function AdminReviewPage() {
         )}
 
         {loading ? (
-          <AdminReviewTableSkeleton />
+          <ReviewTableSkeleton />
         ) : (
           <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[70vh]">
             <Table>
@@ -687,11 +487,11 @@ export default function AdminReviewPage() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={() => setSort("priority")}>
+                          Priority
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setSort("batch")}>
                           Batch
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSort("client")}>
-                          Client
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setSort("az")}>
                           A-Z
@@ -706,43 +506,30 @@ export default function AdminReviewPage() {
                     </DropdownMenu>
                   </TableHead>
                   <TableHead>Model Name</TableHead>
-                  <TableHead>Client</TableHead>
                   <TableHead>Article ID</TableHead>
+                  <TableHead>Client</TableHead>
                   <TableHead>Priority</TableHead>
-                  <TableHead>Delivery Date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Upload</TableHead>
                   <TableHead>Review</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
-                      No products found.
+                    <TableCell colSpan={8} className="text-center">
+                      No assigned assets found.
                     </TableCell>
                   </TableRow>
                 ) : (
                   paged.map((asset) => (
                     <TableRow key={asset.id}>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(asset.id)}
-                            onChange={() => toggleSelect(asset.id)}
-                          />
-                          {assignedAssets.has(asset.id) && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                              <span className="text-xs text-muted-foreground">
-                                {assignedAssets.get(asset.id)?.name ||
-                                  assignedAssets
-                                    .get(asset.id)
-                                    ?.email?.split("@")[0]}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(asset.id)}
+                          onChange={() => toggleSelect(asset.id)}
+                        />
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
@@ -760,31 +547,11 @@ export default function AdminReviewPage() {
                             <Badge variant="outline" className="text-xs">
                               Batch {asset.batch || 1}
                             </Badge>
-                            {(asset.revision_count || 0) > 0 && (
-                              <>
-                                <span className="text-xs text-slate-500">
-                                  •
-                                </span>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400"
-                                >
-                                  R{asset.revision_count}
-                                </Badge>
-                              </>
-                            )}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 justify-center">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">
-                            {asset.client || "Unknown"}
-                          </span>
-                        </div>
-                      </TableCell>
                       <TableCell>{asset.article_id}</TableCell>
+                      <TableCell>{asset.client}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-2">
                           <span
@@ -799,7 +566,6 @@ export default function AdminReviewPage() {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>{asset.delivery_date || "-"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
                           <span
@@ -819,8 +585,8 @@ export default function AdminReviewPage() {
                           </span>
                           {(asset.revision_count || 0) > 0 && (
                             <Badge
-                              variant="outline"
-                              className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400"
+                              variant="secondary"
+                              className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
                             >
                               R{asset.revision_count}
                             </Badge>
@@ -833,7 +599,20 @@ export default function AdminReviewPage() {
                           size="icon"
                           className="cursor-pointer"
                           onClick={() =>
-                            router.push(`/client-review/${asset.id}`)
+                            router.push(`/modeler-review/${asset.id}`)
+                          }
+                          title={asset.glb_link ? "Update GLB" : "Upload GLB"}
+                        >
+                          <Upload className="h-5 w-5" />
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="cursor-pointer"
+                          onClick={() =>
+                            router.push(`/modeler-review/${asset.id}`)
                           }
                         >
                           <Eye className="h-5 w-5" />
@@ -847,7 +626,7 @@ export default function AdminReviewPage() {
           </div>
         )}
         {/* Pagination - Always at bottom */}
-        <div className="flex items-center justify-center  gap-2  ">
+        <div className="flex items-center justify-center gap-2">
           <div className="text-sm text-muted-foreground">
             {filtered.length === 0
               ? "No items"
@@ -882,18 +661,6 @@ export default function AdminReviewPage() {
           </div>
         </div>
       </Card>
-
-      {/* Asset Assignment Dialog */}
-      <AssetAssignmentDialog
-        isOpen={assignmentDialogOpen}
-        onClose={() => setAssignmentDialogOpen(false)}
-        selectedAssets={assets.filter((asset) => selected.has(asset.id))}
-        onAssignmentComplete={() => {
-          setSelected(new Set());
-          // Refresh assigned assets data
-          fetchAssignedAssets(assets.map((asset) => asset.id));
-        }}
-      />
     </div>
   );
 }

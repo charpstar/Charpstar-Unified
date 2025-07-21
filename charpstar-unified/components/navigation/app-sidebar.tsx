@@ -12,6 +12,8 @@ import {
   Eye,
   Factory,
   UserPlus,
+  Package,
+  MessageSquare,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -58,22 +60,24 @@ export default function AppSidebar({
           url: "/dashboard",
           icon: LayoutDashboard,
         },
-        // Hide Analytics and Asset Library for clients in onboarding
+        // Hide Analytics and Asset Library for clients in onboarding, and hide for modelers
         ...(user?.metadata?.role === "client" &&
         user?.metadata?.onboarding === true
           ? []
-          : [
-              {
-                title: "Analytics",
-                url: "/analytics",
-                icon: BarChart3,
-              },
-              {
-                title: "Asset Library",
-                url: "/asset-library",
-                icon: Folder,
-              },
-            ]),
+          : user?.metadata?.role === "modeler"
+            ? []
+            : [
+                {
+                  title: "Analytics",
+                  url: "/analytics",
+                  icon: BarChart3,
+                },
+                {
+                  title: "Asset Library",
+                  url: "/asset-library",
+                  icon: Folder,
+                },
+              ]),
         // Add Products and Review pages for clients only
         ...(user?.metadata?.role === "client" &&
         user?.metadata?.onboarding === false
@@ -122,19 +126,42 @@ export default function AppSidebar({
         ]
       : [];
 
+  // Modeler-only navigation items
+  const modelerNavItems =
+    user?.metadata?.role === "modeler"
+      ? [
+          {
+            title: "My Assignments",
+            url: "/my-assignments",
+            icon: Package,
+          },
+          {
+            title: "Modeler Review",
+            url: "/modeler-review",
+            icon: MessageSquare,
+          },
+          {
+            title: "Guidelines",
+            url: "/guidelines",
+            icon: FileText,
+          },
+        ]
+      : [];
+
   // Add 3D Editor only if user has client_config
   const navMain =
     clientName && clientName.trim() !== ""
       ? [
           ...baseNavItems,
           ...adminNavItems,
+          ...modelerNavItems,
           {
             title: "3D Editor",
             url: `/3d-editor/${clientName}`,
             icon: Box,
           },
         ]
-      : [...baseNavItems, ...adminNavItems];
+      : [...baseNavItems, ...adminNavItems, ...modelerNavItems];
 
   const data = {
     user: {
