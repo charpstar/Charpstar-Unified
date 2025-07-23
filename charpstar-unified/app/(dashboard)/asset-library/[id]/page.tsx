@@ -151,10 +151,8 @@ export default function AssetDetailPage() {
             .from("assets")
             .getPublicUrl(`models/${zipFile.name}`);
 
-          console.log("Found ZIP file:", zipFile.name);
           setZipUrl(data.publicUrl);
         } else {
-          console.log("No ZIP file found for article_id:", asset.article_id);
         }
       } catch (error) {
         console.error("Error getting ZIP URL:", error);

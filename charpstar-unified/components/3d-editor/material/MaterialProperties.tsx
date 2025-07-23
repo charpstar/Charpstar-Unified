@@ -285,13 +285,6 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
       );
 
       if (object && object.material) {
-        console.log(
-          "Found material for mesh:",
-          object.material,
-          "Refresh counter:",
-          variantChangeCounter
-        );
-
         // Check if the material is MeshPhysicalMaterial
         setIsMeshPhysicalMaterial(
           object.material.type === "MeshPhysicalMaterial"
@@ -354,7 +347,6 @@ export const MaterialProperties: React.FC<MaterialPropertiesProps> = ({
 
         setMaterial(materialData);
       } else {
-        console.log("No material found for mesh");
         setMaterial(null);
         setIsMeshPhysicalMaterial(false);
       }

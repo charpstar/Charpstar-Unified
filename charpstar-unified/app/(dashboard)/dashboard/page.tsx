@@ -26,10 +26,10 @@ import {
 import { ClientDashboardTour } from "@/components/dashboard/client-dashboard-tour";
 import {
   ModelerStatsWidget,
-  AssignedModelsWidget,
   ModelerEarningsWidget,
   ModelerQuickActionsWidget,
 } from "@/components/dashboard/modeler-widgets";
+import { PendingAssignmentsWidget } from "@/components/dashboard/pending-assignments-widget";
 import ErrorBoundary from "@/components/dashboard/error-boundary";
 
 // Lazy load heavy dashboard widgets
@@ -300,15 +300,15 @@ export default function DashboardPage() {
               ),
             },
             {
-              id: "assigned-models",
-              title: "Assigned Models",
+              id: "pending-assignments",
+              title: "Pending Assignments",
               type: "custom" as const,
               size: "medium" as const,
               position: { x: 1, y: 1 },
               visible: true,
               content: (
                 <ErrorBoundary>
-                  <AssignedModelsWidget />
+                  <PendingAssignmentsWidget />
                 </ErrorBoundary>
               ),
             },
@@ -433,13 +433,6 @@ export default function DashboardPage() {
   if (!user) {
     return <DashboardSkeleton />;
   }
-
-  // Debug logging for dashboard onboarding
-  console.log("Dashboard Debug:", {
-    userRole: user?.metadata?.role,
-    userOnboarding: user?.metadata?.onboarding,
-    shouldShowOnboarding: user?.metadata?.onboarding === true,
-  });
 
   // Show onboarding dashboard if user is still in onboarding
   if (user?.metadata?.onboarding === true) {

@@ -87,19 +87,7 @@ const SOFTWARE_OPTIONS = [
   "Other",
 ];
 
-const MODEL_TYPE_OPTIONS = [
-  "Furniture",
-  "Architecture",
-  "Characters",
-  "Vehicles",
-  "Electronics",
-  "Clothing",
-  "Jewelry",
-  "Food & Beverages",
-  "Industrial",
-  "Medical",
-  "Other",
-];
+const MODEL_TYPE_OPTIONS = ["Hard Surface", "Soft Surface"];
 
 export default function CreateUsersPage() {
   const user = useUser();
@@ -304,7 +292,7 @@ export default function CreateUsersPage() {
         phoneNumber: "+46701234567",
         discordName: "sarah3d#5678",
         softwareExperience: ["Blender", "Maya", "Substance Painter", "ZBrush"],
-        modelTypes: ["Furniture", "Architecture", "Electronics", "Characters"],
+        modelTypes: ["Hard Surface", "Soft Surface"],
         dailyHours: 6,
         exclusiveWork: true,
         country: "Sweden",

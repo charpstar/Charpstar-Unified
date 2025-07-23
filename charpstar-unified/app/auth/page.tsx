@@ -58,8 +58,6 @@ export default function AuthPage() {
     setIsLoading(true);
     setError(null);
     try {
-      console.log("Attempting login for:", loginData.email);
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email: loginData.email,
         password: loginData.password,
@@ -67,14 +65,9 @@ export default function AuthPage() {
 
       if (error) throw error;
 
-      console.log("Login successful, session data:", data.session);
-      console.log("User data:", data.user);
-
       // Check if session is stored
       const { data: sessionData } = await supabase.auth.getSession();
-      console.log("Session after login:", sessionData.session);
 
-      console.log("Redirecting to dashboard...");
       router.push("/dashboard");
     } catch (err: any) {
       console.error("Login error:", err);
@@ -117,14 +110,10 @@ export default function AuthPage() {
     setIsLoading(true);
     setError(null);
     try {
-      console.log("Sending password reset email to:", resetData.email);
-
       // Use environment variable for production URL, fallback to window.location.origin
       const baseUrl =
         process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const redirectUrl = `${baseUrl}/reset-password`;
-
-      console.log("Using redirect URL:", redirectUrl);
 
       const { error } = await supabase.auth.resetPasswordForEmail(
         resetData.email,
@@ -138,7 +127,6 @@ export default function AuthPage() {
         throw error;
       }
 
-      console.log("Password reset email sent successfully");
       setResetSent(true);
     } catch (err: any) {
       console.error("Password reset error:", err);

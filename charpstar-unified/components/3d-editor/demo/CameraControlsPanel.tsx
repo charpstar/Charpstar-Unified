@@ -63,21 +63,16 @@ export const CameraControlsPanel: React.FC<CameraControlsPanelProps> = ({
       // Call the createSweefPoster function with the orbit value
       if (typeof modelViewerRef.current.createSweefPosterX === "function") {
         const imageUrl = await modelViewerRef.current.createSweefPosterX(orbit);
-        console.log(
-          "Generated poster image:",
-          imageUrl.substring(0, 50) + "..."
-        );
+
         setPosterImage(imageUrl);
       } else if (
         typeof modelViewerRef.current.createSweefPoster === "function"
       ) {
         // Try the regular function if X version doesn't exist
         await modelViewerRef.current.createSweefPoster(orbit);
-        console.log("Changed camera view but poster generation not available");
       } else {
         // Fallback to directly setting cameraOrbit if function doesn't exist
         modelViewerRef.current.cameraOrbit = orbit;
-        console.log("Set camera orbit directly to:", orbit);
       }
     } catch (error) {
       console.error("Error changing camera view:", error);

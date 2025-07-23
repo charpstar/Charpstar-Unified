@@ -123,9 +123,6 @@ export function PreviewGeneratorDialog({
       try {
         const response = await fetch(asset.preview_image, { method: "HEAD" });
         if (response.status !== 200) {
-          console.log(
-            `Preview not 200: ${asset.product_name} (${asset.preview_image})`
-          );
           missing++;
           setFailedUrls((prev) => [
             ...prev,
@@ -137,9 +134,6 @@ export function PreviewGeneratorDialog({
           ]);
         }
       } catch {
-        console.log(
-          `Error checking preview for: ${asset.product_name} (${asset.preview_image})`
-        );
         missing++;
         setFailedUrls((prev) => [
           ...prev,
@@ -226,7 +220,6 @@ export function PreviewGeneratorDialog({
 
     try {
       const response = await fetch(glbLink);
-      console.log(`GLB file response status: ${response.status}`);
 
       if (response.status === 204) {
         // Update database with GLB status
@@ -236,7 +229,6 @@ export function PreviewGeneratorDialog({
           .eq("id", assetId);
 
         if (retryCount < maxRetries) {
-          console.log(`Received 204 response, retrying in ${retryDelay}ms...`);
           await new Promise((resolve) => setTimeout(resolve, retryDelay));
           return checkGLBFile(glbLink, assetId, retryCount + 1);
         }
@@ -258,7 +250,7 @@ export function PreviewGeneratorDialog({
       }
 
       const contentLength = response.headers.get("content-length");
-      console.log(`GLB file size: ${contentLength} bytes`);
+
       if (contentLength === "0") {
         // Update database with GLB status
         await supabase
@@ -274,11 +266,8 @@ export function PreviewGeneratorDialog({
         .from("assets")
         .update({ glb_status: "ok" })
         .eq("id", assetId);
-
-      console.log("GLB file is accessible and valid");
     } catch (error) {
       if (retryCount < maxRetries) {
-        console.log(`Error checking GLB file, retrying in ${retryDelay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, retryDelay));
         return checkGLBFile(glbLink, assetId, retryCount + 1);
       }
@@ -351,31 +340,25 @@ export function PreviewGeneratorDialog({
       for (const asset of assetsNeedingPreview) {
         try {
           if (!processingRef.current) break;
-          console.log(`\n=== Processing asset: ${asset.product_name} ===`);
-          console.log(`GLB Link: ${asset.glb_link}`);
+
           setCurrentAsset(asset.product_name);
           setCurrentPosition(processed + 1);
 
           // Clear existing model
-          console.log("Clearing existing model...");
+
           modelViewer.src = "";
           modelViewer.dismissPoster?.();
           modelViewer.scene?.clear?.();
           await new Promise((resolve) => setTimeout(resolve, 1000));
-          console.log("Model cleared");
 
           // Check GLB file accessibility
-          console.log("Checking GLB file accessibility...");
+
           await checkGLBFile(asset.glb_link, asset.id);
 
-          console.log("Generating preview...");
           const previewUrl = await generatePreview(asset);
-          console.log("Preview generated successfully");
 
-          console.log("Fetching preview blob...");
           const response = await fetch(previewUrl);
           const blob = await response.blob();
-          console.log(`Preview blob size: ${blob.size} bytes`);
 
           const file = new File([blob], `${asset.id}_preview.png`, {
             type: "image/png",
@@ -384,16 +367,15 @@ export function PreviewGeneratorDialog({
           let uploadSuccess = false;
           let uploadAttempts = 0;
           const maxAttempts = 1;
-          console.log("Starting upload process...");
+
           while (!uploadSuccess && uploadAttempts < maxAttempts) {
             try {
               uploadAttempts++;
-              console.log(`Upload attempt ${uploadAttempts}/${maxAttempts}`);
+
               const formData = new FormData();
               formData.append("file", file);
               formData.append("fileName", `${asset.id}_preview.png`);
 
-              console.log("Uploading to server...");
               const response = await fetch("/api/upload", {
                 method: "POST",
                 body: formData,
@@ -410,7 +392,6 @@ export function PreviewGeneratorDialog({
                 throw new Error(`Server error: ${responseData.error}`);
               }
               const { url } = responseData;
-              console.log("Upload successful, updating database...");
 
               const { error: updateError } = await supabase
                 .from("assets")
@@ -422,7 +403,7 @@ export function PreviewGeneratorDialog({
                   `Failed to update asset: ${updateError.message}`
                 );
               }
-              console.log("Database updated successfully");
+
               uploadSuccess = true;
             } catch (error) {
               console.error(`Upload attempt ${uploadAttempts} failed:`, error);
@@ -439,22 +420,20 @@ export function PreviewGeneratorDialog({
                 ]);
                 break;
               }
-              console.log("Waiting before retry...");
+
               await new Promise((resolve) => setTimeout(resolve, 2000));
             }
           }
 
           URL.revokeObjectURL(previewUrl);
-          console.log("Preview URL revoked");
+
           processed++;
           const progress = Math.round(
             (processed / assetsNeedingPreview.length) * 100
           );
-          console.log(
-            `Progress: ${progress}% (${processed}/${assetsNeedingPreview.length})`
-          );
+
           setProgress(progress);
-          console.log("Waiting before next asset...");
+
           await new Promise((resolve) => setTimeout(resolve, 1000));
         } catch (error) {
           console.error(`Failed to process ${asset.product_name}:`, error);
@@ -468,12 +447,6 @@ export function PreviewGeneratorDialog({
           ]);
         }
       }
-
-      console.log("\n=== Processing complete ===");
-      console.log(
-        `Successfully processed: ${processed - failedAssets.length} assets`
-      );
-      console.log(`Failed assets: ${failedAssets.length}`);
 
       if (failedAssets.length > 0) {
         setError(
@@ -503,9 +476,6 @@ export function PreviewGeneratorDialog({
     );
     if (assetsToRegenerate.length === 0) return;
 
-    console.log(
-      `Starting regeneration for ${assetsToRegenerate.length} assets`
-    );
     setProcessing(true);
     setProgress(0);
     setError(null);
@@ -516,8 +486,6 @@ export function PreviewGeneratorDialog({
       const supabase = createClient();
       let processed = 0;
       for (const asset of assetsToRegenerate) {
-        console.log(`\n=== Processing asset: ${asset.product_name} ===`);
-        console.log(`GLB Link: ${asset.glb_link}`);
         setCurrentAsset(asset.product_name);
         setCurrentPosition(processed + 1);
         try {
@@ -527,28 +495,22 @@ export function PreviewGeneratorDialog({
             console.error("Model viewer not initialized");
             throw new Error("Model viewer not initialized");
           }
-          console.log("Model viewer initialized");
 
           // Clear existing model
-          console.log("Clearing existing model...");
+
           modelViewer.src = "";
           modelViewer.dismissPoster?.();
           modelViewer.scene?.clear?.();
           await new Promise((resolve) => setTimeout(resolve, 1000));
-          console.log("Model cleared");
 
           // Check GLB file accessibility
-          console.log("Checking GLB file accessibility...");
+
           await checkGLBFile(asset.glb_link, asset.id);
 
-          console.log("Generating preview...");
           const previewUrl = await generatePreview(asset);
-          console.log("Preview generated successfully");
 
-          console.log("Fetching preview blob...");
           const response = await fetch(previewUrl);
           const blob = await response.blob();
-          console.log(`Preview blob size: ${blob.size} bytes`);
 
           const file = new File([blob], `${asset.id}_preview.png`, {
             type: "image/png",
@@ -556,16 +518,15 @@ export function PreviewGeneratorDialog({
           let uploadSuccess = false;
           let uploadAttempts = 0;
           const maxAttempts = 1;
-          console.log("Starting upload process...");
+
           while (!uploadSuccess && uploadAttempts < maxAttempts) {
             try {
               uploadAttempts++;
-              console.log(`Upload attempt ${uploadAttempts}/${maxAttempts}`);
+
               const formData = new FormData();
               formData.append("file", file);
               formData.append("fileName", `${asset.id}_preview.png`);
 
-              console.log("Uploading to server...");
               const response = await fetch("/api/upload", {
                 method: "POST",
                 body: formData,
@@ -582,7 +543,6 @@ export function PreviewGeneratorDialog({
                 throw new Error(`Server error: ${responseData.error}`);
               }
               const { url } = responseData;
-              console.log("Upload successful, updating database...");
 
               const { error: updateError } = await supabase
                 .from("assets")
@@ -594,7 +554,7 @@ export function PreviewGeneratorDialog({
                   `Failed to update asset: ${updateError.message}`
                 );
               }
-              console.log("Database updated successfully");
+
               uploadSuccess = true;
             } catch (error) {
               console.error(`Upload attempt ${uploadAttempts} failed:`, error);
@@ -611,12 +571,11 @@ export function PreviewGeneratorDialog({
                 ]);
                 break;
               }
-              console.log("Waiting before retry...");
+
               await new Promise((resolve) => setTimeout(resolve, 2000));
             }
           }
           URL.revokeObjectURL(previewUrl);
-          console.log("Preview URL revoked");
         } catch (error) {
           console.error(`Failed to process ${asset.product_name}:`, error);
           setFailedAssets((prev) => [
@@ -632,18 +591,12 @@ export function PreviewGeneratorDialog({
         const progress = Math.round(
           (processed / assetsToRegenerate.length) * 100
         );
-        console.log(
-          `Progress: ${progress}% (${processed}/${assetsToRegenerate.length})`
-        );
+
         setProgress(progress);
-        console.log("Waiting before next asset...");
+
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
-      console.log("\n=== Regeneration complete ===");
-      console.log(
-        `Successfully processed: ${processed - failedAssets.length} assets`
-      );
-      console.log(`Failed assets: ${failedAssets.length}`);
+
       await refetch();
       setTimeout(() => {
         setProcessing(false);

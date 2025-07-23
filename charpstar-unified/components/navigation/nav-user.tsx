@@ -43,9 +43,6 @@ export default function NavUser() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const router = useRouter();
 
-  console.log("NavUser component rendered, user:", supaUser?.id);
-  console.log("Full user object:", supaUser);
-
   // Get avatar from user metadata (same as dashboard)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const userAvatar = supaUser?.metadata?.avatar_url || null;

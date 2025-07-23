@@ -5,13 +5,9 @@ import { cookies } from "next/headers";
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("=== ACCEPT INVITATION API CALLED ===");
-
     const cookieStore = cookies();
     const supabase = createServerClient(cookieStore);
     const body = await request.json();
-
-    console.log("Request body:", body);
 
     const {
       invitationToken,
@@ -27,15 +23,6 @@ export async function POST(request: NextRequest) {
       country,
       portfolioLinks,
     } = body;
-
-    console.log("Extracted role-specific data:", {
-      title,
-      phoneNumber,
-      discordName,
-      softwareExperience,
-      modelTypes,
-      email,
-    });
 
     if (!invitationToken || !userId) {
       return NextResponse.json(
@@ -91,48 +78,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Update user profile with invitation data and role-specific fields
-    console.log("Updating profile for user:", userId);
-    console.log("Profile data:", {
-      client: invitation.client_name,
-      role: invitation.role,
-      title,
-      phoneNumber,
-      discordName,
-      softwareExperience,
-      modelTypes,
-    });
 
     const adminClient = createAdminClient();
 
     // Test admin client connection
-    console.log("Testing admin client...");
+
     const { data: testData, error: testError } = await adminClient
       .from("profiles")
       .select("id")
       .eq("id", userId)
       .limit(1);
 
-    console.log("Admin client test result:", { testData, testError });
-
     // Update the profiles table with invitation data and role-specific fields
-    console.log("Updating profiles table with role-specific data...");
-    console.log("Profiles table payload:", {
-      id: userId,
-      email: email,
-      title: title || null,
-      phone_number: phoneNumber || null,
-      discord_name: discordName || null,
-      software_experience: softwareExperience || null,
-      model_types: modelTypes || null,
-      client: invitation.client_name,
-      role: invitation.role,
-      client_config: null,
-      daily_hours: dailyHours || null,
-      exclusive_work: exclusiveWork || false,
-      country: country || null,
-      portfolio_links: portfolioLinks || null,
-      onboarding: invitation.onboarding || true,
-    });
 
     const { data: profileData, error: profileError } = await adminClient
       .from("profiles")
@@ -163,8 +120,6 @@ export async function POST(request: NextRequest) {
         code: profileError.code,
       });
       // Don't fail the request, just log the error
-    } else {
-      console.log("Profiles table updated successfully:", profileData);
     }
 
     return NextResponse.json({

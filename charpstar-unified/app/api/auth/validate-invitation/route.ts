@@ -16,8 +16,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Validating invitation token:", token);
-
     // Find the invitation by token
     const { data: invitation, error: fetchError } = await supabase
       .from("invitations")
@@ -32,8 +30,6 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-
-    console.log("Found invitation:", invitation);
 
     // Check if invitation is still pending
     if (invitation.status !== "pending") {
@@ -59,14 +55,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    console.log("Invitation is valid:", {
-      id: invitation.id,
-      email: invitation.email,
-      client_name: invitation.client_name,
-      role: invitation.role,
-      expires_at: invitation.expires_at,
-    });
 
     return NextResponse.json({
       invitation: {

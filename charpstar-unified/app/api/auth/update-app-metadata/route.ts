@@ -3,10 +3,7 @@ import { createAdminClient } from "@/utils/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("=== UPDATE APP METADATA API CALLED ===");
-
     const body = await request.json();
-    console.log("Request body:", body);
 
     const {
       userId,
@@ -28,32 +25,18 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    console.log("Updating profiles table for user:", userId);
-    console.log("Profiles data:", {
-      title,
-      phoneNumber,
-      discordName,
-      softwareExperience,
-      modelTypes,
-      client,
-      role,
-    });
-
     // Test admin client connection first
-    console.log("Testing admin client connection...");
+
     const { data: testData, error: testError } = await adminClient
       .from("profiles")
       .select("id")
       .eq("id", userId)
       .limit(1);
 
-    console.log("Admin client test result:", { testData, testError });
-
     // Only update the profiles table - no app_metadata or user_metadata
-    console.log("Updating profiles table for user:", userId);
 
     // Now update the profiles table with the same data
-    console.log("Updating profiles table for user:", userId);
+
     const { data: profileData, error: profileError } = await adminClient
       .from("profiles")
       .update({
@@ -80,8 +63,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    console.log("Profiles table updated successfully:", profileData);
 
     return NextResponse.json({
       success: true,

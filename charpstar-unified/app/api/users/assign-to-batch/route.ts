@@ -59,10 +59,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the assignment for audit purposes
-    console.log(
-      `Assigned ${createdAssignments.length} users to batch ${batchNumber} for client ${clientName}:`,
-      createdAssignments.map((a) => a.user_id)
-    );
 
     return NextResponse.json({
       success: true,

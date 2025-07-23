@@ -65,30 +65,25 @@ export default function SignupPage() {
   const token = searchParams.get("token");
 
   useEffect(() => {
-    console.log("Signup page useEffect - user:", user, "token:", token);
-
     if (user) {
       // User is already logged in, redirect to dashboard
-      console.log("User already logged in, redirecting to dashboard");
+
       router.push("/dashboard");
       return;
     }
 
     if (!token) {
-      console.log("No token found, setting loading to false");
       setLoading(false);
       return;
     }
 
     // Validate invitation token
-    console.log("Validating invitation token");
+
     validateInvitation();
   }, [token, user, router]);
 
   const validateInvitation = async () => {
     try {
-      console.log("Validating invitation token:", token);
-
       const response = await fetch("/api/auth/validate-invitation", {
         method: "POST",
         headers: {
@@ -100,7 +95,6 @@ export default function SignupPage() {
       const data = await response.json();
 
       if (response.ok) {
-        console.log("Invitation validated:", data);
         setInvitationData(data.invitation);
         setFormData((prev) => ({ ...prev, email: data.invitation.email }));
       } else {
@@ -249,11 +243,6 @@ export default function SignupPage() {
       return;
     }
 
-    console.log("=== SIGNUP FORM DATA ===");
-    console.log("Form data:", formData);
-    console.log("Invitation data:", invitationData);
-    console.log("Role:", invitationData?.role);
-
     setSignupLoading(true);
     startLoading(); // Start the nprogress bar
     try {
@@ -261,7 +250,7 @@ export default function SignupPage() {
       let userId: string;
 
       // Try to create the user
-      console.log("Attempting to create user account");
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -280,8 +269,6 @@ export default function SignupPage() {
       if (authError) {
         // Check if it's the "already registered" error
         if (authError.message.includes("User already registered")) {
-          console.log("User already exists, updating via admin API");
-
           // Use our admin API to update the existing user
           const updateResponse = await fetch("/api/auth/update-invited-user", {
             method: "POST",
@@ -322,15 +309,13 @@ export default function SignupPage() {
           if (signInError) {
             throw signInError;
           }
-
-          console.log("User updated and signed in successfully");
         } else {
           // Some other error
           throw authError;
         }
       } else if (authData.user) {
         // User was created successfully
-        console.log("User created successfully:", authData.user.id);
+
         userId = authData.user.id;
       } else {
         throw new Error("Failed to create user");
@@ -354,9 +339,6 @@ export default function SignupPage() {
         portfolioLinks: formData.portfolioLinks,
       };
 
-      console.log("=== ACCEPT INVITATION PAYLOAD ===");
-      console.log("Payload:", acceptPayload);
-
       const acceptResponse = await fetch("/api/auth/accept-invitation", {
         method: "POST",
         headers: {
@@ -366,12 +348,8 @@ export default function SignupPage() {
       });
 
       if (acceptResponse.ok) {
-        console.log("Invitation accepted successfully");
-
         // Test direct profiles table update
         try {
-          console.log("=== TESTING DIRECT PROFILES UPDATE ===");
-
           const testPayload = {
             userId: userId,
             email: formData.email,
@@ -389,8 +367,6 @@ export default function SignupPage() {
             portfolioLinks: formData.portfolioLinks,
           };
 
-          console.log("Test payload:", testPayload);
-
           const testResponse = await fetch("/api/test-profiles", {
             method: "POST",
             headers: {
@@ -399,14 +375,11 @@ export default function SignupPage() {
             body: JSON.stringify(testPayload),
           });
 
-          console.log("Test response status:", testResponse.status);
-
           if (!testResponse.ok) {
             const errorData = await testResponse.json();
             console.error("Test profiles update failed:", errorData);
           } else {
             const successData = await testResponse.json();
-            console.log("Test profiles update successful:", successData);
           }
         } catch (testError) {
           console.error("Error in test profiles update:", testError);
@@ -584,7 +557,7 @@ export default function SignupPage() {
                   Model Types You Can Work On
                 </label>
                 <div className="space-y-2">
-                  {["Hard Surface", "Organic"].map((type) => (
+                  {["Hard Surface", "Soft Surface"].map((type) => (
                     <label key={type} className="flex items-center space-x-2">
                       <input
                         type="checkbox"

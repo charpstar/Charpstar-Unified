@@ -7,22 +7,11 @@ export async function GET(request: NextRequest) {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
-    console.log("Test API - Request started");
-    console.log("Request URL:", request.url);
-
     // Get the current session
     const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession();
-
-    console.log(
-      "Test API - Session data:",
-      session
-        ? { user_id: session.user.id, expires_at: session.expires_at }
-        : null
-    );
-    console.log("Test API - Session error:", sessionError);
 
     if (sessionError) {
       return NextResponse.json(
@@ -33,10 +22,7 @@ export async function GET(request: NextRequest) {
 
     if (!session) {
       const allCookies = await cookieStore;
-      console.log(
-        "Test API - Available cookies:",
-        allCookies.getAll().map((c: any) => c.name)
-      );
+
       return NextResponse.json({ error: "No session found" }, { status: 401 });
     }
 
@@ -46,9 +32,6 @@ export async function GET(request: NextRequest) {
       .select("role")
       .eq("id", session.user.id)
       .single();
-
-    console.log("Test API - Profile data:", profile);
-    console.log("Test API - Profile error:", profileError);
 
     return NextResponse.json({
       success: true,

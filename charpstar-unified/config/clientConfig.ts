@@ -46,7 +46,6 @@ export const fetchClientConfig = async (
   clientName: string
 ): Promise<ClientConfig> => {
   try {
-    console.log("Fetching config for client:", clientName);
     const { data, error } = await supabase
       .from("client_configs")
       .select("*")
@@ -63,7 +62,6 @@ export const fetchClientConfig = async (
       return DEFAULT_CONFIG;
     }
 
-    console.log("Fetched config for client:", clientName, data);
     // Map snake_case to camelCase
     const mapped: ClientConfig = {
       name: data.name,
@@ -104,7 +102,6 @@ export const fetchAvailableClients = async (): Promise<string[]> => {
       return [];
     }
 
-    console.log("Fetched clients:", data);
     return data.map((client) => client.name);
   } catch (err) {
     console.error("Unexpected error fetching client names:", err);

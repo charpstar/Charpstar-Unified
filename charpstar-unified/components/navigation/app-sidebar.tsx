@@ -45,12 +45,6 @@ export default function AppSidebar({
   const clientName = user?.metadata?.client_config;
 
   // Debug logging for onboarding navigation
-  console.log("Navigation Debug:", {
-    userRole: user?.metadata?.role,
-    userOnboarding: user?.metadata?.onboarding,
-    shouldHideNav:
-      user?.metadata?.role === "client" && user?.metadata?.onboarding === true,
-  });
 
   // Base navigation items - only show when user data is loaded
   const baseNavItems = user
@@ -130,6 +124,11 @@ export default function AppSidebar({
   const modelerNavItems =
     user?.metadata?.role === "modeler"
       ? [
+          {
+            title: "Pending Assignments",
+            url: "/pending-assignments",
+            icon: Package,
+          },
           {
             title: "My Assignments",
             url: "/my-assignments",

@@ -24,25 +24,18 @@ interface UseActivitiesOptions {
 }
 
 const fetcher = async (url: string) => {
-  console.log("Activity fetcher called with URL:", url);
-
   const response = await fetch(url, {
     credentials: "include", // Include cookies for authentication
   });
 
-  console.log("Activity fetcher response status:", response.status);
-
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    console.error("Activity fetcher error:", errorData);
+
     throw new Error(errorData.error || "Failed to fetch activities");
   }
 
   const data = await response.json();
-  console.log(
-    "Activity fetcher success, activities count:",
-    data.activities?.length || 0
-  );
+
   return data.activities as Activity[];
 };
 

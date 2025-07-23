@@ -273,12 +273,7 @@ export function DraggableDashboard({
   }, [user?.id, hasLoadedSavedLayout, loadUserLayout]);
 
   // Debug: Log widgets state changes
-  useEffect(() => {
-    console.log(
-      "Widgets state updated:",
-      widgets.map((w) => ({ id: w.id, visible: w.visible }))
-    );
-  }, [widgets]);
+  useEffect(() => {}, [widgets]);
 
   // Toggle widget visibility
   const toggleWidget = useCallback(
@@ -328,7 +323,6 @@ export function DraggableDashboard({
         const targetIndex = prev.findIndex((w) => w.id === targetWidgetId);
 
         if (draggedIndex === -1 || targetIndex === -1) {
-          console.error("Widget not found:", { draggedWidget, targetWidgetId });
           return prev;
         }
 

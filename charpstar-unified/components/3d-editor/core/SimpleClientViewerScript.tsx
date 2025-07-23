@@ -16,18 +16,13 @@ const SimpleClientViewerScript = ({
   const clientName = params?.id as string;
   const [scriptSrc, setScriptSrc] = useState<string | null>(null);
 
-  console.log(
-    "[SimpleClientViewerScript] Loading script for client:",
-    clientName
-  );
-
   // First fetch the client config
   useEffect(() => {
     if (!shouldLoad) return;
     const getConfig = async () => {
       if (clientName) {
         const config = await fetchClientConfig(clientName);
-        console.log("[SimpleClientViewerScript] fetched config:", config);
+
         setScriptSrc(config.scriptPath);
       }
     };
@@ -41,11 +36,8 @@ const SimpleClientViewerScript = ({
       if (!scriptSrc) return;
 
       try {
-        console.log("[SimpleClientViewerScript] Loading script:", scriptSrc);
-
         // Check if script is already loaded
         if (document.querySelector(`script[src="${scriptSrc}"]`)) {
-          console.log("[SimpleClientViewerScript] Script already loaded");
           return;
         }
 
@@ -56,9 +48,6 @@ const SimpleClientViewerScript = ({
 
         await new Promise((resolve, reject) => {
           script.onload = () => {
-            console.log(
-              "[SimpleClientViewerScript] Script loaded successfully"
-            );
             resolve(true);
           };
           script.onerror = (error) => {

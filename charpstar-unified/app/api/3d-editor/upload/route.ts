@@ -24,19 +24,10 @@ const getStorageZoneDetails = () => {
 
 export async function POST(request: NextRequest) {
   try {
-    // Log request information for debugging
-    console.log("Received upload request");
-    console.log(
-      "Request headers:",
-      Object.fromEntries(request.headers.entries())
-    );
-    console.log("Request content type:", request.headers.get("content-type"));
-
     // Parse the JSON body
     let requestBody;
     try {
       requestBody = await request.json();
-      console.log("Request body parsed successfully");
     } catch (parseError) {
       console.error("Error parsing request body:", parseError);
       return NextResponse.json(
@@ -57,11 +48,6 @@ export async function POST(request: NextRequest) {
     const resourceData = requestBody.data;
     const filename = requestBody.filename;
 
-    // Log what we're trying to process
-    console.log(
-      `Processing upload for ${filename} with data of type ${typeof resourceData}`
-    );
-
     // Validate the filename is one of our expected types
     const validFilenames = ["materials.json", "textures.json", "images.json"];
     if (!validFilenames.includes(filename)) {
@@ -78,9 +64,6 @@ export async function POST(request: NextRequest) {
     let jsonString;
     try {
       jsonString = JSON.stringify(resourceData, null, 2);
-      console.log(
-        `Successfully stringified ${filename} data, length: ${jsonString.length}`
-      );
     } catch (stringifyError) {
       console.error(`Error stringifying ${filename} data:`, stringifyError);
       return NextResponse.json(
@@ -93,7 +76,6 @@ export async function POST(request: NextRequest) {
 
     // Get storage zone details
     const { zoneName, basePath } = getStorageZoneDetails();
-    console.log(`Storage zone: ${zoneName}, base path: ${basePath}`);
 
     // Get client name from request or use default
     const clientName = requestBody.client || DEFAULT_CLIENT;
@@ -106,7 +88,6 @@ export async function POST(request: NextRequest) {
 
     // Construct the path for the file in BunnyCDN using client-specific paths
     const filePath = `${clientConfig.bunnyCdn.basePath}/${targetFolder}/${filename}`;
-    console.log(`Full file path for upload: ${filePath}`);
 
     // Upload to BunnyCDN
     const uploadPromise = new Promise((resolve, reject) => {
@@ -121,8 +102,6 @@ export async function POST(request: NextRequest) {
         },
       };
 
-      console.log(`Uploading to: ${options.host}${options.path}`);
-
       const req = https.request(options, (res) => {
         let data = "";
 
@@ -131,9 +110,6 @@ export async function POST(request: NextRequest) {
         });
 
         res.on("end", () => {
-          console.log(`Upload response status: ${res.statusCode}`);
-          console.log(`Upload response data: ${data}`);
-
           if (res.statusCode === 200 || res.statusCode === 201) {
             resolve({ success: true });
           } else {
@@ -149,16 +125,12 @@ export async function POST(request: NextRequest) {
         reject(error);
       });
 
-      // Log right before writing data
-      console.log(`Writing ${buffer.length} bytes of data to request`);
       req.write(buffer);
       req.end();
-      console.log("Request ended");
     });
 
     try {
       await uploadPromise;
-      console.log("Upload completed successfully");
     } catch (uploadError: unknown) {
       console.error("Error during upload:", uploadError);
 
@@ -186,7 +158,7 @@ export async function POST(request: NextRequest) {
     const fileUrl = `https://${BUNNY_PULL_ZONE_URL}/${filePath}`;
 
     // Purge the cache for this file
-    console.log(`Purging cache for: ${fileUrl}`);
+
     try {
       const purgeResponse = await fetch(
         "https://api.bunny.net/purge?async=false",
@@ -206,14 +178,12 @@ export async function POST(request: NextRequest) {
           `Cache purge warning: ${purgeResponse.status} - ${errorText}`
         );
       } else {
-        console.log("Cache purge successful");
       }
     } catch (purgeError) {
       console.error("Error purging cache:", purgeError);
       // Continue even if purge fails
     }
 
-    console.log("Successfully completed entire upload process");
     return NextResponse.json({
       success: true,
       message: `File ${filename} uploaded and cache purged`,

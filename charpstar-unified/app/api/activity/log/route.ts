@@ -12,9 +12,6 @@ export async function POST(request: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession();
 
-    console.log("Session user ID:", session?.user?.id);
-    console.log("Session user email:", session?.user?.email);
-
     // Get the user's profile ID
     let profileId = null;
     let userEmail = session?.user?.email || null;
@@ -63,8 +60,6 @@ export async function POST(request: NextRequest) {
       metadata: metadata || null,
     };
 
-    console.log("Inserting activity data:", activityData);
-
     const { data, error } = await supabase
       .from("activity_log")
       .insert(activityData)
@@ -78,8 +73,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    console.log("Activity logged successfully:", data);
 
     return NextResponse.json({
       success: true,
@@ -106,10 +99,6 @@ export async function GET(request: NextRequest) {
 
     // For now, allow access even without session for testing
     // In production, you'd want to check for session here
-    console.log(
-      "Fetching activities, user:",
-      session?.user?.email || "anonymous"
-    );
 
     // Get query parameters
     const { searchParams } = new URL(request.url);

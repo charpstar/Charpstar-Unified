@@ -57,15 +57,6 @@ export default function AssetCard({
     }
   }, [asset.preview_image]);
 
-  // Debug logging
-  console.log("AssetCard Debug:", {
-    assetId: asset.id,
-    previewImage: asset.preview_image,
-    previewImageType: typeof asset.preview_image,
-    previewImageLength: asset.preview_image?.length,
-    imgLoaded,
-  });
-
   return (
     <motion.div
       initial={{ y: 15, opacity: 0 }}

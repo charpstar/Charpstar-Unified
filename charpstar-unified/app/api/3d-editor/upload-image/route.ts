@@ -101,8 +101,6 @@ export async function POST(request: NextRequest) {
       // Add the filename
       filePath += filename;
 
-      console.log(`Target upload path: ${filePath}`);
-
       // Read the file from the temporary location
       const fileBuffer = fs.readFileSync(filepath);
 
@@ -118,8 +116,6 @@ export async function POST(request: NextRequest) {
             "Content-Length": fileBuffer.length,
           },
         };
-
-        console.log(`Uploading image to: ${options.host}${options.path}`);
 
         const req = https.request(options, (res) => {
           let data = "";
@@ -159,7 +155,6 @@ export async function POST(request: NextRequest) {
 
       // Purge the cache for this file
       try {
-        console.log(`Purging cache for: ${fileUrl}`);
         const purgeResponse = await fetch(
           "https://api.bunny.net/purge?async=false",
           {
@@ -178,7 +173,6 @@ export async function POST(request: NextRequest) {
             `Cache purge warning: ${purgeResponse.status} - ${errorText}`
           );
         } else {
-          console.log("Cache purge successful");
         }
       } catch (purgeError) {
         console.error("Error purging cache:", purgeError);

@@ -329,7 +329,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("fileName", file.name);
-    console.log("Uploading manual preview image to Bunny CDN:", file.name);
+
     fetch("/api/upload", {
       method: "POST",
       body: formData,
@@ -342,7 +342,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           copy[idx].preview_image = url;
           return copy;
         });
-        console.log("Manual preview image uploaded to Bunny CDN:", url);
       })
       .catch((error) => {
         console.error("Manual preview image upload error:", error);
@@ -453,11 +452,9 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
     try {
       const supabase = createClient();
       const results = [];
-      console.log("Starting batch asset upload. Rows:", rows.length);
+
       for (const row of rows) {
-        console.log("Processing row:", row);
         if (!row.product_name || !row.category || !row.client) {
-          console.log("Skipping row - missing required fields:", row);
           continue;
         }
         let glb_url = row.glb_link;
@@ -465,7 +462,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         let preview_image_url = row.preview_image;
         // Handle 3D file upload (GLB files)
         if (row.glb_file) {
-          console.log("Uploading 3D file:", row.glb_file.name);
           try {
             const fileExtension = row.glb_file.name
               .split(".")
@@ -490,7 +486,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
             const fileBuffer = await row.glb_file.arrayBuffer();
             const fileName = `${row.article_id}_${Date.now()}.${fileExtension}`;
             const filePath = `models/${fileName}`;
-            console.log("Uploading 3D file to Supabase Storage:", filePath);
+
             const { error: uploadError } = await supabase.storage
               .from("assets")
               .upload(filePath, fileBuffer, {
@@ -510,7 +506,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
             } else if (!glb_url) {
               glb_url = urlData.publicUrl;
             }
-            console.log("3D file uploaded. Public URL:", urlData.publicUrl);
           } catch (error) {
             console.error("Error uploading 3D file:", error);
             toast({
@@ -525,10 +520,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         }
         // Handle preview image upload (should already be a URL)
         if (preview_image_url && typeof preview_image_url !== "string") {
-          console.log(
-            "Uploading preview image file to Bunny CDN:",
-            preview_image_url.name
-          );
           const formData = new FormData();
           formData.append("file", preview_image_url);
           formData.append("fileName", preview_image_url.name);
@@ -547,17 +538,8 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           }
           const { url } = await response.json();
           preview_image_url = url;
-          console.log("Preview image uploaded to Bunny CDN. URL:", url);
         }
-        console.log("Inserting asset into database:", {
-          product_name: row.product_name,
-          category: row.category,
-          client: row.client,
-          article_id: row.article_id,
-          glb_url,
-          zip_url,
-          preview_image_url,
-        });
+
         const { data, error } = await supabase
           .from("assets")
           .insert([
@@ -589,7 +571,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           console.error("Database error:", error);
           throw error;
         }
-        console.log("Successfully inserted row:", data);
 
         // Log the asset upload activity
         await ActivityLogger.assetUploaded(row.product_name, data.id);
@@ -777,7 +758,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("fileName", `${row.article_id || "preview"}_preview.png`);
-      console.log("Uploading generated preview image to Bunny CDN:", file.name);
+
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
@@ -791,7 +772,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         copy[rowIdx].preview_image = url;
         return copy;
       });
-      console.log("Generated preview image uploaded to Bunny CDN:", url);
+
       toast({
         title: "Success",
         description: "Preview image generated and uploaded",

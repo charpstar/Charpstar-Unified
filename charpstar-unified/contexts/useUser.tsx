@@ -31,9 +31,6 @@ export const UserProvider = ({ children }: React.PropsWithChildren<{}>) => {
 
     // Listen for avatar update events
     const handleAvatarUpdate = () => {
-      console.log(
-        "UserProvider: Received avatarUpdated event, refetching user metadata"
-      );
       fetchUser();
     };
 

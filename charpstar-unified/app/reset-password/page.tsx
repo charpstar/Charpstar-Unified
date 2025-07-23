@@ -20,11 +20,8 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        console.log("Initializing auth for password reset...");
-
         // Get the hash fragment from the URL
         const hashFragment = window.location.hash;
-        console.log("Hash fragment:", hashFragment);
 
         if (hashFragment) {
           // Remove the # and parse the parameters
@@ -33,21 +30,12 @@ export default function ResetPasswordPage() {
           const accessToken = params.get("access_token");
           const refreshToken = params.get("refresh_token");
 
-          console.log(
-            "Hash params - type:",
-            type,
-            "accessToken:",
-            accessToken ? "present" : "missing"
-          );
-
           if (type === "recovery" && accessToken) {
             // Set the session using the access token
             const { data, error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken || "",
             });
-
-            console.log("Session set result:", { data, error });
 
             if (error) {
               console.error("Error setting session:", error);
@@ -60,17 +48,9 @@ export default function ResetPasswordPage() {
           const type = searchParams.get("type");
           const code = searchParams.get("code");
 
-          console.log(
-            "Query params - type:",
-            type,
-            "code:",
-            code ? "present" : "missing"
-          );
-
           if (type === "recovery" && code) {
             const { data, error } =
               await supabase.auth.exchangeCodeForSession(code);
-            console.log("Code exchange result:", { data, error });
 
             if (error) {
               console.error("Error exchanging code for session:", error);
@@ -84,7 +64,6 @@ export default function ResetPasswordPage() {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        console.log("Final session check:", session ? "valid" : "invalid");
 
         if (!session) {
           setError(
@@ -118,13 +97,9 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      console.log("Submitting password reset form...");
-
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
-      console.log("Current session:", session ? "valid" : "invalid");
 
       if (!session) {
         console.error("No session found during password reset");
@@ -134,7 +109,6 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      console.log("Updating user password...");
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
@@ -142,7 +116,6 @@ export default function ResetPasswordPage() {
         throw error;
       }
 
-      console.log("Password updated successfully");
       setMessage("Password updated successfully! Redirecting to login...");
 
       // Sign out the user after password reset

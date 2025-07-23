@@ -88,7 +88,6 @@ export async function POST(request: NextRequest) {
     if (profileError) {
       console.error("Error updating profiles table:", profileError);
     } else {
-      console.log("Profiles table updated successfully:", profileData);
     }
 
     return NextResponse.json({

@@ -54,11 +54,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  console.log("=== INVITATION API CALLED ===");
   try {
     const cookieStore = cookies();
     const supabase = createServerClient(cookieStore);
-    console.log("✅ Server client created");
 
     // Get current user
     const {
@@ -139,13 +137,6 @@ export async function POST(request: NextRequest) {
 
     // Send invitation using Supabase Auth
     try {
-      console.log("Attempting to send Supabase invitation to:", email);
-      console.log("Invitation data:", {
-        client_name,
-        role,
-        invitation_id: invitation.id,
-      });
-
       const adminClient = createAdminClient();
       const { data: inviteData, error: inviteError } =
         await adminClient.auth.admin.inviteUserByEmail(email, {
@@ -170,11 +161,6 @@ export async function POST(request: NextRequest) {
           .update({ status: "failed" })
           .eq("id", invitation.id);
       } else {
-        console.log("Supabase invitation sent successfully:", inviteData);
-        console.log("Invitation response:", {
-          user: inviteData.user,
-          userEmail: inviteData.user?.email,
-        });
       }
     } catch (emailError) {
       console.error("Error sending invitation email:", emailError);
@@ -266,10 +252,6 @@ export async function DELETE(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    console.log(
-      `Invitation ${invitationId} for ${invitation.email} deleted successfully`
-    );
 
     return NextResponse.json({
       success: true,

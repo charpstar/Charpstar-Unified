@@ -24,11 +24,6 @@ export async function PUT(request: Request) {
         updateError.message.includes("No rows found") ||
         updateError.code === "PGRST116"
       ) {
-        console.log(
-          "Profile not found, creating new profile with avatar for user:",
-          user_id
-        );
-
         const { data: newProfile, error: createError } = await supabaseAdmin
           .from("profiles")
           .insert([
@@ -98,11 +93,6 @@ export async function GET(request: Request) {
         profileError.message.includes("No rows found") ||
         profileError.code === "PGRST116"
       ) {
-        console.log(
-          "Profile not found, creating new profile for user:",
-          user_id
-        );
-
         const { data: newProfile, error: createError } = await supabaseAdmin
           .from("profiles")
           .insert([

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -107,6 +107,7 @@ interface ModelerProgress {
 
 export default function ProductionDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [batches, setBatches] = useState<BatchProgress[]>([]);
   const [filteredBatches, setFilteredBatches] = useState<BatchProgress[]>([]);
   const [modelers, setModelers] = useState<ModelerProgress[]>([]);
@@ -114,10 +115,51 @@ export default function ProductionDashboard() {
     []
   );
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [clientFilter, setClientFilter] = useState("all");
-  const [sortBy, setSortBy] = useState<string>("client-batch-stable");
-  const [viewMode, setViewMode] = useState<"batches" | "modelers">("batches");
+
+  // Get state from URL params with defaults
+  const searchTerm = searchParams.get("search") || "";
+  const clientFilter = searchParams.get("client") || "all";
+  const sortBy = searchParams.get("sort") || "client-batch-stable";
+
+  // Get view mode from URL params, default to "batches"
+  const viewMode =
+    (searchParams.get("view") as "batches" | "modelers") || "batches";
+
+  // Function to handle view mode changes and update URL
+  const handleViewModeChange = (newViewMode: "batches" | "modelers") => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", newViewMode);
+    router.push(`/production?${params.toString()}`);
+  };
+
+  // Function to handle search term changes and update URL
+  const handleSearchChange = (newSearchTerm: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (newSearchTerm) {
+      params.set("search", newSearchTerm);
+    } else {
+      params.delete("search");
+    }
+    router.push(`/production?${params.toString()}`);
+  };
+
+  // Function to handle client filter changes and update URL
+  const handleClientFilterChange = (newClientFilter: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (newClientFilter !== "all") {
+      params.set("client", newClientFilter);
+    } else {
+      params.delete("client");
+    }
+    router.push(`/production?${params.toString()}`);
+  };
+
+  // Function to handle sort changes and update URL
+  const handleSortChange = (newSortBy: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("sort", newSortBy);
+    router.push(`/production?${params.toString()}`);
+  };
 
   useEffect(() => {
     document.title = "CharpstAR Platform - Production Dashboard";
@@ -760,14 +802,14 @@ export default function ProductionDashboard() {
   return (
     <div className="flex flex-1 flex-col p-4 sm:p-6">
       {/* Header */}
-      <div className="flex justify-center items-center mb-8 text-center">
+      <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-4">
           {/* View Toggle */}
           <div className="flex items-center font-bold text-2xl gap-2 bg-muted rounded-lg p-1">
             <Button
               variant={viewMode === "batches" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setViewMode("batches")}
+              onClick={() => handleViewModeChange("batches")}
               className="text-xs"
             >
               <TrendingUp className="h-4 w-4 mr-1" />
@@ -776,13 +818,24 @@ export default function ProductionDashboard() {
             <Button
               variant={viewMode === "modelers" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setViewMode("modelers")}
+              onClick={() => handleViewModeChange("modelers")}
               className="text-xs"
             >
               <Building className="h-4 w-4 mr-1" />
               Modelers
             </Button>
           </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => router.push("/production/allocate")}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <Package className="h-4 w-4 mr-2" />
+            Allocate Assets
+          </Button>
         </div>
       </div>
 
@@ -797,7 +850,7 @@ export default function ProductionDashboard() {
                 : "Search modelers..."
             }
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -805,7 +858,10 @@ export default function ProductionDashboard() {
           {viewMode === "batches" && (
             <>
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={clientFilter} onValueChange={setClientFilter}>
+              <Select
+                value={clientFilter}
+                onValueChange={handleClientFilterChange}
+              >
                 <SelectTrigger className="w-48">
                   <SelectValue>
                     {clientFilter === "all" ? "All Clients" : clientFilter}
@@ -824,7 +880,7 @@ export default function ProductionDashboard() {
               </Select>
             </>
           )}
-          <Select value={sortBy} onValueChange={setSortBy}>
+          <Select value={sortBy} onValueChange={handleSortChange}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Sort by..." />
             </SelectTrigger>
@@ -1407,8 +1463,8 @@ export default function ProductionDashboard() {
           <Button
             variant="outline"
             onClick={() => {
-              setSearchTerm("");
-              setClientFilter("all");
+              handleSearchChange("");
+              handleClientFilterChange("all");
             }}
           >
             Clear Filters

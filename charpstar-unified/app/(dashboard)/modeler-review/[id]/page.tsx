@@ -191,7 +191,6 @@ export default function ModelerReviewPage() {
           } else if (data.reference) {
             refs = [data.reference];
           }
-          console.log("Reference images loaded:", refs);
           setReferenceImages(refs);
         }
 
@@ -487,6 +486,29 @@ export default function ModelerReviewPage() {
   };
 
   // Update asset status
+  // Helper function to update modeler's end time when asset is completed
+  const updateModelerEndTime = async (assetId: string) => {
+    try {
+      const { error: assignmentError } = await supabase
+        .from("asset_assignments")
+        .update({
+          end_time: new Date().toISOString(),
+        })
+        .eq("asset_id", assetId)
+        .eq("role", "modeler");
+
+      if (assignmentError) {
+        console.error("Error updating modeler end time:", assignmentError);
+        return false;
+      } else {
+        return true;
+      }
+    } catch (assignmentError) {
+      console.error("Error updating modeler end time:", assignmentError);
+      return false;
+    }
+  };
+
   const updateAssetStatus = async (newStatus: string) => {
     if (!asset) return;
 
@@ -499,6 +521,11 @@ export default function ModelerReviewPage() {
 
       if (error) {
         throw error;
+      }
+
+      // If status is delivered_by_artist (completed), update the modeler's end time
+      if (newStatus === "delivered_by_artist") {
+        await updateModelerEndTime(asset.id);
       }
 
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
@@ -986,12 +1013,7 @@ export default function ModelerReviewPage() {
                 {(() => {
                   const imageFiles = referenceImages.filter((url) => {
                     const fileName = url.split("/").pop() || "";
-                    console.log(
-                      "Processing reference file:",
-                      fileName,
-                      "URL:",
-                      url
-                    );
+
                     const lowerFileName = fileName.toLowerCase();
                     return (
                       !lowerFileName.endsWith(".glb") &&
@@ -1029,16 +1051,9 @@ export default function ModelerReviewPage() {
                         {imageFiles.length > 0 ? (
                           <div className="space-y-4">
                             {imageFiles.map((imageUrl, index) => {
-                              console.log("Rendering image:", imageUrl);
-
                               // Test if image is accessible
                               fetch(imageUrl, { method: "HEAD" })
-                                .then((response) => {
-                                  console.log(
-                                    `Image ${imageUrl.split("/").pop()} status:`,
-                                    response.status
-                                  );
-                                })
+                                .then((response) => {})
                                 .catch((error) => {
                                   console.error(
                                     `Image ${imageUrl.split("/").pop()} fetch error:`,
@@ -1074,23 +1089,8 @@ export default function ModelerReviewPage() {
                                           onClick={() =>
                                             window.open(imageUrl, "_blank")
                                           }
-                                          onLoad={(e) => {
-                                            console.log(
-                                              "Successfully loaded image:",
-                                              imageUrl
-                                            );
-                                            console.log(
-                                              "Image dimensions:",
-                                              e.currentTarget.naturalWidth,
-                                              "x",
-                                              e.currentTarget.naturalHeight
-                                            );
-                                            console.log(
-                                              "Image element:",
-                                              e.currentTarget
-                                            );
-                                          }}
-                                          onError={(e) => {
+                                          onLoad={(e) => {}}
+                                          onError={() => {
                                             console.error(
                                               "Failed to load image:",
                                               imageUrl

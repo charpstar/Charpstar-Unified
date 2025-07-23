@@ -51,10 +51,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the assignment for audit purposes
-    console.log(
-      `Assigned ${createdAssignments.length} users to client ${clientName}:`,
-      createdAssignments.map((a) => a.user_id)
-    );
 
     return NextResponse.json({
       success: true,

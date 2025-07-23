@@ -36,8 +36,6 @@ interface ActivityLogData {
 // Server-side activity logging function for API routes
 export async function logActivityServer(data: ActivityLogData): Promise<void> {
   try {
-    console.log("Server activity logger called with data:", data);
-
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
@@ -46,9 +44,6 @@ export async function logActivityServer(data: ActivityLogData): Promise<void> {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession();
-
-    console.log("Session data:", session);
-    console.log("Session error:", sessionError);
 
     // Get the user's profile ID
     let profileId = null;
@@ -65,7 +60,6 @@ export async function logActivityServer(data: ActivityLogData): Promise<void> {
         console.error("Error fetching profile:", profileError);
       } else {
         profileId = profile.id;
-        console.log("Profile found:", profile);
       }
     }
 
@@ -73,13 +67,6 @@ export async function logActivityServer(data: ActivityLogData): Promise<void> {
     if (!userEmail && data.metadata?.user_email) {
       userEmail = data.metadata.user_email;
     }
-
-    console.log(
-      "Final user data - profileId:",
-      profileId,
-      "userEmail:",
-      userEmail
-    );
 
     // Insert activity with user ID and email directly in the table
     const activityData = {
@@ -93,14 +80,11 @@ export async function logActivityServer(data: ActivityLogData): Promise<void> {
       metadata: data.metadata || null,
     };
 
-    console.log("Inserting activity data:", activityData);
-
     const { error } = await supabase.from("activity_log").insert(activityData);
 
     if (error) {
       console.error("Error logging activity:", error);
     } else {
-      console.log("Activity logged successfully to database");
     }
   } catch (error) {
     console.error("Error in server activity logging:", error);

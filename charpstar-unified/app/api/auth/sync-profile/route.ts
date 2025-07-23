@@ -36,15 +36,6 @@ export async function POST(request: NextRequest) {
       user = authUser;
     }
 
-    console.log("Syncing profile for user:", user.id);
-    console.log("Profile data:", {
-      title,
-      phoneNumber,
-      discordName,
-      softwareExperience,
-      modelTypes,
-    });
-
     // Use admin client to bypass RLS for profile sync
     const adminClient = createAdminClient();
 

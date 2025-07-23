@@ -3,8 +3,6 @@ import { createAdminClient } from "@/utils/supabase/admin";
 
 export async function GET() {
   try {
-    console.log("=== TESTING ADMIN CLIENT ===");
-
     const adminClient = createAdminClient();
 
     // Test basic connection
@@ -12,8 +10,6 @@ export async function GET() {
       .from("profiles")
       .select("id, email")
       .limit(1);
-
-    console.log("Admin client test:", { testData, testError });
 
     if (testError) {
       return NextResponse.json(

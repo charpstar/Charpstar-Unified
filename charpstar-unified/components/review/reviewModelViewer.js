@@ -27,13 +27,9 @@ const ReviewModelViewer = ({ onModelLoaded, modelSrc: initialModelSrc }) => {
     const modelViewer = document.getElementById("model-viewer");
     if (modelViewer) {
       const handleLoad = () => {
-        console.log("Model loaded");
-
         // Set the custom property directly on the DOM element
         window.modelViewerElement = modelViewer;
         window.currentFileName = fileNameRef.current;
-
-        console.log("Stored filename in global variable:", fileNameRef.current);
 
         if (onModelLoaded) {
           // Give a small delay to ensure the model is fully processed
@@ -61,8 +57,6 @@ const ReviewModelViewer = ({ onModelLoaded, modelSrc: initialModelSrc }) => {
       // Store the original filename without extension
       const originalFileName = file.name.replace(/\.[^/.]+$/, "");
       fileNameRef.current = originalFileName;
-
-      console.log("File dropped - storing filename:", originalFileName);
 
       const url = URL.createObjectURL(file);
       setModelSrc(url);

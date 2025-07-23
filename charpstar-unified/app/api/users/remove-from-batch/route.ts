@@ -54,10 +54,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the removal for audit purposes
-    console.log(
-      `Removed ${userIds.length} users from batch ${batchNumber} for client ${clientName}:`,
-      userIds
-    );
 
     return NextResponse.json({
       success: true,

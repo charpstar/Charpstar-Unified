@@ -3,8 +3,6 @@ import { createAdminClient } from "@/utils/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("=== TESTING PROFILES TABLE UPDATE ===");
-
     const body = await request.json();
     const {
       userId,
@@ -21,8 +19,6 @@ export async function POST(request: NextRequest) {
       country,
       portfolioLinks,
     } = body;
-
-    console.log("Test payload:", body);
 
     const adminClient = createAdminClient();
 
@@ -47,8 +43,6 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .select();
-
-    console.log("Profile update result:", { profileData, profileError });
 
     if (profileError) {
       return NextResponse.json(

@@ -22,34 +22,28 @@ const getStorageZoneDetails = () => {
 // Helper to filter valid model filenames
 // Exclude files with lowercase characters, spaces, underscores, or "ANIM" in the name
 const isValidModelFilename = (filename: string): boolean => {
-  console.log(`Checking filename: ${filename}`);
-
   // Check for lowercase characters
   if (/[a-z]/.test(filename)) {
-    console.log(`- Rejected: contains lowercase characters`);
     return false;
   }
 
   // Check for spaces
   if (filename.includes(" ")) {
-    console.log(`- Rejected: contains spaces`);
     return false;
   }
 
   // Check for underscores
   if (filename.includes("_")) {
-    console.log(`- Rejected: contains underscores`);
     return false;
   }
 
   // Check for "ANIM" in the name
   if (filename.includes("ANIM")) {
-    console.log(`- Rejected: contains "ANIM"`);
     return false;
   }
 
   // File passed all checks
-  console.log(`- Accepted: passed all filters`);
+
   return true;
 };
 
@@ -68,8 +62,6 @@ const fetchFilesFromBunnyCDN = async (path: string): Promise<string[]> => {
       },
     };
 
-    console.log(`Fetching files from: ${options.host}${options.path}`);
-
     const req = https.request(options, (res) => {
       let data = "";
 
@@ -87,35 +79,19 @@ const fetchFilesFromBunnyCDN = async (path: string): Promise<string[]> => {
               return reject(new Error("Invalid response format from BunnyCDN"));
             }
 
-            console.log(`Total files found: ${files.length}`);
-
             // First filter only .gltf files
             const gltfFiles = files.filter(
               (file: any) =>
                 file.IsDirectory === false && file.ObjectName.endsWith(".gltf")
             );
 
-            console.log(`Total GLTF files found: ${gltfFiles.length}`);
-
-            // Log all GLTF files for debugging
-            gltfFiles.forEach((file: any) => {
-              console.log(`GLTF file: ${file.ObjectName}`);
-            });
-
             // Then apply our custom filename filter
             const validGltfFiles = gltfFiles
               .filter((file: any) => isValidModelFilename(file.ObjectName))
               .map((file: any) => file.ObjectName);
 
-            console.log(
-              `Valid GLTF files after filtering: ${validGltfFiles.length}`
-            );
-
             // If no valid files found, let's try a more permissive filter for debugging
             if (validGltfFiles.length === 0 && gltfFiles.length > 0) {
-              console.log(
-                "No files passed the filter. Returning all GLTF files for debugging."
-              );
               resolve(gltfFiles.map((file: any) => file.ObjectName));
             } else {
               resolve(validGltfFiles);
@@ -152,15 +128,10 @@ const getClientModels = async (clientName: string): Promise<string[]> => {
     const clientConfig = await fetchClientConfig(clientName);
     const basePath = clientConfig.bunnyCdn.basePath;
 
-    console.log(
-      `Fetching models for client ${clientName} from path: ${basePath}`
-    );
-
     // Fetch all files from the client's base path in BunnyCDN
     const models = await fetchFilesFromBunnyCDN(basePath);
 
     // Log the models for debugging
-    console.log(`Returning ${models.length} models:`, models);
 
     return models;
   } catch (error) {
@@ -184,11 +155,6 @@ export async function GET(request: NextRequest) {
     }
 
     const models = await getClientModels(clientName);
-
-    // Log the response for debugging
-    console.log(
-      `API returning ${models.length} models for client ${clientName}`
-    );
 
     // Return just the array of models to maintain compatibility with existing code
     return NextResponse.json(models);

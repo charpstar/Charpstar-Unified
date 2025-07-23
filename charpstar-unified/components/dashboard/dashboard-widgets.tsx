@@ -586,13 +586,6 @@ export function ActivityWidget() {
     return iconMap[iconName] || Activity;
   };
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log("ActivityWidget - activities:", activities);
-    console.log("ActivityWidget - isLoading:", isLoading);
-    console.log("ActivityWidget - error:", error);
-  }, [activities, isLoading, error]);
-
   if (isLoading) {
     return (
       <WidgetContainer>

@@ -9,12 +9,6 @@ import { fetchClientConfig } from "@/config/clientConfig";
 export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
   const params = useParams();
   const clientName = params?.id;
-  console.log(
-    "[ModelViewer] Initializing with client:",
-    clientName,
-    "clientModelUrl:",
-    clientModelUrl
-  );
 
   const [modelSrc, setModelSrc] = useState(clientModelUrl || null);
   const [isClient, setIsClient] = useState(false);
@@ -50,7 +44,6 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
     const checkScript = () => {
       const scriptSrc = clientConfig.scriptPath;
       const isLoaded = !!document.querySelector(`script[src="${scriptSrc}"]`);
-      console.log("[ModelViewer] Script loaded check:", isLoaded);
 
       if (isLoaded) {
         setScriptLoaded(true);
@@ -82,17 +75,12 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
   }, [clientConfig]);
 
   useEffect(() => {
-    console.log("[ModelViewer] Setting isClient to true");
     setIsClient(true);
   }, []);
 
   // Update modelSrc when clientModelUrl changes
   useEffect(() => {
     if (clientModelUrl) {
-      console.log(
-        "[ModelViewer] Updating modelSrc with clientModelUrl:",
-        clientModelUrl
-      );
       setModelSrc(clientModelUrl);
       modelLoadedRef.current = false;
       retryCountRef.current = 0;
@@ -104,9 +92,6 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
     try {
       const initialized = initializeModelViewer(modelViewer);
       if (initialized) {
-        console.log(
-          "[ModelViewer] Successfully initialized model viewer functions"
-        );
         return true;
       } else {
         console.warn("[ModelViewer] Model viewer initialization returned null");
@@ -120,27 +105,12 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
 
   // Effect to handle model load event with improved error handling
   useEffect(() => {
-    console.log(
-      "[ModelViewer] Model load effect triggered. isClient:",
-      isClient,
-      "modelSrc:",
-      modelSrc,
-      "scriptLoaded:",
-      scriptLoaded,
-      "modelViewerReady:",
-      modelViewerReady
-    );
-
     if (!isClient || !modelSrc || !scriptLoaded || !modelViewerReady) {
-      console.log(
-        "[ModelViewer] Skipping model load setup - missing dependencies"
-      );
       return;
     }
 
     const setupModelViewer = () => {
       const modelViewer = document.getElementById("model-viewer");
-      console.log("[ModelViewer] Found model-viewer element:", !!modelViewer);
 
       if (!modelViewer) {
         console.warn("[ModelViewer] Model viewer element not found");
@@ -153,8 +123,6 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
       }
 
       const handleLoad = () => {
-        console.log("[ModelViewer] Model load event triggered");
-
         // Clear any pending timeouts
         if (initializationTimeoutRef.current) {
           clearTimeout(initializationTimeoutRef.current);
@@ -163,7 +131,6 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
         // Store references
         window.modelViewerElement = modelViewer;
         window.currentFileName = fileNameRef.current;
-        console.log("[ModelViewer] Stored global references");
 
         // Initialize with retry logic
         const initSuccess = initializeModelViewerWithRetry(modelViewer);
@@ -174,7 +141,6 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
           // Set a small delay to ensure the model is fully processed
           setTimeout(() => {
             if (onModelLoaded && !modelLoadedRef.current) {
-              console.log("[ModelViewer] Triggering onModelLoaded callback");
               modelLoadedRef.current = true;
               onModelLoaded();
             }
@@ -183,9 +149,6 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
           // Retry initialization if it failed
           if (retryCountRef.current < maxRetries) {
             retryCountRef.current++;
-            console.log(
-              `[ModelViewer] Retrying initialization (${retryCountRef.current}/${maxRetries})`
-            );
 
             initializationTimeoutRef.current = setTimeout(() => {
               const retrySuccess = initializeModelViewerWithRetry(modelViewer);
@@ -195,9 +158,6 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
 
                 setTimeout(() => {
                   if (onModelLoaded && !modelLoadedRef.current) {
-                    console.log(
-                      "[ModelViewer] Triggering onModelLoaded callback after retry"
-                    );
                     modelLoadedRef.current = true;
                     onModelLoaded();
                   }
@@ -217,12 +177,7 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
         modelLoadedRef.current = false;
       };
 
-      const handleProgress = (event) => {
-        console.log(
-          "[ModelViewer] Loading progress:",
-          event.detail.totalProgress
-        );
-      };
+      const handleProgress = (event) => {};
 
       // Remove existing listeners to prevent duplicates
       modelViewer.removeEventListener("load", handleLoad);

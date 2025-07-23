@@ -232,8 +232,6 @@ export default function ReviewPage() {
 
       const { data, error } = await query.single();
 
-      console.log("Asset response:", { data, error });
-
       if (error) {
         console.error("Error fetching asset:", error);
         toast.error("Failed to load asset");
@@ -241,7 +239,6 @@ export default function ReviewPage() {
       }
 
       setAsset(data);
-      console.log("Asset set:", data?.product_name);
 
       // Set revision count
       setRevisionCount(data.revision_count || 0);
@@ -293,15 +290,11 @@ export default function ReviewPage() {
       if (!assetId) return;
 
       try {
-        console.log("Fetching annotations for asset:", assetId);
         const response = await fetch(`/api/annotations?asset_id=${assetId}`);
         const data = await response.json();
 
-        console.log("Annotations response:", response.status, data);
-
         if (response.ok) {
           setAnnotations(data.annotations || []);
-          console.log("Annotations set:", data.annotations?.length || 0);
         } else {
           console.error("Error fetching annotations:", data.error);
         }
@@ -319,7 +312,6 @@ export default function ReviewPage() {
       if (!assetId) return;
 
       try {
-        console.log("Fetching comments for asset:", assetId);
         const { data, error } = await supabase
           .from("asset_comments")
           .select(
@@ -335,13 +327,10 @@ export default function ReviewPage() {
           .eq("asset_id", assetId)
           .order("created_at", { ascending: false });
 
-        console.log("Comments response:", { data, error });
-
         if (error) {
           console.error("Error fetching comments:", error);
         } else {
           setComments(data || []);
-          console.log("Comments set:", data?.length || 0);
         }
       } catch (error) {
         console.error("Error fetching comments:", error);
@@ -376,9 +365,7 @@ export default function ReviewPage() {
 
   // Handle model load
   const handleModelLoaded = () => {
-    console.log("handleModelLoaded called");
     setModelLoaded(true);
-    console.log("Model loaded successfully, modelLoaded set to true");
   };
 
   // Set up dimension system (like asset library)
@@ -394,7 +381,6 @@ export default function ReviewPage() {
     }
 
     const handleLoad = () => {
-      console.log("Model load event fired");
       setModelLoaded(true);
       if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
         initializeDimensions(modelViewer);
@@ -409,7 +395,6 @@ export default function ReviewPage() {
 
     // Check if model is already loaded
     if (modelViewer.model) {
-      console.log("Model already loaded, setting state");
       setModelLoaded(true);
       if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
         initializeDimensions(modelViewer);
@@ -538,7 +523,6 @@ export default function ReviewPage() {
       const dimLines = modelViewer.querySelector("#dimLines");
       if (dimLines) {
         dimLines.classList.add("hide");
-        console.log("Hidden dimLines element");
       }
 
       // Also hide all dimension hotspots by default
@@ -548,7 +532,6 @@ export default function ReviewPage() {
         modelViewer.querySelector("#dimLines"),
       ];
 
-      console.log("Hiding dimension elements:", dimElements.length);
       dimElements.forEach((element) => {
         if (element) {
           element.classList.add("hide");
@@ -634,10 +617,6 @@ export default function ReviewPage() {
   // Handle dimensions toggle (like asset library)
   const handleDimensionsToggle = () => {
     const newShowDimensions = !showDimensions;
-    console.log("Toggle dimensions:", {
-      current: showDimensions,
-      new: newShowDimensions,
-    });
     setShowDimensions(newShowDimensions);
 
     if (modelViewerRef.current) {
@@ -655,7 +634,6 @@ export default function ReviewPage() {
       ];
 
       function setVisibility(visible: boolean) {
-        console.log("Setting dimension visibility:", visible);
         dimElements.forEach((element) => {
           if (element) {
             if (visible) {
@@ -681,8 +659,6 @@ export default function ReviewPage() {
     y: number;
     z: number;
   }) => {
-    console.log("Creating hotspot at position:", position);
-
     // Create a temporary annotation that appears instantly
     const tempAnnotation: Annotation = {
       id: `temp-${Date.now()}`, // Temporary ID
@@ -694,13 +670,9 @@ export default function ReviewPage() {
       created_at: new Date().toISOString(),
     };
 
-    console.log("Created temp annotation:", tempAnnotation);
-
     // Add to annotations list immediately (will be replaced when saved)
     setAnnotations((prev) => {
-      console.log("Previous annotations:", prev);
       const newAnnotations = [...prev, tempAnnotation];
-      console.log("New annotations:", newAnnotations);
       return newAnnotations;
     });
     setSelectedAnnotation(tempAnnotation);
@@ -1131,6 +1103,29 @@ export default function ReviewPage() {
     }
   };
 
+  // Helper function to update modeler's end time when asset is approved
+  const updateModelerEndTime = async (assetId: string) => {
+    try {
+      const { error: assignmentError } = await supabase
+        .from("asset_assignments")
+        .update({
+          end_time: new Date().toISOString(),
+        })
+        .eq("asset_id", assetId)
+        .eq("role", "modeler");
+
+      if (assignmentError) {
+        console.error("Error updating modeler end time:", assignmentError);
+        return false;
+      } else {
+        return true;
+      }
+    } catch (assignmentError) {
+      console.error("Error updating modeler end time:", assignmentError);
+      return false;
+    }
+  };
+
   const updateAssetStatus = async (newStatus: string) => {
     if (!assetId) return;
 
@@ -1150,6 +1145,7 @@ export default function ReviewPage() {
     setStatusUpdating(true);
 
     try {
+      // Update asset status
       const { error } = await supabase
         .from("onboarding_assets")
         .update({
@@ -1162,15 +1158,21 @@ export default function ReviewPage() {
       if (error) {
         console.error("Error updating asset status:", error);
         toast.error("Failed to update status");
-      } else {
-        setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
-        if (newStatus === "revisions") {
-          setRevisionCount((prev) => prev + 1);
-        }
-        toast.success(
-          `Status updated to ${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}`
-        );
+        return;
       }
+
+      // If status is approved, update the modeler's end time
+      if (newStatus === "approved") {
+        await updateModelerEndTime(assetId);
+      }
+
+      setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
+      if (newStatus === "revisions") {
+        setRevisionCount((prev) => prev + 1);
+      }
+      toast.success(
+        `Status updated to ${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}`
+      );
     } catch (error) {
       console.error("Error updating asset status:", error);
       toast.error("Failed to update status");

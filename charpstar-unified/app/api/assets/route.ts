@@ -49,8 +49,6 @@ export async function GET(request: Request) {
     const search = searchParams.get("search") || "";
     const client = searchParams.get("client") || profile?.client || null;
 
-    console.log("Request params:", { search, client });
-
     // Build the query
     let query = supabase.from("assets").select("*");
 
@@ -168,9 +166,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log("Asset created successfully:", data);
-    console.log("About to log activity for asset:", product_name);
-
     // Log the asset creation activity using server-side logging
     try {
       await logActivityServer({
@@ -185,7 +180,6 @@ export async function POST(req: Request) {
           client,
         },
       });
-      console.log("Activity logged successfully for asset:", product_name);
     } catch (activityError) {
       console.error("Error logging activity for asset:", activityError);
     }

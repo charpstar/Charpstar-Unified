@@ -36,9 +36,7 @@ export async function GET(request: Request) {
     ORDER BY month ASC
     `;
 
-    console.log("Executing BigQuery with project:", projectId);
     const [rows] = await bigquery.query({ query });
-    console.log("Query executed successfully, rows:", rows.length);
 
     return NextResponse.json(rows);
   } catch (error: any) {

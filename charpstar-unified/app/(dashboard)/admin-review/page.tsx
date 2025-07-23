@@ -40,7 +40,6 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
-import { AssetAssignmentDialog } from "@/components/production/AssetAssignmentDialog";
 
 const STATUS_LABELS = {
   in_production: {
@@ -169,8 +168,10 @@ export default function AdminReviewPage() {
     Record<string, number>
   >({});
   const [clients, setClients] = useState<string[]>([]);
-  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [assignedAssets, setAssignedAssets] = useState<
+    Map<string, { email: string; name?: string }>
+  >(new Map());
+  const [pendingAssets, setPendingAssets] = useState<
     Map<string, { email: string; name?: string }>
   >(new Map());
 
@@ -249,11 +250,47 @@ export default function AdminReviewPage() {
       if (!user || user.metadata?.role !== "admin") return;
       startLoading();
       setLoading(true);
-      const { data, error } = await supabase
+
+      let query = supabase
         .from("onboarding_assets")
         .select(
           "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client"
         );
+
+      // If modeler filter is applied, only fetch assets assigned to that modeler
+      if (modelerFilter && modelerFilter !== "all") {
+        // First get the asset IDs assigned to this modeler (only accepted assignments)
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from("asset_assignments")
+          .select("asset_id")
+          .eq("user_id", modelerFilter)
+          .eq("role", "modeler")
+          .eq("status", "accepted");
+
+        if (assignmentError) {
+          console.error("Error fetching modeler assignments:", assignmentError);
+          setLoading(false);
+          stopLoading();
+          return;
+        }
+
+        if (assignmentData && assignmentData.length > 0) {
+          const assetIds = assignmentData.map(
+            (assignment) => assignment.asset_id
+          );
+          query = query.in("id", assetIds);
+        } else {
+          // No assets assigned to this modeler
+          setAssets([]);
+          setClients([]);
+          setAssignedAssets(new Map());
+          setLoading(false);
+          stopLoading();
+          return;
+        }
+      }
+
+      const { data, error } = await query;
       if (!error && data) {
         setAssets(data);
         // Extract unique clients
@@ -264,6 +301,8 @@ export default function AdminReviewPage() {
 
         // Fetch assigned assets
         await fetchAssignedAssets(data.map((asset) => asset.id));
+        // Fetch pending assets
+        await fetchPendingAssets(data.map((asset) => asset.id));
       }
       setLoading(false);
       stopLoading();
@@ -313,10 +352,8 @@ export default function AdminReviewPage() {
       data = data.filter((a) => a.batch === parseInt(batchFilter));
     }
 
-    // Filter by modeler (check if asset is assigned to the specific modeler)
-    if (modelerFilter && modelerFilter !== "all") {
-      data = data.filter((a) => assignedAssets.has(a.id));
-    }
+    // Filter by modeler is now handled at the asset fetch level
+    // No need to filter here since we already filtered the assets
 
     // Filter by status
     if (statusFilter) data = data.filter((a) => a.status === statusFilter);
@@ -363,7 +400,6 @@ export default function AdminReviewPage() {
     modelerFilter,
     sort,
     search,
-    assignedAssets,
   ]);
 
   // Pagination
@@ -372,23 +408,129 @@ export default function AdminReviewPage() {
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, page]);
 
-  // Selection
-  const fetchAssignedAssets = async (assetIds: string[]) => {
+  // Fetch pending assets
+  const fetchPendingAssets = async (assetIds: string[]) => {
     try {
-      let query = supabase
+      const query = supabase
         .from("asset_assignments")
         .select(
           `
           asset_id,
-          user_id
+          user_id,
+          status
         `
         )
         .in("asset_id", assetIds)
-        .eq("role", "modeler");
+        .eq("role", "modeler")
+        .eq("status", "pending"); // Only show pending assignments
 
-      // Filter by specific modeler if modelerFilter is set
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching pending assets:", error);
+        return;
+      }
+
+      // Get unique user IDs
+      const userIds = [
+        ...new Set(data?.map((assignment) => assignment.user_id) || []),
+      ];
+
+      // Fetch user profiles separately
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .in("id", userIds);
+
+      if (profilesError) {
+        console.error("Error fetching profiles:", profilesError);
+        return;
+      }
+
+      // Create a map of user_id to profile
+      const profilesMap = new Map();
+      profilesData?.forEach((profile) => {
+        profilesMap.set(profile.id, profile);
+      });
+
+      const pendingAssetsMap = new Map<
+        string,
+        { email: string; name?: string }
+      >();
+      data?.forEach((assignment) => {
+        const profile = profilesMap.get(assignment.user_id);
+        if (profile) {
+          pendingAssetsMap.set(assignment.asset_id, {
+            email: profile.email,
+            name: profile.title,
+          });
+        }
+      });
+
+      setPendingAssets(pendingAssetsMap);
+    } catch (error) {
+      console.error("Error fetching pending assets:", error);
+    }
+  };
+
+  // Selection
+  const fetchAssignedAssets = async (assetIds: string[]) => {
+    try {
+      const query = supabase
+        .from("asset_assignments")
+        .select(
+          `
+          asset_id,
+          user_id,
+          status
+        `
+        )
+        .in("asset_id", assetIds)
+        .eq("role", "modeler")
+        .eq("status", "accepted"); // Only show accepted assignments as assigned
+
+      // If modeler filter is applied, we already filtered at the asset level
+      // so we don't need to filter again here
       if (modelerFilter && modelerFilter !== "all") {
-        query = query.eq("user_id", modelerFilter);
+        // For modeler filter, we need to check which assets are actually accepted
+        const { data: acceptedAssignments, error: acceptedError } =
+          await supabase
+            .from("asset_assignments")
+            .select("asset_id")
+            .eq("user_id", modelerFilter)
+            .eq("role", "modeler")
+            .eq("status", "accepted")
+            .in("asset_id", assetIds);
+
+        if (acceptedError) {
+          console.error("Error fetching accepted assignments:", acceptedError);
+          return;
+        }
+
+        const assignedAssetsMap = new Map<
+          string,
+          { email: string; name?: string }
+        >();
+
+        // Get the modeler's profile
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, email, title")
+          .eq("id", modelerFilter)
+          .single();
+
+        if (!profileError && profileData && acceptedAssignments) {
+          // Only mark accepted assets as assigned to this modeler
+          acceptedAssignments.forEach((assignment) => {
+            assignedAssetsMap.set(assignment.asset_id, {
+              email: profileData.email,
+              name: profileData.title,
+            });
+          });
+        }
+
+        setAssignedAssets(assignedAssetsMap);
+        return;
       }
 
       const { data, error } = await query;
@@ -433,9 +575,7 @@ export default function AdminReviewPage() {
           });
         }
       });
-      console.log("Assigned assets data:", data);
-      console.log("Profiles data:", profilesData);
-      console.log("Assigned assets map:", assignedAssetsMap);
+
       setAssignedAssets(assignedAssetsMap);
     } catch (error) {
       console.error("Error fetching assigned assets:", error);
@@ -562,7 +702,19 @@ export default function AdminReviewPage() {
             {/* Assignment Button */}
             {selected.size > 0 && (
               <Button
-                onClick={() => setAssignmentDialogOpen(true)}
+                onClick={() => {
+                  // Navigate to the allocate page with selected assets
+                  const selectedAssetIds = Array.from(selected);
+
+                  // Create URL with selected asset IDs as query parameters
+                  const params = new URLSearchParams();
+                  selectedAssetIds.forEach((id) =>
+                    params.append("selectedAssets", id)
+                  );
+
+                  // Navigate to allocate page with selected assets
+                  router.push(`/production/allocate?${params.toString()}`);
+                }}
                 className="flex items-center gap-2"
               >
                 <Users className="h-4 w-4" />
@@ -733,12 +885,24 @@ export default function AdminReviewPage() {
                           />
                           {assignedAssets.has(asset.id) && (
                             <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                              <div className="w-2 h-2 bg-green-500 rounded-full" />
                               <span className="text-xs text-muted-foreground">
                                 {assignedAssets.get(asset.id)?.name ||
                                   assignedAssets
                                     .get(asset.id)
                                     ?.email?.split("@")[0]}
+                              </span>
+                            </div>
+                          )}
+                          {pendingAssets.has(asset.id) && (
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full" />
+                              <span className="text-xs text-muted-foreground">
+                                {pendingAssets.get(asset.id)?.name ||
+                                  pendingAssets
+                                    .get(asset.id)
+                                    ?.email?.split("@")[0]}
+                                {" (pending)"}
                               </span>
                             </div>
                           )}
@@ -882,18 +1046,6 @@ export default function AdminReviewPage() {
           </div>
         </div>
       </Card>
-
-      {/* Asset Assignment Dialog */}
-      <AssetAssignmentDialog
-        isOpen={assignmentDialogOpen}
-        onClose={() => setAssignmentDialogOpen(false)}
-        selectedAssets={assets.filter((asset) => selected.has(asset.id))}
-        onAssignmentComplete={() => {
-          setSelected(new Set());
-          // Refresh assigned assets data
-          fetchAssignedAssets(assets.map((asset) => asset.id));
-        }}
-      />
     </div>
   );
 }
