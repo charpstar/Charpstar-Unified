@@ -733,10 +733,10 @@ export function ModelerQuickActionsWidget() {
       color: "bg-purple-50 text-purple-600",
     },
     {
-      title: "Contact Support",
-      description: "Get help when needed",
-      icon: Users,
-      action: () => window.open("mailto:support@charpstar.com"),
+      title: "Model Viewer",
+      description: "View 3D models in the Charpstar viewer",
+      icon: Eye,
+      action: () => window.open("https://viewer.charpstar.co/", "_blank"),
       color: "bg-orange-50 text-orange-600",
     },
   ];

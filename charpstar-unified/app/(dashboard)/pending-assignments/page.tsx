@@ -29,6 +29,12 @@ import {
   TableRow,
 } from "@/components/ui/display";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/display";
+import {
   Search,
   RotateCcw,
   ArrowLeft,
@@ -38,6 +44,8 @@ import {
   Download,
   Check,
   X,
+  File,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -97,6 +105,17 @@ export default function PendingAssignmentsPage() {
   useEffect(() => {
     filterGroups();
   }, [assignmentGroups, searchTerm, clientFilter, batchFilter]);
+
+  // Check for asset files when assignments are loaded
+  useEffect(() => {
+    if (assignments.length > 0) {
+      assignments.forEach((assignment) => {
+        if (assignment.onboarding_assets?.id) {
+          checkAssetFiles(assignment.onboarding_assets.id);
+        }
+      });
+    }
+  }, [assignments]);
 
   const fetchPendingAssignments = async () => {
     try {
@@ -318,9 +337,80 @@ export default function PendingAssignmentsPage() {
   };
 
   const handleDownloadReferences = (referenceImages: string[]) => {
-    referenceImages.forEach((url) => {
+    // Filter out invalid URLs
+    const validUrls = referenceImages.filter(
+      (url) =>
+        url &&
+        typeof url === "string" &&
+        url.trim() !== "" &&
+        url.startsWith("http")
+    );
+
+    if (validUrls.length === 0) {
+      toast.error("No valid reference images found");
+      return;
+    }
+
+    validUrls.forEach((url) => {
       window.open(url, "_blank");
     });
+
+    toast.success(`Opening ${validUrls.length} reference images`);
+  };
+
+  const [assetFilesMap, setAssetFilesMap] = useState<Record<string, any[]>>({});
+  const [checkingFiles, setCheckingFiles] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const checkAssetFiles = async (assetId: string) => {
+    if (assetFilesMap[assetId] !== undefined) {
+      return assetFilesMap[assetId];
+    }
+
+    setCheckingFiles((prev) => ({ ...prev, [assetId]: true }));
+
+    try {
+      const response = await fetch(`/api/assets/${assetId}/files`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch asset files");
+      }
+
+      const data = await response.json();
+      const files = data.files || [];
+
+      setAssetFilesMap((prev) => ({ ...prev, [assetId]: files }));
+      return files;
+    } catch (error) {
+      console.error("Error checking asset files:", error);
+      setAssetFilesMap((prev) => ({ ...prev, [assetId]: [] }));
+      return [];
+    } finally {
+      setCheckingFiles((prev) => ({ ...prev, [assetId]: false }));
+    }
+  };
+
+  const handleDownloadAssetFiles = async (assetId: string) => {
+    try {
+      const files = assetFilesMap[assetId] || [];
+      if (files.length > 0) {
+        // Download each file
+        files.forEach((file: any) => {
+          const link = document.createElement("a");
+          link.href = file.file_url;
+          link.download = file.file_name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+        toast.success(`Downloading ${files.length} asset files`);
+      } else {
+        toast.info("No asset files found for this asset");
+      }
+    } catch (error) {
+      console.error("Error downloading asset files:", error);
+      toast.error("Failed to download asset files");
+    }
   };
 
   // Calculate summary statistics
@@ -365,277 +455,365 @@ export default function PendingAssignmentsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Pending Assignments</h1>
-          <p className="text-muted-foreground">
-            Review and accept your pending assignment groups
-          </p>
+    <TooltipProvider>
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Pending Assignments</h1>
+            <p className="text-muted-foreground">
+              Review and accept your pending assignment groups
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => router.push("/dashboard")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
         </div>
-        <Button variant="outline" onClick={() => router.push("/dashboard")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
-        </Button>
-      </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Package className="h-8 w-8 text-blue-600" />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Assets</p>
-                <p className="text-2xl font-bold">{totalAssets}</p>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Package className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Assets</p>
+                  <p className="text-2xl font-bold">{totalAssets}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Euro className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Total Earnings
+                  </p>
+                  <p className="text-2xl font-bold">
+                    €{totalWithBonus.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Euro className="h-8 w-8 text-purple-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Bonus</p>
+                  <p className="text-2xl font-bold">€{totalBonus.toFixed(2)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content */}
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Euro className="h-8 w-8 text-green-600" />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Earnings</p>
-                <p className="text-2xl font-bold">
-                  €{totalWithBonus.toFixed(2)}
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Pending Assignment Groups ({filteredGroups.length})</span>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setClientFilter("all");
+                    setBatchFilter("all");
+                  }}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Clear Filters
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Filters */}
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search by product name, article ID, or client..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={clientFilter} onValueChange={setClientFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Clients</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client} value={client}>
+                      {client}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={batchFilter} onValueChange={setBatchFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by batch" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Batches</SelectItem>
+                  {batches.map((batch) => (
+                    <SelectItem key={batch} value={batch.toString()}>
+                      Batch {batch}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Assignment Groups */}
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-2 text-muted-foreground">
+                  Loading assignments...
                 </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            ) : (
+              <div className="space-y-6">
+                {filteredGroups.map((group) => {
+                  const groupKey = `${group.client}-${group.batch}`;
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Euro className="h-8 w-8 text-purple-600" />
-              <div>
-                <p className="text-sm text-muted-foreground">Bonus</p>
-                <p className="text-2xl font-bold">€{totalBonus.toFixed(2)}</p>
+                  return (
+                    <Card key={groupKey} className="p-6">
+                      {/* Group Header */}
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold">
+                            {group.client} - Batch {group.batch}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {group.totalAssets} assets • Deadline:{" "}
+                            {group.deadline
+                              ? new Date(group.deadline).toLocaleDateString()
+                              : "No deadline"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <div className="text-lg font-semibold text-green-600">
+                              €{group.totalWithBonus.toFixed(2)}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Base: €{group.totalPrice.toFixed(2)} • Bonus: +
+                              {group.bonus}%
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              onClick={() => handleAcceptGroup(groupKey)}
+                              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                              disabled={accepting === groupKey}
+                            >
+                              <Check className="h-4 w-4" />
+                              Accept Group
+                            </Button>
+                            <Button
+                              onClick={() => handleDeclineGroup(groupKey)}
+                              variant="outline"
+                              className="flex items-center gap-2"
+                              disabled={declining === groupKey}
+                            >
+                              <X className="h-4 w-4" />
+                              Decline Group
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Assets Table */}
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-32">Article ID</TableHead>
+                            <TableHead>Product Name</TableHead>
+                            <TableHead className="w-24 text-center">
+                              Price
+                            </TableHead>
+                            <TableHead className="w-24 text-center">
+                              Links
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {group.assignments.map((assignment) => {
+                            const asset = assignment.onboarding_assets;
+                            if (!asset) return null;
+
+                            return (
+                              <TableRow key={assignment.asset_id}>
+                                <TableCell className="font-mono text-sm w-32">
+                                  {asset.article_id}
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  {asset.product_name}
+                                </TableCell>
+                                <TableCell className="text-center w-24">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Euro className="h-4 w-4 text-green-600" />
+                                    <span className="font-semibold">
+                                      €{assignment.price?.toFixed(2)}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center w-24">
+                                  <div className="flex items-center justify-center space-x-1">
+                                    {asset.product_link && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <a
+                                            href={asset.product_link}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
+                                          >
+                                            <ExternalLink className="h-4 w-4" />
+                                          </a>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Product link</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+
+                                    {asset.reference &&
+                                      Array.isArray(asset.reference) &&
+                                      asset.reference.length > 0 &&
+                                      asset.reference.some(
+                                        (ref: any) =>
+                                          ref &&
+                                          typeof ref === "string" &&
+                                          ref.trim() !== ""
+                                      ) && (
+                                        <button
+                                          onClick={() =>
+                                            handleDownloadReferences(
+                                              asset.reference as string[]
+                                            )
+                                          }
+                                          className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
+                                          title="Download reference images"
+                                        >
+                                          <Download className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    {(() => {
+                                      const files =
+                                        assetFilesMap[asset.id] || [];
+                                      const isChecking =
+                                        checkingFiles[asset.id];
+
+                                      if (isChecking) {
+                                        return (
+                                          <div className="inline-flex items-center justify-center h-8 w-8">
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-muted-foreground" />
+                                          </div>
+                                        );
+                                      }
+
+                                      if (files.length > 0) {
+                                        return (
+                                          <button
+                                            onClick={() =>
+                                              handleDownloadAssetFiles(asset.id)
+                                            }
+                                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
+                                            title={`Download ${files.length} asset files`}
+                                          >
+                                            <File className="h-4 w-4" />
+                                          </button>
+                                        );
+                                      }
+
+                                      return null;
+                                    })()}
+
+                                    {/* Show info icon if no references or files are available */}
+                                    {(() => {
+                                      const hasProductLink =
+                                        !!asset.product_link;
+                                      const hasReferences =
+                                        asset.reference &&
+                                        Array.isArray(asset.reference) &&
+                                        asset.reference.length > 0 &&
+                                        asset.reference.some(
+                                          (ref: any) =>
+                                            ref &&
+                                            typeof ref === "string" &&
+                                            ref.trim() !== ""
+                                        );
+                                      const files =
+                                        assetFilesMap[asset.id] || [];
+                                      const isChecking =
+                                        checkingFiles[asset.id];
+                                      const hasFiles =
+                                        !isChecking && files.length > 0;
+
+                                      // Show info icon if no other links/buttons are shown
+                                      // Temporarily always show for testing
+                                      if (true) {
+                                        return (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <div className="inline-flex items-center justify-center h-8 w-8 text-muted-foreground">
+                                                <Info className="h-4 w-4" />
+                                              </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>
+                                                No reference images or asset
+                                                files available
+                                              </p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        );
+                                      }
+
+                                      return null;
+                                    })()}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </Card>
+                  );
+                })}
               </div>
-            </div>
+            )}
+
+            {filteredGroups.length === 0 && !loading && (
+              <div className="text-center py-8">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">
+                  No pending assignment groups found
+                </h3>
+                <p className="text-muted-foreground">
+                  {assignments.length === 0
+                    ? "You don't have any pending assignments at the moment."
+                    : "No assignment groups match your current filters."}
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Main Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Pending Assignment Groups ({filteredGroups.length})</span>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm("");
-                  setClientFilter("all");
-                  setBatchFilter("all");
-                }}
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Clear Filters
-              </Button>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Filters */}
-          <div className="flex items-center space-x-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search by product name, article ID, or client..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={clientFilter} onValueChange={setClientFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by client" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Clients</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client} value={client}>
-                    {client}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={batchFilter} onValueChange={setBatchFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by batch" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Batches</SelectItem>
-                {batches.map((batch) => (
-                  <SelectItem key={batch} value={batch.toString()}>
-                    Batch {batch}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Assignment Groups */}
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-2 text-muted-foreground">
-                Loading assignments...
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {filteredGroups.map((group) => {
-                const groupKey = `${group.client}-${group.batch}`;
-
-                return (
-                  <Card key={groupKey} className="p-6">
-                    {/* Group Header */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold">
-                          {group.client} - Batch {group.batch}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {group.totalAssets} assets • Deadline:{" "}
-                          {group.deadline
-                            ? new Date(group.deadline).toLocaleDateString()
-                            : "No deadline"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <div className="text-lg font-semibold text-green-600">
-                            €{group.totalWithBonus.toFixed(2)}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            Base: €{group.totalPrice.toFixed(2)} • Bonus: +
-                            {group.bonus}%
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            onClick={() => handleAcceptGroup(groupKey)}
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                            disabled={accepting === groupKey}
-                          >
-                            <Check className="h-4 w-4" />
-                            Accept Group
-                          </Button>
-                          <Button
-                            onClick={() => handleDeclineGroup(groupKey)}
-                            variant="outline"
-                            className="flex items-center gap-2"
-                            disabled={declining === groupKey}
-                          >
-                            <X className="h-4 w-4" />
-                            Decline Group
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Assets Table */}
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Article ID</TableHead>
-                          <TableHead>Product Name</TableHead>
-                          <TableHead>Price</TableHead>
-                          <TableHead className="w-20">Links</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {group.assignments.map((assignment) => {
-                          const asset = assignment.onboarding_assets;
-                          if (!asset) return null;
-
-                          return (
-                            <TableRow key={assignment.asset_id}>
-                              <TableCell className="font-mono text-sm">
-                                {asset.article_id}
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                {asset.product_name}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <Euro className="h-4 w-4 text-green-600" />
-                                  <span className="font-semibold">
-                                    €{assignment.price?.toFixed(2)}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center space-x-1">
-                                  {asset.product_link && (
-                                    <a
-                                      href={asset.product_link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
-                                    >
-                                      <ExternalLink className="h-4 w-4" />
-                                    </a>
-                                  )}
-                                  {asset.glb_link && (
-                                    <a
-                                      href={asset.glb_link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
-                                    >
-                                      <Package className="h-4 w-4" />
-                                    </a>
-                                  )}
-                                  {asset.reference &&
-                                    asset.reference.length > 0 && (
-                                      <button
-                                        onClick={() =>
-                                          handleDownloadReferences(
-                                            asset.reference as string[]
-                                          )
-                                        }
-                                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
-                                      >
-                                        <Download className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          {filteredGroups.length === 0 && !loading && (
-            <div className="text-center py-8">
-              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">
-                No pending assignment groups found
-              </h3>
-              <p className="text-muted-foreground">
-                {assignments.length === 0
-                  ? "You don't have any pending assignments at the moment."
-                  : "No assignment groups match your current filters."}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    </TooltipProvider>
   );
 }

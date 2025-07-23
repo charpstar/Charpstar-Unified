@@ -199,7 +199,7 @@ export default function MyAssignmentsPage() {
 
   if (user.metadata?.role !== "modeler") {
     return (
-      <div className="flex flex-1 flex-col p-4 sm:p-6">
+      <div className="flex flex-1 flex-col p-4 sm:p-12">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">
@@ -211,7 +211,7 @@ export default function MyAssignmentsPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col p-4 sm:p-6">
+    <div className="flex flex-1 flex-col p-4 sm:p-12">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">My Assignments</h1>

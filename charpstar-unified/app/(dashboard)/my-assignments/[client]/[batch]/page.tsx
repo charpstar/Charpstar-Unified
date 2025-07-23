@@ -55,6 +55,8 @@ import {
   Image,
   Euro,
   MoreHorizontal,
+  FolderOpen,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -63,6 +65,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/containers";
+import { AssetFilesManager } from "@/components/asset-library/AssetFilesManager";
 
 interface BatchAsset {
   id: string;
@@ -75,6 +78,7 @@ interface BatchAsset {
   client: string;
   batch: number;
   delivery_date: string | null;
+  deadline: string | null;
   created_at: string;
   revision_count: number;
   glb_link: string | null;
@@ -124,6 +128,19 @@ export default function BatchDetailPage() {
   const [currentReferences, setCurrentReferences] = useState<string[]>([]);
   const [currentAssetName, setCurrentAssetName] = useState("");
 
+  // Upload dialog states
+  const [glbUploadDialogOpen, setGlbUploadDialogOpen] = useState(false);
+  const [assetUploadDialogOpen, setAssetUploadDialogOpen] = useState(false);
+  const [currentUploadAsset, setCurrentUploadAsset] =
+    useState<BatchAsset | null>(null);
+  const [uploadType, setUploadType] = useState<"glb" | "asset">("glb");
+  const [dragActive, setDragActive] = useState(false);
+  const [filesManagerOpen, setFilesManagerOpen] = useState(false);
+  const [selectedAssetForFiles, setSelectedAssetForFiles] =
+    useState<BatchAsset | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingMultiple, setUploadingMultiple] = useState(false);
+
   useEffect(() => {
     document.title = `CharpstAR Platform - ${client} Batch ${batch}`;
   }, [client, batch]);
@@ -152,6 +169,7 @@ export default function BatchDetailPage() {
           status,
           price,
           bonus,
+          deadline,
           onboarding_assets!inner(
             id,
             product_name,
@@ -195,6 +213,7 @@ export default function BatchDetailPage() {
           ...assignment.onboarding_assets,
           price: assignment.price,
           bonus: assignment.bonus,
+          deadline: assignment.deadline,
         }))
         .filter(Boolean) as any[];
 
@@ -371,63 +390,38 @@ export default function BatchDetailPage() {
     try {
       setUploadingGLB(assetId);
 
-      // Find the asset to get article_id
-      const asset = assets.find((a) => a.id === assetId);
-      if (!asset) {
-        throw new Error("Asset not found");
-      }
-
       // Validate file
       if (!file.name.toLowerCase().endsWith(".glb")) {
         toast.error("Please select a GLB file");
         return;
       }
 
-      if (file.size > 100 * 1024 * 1024) {
-        toast.error("File size must be less than 100MB");
-        return;
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("asset_id", assetId);
+      formData.append("file_type", "glb");
+
+      const response = await fetch("/api/assets/upload-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to upload GLB file");
       }
 
-      // Upload to Supabase Storage
-      const fileName = `${asset.article_id}_${Date.now()}.glb`;
-      const filePath = `models/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("assets")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Get the public URL
-      const { data: urlData } = supabase.storage
-        .from("assets")
-        .getPublicUrl(filePath);
-
-      // Update the asset with the new GLB link
-      const { error: updateError } = await supabase
-        .from("onboarding_assets")
-        .update({
-          glb_link: urlData.publicUrl,
-          status: "in_production",
-        })
-        .eq("id", assetId);
-
-      if (updateError) {
-        throw updateError;
-      }
-
+      const result = await response.json();
       toast.success("GLB file uploaded successfully!");
 
       // Refresh the assets list
       fetchBatchAssets();
     } catch (error) {
       console.error("Error uploading GLB:", error);
-      toast.error("Failed to upload GLB file");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload GLB file"
+      );
     } finally {
       setUploadingGLB(null);
     }
@@ -441,23 +435,28 @@ export default function BatchDetailPage() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("asset_id", assetId);
+      formData.append("file_type", "asset");
 
-      const response = await fetch("/api/upload", {
+      const response = await fetch("/api/assets/upload-file", {
         method: "POST",
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error("Failed to upload file");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to upload file");
       }
 
+      const result = await response.json();
       toast.success("File uploaded successfully!");
 
       // Refresh the assets list
       fetchBatchAssets();
     } catch (error) {
       console.error("Error uploading file:", error);
-      toast.error("Failed to upload file");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload file"
+      );
     } finally {
       setUploadingFile(null);
     }
@@ -481,13 +480,133 @@ export default function BatchDetailPage() {
     }
   };
 
+  const handleOpenUploadDialog = (asset: BatchAsset, type: "glb" | "asset") => {
+    setCurrentUploadAsset(asset);
+    setUploadType(type);
+    if (type === "glb") {
+      setGlbUploadDialogOpen(true);
+    } else {
+      setAssetUploadDialogOpen(true);
+    }
+  };
+
+  const handleOpenFilesManager = (asset: BatchAsset) => {
+    setSelectedAssetForFiles(asset);
+    setFilesManagerOpen(true);
+  };
+
+  const handleMultipleFileUpload = async () => {
+    if (!currentUploadAsset || selectedFiles.length === 0) return;
+
+    setUploadingMultiple(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const file of selectedFiles) {
+        try {
+          if (uploadType === "glb") {
+            await handleUploadGLB(currentUploadAsset.id, file);
+          } else {
+            await handleUploadAsset(currentUploadAsset.id, file);
+          }
+          successCount++;
+        } catch (error) {
+          console.error(`Error uploading ${file.name}:`, error);
+          errorCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(
+          `Successfully uploaded ${successCount} files${errorCount > 0 ? ` (${errorCount} failed)` : ""}`
+        );
+      }
+      if (errorCount > 0) {
+        toast.error(`${errorCount} files failed to upload`);
+      }
+
+      // Reset state
+      setSelectedFiles([]);
+      setAssetUploadDialogOpen(false);
+      setGlbUploadDialogOpen(false);
+      setCurrentUploadAsset(null);
+    } finally {
+      setUploadingMultiple(false);
+    }
+  };
+
+  const handleFileSelectMultiple = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files || []);
+    setSelectedFiles((prev) => [...prev, ...files]);
+    event.target.value = "";
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      if (uploadType === "asset") {
+        setSelectedFiles((prev) => [...prev, ...files]);
+      } else {
+        // For GLB files, still use single file upload
+        handleFileUpload(files[0]);
+      }
+    }
+  };
+
+  const handleFileUpload = (file: File) => {
+    if (!currentUploadAsset) return;
+
+    if (uploadType === "glb") {
+      handleUploadGLB(currentUploadAsset.id, file);
+    } else {
+      handleUploadAsset(currentUploadAsset.id, file);
+    }
+
+    // Close dialog after upload
+    setTimeout(() => {
+      setGlbUploadDialogOpen(false);
+      setAssetUploadDialogOpen(false);
+      setCurrentUploadAsset(null);
+    }, 1000);
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+    // Clear the input
+    event.target.value = "";
+  };
+
   if (!user) {
     return null;
   }
 
   if (user.metadata?.role !== "modeler") {
     return (
-      <div className="flex flex-1 flex-col p-4 sm:p-6">
+      <div className="flex flex-1 flex-col p-4 sm:p-12">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">
@@ -521,12 +640,11 @@ export default function BatchDetailPage() {
         </div>
         <div className="flex items-center gap-4 text-muted-foreground">
           <p>Manage and review all assets in this batch</p>
-          {assets.length > 0 && assets[0]?.delivery_date && (
+          {assets.length > 0 && assets[0]?.deadline && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span className="text-sm">
-                Deadline:{" "}
-                {new Date(assets[0].delivery_date).toLocaleDateString()}
+                Deadline: {new Date(assets[0].deadline).toLocaleDateString()}
               </span>
             </div>
           )}
@@ -784,10 +902,10 @@ export default function BatchDetailPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {asset.delivery_date ? (
+                      {asset.deadline ? (
                         <div className="flex items-center gap-1 text-sm">
                           <Calendar className="h-3 w-3" />
-                          {new Date(asset.delivery_date).toLocaleDateString()}
+                          {new Date(asset.deadline).toLocaleDateString()}
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
@@ -834,55 +952,38 @@ export default function BatchDetailPage() {
 
                           <DropdownMenuSeparator />
 
-                          <DropdownMenuItem asChild>
-                            <label
-                              htmlFor={`glb-upload-${asset.id}`}
-                              className="flex items-center cursor-pointer"
-                            >
-                              {uploadingGLB === asset.id ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
-                              ) : (
-                                <Upload className="h-4 w-4 mr-2" />
-                              )}
-                              {asset.glb_link ? "Update GLB" : "Upload GLB"}
-                            </label>
+                          <DropdownMenuItem
+                            onClick={() => handleOpenUploadDialog(asset, "glb")}
+                          >
+                            {uploadingGLB === asset.id ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
+                            ) : (
+                              <Upload className="h-4 w-4 mr-2" />
+                            )}
+                            {asset.glb_link ? "Update GLB" : "Upload GLB"}
                           </DropdownMenuItem>
 
-                          <DropdownMenuItem asChild>
-                            <label
-                              htmlFor={`asset-upload-${asset.id}`}
-                              className="flex items-center cursor-pointer"
-                            >
-                              {uploadingFile === asset.id ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2" />
-                              ) : (
-                                <Image className="h-4 w-4 mr-2" />
-                              )}
-                              Upload Asset
-                            </label>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleOpenUploadDialog(asset, "asset")
+                            }
+                          >
+                            {uploadingFile === asset.id ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2" />
+                            ) : (
+                              <Image className="h-4 w-4 mr-2" />
+                            )}
+                            Upload Asset
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            onClick={() => handleOpenFilesManager(asset)}
+                          >
+                            <FolderOpen className="h-4 w-4 mr-2" />
+                            View Files
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-
-                      {/* Hidden file inputs */}
-                      <input
-                        type="file"
-                        accept=".glb,.gltf"
-                        onChange={(e) =>
-                          handleFileInputChange(asset.id, "glb", e)
-                        }
-                        className="hidden"
-                        id={`glb-upload-${asset.id}`}
-                      />
-                      <input
-                        type="file"
-                        accept=".obj,.fbx,.dae,.blend,.max,.ma,.mb,.3ds,.stl,.ply,.wrl,.x3d,.usd,.abc,.c4d,.skp,.dwg,.dxf,.iges,.step,.stp,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.tga,.hdr,.exr,.psd,.ai,.eps,.svg,.pdf"
-                        onChange={(e) =>
-                          handleFileInputChange(asset.id, "asset", e)
-                        }
-                        className="hidden"
-                        id={`asset-upload-${asset.id}`}
-                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -950,6 +1051,208 @@ export default function BatchDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* GLB Upload Dialog */}
+      <Dialog open={glbUploadDialogOpen} onOpenChange={setGlbUploadDialogOpen}>
+        <DialogContent className="max-w-md h-fit">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              {currentUploadAsset?.glb_link
+                ? "Update GLB File"
+                : "Upload GLB File"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p className="mb-2">
+                <strong>Asset:</strong> {currentUploadAsset?.product_name}
+              </p>
+              <p className="mb-2">
+                <strong>Article ID:</strong> {currentUploadAsset?.article_id}
+              </p>
+            </div>
+
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                dragActive
+                  ? "border-primary bg-primary/5"
+                  : "border-muted-foreground/25 hover:border-muted-foreground/50"
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <Upload className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-sm font-medium mb-2">
+                Drop your GLB file here or click to browse
+              </p>
+              <p className="text-xs text-muted-foreground mb-4">
+                Only .glb and .gltf files are supported
+              </p>
+
+              <input
+                type="file"
+                accept=".glb,.gltf"
+                onChange={handleFileSelect}
+                className="hidden"
+                id="glb-file-input"
+              />
+              <label
+                htmlFor="glb-file-input"
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 cursor-pointer"
+              >
+                Choose File
+              </label>
+            </div>
+
+            {uploadingGLB === currentUploadAsset?.id && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+                Uploading GLB file...
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Asset Upload Dialog */}
+      <Dialog
+        open={assetUploadDialogOpen}
+        onOpenChange={setAssetUploadDialogOpen}
+      >
+        <DialogContent className="max-w-md h-fit">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Image className="h-5 w-5" />
+              Upload Asset Files
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p className="mb-2">
+                <strong>Asset:</strong> {currentUploadAsset?.product_name}
+              </p>
+              <p className="mb-2">
+                <strong>Article ID:</strong> {currentUploadAsset?.article_id}
+              </p>
+            </div>
+
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                dragActive
+                  ? "border-primary bg-primary/5"
+                  : "border-muted-foreground/25 hover:border-muted-foreground/50"
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <Image className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-sm font-medium mb-2">
+                Drop your asset files here or click to browse
+              </p>
+              <p className="text-xs text-muted-foreground mb-4">
+                Supports ZIP archives, 3D files (BLEND, OBJ, FBX), images, and
+                other asset formats
+              </p>
+
+              <input
+                type="file"
+                multiple
+                accept=".zip,.blend,.obj,.fbx,.dae,.max,.ma,.mb,.3ds,.stl,.ply,.wrl,.x3d,.usd,.abc,.c4d,.skp,.dwg,.dxf,.iges,.step,.stp,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.tga,.hdr,.exr,.psd,.ai,.eps,.svg,.pdf"
+                onChange={handleFileSelectMultiple}
+                className="hidden"
+                id="asset-file-input"
+              />
+              <label
+                htmlFor="asset-file-input"
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 cursor-pointer"
+              >
+                Choose Files
+              </label>
+            </div>
+
+            {/* Selected Files List */}
+            {selectedFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  Selected Files ({selectedFiles.length}):
+                </p>
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {selectedFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between bg-muted/50 rounded px-2 py-1 text-sm"
+                    >
+                      <span className="truncate">{file.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeSelectedFile(index)}
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Upload Button */}
+            {selectedFiles.length > 0 && (
+              <Button
+                onClick={handleMultipleFileUpload}
+                disabled={uploadingMultiple}
+                className="w-full"
+              >
+                {uploadingMultiple ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Uploading {selectedFiles.length} files...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload {selectedFiles.length} Files
+                  </>
+                )}
+              </Button>
+            )}
+
+            {uploadingFile === currentUploadAsset?.id && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600" />
+                Uploading asset file...
+              </div>
+            )}
+
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>
+                <strong>Recommended formats:</strong> ZIP, BLEND, OBJ, FBX
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Asset Files Manager */}
+      {selectedAssetForFiles && (
+        <AssetFilesManager
+          assetId={selectedAssetForFiles.id}
+          isOpen={filesManagerOpen}
+          onClose={() => {
+            setFilesManagerOpen(false);
+            setSelectedAssetForFiles(null);
+          }}
+          onFilesChange={fetchBatchAssets}
+        />
+      )}
     </div>
   );
 }

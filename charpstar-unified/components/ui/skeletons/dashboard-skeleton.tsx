@@ -11,7 +11,7 @@ import { User2, TrendingUp } from "lucide-react";
 
 export function DashboardSkeleton() {
   return (
-    <div className="flex flex-1 flex-col p-4 sm:p-6">
+    <div className="flex flex-1 flex-col p-4 sm:p-12">
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 pt-19">
         {/* User Profile Skeleton */}
         <div className="space-y-4">

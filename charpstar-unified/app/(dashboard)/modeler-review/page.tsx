@@ -325,7 +325,7 @@ export default function ModelerReviewPage() {
 
   if (user.metadata?.role !== "modeler") {
     return (
-      <div className="flex flex-1 flex-col p-4 sm:p-6">
+      <div className="flex flex-1 flex-col p-4 sm:p-12">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">

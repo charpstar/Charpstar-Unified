@@ -100,73 +100,65 @@ const PRICING_OPTIONS: PricingOption[] = [
     description: "Standard PBR 3D model creation",
   },
   {
-    id: "hard_3d_model",
-    label: "Hard 3D Models",
-    price: 0,
-    description:
-      "Models that can take an extremely long time to complete (Vehicles, detailed electronics, etc.) - Price to be decided",
-  },
-  {
-    id: "additional_colors",
-    label: "Additional Colors",
-    price: 1,
-    description: "Additional colors for already made 3D models",
-  },
-  {
-    id: "additional_textures",
-    label: "Additional Textures/Materials",
-    price: 5,
-    description: "Additional textures/materials for already made 3D models",
-  },
-  {
-    id: "additional_sizes",
-    label: "Additional Sizes",
-    price: 4,
-    description: "Additional sizes for already made 3D models",
-  },
-];
-
-// Future pricing options (after first list completion)
-const FUTURE_PRICING_OPTIONS: PricingOption[] = [
-  {
     id: "pbr_3d_model_future",
     label: "PBR 3D Model Creation (Future)",
-    price: 30,
-    description: "Standard PBR 3D model creation - Future pricing",
+    price: 15,
+    description: "PBR 3D model creation for future models",
+  },
+  {
+    id: "hard_3d_model",
+    label: "Hard Surface 3D Model",
+    price: 0, // Custom price
+    description: "Hard surface 3D model with custom pricing",
   },
   {
     id: "hard_3d_model_future",
-    label: "Hard 3D Models (Future)",
-    price: 0,
-    description:
-      "Models that can take an extremely long time to complete - Price to be decided",
+    label: "Hard Surface 3D Model (Future)",
+    price: 0, // Custom price
+    description: "Hard surface 3D model for future models with custom pricing",
   },
   {
-    id: "additional_colors_future",
-    label: "Additional Colors (Future)",
-    price: 1.5,
-    description:
-      "Additional colors for already made 3D models - Future pricing",
+    id: "texture_creation",
+    label: "Texture Creation",
+    price: 8,
+    description: "Texture creation for existing models",
   },
   {
-    id: "additional_textures_future",
-    label: "Additional Textures/Materials (Future)",
-    price: 7,
-    description:
-      "Additional textures/materials for already made 3D models - Future pricing",
+    id: "texture_creation_future",
+    label: "Texture Creation (Future)",
+    price: 6,
+    description: "Texture creation for future models",
   },
   {
-    id: "additional_sizes_future",
-    label: "Additional Sizes (Future)",
+    id: "uv_unwrapping",
+    label: "UV Unwrapping",
     price: 5,
-    description: "Additional sizes for already made 3D models - Future pricing",
+    description: "UV unwrapping for existing models",
+  },
+  {
+    id: "uv_unwrapping_future",
+    label: "UV Unwrapping (Future)",
+    price: 4,
+    description: "UV unwrapping for future models",
+  },
+  {
+    id: "retopology",
+    label: "Retopology",
+    price: 12,
+    description: "Retopology for existing models",
+  },
+  {
+    id: "retopology_future",
+    label: "Retopology (Future)",
+    price: 10,
+    description: "Retopology for future models",
   },
 ];
 
 export default function AllocateAssetsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [assets, setAssets] = useState<UnallocatedAsset[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
   const [allocationData, setAllocationData] = useState<AllocationData[]>([]);
@@ -267,22 +259,22 @@ export default function AllocateAssetsPage() {
       setCategories(uniqueCategories);
     } catch (error) {
       console.error("Error fetching unallocated assets:", error);
-      toast.error("Failed to fetch unallocated assets");
+      toast.error("Failed to fetch assets");
     } finally {
       setLoading(false);
     }
-  }, [clientFilter, categoryFilter, searchParams]);
+  }, [searchParams, clientFilter, categoryFilter]);
 
-  // Fetch users (modelers and QA)
+  // Fetch users
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, email, title, role")
-        .in("role", ["modeler", "qa"])
-        .order("email");
+        .in("role", ["modeler", "qa"]);
 
       if (error) throw error;
+
       setUsers(data || []);
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -301,8 +293,8 @@ export default function AllocateAssetsPage() {
     if (selectedAssetsParam.length > 0) {
       // Set the selected assets from URL parameters
       setSelectedAssets(new Set(selectedAssetsParam));
-      // Move to step 2 if we have pre-selected assets
-      setStep(2);
+      // Start with step 1 (team assignment) if we have pre-selected assets
+      setStep(1);
     }
   }, [searchParams]);
 
@@ -380,19 +372,12 @@ export default function AllocateAssetsPage() {
   // Handle next step
   const handleNextStep = () => {
     if (step === 1) {
-      if (selectedAssets.size === 0) {
-        toast.error("Please select at least one asset");
-        return;
-      }
-      initializeAllocationData();
-      setStep(2);
-    } else if (step === 2) {
       // Validate that global team assignment is complete
       if (!globalTeamAssignment.modelerId) {
         toast.error("Please assign a modeler for all assets");
         return;
       }
-      setStep(3);
+      setStep(2);
     }
   };
 
@@ -400,9 +385,6 @@ export default function AllocateAssetsPage() {
   const handleBackStep = () => {
     if (step === 2) {
       setStep(1);
-      setAllocationData([]);
-    } else if (step === 3) {
-      setStep(2);
     }
   };
 
@@ -483,113 +465,61 @@ export default function AllocateAssetsPage() {
         return;
       }
 
-      if (assetsToAllocate.length < allocationData.length) {
-        const alreadyAssignedCount =
-          allocationData.length - assetsToAllocate.length;
-        toast.warning(
-          `${alreadyAssignedCount} asset(s) are already assigned and will be skipped`
-        );
-      }
-
-      // Create asset assignments using global team assignment
+      // Create asset assignments
       const assignments = assetsToAllocate.map((data) => ({
         asset_id: data.assetId,
-        user_id: globalTeamAssignment.modelerId,
+        user_id: data.modelerId,
         role: "modeler",
-        start_time: new Date().toISOString(),
-        deadline: groupSettings.deadline,
+        status: "pending",
         price: data.price,
         bonus: groupSettings.bonus,
-        status: "pending", // Explicitly set pending status
+        deadline: groupSettings.deadline,
       }));
 
-      const { data: createdAssignments, error: assignmentError } =
-        await supabase.from("asset_assignments").insert(assignments).select();
+      const { error: assignmentError } = await supabase
+        .from("asset_assignments")
+        .insert(assignments);
 
       if (assignmentError) throw assignmentError;
 
-      // Note: Asset status will be updated to "in_production" only when modeler accepts
-      // For now, assets remain in their current status until accepted
-
-      // Send notifications to modelers
+      // Send notifications to assigned modelers
       try {
-        // Group allocations by modeler to send consolidated notifications
-        const modelerAllocations = new Map<
-          string,
-          {
-            modelerId: string;
-            modelerEmail: string;
-            assetIds: string[];
-            assetNames: string[];
-            client: string;
-          }
-        >();
-
-        // Group assets by modeler using global team assignment (only for actually allocated assets)
-        assetsToAllocate.forEach((data) => {
-          const asset = getAssetById(data.assetId);
-          if (!asset) return;
-
-          const modeler = users.find(
-            (u) => u.id === globalTeamAssignment.modelerId
+        const modelerIds = [...new Set(assignments.map((a) => a.user_id))];
+        for (const modelerId of modelerIds) {
+          const modelerAssets = assignments.filter(
+            (a) => a.user_id === modelerId
           );
-          if (!modeler) return;
+          const modeler = users.find((u) => u.id === modelerId);
+          if (!modeler) continue;
 
-          if (!modelerAllocations.has(globalTeamAssignment.modelerId)) {
-            modelerAllocations.set(globalTeamAssignment.modelerId, {
-              modelerId: globalTeamAssignment.modelerId,
-              modelerEmail: modeler.email,
-              assetIds: [],
-              assetNames: [],
-              client: asset.client,
-            });
-          }
+          const assetDetails = modelerAssets.map((assignment) => {
+            const asset = getAssetById(assignment.asset_id);
+            return asset?.product_name || assignment.asset_id;
+          });
 
-          const allocation = modelerAllocations.get(
-            globalTeamAssignment.modelerId
-          )!;
-          allocation.assetIds.push(data.assetId);
-          allocation.assetNames.push(asset.product_name);
-        });
-
-        // Send notifications to each modeler
-        const notificationPromises = Array.from(
-          modelerAllocations.values()
-        ).map((allocation) =>
-          notificationService.sendAssetAllocationNotification({
-            modelerId: allocation.modelerId,
-            modelerEmail: allocation.modelerEmail,
-            assetIds: allocation.assetIds,
-            assetNames: allocation.assetNames,
+          await notificationService.sendAssetAllocationNotification({
+            modelerId: modelerId,
+            modelerEmail: modeler.email,
+            assetIds: modelerAssets.map((a) => a.asset_id),
+            assetNames: assetDetails,
             deadline: groupSettings.deadline,
-            price:
-              allocationData.find((d) => d.assetId === allocation.assetIds[0])
-                ?.price || 0,
+            price: modelerAssets.reduce((sum, a) => sum + a.price, 0),
             bonus: groupSettings.bonus,
-            client: allocation.client,
-          })
-        );
-
-        await Promise.all(notificationPromises);
+            client:
+              getAssetById(modelerAssets[0].asset_id)?.client || "Unknown",
+          });
+        }
       } catch (notificationError) {
         console.error("Failed to send notifications:", notificationError);
         // Don't fail the allocation process if notifications fail
       }
 
       toast.success(
-        `Successfully allocated ${assetsToAllocate.length} assets and sent notifications`
+        `Successfully allocated ${assetsToAllocate.length} assets to modelers!`
       );
-      setSelectedAssets(new Set());
-      setAllocationData([]);
-      setGroupSettings({
-        deadline: format(
-          new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          "yyyy-MM-dd"
-        ),
-        bonus: 0,
-      });
-      setStep(1);
-      fetchUnallocatedAssets(); // Refresh the list
+
+      // Redirect to production page
+      router.push("/production");
     } catch (error) {
       console.error("Error allocating assets:", error);
       toast.error("Failed to allocate assets");
@@ -598,304 +528,122 @@ export default function AllocateAssetsPage() {
     }
   };
 
+  // Helper function to get asset by ID
   const getAssetById = (id: string) => {
-    // First try to find in current assets
-    const asset = assets.find((a) => a.id === id);
-    if (asset) return asset;
-
-    // If not found, it might be a pre-selected asset from admin-review
-    // We'll need to fetch it or handle it differently
-    return null;
+    return assets.find((asset) => asset.id === id);
   };
 
+  // Get current pricing options based on tier
   const getCurrentPricingOptions = () => {
-    return pricingTier === "first_list"
-      ? PRICING_OPTIONS
-      : FUTURE_PRICING_OPTIONS;
+    return PRICING_OPTIONS.filter((option) =>
+      pricingTier === "first_list"
+        ? !option.id.includes("_future")
+        : option.id.includes("_future")
+    );
   };
 
+  // Get pricing option by ID
   const getPricingOptionById = (id: string) => {
     const options = getCurrentPricingOptions();
     return options.find((option) => option.id === id);
   };
 
+  // Helper function to get priority color
+  const getPriorityColor = (priority: number) => {
+    switch (priority) {
+      case 1:
+        return "bg-red-100 text-red-800 border-red-200";
+      case 2:
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case 3:
+        return "bg-green-100 text-green-800 border-green-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="mb-6">
+        <div className="flex items-center gap-4 mb-4">
+          <Button
+            variant="ghost"
+            onClick={() => router.push("/production")}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Production
+          </Button>
+        </div>
+        <div className="flex items-center gap-3 mb-2">
+          <Package className="h-6 w-6 text-primary" />
           <h1 className="text-3xl font-bold">
             {searchParams.getAll("selectedAssets").length > 0
               ? "Assign Selected Assets"
               : "Allocate Assets"}
           </h1>
-          <p className="text-muted-foreground">
+        </div>
+        <div className="flex items-center gap-4 text-muted-foreground">
+          <p>
             {step === 1
-              ? "Step 1: Select assets to allocate"
-              : step === 2
-                ? "Step 2: Assign modelers and QA to assets"
-                : "Step 3: Set pricing and deadline for the asset group"}
+              ? "Assign modelers to selected assets"
+              : "Set pricing and deadline for the asset group"}
           </p>
-        </div>
-        <Button variant="outline" onClick={() => router.push("/production")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Production
-        </Button>
-      </div>
-
-      {/* Step indicator */}
-      <div className="flex items-center space-x-4">
-        <div
-          className={`flex items-center space-x-2 ${step >= 1 ? "text-primary" : "text-muted-foreground"}`}
-        >
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-          >
-            1
-          </div>
-          <span>Select Assets</span>
-        </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-        <div
-          className={`flex items-center space-x-2 ${step >= 2 ? "text-primary" : "text-muted-foreground"}`}
-        >
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-          >
-            2
-          </div>
-          <span>Assign Modeler</span>
-        </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-        <div
-          className={`flex items-center space-x-2 ${step >= 3 ? "text-primary" : "text-muted-foreground"}`}
-        >
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-          >
-            3
-          </div>
-          <span>Set Pricing & Deadline</span>
+          {selectedAssets.size > 0 && (
+            <Badge variant="outline" className="text-sm">
+              {selectedAssets.size} assets selected
+            </Badge>
+          )}
         </div>
       </div>
 
-      {/* Pre-selected assets indicator */}
-      {searchParams.getAll("selectedAssets").length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-blue-600" />
-            <span className="text-sm font-medium text-blue-800">
-              Pre-selected {selectedAssets.size} assets from Admin Review
-            </span>
+      {/* Progress Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card
+          className={`p-4 transition-all duration-200 ${step >= 1 ? "ring-2 ring-primary/20 bg-primary/5" : "bg-muted/50"}`}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={`p-2 rounded-lg ${step >= 1 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+            >
+              <User className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Step 1: Assign Team</p>
+              <p className="text-xs text-muted-foreground">
+                {globalTeamAssignment.modelerId
+                  ? "Modeler assigned"
+                  : "No modeler selected"}
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-blue-600 mt-1">
-            These assets have been automatically selected and you can proceed
-            directly to team assignment.
-          </p>
-        </div>
-      )}
+        </Card>
+
+        <Card
+          className={`p-4 transition-all duration-200 ${step >= 2 ? "ring-2 ring-primary/20 bg-primary/5" : "bg-muted/50"}`}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={`p-2 rounded-lg ${step >= 2 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+            >
+              <Euro className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Step 2: Pricing & Deadline</p>
+              <p className="text-xs text-muted-foreground">
+                {groupSettings.deadline ? "Deadline set" : "No deadline set"}
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
 
       {step === 1 ? (
-        /* Step 1: Asset Selection */
+        /* Step 1: Team Assignment */
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>
-                {searchParams.getAll("selectedAssets").length > 0
-                  ? `Selected Assets (${selectedAssets.size})`
-                  : `Available Assets (${filteredAssets.length})`}
-              </span>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setClientFilter("all");
-                    setCategoryFilter("all");
-                  }}
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Clear Filters
-                </Button>
-                <Button
-                  onClick={handleNextStep}
-                  disabled={selectedAssets.size === 0}
-                >
-                  <ArrowRight className="h-4 w-4 mr-2" />
-                  Next: Assign Team ({selectedAssets.size})
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Filters */}
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search assets..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={clientFilter} onValueChange={setClientFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by client" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Clients</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client} value={client}>
-                      {client}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Assets Table */}
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                <p className="mt-2 text-muted-foreground">Loading assets...</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={
-                          selectedAssets.size === filteredAssets.length &&
-                          filteredAssets.length > 0
-                        }
-                        onCheckedChange={handleSelectAll}
-                      />
-                    </TableHead>
-                    <TableHead>Article ID</TableHead>
-                    <TableHead>Product Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Subcategory</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-20">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAssets.map((asset) => (
-                    <TableRow key={asset.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedAssets.has(asset.id)}
-                          onCheckedChange={(checked) =>
-                            handleAssetSelect(asset.id, checked as boolean)
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {asset.article_id}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {asset.product_name}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{asset.category}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{asset.subcategory}</Badge>
-                      </TableCell>
-                      <TableCell>{asset.client}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            asset.priority === 1
-                              ? "destructive"
-                              : asset.priority === 2
-                                ? "default"
-                                : "secondary"
-                          }
-                        >
-                          P{asset.priority}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{asset.status}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-1">
-                          {asset.product_link && (
-                            <a
-                              href={asset.product_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          )}
-                          {asset.glb_link && (
-                            <a
-                              href={asset.glb_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
-                            >
-                              <Package className="h-4 w-4" />
-                            </a>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-
-            {filteredAssets.length === 0 && !loading && (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  {searchParams.getAll("selectedAssets").length > 0
-                    ? "No assets found matching your selection"
-                    : "No available assets found"}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : step === 2 ? (
-        /* Step 2: Team Assignment */
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Assign Modeler to All Assets</span>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" onClick={handleBackStep}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Selection
-                </Button>
-                <Button onClick={handleNextStep} disabled={loading}>
-                  <ArrowRight className="h-4 w-4 mr-2" />
-                  Next: Set Pricing
-                </Button>
-              </div>
-            </CardTitle>
+            <CardTitle>Assign Modeler to All Assets</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
@@ -960,34 +708,36 @@ export default function AllocateAssetsPage() {
                   })}
                 </div>
               </div>
+
+              {/* Step Navigation */}
+              <div className="flex items-center justify-between pt-6 border-t mt-6">
+                <div className="text-sm text-muted-foreground">
+                  {globalTeamAssignment.modelerId ? (
+                    <span className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Modeler assigned
+                    </span>
+                  ) : (
+                    "Select a modeler to continue"
+                  )}
+                </div>
+                <Button
+                  onClick={handleNextStep}
+                  disabled={!globalTeamAssignment.modelerId}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                  Continue to Pricing
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
       ) : (
-        /* Step 3: Group Pricing */
+        /* Step 2: Group Pricing */
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Set Pricing & Deadline for Asset Group</span>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" onClick={handleBackStep}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Team Assignment
-                </Button>
-                <Button
-                  onClick={handleAllocate}
-                  disabled={
-                    loading ||
-                    !globalTeamAssignment.modelerId ||
-                    !groupSettings.deadline ||
-                    allocationData.some((data) => data.price <= 0) ||
-                    allocationData.some((data) => !data.pricingOptionId)
-                  }
-                >
-                  Allocate & Notify
-                </Button>
-              </div>
-            </CardTitle>
+            <CardTitle>Set Pricing & Deadline for Asset Group</CardTitle>
           </CardHeader>
           <CardContent>
             {/* Group Settings */}
@@ -1044,9 +794,7 @@ export default function AllocateAssetsPage() {
                         onSelect={(date) => {
                           setGroupSettings((prev) => ({
                             ...prev,
-                            deadline: date
-                              ? format(date, "yyyy-MM-dd")
-                              : prev.deadline,
+                            deadline: format(date || new Date(), "yyyy-MM-dd"),
                           }));
                         }}
                         initialFocus
@@ -1057,7 +805,10 @@ export default function AllocateAssetsPage() {
 
                 {/* Bonus */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Bonus %</label>
+                  <label className="text-sm font-medium flex items-center">
+                    <Euro className="h-4 w-4 mr-2" />
+                    Bonus (%)
+                  </label>
                   <Input
                     type="number"
                     placeholder="0"
@@ -1065,7 +816,7 @@ export default function AllocateAssetsPage() {
                     onChange={(e) =>
                       setGroupSettings((prev) => ({
                         ...prev,
-                        bonus: parseFloat(e.target.value) || 0,
+                        bonus: parseInt(e.target.value) || 0,
                       }))
                     }
                   />
@@ -1073,19 +824,22 @@ export default function AllocateAssetsPage() {
               </div>
 
               {/* Individual Asset Pricing */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Asset Pricing</h3>
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-medium mb-4">
+                  Individual Asset Pricing
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {allocationData.map((data) => {
                     const asset = getAssetById(data.assetId);
                     if (!asset) return null;
+
                     return (
                       <Card key={data.assetId} className="p-4">
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                           <div>
-                            <p className="font-medium text-sm">
+                            <h4 className="font-medium text-sm">
                               {asset.product_name}
-                            </p>
+                            </h4>
                             <p className="text-xs text-muted-foreground">
                               {asset.article_id}
                             </p>
@@ -1181,6 +935,43 @@ export default function AllocateAssetsPage() {
                     Deadline: {format(new Date(groupSettings.deadline), "PPP")}
                   </p>
                 </div>
+              </div>
+
+              {/* Step Navigation */}
+              <div className="flex items-center justify-between pt-6 border-t mt-6">
+                <Button
+                  variant="outline"
+                  onClick={handleBackStep}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Team Assignment
+                </Button>
+                <div className="text-sm text-muted-foreground">
+                  {groupSettings.deadline &&
+                  allocationData.every((data) => data.price > 0) ? (
+                    <span className="flex items-center gap-2">
+                      <Euro className="h-4 w-4" />
+                      Ready to allocate
+                    </span>
+                  ) : (
+                    "Complete pricing and deadline to continue"
+                  )}
+                </div>
+                <Button
+                  onClick={handleAllocate}
+                  disabled={
+                    loading ||
+                    !globalTeamAssignment.modelerId ||
+                    !groupSettings.deadline ||
+                    allocationData.some((data) => data.price <= 0) ||
+                    allocationData.some((data) => !data.pricingOptionId)
+                  }
+                  className="flex items-center gap-2"
+                >
+                  <Package className="h-4 w-4" />
+                  Allocate & Notify
+                </Button>
               </div>
             </div>
           </CardContent>
