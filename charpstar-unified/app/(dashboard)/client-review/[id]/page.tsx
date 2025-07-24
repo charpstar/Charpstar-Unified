@@ -1145,34 +1145,59 @@ export default function ReviewPage() {
     setStatusUpdating(true);
 
     try {
-      // Update asset status
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({
+      // Use the complete API endpoint for proper allocation list handling
+      const response = await fetch("/api/assets/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
           status: newStatus,
-          revision_count:
-            newStatus === "revisions" ? revisionCount + 1 : revisionCount,
-        })
-        .eq("id", assetId);
+          revisionCount: newStatus === "revisions" ? revisionCount : undefined,
+        }),
+      });
 
-      if (error) {
-        console.error("Error updating asset status:", error);
-        toast.error("Failed to update status");
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update status");
       }
+
+      const result = await response.json();
 
       // If status is approved, update the modeler's end time
       if (newStatus === "approved") {
         await updateModelerEndTime(assetId);
       }
 
+      // Update local state
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
       if (newStatus === "revisions") {
         setRevisionCount((prev) => prev + 1);
       }
-      toast.success(
-        `Status updated to ${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}`
-      );
+
+      // Show success message and trigger earnings widget refresh
+      if (result.allocationListApproved) {
+        toast.success("Asset approved and allocation list completed!");
+        // Trigger earnings widget refresh for approval
+        window.dispatchEvent(new CustomEvent("allocationListApproved"));
+      } else if (result.allocationListId) {
+        // Check if this was an unapproval (status changed from approved to something else)
+        const wasApproved = asset?.status === "approved";
+        if (wasApproved && newStatus !== "approved") {
+          toast.success("Asset unapproved and allocation list updated!");
+          // Trigger earnings widget refresh for unapproval
+          window.dispatchEvent(new CustomEvent("allocationListUnapproved"));
+        } else {
+          toast.success(
+            `Status updated to ${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}`
+          );
+        }
+      } else {
+        toast.success(
+          `Status updated to ${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}`
+        );
+      }
     } catch (error) {
       console.error("Error updating asset status:", error);
       toast.error("Failed to update status");
@@ -1206,24 +1231,29 @@ export default function ReviewPage() {
         // Continue with status update even if history save fails
       }
 
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({
+      // Use the complete API endpoint for proper allocation list handling
+      const response = await fetch("/api/assets/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
           status: "revisions",
-          revision_count: revisionCount + 1,
-        })
-        .eq("id", assetId);
+          revisionCount: revisionCount,
+        }),
+      });
 
-      if (error) {
-        console.error("Error updating asset status:", error);
-        toast.error("Failed to update status");
-      } else {
-        setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
-        setRevisionCount((prev) => prev + 1);
-        toast.success("Status updated to Ready for Revision");
-        // Refresh revision history in real-time
-        await fetchRevisionHistory();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update status");
       }
+
+      setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
+      setRevisionCount((prev) => prev + 1);
+      toast.success("Status updated to Ready for Revision");
+      // Refresh revision history in real-time
+      await fetchRevisionHistory();
     } catch (error) {
       console.error("Error updating asset status:", error);
       toast.error("Failed to update status");

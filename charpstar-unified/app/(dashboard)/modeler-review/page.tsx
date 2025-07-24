@@ -444,7 +444,7 @@ export default function ModelerReviewPage() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Completed
                   </p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-2xl font-medium text-green-600">
                     {statusTotals.approved}
                   </p>
                 </div>

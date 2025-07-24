@@ -86,6 +86,16 @@ interface BatchAsset {
   reference: string[] | null;
   price?: number;
   bonus?: number;
+  allocation_list_id?: string;
+}
+
+interface AllocationList {
+  id: string;
+  name: string;
+  deadline: string;
+  bonus: number;
+  created_at: string;
+  assets: BatchAsset[];
 }
 
 interface BatchStats {
@@ -96,6 +106,12 @@ interface BatchStats {
   revisionAssets: number;
   waitingForApprovalAssets: number;
   completionPercentage: number;
+  totalBaseEarnings: number;
+  totalBonusEarnings: number;
+  totalPotentialEarnings: number;
+  completedEarnings: number;
+  pendingEarnings: number;
+  averageAssetPrice: number;
 }
 
 export default function BatchDetailPage() {
@@ -107,7 +123,7 @@ export default function BatchDetailPage() {
   const client = decodeURIComponent(params.client as string);
   const batch = parseInt(params.batch as string);
 
-  const [assets, setAssets] = useState<BatchAsset[]>([]);
+  const [allocationLists, setAllocationLists] = useState<AllocationList[]>([]);
   const [filteredAssets, setFilteredAssets] = useState<BatchAsset[]>([]);
   const [batchStats, setBatchStats] = useState<BatchStats>({
     totalAssets: 0,
@@ -117,6 +133,12 @@ export default function BatchDetailPage() {
     revisionAssets: 0,
     waitingForApprovalAssets: 0,
     completionPercentage: 0,
+    totalBaseEarnings: 0,
+    totalBonusEarnings: 0,
+    totalPotentialEarnings: 0,
+    completedEarnings: 0,
+    pendingEarnings: 0,
+    averageAssetPrice: 0,
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -153,89 +175,137 @@ export default function BatchDetailPage() {
 
   useEffect(() => {
     filterAndSortAssets();
-  }, [assets, searchTerm, statusFilter, sortBy]);
+  }, [allocationLists, searchTerm, statusFilter, sortBy]);
 
   const fetchBatchAssets = async () => {
     try {
       setLoading(true);
       startLoading();
 
-      // Get user's individual asset assignments for this specific client and batch
-      const { data: assetAssignments, error: assignmentError } = await supabase
-        .from("asset_assignments")
+      // Get user's allocation lists for this specific client and batch (only accepted assignments)
+      const { data: allocationListsData, error: listsError } = await supabase
+        .from("allocation_lists")
         .select(
           `
-          asset_id,
-          status,
-          price,
-          bonus,
+          id,
+          name,
           deadline,
-          onboarding_assets!inner(
-            id,
-            product_name,
-            article_id,
+          bonus,
+          created_at,
+          asset_assignments!inner(
+            asset_id,
             status,
-            priority,
-            category,
-            subcategory,
-            client,
-            batch,
-            delivery_date,
-            created_at,
-            revision_count,
-            glb_link,
-            product_link,
-            reference
+            price,
+            onboarding_assets!inner(
+              id,
+              product_name,
+              article_id,
+              status,
+              priority,
+              category,
+              subcategory,
+              client,
+              batch,
+              delivery_date,
+              created_at,
+              revision_count,
+              glb_link,
+              product_link,
+              reference
+            )
           )
         `
         )
         .eq("user_id", user?.id)
         .eq("role", "modeler")
-        .eq("status", "accepted")
-        .eq("onboarding_assets.client", client)
-        .eq("onboarding_assets.batch", batch);
+        .eq("asset_assignments.status", "accepted")
+        .eq("asset_assignments.onboarding_assets.client", client)
+        .eq("asset_assignments.onboarding_assets.batch", batch);
 
-      if (assignmentError) {
-        console.error("Error fetching asset assignments:", assignmentError);
+      if (listsError) {
+        console.error("Error fetching allocation lists:", listsError);
         toast.error("Failed to fetch batch assets");
         return;
       }
 
-      if (!assetAssignments || assetAssignments.length === 0) {
+      if (!allocationListsData || allocationListsData.length === 0) {
         toast.error("You don't have any assigned assets in this batch");
         router.push("/my-assignments");
         return;
       }
 
-      // Extract assets from assignments and include pricing data
-      const batchAssets = assetAssignments
-        .map((assignment) => ({
-          ...assignment.onboarding_assets,
-          price: assignment.price,
-          bonus: assignment.bonus,
-          deadline: assignment.deadline,
-        }))
-        .filter(Boolean) as any[];
+      // Process allocation lists and their assets
+      const processedLists: AllocationList[] = allocationListsData.map(
+        (list) => {
+          const assets = list.asset_assignments
+            .map((assignment: any) => ({
+              ...assignment.onboarding_assets,
+              price: assignment.price,
+              bonus: list.bonus,
+              deadline: list.deadline,
+              allocation_list_id: list.id,
+            }))
+            .filter(Boolean) as BatchAsset[];
 
-      setAssets(batchAssets);
+          return {
+            id: list.id,
+            name: list.name,
+            deadline: list.deadline,
+            bonus: list.bonus,
+            created_at: list.created_at,
+            assets,
+          };
+        }
+      );
 
-      // Calculate batch statistics
-      const totalAssets = batchAssets.length;
-      const completedAssets = batchAssets.filter(
+      setAllocationLists(processedLists);
+
+      // Calculate batch statistics from all assets across all lists
+      const allAssets = processedLists.flatMap((list) => list.assets);
+      const totalAssets = allAssets.length;
+      const completedAssets = allAssets.filter(
         (asset) => asset.status === "approved"
       ).length;
-      const inProgressAssets = batchAssets.filter(
+      const inProgressAssets = allAssets.filter(
         (asset) => asset.status === "in_production"
       ).length;
-      const pendingAssets = batchAssets.filter(
+      const pendingAssets = allAssets.filter(
         (asset) => asset.status === "not_started"
       ).length;
-      const revisionAssets = batchAssets.filter(
+      const revisionAssets = allAssets.filter(
         (asset) => asset.status === "revisions"
       ).length;
-      const waitingForApprovalAssets = batchAssets.filter(
+      const waitingForApprovalAssets = allAssets.filter(
         (asset) => asset.status === "delivered_by_artist"
       ).length;
+
+      // Calculate earnings statistics
+      const totalBaseEarnings = allAssets.reduce(
+        (sum, asset) => sum + (asset.price || 0),
+        0
+      );
+      const totalBonusEarnings = allAssets.reduce((sum, asset) => {
+        const bonus = asset.bonus || 0;
+        return sum + ((asset.price || 0) * bonus) / 100;
+      }, 0);
+      const totalPotentialEarnings = totalBaseEarnings + totalBonusEarnings;
+
+      const completedEarnings = allAssets
+        .filter((asset) => asset.status === "approved")
+        .reduce((sum, asset) => {
+          const bonus = asset.bonus || 0;
+          return sum + (asset.price || 0) * (1 + bonus / 100);
+        }, 0);
+
+      const pendingEarnings = allAssets
+        .filter((asset) => asset.status !== "approved")
+        .reduce((sum, asset) => {
+          const bonus = asset.bonus || 0;
+          return sum + (asset.price || 0) * (1 + bonus / 100);
+        }, 0);
+
+      const averageAssetPrice =
+        totalAssets > 0 ? totalBaseEarnings / totalAssets : 0;
 
       setBatchStats({
         totalAssets,
@@ -248,6 +318,12 @@ export default function BatchDetailPage() {
           totalAssets > 0
             ? Math.round((completedAssets / totalAssets) * 100)
             : 0,
+        totalBaseEarnings,
+        totalBonusEarnings,
+        totalPotentialEarnings,
+        completedEarnings,
+        pendingEarnings,
+        averageAssetPrice,
       });
     } catch (error) {
       console.error("Error fetching batch assets:", error);
@@ -259,7 +335,9 @@ export default function BatchDetailPage() {
   };
 
   const filterAndSortAssets = () => {
-    let filtered = [...assets];
+    // Get all assets from all allocation lists
+    const allAssets = allocationLists.flatMap((list) => list.assets);
+    let filtered = [...allAssets];
 
     // Apply search filter
     if (searchTerm) {
@@ -640,31 +718,36 @@ export default function BatchDetailPage() {
         </div>
         <div className="flex items-center gap-4 text-muted-foreground">
           <p>Manage and review all assets in this batch</p>
-          {assets.length > 0 && assets[0]?.deadline && (
+          {allocationLists.length > 0 && allocationLists[0]?.deadline && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span className="text-sm">
-                Deadline: {new Date(assets[0].deadline).toLocaleDateString()}
+                Deadline:{" "}
+                {new Date(allocationLists[0].deadline).toLocaleDateString()}
               </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Batch Statistics */}
+      {/* Batch Earnings Statistics */}
       {!loading && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
-                <Package className="h-5 w-5 text-blue-600" />
+                <Euro className="h-5 w-5 text-blue-600" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Total Assets
+                  Total Potential Earnings
                 </p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {batchStats.totalAssets}
+                  €{batchStats.totalPotentialEarnings.toFixed(2)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {batchStats.totalAssets} assets • €
+                  {batchStats.averageAssetPrice.toFixed(2)} avg
                 </p>
               </div>
             </div>
@@ -677,10 +760,13 @@ export default function BatchDetailPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Completed
+                  Completed Earnings
                 </p>
-                <p className="text-2xl font-bold text-green-600">
-                  {batchStats.completedAssets}
+                <p className="text-2xl font-medium text-green-600">
+                  €{batchStats.completedEarnings.toFixed(2)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {batchStats.completedAssets} assets completed
                 </p>
               </div>
             </div>
@@ -693,10 +779,14 @@ export default function BatchDetailPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  In Progress
+                  Pending Earnings
                 </p>
                 <p className="text-2xl font-bold text-orange-600">
-                  {batchStats.inProgressAssets}
+                  €{batchStats.pendingEarnings.toFixed(2)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {batchStats.totalAssets - batchStats.completedAssets} assets
+                  remaining
                 </p>
               </div>
             </div>
@@ -705,30 +795,17 @@ export default function BatchDetailPage() {
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-100 rounded-lg">
-                <AlertCircle className="h-5 w-5 text-purple-600" />
+                <Package className="h-5 w-5 text-purple-600" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Waiting for Approval
+                  Bonus Earnings
                 </p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {batchStats.waitingForApprovalAssets}
+                  €{batchStats.totalBonusEarnings.toFixed(2)}
                 </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <RotateCcw className="h-5 w-5 text-red-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Pending
-                </p>
-                <p className="text-2xl font-bold text-red-600">
-                  {batchStats.pendingAssets}
+                <p className="text-xs text-muted-foreground">
+                  {batchStats.completionPercentage}% completion
                 </p>
               </div>
             </div>
@@ -783,7 +860,8 @@ export default function BatchDetailPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Batch Assets</h2>
           <Badge variant="outline">
-            {filteredAssets.length} of {assets.length} assets
+            {filteredAssets.length} of{" "}
+            {allocationLists.flatMap((list) => list.assets).length} assets
           </Badge>
         </div>
 
@@ -798,7 +876,7 @@ export default function BatchDetailPage() {
               ))}
             </div>
           </Card>
-        ) : assets.length === 0 ? (
+        ) : allocationLists.length === 0 ? (
           <Card className="p-8 text-center">
             <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No Assets in Batch</h3>
@@ -819,177 +897,198 @@ export default function BatchDetailPage() {
             </p>
           </Card>
         ) : (
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">Status</TableHead>
-                  <TableHead>Product Name</TableHead>
-                  <TableHead className="w-32">Article ID</TableHead>
-                  <TableHead className="w-24">Priority</TableHead>
-                  <TableHead className="w-24">Price</TableHead>
-                  <TableHead className="w-32">Category</TableHead>
-                  <TableHead className="w-32">Deadline</TableHead>
-                  <TableHead className="w-12">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAssets.map((asset) => (
-                  <TableRow key={asset.id} className="hover:bg-muted/50">
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(asset.status)}
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${getStatusColor(asset.status)}`}
-                        >
-                          {asset.status === "delivered_by_artist"
-                            ? "Waiting for Approval"
-                            : asset.status === "not_started"
-                              ? "Not Started"
-                              : asset.status === "in_production"
-                                ? "In Progress"
-                                : asset.status === "revisions"
-                                  ? "Sent for Revision"
-                                  : asset.status}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{asset.product_name}</div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-mono text-sm">
-                        {asset.article_id}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${getPriorityColor(asset.priority)}`}
-                      >
-                        {asset.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {asset.price ? (
+          <div className="space-y-6">
+            {allocationLists.map((allocationList) => (
+              <Card key={allocationList.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Package className="h-5 w-5" />
+                        {allocationList.name}
+                      </CardTitle>
+                      <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
-                          <Euro className="h-3 w-3 text-green-600" />
-                          <span className="font-semibold">
-                            €{asset.price.toFixed(2)}
+                          <Calendar className="h-4 w-4" />
+                          <span>
+                            Deadline:{" "}
+                            {new Date(
+                              allocationList.deadline
+                            ).toLocaleDateString()}
                           </span>
-                          {asset.bonus && asset.bonus > 0 && (
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Euro className="h-4 w-4" />
+                          <span>Bonus: +{allocationList.bonus}%</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span>{allocationList.assets.length} assets</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">Status</TableHead>
+                        <TableHead>Product Name</TableHead>
+                        <TableHead className="w-32">Article ID</TableHead>
+                        <TableHead className="w-24">Priority</TableHead>
+                        <TableHead className="w-24">Price</TableHead>
+                        <TableHead className="w-32">Category</TableHead>
+                        <TableHead className="w-12">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allocationList.assets.map((asset) => (
+                        <TableRow key={asset.id} className="hover:bg-muted/50">
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {getStatusIcon(asset.status)}
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${getStatusColor(asset.status)}`}
+                              >
+                                {asset.status === "delivered_by_artist"
+                                  ? "Waiting for Approval"
+                                  : asset.status === "not_started"
+                                    ? "Not Started"
+                                    : asset.status === "in_production"
+                                      ? "In Progress"
+                                      : asset.status === "revisions"
+                                        ? "Sent for Revision"
+                                        : asset.status}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">
+                              {asset.product_name}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-mono text-sm">
+                              {asset.article_id}
+                            </span>
+                          </TableCell>
+                          <TableCell>
                             <Badge
                               variant="outline"
-                              className="text-xs text-green-600"
+                              className={`text-xs ${getPriorityColor(asset.priority)}`}
                             >
-                              +{asset.bonus}%
+                              {asset.priority}
                             </Badge>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {asset.category}
-                        {asset.subcategory && (
-                          <div className="text-xs text-muted-foreground">
-                            {asset.subcategory}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {asset.deadline ? (
-                        <div className="flex items-center gap-1 text-sm">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(asset.deadline).toLocaleDateString()}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => handleViewAsset(asset.id)}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Asset
-                          </DropdownMenuItem>
-
-                          {asset.product_link && (
-                            <DropdownMenuItem asChild>
-                              <a
-                                href={asset.product_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center"
-                              >
-                                <ExternalLink className="h-4 w-4 mr-2" />
-                                Product Link
-                              </a>
-                            </DropdownMenuItem>
-                          )}
-
-                          {asset.reference && (
-                            <DropdownMenuItem
-                              onClick={() => handleOpenReferences(asset)}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              View References (
-                              {parseReferences(asset.reference).length})
-                            </DropdownMenuItem>
-                          )}
-
-                          <DropdownMenuSeparator />
-
-                          <DropdownMenuItem
-                            onClick={() => handleOpenUploadDialog(asset, "glb")}
-                          >
-                            {uploadingGLB === asset.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
+                          </TableCell>
+                          <TableCell>
+                            {asset.price ? (
+                              <div className="flex items-center gap-1">
+                                <Euro className="h-3 w-3 text-green-600" />
+                                <span className="font-semibold">
+                                  €{asset.price.toFixed(2)}
+                                </span>
+                              </div>
                             ) : (
-                              <Upload className="h-4 w-4 mr-2" />
+                              <span className="text-muted-foreground text-sm">
+                                -
+                              </span>
                             )}
-                            {asset.glb_link ? "Update GLB" : "Upload GLB"}
-                          </DropdownMenuItem>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {asset.category}
+                              {asset.subcategory && (
+                                <div className="text-xs text-muted-foreground">
+                                  {asset.subcategory}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => handleViewAsset(asset.id)}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Asset
+                                </DropdownMenuItem>
 
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleOpenUploadDialog(asset, "asset")
-                            }
-                          >
-                            {uploadingFile === asset.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2" />
-                            ) : (
-                              <Image className="h-4 w-4 mr-2" />
-                            )}
-                            Upload Asset
-                          </DropdownMenuItem>
+                                {asset.product_link && (
+                                  <DropdownMenuItem asChild>
+                                    <a
+                                      href={asset.product_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center"
+                                    >
+                                      <ExternalLink className="h-4 w-4 mr-2" />
+                                      Product Link
+                                    </a>
+                                  </DropdownMenuItem>
+                                )}
 
-                          <DropdownMenuItem
-                            onClick={() => handleOpenFilesManager(asset)}
-                          >
-                            <FolderOpen className="h-4 w-4 mr-2" />
-                            View Files
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+                                {asset.reference && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleOpenReferences(asset)}
+                                  >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    View References (
+                                    {parseReferences(asset.reference).length})
+                                  </DropdownMenuItem>
+                                )}
+
+                                <DropdownMenuSeparator />
+
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleOpenUploadDialog(asset, "glb")
+                                  }
+                                >
+                                  {uploadingGLB === asset.id ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
+                                  ) : (
+                                    <Upload className="h-4 w-4 mr-2" />
+                                  )}
+                                  {asset.glb_link ? "Update GLB" : "Upload GLB"}
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleOpenUploadDialog(asset, "asset")
+                                  }
+                                >
+                                  {uploadingFile === asset.id ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2" />
+                                  ) : (
+                                    <Image className="h-4 w-4 mr-2" />
+                                  )}
+                                  Upload Asset
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem
+                                  onClick={() => handleOpenFilesManager(asset)}
+                                >
+                                  <FolderOpen className="h-4 w-4 mr-2" />
+                                  View Files
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
       </div>
 

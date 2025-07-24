@@ -342,138 +342,91 @@ export function ModelerEarningsWidget() {
     chartData: [] as any[],
   });
   const [loading, setLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     if (user?.id) {
       fetchEarningsData();
     }
-  }, [user?.id]);
+  }, [user?.id, refreshTrigger]);
+
+  // Listen for allocation list approval/unapproval events
+  useEffect(() => {
+    const handleAllocationListStatusChange = () => {
+      setRefreshTrigger((prev) => prev + 1);
+    };
+
+    // Listen for custom events when allocation lists are approved or unapproved
+    window.addEventListener(
+      "allocationListApproved",
+      handleAllocationListStatusChange
+    );
+    window.addEventListener(
+      "allocationListUnapproved",
+      handleAllocationListStatusChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        "allocationListApproved",
+        handleAllocationListStatusChange
+      );
+      window.removeEventListener(
+        "allocationListUnapproved",
+        handleAllocationListStatusChange
+      );
+    };
+  }, []);
 
   const fetchEarningsData = async () => {
     try {
       setLoading(true);
+      console.log("Fetching earnings data for user:", user?.id);
 
-      // First, let's debug by getting ALL assignments for this user
-      const { data: allAssignments, error: allError } = await supabase
-        .from("asset_assignments")
-        .select("*")
+      // First, let's check if there are any allocation lists at all for this user
+      const { data: allLists, error: allListsError } = await supabase
+        .from("allocation_lists")
+        .select("id, name, status, approved_at")
         .eq("user_id", user?.id)
         .eq("role", "modeler");
 
-      if (allError) {
-        console.error("Error fetching all assignments:", allError);
-        return;
-      }
+      console.log("All allocation lists for user:", allLists);
+      console.log("Allocation lists error:", allListsError);
 
-      // Let's also check what approved assets exist in the onboarding_assets table
-      const { data: approvedAssets, error: approvedError } = await supabase
-        .from("onboarding_assets")
-        .select("id, status, created_at")
+      // Get user's allocation lists with pricing - only for approved lists
+      const { data: allocationLists, error: listsError } = await supabase
+        .from("allocation_lists")
+        .select(
+          `
+          id,
+          name,
+          bonus,
+          status,
+          approved_at,
+          asset_assignments!inner(
+            asset_id,
+            price,
+            onboarding_assets!inner(
+              id,
+              status
+            )
+          )
+        `
+        )
+        .eq("user_id", user?.id)
+        .eq("role", "modeler")
         .eq("status", "approved");
-      if (approvedError) {
-        console.error("Error fetching approved assets:", approvedError);
-      }
 
-      // Let's try a simpler query first - just get accepted assignments without the approved filter
-      const { data: simpleAssignments, error: simpleError } = await supabase
-        .from("asset_assignments")
-        .select(
-          `
-          asset_id,
-          price,
-          bonus,
-          accepted_at,
-          onboarding_assets!inner(
-            id,
-            status,
-            created_at
-          )
-        `
-        )
-        .eq("user_id", user?.id)
-        .eq("role", "modeler")
-        .eq("status", "accepted");
-
-      if (simpleError) {
-        console.error("Error fetching simple assignments:", simpleError);
-      }
-
-      // Now get user's accepted asset assignments with pricing - only for approved models
-      // We'll filter for approved assets in the code instead of in the query
-      const { data: assetAssignments, error: assignmentError } = await supabase
-        .from("asset_assignments")
-        .select(
-          `
-          asset_id,
-          price,
-          bonus,
-          accepted_at,
-          onboarding_assets!inner(
-            id,
-            status,
-            created_at
-          )
-        `
-        )
-        .eq("user_id", user?.id)
-        .eq("role", "modeler")
-        .eq("status", "accepted");
-
-      if (assignmentError) {
-        console.error("Error fetching asset assignments:", assignmentError);
+      if (listsError) {
+        console.error("Error fetching allocation lists:", listsError);
         return;
       }
 
-      // Filter for approved assets in the code since the query join was causing issues
-      let assignmentsToUse = (
-        assetAssignments ||
-        simpleAssignments ||
-        []
-      ).filter(
-        (assignment: any) =>
-          assignment.onboarding_assets &&
-          assignment.onboarding_assets.status === "approved"
-      );
+      console.log("Allocation lists found:", allocationLists?.length || 0);
+      console.log("Allocation lists data:", allocationLists);
 
-      // If we still don't have any data, let's try a different approach
-      if (!assignmentsToUse || assignmentsToUse.length === 0) {
-        // Get all accepted assignments and then fetch asset details separately
-        const { data: basicAssignments, error: basicError } = await supabase
-          .from("asset_assignments")
-          .select("asset_id, price, bonus, accepted_at")
-          .eq("user_id", user?.id)
-          .eq("role", "modeler")
-          .eq("status", "accepted");
-
-        if (basicAssignments && basicAssignments.length > 0) {
-          // Get the asset IDs
-          const assetIds = basicAssignments.map((a) => a.asset_id);
-
-          // Fetch approved assets separately
-          const { data: approvedAssetsData, error: assetsError } =
-            await supabase
-              .from("onboarding_assets")
-              .select("id, status, created_at")
-              .in("id", assetIds)
-              .eq("status", "approved");
-
-          if (approvedAssetsData && approvedAssetsData.length > 0) {
-            // Combine the data
-            assignmentsToUse = basicAssignments
-              .map((assignment) => ({
-                ...assignment,
-                onboarding_assets: approvedAssetsData.find(
-                  (asset) => asset.id === assignment.asset_id
-                ),
-              }))
-              .filter(
-                (assignment: any) => assignment.onboarding_assets
-              ) as any[];
-          }
-        }
-      }
-
-      if (!assignmentsToUse || assignmentsToUse.length === 0) {
+      if (!allocationLists || allocationLists.length === 0) {
+        console.log("No allocation lists found, setting empty data");
         setEarningsData({
           thisMonth: 0,
           lastMonth: 0,
@@ -484,7 +437,7 @@ export function ModelerEarningsWidget() {
         return;
       }
 
-      // Calculate earnings
+      // Calculate earnings from approved allocation lists
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
@@ -497,38 +450,42 @@ export function ModelerEarningsWidget() {
       let approvedThisMonth = 0;
 
       // Group earnings by month for chart
-      const monthlyEarnings: { [key: string]: number } = {};
+      const monthlyData = new Map<string, number>();
 
-      assignmentsToUse.forEach((assignment) => {
-        const asset = assignment.onboarding_assets as any;
-        const basePrice = assignment.price || 0;
-        const bonus = assignment.bonus || 0;
-        const totalPrice = basePrice * (1 + bonus / 100);
+      allocationLists.forEach((list: any) => {
+        const listEarnings = list.asset_assignments.reduce(
+          (sum: number, assignment: any) => sum + (assignment.price || 0),
+          0
+        );
 
-        // All assets in this query are already approved, so count all earnings
-        totalEarnings += totalPrice;
+        // Apply bonus if any
+        const bonusAmount = listEarnings * (list.bonus / 100);
+        const totalListEarnings = listEarnings + bonusAmount;
 
-        // Check if approved this month - use created_at (when status was set to approved) if available, otherwise use accepted_at
-        const dateToUse = asset.created_at || assignment.accepted_at;
-        if (dateToUse) {
-          const approvedDate = new Date(dateToUse);
-          if (
-            approvedDate.getMonth() === currentMonth &&
-            approvedDate.getFullYear() === currentYear
-          ) {
-            thisMonthEarnings += totalPrice;
+        totalEarnings += totalListEarnings;
+
+        // Check if approved this month
+        if (list.approved_at) {
+          const approvedDate = new Date(list.approved_at);
+          const approvedMonth = approvedDate.getMonth();
+          const approvedYear = approvedDate.getFullYear();
+
+          if (approvedMonth === currentMonth && approvedYear === currentYear) {
+            thisMonthEarnings += totalListEarnings;
             approvedThisMonth++;
           } else if (
-            approvedDate.getMonth() === lastMonth &&
-            approvedDate.getFullYear() === lastMonthYear
+            approvedMonth === lastMonth &&
+            approvedYear === lastMonthYear
           ) {
-            lastMonthEarnings += totalPrice;
+            lastMonthEarnings += totalListEarnings;
           }
 
-          // Add to monthly earnings for chart
-          const monthKey = `${approvedDate.getFullYear()}-${String(approvedDate.getMonth() + 1).padStart(2, "0")}`;
-          monthlyEarnings[monthKey] =
-            (monthlyEarnings[monthKey] || 0) + totalPrice;
+          // Add to monthly chart data
+          const monthKey = `${approvedYear}-${String(approvedMonth + 1).padStart(2, "0")}`;
+          monthlyData.set(
+            monthKey,
+            (monthlyData.get(monthKey) || 0) + totalListEarnings
+          );
         }
       });
 
@@ -553,7 +510,7 @@ export function ModelerEarningsWidget() {
         const date = new Date();
         date.setMonth(date.getMonth() - i);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-        const earnings = monthlyEarnings[monthKey] || 0;
+        const earnings = monthlyData.get(monthKey) || 0;
 
         chartData.push({
           month: monthNames[date.getMonth()],
@@ -568,6 +525,11 @@ export function ModelerEarningsWidget() {
         approvedThisMonth,
         chartData,
       };
+
+      console.log("Calculated earnings data:", finalData);
+      console.log("This month earnings:", thisMonthEarnings);
+      console.log("Total earnings:", totalEarnings);
+      console.log("Approved this month:", approvedThisMonth);
 
       setEarningsData(finalData);
     } catch (error) {

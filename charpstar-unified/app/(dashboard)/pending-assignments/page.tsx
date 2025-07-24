@@ -51,9 +51,7 @@ import { toast } from "sonner";
 
 interface PendingAssignment {
   asset_id: string;
-  deadline: string;
   price: number;
-  bonus: number;
   onboarding_assets: {
     id: string;
     article_id: string;
@@ -66,12 +64,13 @@ interface PendingAssignment {
   } | null;
 }
 
-interface AssignmentGroup {
-  batch: number;
-  client: string;
+interface AllocationList {
+  id: string;
+  name: string;
   deadline: string;
   bonus: number;
-  assignments: PendingAssignment[];
+  created_at: string;
+  asset_assignments: PendingAssignment[];
   totalAssets: number;
   totalPrice: number;
   totalWithBonus: number;
@@ -80,11 +79,8 @@ interface AssignmentGroup {
 export default function PendingAssignmentsPage() {
   const user = useUser();
   const router = useRouter();
-  const [assignments, setAssignments] = useState<PendingAssignment[]>([]);
-  const [assignmentGroups, setAssignmentGroups] = useState<AssignmentGroup[]>(
-    []
-  );
-  const [filteredGroups, setFilteredGroups] = useState<AssignmentGroup[]>([]);
+  const [allocationLists, setAllocationLists] = useState<AllocationList[]>([]);
+  const [filteredLists, setFilteredLists] = useState<AllocationList[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [clientFilter, setClientFilter] = useState("all");
@@ -99,77 +95,82 @@ export default function PendingAssignmentsPage() {
   }, [user?.id]);
 
   useEffect(() => {
-    groupAssignments();
-  }, [assignments]);
+    filterLists();
+  }, [allocationLists, searchTerm, clientFilter, batchFilter]);
 
+  // Check for asset files when allocation lists are loaded
   useEffect(() => {
-    filterGroups();
-  }, [assignmentGroups, searchTerm, clientFilter, batchFilter]);
-
-  // Check for asset files when assignments are loaded
-  useEffect(() => {
-    if (assignments.length > 0) {
-      assignments.forEach((assignment) => {
-        if (assignment.onboarding_assets?.id) {
-          checkAssetFiles(assignment.onboarding_assets.id);
-        }
+    if (allocationLists.length > 0) {
+      allocationLists.forEach((list) => {
+        list.asset_assignments.forEach((assignment) => {
+          if (assignment.onboarding_assets?.id) {
+            checkAssetFiles(assignment.onboarding_assets.id);
+          }
+        });
       });
     }
-  }, [assignments]);
+  }, [allocationLists]);
 
   const fetchPendingAssignments = async () => {
     try {
       setLoading(true);
-      // First, let's see ALL assignments for this user to debug
-      const { data: allAssignments, error: allError } = await supabase
-        .from("asset_assignments")
-        .select("*")
-        .eq("user_id", user?.id)
-        .eq("role", "modeler");
 
-      // Check the status values of existing assignments
-      const statusCounts = allAssignments?.reduce(
-        (acc, assignment) => {
-          const status = assignment.status || "null";
-          acc[status] = (acc[status] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-
-      // Now get the pending ones
-      const { data: assignments, error } = await supabase
-        .from("asset_assignments")
+      // Get pending allocation lists for this user
+      const { data: lists, error: listsError } = await supabase
+        .from("allocation_lists")
         .select(
           `
-          asset_id,
+          id,
+          name,
           deadline,
-          price,
           bonus,
-          status,
-          onboarding_assets(
-            id,
-            article_id,
-            product_name,
-            product_link,
-            glb_link,
-            reference,
-            client,
-            batch
+          created_at,
+          asset_assignments!inner(
+            asset_id,
+            price,
+            status,
+            onboarding_assets(
+              id,
+              article_id,
+              product_name,
+              product_link,
+              glb_link,
+              reference,
+              client,
+              batch
+            )
           )
         `
         )
         .eq("user_id", user?.id)
         .eq("role", "modeler")
-        .eq("status", "pending"); // Pending assignments have "pending" status
+        .eq("asset_assignments.status", "pending");
 
-      if (error) {
-        console.error("Error fetching pending assignments:", error);
+      if (listsError) {
+        console.error("Error fetching pending allocation lists:", listsError);
         toast.error("Failed to fetch pending assignments");
         return;
       }
 
-      setAssignments((assignments || []) as any);
+      // Transform the data to include calculated totals
+      const transformedLists =
+        lists?.map((list) => {
+          const totalAssets = list.asset_assignments.length;
+          const totalPrice = list.asset_assignments.reduce(
+            (sum: number, assignment: any) => sum + (assignment.price || 0),
+            0
+          );
+          const totalWithBonus = totalPrice * (1 + (list.bonus || 0) / 100);
+
+          return {
+            ...list,
+            totalAssets,
+            totalPrice,
+            totalWithBonus,
+          };
+        }) || [];
+
+      setAllocationLists(transformedLists);
     } catch (error) {
       console.error("Error:", error);
       toast.error("Failed to fetch assignments");
@@ -178,86 +179,55 @@ export default function PendingAssignmentsPage() {
     }
   };
 
-  const groupAssignments = () => {
-    const groups = new Map<string, AssignmentGroup>();
-
-    assignments.forEach((assignment) => {
-      const asset = assignment.onboarding_assets;
-      if (!asset) return;
-
-      const groupKey = `${asset.client}-${asset.batch}`;
-
-      if (!groups.has(groupKey)) {
-        groups.set(groupKey, {
-          batch: asset.batch,
-          client: asset.client,
-          deadline: assignment.deadline,
-          bonus: assignment.bonus,
-          assignments: [],
-          totalAssets: 0,
-          totalPrice: 0,
-          totalWithBonus: 0,
-        });
-      }
-
-      const group = groups.get(groupKey)!;
-      group.assignments.push(assignment);
-      group.totalAssets += 1;
-      group.totalPrice += assignment.price || 0;
-      group.totalWithBonus +=
-        (assignment.price || 0) * (1 + (assignment.bonus || 0) / 100);
-    });
-
-    const groupedArray = Array.from(groups.values());
-    setAssignmentGroups(groupedArray);
-  };
-
-  const filterGroups = () => {
-    let filtered = assignmentGroups;
+  const filterLists = () => {
+    let filtered = [...allocationLists];
 
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter((group) => {
-        return group.assignments.some((assignment) => {
-          const asset = assignment.onboarding_assets;
-          return (
-            asset &&
-            (asset.product_name
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase()) ||
-              asset.article_id
+      filtered = filtered.filter(
+        (list) =>
+          list.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          list.asset_assignments.some(
+            (assignment) =>
+              assignment.onboarding_assets?.product_name
                 .toLowerCase()
                 .includes(searchTerm.toLowerCase()) ||
-              asset.client.toLowerCase().includes(searchTerm.toLowerCase()))
-          );
-        });
-      });
+              assignment.onboarding_assets?.article_id
+                .toLowerCase()
+                .includes(searchTerm.toLowerCase())
+          )
+      );
     }
 
     // Filter by client
     if (clientFilter !== "all") {
-      filtered = filtered.filter((group) => group.client === clientFilter);
+      filtered = filtered.filter((list) =>
+        list.asset_assignments.some(
+          (assignment) => assignment.onboarding_assets?.client === clientFilter
+        )
+      );
     }
 
     // Filter by batch
     if (batchFilter !== "all") {
-      filtered = filtered.filter(
-        (group) => group.batch.toString() === batchFilter
+      filtered = filtered.filter((list) =>
+        list.asset_assignments.some(
+          (assignment) =>
+            assignment.onboarding_assets?.batch === parseInt(batchFilter)
+        )
       );
     }
 
-    setFilteredGroups(filtered);
+    setFilteredLists(filtered);
   };
 
-  const handleAcceptGroup = async (groupKey: string) => {
+  const handleAcceptList = async (listId: string) => {
     try {
-      setAccepting(groupKey);
-      const group = assignmentGroups.find(
-        (g) => `${g.client}-${g.batch}` === groupKey
-      );
-      if (!group) return;
+      setAccepting(listId);
+      const list = allocationLists.find((l) => l.id === listId);
+      if (!list) return;
 
-      const assetIds = group.assignments.map((a) => a.asset_id);
+      const assetIds = list.asset_assignments.map((a) => a.asset_id);
 
       const { error } = await supabase
         .from("asset_assignments")
@@ -269,8 +239,8 @@ export default function PendingAssignmentsPage() {
         .eq("user_id", user?.id);
 
       if (error) {
-        console.error("Error accepting group:", error);
-        toast.error("Failed to accept group");
+        console.error("Error accepting list:", error);
+        toast.error("Failed to accept list");
         return;
       }
 
@@ -285,7 +255,7 @@ export default function PendingAssignmentsPage() {
         // Don't fail the acceptance if status update fails
       }
 
-      toast.success("Group accepted successfully!");
+      toast.success("Allocation list accepted successfully!");
       fetchPendingAssignments(); // Refresh the data
       // Force a page refresh to update all dashboard widgets
       setTimeout(() => {
@@ -293,21 +263,19 @@ export default function PendingAssignmentsPage() {
       }, 1000);
     } catch (error) {
       console.error("Error:", error);
-      toast.error("Failed to accept group");
+      toast.error("Failed to accept list");
     } finally {
       setAccepting(null);
     }
   };
 
-  const handleDeclineGroup = async (groupKey: string) => {
+  const handleDeclineList = async (listId: string) => {
     try {
-      setDeclining(groupKey);
-      const group = assignmentGroups.find(
-        (g) => `${g.client}-${g.batch}` === groupKey
-      );
-      if (!group) return;
+      setDeclining(listId);
+      const list = allocationLists.find((l) => l.id === listId);
+      if (!list) return;
 
-      const assetIds = group.assignments.map((a) => a.asset_id);
+      const assetIds = list.asset_assignments.map((a) => a.asset_id);
 
       // Delete the assignments when declined (this makes assets unassigned again)
       const { error } = await supabase
@@ -317,12 +285,12 @@ export default function PendingAssignmentsPage() {
         .eq("user_id", user?.id);
 
       if (error) {
-        console.error("Error declining group:", error);
-        toast.error("Failed to decline group");
+        console.error("Error declining list:", error);
+        toast.error("Failed to decline list");
         return;
       }
 
-      toast.success("Group declined successfully!");
+      toast.success("Allocation list declined successfully!");
       fetchPendingAssignments(); // Refresh the data
       // Force a page refresh to update all dashboard widgets
       setTimeout(() => {
@@ -330,7 +298,7 @@ export default function PendingAssignmentsPage() {
       }, 1000);
     } catch (error) {
       console.error("Error:", error);
-      toast.error("Failed to decline group");
+      toast.error("Failed to decline list");
     } finally {
       setDeclining(null);
     }
@@ -414,14 +382,16 @@ export default function PendingAssignmentsPage() {
   };
 
   // Calculate summary statistics
-  const totalAssets = assignments.length;
-  const totalBasePay = assignments.reduce(
-    (sum, assignment) => sum + (assignment.price || 0),
+  const totalAssets = allocationLists.reduce(
+    (sum, list) => sum + list.totalAssets,
     0
   );
-  const totalWithBonus = assignments.reduce(
-    (sum, assignment) =>
-      sum + (assignment.price || 0) * (1 + (assignment.bonus || 0) / 100),
+  const totalBasePay = allocationLists.reduce(
+    (sum, list) => sum + list.totalPrice,
+    0
+  );
+  const totalWithBonus = allocationLists.reduce(
+    (sum, list) => sum + list.totalWithBonus,
     0
   );
   const totalBonus = totalWithBonus - totalBasePay;
@@ -429,17 +399,23 @@ export default function PendingAssignmentsPage() {
   // Get unique clients and batches for filter
   const clients = Array.from(
     new Set(
-      assignments
-        .map((a) => a.onboarding_assets?.client)
-        .filter(Boolean) as string[]
+      allocationLists.flatMap(
+        (list) =>
+          list.asset_assignments
+            .map((a) => a.onboarding_assets?.client)
+            .filter(Boolean) as string[]
+      )
     )
   );
 
   const batches = Array.from(
     new Set(
-      assignments
-        .map((a) => a.onboarding_assets?.batch)
-        .filter(Boolean) as number[]
+      allocationLists.flatMap(
+        (list) =>
+          list.asset_assignments
+            .map((a) => a.onboarding_assets?.batch)
+            .filter(Boolean) as number[]
+      )
     )
   ).sort((a, b) => a - b);
 
@@ -518,7 +494,7 @@ export default function PendingAssignmentsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Pending Assignment Groups ({filteredGroups.length})</span>
+              <span>Pending Allocation Lists ({filteredLists.length})</span>
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"
@@ -575,61 +551,57 @@ export default function PendingAssignmentsPage() {
               </Select>
             </div>
 
-            {/* Assignment Groups */}
+            {/* Allocation Lists */}
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 <p className="mt-2 text-muted-foreground">
-                  Loading assignments...
+                  Loading allocation lists...
                 </p>
               </div>
             ) : (
               <div className="space-y-6">
-                {filteredGroups.map((group) => {
-                  const groupKey = `${group.client}-${group.batch}`;
-
+                {filteredLists.map((list) => {
                   return (
-                    <Card key={groupKey} className="p-6">
-                      {/* Group Header */}
+                    <Card key={list.id} className="p-6">
+                      {/* List Header */}
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <h3 className="text-lg font-semibold">
-                            {group.client} - Batch {group.batch}
-                          </h3>
+                          <h3 className="text-lg font-semibold">{list.name}</h3>
                           <p className="text-sm text-muted-foreground">
-                            {group.totalAssets} assets • Deadline:{" "}
-                            {group.deadline
-                              ? new Date(group.deadline).toLocaleDateString()
+                            {list.totalAssets} assets • Deadline:{" "}
+                            {list.deadline
+                              ? new Date(list.deadline).toLocaleDateString()
                               : "No deadline"}
                           </p>
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <div className="text-lg font-semibold text-green-600">
-                              €{group.totalWithBonus.toFixed(2)}
+                              €{list.totalWithBonus.toFixed(2)}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              Base: €{group.totalPrice.toFixed(2)} • Bonus: +
-                              {group.bonus}%
+                              Base: €{list.totalPrice.toFixed(2)} • Bonus: +
+                              {list.bonus}%
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
                             <Button
-                              onClick={() => handleAcceptGroup(groupKey)}
+                              onClick={() => handleAcceptList(list.id)}
                               className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                              disabled={accepting === groupKey}
+                              disabled={accepting === list.id}
                             >
                               <Check className="h-4 w-4" />
-                              Accept Group
+                              Accept List
                             </Button>
                             <Button
-                              onClick={() => handleDeclineGroup(groupKey)}
+                              onClick={() => handleDeclineList(list.id)}
                               variant="outline"
                               className="flex items-center gap-2"
-                              disabled={declining === groupKey}
+                              disabled={declining === list.id}
                             >
                               <X className="h-4 w-4" />
-                              Decline Group
+                              Decline List
                             </Button>
                           </div>
                         </div>
@@ -650,7 +622,7 @@ export default function PendingAssignmentsPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {group.assignments.map((assignment) => {
+                          {list.asset_assignments.map((assignment) => {
                             const asset = assignment.onboarding_assets;
                             if (!asset) return null;
 
@@ -798,16 +770,16 @@ export default function PendingAssignmentsPage() {
               </div>
             )}
 
-            {filteredGroups.length === 0 && !loading && (
+            {filteredLists.length === 0 && !loading && (
               <div className="text-center py-8">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">
-                  No pending assignment groups found
+                  No pending allocation lists found
                 </h3>
                 <p className="text-muted-foreground">
-                  {assignments.length === 0
+                  {allocationLists.length === 0
                     ? "You don't have any pending assignments at the moment."
-                    : "No assignment groups match your current filters."}
+                    : "No allocation lists match your current filters."}
                 </p>
               </div>
             )}

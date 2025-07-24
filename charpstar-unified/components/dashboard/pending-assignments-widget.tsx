@@ -16,9 +16,7 @@ import { Package, DollarSign, ArrowRight } from "lucide-react";
 
 interface PendingAssignment {
   asset_id: string;
-  deadline: string;
   price: number;
-  bonus: number;
   onboarding_assets: {
     id: string;
     article_id: string;
@@ -28,12 +26,13 @@ interface PendingAssignment {
   } | null;
 }
 
-interface AssignmentGroup {
-  batch: number;
-  client: string;
+interface AllocationList {
+  id: string;
+  name: string;
   deadline: string;
   bonus: number;
-  assignments: PendingAssignment[];
+  created_at: string;
+  asset_assignments: PendingAssignment[];
   totalAssets: number;
   totalPrice: number;
   totalWithBonus: number;
@@ -42,12 +41,7 @@ interface AssignmentGroup {
 export function PendingAssignmentsWidget() {
   const user = useUser();
   const router = useRouter();
-  const [pendingAssignments, setPendingAssignments] = useState<
-    PendingAssignment[]
-  >([]);
-  const [assignmentGroups, setAssignmentGroups] = useState<AssignmentGroup[]>(
-    []
-  );
+  const [allocationLists, setAllocationLists] = useState<AllocationList[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,59 +50,62 @@ export function PendingAssignmentsWidget() {
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    groupAssignments();
-  }, [pendingAssignments]);
-
   const fetchPendingAssignments = async () => {
     try {
       setLoading(true);
 
-      // First, let's see ALL assignments for this user to debug
-      const { data: allAssignments, error: allError } = await supabase
-        .from("asset_assignments")
-        .select("*")
-        .eq("user_id", user?.id)
-        .eq("role", "modeler");
-
-      // Check the status values of existing assignments
-      const statusCounts = allAssignments?.reduce(
-        (acc, assignment) => {
-          const status = assignment.status || "null";
-          acc[status] = (acc[status] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-
-      const { data: assignments, error } = await supabase
-        .from("asset_assignments")
+      // Get pending allocation lists for this user
+      const { data: lists, error: listsError } = await supabase
+        .from("allocation_lists")
         .select(
           `
-          asset_id,
+          id,
+          name,
           deadline,
-          price,
           bonus,
-          status,
-          onboarding_assets(
-            id,
-            article_id,
-            product_name,
-            client,
-            batch
+          created_at,
+          asset_assignments!inner(
+            asset_id,
+            price,
+            status,
+            onboarding_assets(
+              id,
+              article_id,
+              product_name,
+              client,
+              batch
+            )
           )
         `
         )
         .eq("user_id", user?.id)
         .eq("role", "modeler")
-        .eq("status", "pending"); // Pending assignments have "pending" status
+        .eq("asset_assignments.status", "pending");
 
-      if (error) {
-        console.error("Error fetching pending assignments:", error);
+      if (listsError) {
+        console.error("Error fetching pending allocation lists:", listsError);
         return;
       }
 
-      setPendingAssignments((assignments || []) as any);
+      // Transform the data to include calculated totals
+      const transformedLists =
+        lists?.map((list) => {
+          const totalAssets = list.asset_assignments.length;
+          const totalPrice = list.asset_assignments.reduce(
+            (sum: number, assignment: any) => sum + (assignment.price || 0),
+            0
+          );
+          const totalWithBonus = totalPrice * (1 + (list.bonus || 0) / 100);
+
+          return {
+            ...list,
+            totalAssets,
+            totalPrice,
+            totalWithBonus,
+          };
+        }) || [];
+      //@ts-ignore
+      setAllocationLists(transformedLists);
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -116,49 +113,17 @@ export function PendingAssignmentsWidget() {
     }
   };
 
-  const groupAssignments = () => {
-    const groups = new Map<string, AssignmentGroup>();
-
-    pendingAssignments.forEach((assignment) => {
-      const asset = assignment.onboarding_assets;
-      if (!asset) return;
-
-      const groupKey = `${asset.client}-${asset.batch}`;
-
-      if (!groups.has(groupKey)) {
-        groups.set(groupKey, {
-          batch: asset.batch,
-          client: asset.client,
-          deadline: assignment.deadline,
-          bonus: assignment.bonus,
-          assignments: [],
-          totalAssets: 0,
-          totalPrice: 0,
-          totalWithBonus: 0,
-        });
-      }
-
-      const group = groups.get(groupKey)!;
-      group.assignments.push(assignment);
-      group.totalAssets += 1;
-      group.totalPrice += assignment.price || 0;
-      group.totalWithBonus +=
-        (assignment.price || 0) * (1 + (assignment.bonus || 0) / 100);
-    });
-
-    const groupedArray = Array.from(groups.values());
-    setAssignmentGroups(groupedArray);
-  };
-
   // Calculate summary statistics
-  const totalAssets = pendingAssignments.length;
-  const totalBasePay = pendingAssignments.reduce(
-    (sum, assignment) => sum + (assignment.price || 0),
+  const totalAssets = allocationLists.reduce(
+    (sum, list) => sum + list.totalAssets,
     0
   );
-  const totalWithBonus = pendingAssignments.reduce(
-    (sum, assignment) =>
-      sum + (assignment.price || 0) * (1 + (assignment.bonus || 0) / 100),
+  const totalBasePay = allocationLists.reduce(
+    (sum, list) => sum + list.totalPrice,
+    0
+  );
+  const totalWithBonus = allocationLists.reduce(
+    (sum, list) => sum + list.totalWithBonus,
     0
   );
   const totalBonus = totalWithBonus - totalBasePay;
@@ -216,13 +181,13 @@ export function PendingAssignmentsWidget() {
         {/* Summary Stats */}
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-medium text-blue-600">
               {totalAssets}
             </div>
             <div className="text-xs text-muted-foreground">Total Assets</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-medium text-green-600">
               ${totalWithBonus.toFixed(2)}
             </div>
             <div className="text-xs text-muted-foreground">
@@ -231,31 +196,28 @@ export function PendingAssignmentsWidget() {
           </div>
         </div>
 
-        {/* Group Summary */}
+        {/* Allocation Lists Summary */}
         <div className="space-y-2">
           <div className="text-sm font-medium text-muted-foreground">
-            Assigned Batches ({assignmentGroups.length})
+            Allocation Lists ({allocationLists.length})
           </div>
-          {assignmentGroups.slice(0, 3).map((group, index) => (
+          {allocationLists.slice(0, 3).map((list, index) => (
             <div
-              key={`${group.client}-${group.batch}`}
+              key={list.id}
               className="flex items-center justify-between p-2 bg-muted rounded-lg"
             >
               <div>
-                <div className="text-sm font-medium">
-                  {group.client} - Batch {group.batch}
-                </div>
+                <div className="text-sm font-medium">{list.name}</div>
                 <div className="text-xs text-muted-foreground">
-                  {group.totalAssets} assets • $
-                  {group.totalWithBonus.toFixed(2)}
+                  {list.totalAssets} assets • ${list.totalWithBonus.toFixed(2)}
                 </div>
               </div>
-              <Badge variant="secondary">+{group.bonus}%</Badge>
+              <Badge variant="secondary">+{list.bonus}%</Badge>
             </div>
           ))}
-          {assignmentGroups.length > 3 && (
+          {allocationLists.length > 3 && (
             <div className="text-xs text-muted-foreground text-center">
-              +{assignmentGroups.length - 3} more groups
+              +{allocationLists.length - 3} more lists
             </div>
           )}
         </div>

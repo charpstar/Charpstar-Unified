@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
-import { Card } from "@/components/ui/containers";
+import { Card, CardContent, CardHeader } from "@/components/ui/containers";
 import { Badge } from "@/components/ui/feedback";
 import {
   Table,
@@ -30,6 +30,8 @@ import {
   Package,
   CheckCircle,
   RotateCcw,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -66,6 +68,64 @@ const getPriorityLabel = (priority: number) => {
   if (priority === 1) return "High";
   if (priority === 2) return "Medium";
   return "Low";
+};
+
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case "approved":
+      return <CheckCircle className="h-4 w-4 text-green-600" />;
+    case "in_progress":
+      return <RotateCcw className="h-4 w-4 text-orange-600" />;
+    case "pending":
+      return <Eye className="h-4 w-4 text-red-600" />;
+    case "completed":
+      return <CheckCircle className="h-4 w-4 text-blue-600" />;
+    default:
+      return <Eye className="h-4 w-4 text-gray-600" />;
+  }
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "approved":
+      return "bg-green-100 text-green-800 border-green-200";
+    case "in_progress":
+      return "bg-orange-100 text-orange-800 border-orange-200";
+    case "pending":
+      return "bg-red-100 text-red-800 border-red-200";
+    case "completed":
+      return "bg-blue-100 text-blue-800 border-blue-200";
+    default:
+      return "bg-gray-100 text-gray-800 border-gray-200";
+  }
+};
+
+const calculateListStats = (list: any) => {
+  const totalAssets = list.asset_assignments.length;
+  const approvedAssets = list.asset_assignments.filter(
+    (assignment: any) => assignment.onboarding_assets.status === "approved"
+  ).length;
+  const totalPrice = list.asset_assignments.reduce(
+    (sum: number, assignment: any) => sum + (assignment.price || 0),
+    0
+  );
+  const bonusAmount = totalPrice * (list.bonus / 100);
+  const totalEarnings = totalPrice + bonusAmount;
+  const completionPercentage =
+    totalAssets > 0 ? Math.round((approvedAssets / totalAssets) * 100) : 0;
+
+  return {
+    totalAssets,
+    approvedAssets,
+    totalPrice,
+    bonusAmount,
+    totalEarnings,
+    completionPercentage,
+  };
+};
+
+const isOverdue = (deadline: string) => {
+  return new Date(deadline) < new Date();
 };
 
 const AdminReviewTableSkeleton = () => (
@@ -175,53 +235,106 @@ export default function AdminReviewPage() {
     Map<string, { email: string; name?: string }>
   >(new Map());
 
+  // Allocation lists state for modeler view
+  const [allocationLists, setAllocationLists] = useState<any[]>([]);
+  const [filteredLists, setFilteredLists] = useState<any[]>([]);
+  const [showAllocationLists, setShowAllocationLists] = useState(false);
+  const [modelerEmail, setModelerEmail] = useState<string>("");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [updatingPriorities, setUpdatingPriorities] = useState<Set<string>>(
+    new Set()
+  );
+  const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
+
   // Calculate status totals based on filtered data
   const statusTotals = useMemo(() => {
-    const totals = {
-      total: filtered.length,
-      in_production: 0,
-      revisions: 0,
-      approved: 0,
-      delivered_by_artist: 0,
-    };
+    if (showAllocationLists) {
+      const totals = {
+        total: filteredLists.length,
+        pending: 0,
+        in_progress: 0,
+        approved: 0,
+        completed: 0,
+      };
 
-    filtered.forEach((asset) => {
-      const displayStatus = asset.status;
+      filteredLists.forEach((list) => {
+        const displayStatus = list.status;
 
-      if (displayStatus && totals.hasOwnProperty(displayStatus)) {
-        totals[displayStatus as keyof typeof totals]++;
-      }
-    });
+        if (displayStatus && totals.hasOwnProperty(displayStatus)) {
+          totals[displayStatus as keyof typeof totals]++;
+        }
+      });
 
-    // Calculate percentages
-    const percentages = {
-      total: 100,
-      in_production:
-        filtered.length > 0
-          ? Math.round((totals.in_production / filtered.length) * 100)
-          : 0,
-      revisions:
-        filtered.length > 0
-          ? Math.round((totals.revisions / filtered.length) * 100)
-          : 0,
-      approved:
-        filtered.length > 0
-          ? Math.round((totals.approved / filtered.length) * 100)
-          : 0,
-      delivered_by_artist:
-        filtered.length > 0
-          ? Math.round((totals.delivered_by_artist / filtered.length) * 100)
-          : 0,
-    };
+      // Calculate percentages
+      const percentages = {
+        total: 100,
+        pending:
+          filteredLists.length > 0
+            ? Math.round((totals.pending / filteredLists.length) * 100)
+            : 0,
+        in_progress:
+          filteredLists.length > 0
+            ? Math.round((totals.in_progress / filteredLists.length) * 100)
+            : 0,
+        approved:
+          filteredLists.length > 0
+            ? Math.round((totals.approved / filteredLists.length) * 100)
+            : 0,
+        completed:
+          filteredLists.length > 0
+            ? Math.round((totals.completed / filteredLists.length) * 100)
+            : 0,
+      };
 
-    return { totals, percentages };
-  }, [filtered]);
+      return { totals, percentages } as const;
+    } else {
+      const totals = {
+        total: filtered.length,
+        in_production: 0,
+        revisions: 0,
+        approved: 0,
+        delivered_by_artist: 0,
+      };
+
+      filtered.forEach((asset) => {
+        const displayStatus = asset.status;
+
+        if (displayStatus && totals.hasOwnProperty(displayStatus)) {
+          totals[displayStatus as keyof typeof totals]++;
+        }
+      });
+
+      // Calculate percentages
+      const percentages = {
+        total: 100,
+        in_production:
+          filtered.length > 0
+            ? Math.round((totals.in_production / filtered.length) * 100)
+            : 0,
+        revisions:
+          filtered.length > 0
+            ? Math.round((totals.revisions / filtered.length) * 100)
+            : 0,
+        approved:
+          filtered.length > 0
+            ? Math.round((totals.approved / filtered.length) * 100)
+            : 0,
+        delivered_by_artist:
+          filtered.length > 0
+            ? Math.round((totals.delivered_by_artist / filtered.length) * 100)
+            : 0,
+      };
+
+      return { totals, percentages } as const;
+    }
+  }, [filtered, filteredLists, showAllocationLists]);
 
   // Handle URL parameters for client, batch, and modeler filter
   useEffect(() => {
     const clientParam = searchParams.get("client");
     const batchParam = searchParams.get("batch");
     const modelerParam = searchParams.get("modeler");
+    const emailParam = searchParams.get("email");
 
     if (clientParam) {
       setClientFilter(clientParam);
@@ -234,6 +347,17 @@ export default function AdminReviewPage() {
     if (modelerParam) {
       setModelerFilter(modelerParam);
     }
+
+    if (emailParam) {
+      setModelerEmail(emailParam);
+    }
+
+    // Show allocation lists if both modeler and email are provided
+    if (modelerParam && emailParam) {
+      setShowAllocationLists(true);
+    } else {
+      setShowAllocationLists(false);
+    }
   }, [searchParams]);
 
   // Check if user is admin
@@ -244,10 +368,84 @@ export default function AdminReviewPage() {
     }
   }, [user, router]);
 
+  // Fetch allocation lists for specific modeler
+  useEffect(() => {
+    async function fetchAllocationLists() {
+      if (
+        !user ||
+        (user.metadata?.role !== "admin" &&
+          user.metadata?.role !== "production") ||
+        !showAllocationLists ||
+        !modelerFilter
+      )
+        return;
+
+      startLoading();
+      setLoading(true);
+
+      try {
+        const { data, error } = await supabase
+          .from("allocation_lists")
+          .select(
+            `
+            *,
+            asset_assignments(
+              asset_id,
+              price,
+              status,
+              onboarding_assets(
+                id,
+                product_name,
+                article_id,
+                status,
+                priority,
+                category,
+                client,
+                batch
+              )
+            )
+          `
+          )
+          .eq("user_id", modelerFilter)
+          .eq("role", "modeler")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching allocation lists:", error);
+          toast.error("Failed to fetch allocation lists");
+          return;
+        }
+
+        setAllocationLists(data || []);
+      } catch (error) {
+        console.error("Error fetching allocation lists:", error);
+        toast.error("Failed to fetch allocation lists");
+      } finally {
+        setLoading(false);
+        stopLoading();
+      }
+    }
+
+    if (showAllocationLists) {
+      fetchAllocationLists();
+    }
+  }, [
+    user?.metadata?.role,
+    showAllocationLists,
+    modelerFilter,
+    refreshTrigger,
+  ]);
+
   // Fetch all assets for admin review
   useEffect(() => {
     async function fetchAssets() {
-      if (!user || user.metadata?.role !== "admin") return;
+      if (
+        !user ||
+        (user.metadata?.role !== "admin" &&
+          user.metadata?.role !== "production") ||
+        showAllocationLists
+      )
+        return;
       startLoading();
       setLoading(true);
 
@@ -308,7 +506,12 @@ export default function AdminReviewPage() {
       stopLoading();
     }
     fetchAssets();
-  }, [user?.metadata?.role, modelerFilter]);
+  }, [
+    user?.metadata?.role,
+    modelerFilter,
+    showAllocationLists,
+    refreshTrigger,
+  ]);
 
   // Fetch annotation counts for assets
   useEffect(() => {
@@ -338,8 +541,57 @@ export default function AdminReviewPage() {
     fetchAnnotationCounts();
   }, [assets]);
 
-  // Filtering, sorting, searching
+  // Filtering, sorting, searching for allocation lists
   useEffect(() => {
+    if (!showAllocationLists) return;
+
+    let data = [...allocationLists];
+
+    // Filter by status
+    if (statusFilter)
+      data = data.filter((list) => list.status === statusFilter);
+
+    // Search
+    if (search) {
+      const s = search.toLowerCase();
+      data = data.filter(
+        (list) =>
+          list.name?.toLowerCase().includes(s) ||
+          list.asset_assignments.some((assignment: any) =>
+            assignment.onboarding_assets.product_name?.toLowerCase().includes(s)
+          )
+      );
+    }
+
+    // Sorting
+    if (sort === "az") data.sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "za") data.sort((a, b) => b.name.localeCompare(a.name));
+    if (sort === "date")
+      data.sort(
+        (a, b) =>
+          new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+      );
+    if (sort === "date-oldest")
+      data.sort(
+        (a, b) =>
+          new Date(b.deadline).getTime() - new Date(a.deadline).getTime()
+      );
+    if (sort === "status")
+      data.sort((a, b) => a.status.localeCompare(b.status));
+    if (sort === "batch")
+      data.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+    setFilteredLists(data);
+    setPage(1); // Reset to first page on filter/sort/search
+  }, [allocationLists, statusFilter, sort, search, showAllocationLists]);
+
+  // Filtering, sorting, searching for assets
+  useEffect(() => {
+    if (showAllocationLists) return;
+
     let data = [...assets];
 
     // Filter by client
@@ -400,13 +652,16 @@ export default function AdminReviewPage() {
     modelerFilter,
     sort,
     search,
+    showAllocationLists,
   ]);
 
   // Pagination
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, page]);
+    return showAllocationLists
+      ? filteredLists.slice(start, start + PAGE_SIZE)
+      : filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, filteredLists, page, showAllocationLists]);
 
   // Fetch pending assets
   const fetchPendingAssets = async (assetIds: string[]) => {
@@ -591,12 +846,91 @@ export default function AdminReviewPage() {
     });
   };
 
-  if (user && user.metadata?.role !== "admin") {
+  const toggleListExpansion = (listId: string) => {
+    setExpandedLists((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(listId)) {
+        newSet.delete(listId);
+      } else {
+        newSet.add(listId);
+      }
+      return newSet;
+    });
+  };
+
+  const handlePriorityUpdate = async (assetId: string, newPriority: number) => {
+    // Add to loading state
+    setUpdatingPriorities((prev) => new Set(prev).add(assetId));
+
+    try {
+      const response = await fetch("/api/assets/update-priority", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          priority: newPriority,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update priority");
+      }
+
+      // Update the priority locally without full refresh
+      if (showAllocationLists) {
+        setAllocationLists((prevLists) =>
+          prevLists.map((list) => ({
+            ...list,
+            asset_assignments: list.asset_assignments.map((assignment: any) =>
+              assignment.onboarding_assets.id === assetId
+                ? {
+                    ...assignment,
+                    onboarding_assets: {
+                      ...assignment.onboarding_assets,
+                      priority: newPriority,
+                    },
+                  }
+                : assignment
+            ),
+          }))
+        );
+      } else {
+        setAssets((prevAssets) =>
+          prevAssets.map((asset) =>
+            asset.id === assetId ? { ...asset, priority: newPriority } : asset
+          )
+        );
+      }
+
+      toast.success("Priority updated successfully");
+    } catch (error) {
+      console.error("Error updating priority:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update priority"
+      );
+    } finally {
+      // Remove from loading state
+      setUpdatingPriorities((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(assetId);
+        return newSet;
+      });
+    }
+  };
+
+  if (
+    user &&
+    user.metadata?.role !== "admin" &&
+    user.metadata?.role !== "production"
+  ) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <p className="text-muted-foreground">
-            Access denied. Admin privileges required.
+            Access denied. Admin or Production privileges required.
           </p>
           <Button
             onClick={() => router.push("/dashboard")}
@@ -611,118 +945,140 @@ export default function AdminReviewPage() {
   }
 
   return (
-    <div className=" mx-auto p-6 flex flex-col h-full">
-      <Card className="p-6 flex-1 flex flex-col ">
-        <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
-          <div className="flex gap-2">
-            <Select
-              value={clientFilter}
-              onValueChange={(value) => setClientFilter(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Clients" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Clients</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client} value={client}>
-                    {client}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={batchFilter}
-              onValueChange={(value) => setBatchFilter(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All Batches" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Batches</SelectItem>
-                {Array.from(
-                  new Set(assets.map((asset) => asset.batch).filter(Boolean))
-                )
-                  .sort((a, b) => a - b)
-                  .map((batch) => (
-                    <SelectItem key={batch} value={batch.toString()}>
-                      Batch {batch}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(STATUS_LABELS).map(([key, val]) => (
-                  <SelectItem key={key} value={key}>
-                    {val.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <div className="flex flex-1 flex-col p-4 sm:p-18">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-4 mb-4">
+          <Button
+            variant="ghost"
+            onClick={() => router.push("/admin-review")}
+            className="flex items-center gap-2"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to Admin Review
+          </Button>
+        </div>
+        <div className="flex items-center gap-3 mb-2">
+          <Users className="h-6 w-6 text-primary" />
+          <h1 className="text-3xl font-bold">Modeler Review</h1>
+          <Badge variant="outline" className="text-lg px-3 py-1">
+            {modelerEmail}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-4 text-muted-foreground">
+          <p>Review and manage allocation lists for this modeler</p>
+        </div>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="mb-6 space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
             <Input
-              className="w-full md:w-64"
+              className="w-full"
               placeholder="Search by name, article ID, or client"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
-          <div className="flex gap-2">
-            <Select value={sort} onValueChange={(value) => setSort(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="batch">
-                  Sort by: Batch (1, 2, 3...)
+          <Select
+            value={clientFilter}
+            onValueChange={(value) => setClientFilter(value)}
+          >
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="All Clients" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {clients.map((client) => (
+                <SelectItem key={client} value={client}>
+                  {client}
                 </SelectItem>
-                <SelectItem value="client">Sort by: Client (A-Z)</SelectItem>
-                <SelectItem value="date">
-                  Sort by: Delivery Date (Newest)
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={batchFilter}
+            onValueChange={(value) => setBatchFilter(value)}
+          >
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="All Batches" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Batches</SelectItem>
+              {Array.from(
+                new Set(assets.map((asset) => asset.batch).filter(Boolean))
+              )
+                .sort((a, b) => a - b)
+                .map((batch) => (
+                  <SelectItem key={batch} value={batch.toString()}>
+                    Batch {batch}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => setStatusFilter(value)}
+          >
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(STATUS_LABELS).map(([key, val]) => (
+                <SelectItem key={key} value={key}>
+                  {val.label}
                 </SelectItem>
-                <SelectItem value="date-oldest">
-                  Sort by: Delivery Date (Oldest)
-                </SelectItem>
-                <SelectItem value="priority">
-                  Sort by: Priority (Highest First)
-                </SelectItem>
-                <SelectItem value="priority-lowest">
-                  Sort by: Priority (Lowest First)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Assignment Button */}
-            {selected.size > 0 && (
-              <Button
-                onClick={() => {
-                  // Navigate to the allocate page with selected assets
-                  const selectedAssetIds = Array.from(selected);
-
-                  // Create URL with selected asset IDs as query parameters
-                  const params = new URLSearchParams();
-                  selectedAssetIds.forEach((id) =>
-                    params.append("selectedAssets", id)
-                  );
-
-                  // Navigate to allocate page with selected assets
-                  router.push(`/production/allocate?${params.toString()}`);
-                }}
-                className="flex items-center gap-2"
-              >
-                <Users className="h-4 w-4" />
-                Assign ({selected.size})
-              </Button>
-            )}
-          </div>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sort} onValueChange={(value) => setSort(value)}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="batch">Sort by: Batch (1, 2, 3...)</SelectItem>
+              <SelectItem value="client">Sort by: Client (A-Z)</SelectItem>
+              <SelectItem value="date">
+                Sort by: Delivery Date (Newest)
+              </SelectItem>
+              <SelectItem value="date-oldest">
+                Sort by: Delivery Date (Oldest)
+              </SelectItem>
+              <SelectItem value="priority">
+                Sort by: Priority (Highest First)
+              </SelectItem>
+              <SelectItem value="priority-lowest">
+                Sort by: Priority (Lowest First)
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+
+        {/* Assignment Button */}
+        {selected.size > 0 && (
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                // Navigate to the allocate page with selected assets
+                const selectedAssetIds = Array.from(selected);
+
+                // Create URL with selected asset IDs as query parameters
+                const params = new URLSearchParams();
+                selectedAssetIds.forEach((id) =>
+                  params.append("selectedAssets", id)
+                );
+
+                // Navigate to allocate page with selected assets
+                router.push(`/production/allocate?${params.toString()}`);
+              }}
+              className="flex items-center gap-2"
+            >
+              <Users className="h-4 w-4" />
+              Assign ({selected.size})
+            </Button>
+          </div>
+        )}
 
         {/* Status Cards */}
         {!loading && (
@@ -736,94 +1092,451 @@ export default function AdminReviewPage() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Total
                   </p>
-                  <p className="text-2xl font-bold text-blue-600">
+                  <p className="text-2xl font-medium text-blue-600">
                     {statusTotals.totals.total}
                   </p>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Package className="h-5 w-5 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    In Progress
-                  </p>
-                  <p className="text-2xl font-bold text-yellow-600">
-                    {statusTotals.totals.in_production +
-                      statusTotals.totals.revisions}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {statusTotals.percentages.in_production +
-                      statusTotals.percentages.revisions}
-                    %
-                  </p>
-                </div>
-              </div>
-            </Card>
+            {showAllocationLists ? (
+              // Allocation Lists Status Cards
+              <>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded-lg">
+                      <Eye className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Pending
+                      </p>
+                      <p className="text-2xl font-bold text-red-600">
+                        {(statusTotals.totals as any).pending}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {(statusTotals.percentages as any).pending}%
+                      </p>
+                    </div>
+                  </div>
+                </Card>
 
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Approved
-                  </p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {statusTotals.totals.approved}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {statusTotals.percentages.approved}%
-                  </p>
-                </div>
-              </div>
-            </Card>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-100 rounded-lg">
+                      <RotateCcw className="h-5 w-5 text-yellow-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        In Progress
+                      </p>
+                      <p className="text-2xl font-bold text-yellow-600">
+                        {(statusTotals.totals as any).in_progress}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {(statusTotals.percentages as any).in_progress}%
+                      </p>
+                    </div>
+                  </div>
+                </Card>
 
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <RotateCcw className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Returned for Revision
-                  </p>
-                  <p className="text-sm font-bold text-red-600">
-                    (Coming Soon)
-                  </p>
-                </div>
-              </div>
-            </Card>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Approved
+                      </p>
+                      <p className="text-2xl font-medium text-green-600">
+                        {statusTotals.totals.approved}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {statusTotals.percentages.approved}%
+                      </p>
+                    </div>
+                  </div>
+                </Card>
 
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Delivered
-                  </p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {statusTotals.totals.delivered_by_artist}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {statusTotals.percentages.delivered_by_artist}%
-                  </p>
-                </div>
-              </div>
-            </Card>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Completed
+                      </p>
+                      <p className="text-2xl font-medium text-blue-600">
+                        {(statusTotals.totals as any).completed}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {(statusTotals.percentages as any).completed}%
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              </>
+            ) : (
+              // Assets Status Cards
+              <>
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-100 rounded-lg">
+                      <Package className="h-5 w-5 text-yellow-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        In Progress
+                      </p>
+                      <p className="text-2xl font-bold text-yellow-600">
+                        {(statusTotals.totals as any).in_production +
+                          (statusTotals.totals as any).revisions}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {(statusTotals.percentages as any).in_production +
+                          (statusTotals.percentages as any).revisions}
+                        %
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Approved
+                      </p>
+                      <p className="text-2xl font-medium text-green-600">
+                        {statusTotals.totals.approved}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {statusTotals.percentages.approved}%
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded-lg">
+                      <RotateCcw className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Returned for Revision
+                      </p>
+                      <p className="text-sm font-bold text-red-600">
+                        (Coming Soon)
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Delivered
+                      </p>
+                      <p className="text-2xl font-medium text-blue-600">
+                        {(statusTotals.totals as any).delivered_by_artist}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {(statusTotals.percentages as any).delivered_by_artist}%
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              </>
+            )}
           </div>
         )}
 
         {loading ? (
           <AdminReviewTableSkeleton />
+        ) : showAllocationLists ? (
+          // Allocation Lists View
+          <div className="space-y-4">
+            {paged.length === 0 ? (
+              <Card className="p-8 text-center">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  No Allocation Lists
+                </h3>
+                <p className="text-muted-foreground">
+                  No allocation lists found for this modeler.
+                </p>
+              </Card>
+            ) : (
+              paged.map((list) => {
+                const stats = calculateListStats(list);
+                const isExpanded = expandedLists.has(list.id);
+                return (
+                  <Card
+                    key={list.id}
+                    className="cursor-pointer transition-all duration-300 ease-in-out hover:shadow-md"
+                    onClick={() => toggleListExpansion(list.id)}
+                  >
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(list.status)}
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${getStatusColor(list.status)}`}
+                            >
+                              {list.status === "in_progress"
+                                ? "In Progress"
+                                : list.status === "pending"
+                                  ? "Pending"
+                                  : list.status}
+                            </Badge>
+                          </div>
+                          <h3 className="text-md font-medium text-foreground">
+                            {list.name}
+                          </h3>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4 transition-transform duration-200" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <span>{modelerEmail}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span
+                              className={
+                                isOverdue(list.deadline)
+                                  ? "text-red-600 font-medium"
+                                  : ""
+                              }
+                            >
+                              {new Date(list.deadline).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Summary stats always visible */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            Assets
+                          </p>
+                          <p className="text-2xl font-medium">
+                            {stats.approvedAssets}/{stats.totalAssets}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            Progress
+                          </p>
+                          <p className="text-2xl font-medium text-blue-600">
+                            {stats.completionPercentage}%
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            Base Price
+                          </p>
+                          <p className="text-2xl font-medium  text-green-600">
+                            €{stats.totalPrice.toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            Total Earnings
+                          </p>
+                          <p className="text-2xl font-medium text-green-600">
+                            €{stats.totalEarnings.toFixed(2)}
+                          </p>
+                          {list.bonus > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              +{list.bonus}% bonus
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    {/* Down arrow indicator for collapsed state */}
+                    {!isExpanded && (
+                      <div className="flex justify-center ">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <span>Click to expand</span>
+                          <ChevronDown className="h-4 w-4" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Collapsible content with smooth transition */}
+                    <div
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                        isExpanded
+                          ? "max-h-[2000px] opacity-100"
+                          : "max-h-0 opacity-0"
+                      }`}
+                    >
+                      <CardContent>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Product Name</TableHead>
+                              <TableHead className="w-32">Article ID</TableHead>
+                              <TableHead className="w-24">Priority</TableHead>
+                              <TableHead className="w-24">Price</TableHead>
+                              <TableHead className="w-32">Status</TableHead>
+                              <TableHead className="w-32">Client</TableHead>
+                              <TableHead className="w-12">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {list.asset_assignments.map((assignment: any) => (
+                              <TableRow key={assignment.asset_id}>
+                                <TableCell>
+                                  <div className="font-medium">
+                                    {assignment.onboarding_assets.product_name}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <span className="font-mono text-sm">
+                                    {assignment.onboarding_assets.article_id}
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center justify-center">
+                                    <Select
+                                      value={(
+                                        assignment.onboarding_assets.priority ||
+                                        2
+                                      ).toString()}
+                                      onValueChange={(value) =>
+                                        handlePriorityUpdate(
+                                          assignment.onboarding_assets.id,
+                                          parseInt(value)
+                                        )
+                                      }
+                                      disabled={updatingPriorities.has(
+                                        assignment.onboarding_assets.id
+                                      )}
+                                    >
+                                      <SelectTrigger className="w-32 h-8">
+                                        {updatingPriorities.has(
+                                          assignment.onboarding_assets.id
+                                        ) ? (
+                                          <div className="flex items-center gap-2">
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
+                                            <span className="text-xs">
+                                              Updating...
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <SelectValue />
+                                        )}
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="1">
+                                          <span
+                                            className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(1)}`}
+                                          >
+                                            High
+                                          </span>
+                                        </SelectItem>
+                                        <SelectItem value="2">
+                                          <span
+                                            className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(2)}`}
+                                          >
+                                            Medium
+                                          </span>
+                                        </SelectItem>
+                                        <SelectItem value="3">
+                                          <span
+                                            className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(3)}`}
+                                          >
+                                            Low
+                                          </span>
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-medium">
+                                      €{assignment.price.toFixed(2)}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs ${getStatusColor(assignment.onboarding_assets.status)}`}
+                                  >
+                                    {assignment.onboarding_assets.status ===
+                                    "delivered_by_artist"
+                                      ? "Waiting for Approval"
+                                      : assignment.onboarding_assets.status ===
+                                          "not_started"
+                                        ? "Not Started"
+                                        : assignment.onboarding_assets
+                                              .status === "in_production"
+                                          ? "In Progress"
+                                          : assignment.onboarding_assets
+                                                .status === "revisions"
+                                            ? "Sent for Revision"
+                                            : assignment.onboarding_assets
+                                                .status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm">
+                                    {assignment.onboarding_assets.client}
+                                    <div className="text-xs text-muted-foreground">
+                                      Batch {assignment.onboarding_assets.batch}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="cursor-pointer"
+                                    onClick={() =>
+                                      router.push(
+                                        `/client-review/${assignment.onboarding_assets.id}`
+                                      )
+                                    }
+                                  >
+                                    <Eye className="h-5 w-5" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </div>
+                  </Card>
+                );
+              })
+            )}
+          </div>
         ) : (
+          // Assets View
           <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[70vh]">
             <Table>
               <TableHeader>
@@ -951,23 +1664,54 @@ export default function AdminReviewPage() {
                       <TableCell>{asset.article_id}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-2">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(
-                              asset.priority || 2
-                            )}`}
+                          <Select
+                            value={(asset.priority || 2).toString()}
+                            onValueChange={(value) =>
+                              handlePriorityUpdate(asset.id, parseInt(value))
+                            }
+                            disabled={updatingPriorities.has(asset.id)}
                           >
-                            {getPriorityLabel(asset.priority || 2)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            ({asset.priority || 2})
-                          </span>
+                            <SelectTrigger className="w-32 h-8">
+                              {updatingPriorities.has(asset.id) ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
+                                  <span className="text-xs">Updating...</span>
+                                </div>
+                              ) : (
+                                <SelectValue />
+                              )}
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(1)}`}
+                                >
+                                  High
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="2">
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(2)}`}
+                                >
+                                  Medium
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="3">
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(3)}`}
+                                >
+                                  Low
+                                </span>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </TableCell>
                       <TableCell>{asset.delivery_date || "-"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${
+                            className={`px-2 py-1 rounded text-xs font-medium ${
                               asset.status in STATUS_LABELS
                                 ? STATUS_LABELS[
                                     asset.status as keyof typeof STATUS_LABELS
@@ -1013,16 +1757,27 @@ export default function AdminReviewPage() {
         {/* Pagination - Always at bottom */}
         <div className="flex items-center justify-center  gap-2  ">
           <div className="text-sm text-muted-foreground">
-            {filtered.length === 0
-              ? "No items"
-              : `
-                ${1 + (page - 1) * PAGE_SIZE}
-                -
-                ${Math.min(page * PAGE_SIZE, filtered.length)}
-                of
-                ${filtered.length}
-                Items
-              `}
+            {showAllocationLists
+              ? filteredLists.length === 0
+                ? "No items"
+                : `
+                    ${1 + (page - 1) * PAGE_SIZE}
+                    -
+                    ${Math.min(page * PAGE_SIZE, filteredLists.length)}
+                    of
+                    ${filteredLists.length}
+                    Items
+                  `
+              : filtered.length === 0
+                ? "No items"
+                : `
+                    ${1 + (page - 1) * PAGE_SIZE}
+                    -
+                    ${Math.min(page * PAGE_SIZE, filtered.length)}
+                    of
+                    ${filtered.length}
+                    Items
+                  `}
           </div>
           <div className="flex gap-2">
             <Button
@@ -1037,7 +1792,10 @@ export default function AdminReviewPage() {
             <Button
               variant="outline"
               size="icon"
-              disabled={page * PAGE_SIZE >= filtered.length}
+              disabled={
+                page * PAGE_SIZE >=
+                (showAllocationLists ? filteredLists.length : filtered.length)
+              }
               onClick={() => setPage((p) => p + 1)}
               className="cursor-pointer"
             >
@@ -1045,7 +1803,7 @@ export default function AdminReviewPage() {
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

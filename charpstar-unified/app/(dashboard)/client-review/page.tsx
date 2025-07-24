@@ -374,7 +374,7 @@ export default function ReviewDashboardPage() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Approved
                   </p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-2xl font-medium text-green-600">
                     {statusTotals.approved}
                   </p>
                 </div>

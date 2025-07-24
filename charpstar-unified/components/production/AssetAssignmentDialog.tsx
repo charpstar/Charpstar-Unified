@@ -171,6 +171,11 @@ export function AssetAssignmentDialog({
           assetIds: selectedAssets.map((asset) => asset.id),
           userIds: selectedUsers,
           role: role,
+          deadline: new Date(
+            Date.now() + 7 * 24 * 60 * 60 * 1000
+          ).toISOString(), // Default 7 days from now
+          bonus: 0, // Default bonus
+          allocationName: `Allocation ${new Date().toISOString().split("T")[0]} - ${selectedAssets.length} assets`,
         }),
       });
 

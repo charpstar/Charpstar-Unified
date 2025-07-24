@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { assetIds, userIds, role } = await request.json();
+    const { assetIds, userIds, role, deadline, bonus, allocationName, prices } =
+      await request.json();
 
     if (!assetIds || !userIds || !role) {
       return NextResponse.json(
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For modeler assignments, ensure only one modeler per asset
+    // For modeler assignments, create allocation lists
     if (role === "modeler") {
       // First, remove any existing modeler assignments for these assets
       const { error: deleteError } = await supabaseAdmin
@@ -72,26 +73,63 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create new assignments (only one modeler per asset)
+      // Create allocation lists for each modeler
+      const allocationLists = [];
       const assignments = [];
       const assignmentDetails = [];
 
-      for (let i = 0; i < assetIds.length; i++) {
-        const userId = userIds[0]; // Only one user selected
-        assignments.push({
-          asset_id: assetIds[i],
+      for (const userId of userIds) {
+        // Create allocation list
+        const allocationList = {
+          name:
+            allocationName ||
+            `Allocation ${new Date().toISOString().split("T")[0]}`,
           user_id: userId,
           role: role,
           assigned_by: user.id,
-          start_time: new Date().toISOString(),
-        });
-        assignmentDetails.push({
-          assetId: assetIds[i],
-          userId: userId,
-        });
+          deadline: deadline,
+          bonus: bonus || 0,
+          created_at: new Date().toISOString(),
+        };
+
+        const { data: listData, error: listError } = await supabaseAdmin
+          .from("allocation_lists")
+          .insert(allocationList)
+          .select()
+          .single();
+
+        if (listError) {
+          console.error("Error creating allocation list:", listError);
+          return NextResponse.json(
+            { error: "Failed to create allocation list" },
+            { status: 500 }
+          );
+        }
+
+        allocationLists.push(listData);
+
+        // Create asset assignments linked to this allocation list
+        for (const assetId of assetIds) {
+          const assignment = {
+            asset_id: assetId,
+            user_id: userId,
+            role: role,
+            allocation_list_id: listData.id,
+            status: "pending",
+            price: prices?.[assetId] || 0,
+            assigned_by: user.id,
+            start_time: new Date().toISOString(),
+          };
+          assignments.push(assignment);
+          assignmentDetails.push({
+            assetId: assetId,
+            userId: userId,
+            allocationListId: listData.id,
+          });
+        }
       }
 
-      // Insert new assignments
+      // Insert all assignments
       const { data, error } = await supabaseAdmin
         .from("asset_assignments")
         .insert(assignments);
@@ -104,12 +142,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create a more detailed message
-      const message = `Successfully assigned ${assignments.length} asset(s) to 1 modeler`;
+      const message = `Successfully created ${allocationLists.length} allocation list(s) with ${assignments.length} asset(s)`;
 
       return NextResponse.json({
         message: message,
         data: data,
+        allocationLists: allocationLists,
         assignmentDetails: assignmentDetails,
       });
     } else {

@@ -465,48 +465,61 @@ export default function AllocateAssetsPage() {
         return;
       }
 
-      // Create asset assignments
-      const assignments = assetsToAllocate.map((data) => ({
-        asset_id: data.assetId,
-        user_id: data.modelerId,
-        role: "modeler",
-        status: "pending",
-        price: data.price,
-        bonus: groupSettings.bonus,
-        deadline: groupSettings.deadline,
-      }));
+      // Create allocation list using the new API
+      const response = await fetch("/api/assets/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetIds: assetsToAllocate.map((data) => data.assetId),
+          userIds: [globalTeamAssignment.modelerId],
+          role: "modeler",
+          deadline: new Date(
+            groupSettings.deadline + "T00:00:00.000Z"
+          ).toISOString(),
+          bonus: groupSettings.bonus,
+          allocationName: `Allocation ${new Date().toISOString().split("T")[0]} - ${assetsToAllocate.length} assets`,
+          prices: assetsToAllocate.reduce(
+            (acc, data) => {
+              acc[data.assetId] = data.price;
+              return acc;
+            },
+            {} as Record<string, number>
+          ),
+        }),
+      });
 
-      const { error: assignmentError } = await supabase
-        .from("asset_assignments")
-        .insert(assignments);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create allocation");
+      }
 
-      if (assignmentError) throw assignmentError;
+      const result = await response.json();
 
       // Send notifications to assigned modelers
       try {
-        const modelerIds = [...new Set(assignments.map((a) => a.user_id))];
-        for (const modelerId of modelerIds) {
-          const modelerAssets = assignments.filter(
-            (a) => a.user_id === modelerId
-          );
-          const modeler = users.find((u) => u.id === modelerId);
-          if (!modeler) continue;
-
-          const assetDetails = modelerAssets.map((assignment) => {
-            const asset = getAssetById(assignment.asset_id);
-            return asset?.product_name || assignment.asset_id;
+        const modeler = users.find(
+          (u) => u.id === globalTeamAssignment.modelerId
+        );
+        if (modeler) {
+          const assetDetails = assetsToAllocate.map((data) => {
+            const asset = getAssetById(data.assetId);
+            return asset?.product_name || data.assetId;
           });
 
           await notificationService.sendAssetAllocationNotification({
-            modelerId: modelerId,
+            modelerId: globalTeamAssignment.modelerId,
             modelerEmail: modeler.email,
-            assetIds: modelerAssets.map((a) => a.asset_id),
+            assetIds: assetsToAllocate.map((data) => data.assetId),
             assetNames: assetDetails,
-            deadline: groupSettings.deadline,
-            price: modelerAssets.reduce((sum, a) => sum + a.price, 0),
+            deadline: new Date(
+              groupSettings.deadline + "T00:00:00.000Z"
+            ).toISOString(),
+            price: assetsToAllocate.reduce((sum, data) => sum + data.price, 0),
             bonus: groupSettings.bonus,
             client:
-              getAssetById(modelerAssets[0].asset_id)?.client || "Unknown",
+              getAssetById(assetsToAllocate[0].assetId)?.client || "Unknown",
           });
         }
       } catch (notificationError) {
@@ -514,9 +527,7 @@ export default function AllocateAssetsPage() {
         // Don't fail the allocation process if notifications fail
       }
 
-      toast.success(
-        `Successfully allocated ${assetsToAllocate.length} assets to modelers!`
-      );
+      toast.success(result.message);
 
       // Redirect to production page
       router.push("/production");

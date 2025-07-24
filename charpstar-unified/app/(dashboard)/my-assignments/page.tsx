@@ -248,7 +248,7 @@ export default function MyAssignmentsPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Potential Earnings
                 </p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-2xl font-medium text-green-600">
                   €
                   {batchSummaries
                     .reduce((sum, batch) => sum + batch.totalEarnings, 0)
@@ -389,7 +389,13 @@ export default function MyAssignmentsPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <AlertCircle className="h-3 w-3 text-red-600" />
-                        <span>{summary.pendingAssets} Pending</span>
+                        <span>
+                          {summary.revisionAssets > 0
+                            ? `${summary.revisionAssets} Sent for Revisions`
+                            : summary.pendingAssets > 0
+                              ? `${summary.pendingAssets} Pending`
+                              : "0 Pending"}
+                        </span>
                       </div>
                     </div>
 
