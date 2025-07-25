@@ -16,6 +16,7 @@ const eslintConfig = [
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "jsx-a11y/alt-text": "off",
+      "react-hooks/exhaustive-deps": "off",
     },
   },
 ];

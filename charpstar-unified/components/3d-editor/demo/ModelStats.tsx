@@ -255,7 +255,6 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
         pollingTimeoutRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelViewerRef, modelName]);
 
   // Add an additional effect to keep polling for stats changes when the model is selected but stats might change
@@ -274,7 +273,6 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
       isMounted = false;
       clearInterval(intervalId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats.isLoading]);
 
   const toggleDoubleSidedDetails = () => {

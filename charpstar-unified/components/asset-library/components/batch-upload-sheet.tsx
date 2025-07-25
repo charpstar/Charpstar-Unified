@@ -800,8 +800,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         setIsProcessingQueue(false);
       });
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewQueue, isProcessingQueue]);
 
   return (
