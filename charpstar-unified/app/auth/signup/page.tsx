@@ -379,7 +379,7 @@ export default function SignupPage() {
             const errorData = await testResponse.json();
             console.error("Test profiles update failed:", errorData);
           } else {
-            const successData = await testResponse.json();
+            await testResponse.json();
           }
         } catch (testError) {
           console.error("Error in test profiles update:", testError);

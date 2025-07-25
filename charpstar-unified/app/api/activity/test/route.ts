@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -21,8 +21,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (!session) {
-      const allCookies = await cookieStore;
-
       return NextResponse.json({ error: "No session found" }, { status: 401 });
     }
 

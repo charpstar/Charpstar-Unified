@@ -25,17 +25,7 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    // Test admin client connection first
-
-    const { data: testData, error: testError } = await adminClient
-      .from("profiles")
-      .select("id")
-      .eq("id", userId)
-      .limit(1);
-
-    // Only update the profiles table - no app_metadata or user_metadata
-
-    // Now update the profiles table with the same data
+    // Update the profiles table with the same data
 
     const { data: profileData, error: profileError } = await adminClient
       .from("profiles")

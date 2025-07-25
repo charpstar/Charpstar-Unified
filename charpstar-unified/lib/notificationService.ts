@@ -43,11 +43,9 @@ class NotificationService {
     }
   }
 
-  private async sendEmailNotification(
-    recipientEmail: string,
-    subject: string,
-    htmlContent: string
-  ): Promise<void> {
+  private async sendEmailNotification(): Promise<void> {
+    // TODO: Implement email sending functionality
+    // For now, this is a placeholder that does nothing
     try {
       // For now, we'll use a simple console log to simulate email sending
       // In production, you would integrate with a real email service like:
@@ -107,10 +105,8 @@ class NotificationService {
     await this.createNotification(notification);
 
     // Send email notification
-    const subject = `New Assets Assigned - ${client}`;
-    const htmlContent = this.generateAssetAllocationEmailHTML(data);
-
-    await this.sendEmailNotification(modelerEmail, subject, htmlContent);
+    // TODO: Implement email sending
+    // await this.sendEmailNotification(modelerEmail, subject, htmlContent);
   }
 
   private generateAssetAllocationEmailHTML(

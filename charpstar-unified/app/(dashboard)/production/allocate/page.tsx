@@ -18,15 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/inputs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/display";
-import { Checkbox } from "@/components/ui/inputs";
+
 import { Calendar } from "@/components/ui/utilities";
 import {
   Popover,
@@ -35,16 +27,12 @@ import {
 } from "@/components/ui/interactive";
 import { format } from "date-fns";
 import {
-  Search,
-  RotateCcw,
   ArrowLeft,
   ArrowRight,
   Calendar as CalendarIcon,
   Euro,
   User,
-  ShieldCheck,
   Package,
-  ExternalLink,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { notificationService } from "@/lib/notificationService";
@@ -179,11 +167,6 @@ export default function AllocateAssetsPage() {
   });
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [clientFilter, setClientFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [clients, setClients] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
 
   // Fetch unallocated assets
   const fetchUnallocatedAssets = useCallback(async () => {
@@ -205,20 +188,10 @@ export default function AllocateAssetsPage() {
       const selectedAssetsParam = searchParams.getAll("selectedAssets");
 
       // Fetch unallocated assets
-      let query = supabase
+      const { data, error } = await supabase
         .from("onboarding_assets")
         .select("*")
         .not("id", "in", `(${assignedAssetIds.join(",")})`);
-
-      if (clientFilter !== "all") {
-        query = query.eq("client", clientFilter);
-      }
-
-      if (categoryFilter !== "all") {
-        query = query.eq("category", categoryFilter);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -249,21 +222,13 @@ export default function AllocateAssetsPage() {
       }
 
       setAssets(allAssets);
-
-      // Extract unique clients and categories
-      const uniqueClients = [...new Set(allAssets?.map((a) => a.client) || [])];
-      const uniqueCategories = [
-        ...new Set(allAssets?.map((a) => a.category) || []),
-      ];
-      setClients(uniqueClients);
-      setCategories(uniqueCategories);
     } catch (error) {
       console.error("Error fetching unallocated assets:", error);
       toast.error("Failed to fetch assets");
     } finally {
       setLoading(false);
     }
-  }, [searchParams, clientFilter, categoryFilter]);
+  }, [searchParams]);
 
   // Fetch users
   const fetchUsers = async () => {
@@ -298,42 +263,9 @@ export default function AllocateAssetsPage() {
     }
   }, [searchParams]);
 
-  // Filter assets based on search term and ensure uniqueness
-  const filteredAssets = assets
-    .filter(
-      (asset) =>
-        asset.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.article_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.client.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .filter(
-      (asset, index, self) => index === self.findIndex((a) => a.id === asset.id)
-    );
-
-  // Handle asset selection
-  const handleAssetSelect = (assetId: string, checked: boolean) => {
-    const newSelected = new Set(selectedAssets);
-    if (checked) {
-      newSelected.add(assetId);
-    } else {
-      newSelected.delete(assetId);
-    }
-    setSelectedAssets(newSelected);
-  };
-
-  // Handle select all
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedAssets(new Set(filteredAssets.map((a) => a.id)));
-    } else {
-      setSelectedAssets(new Set());
-    }
-  };
-
   // Initialize allocation data for selected assets
   const initializeAllocationData = () => {
     const modelers = users.filter((u) => u.role === "modeler");
-    const qaUsers = users.filter((u) => u.role === "qa");
 
     // Set global team assignment defaults
     if (modelers.length > 0 && !globalTeamAssignment.modelerId) {
@@ -367,7 +299,7 @@ export default function AllocateAssetsPage() {
     ) {
       initializeAllocationData();
     }
-  }, [users, selectedAssets, allocationData.length]);
+  }, [users, selectedAssets, allocationData.length, initializeAllocationData]);
 
   // Handle next step
   const handleNextStep = () => {
@@ -557,20 +489,6 @@ export default function AllocateAssetsPage() {
   const getPricingOptionById = (id: string) => {
     const options = getCurrentPricingOptions();
     return options.find((option) => option.id === id);
-  };
-
-  // Helper function to get priority color
-  const getPriorityColor = (priority: number) => {
-    switch (priority) {
-      case 1:
-        return "bg-red-100 text-red-800 border-red-200";
-      case 2:
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case 3:
-        return "bg-green-100 text-green-800 border-green-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
   };
 
   return (

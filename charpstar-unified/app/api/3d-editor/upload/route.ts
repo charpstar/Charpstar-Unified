@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(jsonString);
 
     // Get storage zone details
-    const { zoneName, basePath } = getStorageZoneDetails();
+    const { zoneName } = getStorageZoneDetails();
 
     // Get client name from request or use default
     const clientName = requestBody.client || DEFAULT_CLIENT;

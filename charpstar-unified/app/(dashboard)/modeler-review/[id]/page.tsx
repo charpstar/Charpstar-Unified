@@ -514,6 +514,11 @@ export default function ModelerReviewPage() {
 
     setStatusUpdating(true);
     try {
+      // Check if this asset belongs to an allocation list and handle list status reversion BEFORE updating
+      if (newStatus === "delivered_by_artist" || newStatus === "revisions") {
+        await handleAllocationListStatusRevert(asset.id);
+      }
+
       const { error } = await supabase
         .from("onboarding_assets")
         .update({ status: newStatus })
@@ -530,11 +535,102 @@ export default function ModelerReviewPage() {
 
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
       toast.success("Status updated successfully!");
+
+      // Dispatch event to notify earnings widget to refresh
+      window.dispatchEvent(new CustomEvent("assetStatusChanged"));
     } catch (error) {
       console.error("Error updating status:", error);
       toast.error("Failed to update status");
     } finally {
       setStatusUpdating(false);
+    }
+  };
+
+  // Helper function to handle allocation list status reversion
+  const handleAllocationListStatusRevert = async (assetId: string) => {
+    try {
+      // Get the allocation list ID for this asset
+      const { data: assignment, error: assignmentError } = await supabase
+        .from("asset_assignments")
+        .select("allocation_list_id")
+        .eq("asset_id", assetId)
+        .eq("role", "modeler")
+        .single();
+
+      if (assignmentError || !assignment?.allocation_list_id) {
+        console.log(
+          "Asset not part of an allocation list or error fetching assignment"
+        );
+        return;
+      }
+
+      // Get current allocation list status BEFORE updating the asset
+      const { data: currentList, error: listStatusError } = await supabase
+        .from("allocation_lists")
+        .select("status")
+        .eq("id", assignment.allocation_list_id)
+        .single();
+
+      if (listStatusError) {
+        console.error(
+          "Error fetching allocation list status:",
+          listStatusError
+        );
+        return;
+      }
+
+      // If the list is currently approved, we need to revert it
+      if (currentList?.status === "approved") {
+        // Get all assets in this allocation list (excluding the one being updated)
+        const { data: listAssets, error: listError } = await supabase
+          .from("asset_assignments")
+          .select(
+            `
+            asset_id,
+            onboarding_assets!inner(
+              id,
+              status
+            )
+          `
+          )
+          .eq("allocation_list_id", assignment.allocation_list_id)
+          .eq("role", "modeler")
+          .neq("asset_id", assetId); // Exclude the asset being updated
+
+        if (listError) {
+          console.error("Error fetching list assets:", listError);
+          return;
+        }
+
+        // Check if all OTHER assets in the list are approved
+        const allOtherAssetsApproved = listAssets?.every(
+          (item: any) => item.onboarding_assets?.status === "approved"
+        );
+
+        // If all other assets are approved, revert the list status to in_progress
+        if (allOtherAssetsApproved) {
+          const { error: listUpdateError } = await supabase
+            .from("allocation_lists")
+            .update({
+              status: "in_progress",
+              approved_at: null,
+            })
+            .eq("id", assignment.allocation_list_id);
+
+          if (listUpdateError) {
+            console.error(
+              "Error reverting allocation list status:",
+              listUpdateError
+            );
+          } else {
+            console.log("Allocation list status reverted to in_progress");
+            // Dispatch custom event to notify earnings widget to refresh
+            window.dispatchEvent(new CustomEvent("allocationListUnapproved"));
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error handling allocation list status revert:", error);
     }
   };
 
@@ -1053,7 +1149,7 @@ export default function ModelerReviewPage() {
                             {imageFiles.map((imageUrl, index) => {
                               // Test if image is accessible
                               fetch(imageUrl, { method: "HEAD" })
-                                .then((response) => {})
+                                .then(() => {})
                                 .catch((error) => {
                                   console.error(
                                     `Image ${imageUrl.split("/").pop()} fetch error:`,
@@ -1089,7 +1185,7 @@ export default function ModelerReviewPage() {
                                           onClick={() =>
                                             window.open(imageUrl, "_blank")
                                           }
-                                          onLoad={(e) => {}}
+                                          onLoad={() => {}}
                                           onError={() => {
                                             console.error(
                                               "Failed to load image:",

@@ -84,7 +84,6 @@ export async function POST(request: NextRequest) {
 
     // Generate unique filename
     const timestamp = Date.now();
-    const fileExtension = file.name.split(".").pop()?.toLowerCase();
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const fileName = `${timestamp}_${sanitizedName}`;
     const fullPath = `${storagePath}${fileName}`;
@@ -140,7 +139,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update asset record based on file type
-    let updateData: any = {};
+    const updateData: any = {};
 
     if (fileType === "glb") {
       updateData.glb_link = urlData.publicUrl;

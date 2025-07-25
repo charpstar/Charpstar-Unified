@@ -177,7 +177,7 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
         modelLoadedRef.current = false;
       };
 
-      const handleProgress = (event) => {};
+      const handleProgress = () => {};
 
       // Remove existing listeners to prevent duplicates
       modelViewer.removeEventListener("load", handleLoad);

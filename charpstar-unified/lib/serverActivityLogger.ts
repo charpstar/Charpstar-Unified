@@ -42,7 +42,6 @@ export async function logActivityServer(data: ActivityLogData): Promise<void> {
     // Get the current session to get user ID
     const {
       data: { session },
-      error: sessionError,
     } = await supabase.auth.getSession();
 
     // Get the user's profile ID

@@ -58,15 +58,12 @@ export default function AuthPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: loginData.email,
         password: loginData.password,
       });
 
       if (error) throw error;
-
-      // Check if session is stored
-      const { data: sessionData } = await supabase.auth.getSession();
 
       router.push("/dashboard");
     } catch (err: any) {

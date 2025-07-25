@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
-import { Package, DollarSign, ArrowRight } from "lucide-react";
+import { Package, ArrowRight } from "lucide-react";
 
 interface PendingAssignment {
   asset_id: string;
@@ -104,7 +104,7 @@ export function PendingAssignmentsWidget() {
             totalWithBonus,
           };
         }) || [];
-      //@ts-ignore
+      //@ts-expect-error - TODO: fix somehow- this is a bug in the types
       setAllocationLists(transformedLists);
     } catch (error) {
       console.error("Error:", error);
@@ -118,15 +118,11 @@ export function PendingAssignmentsWidget() {
     (sum, list) => sum + list.totalAssets,
     0
   );
-  const totalBasePay = allocationLists.reduce(
-    (sum, list) => sum + list.totalPrice,
-    0
-  );
+
   const totalWithBonus = allocationLists.reduce(
     (sum, list) => sum + list.totalWithBonus,
     0
   );
-  const totalBonus = totalWithBonus - totalBasePay;
 
   if (loading) {
     return (
@@ -201,7 +197,7 @@ export function PendingAssignmentsWidget() {
           <div className="text-sm font-medium text-muted-foreground">
             Allocation Lists ({allocationLists.length})
           </div>
-          {allocationLists.slice(0, 3).map((list, index) => (
+          {allocationLists.slice(0, 3).map((list) => (
             <div
               key={list.id}
               className="flex items-center justify-between p-2 bg-muted rounded-lg"

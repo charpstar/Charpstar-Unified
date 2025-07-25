@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
-import { Badge } from "@/components/ui/feedback";
+
 import { Input } from "@/components/ui/inputs";
 import {
   Select,
@@ -153,23 +153,28 @@ export default function PendingAssignmentsPage() {
       }
 
       // Transform the data to include calculated totals
-      const transformedLists =
-        lists?.map((list) => {
-          const totalAssets = list.asset_assignments.length;
-          const totalPrice = list.asset_assignments.reduce(
+      const transformedLists = (lists || []).map((list: any) => ({
+        ...list,
+        asset_assignments: (list.asset_assignments || []).map(
+          (assignment: any) => ({
+            ...assignment,
+            onboarding_assets: Array.isArray(assignment.onboarding_assets)
+              ? assignment.onboarding_assets[0] || null
+              : assignment.onboarding_assets,
+          })
+        ),
+        totalAssets: list.asset_assignments.length,
+        totalPrice: list.asset_assignments.reduce(
+          (sum: number, assignment: any) => sum + (assignment.price || 0),
+          0
+        ),
+        totalWithBonus:
+          list.asset_assignments.reduce(
             (sum: number, assignment: any) => sum + (assignment.price || 0),
             0
-          );
-          const totalWithBonus = totalPrice * (1 + (list.bonus || 0) / 100);
-
-          return {
-            ...list,
-            totalAssets,
-            totalPrice,
-            totalWithBonus,
-          };
-        }) || [];
-
+          ) *
+          (1 + (list.bonus || 0) / 100),
+      }));
       setAllocationLists(transformedLists);
     } catch (error) {
       console.error("Error:", error);
@@ -716,25 +721,6 @@ export default function PendingAssignmentsPage() {
 
                                     {/* Show info icon if no references or files are available */}
                                     {(() => {
-                                      const hasProductLink =
-                                        !!asset.product_link;
-                                      const hasReferences =
-                                        asset.reference &&
-                                        Array.isArray(asset.reference) &&
-                                        asset.reference.length > 0 &&
-                                        asset.reference.some(
-                                          (ref: any) =>
-                                            ref &&
-                                            typeof ref === "string" &&
-                                            ref.trim() !== ""
-                                        );
-                                      const files =
-                                        assetFilesMap[asset.id] || [];
-                                      const isChecking =
-                                        checkingFiles[asset.id];
-                                      const hasFiles =
-                                        !isChecking && files.length > 0;
-
                                       // Show info icon if no other links/buttons are shown
                                       // Temporarily always show for testing
                                       if (true) {

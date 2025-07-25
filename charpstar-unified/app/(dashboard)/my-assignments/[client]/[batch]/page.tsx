@@ -420,6 +420,19 @@ export default function BatchDetailPage() {
     }
   };
 
+  const getPriorityLabel = (priority: number) => {
+    switch (priority) {
+      case 1:
+        return "High";
+      case 2:
+        return "Medium";
+      case 3:
+        return "Low";
+      default:
+        return "Unknown";
+    }
+  };
+
   const handleViewAsset = (assetId: string) => {
     router.push(`/modeler-review/${assetId}`);
   };
@@ -490,7 +503,6 @@ export default function BatchDetailPage() {
         throw new Error(errorData.error || "Failed to upload GLB file");
       }
 
-      const result = await response.json();
       toast.success("GLB file uploaded successfully!");
 
       // Refresh the assets list
@@ -525,7 +537,6 @@ export default function BatchDetailPage() {
         throw new Error(errorData.error || "Failed to upload file");
       }
 
-      const result = await response.json();
       toast.success("File uploaded successfully!");
 
       // Refresh the assets list
@@ -537,24 +548,6 @@ export default function BatchDetailPage() {
       );
     } finally {
       setUploadingFile(null);
-    }
-  };
-
-  const handleFileInputChange = (
-    assetId: string,
-    type: "glb" | "asset",
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Clear the input value to allow re-uploading the same file
-    event.target.value = "";
-
-    if (type === "glb") {
-      handleUploadGLB(assetId, file);
-    } else {
-      handleUploadAsset(assetId, file);
     }
   };
 
@@ -978,7 +971,7 @@ export default function BatchDetailPage() {
                               variant="outline"
                               className={`text-xs ${getPriorityColor(asset.priority)}`}
                             >
-                              {asset.priority}
+                              {getPriorityLabel(asset.priority)}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -1115,6 +1108,7 @@ export default function BatchDetailPage() {
                 {currentReferences.map((url, index) => (
                   <div key={index} className="relative group">
                     <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={url}
                         alt={`Reference ${index + 1}`}

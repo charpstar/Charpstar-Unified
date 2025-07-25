@@ -153,10 +153,7 @@ function getFileType(fileName: string): "glb" | "asset" | "reference" | "misc" {
   return "misc";
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest) {
   const cookieStore = cookies();
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 

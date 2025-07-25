@@ -16,7 +16,6 @@ import {
   Eye,
   Package,
   FileText,
-  Users,
   MessageSquare,
 } from "lucide-react";
 
@@ -63,11 +62,6 @@ export function ModelerStatsWidget() {
         setStats({ totalAssigned: 0, completed: 0, inProgress: 0, pending: 0 });
         return;
       }
-
-      // Extract assets from assignments
-      const allAssets = assetAssignments
-        .map((assignment) => assignment.onboarding_assets)
-        .filter(Boolean) as any[];
 
       // Calculate statistics - only count accepted assignments
       const acceptedAssignments = assetAssignments.filter(
@@ -353,6 +347,7 @@ export function ModelerEarningsWidget() {
   // Listen for allocation list approval/unapproval events
   useEffect(() => {
     const handleAllocationListStatusChange = () => {
+      console.log("Allocation list status changed, refreshing earnings data");
       setRefreshTrigger((prev) => prev + 1);
     };
 
@@ -366,6 +361,12 @@ export function ModelerEarningsWidget() {
       handleAllocationListStatusChange
     );
 
+    // Also listen for asset status changes that might affect allocation lists
+    window.addEventListener(
+      "assetStatusChanged",
+      handleAllocationListStatusChange
+    );
+
     return () => {
       window.removeEventListener(
         "allocationListApproved",
@@ -373,6 +374,10 @@ export function ModelerEarningsWidget() {
       );
       window.removeEventListener(
         "allocationListUnapproved",
+        handleAllocationListStatusChange
+      );
+      window.removeEventListener(
+        "assetStatusChanged",
         handleAllocationListStatusChange
       );
     };
@@ -437,7 +442,19 @@ export function ModelerEarningsWidget() {
         return;
       }
 
-      // Calculate earnings from approved allocation lists
+      // Filter allocation lists to only include those where ALL assets are approved
+      const fullyApprovedLists = allocationLists.filter((list: any) => {
+        // Check if all assets in this list are approved
+        return list.asset_assignments.every(
+          (assignment: any) =>
+            assignment.onboarding_assets?.status === "approved"
+        );
+      });
+
+      console.log("Fully approved lists:", fullyApprovedLists.length);
+      console.log("Total lists:", allocationLists.length);
+
+      // Calculate earnings from fully approved allocation lists only
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
@@ -452,7 +469,7 @@ export function ModelerEarningsWidget() {
       // Group earnings by month for chart
       const monthlyData = new Map<string, number>();
 
-      allocationLists.forEach((list: any) => {
+      fullyApprovedLists.forEach((list: any) => {
         const listEarnings = list.asset_assignments.reduce(
           (sum: number, assignment: any) => sum + (assignment.price || 0),
           0
@@ -563,7 +580,7 @@ export function ModelerEarningsWidget() {
         <Card className="p-4">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">
-              This month's earnings
+              This month&apos;s earnings
             </p>
             <p className="text-2xl font-bold text-cyan-600">
               €{earningsData.thisMonth.toLocaleString()}

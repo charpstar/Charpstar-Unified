@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       }
 
       let allocationListApproved = false;
-      let allocationListId = assignment.allocation_list_id;
+      const allocationListId = assignment.allocation_list_id;
 
       if (allApproved && currentList?.status !== "approved") {
         // Update the allocation list status to approved

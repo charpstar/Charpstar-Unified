@@ -32,7 +32,7 @@ export default function ResetPasswordPage() {
 
           if (type === "recovery" && accessToken) {
             // Set the session using the access token
-            const { data, error } = await supabase.auth.setSession({
+            const { error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken || "",
             });
@@ -49,8 +49,7 @@ export default function ResetPasswordPage() {
           const code = searchParams.get("code");
 
           if (type === "recovery" && code) {
-            const { data, error } =
-              await supabase.auth.exchangeCodeForSession(code);
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
 
             if (error) {
               console.error("Error exchanging code for session:", error);

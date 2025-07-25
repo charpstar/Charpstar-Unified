@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/display";
-import { Badge } from "@/components/ui/feedback";
+
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,6 @@ import {
   FileArchive,
   FileCode,
   Eye,
-  Calendar,
   User,
   Loader2,
 } from "lucide-react";
@@ -139,32 +138,12 @@ export function AssetFilesManager({
     return <File className="h-4 w-4 text-gray-500" />;
   };
 
-  const getFileTypeLabel = (fileType: string) => {
-    const labels = {
-      glb: "3D Model",
-      asset: "Asset File",
-      reference: "Reference",
-      misc: "Other",
-    };
-    return labels[fileType as keyof typeof labels] || fileType;
-  };
-
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   return (

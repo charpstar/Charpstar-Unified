@@ -64,12 +64,6 @@ const getPriorityColor = (priority: number) => {
   return "bg-gray-100 text-gray-800";
 };
 
-const getPriorityLabel = (priority: number) => {
-  if (priority === 1) return "High";
-  if (priority === 2) return "Medium";
-  return "Low";
-};
-
 const getStatusIcon = (status: string) => {
   switch (status) {
     case "approved":
@@ -240,7 +234,7 @@ export default function AdminReviewPage() {
   const [filteredLists, setFilteredLists] = useState<any[]>([]);
   const [showAllocationLists, setShowAllocationLists] = useState(false);
   const [modelerEmail, setModelerEmail] = useState<string>("");
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [refreshTrigger] = useState(0);
   const [updatingPriorities, setUpdatingPriorities] = useState<Set<string>>(
     new Set()
   );

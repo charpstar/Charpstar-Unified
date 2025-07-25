@@ -81,17 +81,9 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    // Test admin client connection
-
-    const { data: testData, error: testError } = await adminClient
-      .from("profiles")
-      .select("id")
-      .eq("id", userId)
-      .limit(1);
-
     // Update the profiles table with invitation data and role-specific fields
 
-    const { data: profileData, error: profileError } = await adminClient
+    const { error: profileError } = await adminClient
       .from("profiles")
       .upsert({
         id: userId,

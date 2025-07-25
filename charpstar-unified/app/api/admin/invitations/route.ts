@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     // Send invitation using Supabase Auth
     try {
       const adminClient = createAdminClient();
-      const { data: inviteData, error: inviteError } =
+      const { error: inviteError } =
         await adminClient.auth.admin.inviteUserByEmail(email, {
           redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || (process.env.NODE_ENV === "production" ? "https://charpstar-unified.vercel.app" : "http://localhost:3000")}/auth/signup?token=${invitationToken}`,
           data: {

@@ -458,7 +458,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           continue;
         }
         let glb_url = row.glb_link;
-        let zip_url = null;
         let preview_image_url = row.preview_image;
         // Handle 3D file upload (GLB files)
         if (row.glb_file) {
@@ -502,7 +501,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
               .from("assets")
               .getPublicUrl(filePath);
             if (fileExtension === "zip") {
-              zip_url = urlData.publicUrl;
+              // zip_url = urlData.publicUrl;
             } else if (!glb_url) {
               glb_url = urlData.publicUrl;
             }

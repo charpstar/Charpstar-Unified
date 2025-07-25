@@ -92,11 +92,6 @@ export async function GET(request: NextRequest) {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
-    // Get the current session
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
     // For now, allow access even without session for testing
     // In production, you'd want to check for session here
 
