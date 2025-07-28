@@ -87,6 +87,12 @@ export default function PendingAssignmentsPage() {
   const [batchFilter, setBatchFilter] = useState("all");
   const [accepting, setAccepting] = useState<string | null>(null);
   const [declining, setDeclining] = useState<string | null>(null);
+  const [acceptedLists, setAcceptedLists] = useState<
+    Map<string, AllocationList>
+  >(new Map());
+  const [declinedLists, setDeclinedLists] = useState<
+    Map<string, AllocationList>
+  >(new Map());
 
   useEffect(() => {
     if (user?.id) {
@@ -232,6 +238,10 @@ export default function PendingAssignmentsPage() {
       const list = allocationLists.find((l) => l.id === listId);
       if (!list) return;
 
+      // Optimistic update - immediately remove from the list
+      setAllocationLists((prev) => prev.filter((l) => l.id !== listId));
+      setAcceptedLists((prev) => new Map(prev).set(listId, list));
+
       const assetIds = list.asset_assignments.map((a) => a.asset_id);
 
       const { error } = await supabase
@@ -246,6 +256,13 @@ export default function PendingAssignmentsPage() {
       if (error) {
         console.error("Error accepting list:", error);
         toast.error("Failed to accept list");
+        // Revert optimistic update on error
+        setAllocationLists((prev) => [...prev, list]);
+        setAcceptedLists((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(listId);
+          return newMap;
+        });
         return;
       }
 
@@ -261,14 +278,28 @@ export default function PendingAssignmentsPage() {
       }
 
       toast.success("Allocation list accepted successfully!");
-      fetchPendingAssignments(); // Refresh the data
-      // Force a page refresh to update all dashboard widgets
+
+      // Remove from accepted lists after a delay to show success animation
       setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+        setAcceptedLists((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(listId);
+          return newMap;
+        });
+      }, 2000);
     } catch (error) {
       console.error("Error:", error);
       toast.error("Failed to accept list");
+      // Revert optimistic update on error
+      const list = allocationLists.find((l) => l.id === listId);
+      if (list) {
+        setAllocationLists((prev) => [...prev, list]);
+      }
+      setAcceptedLists((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(listId);
+        return newMap;
+      });
     } finally {
       setAccepting(null);
     }
@@ -279,6 +310,10 @@ export default function PendingAssignmentsPage() {
       setDeclining(listId);
       const list = allocationLists.find((l) => l.id === listId);
       if (!list) return;
+
+      // Optimistic update - immediately remove from the list
+      setAllocationLists((prev) => prev.filter((l) => l.id !== listId));
+      setDeclinedLists((prev) => new Map(prev).set(listId, list));
 
       const assetIds = list.asset_assignments.map((a) => a.asset_id);
 
@@ -292,18 +327,39 @@ export default function PendingAssignmentsPage() {
       if (error) {
         console.error("Error declining list:", error);
         toast.error("Failed to decline list");
+        // Revert optimistic update on error
+        setAllocationLists((prev) => [...prev, list]);
+        setDeclinedLists((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(listId);
+          return newMap;
+        });
         return;
       }
 
       toast.success("Allocation list declined successfully!");
-      fetchPendingAssignments(); // Refresh the data
-      // Force a page refresh to update all dashboard widgets
+
+      // Remove from declined lists after a delay to show success animation
       setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+        setDeclinedLists((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(listId);
+          return newMap;
+        });
+      }, 2000);
     } catch (error) {
       console.error("Error:", error);
       toast.error("Failed to decline list");
+      // Revert optimistic update on error
+      const list = allocationLists.find((l) => l.id === listId);
+      if (list) {
+        setAllocationLists((prev) => [...prev, list]);
+      }
+      setDeclinedLists((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(listId);
+        return newMap;
+      });
     } finally {
       setDeclining(null);
     }
@@ -440,12 +496,6 @@ export default function PendingAssignmentsPage() {
       <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Pending Assignments</h1>
-            <p className="text-muted-foreground">
-              Review and accept your pending assignment groups
-            </p>
-          </div>
           <Button variant="outline" onClick={() => router.push("/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
@@ -556,12 +606,78 @@ export default function PendingAssignmentsPage() {
               </Select>
             </div>
 
+            {/* Success Messages */}
+            {acceptedLists.size > 0 && (
+              <div className="space-y-2">
+                {Array.from(acceptedLists.entries()).map(([listId, list]) => {
+                  return (
+                    <div
+                      key={listId}
+                      className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg animate-in slide-in-from-top-2 duration-300"
+                    >
+                      <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-full">
+                        <Check className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-green-800">
+                          {list?.name || "Allocation List"} accepted
+                          successfully!
+                        </p>
+                        <p className="text-sm text-green-600">
+                          The list has been moved to your assignments.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {declinedLists.size > 0 && (
+              <div className="space-y-2">
+                {Array.from(declinedLists.entries()).map(([listId, list]) => {
+                  return (
+                    <div
+                      key={listId}
+                      className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg animate-in slide-in-from-top-2 duration-300"
+                    >
+                      <div className="flex items-center justify-center w-8 h-8 bg-red-100 rounded-full">
+                        <X className="h-4 w-4 text-red-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-red-800">
+                          {list?.name || "Allocation List"} declined
+                          successfully!
+                        </p>
+                        <p className="text-sm text-red-600">
+                          The list has been removed from your pending
+                          assignments.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Allocation Lists */}
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 <p className="mt-2 text-muted-foreground">
                   Loading allocation lists...
+                </p>
+              </div>
+            ) : filteredLists.length === 0 &&
+              acceptedLists.size === 0 &&
+              declinedLists.size === 0 ? (
+              <div className="text-center py-12">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  No pending allocation lists found
+                </h3>
+                <p className="text-muted-foreground">
+                  You don't have any pending assignments at the moment.
                 </p>
               </div>
             ) : (
@@ -753,20 +869,6 @@ export default function PendingAssignmentsPage() {
                     </Card>
                   );
                 })}
-              </div>
-            )}
-
-            {filteredLists.length === 0 && !loading && (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">
-                  No pending allocation lists found
-                </h3>
-                <p className="text-muted-foreground">
-                  {allocationLists.length === 0
-                    ? "You don't have any pending assignments at the moment."
-                    : "No allocation lists match your current filters."}
-                </p>
               </div>
             )}
           </CardContent>

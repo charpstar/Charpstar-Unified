@@ -28,6 +28,14 @@ const TITLES = {
   "/client-review": "Client Review",
   "/client-review/[id]": "Review Asset",
   "/add-products": "Add Products",
+  "/guidelines": "Guidelines",
+  "/pending-assignments": "Pending Assignments",
+  "/my-assignments": "My Assignments",
+  "/modeler-review": "Modeler Review",
+  "/3d-editor": "3D Editor",
+  "/create-users": "Create Users",
+  "/add-models": "Add Models",
+  "/admin-review": "Admin Review",
 };
 
 export default function SiteHeader() {
@@ -59,6 +67,23 @@ export default function SiteHeader() {
     pathname.split("/").length === 3
   ) {
     pageTitle = "Client Asset Review";
+  } else if (pathname === "/admin-review") {
+    // Handle admin-review with query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const client = urlParams.get("client");
+    const batch = urlParams.get("batch");
+    const modeler = urlParams.get("modeler");
+    const email = urlParams.get("email");
+
+    if (client && batch) {
+      pageTitle = `${client} Batch ${batch} - Admin Review`;
+    } else if (modeler && email) {
+      // Decode the email URL parameter
+      const decodedEmail = decodeURIComponent(email);
+      pageTitle = `Admin Modeler Review - ${decodedEmail}`;
+    } else {
+      pageTitle = "Admin Review";
+    }
   } else {
     pageTitle = TITLES[pathname as keyof typeof TITLES] || "Unified";
   }

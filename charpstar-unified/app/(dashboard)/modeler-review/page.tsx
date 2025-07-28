@@ -325,7 +325,7 @@ export default function ModelerReviewPage() {
 
   if (user.metadata?.role !== "modeler") {
     return (
-      <div className="flex flex-1 flex-col p-4 sm:p-12">
+      <div className="container mx-auto p-6 space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">
@@ -337,7 +337,7 @@ export default function ModelerReviewPage() {
   }
 
   return (
-    <div className="mx-auto p-6 flex flex-col h-full">
+    <div className="container mx-auto p-6 pt-22 space-y-6">
       <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">

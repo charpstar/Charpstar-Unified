@@ -472,7 +472,7 @@ export default function AnalyticsDashboard() {
 
   // --- Main dashboard ---
   return (
-    <div className="flex flex-1 flex-col p-4 sm:p-12">
+    <div className="container mx-auto p-6 space-y-6">
       {showAnalyticsTour && (
         <AnalyticsTour
           onComplete={handleAnalyticsTourComplete}

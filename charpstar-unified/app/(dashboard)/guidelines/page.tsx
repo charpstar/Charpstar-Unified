@@ -206,47 +206,6 @@ export default function GuidelinesPage() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
-              <Download className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="font-medium">Download Template</p>
-              <p className="text-sm text-muted-foreground">
-                Get reference files
-              </p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
-              <Video className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="font-medium">Training Videos</p>
-              <p className="text-sm text-muted-foreground">
-                Learn best practices
-              </p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
-              <HelpCircle className="h-5 w-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="font-medium">Get Help</p>
-              <p className="text-sm text-muted-foreground">Contact support</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
       {/* Guidelines Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {guidelines.map((section) => (

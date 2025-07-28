@@ -677,7 +677,7 @@ export default function BatchDetailPage() {
 
   if (user.metadata?.role !== "modeler") {
     return (
-      <div className="flex flex-1 flex-col p-4 sm:p-12">
+      <div className="container mx-auto p-6 space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">
@@ -689,14 +689,14 @@ export default function BatchDetailPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col p-4 sm:p-18">
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">
           <Button
             variant="ghost"
             onClick={() => router.push("/my-assignments")}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Assignments
@@ -710,7 +710,6 @@ export default function BatchDetailPage() {
           </Badge>
         </div>
         <div className="flex items-center gap-4 text-muted-foreground">
-          <p>Manage and review all assets in this batch</p>
           {allocationLists.length > 0 && allocationLists[0]?.deadline && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
@@ -724,7 +723,24 @@ export default function BatchDetailPage() {
       </div>
 
       {/* Batch Earnings Statistics */}
-      {!loading && (
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="p-4 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gray-200 rounded-lg">
+                  <div className="h-5 w-5 bg-gray-300 rounded" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-4 w-24 bg-gray-200 rounded" />
+                  <div className="h-6 w-20 bg-gray-200 rounded" />
+                  <div className="h-3 w-16 bg-gray-200 rounded" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
             <div className="flex items-center gap-3">
@@ -807,46 +823,58 @@ export default function BatchDetailPage() {
       )}
 
       {/* Filters and Search */}
-      <div className="mb-6 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search assets..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+      {loading ? (
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <div className="h-10 bg-gray-200 rounded animate-pulse" />
+            </div>
+            <div className="w-full sm:w-48 h-10 bg-gray-200 rounded animate-pulse" />
+            <div className="w-full sm:w-48 h-10 bg-gray-200 rounded animate-pulse" />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="not_started">Not Started</SelectItem>
-              <SelectItem value="in_production">In Progress</SelectItem>
-              <SelectItem value="revisions">Sent for Revisions</SelectItem>
-              <SelectItem value="delivered_by_artist">
-                Waiting for Approval
-              </SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="priority">Priority</SelectItem>
-              <SelectItem value="name">Name</SelectItem>
-              <SelectItem value="status">Status</SelectItem>
-              <SelectItem value="article_id">Article ID</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
-      </div>
+      ) : (
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search assets..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="not_started">Not Started</SelectItem>
+                <SelectItem value="in_production">In Progress</SelectItem>
+                <SelectItem value="revisions">Sent for Revisions</SelectItem>
+                <SelectItem value="delivered_by_artist">
+                  Waiting for Approval
+                </SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="priority">Priority</SelectItem>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="article_id">Article ID</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
 
       {/* Assets Table */}
       <div className="space-y-4">
@@ -859,16 +887,55 @@ export default function BatchDetailPage() {
         </div>
 
         {loading ? (
-          <Card className="p-8">
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse space-y-3">
-                  <div className="h-4 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3 bg-gray-200 rounded w-1/2" />
-                </div>
-              ))}
-            </div>
-          </Card>
+          <div className="space-y-6">
+            {/* Skeleton for allocation list cards */}
+            {[...Array(2)].map((_, listIndex) => (
+              <Card key={listIndex} className="animate-pulse">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="h-5 w-5 bg-gray-200 rounded" />
+                        <div className="h-6 w-32 bg-gray-200 rounded" />
+                      </div>
+                      <div className="flex items-center gap-4 mt-2">
+                        {[...Array(3)].map((_, i) => (
+                          <div key={i} className="flex items-center gap-1">
+                            <div className="h-4 w-4 bg-gray-200 rounded" />
+                            <div className="h-4 w-20 bg-gray-200 rounded" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Table header skeleton */}
+                    <div className="grid grid-cols-7 gap-4 pb-2 border-b">
+                      {[...Array(7)].map((_, i) => (
+                        <div key={i} className="h-4 bg-gray-200 rounded" />
+                      ))}
+                    </div>
+                    {/* Table rows skeleton */}
+                    {[...Array(3)].map((_, rowIndex) => (
+                      <div
+                        key={rowIndex}
+                        className="grid grid-cols-7 gap-4 py-3 border-b"
+                      >
+                        {[...Array(7)].map((_, colIndex) => (
+                          <div
+                            key={colIndex}
+                            className="h-4 bg-gray-200 rounded"
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : allocationLists.length === 0 ? (
           <Card className="p-8 text-center">
             <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

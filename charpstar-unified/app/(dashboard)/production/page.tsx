@@ -779,7 +779,7 @@ export default function ProductionDashboard() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col p-4 sm:p-12">
+      <div className="container mx-auto p-6 space-y-6">
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold">Production Dashboard</h1>
@@ -800,7 +800,7 @@ export default function ProductionDashboard() {
   }
 
   return (
-    <div className="flex flex-1 flex-col p-4 sm:p-12">
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-4">

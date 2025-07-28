@@ -50,6 +50,7 @@ export default function MyAssignmentsPage() {
   const router = useRouter();
   const { startLoading, stopLoading } = useLoadingState();
   const [batchSummaries, setBatchSummaries] = useState<BatchSummary[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     document.title = "CharpstAR Platform - My Assignments";
@@ -63,6 +64,7 @@ export default function MyAssignmentsPage() {
 
   const fetchAssignedAssets = async () => {
     try {
+      setLoading(true);
       startLoading();
 
       // Get user's individual asset assignments - only accepted ones
@@ -102,24 +104,15 @@ export default function MyAssignmentsPage() {
         return;
       }
 
-      // Extract assets from assignments with pricing data
-      const allAssets = assetAssignments
-        .map((assignment) => ({
-          ...assignment.onboarding_assets,
-          assigned_at: assignment.assigned_at,
-          price: assignment.price || 0,
-          bonus: assignment.bonus || 0,
-        }))
-        .filter(Boolean) as any[];
-
-      // Create batch summaries by grouping assets
+      // Group assets by client and batch
       const batchMap = new Map<string, BatchSummary>();
 
-      allAssets.forEach((asset) => {
-        const batchKey = `${asset.client}-${asset.batch}`;
+      assetAssignments.forEach((assignment: any) => {
+        const asset = assignment.onboarding_assets;
+        const key = `${asset.client}-${asset.batch}`;
 
-        if (!batchMap.has(batchKey)) {
-          batchMap.set(batchKey, {
+        if (!batchMap.has(key)) {
+          batchMap.set(key, {
             client: asset.client,
             batch: asset.batch,
             totalAssets: 0,
@@ -128,7 +121,7 @@ export default function MyAssignmentsPage() {
             pendingAssets: 0,
             revisionAssets: 0,
             completionPercentage: 0,
-            assignedAt: asset.assigned_at,
+            assignedAt: assignment.assigned_at,
             deliveryDate: asset.delivery_date,
             totalEarnings: 0,
             completedEarnings: 0,
@@ -137,54 +130,60 @@ export default function MyAssignmentsPage() {
           });
         }
 
-        const batch = batchMap.get(batchKey)!;
+        const batch = batchMap.get(key)!;
         batch.totalAssets++;
 
         // Calculate earnings
-        const assetEarnings = asset.price || 0;
-        batch.totalEarnings += assetEarnings;
+        const baseEarnings = assignment.price || 0;
+        const bonus = assignment.bonus || 0;
+        const totalEarnings = baseEarnings * (1 + bonus / 100);
 
-        // Check for urgent assets (priority 1 or delivery date within 3 days)
-        const isUrgent =
-          asset.priority === 1 ||
-          (asset.delivery_date &&
-            new Date(asset.delivery_date) <=
-              new Date(Date.now() + 3 * 24 * 60 * 60 * 1000));
-        if (isUrgent) {
-          batch.urgentAssets++;
+        batch.totalEarnings += totalEarnings;
+
+        // Count assets by status
+        switch (asset.status) {
+          case "approved":
+            batch.completedAssets++;
+            batch.completedEarnings += totalEarnings;
+            break;
+          case "in_production":
+            batch.inProgressAssets++;
+            batch.pendingEarnings += totalEarnings;
+            break;
+          case "delivered_by_artist":
+            batch.pendingEarnings += totalEarnings;
+            break;
+          case "revisions":
+            batch.revisionAssets++;
+            batch.pendingEarnings += totalEarnings;
+            break;
+          case "not_started":
+            batch.pendingAssets++;
+            batch.pendingEarnings += totalEarnings;
+            break;
         }
 
-        if (
-          asset.status === "approved" ||
-          asset.status === "delivered_by_artist"
-        ) {
-          batch.completedAssets++;
-          batch.completedEarnings += assetEarnings;
-        } else if (asset.status === "in_production") {
-          batch.inProgressAssets++;
-          batch.pendingEarnings += assetEarnings;
-        } else if (asset.status === "not_started") {
-          batch.pendingAssets++;
-          batch.pendingEarnings += assetEarnings;
-        } else if (asset.status === "revisions") {
-          batch.revisionAssets++;
-          batch.pendingEarnings += assetEarnings;
+        // Count urgent assets (priority 1)
+        if (asset.priority === 1) {
+          batch.urgentAssets++;
         }
       });
 
       // Calculate completion percentages
-      batchMap.forEach((batch) => {
-        batch.completionPercentage =
+      const processedSummaries = Array.from(batchMap.values()).map((batch) => ({
+        ...batch,
+        completionPercentage:
           batch.totalAssets > 0
             ? Math.round((batch.completedAssets / batch.totalAssets) * 100)
-            : 0;
-      });
+            : 0,
+      }));
 
-      setBatchSummaries(Array.from(batchMap.values()));
+      setBatchSummaries(processedSummaries);
     } catch (error) {
       console.error("Error fetching assigned assets:", error);
       toast.error("Failed to fetch your assignments");
     } finally {
+      setLoading(false);
       stopLoading();
     }
   };
@@ -193,13 +192,67 @@ export default function MyAssignmentsPage() {
     router.push(`/my-assignments/${encodeURIComponent(client)}/${batch}`);
   };
 
-  if (!user) {
-    return null;
-  }
+  // Skeleton loading component
+  const BatchSummarySkeleton = () => (
+    <Card className="animate-pulse">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 bg-gray-200 rounded" />
+            <div className="h-6 w-24 bg-gray-200 rounded" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-16 bg-gray-200 rounded" />
+            <div className="h-4 w-4 bg-gray-200 rounded" />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Progress skeleton */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="h-4 w-16 bg-gray-200 rounded" />
+              <div className="h-4 w-8 bg-gray-200 rounded" />
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2" />
+          </div>
 
-  if (user.metadata?.role !== "modeler") {
+          {/* Earnings skeleton */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="h-4 w-16 bg-gray-200 rounded" />
+              <div className="h-4 w-20 bg-gray-200 rounded" />
+            </div>
+            <div className="h-3 w-24 bg-gray-200 rounded" />
+          </div>
+
+          {/* Deadline skeleton */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-1">
+              <div className="h-3 w-3 bg-gray-200 rounded" />
+              <div className="h-3 w-20 bg-gray-200 rounded" />
+            </div>
+            <div className="h-4 w-24 bg-gray-200 rounded" />
+          </div>
+
+          {/* Asset stats skeleton */}
+          <div className="grid grid-cols-2 gap-2">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <div className="h-3 w-3 bg-gray-200 rounded" />
+                <div className="h-3 w-16 bg-gray-200 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  if (!user || user.metadata?.role !== "modeler") {
     return (
-      <div className="flex flex-1 flex-col p-4 sm:p-12">
+      <div className="container mx-auto p-6 space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">
@@ -211,17 +264,25 @@ export default function MyAssignmentsPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col p-4 sm:p-12">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">My Assignments</h1>
-        <p className="text-muted-foreground">
-          Manage your assigned batches and track your progress
-        </p>
-      </div>
-
+    <div className="container mx-auto p-6 pt-22 space-y-6">
       {/* Summary Cards */}
-      {batchSummaries.length > 0 && (
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="p-4 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gray-200 rounded-lg">
+                  <div className="h-5 w-5 bg-gray-300 rounded" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-4 w-20 bg-gray-200 rounded" />
+                  <div className="h-6 w-16 bg-gray-200 rounded" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : batchSummaries.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card className="p-4">
             <div className="flex items-center gap-3">
@@ -296,10 +357,19 @@ export default function MyAssignmentsPage() {
             </div>
           </Card>
         </div>
-      )}
+      ) : null}
 
       {/* Batch Summaries */}
-      {batchSummaries.length > 0 ? (
+      {loading ? (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-4">Batch Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <BatchSummarySkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      ) : batchSummaries.length > 0 ? (
         <div className="mb-6">
           <h2 className="text-xl font-semibold mb-4">Batch Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

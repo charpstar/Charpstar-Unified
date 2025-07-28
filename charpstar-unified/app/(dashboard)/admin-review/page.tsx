@@ -32,6 +32,7 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronUp,
+  Send,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -62,6 +63,12 @@ const getPriorityColor = (priority: number) => {
   if (priority === 1) return "bg-red-100 text-red-800";
   if (priority === 2) return "bg-yellow-100 text-yellow-800";
   return "bg-gray-100 text-gray-800";
+};
+
+const getPriorityLabel = (priority: number) => {
+  if (priority === 1) return "High";
+  if (priority === 2) return "Medium";
+  return "Low";
 };
 
 const getStatusIcon = (status: string) => {
@@ -853,6 +860,32 @@ export default function AdminReviewPage() {
   };
 
   const handlePriorityUpdate = async (assetId: string, newPriority: number) => {
+    // Update the priority locally immediately for instant feedback
+    if (showAllocationLists) {
+      setAllocationLists((prevLists) =>
+        prevLists.map((list) => ({
+          ...list,
+          asset_assignments: list.asset_assignments.map((assignment: any) =>
+            assignment.onboarding_assets.id === assetId
+              ? {
+                  ...assignment,
+                  onboarding_assets: {
+                    ...assignment.onboarding_assets,
+                    priority: newPriority,
+                  },
+                }
+              : assignment
+          ),
+        }))
+      );
+    } else {
+      setAssets((prevAssets) =>
+        prevAssets.map((asset) =>
+          asset.id === assetId ? { ...asset, priority: newPriority } : asset
+        )
+      );
+    }
+
     // Add to loading state
     setUpdatingPriorities((prev) => new Set(prev).add(assetId));
 
@@ -873,7 +906,14 @@ export default function AdminReviewPage() {
         throw new Error(errorData.error || "Failed to update priority");
       }
 
-      // Update the priority locally without full refresh
+      toast.success("Priority updated successfully");
+    } catch (error) {
+      console.error("Error updating priority:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update priority"
+      );
+
+      // Revert the local change on error
       if (showAllocationLists) {
         setAllocationLists((prevLists) =>
           prevLists.map((list) => ({
@@ -884,7 +924,7 @@ export default function AdminReviewPage() {
                     ...assignment,
                     onboarding_assets: {
                       ...assignment.onboarding_assets,
-                      priority: newPriority,
+                      priority: assignment.onboarding_assets.priority || 2,
                     },
                   }
                 : assignment
@@ -894,17 +934,12 @@ export default function AdminReviewPage() {
       } else {
         setAssets((prevAssets) =>
           prevAssets.map((asset) =>
-            asset.id === assetId ? { ...asset, priority: newPriority } : asset
+            asset.id === assetId
+              ? { ...asset, priority: asset.priority || 2 }
+              : asset
           )
         );
       }
-
-      toast.success("Priority updated successfully");
-    } catch (error) {
-      console.error("Error updating priority:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update priority"
-      );
     } finally {
       // Remove from loading state
       setUpdatingPriorities((prev) => {
@@ -939,319 +974,151 @@ export default function AdminReviewPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col p-4 sm:p-18">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <Button
-            variant="ghost"
-            onClick={() => router.push("/admin-review")}
-            className="flex items-center gap-2"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to Admin Review
-          </Button>
-        </div>
-        <div className="flex items-center gap-3 mb-2">
-          <Users className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">Modeler Review</h1>
-          <Badge variant="outline" className="text-lg px-3 py-1">
-            {modelerEmail}
-          </Badge>
-        </div>
-        <div className="flex items-center gap-4 text-muted-foreground">
-          <p>Review and manage allocation lists for this modeler</p>
-        </div>
-      </div>
-
-      {/* Filters and Search */}
-      <div className="mb-6 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
+    <div className="mx-auto p-6 flex flex-col h-full">
+      <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
+        <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
+          <div className="flex gap-2">
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(STATUS_LABELS).map(([key, val]) => (
+                  <SelectItem key={key} value={key}>
+                    {val.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
-              className="w-full"
-              placeholder="Search by name, article ID, or client"
+              className="w-full md:w-64"
+              placeholder="Search by name or article ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select
-            value={clientFilter}
-            onValueChange={(value) => setClientFilter(value)}
-          >
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="All Clients" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Clients</SelectItem>
-              {clients.map((client) => (
-                <SelectItem key={client} value={client}>
-                  {client}
+          <div className="flex gap-2">
+            <Select value={sort} onValueChange={(value) => setSort(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="batch">
+                  Sort by: Batch (1, 2, 3...)
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={batchFilter}
-            onValueChange={(value) => setBatchFilter(value)}
-          >
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="All Batches" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Batches</SelectItem>
-              {Array.from(
-                new Set(assets.map((asset) => asset.batch).filter(Boolean))
-              )
-                .sort((a, b) => a - b)
-                .map((batch) => (
-                  <SelectItem key={batch} value={batch.toString()}>
-                    Batch {batch}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={statusFilter}
-            onValueChange={(value) => setStatusFilter(value)}
-          >
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(STATUS_LABELS).map(([key, val]) => (
-                <SelectItem key={key} value={key}>
-                  {val.label}
+                <SelectItem value="client">Sort by: Client (A-Z)</SelectItem>
+                <SelectItem value="date">
+                  Sort by: Delivery Date (Newest)
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={sort} onValueChange={(value) => setSort(value)}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="batch">Sort by: Batch (1, 2, 3...)</SelectItem>
-              <SelectItem value="client">Sort by: Client (A-Z)</SelectItem>
-              <SelectItem value="date">
-                Sort by: Delivery Date (Newest)
-              </SelectItem>
-              <SelectItem value="date-oldest">
-                Sort by: Delivery Date (Oldest)
-              </SelectItem>
-              <SelectItem value="priority">
-                Sort by: Priority (Highest First)
-              </SelectItem>
-              <SelectItem value="priority-lowest">
-                Sort by: Priority (Lowest First)
-              </SelectItem>
-            </SelectContent>
-          </Select>
+                <SelectItem value="date-oldest">
+                  Sort by: Delivery Date (Oldest)
+                </SelectItem>
+                <SelectItem value="priority">
+                  Sort by: Priority (Highest First)
+                </SelectItem>
+                <SelectItem value="priority-lowest">
+                  Sort by: Priority (Lowest First)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            {selected.size > 0 && (
+              <Button
+                onClick={() => {
+                  // Navigate to the allocate page with selected assets
+                  const selectedAssetIds = Array.from(selected);
+
+                  // Create URL with selected asset IDs as query parameters
+                  const params = new URLSearchParams();
+                  selectedAssetIds.forEach((id) =>
+                    params.append("selectedAssets", id)
+                  );
+
+                  // Navigate to allocate page with selected assets
+                  router.push(`/production/allocate?${params.toString()}`);
+                }}
+                className="flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Assign ({selected.size})
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Assignment Button */}
-        {selected.size > 0 && (
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                // Navigate to the allocate page with selected assets
-                const selectedAssetIds = Array.from(selected);
-
-                // Create URL with selected asset IDs as query parameters
-                const params = new URLSearchParams();
-                selectedAssetIds.forEach((id) =>
-                  params.append("selectedAssets", id)
-                );
-
-                // Navigate to allocate page with selected assets
-                router.push(`/production/allocate?${params.toString()}`);
-              }}
-              className="flex items-center gap-2"
-            >
-              <Users className="h-4 w-4" />
-              Assign ({selected.size})
-            </Button>
-          </div>
-        )}
-
-        {/* Status Cards */}
+        {/* Status Summary Cards */}
         {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
-                  <Users className="h-5 w-5 text-blue-600" />
+                  <Package className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Total
+                    Total Models
                   </p>
-                  <p className="text-2xl font-medium text-blue-600">
+                  <p className="text-2xl font-bold text-blue-600">
                     {statusTotals.totals.total}
                   </p>
                 </div>
               </div>
             </Card>
 
-            {showAllocationLists ? (
-              // Allocation Lists Status Cards
-              <>
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 rounded-lg">
-                      <Eye className="h-5 w-5 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Pending
-                      </p>
-                      <p className="text-2xl font-bold text-red-600">
-                        {(statusTotals.totals as any).pending}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {(statusTotals.percentages as any).pending}%
-                      </p>
-                    </div>
-                  </div>
-                </Card>
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Package className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    In Production
+                  </p>
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {showAllocationLists
+                      ? (statusTotals.totals as any).in_progress
+                      : (statusTotals.totals as any).in_production +
+                        (statusTotals.totals as any).revisions}
+                  </p>
+                </div>
+              </div>
+            </Card>
 
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <RotateCcw className="h-5 w-5 text-yellow-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        In Progress
-                      </p>
-                      <p className="text-2xl font-bold text-yellow-600">
-                        {(statusTotals.totals as any).in_progress}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {(statusTotals.percentages as any).in_progress}%
-                      </p>
-                    </div>
-                  </div>
-                </Card>
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Approved
+                  </p>
+                  <p className="text-2xl font-medium text-green-600">
+                    {statusTotals.totals.approved}
+                  </p>
+                </div>
+              </div>
+            </Card>
 
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Approved
-                      </p>
-                      <p className="text-2xl font-medium text-green-600">
-                        {statusTotals.totals.approved}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {statusTotals.percentages.approved}%
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <CheckCircle className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Completed
-                      </p>
-                      <p className="text-2xl font-medium text-blue-600">
-                        {(statusTotals.totals as any).completed}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {(statusTotals.percentages as any).completed}%
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              </>
-            ) : (
-              // Assets Status Cards
-              <>
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <Package className="h-5 w-5 text-yellow-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        In Progress
-                      </p>
-                      <p className="text-2xl font-bold text-yellow-600">
-                        {(statusTotals.totals as any).in_production +
-                          (statusTotals.totals as any).revisions}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {(statusTotals.percentages as any).in_production +
-                          (statusTotals.percentages as any).revisions}
-                        %
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Approved
-                      </p>
-                      <p className="text-2xl font-medium text-green-600">
-                        {statusTotals.totals.approved}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {statusTotals.percentages.approved}%
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 rounded-lg">
-                      <RotateCcw className="h-5 w-5 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Returned for Revision
-                      </p>
-                      <p className="text-sm font-bold text-red-600">
-                        (Coming Soon)
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <CheckCircle className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Delivered
-                      </p>
-                      <p className="text-2xl font-medium text-blue-600">
-                        {(statusTotals.totals as any).delivered_by_artist}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {(statusTotals.percentages as any).delivered_by_artist}%
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              </>
-            )}
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <Eye className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Ready for Revision
+                  </p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {showAllocationLists
+                      ? (statusTotals.totals as any).pending
+                      : (statusTotals.totals as any).revisions}
+                  </p>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
 
@@ -1412,7 +1279,24 @@ export default function AdminReviewPage() {
                                   </span>
                                 </TableCell>
                                 <TableCell>
-                                  <div className="flex items-center justify-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <span
+                                      className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(
+                                        assignment.onboarding_assets.priority ||
+                                          2
+                                      )}`}
+                                    >
+                                      {getPriorityLabel(
+                                        assignment.onboarding_assets.priority ||
+                                          2
+                                      )}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      (
+                                      {assignment.onboarding_assets.priority ||
+                                        2}
+                                      )
+                                    </span>
                                     <Select
                                       value={(
                                         assignment.onboarding_assets.priority ||
@@ -1428,42 +1312,19 @@ export default function AdminReviewPage() {
                                         assignment.onboarding_assets.id
                                       )}
                                     >
-                                      <SelectTrigger className="w-32 h-8">
+                                      <SelectTrigger className="w-6 h-6 p-1 border-0 bg-transparent hover:bg-muted/50 rounded transition-colors">
                                         {updatingPriorities.has(
                                           assignment.onboarding_assets.id
                                         ) ? (
-                                          <div className="flex items-center gap-2">
-                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
-                                            <span className="text-xs">
-                                              Updating...
-                                            </span>
-                                          </div>
-                                        ) : (
-                                          <SelectValue />
-                                        )}
+                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
+                                        ) : null}
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="1">
-                                          <span
-                                            className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(1)}`}
-                                          >
-                                            High
-                                          </span>
-                                        </SelectItem>
+                                        <SelectItem value="1">High</SelectItem>
                                         <SelectItem value="2">
-                                          <span
-                                            className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(2)}`}
-                                          >
-                                            Medium
-                                          </span>
+                                          Medium
                                         </SelectItem>
-                                        <SelectItem value="3">
-                                          <span
-                                            className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(3)}`}
-                                          >
-                                            Low
-                                          </span>
-                                        </SelectItem>
+                                        <SelectItem value="3">Low</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>
@@ -1558,9 +1419,6 @@ export default function AdminReviewPage() {
                         <DropdownMenuItem onClick={() => setSort("za")}>
                           Z-A
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSort("date")}>
-                          Delivery Date
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableHead>
@@ -1568,7 +1426,7 @@ export default function AdminReviewPage() {
                   <TableHead>Client</TableHead>
                   <TableHead>Article ID</TableHead>
                   <TableHead>Priority</TableHead>
-                  <TableHead>Delivery Date</TableHead>
+
                   <TableHead>Status</TableHead>
                   <TableHead>Review</TableHead>
                 </TableRow>
@@ -1658,6 +1516,16 @@ export default function AdminReviewPage() {
                       <TableCell>{asset.article_id}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-2">
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(
+                              asset.priority || 2
+                            )}`}
+                          >
+                            {getPriorityLabel(asset.priority || 2)}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            ({asset.priority || 2})
+                          </span>
                           <Select
                             value={(asset.priority || 2).toString()}
                             onValueChange={(value) =>
@@ -1665,43 +1533,20 @@ export default function AdminReviewPage() {
                             }
                             disabled={updatingPriorities.has(asset.id)}
                           >
-                            <SelectTrigger className="w-32 h-8">
+                            <SelectTrigger className="w-6 h-6 p-1 border-0 bg-transparent hover:bg-muted/50 rounded transition-colors">
                               {updatingPriorities.has(asset.id) ? (
-                                <div className="flex items-center gap-2">
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
-                                  <span className="text-xs">Updating...</span>
-                                </div>
-                              ) : (
-                                <SelectValue />
-                              )}
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
+                              ) : null}
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="1">
-                                <span
-                                  className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(1)}`}
-                                >
-                                  High
-                                </span>
-                              </SelectItem>
-                              <SelectItem value="2">
-                                <span
-                                  className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(2)}`}
-                                >
-                                  Medium
-                                </span>
-                              </SelectItem>
-                              <SelectItem value="3">
-                                <span
-                                  className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(3)}`}
-                                >
-                                  Low
-                                </span>
-                              </SelectItem>
+                              <SelectItem value="1">High</SelectItem>
+                              <SelectItem value="2">Medium</SelectItem>
+                              <SelectItem value="3">Low</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                       </TableCell>
-                      <TableCell>{asset.delivery_date || "-"}</TableCell>
+
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
                           <span
@@ -1797,7 +1642,7 @@ export default function AdminReviewPage() {
             </Button>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

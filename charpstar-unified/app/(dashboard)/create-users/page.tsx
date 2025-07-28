@@ -385,7 +385,7 @@ export default function CreateUsersPage() {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-background via-background to-muted/20 flex flex-col p-6 overflow-hidden">
+    <div className="container mx-auto p-6 pt-22 space-y-6">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-4">

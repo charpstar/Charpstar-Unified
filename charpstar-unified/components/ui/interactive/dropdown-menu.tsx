@@ -80,7 +80,7 @@ function DropdownMenuItem({
       data-variant={variant}
       className={cn(
         // Use background, accent, and destructive colors from your theme
-        "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm font-normal outline-none transition-colors",
+        "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm font-normal outline-none transition-colors",
         // Foreground
         "text-foreground",
         // Hover and active

@@ -438,7 +438,7 @@ export default function DashboardPage() {
   if (user?.metadata?.onboarding === true) {
     return (
       <Suspense fallback={<DashboardSkeleton />}>
-        <div className="flex flex-1 flex-col p-4 sm:p-12">
+        <div className="container mx-auto p-6 space-y-6">
           <OnboardingDashboard />
         </div>
       </Suspense>
@@ -447,7 +447,7 @@ export default function DashboardPage() {
 
   return (
     <Suspense fallback={<DashboardSkeleton />}>
-      <div className="flex flex-1 flex-col p-4 sm:p-12">
+      <div className="container mx-auto p-6 space-y-6">
         {/* Add the dashboard tour component for clients */}
         {user?.metadata?.role === "client" && !user?.metadata?.onboarding && (
           <ClientDashboardTour />
