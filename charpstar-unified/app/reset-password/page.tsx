@@ -146,7 +146,7 @@ export default function ResetPasswordPage() {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center px-4">
         <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
-          <h1 className="text-2xl font-semibold text-red-600 mb-4">
+          <h1 className="text-2xl font-semibold text-error mb-4">
             Invalid Recovery Link
           </h1>
           <p className="text-gray-600 mb-4">{error}</p>

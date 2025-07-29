@@ -253,31 +253,31 @@ export function AssignmentWidget() {
 
         {/* Financial Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
-            <DollarSign className="h-5 w-5 text-green-600" />
+          <div className="flex items-center gap-2 p-3 bg-success-muted rounded-lg">
+            <DollarSign className="h-5 w-5 text-success" />
             <div>
               <p className="text-sm text-muted-foreground">Total Pay</p>
-              <p className="font-semibold text-green-600">
+              <p className="font-semibold text-success">
                 ${totalPay.toFixed(2)}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
-            <Calendar className="h-5 w-5 text-blue-600" />
+          <div className="flex items-center gap-2 p-3 bg-info-muted rounded-lg">
+            <Calendar className="h-5 w-5 text-info" />
             <div>
               <p className="text-sm text-muted-foreground">Deadline</p>
-              <p className="font-semibold text-blue-600">
+              <p className="font-semibold text-info">
                 {format(deadlineDate, "MMM d, yyyy")}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
-            <Gift className="h-5 w-5 text-purple-600" />
+          <div className="flex items-center gap-2 p-3 bg-accent-purple rounded-lg">
+            <Gift className="h-5 w-5 text-accent-purple" />
             <div>
               <p className="text-sm text-muted-foreground">Bonus</p>
-              <p className="font-semibold text-purple-600">{bonus}%</p>
+              <p className="font-semibold text-accent-purple">{bonus}%</p>
             </div>
           </div>
         </div>
@@ -287,7 +287,7 @@ export function AssignmentWidget() {
           <Button
             onClick={handleAccept}
             disabled={accepting || declining}
-            className="flex-1 bg-green-600 hover:bg-green-700"
+            className="flex-1 bg-success hover:bg-success/90"
           >
             <Check className="h-4 w-4 mr-2" />
             {accepting ? "Accepting..." : "Accept Assignment"}
@@ -310,7 +310,10 @@ export function AssignmentWidget() {
             By accepting, you agree to complete the assigned assets by the
             deadline.
           </p>
-          <p>Total with bonus: ${(totalPay * (1 + bonus / 100)).toFixed(2)}</p>
+          <p>
+            Total with bonus (if completed before deadline): $
+            {(totalPay * (1 + bonus / 100)).toFixed(2)}
+          </p>
         </div>
       </CardContent>
     </Card>

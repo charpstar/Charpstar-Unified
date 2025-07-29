@@ -733,13 +733,15 @@ export default function ProductionDashboard() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "in_production":
-        return "#FACC15";
+        return "#FACC15"; // warning color
       case "revisions":
-        return "#F87171";
+        return "#3B82F6"; // info color
       case "approved":
-        return "#4ADE80";
+        return "#22C55E"; // success color
       case "delivered_by_artist":
-        return "#60A5FA";
+        return "#A855F7"; // accent-purple color
+      case "not_started":
+        return "#EF4444"; // error color
 
       default:
         return "#FACC15"; // Default to in_production color
@@ -1020,7 +1022,7 @@ export default function ProductionDashboard() {
                               Assets Left to Assign:
                             </span>
                             <span
-                              className={`font-semibold ${batch.unassignedAssets > 0 ? "text-orange-600" : "text-green-600"}`}
+                              className={`font-semibold ${batch.unassignedAssets > 0 ? "text-warning" : "text-success"}`}
                             >
                               {batch.unassignedAssets}
                             </span>
@@ -1300,7 +1302,7 @@ export default function ProductionDashboard() {
                           <span className="text-muted-foreground">
                             Completed:
                           </span>
-                          <span className="font-medium text-green-600">
+                          <span className="font-medium text-success">
                             {modeler.completedModels}
                           </span>
                         </div>
@@ -1310,7 +1312,7 @@ export default function ProductionDashboard() {
                           <span className="text-muted-foreground">
                             In Progress:
                           </span>
-                          <span className="font-medium text-orange-600">
+                          <span className="font-medium text-warning">
                             {modeler.inProgressModels}
                           </span>
                         </div>
@@ -1320,7 +1322,7 @@ export default function ProductionDashboard() {
                           <span className="text-muted-foreground">
                             Pending:
                           </span>
-                          <span className="font-medium text-red-600">
+                          <span className="font-medium text-error">
                             {modeler.pendingModels}
                           </span>
                         </div>
@@ -1330,7 +1332,7 @@ export default function ProductionDashboard() {
                           <span className="text-muted-foreground">
                             Revisions:
                           </span>
-                          <span className="font-medium text-blue-600">
+                          <span className="font-medium text-info">
                             {modeler.revisionModels}
                           </span>
                         </div>

@@ -44,22 +44,32 @@ import { useLoading } from "@/contexts/LoadingContext";
 const STATUS_LABELS = {
   in_production: {
     label: "In Production",
-    color: "bg-yellow-100 text-yellow-800",
+    color: "bg-warning-muted text-warning border-warning/20",
   },
-  revisions: { label: "Ready for Revision", color: "bg-red-100 text-red-700" },
-  approved: { label: "Approved", color: "bg-green-100 text-green-700" },
-  review: {
-    label: "Review",
-    color: "bg-blue-100 text-blue-700",
+  revisions: {
+    label: "Ready for Revision",
+    color: "bg-info-muted text-info border-info/20",
+  },
+  approved: {
+    label: "Approved",
+    color: "bg-success-muted text-success border-success/20",
+  },
+  delivered_by_artist: {
+    label: "Waiting for Approval",
+    color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
+  },
+  not_started: {
+    label: "Not Started",
+    color: "bg-error-muted text-error border-error/20",
   },
 };
 
 const PAGE_SIZE = 18;
 
 const getPriorityColor = (priority: number) => {
-  if (priority === 1) return "bg-red-100 text-red-800";
-  if (priority === 2) return "bg-yellow-100 text-yellow-800";
-  return "bg-gray-100 text-gray-800";
+  if (priority === 1) return "bg-error-muted text-error border-error/20";
+  if (priority === 2) return "bg-warning-muted text-warning border-warning/20";
+  return "bg-muted text-muted-foreground border-border";
 };
 
 const getPriorityLabel = (priority: number) => {
@@ -270,7 +280,7 @@ export default function ReviewDashboardPage() {
   };
 
   return (
-    <div className=" mx-auto p-6 flex flex-col h-full">
+    <div className="container mx-auto p-6 space-y-6">
       <Card className="p-6 flex-1 flex flex-col border-0 shadow-none ">
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">
@@ -335,14 +345,14 @@ export default function ReviewDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4 ">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Package className="h-5 w-5 text-blue-600" />
+                <div className="p-2 bg-info-muted rounded-lg">
+                  <Package className="h-5 w-5 text-info" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     Total Models
                   </p>
-                  <p className="text-2xl font-bold text-blue-600">
+                  <p className="text-2xl font-bold text-info">
                     {statusTotals.total}
                   </p>
                 </div>
@@ -351,14 +361,14 @@ export default function ReviewDashboardPage() {
 
             <Card className="p-4 ">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Send className="h-5 w-5 text-yellow-600" />
+                <div className="p-2 bg-warning-muted rounded-lg">
+                  <Send className="h-5 w-5 text-warning" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     In Production
                   </p>
-                  <p className="text-2xl font-bold text-yellow-600">
+                  <p className="text-2xl font-bold text-warning">
                     {statusTotals.in_production + statusTotals.revisions}
                   </p>
                 </div>
@@ -367,14 +377,14 @@ export default function ReviewDashboardPage() {
 
             <Card className="p-4 ">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                <div className="p-2 bg-success-muted rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-success" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     Approved
                   </p>
-                  <p className="text-2xl font-medium text-green-600">
+                  <p className="text-2xl font-medium text-success">
                     {statusTotals.approved}
                   </p>
                 </div>
@@ -383,14 +393,14 @@ export default function ReviewDashboardPage() {
 
             <Card className="p-4 ">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <Eye className="h-5 w-5 text-red-600" />
+                <div className="p-2 bg-error-muted rounded-lg">
+                  <Eye className="h-5 w-5 text-error" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     Ready for Revision
                   </p>
-                  <p className="text-2xl font-bold text-red-600">
+                  <p className="text-2xl font-bold text-error">
                     {statusTotals.revisions}
                   </p>
                 </div>

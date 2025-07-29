@@ -777,10 +777,12 @@ export default function ModelerReviewPage() {
         <div className="text-center">
           <p className="text-muted-foreground">Asset not found</p>
           <Button
+            variant="ghost"
+            size="sm"
             onClick={() => router.push("/modeler-review")}
-            className="mt-4 hover:bg-primary/8 transition-all duration-200 rounded-lg cursor-pointer"
+            className="gap-2"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="h-4 w-4" />
             Back to Modeler Review
           </Button>
         </div>

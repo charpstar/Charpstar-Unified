@@ -41,10 +41,8 @@ export function StatCard({
             <div
               className={cn(
                 "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-all duration-200",
-                trend === "up" &&
-                  "text-green-600 bg-green-50 dark:bg-green-950/30 dark:text-green-400",
-                trend === "down" &&
-                  "text-red-600 bg-red-50 dark:bg-red-950/30 dark:text-red-400",
+                trend === "up" && "text-success bg-success-muted",
+                trend === "down" && "text-error bg-error-muted",
                 trend === "neutral" && "text-muted-foreground bg-muted"
               )}
             >

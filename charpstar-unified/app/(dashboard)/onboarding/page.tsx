@@ -626,7 +626,7 @@ export default function OnboardingPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setClearHistoryDialog(true)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                className="text-error hover:text-error/80 hover:bg-error-muted cursor-pointer"
                 title={`Delete ${invitations.filter((inv) => inv.status !== "accepted").length} non-accepted invitations`}
               >
                 <Trash2 className="h-4 w-4 mr-2" />

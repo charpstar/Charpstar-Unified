@@ -872,7 +872,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           )}
           {Object.keys(duplicates).length > 0 && (
             <div className="flex items-center gap-2">
-              <div className="flex items-center text-yellow-600 dark:text-yellow-400">
+              <div className="flex items-center text-warning">
                 <AlertCircle className="w-4 h-4 mr-1" />
                 <span>Duplicates found: {Object.keys(duplicates).length}</span>
               </div>
@@ -880,7 +880,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                 variant="outline"
                 size="sm"
                 onClick={handleRemoveDuplicateRows}
-                className="text-yellow-600 dark:text-yellow-400 border-yellow-400 hover:bg-yellow-50/60 dark:hover:bg-yellow-950/30"
+                className="text-warning border-warning hover:bg-warning-muted"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Remove Duplicates
@@ -1130,7 +1130,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                                   Q
                                 </span>
                               ) : previewGenerated[rowIdx] ? (
-                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <CheckCircle className="w-4 h-4 text-success" />
                               ) : (
                                 <Camera className="w-4 h-4" />
                               )}
@@ -1179,7 +1179,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                         {isDuplicate &&
                           ((col.key as string) === "article_id" ||
                             (col.key as string) === "product_name") && (
-                            <div className="flex items-center mt-1 text-xs text-yellow-600 dark:text-yellow-400">
+                            <div className="flex items-center mt-1 text-xs text-warning">
                               <AlertCircle className="w-3 h-3 mr-1" />
                               {col.key === "article_id"
                                 ? duplicates[row.id] === "article_id"

@@ -58,8 +58,8 @@ export default function GuidelinesPage() {
       title: "Quality Standards",
       description: "Essential requirements for all 3D models",
       icon: Award,
-      color: "text-green-600",
-      bgColor: "bg-green-50",
+      color: "text-success",
+      bgColor: "bg-success-muted",
       priority: "high",
       items: [
         "All models must be optimized for real-time rendering",
@@ -77,8 +77,8 @@ export default function GuidelinesPage() {
       title: "File Requirements",
       description: "Technical specifications for file submissions",
       icon: FileText,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
+      color: "text-info",
+      bgColor: "bg-info-muted",
       priority: "high",
       items: [
         "Submit models in GLB format only",
@@ -96,8 +96,8 @@ export default function GuidelinesPage() {
       title: "Modeling Standards",
       description: "Best practices for 3D modeling",
       icon: Building,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
+      color: "text-accent-purple",
+      bgColor: "bg-accent-purple/10",
       priority: "medium",
       items: [
         "Use proper topology with clean edge flow",
@@ -115,8 +115,8 @@ export default function GuidelinesPage() {
       title: "Texturing Guidelines",
       description: "Texture creation and mapping standards",
       icon: Target,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
+      color: "text-warning",
+      bgColor: "bg-warning-muted",
       priority: "medium",
       items: [
         "Use high-quality reference images",
@@ -134,8 +134,8 @@ export default function GuidelinesPage() {
       title: "Workflow Process",
       description: "Step-by-step process for model creation",
       icon: Clock,
-      color: "text-indigo-600",
-      bgColor: "bg-indigo-50",
+      color: "text-accent-blue",
+      bgColor: "bg-accent-blue/10",
       priority: "low",
       items: [
         "Review reference images and requirements",
@@ -154,8 +154,8 @@ export default function GuidelinesPage() {
       title: "Communication Standards",
       description: "How to communicate with clients and team",
       icon: Users,
-      color: "text-teal-600",
-      bgColor: "bg-teal-50",
+      color: "text-accent-cyan",
+      bgColor: "bg-accent-cyan/10",
       priority: "low",
       items: [
         "Respond to messages within 24 hours",
@@ -173,13 +173,13 @@ export default function GuidelinesPage() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "high":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-error-muted text-error border-error/20";
       case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-warning-muted text-warning border-warning/20";
       case "low":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-success-muted text-success border-success/20";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-muted text-muted-foreground border-border";
     }
   };
 
@@ -239,7 +239,7 @@ export default function GuidelinesPage() {
               <div className="space-y-3">
                 {section.items.map((item, index) => (
                   <div key={index} className="flex items-start gap-3">
-                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                    <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
                     <p className="text-sm">{item}</p>
                   </div>
                 ))}
@@ -264,19 +264,19 @@ export default function GuidelinesPage() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <ExternalLink className="h-3 w-3" />
-                  <a href="#" className="text-blue-600 hover:underline">
+                  <a href="#" className="text-info hover:underline">
                     Blender Modeling Guide
                   </a>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <ExternalLink className="h-3 w-3" />
-                  <a href="#" className="text-blue-600 hover:underline">
+                  <a href="#" className="text-info hover:underline">
                     Maya Workflow Tips
                   </a>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <ExternalLink className="h-3 w-3" />
-                  <a href="#" className="text-blue-600 hover:underline">
+                  <a href="#" className="text-info hover:underline">
                     3ds Max Optimization
                   </a>
                 </div>
@@ -286,15 +286,15 @@ export default function GuidelinesPage() {
               <h4 className="font-medium">Quality Assurance</h4>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <Star className="h-3 w-3 text-yellow-500" />
+                  <Star className="h-3 w-3 text-warning" />
                   <span>Review checklist template</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <Settings className="h-3 w-3 text-blue-500" />
+                  <Settings className="h-3 w-3 text-info" />
                   <span>Performance testing guide</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <Target className="h-3 w-3 text-green-500" />
+                  <Target className="h-3 w-3 text-success" />
                   <span>Quality metrics explained</span>
                 </div>
               </div>

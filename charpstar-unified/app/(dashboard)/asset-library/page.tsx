@@ -631,7 +631,7 @@ export default function AssetLibraryPage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-full">
+    <div className="flex flex-col lg:flex-row h-full p-6 space-y-6">
       {/* Category Sidebar - Show on mobile when toggled, always on desktop */}
       <div className={`${isMobileSidebarOpen ? "block" : "hidden"} lg:block`}>
         <CategorySidebar

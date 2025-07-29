@@ -33,6 +33,9 @@ import {
   ChevronDown,
   ChevronUp,
   Send,
+  Clock,
+  AlertCircle,
+  ArrowLeft,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,22 +50,32 @@ import { useLoading } from "@/contexts/LoadingContext";
 const STATUS_LABELS = {
   in_production: {
     label: "In Production",
-    color: "bg-yellow-100 text-yellow-800",
+    color: "bg-warning-muted text-warning border-warning/20",
   },
-  revisions: { label: "Ready for Revision", color: "bg-red-100 text-red-700" },
-  approved: { label: "Approved", color: "bg-green-100 text-green-700" },
+  revisions: {
+    label: "Ready for Revision",
+    color: "bg-info-muted text-info border-info/20",
+  },
+  approved: {
+    label: "Approved",
+    color: "bg-success-muted text-success border-success/20",
+  },
   delivered_by_artist: {
-    label: "Delivered by Artist",
-    color: "bg-blue-100 text-blue-700",
+    label: "Waiting for Approval",
+    color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
+  },
+  not_started: {
+    label: "Not Started",
+    color: "bg-error-muted text-error border-error/20",
   },
 };
 
 const PAGE_SIZE = 18;
 
 const getPriorityColor = (priority: number) => {
-  if (priority === 1) return "bg-red-100 text-red-800";
-  if (priority === 2) return "bg-yellow-100 text-yellow-800";
-  return "bg-gray-100 text-gray-800";
+  if (priority === 1) return "bg-error-muted text-error border-error/20";
+  if (priority === 2) return "bg-warning-muted text-warning border-warning/20";
+  return "bg-muted text-muted-foreground border-border";
 };
 
 const getPriorityLabel = (priority: number) => {
@@ -74,13 +87,15 @@ const getPriorityLabel = (priority: number) => {
 const getStatusIcon = (status: string) => {
   switch (status) {
     case "approved":
-      return <CheckCircle className="h-4 w-4 text-green-600" />;
-    case "in_progress":
-      return <RotateCcw className="h-4 w-4 text-orange-600" />;
-    case "pending":
-      return <Eye className="h-4 w-4 text-red-600" />;
-    case "completed":
-      return <CheckCircle className="h-4 w-4 text-blue-600" />;
+      return <CheckCircle className="h-4 w-4 text-success" />;
+    case "delivered_by_artist":
+      return <Clock className="h-4 w-4 text-accent-purple" />;
+    case "in_production":
+      return <Clock className="h-4 w-4 text-warning" />;
+    case "not_started":
+      return <AlertCircle className="h-4 w-4 text-error" />;
+    case "revisions":
+      return <RotateCcw className="h-4 w-4 text-info" />;
     default:
       return <Eye className="h-4 w-4 text-gray-600" />;
   }
@@ -89,15 +104,17 @@ const getStatusIcon = (status: string) => {
 const getStatusColor = (status: string) => {
   switch (status) {
     case "approved":
-      return "bg-green-100 text-green-800 border-green-200";
-    case "in_progress":
-      return "bg-orange-100 text-orange-800 border-orange-200";
-    case "pending":
-      return "bg-red-100 text-red-800 border-red-200";
-    case "completed":
-      return "bg-blue-100 text-blue-800 border-blue-200";
+      return "bg-success-muted text-success border-success/20";
+    case "delivered_by_artist":
+      return "bg-accent-purple/10 text-accent-purple border-accent-purple/20";
+    case "in_production":
+      return "bg-warning-muted text-warning border-warning/20";
+    case "not_started":
+      return "bg-error-muted text-error border-error/20";
+    case "revisions":
+      return "bg-info-muted text-info border-info/20";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-muted text-muted-foreground border-border";
   }
 };
 
@@ -110,8 +127,22 @@ const calculateListStats = (list: any) => {
     (sum: number, assignment: any) => sum + (assignment.price || 0),
     0
   );
-  const bonusAmount = totalPrice * (list.bonus / 100);
-  const totalEarnings = totalPrice + bonusAmount;
+
+  // Calculate bonus only if work was completed before deadline
+  let bonusAmount = 0;
+  let totalEarnings = totalPrice;
+
+  if (list.approved_at && list.deadline) {
+    const approvedDate = new Date(list.approved_at);
+    const deadlineDate = new Date(list.deadline);
+
+    // Only apply bonus if work was completed before or on the deadline
+    if (approvedDate <= deadlineDate) {
+      bonusAmount = totalPrice * (list.bonus / 100);
+      totalEarnings = totalPrice + bonusAmount;
+    }
+  }
+
   const completionPercentage =
     totalAssets > 0 ? Math.round((approvedAssets / totalAssets) * 100) : 0;
 
@@ -962,10 +993,12 @@ export default function AdminReviewPage() {
             Access denied. Admin or Production privileges required.
           </p>
           <Button
+            variant="ghost"
+            size="sm"
             onClick={() => router.push("/dashboard")}
-            className="mt-4 hover:bg-primary/8 transition-all duration-200 rounded-lg cursor-pointer"
+            className="gap-2"
           >
-            <ChevronLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="h-4 w-4" />
             Back to Dashboard
           </Button>
         </div>
@@ -974,8 +1007,8 @@ export default function AdminReviewPage() {
   }
 
   return (
-    <div className="mx-auto p-6 flex flex-col h-full">
-      <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
+    <div className="container mx-auto p-6 space-y-6">
+      <Card className="p-6 flex-1 flex flex-col border-0 shadow-none bg-background  ">
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">
             <Select
@@ -1053,14 +1086,14 @@ export default function AdminReviewPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Package className="h-5 w-5 text-blue-600" />
+                <div className="p-2 bg-info-muted rounded-lg">
+                  <Package className="h-5 w-5 text-info" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     Total Models
                   </p>
-                  <p className="text-2xl font-bold text-blue-600">
+                  <p className="text-2xl font-bold text-info">
                     {statusTotals.totals.total}
                   </p>
                 </div>
@@ -1069,14 +1102,14 @@ export default function AdminReviewPage() {
 
             <Card className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Package className="h-5 w-5 text-yellow-600" />
+                <div className="p-2 bg-warning-muted rounded-lg">
+                  <Package className="h-5 w-5 text-warning" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     In Production
                   </p>
-                  <p className="text-2xl font-bold text-yellow-600">
+                  <p className="text-2xl font-bold text-warning">
                     {showAllocationLists
                       ? (statusTotals.totals as any).in_progress
                       : (statusTotals.totals as any).in_production +
@@ -1088,14 +1121,14 @@ export default function AdminReviewPage() {
 
             <Card className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                <div className="p-2 bg-success-muted rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-success" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     Approved
                   </p>
-                  <p className="text-2xl font-medium text-green-600">
+                  <p className="text-2xl font-medium text-success">
                     {statusTotals.totals.approved}
                   </p>
                 </div>
@@ -1104,14 +1137,14 @@ export default function AdminReviewPage() {
 
             <Card className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <Eye className="h-5 w-5 text-red-600" />
+                <div className="p-2 bg-error-muted rounded-lg">
+                  <Eye className="h-5 w-5 text-error" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     Ready for Revision
                   </p>
-                  <p className="text-2xl font-bold text-red-600">
+                  <p className="text-2xl font-bold text-error">
                     {showAllocationLists
                       ? (statusTotals.totals as any).pending
                       : (statusTotals.totals as any).revisions}
@@ -1182,7 +1215,7 @@ export default function AdminReviewPage() {
                             <span
                               className={
                                 isOverdue(list.deadline)
-                                  ? "text-red-600 font-medium"
+                                  ? "text-error font-medium"
                                   : ""
                               }
                             >
@@ -1206,7 +1239,7 @@ export default function AdminReviewPage() {
                           <p className="text-sm font-medium text-muted-foreground">
                             Progress
                           </p>
-                          <p className="text-2xl font-medium text-blue-600">
+                          <p className="text-2xl font-medium text-info">
                             {stats.completionPercentage}%
                           </p>
                         </div>
@@ -1214,7 +1247,7 @@ export default function AdminReviewPage() {
                           <p className="text-sm font-medium text-muted-foreground">
                             Base Price
                           </p>
-                          <p className="text-2xl font-medium  text-green-600">
+                          <p className="text-2xl font-medium  text-success">
                             €{stats.totalPrice.toFixed(2)}
                           </p>
                         </div>
@@ -1222,7 +1255,7 @@ export default function AdminReviewPage() {
                           <p className="text-sm font-medium text-muted-foreground">
                             Total Earnings
                           </p>
-                          <p className="text-2xl font-medium text-green-600">
+                          <p className="text-2xl font-medium text-success">
                             €{stats.totalEarnings.toFixed(2)}
                           </p>
                           {list.bonus > 0 && (

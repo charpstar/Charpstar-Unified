@@ -179,7 +179,7 @@ export default function PendingAssignmentsPage() {
             (sum: number, assignment: any) => sum + (assignment.price || 0),
             0
           ) *
-          (1 + (list.bonus || 0) / 100),
+          (1 + (list.bonus || 0) / 100), // Bonus only applies if completed before deadline
       }));
       setAllocationLists(transformedLists);
     } catch (error) {
@@ -496,8 +496,13 @@ export default function PendingAssignmentsPage() {
       <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <Button variant="outline" onClick={() => router.push("/dashboard")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/dashboard")}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
             Back to Dashboard
           </Button>
         </div>
@@ -507,7 +512,7 @@ export default function PendingAssignmentsPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <Package className="h-8 w-8 text-blue-600" />
+                <Package className="h-8 w-8 text-info" />
                 <div>
                   <p className="text-sm text-muted-foreground">Total Assets</p>
                   <p className="text-2xl font-bold">{totalAssets}</p>
@@ -519,7 +524,7 @@ export default function PendingAssignmentsPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <Euro className="h-8 w-8 text-green-600" />
+                <Euro className="h-8 w-8 text-success" />
                 <div>
                   <p className="text-sm text-muted-foreground">
                     Total Earnings
@@ -535,7 +540,7 @@ export default function PendingAssignmentsPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <Euro className="h-8 w-8 text-purple-600" />
+                <Euro className="h-8 w-8 text-accent-purple" />
                 <div>
                   <p className="text-sm text-muted-foreground">Bonus</p>
                   <p className="text-2xl font-bold">€{totalBonus.toFixed(2)}</p>
@@ -615,15 +620,15 @@ export default function PendingAssignmentsPage() {
                       key={listId}
                       className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg animate-in slide-in-from-top-2 duration-300"
                     >
-                      <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-full">
-                        <Check className="h-4 w-4 text-green-600" />
+                      <div className="flex items-center justify-center w-8 h-8 bg-success-muted rounded-full">
+                        <Check className="h-4 w-4 text-success" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-green-800">
                           {list?.name || "Allocation List"} accepted
                           successfully!
                         </p>
-                        <p className="text-sm text-green-600">
+                        <p className="text-sm text-success">
                           The list has been moved to your assignments.
                         </p>
                       </div>
@@ -641,15 +646,15 @@ export default function PendingAssignmentsPage() {
                       key={listId}
                       className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg animate-in slide-in-from-top-2 duration-300"
                     >
-                      <div className="flex items-center justify-center w-8 h-8 bg-red-100 rounded-full">
-                        <X className="h-4 w-4 text-red-600" />
+                      <div className="flex items-center justify-center w-8 h-8 bg-error-muted rounded-full">
+                        <X className="h-4 w-4 text-error" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-red-800">
                           {list?.name || "Allocation List"} declined
                           successfully!
                         </p>
-                        <p className="text-sm text-red-600">
+                        <p className="text-sm text-error">
                           The list has been removed from your pending
                           assignments.
                         </p>
@@ -698,7 +703,7 @@ export default function PendingAssignmentsPage() {
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
-                            <div className="text-lg font-semibold text-green-600">
+                            <div className="text-lg font-semibold text-success">
                               €{list.totalWithBonus.toFixed(2)}
                             </div>
                             <div className="text-sm text-muted-foreground">
@@ -757,7 +762,7 @@ export default function PendingAssignmentsPage() {
                                 </TableCell>
                                 <TableCell className="text-center w-24">
                                   <div className="flex items-center justify-center gap-1">
-                                    <Euro className="h-4 w-4 text-green-600" />
+                                    <Euro className="h-4 w-4 text-success" />
                                     <span className="font-semibold">
                                       €{assignment.price?.toFixed(2)}
                                     </span>

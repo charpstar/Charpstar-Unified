@@ -426,7 +426,7 @@ export function OnboardingDashboard() {
                 </Card>
                 <Card className="text-center">
                   <CardContent className="p-4">
-                    <div className="text-2xl font-medium text-green-600">
+                    <div className="text-2xl font-medium text-success">
                       {Math.round(progressPercentage)}%
                     </div>
                     <div className="text-sm text-muted-foreground">
@@ -502,7 +502,7 @@ export function OnboardingDashboard() {
                               <h3
                                 className={`text-xl lg:text-2xl font-bold ${
                                   step.completed
-                                    ? "text-green-600"
+                                    ? "text-success"
                                     : "text-foreground"
                                 }`}
                               >

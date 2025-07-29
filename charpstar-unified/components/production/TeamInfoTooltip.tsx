@@ -56,7 +56,7 @@ export function TeamInfoTooltip({
           <div className="space-y-2 max-h-68 overflow-y-auto">
             {modelers.length > 0 && (
               <div className="space-y-1">
-                <div className="flex items-center gap-1 text-xs font-medium text-blue-600">
+                <div className="flex items-center gap-1 text-xs font-medium text-info">
                   <Building className="h-3 w-3" />
                   Modelers
                 </div>
@@ -73,7 +73,7 @@ export function TeamInfoTooltip({
                         {user.modelerCount && user.modelerCount > 1 && (
                           <Badge
                             variant="secondary"
-                            className="text-xs flex-shrink-0 ml-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                            className="text-xs flex-shrink-0 ml-1 bg-info-muted text-info"
                           >
                             {user.modelerCount} models
                           </Badge>
@@ -95,7 +95,7 @@ export function TeamInfoTooltip({
 
             {qa.length > 0 && (
               <div className="space-y-1">
-                <div className="flex items-center gap-1 text-xs font-medium text-green-600">
+                <div className="flex items-center gap-1 text-xs font-medium text-success">
                   <Shield className="h-3 w-3" />
                   QA
                 </div>
@@ -112,7 +112,7 @@ export function TeamInfoTooltip({
                         {user.qaCount && user.qaCount > 1 && (
                           <Badge
                             variant="secondary"
-                            className="text-xs flex-shrink-0 ml-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                            className="text-xs flex-shrink-0 ml-1 bg-success-muted text-success"
                           >
                             {user.qaCount} models
                           </Badge>

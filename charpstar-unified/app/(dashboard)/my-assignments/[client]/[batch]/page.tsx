@@ -376,15 +376,15 @@ export default function BatchDetailPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "approved":
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-success" />;
       case "delivered_by_artist":
-        return <Clock className="h-4 w-4 text-purple-600" />;
+        return <Clock className="h-4 w-4 text-accent-purple" />;
       case "in_production":
-        return <Clock className="h-4 w-4 text-orange-600" />;
+        return <Clock className="h-4 w-4 text-warning" />;
       case "not_started":
-        return <AlertCircle className="h-4 w-4 text-red-600" />;
+        return <AlertCircle className="h-4 w-4 text-error" />;
       case "revisions":
-        return <RotateCcw className="h-4 w-4 text-blue-600" />;
+        return <RotateCcw className="h-4 w-4 text-info" />;
       default:
         return <Eye className="h-4 w-4 text-gray-600" />;
     }
@@ -393,30 +393,30 @@ export default function BatchDetailPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "approved":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-success-muted text-success border-success/20";
       case "delivered_by_artist":
-        return "bg-purple-100 text-purple-800 border-purple-200";
+        return "bg-accent-purple/10 text-accent-purple border-accent-purple/20";
       case "in_production":
-        return "bg-orange-100 text-orange-800 border-orange-200";
+        return "bg-warning-muted text-warning border-warning/20";
       case "not_started":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-error-muted text-error border-error/20";
       case "revisions":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-info-muted text-info border-info/20";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-muted text-muted-foreground border-border";
     }
   };
 
   const getPriorityColor = (priority: number) => {
     switch (priority) {
       case 1:
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-error-muted text-error border-error/20";
       case 2:
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-warning-muted text-warning border-warning/20";
       case 3:
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-success-muted text-success border-success/20";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-muted text-muted-foreground border-border";
     }
   };
 
@@ -695,8 +695,9 @@ export default function BatchDetailPage() {
         <div className="flex items-center gap-4 mb-4">
           <Button
             variant="ghost"
+            size="sm"
             onClick={() => router.push("/my-assignments")}
-            className="flex items-center gap-2 cursor-pointer"
+            className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Assignments
@@ -744,14 +745,14 @@ export default function BatchDetailPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Euro className="h-5 w-5 text-blue-600" />
+              <div className="p-2 bg-info-muted rounded-lg">
+                <Euro className="h-5 w-5 text-info" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Total Potential Earnings
                 </p>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-2xl font-bold text-info">
                   €{batchStats.totalPotentialEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -764,14 +765,14 @@ export default function BatchDetailPage() {
 
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+              <div className="p-2 bg-success-muted rounded-lg">
+                <CheckCircle className="h-5 w-5 text-success" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Completed Earnings
                 </p>
-                <p className="text-2xl font-medium text-green-600">
+                <p className="text-2xl font-medium text-success">
                   €{batchStats.completedEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -783,14 +784,14 @@ export default function BatchDetailPage() {
 
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Clock className="h-5 w-5 text-orange-600" />
+              <div className="p-2 bg-warning-muted rounded-lg">
+                <Clock className="h-5 w-5 text-warning" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Pending Earnings
                 </p>
-                <p className="text-2xl font-bold text-orange-600">
+                <p className="text-2xl font-bold text-warning">
                   €{batchStats.pendingEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -803,14 +804,14 @@ export default function BatchDetailPage() {
 
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Package className="h-5 w-5 text-purple-600" />
+              <div className="p-2 bg-accent-purple/10 rounded-lg">
+                <Package className="h-5 w-5 text-accent-purple" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Bonus Earnings
                 </p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-2xl font-bold text-accent-purple">
                   €{batchStats.totalBonusEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1044,7 +1045,7 @@ export default function BatchDetailPage() {
                           <TableCell>
                             {asset.price ? (
                               <div className="flex items-center gap-1">
-                                <Euro className="h-3 w-3 text-green-600" />
+                                <Euro className="h-3 w-3 text-success" />
                                 <span className="font-semibold">
                                   €{asset.price.toFixed(2)}
                                 </span>

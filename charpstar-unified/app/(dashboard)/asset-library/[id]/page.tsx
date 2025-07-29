@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/display";
 import { ArrowLeft, Download, ImageIcon, Pencil, Plus, X } from "lucide-react";
@@ -63,6 +63,7 @@ interface Asset {
 
 export default function AssetDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -333,12 +334,15 @@ export default function AssetDetailPage() {
     return (
       <div className="p-6">
         <div className="max-w-4xl mx-auto">
-          <Link href="/asset-library">
-            <Button variant="ghost" className="mb-6">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Asset Library
-            </Button>
-          </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/asset-library")}
+            className="gap-2 mb-6"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Asset Library
+          </Button>
           <div className="flex justify-center items-center h-64 ">
             <p className="text-destructive">{error || "Asset not found"}</p>
           </div>
@@ -356,12 +360,15 @@ export default function AssetDetailPage() {
       <div className=" p-2 sm:p-4 md:p-6">
         <div className="h-full">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
-            <Link href="/asset-library">
-              <Button variant="ghost" className="cursor-pointer">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Asset Library
-              </Button>
-            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/asset-library")}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Asset Library
+            </Button>
             {userRole === "admin" && (
               <Button
                 variant="outline"

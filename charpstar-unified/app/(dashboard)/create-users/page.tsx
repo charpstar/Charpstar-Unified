@@ -608,7 +608,7 @@ export default function CreateUsersPage() {
                       variant="outline"
                       size="sm"
                       onClick={clearForm}
-                      className="text-xs text-red-600 hover:text-red-700"
+                      className="text-xs text-error hover:text-error/80"
                     >
                       <X className="h-3 w-3 mr-1" />
                       Clear Form

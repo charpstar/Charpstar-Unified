@@ -18,7 +18,6 @@ const TITLES = {
   "/users": "Users",
   "/admin": "Admin",
   "/cvr": "CVR",
-
   "/settings": "Settings",
   "/onboarding": "Onboarding",
   "/production": "Production",

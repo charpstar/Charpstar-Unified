@@ -245,11 +245,14 @@ export default function AddModelsPage() {
     <div className="container mx-auto p-6 max-w-4xl">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/dashboard">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push("/dashboard")}
+          className="gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Add 3D Models</h1>

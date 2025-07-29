@@ -781,7 +781,7 @@ export default function SignupPage() {
     <div className="h-full flex items-center justify-center bg-background dark:from-gray-900 dark:to-gray-800 p-4 overflow-y-hidden">
       <Card className="p-8 max-w-2xl w-full">
         <div className="text-center mb-6">
-          <UserPlus className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+          <UserPlus className="h-12 w-12 text-info mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Welcome to CharpstAR</h1>
           <p className="text-muted-foreground">
             Complete your account setup to get started
@@ -791,13 +791,13 @@ export default function SignupPage() {
         {/* Invitation Details */}
         <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
-            <Mail className="h-4 w-4 text-blue-600" />
+            <Mail className="h-4 w-4 text-info" />
             <span className="font-medium text-blue-900 dark:text-blue-100">
               {invitationData.email}
             </span>
           </div>
           <div className="flex items-center gap-2 mb-2">
-            <Building className="h-4 w-4 text-blue-600" />
+            <Building className="h-4 w-4 text-info" />
             <span className="text-sm text-blue-700 dark:text-blue-300">
               {invitationData.client_name}
             </span>

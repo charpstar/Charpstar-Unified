@@ -74,6 +74,30 @@
 
   /* Color variables */
   --background: oklch(1 0 0);
+
+  /* Semantic color variables for consistent theming */
+  --success: oklch(0.65 0.18 140); /* Green for success states */
+  --success-foreground: oklch(0.985 0 0);
+  --success-muted: oklch(0.95 0.05 140);
+
+  --warning: oklch(0.75 0.15 70); /* Orange for warnings */
+  --warning-foreground: oklch(0.145 0 0);
+  --warning-muted: oklch(0.95 0.05 70);
+
+  --error: oklch(0.577 0.245 27.325); /* Red for errors */
+  --error-foreground: oklch(0.985 0 0);
+  --error-muted: oklch(0.95 0.05 27);
+
+  --info: oklch(0.55 0.15 220); /* Blue for info */
+  --info-foreground: oklch(0.985 0 0);
+  --info-muted: oklch(0.95 0.05 220);
+
+  --accent-blue: oklch(0.55 0.15 220); /* Blue accent */
+  --accent-green: oklch(0.65 0.18 140); /* Green accent */
+  --accent-purple: oklch(0.6 0.15 280); /* Purple accent */
+  --accent-orange: oklch(0.75 0.15 70); /* Orange accent */
+  --accent-cyan: oklch(0.65 0.15 180); /* Cyan accent */
+  --accent-yellow: oklch(0.8 0.15 90); /* Yellow accent */
   --muted-background: oklch(0.145 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -128,6 +152,30 @@
   --font-body: "Montserrat", Arial, sans-serif;
 
   --background: oklch(0.145 0 0);
+
+  /* Semantic color variables for consistent theming (dark mode) */
+  --success: oklch(0.6 0.18 140); /* Green for success states */
+  --success-foreground: oklch(0.145 0 0);
+  --success-muted: oklch(0.2 0.05 140);
+
+  --warning: oklch(0.7 0.15 70); /* Orange for warnings */
+  --warning-foreground: oklch(0.985 0 0);
+  --warning-muted: oklch(0.2 0.05 70);
+
+  --error: oklch(0.5 0.245 27.325); /* Red for errors */
+  --error-foreground: oklch(0.985 0 0);
+  --error-muted: oklch(0.2 0.05 27);
+
+  --info: oklch(0.5 0.15 220); /* Blue for info */
+  --info-foreground: oklch(0.985 0 0);
+  --info-muted: oklch(0.2 0.05 220);
+
+  --accent-blue: oklch(0.5 0.15 220); /* Blue accent */
+  --accent-green: oklch(0.6 0.18 140); /* Green accent */
+  --accent-purple: oklch(0.55 0.15 280); /* Purple accent */
+  --accent-orange: oklch(0.7 0.15 70); /* Orange accent */
+  --accent-cyan: oklch(0.6 0.15 180); /* Cyan accent */
+  --accent-yellow: oklch(0.75 0.15 90); /* Yellow accent */
   --muted-background: oklch(0.445 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.26 0 0);
@@ -377,4 +425,97 @@ model-viewer::part(default-ar-button):focus-visible {
 
 .switch-thumb-spring[data-state="unchecked"] {
   transform: translateX(0px) scale(1) !important;
+}
+
+/* --- SEMANTIC COLOR UTILITY CLASSES --- */
+@layer utilities {
+  .text-success {
+    color: var(--success);
+  }
+  .text-success-foreground {
+    color: var(--success-foreground);
+  }
+  .bg-success {
+    background-color: var(--success);
+  }
+  .bg-success-muted {
+    background-color: var(--success-muted);
+  }
+
+  .text-warning {
+    color: var(--warning);
+  }
+  .text-warning-foreground {
+    color: var(--warning-foreground);
+  }
+  .bg-warning {
+    background-color: var(--warning);
+  }
+  .bg-warning-muted {
+    background-color: var(--warning-muted);
+  }
+
+  .text-error {
+    color: var(--error);
+  }
+  .text-error-foreground {
+    color: var(--error-foreground);
+  }
+  .bg-error {
+    background-color: var(--error);
+  }
+  .bg-error-muted {
+    background-color: var(--error-muted);
+  }
+
+  .text-info {
+    color: var(--info);
+  }
+  .text-info-foreground {
+    color: var(--info-foreground);
+  }
+  .bg-info {
+    background-color: var(--info);
+  }
+  .bg-info-muted {
+    background-color: var(--info-muted);
+  }
+
+  .text-accent-blue {
+    color: var(--accent-blue);
+  }
+  .text-accent-green {
+    color: var(--accent-green);
+  }
+  .text-accent-purple {
+    color: var(--accent-purple);
+  }
+  .text-accent-orange {
+    color: var(--accent-orange);
+  }
+  .text-accent-cyan {
+    color: var(--accent-cyan);
+  }
+  .text-accent-yellow {
+    color: var(--accent-yellow);
+  }
+
+  .bg-accent-blue {
+    background-color: var(--accent-blue);
+  }
+  .bg-accent-green {
+    background-color: var(--accent-green);
+  }
+  .bg-accent-purple {
+    background-color: var(--accent-purple);
+  }
+  .bg-accent-orange {
+    background-color: var(--accent-orange);
+  }
+  .bg-accent-cyan {
+    background-color: var(--accent-cyan);
+  }
+  .bg-accent-yellow {
+    background-color: var(--accent-yellow);
+  }
 }

@@ -527,7 +527,7 @@ export default function AddProductsPage() {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-background via-background to-muted/20 flex flex-col p-6 overflow-hidden">
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-4">
@@ -565,7 +565,7 @@ export default function AddProductsPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => removeProduct(index)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                        className="text-error hover:text-error/80 hover:bg-error-muted cursor-pointer"
                       >
                         Remove
                       </Button>
@@ -994,7 +994,7 @@ export default function AddProductsPage() {
                               href={productLink}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 underline truncate block max-w-48"
+                              className="text-info hover:text-info/80 underline truncate block max-w-48"
                               title={productLink}
                             >
                               {productLink.length > 50
@@ -1090,7 +1090,7 @@ export default function AddProductsPage() {
                             href={product.product_link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 underline truncate block max-w-48"
+                            className="text-info hover:text-info/80 underline truncate block max-w-48"
                             title={product.product_link}
                           >
                             {product.product_link.length > 50
@@ -1107,7 +1107,7 @@ export default function AddProductsPage() {
                             href={product.glb_link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 underline truncate block max-w-48"
+                            className="text-info hover:text-info/80 underline truncate block max-w-48"
                             title={product.glb_link}
                           >
                             {product.glb_link.length > 50

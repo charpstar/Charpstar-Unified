@@ -95,6 +95,7 @@ export function PendingAssignmentsWidget() {
             (sum: number, assignment: any) => sum + (assignment.price || 0),
             0
           );
+          // Note: Bonus only applies if completed before deadline
           const totalWithBonus = totalPrice * (1 + (list.bonus || 0) / 100);
 
           return {
@@ -177,13 +178,11 @@ export function PendingAssignmentsWidget() {
         {/* Summary Stats */}
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center">
-            <div className="text-2xl font-medium text-blue-600">
-              {totalAssets}
-            </div>
+            <div className="text-2xl font-medium text-info">{totalAssets}</div>
             <div className="text-xs text-muted-foreground">Total Assets</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-medium text-green-600">
+            <div className="text-2xl font-medium text-success">
               ${totalWithBonus.toFixed(2)}
             </div>
             <div className="text-xs text-muted-foreground">

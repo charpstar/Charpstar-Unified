@@ -108,9 +108,7 @@ export function StatsWidget({
       <div>
         <p className="text-sm font-medium text-muted-foreground">{title}</p>
         <p className="text-2xl font-bold">{value}</p>
-        {change && (
-          <p className="text-xs text-green-600 dark:text-green-400">{change}</p>
-        )}
+        {change && <p className="text-xs text-success">{change}</p>}
       </div>
       <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
         <Icon className="h-6 w-6 text-primary" />
@@ -297,7 +295,7 @@ export function ProfileWidget({ user }: { user?: any }) {
               <div className="text-xs text-muted-foreground mb-1">
                 {stat.label}
               </div>
-              <div className="text-xs text-green-600 dark:text-green-400 font-medium">
+              <div className="text-xs text-success font-medium">
                 {stat.trend}
               </div>
             </div>
@@ -341,37 +339,31 @@ export function ProfileWidget({ user }: { user?: any }) {
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="text-center">
-                    <div className="font-semibold text-blue-700 dark:text-blue-300">
+                    <div className="font-semibold text-info">
                       {roleData.roleOverview.qa.modelsReviewed}
                     </div>
-                    <div className="text-blue-600 dark:text-blue-400">
-                      Reviewed
-                    </div>
+                    <div className="text-info">Reviewed</div>
                   </div>
                   <div className="text-center">
-                    <div className="font-semibold text-blue-700 dark:text-blue-300">
+                    <div className="font-semibold text-info">
                       {roleData.roleOverview.qa.issuesFound}
                     </div>
-                    <div className="text-blue-600 dark:text-blue-400">
-                      Issues
-                    </div>
+                    <div className="text-info">Issues</div>
                   </div>
                   <div className="text-center">
-                    <div className="font-semibold text-blue-700 dark:text-blue-300">
+                    <div className="font-semibold text-info">
                       {roleData.roleOverview.qa.approvalRate}
                     </div>
-                    <div className="text-blue-600 dark:text-blue-400">
-                      Approval
-                    </div>
+                    <div className="text-info">Approval</div>
                   </div>
                 </div>
               </div>
 
               {/* Modelers Overview */}
-              <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="p-3 bg-success-muted rounded-lg border border-success/20">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">🎨</span>
-                  <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                  <span className="text-sm font-medium text-success">
                     3D Modelers
                   </span>
                   <Badge variant="outline" className="text-xs ml-auto">
@@ -380,37 +372,31 @@ export function ProfileWidget({ user }: { user?: any }) {
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="text-center">
-                    <div className="font-semibold text-green-700 dark:text-green-300">
+                    <div className="font-semibold text-success">
                       {roleData.roleOverview.modelers.modelsCreated}
                     </div>
-                    <div className="text-green-600 dark:text-green-400">
-                      Created
-                    </div>
+                    <div className="text-success">Created</div>
                   </div>
                   <div className="text-center">
-                    <div className="font-semibold text-green-700 dark:text-green-300">
+                    <div className="font-semibold text-success">
                       {roleData.roleOverview.modelers.categories}
                     </div>
-                    <div className="text-green-600 dark:text-green-400">
-                      Categories
-                    </div>
+                    <div className="text-success">Categories</div>
                   </div>
                   <div className="text-center">
-                    <div className="font-semibold text-green-700 dark:text-green-300">
+                    <div className="font-semibold text-success">
                       {roleData.roleOverview.modelers.avgQuality}
                     </div>
-                    <div className="text-green-600 dark:text-green-400">
-                      Quality
-                    </div>
+                    <div className="text-success">Quality</div>
                   </div>
                 </div>
               </div>
 
               {/* Customers Overview */}
-              <div className="p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+              <div className="p-3 bg-accent-purple rounded-lg border border-accent-purple/20">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">👤</span>
-                  <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                  <span className="text-sm font-medium text-accent-purple">
                     Customers
                   </span>
                   <Badge variant="outline" className="text-xs ml-auto">
@@ -419,28 +405,22 @@ export function ProfileWidget({ user }: { user?: any }) {
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="text-center">
-                    <div className="font-semibold text-purple-700 dark:text-purple-300">
+                    <div className="font-semibold text-accent-purple">
                       {roleData.roleOverview.client.modelsViewed}
                     </div>
-                    <div className="text-purple-600 dark:text-purple-400">
-                      Viewed
-                    </div>
+                    <div className="text-accent-purple">Viewed</div>
                   </div>
                   <div className="text-center">
-                    <div className="font-semibold text-purple-700 dark:text-purple-300">
+                    <div className="font-semibold text-accent-purple">
                       {roleData.roleOverview.client.downloads}
                     </div>
-                    <div className="text-purple-600 dark:text-purple-400">
-                      Downloads
-                    </div>
+                    <div className="text-accent-purple">Downloads</div>
                   </div>
                   <div className="text-center">
-                    <div className="font-semibold text-purple-700 dark:text-purple-300">
+                    <div className="font-semibold text-accent-purple">
                       {roleData.roleOverview.client.favorites}
                     </div>
-                    <div className="text-purple-600 dark:text-purple-400">
-                      Favorites
-                    </div>
+                    <div className="text-accent-purple">Favorites</div>
                   </div>
                 </div>
               </div>

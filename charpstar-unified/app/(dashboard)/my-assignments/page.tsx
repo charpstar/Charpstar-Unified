@@ -20,6 +20,7 @@ import {
   CheckCircle,
   AlertCircle,
   ArrowRight,
+  ArrowLeft,
   DollarSign,
   Calendar,
   TrendingUp,
@@ -133,7 +134,7 @@ export default function MyAssignmentsPage() {
         const batch = batchMap.get(key)!;
         batch.totalAssets++;
 
-        // Calculate earnings
+        // Calculate earnings (bonus only applies if completed before deadline)
         const baseEarnings = assignment.price || 0;
         const bonus = assignment.bonus || 0;
         const totalEarnings = baseEarnings * (1 + bonus / 100);
@@ -286,14 +287,14 @@ export default function MyAssignmentsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Package className="h-5 w-5 text-blue-600" />
+              <div className="p-2 bg-info-muted rounded-lg">
+                <Package className="h-5 w-5 text-info" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Total Batches
                 </p>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-2xl font-bold text-info">
                   {batchSummaries.length}
                 </p>
               </div>
@@ -302,14 +303,14 @@ export default function MyAssignmentsPage() {
 
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <DollarSign className="h-5 w-5 text-green-600" />
+              <div className="p-2 bg-success-muted rounded-lg">
+                <DollarSign className="h-5 w-5 text-success" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Potential Earnings
                 </p>
-                <p className="text-2xl font-medium text-green-600">
+                <p className="text-2xl font-medium text-success">
                   €
                   {batchSummaries
                     .reduce((sum, batch) => sum + batch.totalEarnings, 0)
@@ -322,13 +323,13 @@ export default function MyAssignmentsPage() {
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-orange-100 rounded-lg">
-                <Target className="h-5 w-5 text-orange-600" />
+                <Target className="h-5 w-5 text-warning" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Urgent Assets
                 </p>
-                <p className="text-2xl font-bold text-orange-600">
+                <p className="text-2xl font-bold text-warning">
                   {batchSummaries.reduce(
                     (sum, batch) => sum + batch.urgentAssets,
                     0
@@ -340,14 +341,14 @@ export default function MyAssignmentsPage() {
 
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-purple-600" />
+              <div className="p-2 bg-accent-purple/10 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-accent-purple" />
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Completed Earnings
                 </p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-2xl font-bold text-accent-purple">
                   €
                   {batchSummaries
                     .reduce((sum, batch) => sum + batch.completedEarnings, 0)
@@ -421,7 +422,7 @@ export default function MyAssignmentsPage() {
                         <span className="text-sm text-muted-foreground">
                           Earnings
                         </span>
-                        <span className="font-semibold text-green-600">
+                        <span className="font-semibold text-success">
                           €{summary.totalEarnings.toFixed(2)}
                         </span>
                       </div>
@@ -446,19 +447,19 @@ export default function MyAssignmentsPage() {
                     {/* Asset Stats */}
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex items-center gap-1">
-                        <Package className="h-3 w-3 text-blue-600" />
+                        <Package className="h-3 w-3 text-info" />
                         <span>{summary.totalAssets} Total</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3 text-green-600" />
+                        <CheckCircle className="h-3 w-3 text-success" />
                         <span>{summary.completedAssets} Done</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-orange-600" />
+                        <Clock className="h-3 w-3 text-warning" />
                         <span>{summary.inProgressAssets} In Progress</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3 text-red-600" />
+                        <AlertCircle className="h-3 w-3 text-error" />
                         <span>
                           {summary.revisionAssets > 0
                             ? `${summary.revisionAssets} Sent for Revisions`
@@ -472,7 +473,7 @@ export default function MyAssignmentsPage() {
                     {/* Urgent Assets Warning */}
                     {summary.urgentAssets > 0 && (
                       <div className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg">
-                        <Target className="h-4 w-4 text-orange-600" />
+                        <Target className="h-4 w-4 text-warning" />
                         <span className="text-sm font-medium text-orange-700">
                           {summary.urgentAssets} urgent asset
                           {summary.urgentAssets !== 1 ? "s" : ""}
@@ -493,7 +494,13 @@ export default function MyAssignmentsPage() {
             You haven&apos;t been assigned to any batches yet. Check back later
             or contact your administrator.
           </p>
-          <Button onClick={() => router.push("/dashboard")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/dashboard")}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
             Back to Dashboard
           </Button>
         </Card>

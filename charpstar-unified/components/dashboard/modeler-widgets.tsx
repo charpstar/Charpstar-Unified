@@ -106,28 +106,28 @@ export function ModelerStatsWidget() {
       title: "Total Assigned",
       value: loading ? "..." : stats.totalAssigned.toString(),
       icon: Package,
-      color: "text-blue-600",
+      color: "text-info",
       bgColor: "bg-blue-50",
     },
     {
       title: "Completed",
       value: loading ? "..." : stats.completed.toString(),
       icon: CheckCircle,
-      color: "text-green-600",
+      color: "text-success",
       bgColor: "bg-green-50",
     },
     {
       title: "In Progress",
       value: loading ? "..." : stats.inProgress.toString(),
       icon: Clock,
-      color: "text-orange-600",
+      color: "text-warning",
       bgColor: "bg-orange-50",
     },
     {
       title: "Pending",
       value: loading ? "..." : stats.pending.toString(),
       icon: AlertCircle,
-      color: "text-red-600",
+      color: "text-error",
       bgColor: "bg-red-50",
     },
   ];
@@ -207,14 +207,16 @@ export function AssignedModelsWidget() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "completed":
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case "in_progress":
-        return <Clock className="h-4 w-4 text-orange-600" />;
+      case "approved":
+        return <CheckCircle className="h-4 w-4 text-success" />;
+      case "delivered_by_artist":
+        return <Clock className="h-4 w-4 text-accent-purple" />;
+      case "in_production":
+        return <Clock className="h-4 w-4 text-warning" />;
       case "not_started":
-        return <AlertCircle className="h-4 w-4 text-red-600" />;
+        return <AlertCircle className="h-4 w-4 text-error" />;
       case "revisions":
-        return <RotateCcw className="h-4 w-4 text-blue-600" />;
+        return <RotateCcw className="h-4 w-4 text-info" />;
       default:
         return <Eye className="h-4 w-4 text-gray-600" />;
     }
@@ -223,13 +225,13 @@ export function AssignedModelsWidget() {
   const getPriorityColor = (priority: number) => {
     switch (priority) {
       case 1:
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-error-muted text-error border-error/20";
       case 2:
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-warning-muted text-warning border-warning/20";
       case 3:
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-success-muted text-success border-success/20";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-muted text-muted-foreground border-border";
     }
   };
 
@@ -406,6 +408,7 @@ export function ModelerEarningsWidget() {
           id,
           name,
           bonus,
+          deadline,
           status,
           approved_at,
           asset_assignments!inner(
@@ -475,9 +478,31 @@ export function ModelerEarningsWidget() {
           0
         );
 
-        // Apply bonus if any
-        const bonusAmount = listEarnings * (list.bonus / 100);
-        const totalListEarnings = listEarnings + bonusAmount;
+        // Check if work was completed before deadline to determine if bonus applies
+        let bonusAmount = 0;
+        let totalListEarnings = listEarnings;
+
+        if (list.approved_at && list.deadline) {
+          const approvedDate = new Date(list.approved_at);
+          const deadlineDate = new Date(list.deadline);
+
+          // Only apply bonus if work was completed before or on the deadline
+          if (approvedDate <= deadlineDate) {
+            bonusAmount = listEarnings * (list.bonus / 100);
+            totalListEarnings = listEarnings + bonusAmount;
+            console.log(
+              `Bonus applied for list ${list.id}: ${bonusAmount} (completed before deadline)`
+            );
+          } else {
+            console.log(
+              `No bonus for list ${list.id}: completed after deadline (approved: ${approvedDate.toISOString()}, deadline: ${deadlineDate.toISOString()})`
+            );
+          }
+        } else {
+          console.log(
+            `No bonus for list ${list.id}: missing approved_at or deadline`
+          );
+        }
 
         totalEarnings += totalListEarnings;
 
@@ -573,7 +598,12 @@ export function ModelerEarningsWidget() {
 
   return (
     <div className="h-full flex flex-col min-h-[400px]">
-      <h3 className="text-lg font-semibold mb-4">Earnings & Performance</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">Earnings & Performance</h3>
+        <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+          Bonus only applies if completed before deadline
+        </div>
+      </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-2 gap-4 mb-6">
@@ -582,7 +612,7 @@ export function ModelerEarningsWidget() {
             <p className="text-sm font-medium text-muted-foreground">
               This month&apos;s earnings
             </p>
-            <p className="text-2xl font-bold text-cyan-600">
+            <p className="text-2xl font-bold text-accent-cyan">
               €{earningsData.thisMonth.toLocaleString()}
             </p>
           </div>
@@ -609,7 +639,9 @@ export function ModelerEarningsWidget() {
                 <span className="text-xs">i</span>
               </div>
             </div>
-            <div className="text-sm text-cyan-600 font-medium">12 months</div>
+            <div className="text-sm text-accent-cyan font-medium">
+              12 months
+            </div>
           </div>
 
           {/* Summary Metrics */}
@@ -659,7 +691,7 @@ export function ModelerEarningsWidget() {
                       return (
                         <div className="bg-background border rounded-lg p-2 shadow-lg">
                           <p className="text-sm font-medium">{label}</p>
-                          <p className="text-sm text-cyan-600">
+                          <p className="text-sm text-accent-cyan">
                             €{payload[0].value}
                           </p>
                         </div>
@@ -695,28 +727,28 @@ export function ModelerQuickActionsWidget() {
       description: "View your assigned assets and batches",
       icon: Package,
       action: () => router.push("/my-assignments"),
-      color: "bg-blue-50 text-blue-600",
+      color: "bg-info-muted text-info w-12",
     },
     {
       title: "Modeler Review",
       description: "Upload GLB files and communicate with QA",
       icon: MessageSquare,
       action: () => router.push("/modeler-review"),
-      color: "bg-green-50 text-green-600",
+      color: "bg-success-muted text-success w-12",
     },
     {
       title: "View Guidelines",
       description: "Quality standards & requirements",
       icon: FileText,
       action: () => router.push("/guidelines"),
-      color: "bg-purple-50 text-purple-600",
+      color: "bg-accent-purple/10 text-accent-purple w-12 ",
     },
     {
       title: "Model Viewer",
       description: "View 3D models in the Charpstar viewer",
       icon: Eye,
       action: () => window.open("https://viewer.charpstar.co/", "_blank"),
-      color: "bg-orange-50 text-orange-600",
+      color: "bg-warning-muted text-warning w-12",
     },
   ];
 

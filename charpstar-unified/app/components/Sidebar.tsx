@@ -156,7 +156,7 @@ export function Sidebar({ className }: React.HTMLAttributes<HTMLDivElement>) {
             <div className="px-4 py-2">
               <Button
                 variant="ghost"
-                className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-100  cursor-pointer  transition-all duration-300"
+                className="w-full justify-start text-error hover:text-error/80 hover:bg-error-muted cursor-pointer transition-all duration-300"
                 onClick={handleSignOut}
               >
                 <LogOut className="mr-2 h-4 w-4" />
