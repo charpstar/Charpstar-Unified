@@ -29,6 +29,7 @@ interface PendingAssignment {
 interface AllocationList {
   id: string;
   name: string;
+  number: number;
   deadline: string;
   bonus: number;
   created_at: string;
@@ -61,6 +62,7 @@ export function PendingAssignmentsWidget() {
           `
           id,
           name,
+          number,
           deadline,
           bonus,
           created_at,
@@ -202,9 +204,12 @@ export function PendingAssignmentsWidget() {
               className="flex items-center justify-between p-2 bg-muted rounded-lg"
             >
               <div>
-                <div className="text-sm font-medium">{list.name}</div>
+                <div className="text-sm font-medium">
+                  Allocation {list.number} - {list.deadline} -{" "}
+                  {list.totalAssets} assets
+                </div>
                 <div className="text-xs text-muted-foreground">
-                  {list.totalAssets} assets • ${list.totalWithBonus.toFixed(2)}
+                  ${list.totalWithBonus.toFixed(2)}
                 </div>
               </div>
               <Badge variant="secondary">+{list.bonus}%</Badge>

@@ -57,6 +57,7 @@ import {
   MoreHorizontal,
   FolderOpen,
   X,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -66,6 +67,7 @@ import {
   DialogTitle,
 } from "@/components/ui/containers";
 import { AssetFilesManager } from "@/components/asset-library/AssetFilesManager";
+import { InvoiceGenerator } from "@/components/invoice";
 
 interface BatchAsset {
   id: string;
@@ -92,8 +94,10 @@ interface BatchAsset {
 interface AllocationList {
   id: string;
   name: string;
+  number: number;
   deadline: string;
   bonus: number;
+  status: string;
   created_at: string;
   assets: BatchAsset[];
 }
@@ -113,6 +117,11 @@ interface BatchStats {
   pendingEarnings: number;
   averageAssetPrice: number;
 }
+
+// Helper function to check if deadline is overdue
+const isOverdue = (deadline: string) => {
+  return new Date(deadline) < new Date();
+};
 
 export default function BatchDetailPage() {
   const params = useParams();
@@ -162,6 +171,9 @@ export default function BatchDetailPage() {
     useState<BatchAsset | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingMultiple, setUploadingMultiple] = useState(false);
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [selectedAllocationListId, setSelectedAllocationListId] =
+    useState<string>("");
 
   useEffect(() => {
     document.title = `CharpstAR Platform - ${client} Batch ${batch}`;
@@ -189,8 +201,10 @@ export default function BatchDetailPage() {
           `
           id,
           name,
+          number,
           deadline,
           bonus,
+          status,
           created_at,
           asset_assignments!inner(
             asset_id,
@@ -250,8 +264,10 @@ export default function BatchDetailPage() {
           return {
             id: list.id,
             name: list.name,
+            number: list.number,
             deadline: list.deadline,
             bonus: list.bonus,
+            status: list.status,
             created_at: list.created_at,
             assets,
           };
@@ -435,6 +451,11 @@ export default function BatchDetailPage() {
 
   const handleViewAsset = (assetId: string) => {
     router.push(`/modeler-review/${assetId}`);
+  };
+
+  const handleGenerateInvoice = (allocationListId: string) => {
+    setSelectedAllocationListId(allocationListId);
+    setShowInvoice(true);
   };
 
   const parseReferences = (
@@ -714,7 +735,9 @@ export default function BatchDetailPage() {
           {allocationLists.length > 0 && allocationLists[0]?.deadline && (
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              <span className="text-sm">
+              <span
+                className={`text-sm ${isOverdue(allocationLists[0].deadline) ? "text-red-600 font-medium" : ""}`}
+              >
                 Deadline:{" "}
                 {new Date(allocationLists[0].deadline).toLocaleDateString()}
               </span>
@@ -966,12 +989,20 @@ export default function BatchDetailPage() {
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         <Package className="h-5 w-5" />
-                        {allocationList.name}
+                        Allocation {allocationList.number} -{" "}
+                        {new Date(allocationList.deadline).toLocaleDateString()}{" "}
+                        - {allocationList.assets.length} assets
                       </CardTitle>
                       <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          <span>
+                          <span
+                            className={
+                              isOverdue(allocationList.deadline)
+                                ? "text-red-600 font-medium"
+                                : ""
+                            }
+                          >
                             Deadline:{" "}
                             {new Date(
                               allocationList.deadline
@@ -982,10 +1013,35 @@ export default function BatchDetailPage() {
                           <Euro className="h-4 w-4" />
                           <span>Bonus: +{allocationList.bonus}%</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span>{allocationList.assets.length} assets</span>
-                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            allocationList.status === "approved"
+                              ? "bg-success-muted text-success border-success/20"
+                              : "bg-warning-muted text-warning border-warning/20"
+                          }`}
+                        >
+                          {allocationList.status === "approved"
+                            ? "Approved"
+                            : allocationList.status}
+                        </Badge>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* Invoice Button - Only show if allocation list is approved */}
+                      {allocationList.status === "approved" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleGenerateInvoice(allocationList.id)
+                          }
+                          className="gap-2"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Generate Invoice
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -1412,6 +1468,17 @@ export default function BatchDetailPage() {
             setSelectedAssetForFiles(null);
           }}
           onFilesChange={fetchBatchAssets}
+        />
+      )}
+
+      {/* Invoice Generator Modal */}
+      {showInvoice && selectedAllocationListId && (
+        <InvoiceGenerator
+          allocationListId={selectedAllocationListId}
+          onClose={() => {
+            setShowInvoice(false);
+            setSelectedAllocationListId("");
+          }}
         />
       )}
     </div>

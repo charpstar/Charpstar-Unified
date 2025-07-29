@@ -105,6 +105,11 @@ interface ModelerProgress {
   };
 }
 
+// Helper function to check if deadline is overdue
+const isOverdue = (deadline: string) => {
+  return new Date(deadline) < new Date();
+};
+
 export default function ProductionDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1043,7 +1048,9 @@ export default function ProductionDashboard() {
                             <span className="text-muted-foreground">
                               Deadline:
                             </span>
-                            <span className="font-medium">
+                            <span
+                              className={`font-medium ${isOverdue(batch.deadline) ? "text-red-600" : ""}`}
+                            >
                               {batch.deadline}
                             </span>
                           </div>

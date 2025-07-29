@@ -67,6 +67,7 @@ interface PendingAssignment {
 interface AllocationList {
   id: string;
   name: string;
+  number: number;
   deadline: string;
   bonus: number;
   created_at: string;
@@ -75,6 +76,11 @@ interface AllocationList {
   totalPrice: number;
   totalWithBonus: number;
 }
+
+// Helper function to check if deadline is overdue
+const isOverdue = (deadline: string) => {
+  return new Date(deadline) < new Date();
+};
 
 export default function PendingAssignmentsPage() {
   const user = useUser();
@@ -128,6 +134,7 @@ export default function PendingAssignmentsPage() {
           `
           id,
           name,
+          number,
           deadline,
           bonus,
           created_at,
@@ -693,13 +700,23 @@ export default function PendingAssignmentsPage() {
                       {/* List Header */}
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <h3 className="text-lg font-semibold">{list.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {list.totalAssets} assets • Deadline:{" "}
-                            {list.deadline
-                              ? new Date(list.deadline).toLocaleDateString()
-                              : "No deadline"}
-                          </p>
+                          <h3 className="text-lg font-semibold">
+                            Allocation {list.number} -{" "}
+                            {list.deadline ? (
+                              <span
+                                className={
+                                  isOverdue(list.deadline)
+                                    ? "text-red-600 font-medium"
+                                    : ""
+                                }
+                              >
+                                {new Date(list.deadline).toLocaleDateString()}
+                              </span>
+                            ) : (
+                              "No deadline"
+                            )}{" "}
+                            - {list.totalAssets} assets
+                          </h3>
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">

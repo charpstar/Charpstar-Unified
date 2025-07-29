@@ -420,7 +420,13 @@ export default function AdminReviewPage() {
           .from("allocation_lists")
           .select(
             `
-            *,
+            id,
+            name,
+            number,
+            deadline,
+            bonus,
+            created_at,
+            status,
             asset_assignments(
               asset_id,
               price,
@@ -1197,7 +1203,9 @@ export default function AdminReviewPage() {
                             </Badge>
                           </div>
                           <h3 className="text-md font-medium text-foreground">
-                            {list.name}
+                            Allocation {list.number} -{" "}
+                            {new Date(list.deadline).toLocaleDateString()} -{" "}
+                            {stats.totalAssets} assets
                           </h3>
                           <div className="flex items-center gap-1 text-muted-foreground">
                             {isExpanded ? (

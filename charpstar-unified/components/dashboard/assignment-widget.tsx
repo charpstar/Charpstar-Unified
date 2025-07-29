@@ -267,7 +267,9 @@ export function AssignmentWidget() {
             <Calendar className="h-5 w-5 text-info" />
             <div>
               <p className="text-sm text-muted-foreground">Deadline</p>
-              <p className="font-semibold text-info">
+              <p
+                className={`font-semibold ${isOverdue ? "text-red-600" : "text-info"}`}
+              >
                 {format(deadlineDate, "MMM d, yyyy")}
               </p>
             </div>
