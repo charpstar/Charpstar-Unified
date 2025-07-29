@@ -265,7 +265,28 @@ export default function MyAssignmentsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 pt-22 space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header with Back Button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/dashboard")}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1">
+            <Package className="h-3 w-3" />
+            My Assignments
+          </Badge>
+        </div>
+      </div>
+
       {/* Summary Cards */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

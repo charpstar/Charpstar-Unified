@@ -1043,18 +1043,6 @@ export default function ProductionDashboard() {
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2 text-sm">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              Deadline:
-                            </span>
-                            <span
-                              className={`font-medium ${isOverdue(batch.deadline) ? "text-red-600" : ""}`}
-                            >
-                              {batch.deadline}
-                            </span>
-                          </div>
-
                           {/* Assigned Team Indicator */}
                           {(batch.assignedUsers.modelers.length > 0 ||
                             batch.assignedUsers.qa.length > 0) && (

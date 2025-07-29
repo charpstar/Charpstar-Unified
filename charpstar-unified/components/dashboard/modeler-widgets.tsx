@@ -25,6 +25,7 @@ export function ModelerStatsWidget() {
   const [stats, setStats] = useState({
     totalAssigned: 0,
     completed: 0,
+    waitingForApproval: 0,
     inProgress: 0,
     pending: 0,
   });
@@ -59,7 +60,13 @@ export function ModelerStatsWidget() {
       }
 
       if (!assetAssignments || assetAssignments.length === 0) {
-        setStats({ totalAssigned: 0, completed: 0, inProgress: 0, pending: 0 });
+        setStats({
+          totalAssigned: 0,
+          completed: 0,
+          waitingForApproval: 0,
+          inProgress: 0,
+          pending: 0,
+        });
         return;
       }
 
@@ -73,8 +80,10 @@ export function ModelerStatsWidget() {
 
       const totalAssigned = acceptedAssets.length;
       const completed = acceptedAssets.filter(
-        (asset) =>
-          asset.status === "approved" || asset.status === "delivered_by_artist"
+        (asset) => asset.status === "approved"
+      ).length;
+      const waitingForApproval = acceptedAssets.filter(
+        (asset) => asset.status === "delivered_by_artist"
       ).length;
       const inProgress = acceptedAssets.filter(
         (asset) => asset.status === "in_production"
@@ -83,7 +92,13 @@ export function ModelerStatsWidget() {
         (asset) => asset.status === "not_started"
       ).length;
 
-      setStats({ totalAssigned, completed, inProgress, pending });
+      setStats({
+        totalAssigned,
+        completed,
+        waitingForApproval,
+        inProgress,
+        pending,
+      });
     } catch (error) {
       console.error("Error fetching stats:", error);
     } finally {
@@ -93,8 +108,8 @@ export function ModelerStatsWidget() {
 
   if (!user) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 min-h-[283px]">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 min-h-[283px]">
+        {[...Array(5)].map((_, i) => (
           <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
         ))}
       </div>
@@ -117,6 +132,13 @@ export function ModelerStatsWidget() {
       bgColor: "bg-green-50",
     },
     {
+      title: "Waiting for Approval",
+      value: loading ? "..." : stats.waitingForApproval.toString(),
+      icon: Clock,
+      color: "text-warning",
+      bgColor: "bg-orange-50",
+    },
+    {
       title: "In Progress",
       value: loading ? "..." : stats.inProgress.toString(),
       icon: Clock,
@@ -135,7 +157,7 @@ export function ModelerStatsWidget() {
   return (
     <div className="h-full flex flex-col min-h-[283px]">
       <h3 className="text-lg font-semibold mb-4">Assignment Overview</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1 h-full">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 flex-1 h-full">
         {statCards.map((stat, index) => (
           <Card key={index} className="p-4 flex flex-col justify-center">
             <div className="text-center">
@@ -727,28 +749,24 @@ export function ModelerQuickActionsWidget() {
       description: "View your assigned assets and batches",
       icon: Package,
       action: () => router.push("/my-assignments"),
-      color: "bg-info-muted text-info w-12",
     },
     {
       title: "Modeler Review",
       description: "Upload GLB files and communicate with QA",
       icon: MessageSquare,
       action: () => router.push("/modeler-review"),
-      color: "bg-success-muted text-success w-12",
     },
     {
       title: "View Guidelines",
       description: "Quality standards & requirements",
       icon: FileText,
       action: () => router.push("/guidelines"),
-      color: "bg-accent-purple/10 text-accent-purple w-12 ",
     },
     {
       title: "Model Viewer",
       description: "View 3D models in the Charpstar viewer",
       icon: Eye,
       action: () => window.open("https://viewer.charpstar.co/", "_blank"),
-      color: "bg-warning-muted text-warning w-12",
     },
   ];
 
@@ -763,10 +781,8 @@ export function ModelerQuickActionsWidget() {
             onClick={action.action}
           >
             <div className="flex items-center gap-3">
-              <div
-                className={`h-10 w-10 rounded-lg ${action.color} flex items-center justify-center`}
-              >
-                <action.icon className="h-5 w-5" />
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <action.icon className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="font-medium">{action.title}</p>

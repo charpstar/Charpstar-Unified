@@ -347,7 +347,28 @@ export default function ModelerReviewPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 pt-22 space-y-6">
+    <div className="container mx-auto p-6  space-y-6">
+      {/* Header with Back Button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/dashboard")}
+            className="gap-2"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1">
+            <MessageSquare className="h-3 w-3" />
+            Modeler Review
+          </Badge>
+        </div>
+      </div>
+
       <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">

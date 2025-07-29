@@ -474,8 +474,11 @@ export function QuickActionsWidget() {
     {
       name: user?.metadata?.role === "client" ? "Add Product" : "Upload Asset",
       icon: FileText,
+      description:
+        user?.metadata?.role === "client"
+          ? "Add a new product to your catalog"
+          : "Upload a new 3D asset to the library",
       action: () => {
-        // Redirect clients to add-products page, admins to asset-library upload
         if (user?.metadata?.role === "client") {
           router.push("/add-products");
         } else {
@@ -486,6 +489,10 @@ export function QuickActionsWidget() {
     {
       name: user?.metadata?.role === "admin" ? "Asset Library" : "Reviews",
       icon: Folder,
+      description:
+        user?.metadata?.role === "admin"
+          ? "Browse and manage all assets"
+          : "Review assets awaiting your feedback",
       action: () => {
         router.push(
           user?.metadata?.role === "admin" ? "/asset-library" : "/client-review"
@@ -495,6 +502,7 @@ export function QuickActionsWidget() {
     {
       name: "View Analytics",
       icon: TrendingUp,
+      description: "See performance and usage analytics",
       action: () => {
         router.push("/analytics");
       },
@@ -502,6 +510,7 @@ export function QuickActionsWidget() {
     {
       name: "Settings",
       icon: Settings,
+      description: "Manage your account and preferences",
       action: () => {
         setIsSettingsOpen(true);
       },
@@ -515,20 +524,29 @@ export function QuickActionsWidget() {
           Quick Actions
         </CardTitle>
       </CardHeader>
-      <div className="grid grid-cols-2 gap-2">
-        {actions.map((action) => (
-          <Button
+      <div className="grid grid-cols-2 gap-4 min-h-[238px]">
+        {actions.map((action, idx) => (
+          <Card
             key={action.name}
-            variant="outline"
-            className="h-28 w-full flex flex-col items-center justify-center gap-2 hover:bg-primary/5 transition-colors cursor-pointer"
+            className="p-4 hover:shadow-md transition-shadow cursor-pointer h-full flex flex-col justify-center"
             onClick={action.action}
           >
-            <action.icon className="h-5 w-5" />
-            <span className="text-sm font-medium">{action.name}</span>
-          </Button>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <action.icon className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">{action.name}</p>
+                {action.description && (
+                  <p className="text-sm text-muted-foreground">
+                    {action.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          </Card>
         ))}
       </div>
-
       {/* Settings Dialog */}
       <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </WidgetContainer>

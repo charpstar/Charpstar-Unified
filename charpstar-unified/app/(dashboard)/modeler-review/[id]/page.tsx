@@ -514,19 +514,24 @@ export default function ModelerReviewPage() {
 
     setStatusUpdating(true);
     try {
-      // Check if this asset belongs to an allocation list and handle list status reversion BEFORE updating
-      if (newStatus === "delivered_by_artist" || newStatus === "revisions") {
-        await handleAllocationListStatusRevert(asset.id);
+      // Use the complete API endpoint for proper allocation list handling
+      const response = await fetch("/api/assets/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId: asset.id,
+          status: newStatus,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update status");
       }
 
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({ status: newStatus })
-        .eq("id", asset.id);
-
-      if (error) {
-        throw error;
-      }
+      const result = await response.json();
 
       // If status is delivered_by_artist (completed), update the modeler's end time
       if (newStatus === "delivered_by_artist") {
@@ -534,7 +539,25 @@ export default function ModelerReviewPage() {
       }
 
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
-      toast.success("Status updated successfully!");
+
+      // Show success message and trigger earnings widget refresh
+      if (result.allocationListApproved) {
+        toast.success("Asset approved and allocation list completed!");
+        // Trigger earnings widget refresh for approval
+        window.dispatchEvent(new CustomEvent("allocationListApproved"));
+      } else if (result.allocationListId) {
+        // Check if this was an unapproval (status changed from approved to something else)
+        const wasApproved = asset?.status === "approved";
+        if (wasApproved && newStatus !== "approved") {
+          toast.success("Asset unapproved and allocation list updated!");
+          // Trigger earnings widget refresh for unapproval
+          window.dispatchEvent(new CustomEvent("allocationListUnapproved"));
+        } else {
+          toast.success("Status updated successfully!");
+        }
+      } else {
+        toast.success("Status updated successfully!");
+      }
 
       // Dispatch event to notify earnings widget to refresh
       window.dispatchEvent(new CustomEvent("assetStatusChanged"));
@@ -543,94 +566,6 @@ export default function ModelerReviewPage() {
       toast.error("Failed to update status");
     } finally {
       setStatusUpdating(false);
-    }
-  };
-
-  // Helper function to handle allocation list status reversion
-  const handleAllocationListStatusRevert = async (assetId: string) => {
-    try {
-      // Get the allocation list ID for this asset
-      const { data: assignment, error: assignmentError } = await supabase
-        .from("asset_assignments")
-        .select("allocation_list_id")
-        .eq("asset_id", assetId)
-        .eq("role", "modeler")
-        .single();
-
-      if (assignmentError || !assignment?.allocation_list_id) {
-        console.log(
-          "Asset not part of an allocation list or error fetching assignment"
-        );
-        return;
-      }
-
-      // Get current allocation list status BEFORE updating the asset
-      const { data: currentList, error: listStatusError } = await supabase
-        .from("allocation_lists")
-        .select("status")
-        .eq("id", assignment.allocation_list_id)
-        .single();
-
-      if (listStatusError) {
-        console.error(
-          "Error fetching allocation list status:",
-          listStatusError
-        );
-        return;
-      }
-
-      // If the list is currently approved, we need to revert it
-      if (currentList?.status === "approved") {
-        // Get all assets in this allocation list (excluding the one being updated)
-        const { data: listAssets, error: listError } = await supabase
-          .from("asset_assignments")
-          .select(
-            `
-            asset_id,
-            onboarding_assets!inner(
-              id,
-              status
-            )
-          `
-          )
-          .eq("allocation_list_id", assignment.allocation_list_id)
-          .eq("role", "modeler")
-          .neq("asset_id", assetId); // Exclude the asset being updated
-
-        if (listError) {
-          console.error("Error fetching list assets:", listError);
-          return;
-        }
-
-        // Check if all OTHER assets in the list are approved
-        const allOtherAssetsApproved = listAssets?.every(
-          (item: any) => item.onboarding_assets?.status === "approved"
-        );
-
-        // If all other assets are approved, revert the list status to in_progress
-        if (allOtherAssetsApproved) {
-          const { error: listUpdateError } = await supabase
-            .from("allocation_lists")
-            .update({
-              status: "in_progress",
-              approved_at: null,
-            })
-            .eq("id", assignment.allocation_list_id);
-
-          if (listUpdateError) {
-            console.error(
-              "Error reverting allocation list status:",
-              listUpdateError
-            );
-          } else {
-            console.log("Allocation list status reverted to in_progress");
-            // Dispatch custom event to notify earnings widget to refresh
-            window.dispatchEvent(new CustomEvent("allocationListUnapproved"));
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error handling allocation list status revert:", error);
     }
   };
 

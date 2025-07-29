@@ -65,11 +65,8 @@ export default function GuidelinesPage() {
         "All models must be optimized for real-time rendering",
         "Polygon count should not exceed 10,000 for furniture items",
         "Textures must be power-of-2 dimensions (512x512, 1024x1024, etc.)",
-        "UV mapping should be clean with minimal stretching",
         "Models must be properly centered at origin (0,0,0)",
         "All materials should use PBR workflow",
-        "No overlapping geometry or non-manifold edges",
-        "Models must be exported in GLB format",
       ],
     },
     {
@@ -86,9 +83,6 @@ export default function GuidelinesPage() {
         "Include all textures embedded in the GLB file",
         "Use descriptive file names: ClientName_ProductName.glb",
         "Provide preview images in JPG format (1024x1024)",
-        "Include material information in separate text file",
-        "All textures must be in PNG or JPG format",
-        "Document any special requirements or notes",
       ],
     },
     {
@@ -102,70 +96,9 @@ export default function GuidelinesPage() {
       items: [
         "Use proper topology with clean edge flow",
         "Maintain consistent scale across all models",
-        "Include proper edge loops for deformation",
-        "Use quads where possible, avoid n-gons",
         "Keep models watertight (no holes or gaps)",
-        "Use appropriate subdivision levels",
-        "Include proper smoothing groups",
+        "Use quads where possible, avoid n-gons",
         "Optimize geometry for target platform",
-      ],
-    },
-    {
-      id: "texturing-guidelines",
-      title: "Texturing Guidelines",
-      description: "Texture creation and mapping standards",
-      icon: Target,
-      color: "text-warning",
-      bgColor: "bg-warning-muted",
-      priority: "medium",
-      items: [
-        "Use high-quality reference images",
-        "Create seamless textures where appropriate",
-        "Maintain consistent texture resolution",
-        "Use proper UV mapping techniques",
-        "Include normal maps for detail",
-        "Create roughness/metallic maps",
-        "Ensure proper texture tiling",
-        "Test textures in different lighting conditions",
-      ],
-    },
-    {
-      id: "workflow-process",
-      title: "Workflow Process",
-      description: "Step-by-step process for model creation",
-      icon: Clock,
-      color: "text-accent-blue",
-      bgColor: "bg-accent-blue/10",
-      priority: "low",
-      items: [
-        "Review reference images and requirements",
-        "Create low-poly base mesh",
-        "UV unwrap and organize texture space",
-        "Create high-poly version for baking",
-        "Bake normal maps and other textures",
-        "Create final textures and materials",
-        "Optimize model for target platform",
-        "Test in real-time viewer",
-        "Submit for review and feedback",
-      ],
-    },
-    {
-      id: "communication",
-      title: "Communication Standards",
-      description: "How to communicate with clients and team",
-      icon: Users,
-      color: "text-accent-cyan",
-      bgColor: "bg-accent-cyan/10",
-      priority: "low",
-      items: [
-        "Respond to messages within 24 hours",
-        "Provide regular progress updates",
-        "Ask questions early if requirements are unclear",
-        "Document any changes or deviations",
-        "Use clear, professional language",
-        "Include screenshots for visual feedback",
-        "Report issues or delays immediately",
-        "Maintain positive, collaborative attitude",
       ],
     },
   ];
@@ -207,9 +140,9 @@ export default function GuidelinesPage() {
       </div>
 
       {/* Guidelines Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {guidelines.map((section) => (
-          <Card key={section.id} className="overflow-hidden">
+          <Card key={section.id} className="overflow-hidden w-full">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -248,60 +181,6 @@ export default function GuidelinesPage() {
           </Card>
         ))}
       </div>
-
-      {/* Additional Resources */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            Additional Resources
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <h4 className="font-medium">Software Tutorials</h4>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <ExternalLink className="h-3 w-3" />
-                  <a href="#" className="text-info hover:underline">
-                    Blender Modeling Guide
-                  </a>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <ExternalLink className="h-3 w-3" />
-                  <a href="#" className="text-info hover:underline">
-                    Maya Workflow Tips
-                  </a>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <ExternalLink className="h-3 w-3" />
-                  <a href="#" className="text-info hover:underline">
-                    3ds Max Optimization
-                  </a>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <h4 className="font-medium">Quality Assurance</h4>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Star className="h-3 w-3 text-warning" />
-                  <span>Review checklist template</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Settings className="h-3 w-3 text-info" />
-                  <span>Performance testing guide</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Target className="h-3 w-3 text-success" />
-                  <span>Quality metrics explained</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
