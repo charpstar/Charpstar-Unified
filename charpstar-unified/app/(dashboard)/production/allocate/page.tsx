@@ -162,8 +162,10 @@ export default function AllocateAssetsPage() {
   );
   const [globalTeamAssignment, setGlobalTeamAssignment] = useState<{
     modelerId: string;
+    qaId: string;
   }>({
     modelerId: "",
+    qaId: "",
   });
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,12 +268,19 @@ export default function AllocateAssetsPage() {
   // Initialize allocation data for selected assets
   const initializeAllocationData = () => {
     const modelers = users.filter((u) => u.role === "modeler");
+    const qas = users.filter((u) => u.role === "qa");
 
     // Set global team assignment defaults
     if (modelers.length > 0 && !globalTeamAssignment.modelerId) {
       setGlobalTeamAssignment((prev) => ({
         ...prev,
         modelerId: modelers[0].id,
+      }));
+    }
+    if (qas.length > 0 && !globalTeamAssignment.qaId) {
+      setGlobalTeamAssignment((prev) => ({
+        ...prev,
+        qaId: qas[0].id,
       }));
     }
 
@@ -281,7 +290,7 @@ export default function AllocateAssetsPage() {
         modelerId:
           globalTeamAssignment.modelerId ||
           (modelers.length > 0 ? modelers[0].id : ""),
-        qaId: "", // QA will be implemented in next phase
+        qaId: globalTeamAssignment.qaId || (qas.length > 0 ? qas[0].id : ""),
         price: 0,
         pricingOptionId: "pbr_3d_model", // Default to PBR 3D Model Creation
       })
@@ -305,8 +314,8 @@ export default function AllocateAssetsPage() {
   const handleNextStep = () => {
     if (step === 1) {
       // Validate that global team assignment is complete
-      if (!globalTeamAssignment.modelerId) {
-        toast.error("Please assign a modeler for all assets");
+      if (!globalTeamAssignment.modelerId || !globalTeamAssignment.qaId) {
+        toast.error("Please assign both a modeler and a QA for all assets");
         return;
       }
       setStep(2);
@@ -334,12 +343,15 @@ export default function AllocateAssetsPage() {
   };
 
   // Update global team assignment and apply to all assets
-  const updateGlobalTeamAssignment = (value: string) => {
-    setGlobalTeamAssignment((prev) => ({ ...prev, modelerId: value }));
+  const updateGlobalTeamAssignment = (
+    field: "modelerId" | "qaId",
+    value: string
+  ) => {
+    setGlobalTeamAssignment((prev) => ({ ...prev, [field]: value }));
 
     // Apply the change to all assets
     setAllocationData((prev) =>
-      prev.map((item) => ({ ...item, modelerId: value }))
+      prev.map((item) => ({ ...item, [field]: value }))
     );
   };
 
@@ -349,8 +361,10 @@ export default function AllocateAssetsPage() {
       setLoading(true);
 
       // Validate that a modeler is selected
-      if (!globalTeamAssignment.modelerId) {
-        toast.error("Please select a modeler for the asset group");
+      if (!globalTeamAssignment.modelerId || !globalTeamAssignment.qaId) {
+        toast.error(
+          "Please select both a modeler and a QA for the asset group"
+        );
         return;
       }
 
@@ -429,11 +443,41 @@ export default function AllocateAssetsPage() {
 
       const result = await response.json();
 
-      // Send notifications to assigned modelers
+      // Assign QA to the same assets
+      const qaResponse = await fetch("/api/assets/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetIds: assetsToAllocate.map((data) => data.assetId),
+          userIds: [globalTeamAssignment.qaId],
+          role: "qa",
+          deadline: new Date(
+            groupSettings.deadline + "T00:00:00.000Z"
+          ).toISOString(),
+          bonus: 0, // QA doesn't get bonus
+          allocationName: `QA Allocation ${new Date().toISOString().split("T")[0]} - ${assetsToAllocate.length} assets`,
+          prices: {}, // QA doesn't have pricing
+        }),
+      });
+
+      if (!qaResponse.ok) {
+        const qaErrorData = await qaResponse.json();
+        console.error("QA assignment failed:", qaErrorData);
+        // Don't fail the entire process if QA assignment fails
+        toast.warning(
+          "Modeler assigned successfully, but QA assignment failed"
+        );
+      }
+
+      // Send notifications to assigned modelers and QA
       try {
         const modeler = users.find(
           (u) => u.id === globalTeamAssignment.modelerId
         );
+        const qa = users.find((u) => u.id === globalTeamAssignment.qaId);
+
         if (modeler) {
           const assetDetails = assetsToAllocate.map((data) => {
             const asset = getAssetById(data.assetId);
@@ -450,6 +494,27 @@ export default function AllocateAssetsPage() {
             ).toISOString(),
             price: assetsToAllocate.reduce((sum, data) => sum + data.price, 0),
             bonus: groupSettings.bonus,
+            client:
+              getAssetById(assetsToAllocate[0].assetId)?.client || "Unknown",
+          });
+        }
+
+        if (qa) {
+          const assetDetails = assetsToAllocate.map((data) => {
+            const asset = getAssetById(data.assetId);
+            return asset?.product_name || data.assetId;
+          });
+
+          await notificationService.sendAssetAllocationNotification({
+            modelerId: globalTeamAssignment.qaId,
+            modelerEmail: qa.email,
+            assetIds: assetsToAllocate.map((data) => data.assetId),
+            assetNames: assetDetails,
+            deadline: new Date(
+              groupSettings.deadline + "T00:00:00.000Z"
+            ).toISOString(),
+            price: 0, // QA doesn't get paid for review
+            bonus: 0, // QA doesn't get bonus
             client:
               getAssetById(assetsToAllocate[0].assetId)?.client || "Unknown",
           });
@@ -542,9 +607,13 @@ export default function AllocateAssetsPage() {
             <div>
               <p className="text-sm font-medium">Step 1: Assign Team</p>
               <p className="text-xs text-muted-foreground">
-                {globalTeamAssignment.modelerId
-                  ? "Modeler assigned"
-                  : "No modeler selected"}
+                {globalTeamAssignment.modelerId && globalTeamAssignment.qaId
+                  ? "Modeler and QA assigned"
+                  : globalTeamAssignment.modelerId
+                    ? "Modeler assigned, QA needed"
+                    : globalTeamAssignment.qaId
+                      ? "QA assigned, modeler needed"
+                      : "No assignments"}
               </p>
             </div>
           </div>
@@ -573,7 +642,7 @@ export default function AllocateAssetsPage() {
         /* Step 1: Team Assignment */
         <Card>
           <CardHeader>
-            <CardTitle>Assign Modeler to All Assets</CardTitle>
+            <CardTitle>Assign Modeler & QA to All Assets</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
@@ -587,7 +656,9 @@ export default function AllocateAssetsPage() {
                   </label>
                   <Select
                     value={globalTeamAssignment.modelerId}
-                    onValueChange={(value) => updateGlobalTeamAssignment(value)}
+                    onValueChange={(value) =>
+                      updateGlobalTeamAssignment("modelerId", value)
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Choose modeler" />
@@ -595,6 +666,32 @@ export default function AllocateAssetsPage() {
                     <SelectContent>
                       {users
                         .filter((u) => u.role === "modeler")
+                        .map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.email}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* QA Assignment */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium flex items-center">
+                    <User className="h-4 w-4 mr-2" />
+                    QA
+                  </label>
+                  <Select
+                    value={globalTeamAssignment.qaId}
+                    onValueChange={(value) =>
+                      updateGlobalTeamAssignment("qaId", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose QA" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users
+                        .filter((u) => u.role === "qa")
                         .map((user) => (
                           <SelectItem key={user.id} value={user.id}>
                             {user.email}
@@ -642,18 +739,22 @@ export default function AllocateAssetsPage() {
               {/* Step Navigation */}
               <div className="flex items-center justify-between pt-6 border-t mt-6">
                 <div className="text-sm text-muted-foreground">
-                  {globalTeamAssignment.modelerId ? (
+                  {globalTeamAssignment.modelerId &&
+                  globalTeamAssignment.qaId ? (
                     <span className="flex items-center gap-2">
                       <User className="h-4 w-4" />
-                      Modeler assigned
+                      Modeler and QA assigned
                     </span>
                   ) : (
-                    "Select a modeler to continue"
+                    "Select both a modeler and a QA to continue"
                   )}
                 </div>
                 <Button
                   onClick={handleNextStep}
-                  disabled={!globalTeamAssignment.modelerId}
+                  disabled={
+                    !globalTeamAssignment.modelerId ||
+                    !globalTeamAssignment.qaId
+                  }
                   className="flex items-center gap-2"
                 >
                   <ArrowRight className="h-4 w-4" />
@@ -893,6 +994,7 @@ export default function AllocateAssetsPage() {
                   disabled={
                     loading ||
                     !globalTeamAssignment.modelerId ||
+                    !globalTeamAssignment.qaId ||
                     !groupSettings.deadline ||
                     allocationData.some((data) => data.price <= 0) ||
                     allocationData.some((data) => !data.pricingOptionId)

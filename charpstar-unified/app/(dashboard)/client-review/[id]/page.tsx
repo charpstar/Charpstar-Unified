@@ -215,8 +215,13 @@ export default function ReviewPage() {
     async function fetchAsset() {
       if (!assetId) return;
 
-      // For admin users, don't require client metadata
-      if (!user?.metadata?.client && user?.metadata?.role !== "admin") return;
+      // For admin and QA users, don't require client metadata
+      if (
+        !user?.metadata?.client &&
+        user?.metadata?.role !== "admin" &&
+        user?.metadata?.role !== "qa"
+      )
+        return;
 
       setLoading(true);
 
@@ -225,8 +230,8 @@ export default function ReviewPage() {
         .select("*")
         .eq("id", assetId);
 
-      // Only filter by client if user is not admin
-      if (user?.metadata?.role !== "admin") {
+      // Only filter by client if user is not admin or QA
+      if (user?.metadata?.role !== "admin" && user?.metadata?.role !== "qa") {
         query = query.eq("client", user.metadata.client);
       }
 
@@ -1168,6 +1173,31 @@ export default function ReviewPage() {
       // If status is approved, update the modeler's end time
       if (newStatus === "approved") {
         await updateModelerEndTime(assetId);
+
+        // Dispatch custom event for QA metrics tracking if user is QA
+        if (user?.metadata?.role === "qa") {
+          // Insert record into qa_approvals table
+          const { error: approvalError } = await supabase
+            .from("qa_approvals")
+            .insert({
+              qa_id: user.id,
+              asset_id: assetId,
+              approved_at: new Date().toISOString(),
+            });
+
+          if (approvalError) {
+            console.error("Error inserting QA approval record:", approvalError);
+          }
+
+          window.dispatchEvent(
+            new CustomEvent("qaApproval", {
+              detail: {
+                assetId,
+                approvedAt: new Date().toISOString(),
+              },
+            })
+          );
+        }
       }
 
       // Update local state

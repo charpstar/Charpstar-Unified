@@ -148,6 +148,23 @@ export default function AppSidebar({
         ]
       : [];
 
+  // QA-only navigation items
+  const qaNavItems =
+    user?.metadata?.role === "qa"
+      ? [
+          {
+            title: "QA Review",
+            url: "/qa-review",
+            icon: MessageSquare,
+          },
+          {
+            title: "Guidelines",
+            url: "/guidelines",
+            icon: FileText,
+          },
+        ]
+      : [];
+
   // Add 3D Editor only if user has client_config
   const navMain =
     clientName && clientName.trim() !== ""
@@ -155,13 +172,14 @@ export default function AppSidebar({
           ...baseNavItems,
           ...adminNavItems,
           ...modelerNavItems,
+          ...qaNavItems,
           {
             title: "3D Editor",
             url: `/3d-editor/${clientName}`,
             icon: Box,
           },
         ]
-      : [...baseNavItems, ...adminNavItems, ...modelerNavItems];
+      : [...baseNavItems, ...adminNavItems, ...modelerNavItems, ...qaNavItems];
 
   const data = {
     user: {

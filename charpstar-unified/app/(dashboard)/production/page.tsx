@@ -44,12 +44,19 @@ import {
   RotateCcw,
   Info,
 } from "lucide-react";
+import { DateRangePicker } from "@/components/ui/utilities";
+import type { DateRange } from "react-day-picker";
 import {
   PieChart,
   Pie,
   Cell,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
 } from "recharts";
 
 interface BatchProgress {
@@ -105,6 +112,58 @@ interface ModelerProgress {
   };
 }
 
+interface QAProgress {
+  id: string;
+  email: string;
+  name?: string;
+  totalAssigned: number;
+  completedReviews: number;
+  inProgressReviews: number;
+  pendingReviews: number;
+  revisionReviews: number;
+  completionPercentage: number;
+  assignedBatches: Array<{ client: string; batch: number }>;
+  statusCounts: {
+    in_production: number;
+    revisions: number;
+    approved: number;
+    delivered_by_artist: number;
+  };
+  reviewStats: {
+    averageReviewTime: number;
+    totalReviews: number;
+    fastestReview: number;
+    slowestReview: number;
+    revisionRate: number;
+    totalRevisions: number;
+  };
+  // New fields for enhanced QA statistics
+  connectedModelers: Array<{
+    id: string;
+    email: string;
+    name?: string;
+    totalAssets: number;
+    completedAssets: number;
+    inProgressAssets: number;
+    pendingAssets: number;
+    revisionAssets: number;
+    completionPercentage: number;
+    clients: string[];
+  }>;
+  totalModelers: number;
+  totalModelerAssets: number;
+  totalModelerCompleted: number;
+  modelerCompletionRate: number;
+  // Chart data for the last 7 days
+  chartData: Array<{
+    date: string;
+    reviewed: number;
+    approved: number;
+  }>;
+  // Date range for chart data
+  chartDateRange: DateRange;
+}
+
 // Helper function to check if deadline is overdue
 const isOverdue = (deadline: string) => {
   return new Date(deadline) < new Date();
@@ -119,7 +178,12 @@ export default function ProductionDashboard() {
   const [filteredModelers, setFilteredModelers] = useState<ModelerProgress[]>(
     []
   );
+  const [qaUsers, setQAUsers] = useState<QAProgress[]>([]);
+  const [filteredQAUsers, setFilteredQAUsers] = useState<QAProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartLoadingStates, setChartLoadingStates] = useState<
+    Record<string, boolean>
+  >({});
 
   // Get state from URL params with defaults
   const searchTerm = searchParams.get("search") || "";
@@ -128,10 +192,10 @@ export default function ProductionDashboard() {
 
   // Get view mode from URL params, default to "batches"
   const viewMode =
-    (searchParams.get("view") as "batches" | "modelers") || "batches";
+    (searchParams.get("view") as "batches" | "modelers" | "qa") || "batches";
 
   // Function to handle view mode changes and update URL
-  const handleViewModeChange = (newViewMode: "batches" | "modelers") => {
+  const handleViewModeChange = (newViewMode: "batches" | "modelers" | "qa") => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("view", newViewMode);
     router.push(`/production?${params.toString()}`);
@@ -405,6 +469,9 @@ export default function ProductionDashboard() {
 
       // Fetch modeler data
       await fetchModelerProgress(assetData || []);
+
+      // Fetch QA data
+      await fetchQAProgress(assetData || []);
     } catch (error) {
       console.error("Error fetching client progress:", error);
     } finally {
@@ -415,6 +482,17 @@ export default function ProductionDashboard() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchModelerProgress = async (assetData: any[]) => {
     try {
+      // Get all modelers from profiles table
+      const { data: modelerDetails, error: userError } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .eq("role", "modeler");
+
+      if (userError) {
+        console.error("Error fetching modeler details:", userError);
+        return;
+      }
+
       // Get all individual asset assignments for modelers
       const { data: assetAssignments, error: assignmentsError } = await supabase
         .from("asset_assignments")
@@ -432,24 +510,10 @@ export default function ProductionDashboard() {
         return;
       }
 
-      // Get modeler user details
-      const modelerIds = [
-        ...new Set(assetAssignments?.map((a) => a.user_id) || []),
-      ];
-      const { data: modelerDetails, error: userError } = await supabase
-        .from("profiles")
-        .select("id, email, title")
-        .in("id", modelerIds);
-
-      if (userError) {
-        console.error("Error fetching modeler details:", userError);
-        return;
-      }
-
       // Create modeler progress map
       const modelerMap = new Map<string, ModelerProgress>();
 
-      // Initialize modelers
+      // Initialize all modelers (even those without assignments)
       modelerDetails?.forEach((modeler) => {
         modelerMap.set(modeler.id, {
           id: modeler.id,
@@ -582,37 +646,37 @@ export default function ProductionDashboard() {
             const slowest = Math.max(...completionTimes);
 
             modeler.completionStats = {
-              averageHours: Math.round(avgHours * 10) / 10,
-              averageDays: Math.round((avgHours / 24) * 10) / 10,
+              averageHours: Math.round(avgHours * 100) / 100,
+              averageDays: Math.round((avgHours / 24) * 100) / 100,
               averageMinutes: Math.round(avgHours * 60),
               totalCompleted: completionTimes.length,
-              fastestCompletion: Math.round(fastest * 10) / 10,
-              slowestCompletion: Math.round(slowest * 10) / 10,
+              fastestCompletion: Math.round(fastest * 100) / 100,
+              slowestCompletion: Math.round(slowest * 100) / 100,
               fastestCompletionMinutes: Math.round(fastest * 60),
               slowestCompletionMinutes: Math.round(slowest * 60),
-              revisionRate: Math.round(revisionRate * 10) / 10,
-              totalRevisions: totalRevisions,
+              revisionRate: Math.round(revisionRate * 100) / 100,
+              totalRevisions,
             };
           }
         } catch (error) {
           console.error(
-            `Error fetching completion stats for ${modeler.email}:`,
+            `Error fetching completion stats for modeler ${modeler.id}:`,
             error
           );
         }
       }
 
       // Calculate completion percentages
-      const modelersArray = Array.from(modelerMap.values()).map((modeler) => ({
-        ...modeler,
-        completionPercentage:
+      modelerMap.forEach((modeler) => {
+        modeler.completionPercentage =
           modeler.totalAssigned > 0
             ? Math.round(
                 (modeler.completedModels / modeler.totalAssigned) * 100
               )
-            : 0,
-      }));
+            : 0;
+      });
 
+      const modelersArray = Array.from(modelerMap.values());
       setModelers(modelersArray);
       setFilteredModelers(modelersArray);
     } catch (error) {
@@ -620,120 +684,474 @@ export default function ProductionDashboard() {
     }
   };
 
+  // Fetch QA progress data
+  const fetchQAProgress = async (assetData: any[]) => {
+    try {
+      // Get all QA users from profiles table
+      const { data: qaDetails, error: userError } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .eq("role", "qa");
+
+      if (userError) {
+        console.error("Error fetching QA details:", userError);
+        return;
+      }
+
+      // Get all individual asset assignments for QA users
+      const { data: assetAssignments, error: assignmentsError } = await supabase
+        .from("asset_assignments")
+        .select(
+          `
+            user_id,
+            asset_id,
+            onboarding_assets!inner(client, batch, status)
+          `
+        )
+        .eq("role", "qa");
+
+      if (assignmentsError) {
+        console.error("Error fetching QA asset assignments:", assignmentsError);
+        return;
+      }
+
+      // Create QA progress map
+      const qaMap = new Map<string, QAProgress>();
+
+      // Initialize all QA users (even those without assignments)
+      qaDetails?.forEach((qa) => {
+        qaMap.set(qa.id, {
+          id: qa.id,
+          email: qa.email,
+          name: qa.title,
+          totalAssigned: 0,
+          completedReviews: 0,
+          inProgressReviews: 0,
+          pendingReviews: 0,
+          revisionReviews: 0,
+          completionPercentage: 0,
+          assignedBatches: [],
+          statusCounts: {
+            in_production: 0,
+            revisions: 0,
+            approved: 0,
+            delivered_by_artist: 0,
+          },
+          reviewStats: {
+            averageReviewTime: 0,
+            totalReviews: 0,
+            fastestReview: 0,
+            slowestReview: 0,
+            revisionRate: 0,
+            totalRevisions: 0,
+          },
+          // Initialize new fields
+          connectedModelers: [],
+          totalModelers: 0,
+          totalModelerAssets: 0,
+          totalModelerCompleted: 0,
+          modelerCompletionRate: 0,
+          chartData: [],
+          chartDateRange: {
+            from: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), // 7 days ago
+            to: new Date(), // today
+          },
+        });
+      });
+
+      // Process individual asset assignments
+      assetAssignments?.forEach((assignment) => {
+        const qaUser = qaMap.get(assignment.user_id);
+        if (!qaUser) return;
+
+        const asset = assignment.onboarding_assets as any;
+        if (!asset) return;
+
+        // Add to assigned batches (avoid duplicates)
+        const batchKey = `${asset.client}-${asset.batch}`;
+        const existingBatch = qaUser.assignedBatches.find(
+          (b) => `${b.client}-${b.batch}` === batchKey
+        );
+        if (!existingBatch) {
+          qaUser.assignedBatches.push({
+            client: asset.client,
+            batch: asset.batch,
+          });
+        }
+
+        // Count this asset
+        qaUser.totalAssigned++;
+
+        // Count by status
+        if (asset.status) {
+          if (asset.status in qaUser.statusCounts) {
+            qaUser.statusCounts[
+              asset.status as keyof typeof qaUser.statusCounts
+            ]++;
+          }
+        }
+
+        // Count by category
+        if (asset.status === "approved") {
+          qaUser.completedReviews++;
+        } else if (asset.status === "delivered_by_artist") {
+          qaUser.inProgressReviews++;
+        } else if (asset.status === "revisions") {
+          qaUser.revisionReviews++;
+        } else if (!asset.status || asset.status === "not_started") {
+          qaUser.pendingReviews++;
+        }
+      });
+
+      // Calculate completion percentages
+      qaMap.forEach((qaUser) => {
+        qaUser.completionPercentage =
+          qaUser.totalAssigned > 0
+            ? Math.round((qaUser.completedReviews / qaUser.totalAssigned) * 100)
+            : 0;
+      });
+
+      // Now fetch connected modelers and their statistics for each QA
+      for (const qaUser of qaMap.values()) {
+        // Get QA allocations to find connected modelers
+        const { data: qaAllocations, error: allocationError } = await supabase
+          .from("qa_allocations")
+          .select("modeler_id")
+          .eq("qa_id", qaUser.id);
+
+        if (allocationError) {
+          console.error("Error fetching QA allocations:", allocationError);
+          continue;
+        }
+
+        if (!qaAllocations || qaAllocations.length === 0) {
+          qaUser.totalModelers = 0;
+          qaUser.totalModelerAssets = 0;
+          qaUser.totalModelerCompleted = 0;
+          qaUser.modelerCompletionRate = 0;
+          continue;
+        }
+
+        const modelerIds = qaAllocations.map(
+          (allocation) => allocation.modeler_id
+        );
+
+        // Get modeler details
+        const { data: modelerDetails, error: modelerError } = await supabase
+          .from("profiles")
+          .select("id, email, title")
+          .in("id", modelerIds);
+
+        if (modelerError) {
+          console.error("Error fetching modeler details:", modelerError);
+          continue;
+        }
+
+        // Get assets assigned to these modelers
+        const { data: modelerAssets, error: assetsError } = await supabase
+          .from("asset_assignments")
+          .select(
+            `
+            user_id,
+            asset_id,
+            onboarding_assets!inner(
+              id,
+              client,
+              batch,
+              status,
+              created_at
+            )
+          `
+          )
+          .in("user_id", modelerIds)
+          .eq("role", "modeler");
+
+        if (assetsError) {
+          console.error("Error fetching modeler assets:", assetsError);
+          continue;
+        }
+
+        // Calculate modeler statistics
+        const modelerStats = new Map();
+        const clientSet = new Set<string>();
+
+        modelerDetails?.forEach((modeler) => {
+          modelerStats.set(modeler.id, {
+            id: modeler.id,
+            email: modeler.email,
+            name: modeler.title,
+            totalAssets: 0,
+            completedAssets: 0,
+            inProgressAssets: 0,
+            pendingAssets: 0,
+            revisionAssets: 0,
+            completionPercentage: 0,
+            clients: [],
+          });
+        });
+
+        // Process modeler assets
+        modelerAssets?.forEach((assignment) => {
+          const modeler = modelerStats.get(assignment.user_id);
+          if (!modeler) return;
+
+          const asset = assignment.onboarding_assets as any;
+          if (!asset) return;
+
+          modeler.totalAssets++;
+          clientSet.add(asset.client);
+
+          if (!modeler.clients.includes(asset.client)) {
+            modeler.clients.push(asset.client);
+          }
+
+          switch (asset.status) {
+            case "approved":
+              modeler.completedAssets++;
+              break;
+            case "in_production":
+              modeler.inProgressAssets++;
+              break;
+            case "delivered_by_artist":
+              modeler.pendingAssets++;
+              break;
+            case "revisions":
+              modeler.revisionAssets++;
+              break;
+            default:
+              modeler.pendingAssets++;
+              break;
+          }
+        });
+
+        // Calculate completion percentages for modelers
+        modelerStats.forEach((modeler) => {
+          modeler.completionPercentage =
+            modeler.totalAssets > 0
+              ? Math.round(
+                  (modeler.completedAssets / modeler.totalAssets) * 100
+                )
+              : 0;
+        });
+
+        // Calculate overall QA statistics
+        const connectedModelers = Array.from(modelerStats.values());
+        const totalModelerAssets = connectedModelers.reduce(
+          (sum, m) => sum + m.totalAssets,
+          0
+        );
+        const totalModelerCompleted = connectedModelers.reduce(
+          (sum, m) => sum + m.completedAssets,
+          0
+        );
+
+        qaUser.connectedModelers = connectedModelers;
+        qaUser.totalModelers = connectedModelers.length;
+        qaUser.totalModelerAssets = totalModelerAssets;
+        qaUser.totalModelerCompleted = totalModelerCompleted;
+        qaUser.modelerCompletionRate =
+          totalModelerAssets > 0
+            ? Math.round((totalModelerCompleted / totalModelerAssets) * 100)
+            : 0;
+
+        // Generate chart data for the selected date range (optimized)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6); // 7 days total (including today)
+        const today = new Date();
+
+        const fromDateStr = sevenDaysAgo.toISOString().split("T")[0];
+        const toDateStr = today.toISOString().split("T")[0];
+
+        // Fetch all QA approvals for the date range
+        const { data: approvals } = await supabase
+          .from("qa_approvals")
+          .select("approved_at")
+          .eq("qa_id", qaUser.id)
+          .gte("approved_at", fromDateStr + "T00:00:00")
+          .lte("approved_at", toDateStr + "T23:59:59");
+
+        // Fetch all QA comments for the date range
+        const { data: comments } = await supabase
+          .from("asset_comments")
+          .select("created_at")
+          .eq("created_by", qaUser.id)
+          .gte("created_at", fromDateStr + "T00:00:00")
+          .lte("created_at", toDateStr + "T23:59:59");
+
+        // Fetch all QA revisions for the date range
+        const { data: revisions } = await supabase
+          .from("revision_history")
+          .select("created_at")
+          .eq("created_by", qaUser.id)
+          .gte("created_at", fromDateStr + "T00:00:00")
+          .lte("created_at", toDateStr + "T23:59:59");
+
+        // Process data on client side
+        const chartData: Array<{
+          date: string;
+          reviewed: number;
+          approved: number;
+        }> = [];
+        const currentDate = new Date(sevenDaysAgo);
+
+        while (currentDate <= today) {
+          const dateStr = currentDate.toISOString().split("T")[0];
+
+          // Count approvals for this date
+          const dayApprovals =
+            approvals?.filter((approval) =>
+              approval.approved_at.startsWith(dateStr)
+            ).length || 0;
+
+          // Count comments for this date
+          const dayComments =
+            comments?.filter((comment) =>
+              comment.created_at.startsWith(dateStr)
+            ).length || 0;
+
+          // Count revisions for this date
+          const dayRevisions =
+            revisions?.filter((revision) =>
+              revision.created_at.startsWith(dateStr)
+            ).length || 0;
+
+          const reviewed = dayComments + dayRevisions;
+          const approved = dayApprovals;
+
+          chartData.push({
+            date: dateStr,
+            reviewed,
+            approved,
+          });
+
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        qaUser.chartData = chartData;
+        qaUser.chartDateRange = {
+          from: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), // 7 days ago
+          to: new Date(), // today
+        };
+      }
+
+      const qaArray = Array.from(qaMap.values());
+      setQAUsers(qaArray);
+      setFilteredQAUsers(qaArray);
+    } catch (error) {
+      console.error("Error fetching QA progress:", error);
+    }
+  };
+
   // Filter and sort batches based on search term, client filter, and sort criteria
   useEffect(() => {
-    if (viewMode === "batches") {
-      let filtered = batches;
+    let filtered = [...batches];
 
-      // Apply search filter
-      if (searchTerm) {
-        filtered = filtered.filter((batch) =>
-          batch.client.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
-
-      // Apply client filter
-      if (clientFilter !== "all") {
-        filtered = filtered.filter((batch) => batch.client === clientFilter);
-      }
-
-      // Apply sorting
-      filtered.sort((a, b) => {
-        switch (sortBy) {
-          case "client-batch":
-          case "client-batch-stable":
-            // Sort by client name first, then by batch number (stable order)
-            const clientComparison = a.client.localeCompare(b.client);
-            if (clientComparison !== 0) return clientComparison;
-            return a.batch - b.batch;
-
-          case "batch-client":
-            // Sort by batch number first, then by client name
-            const batchComparison = a.batch - b.batch;
-            if (batchComparison !== 0) return batchComparison;
-            return a.client.localeCompare(b.client);
-
-          case "completion-high":
-            // Sort by completion percentage (highest first)
-            return b.completionPercentage - a.completionPercentage;
-
-          case "completion-low":
-            // Sort by completion percentage (lowest first)
-            return a.completionPercentage - b.completionPercentage;
-
-          case "total-models-high":
-            // Sort by total models (highest first)
-            return b.totalModels - a.totalModels;
-
-          case "total-models-low":
-            // Sort by total models (lowest first)
-            return a.totalModels - b.totalModels;
-
-          case "deadline-asc":
-            // Sort by deadline (earliest first)
-            return (
-              new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
-            );
-
-          case "deadline-desc":
-            // Sort by deadline (latest first)
-            return (
-              new Date(b.deadline).getTime() - new Date(a.deadline).getTime()
-            );
-
-          case "start-date-asc":
-            // Sort by start date (earliest first)
-            return (
-              new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-            );
-
-          case "start-date-desc":
-            // Sort by start date (latest first)
-            return (
-              new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-            );
-
-          default:
-            return 0;
-        }
-      });
-
-      setFilteredBatches(filtered);
-    } else {
-      // Filter and sort modelers
-      let filtered = modelers;
-
-      // Apply search filter
-      if (searchTerm) {
-        filtered = filtered.filter(
-          (modeler) =>
-            modeler.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (modeler.name &&
-              modeler.name.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
-      }
-
-      // Apply sorting for modelers
-      filtered.sort((a, b) => {
-        switch (sortBy) {
-          case "completion-high":
-            return b.completionPercentage - a.completionPercentage;
-          case "completion-low":
-            return a.completionPercentage - b.completionPercentage;
-          case "total-models-high":
-            return b.totalAssigned - a.totalAssigned;
-          case "total-models-low":
-            return a.totalAssigned - b.totalAssigned;
-          case "name":
-            return (a.name || a.email).localeCompare(b.name || b.email);
-          default:
-            return b.completionPercentage - a.completionPercentage;
-        }
-      });
-
-      setFilteredModelers(filtered);
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter((batch) =>
+        batch.client.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-  }, [batches, modelers, searchTerm, clientFilter, sortBy, viewMode]);
+
+    // Apply client filter
+    if (clientFilter !== "all") {
+      filtered = filtered.filter((batch) => batch.client === clientFilter);
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "client-batch-stable":
+          // Sort by client first, then by batch number
+          const clientComparison = a.client.localeCompare(b.client);
+          if (clientComparison !== 0) return clientComparison;
+          return a.batch - b.batch;
+        case "client-batch":
+          // Sort by client first, then by batch number
+          const clientComp = a.client.localeCompare(b.client);
+          if (clientComp !== 0) return clientComp;
+          return a.batch - b.batch;
+        case "completion":
+          return b.completionPercentage - a.completionPercentage;
+        case "deadline":
+          return (
+            new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+          );
+        case "unassigned":
+          return b.unassignedAssets - a.unassignedAssets;
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredBatches(filtered);
+  }, [batches, searchTerm, clientFilter, sortBy]);
+
+  // Filter and sort modelers based on search term and sort criteria
+  useEffect(() => {
+    let filtered = [...modelers];
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (modeler) =>
+          modeler.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (modeler.name &&
+            modeler.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "completion":
+          return b.completionPercentage - a.completionPercentage;
+        case "total-assigned":
+          return b.totalAssigned - a.totalAssigned;
+        case "completed":
+          return b.completedModels - a.completedModels;
+        case "name":
+          return (a.name || a.email).localeCompare(b.name || b.email);
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredModelers(filtered);
+  }, [modelers, searchTerm, sortBy]);
+
+  // Filter and sort QA users based on search term and sort criteria
+  useEffect(() => {
+    let filtered = [...qaUsers];
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (qaUser) =>
+          qaUser.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (qaUser.name &&
+            qaUser.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "completion":
+          return b.completionPercentage - a.completionPercentage;
+        case "total-assigned":
+          return b.totalAssigned - a.totalAssigned;
+        case "completed":
+          return b.completedReviews - a.completedReviews;
+        case "name":
+          return (a.name || a.email).localeCompare(b.name || b.email);
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredQAUsers(filtered);
+  }, [qaUsers, searchTerm, sortBy]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -784,6 +1202,100 @@ export default function ProductionDashboard() {
     );
   };
 
+  // Function to refetch chart data for a specific QA user
+  const refetchQAChartData = async (qaUserId: string, dateRange: DateRange) => {
+    if (!dateRange.from || !dateRange.to) return;
+
+    // Set loading state for this specific QA user
+    setChartLoadingStates((prev) => ({ ...prev, [qaUserId]: true }));
+
+    // Optimized: Fetch all data in single queries and process on client side
+    const fromDateStr = dateRange.from.toISOString().split("T")[0];
+    const toDateStr = dateRange.to.toISOString().split("T")[0];
+
+    // Fetch all QA approvals for the date range
+    const { data: approvals } = await supabase
+      .from("qa_approvals")
+      .select("approved_at")
+      .eq("qa_id", qaUserId)
+      .gte("approved_at", fromDateStr + "T00:00:00")
+      .lte("approved_at", toDateStr + "T23:59:59");
+
+    // Fetch all QA comments for the date range
+    const { data: comments } = await supabase
+      .from("asset_comments")
+      .select("created_at")
+      .eq("created_by", qaUserId)
+      .gte("created_at", fromDateStr + "T00:00:00")
+      .lte("created_at", toDateStr + "T23:59:59");
+
+    // Fetch all QA revisions for the date range
+    const { data: revisions } = await supabase
+      .from("revision_history")
+      .select("created_at")
+      .eq("created_by", qaUserId)
+      .gte("created_at", fromDateStr + "T00:00:00")
+      .lte("created_at", toDateStr + "T23:59:59");
+
+    // Process data on client side
+    const chartData: Array<{
+      date: string;
+      reviewed: number;
+      approved: number;
+    }> = [];
+    const currentDate = new Date(dateRange.from);
+
+    while (currentDate <= dateRange.to) {
+      const dateStr = currentDate.toISOString().split("T")[0];
+
+      // Count approvals for this date
+      const dayApprovals =
+        approvals?.filter((approval) =>
+          approval.approved_at.startsWith(dateStr)
+        ).length || 0;
+
+      // Count comments for this date
+      const dayComments =
+        comments?.filter((comment) => comment.created_at.startsWith(dateStr))
+          .length || 0;
+
+      // Count revisions for this date
+      const dayRevisions =
+        revisions?.filter((revision) => revision.created_at.startsWith(dateStr))
+          .length || 0;
+
+      const reviewed = dayComments + dayRevisions;
+      const approved = dayApprovals;
+
+      chartData.push({
+        date: dateStr,
+        reviewed,
+        approved,
+      });
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Update both QA users arrays
+    setQAUsers((prev) =>
+      prev.map((qa) =>
+        qa.id === qaUserId
+          ? { ...qa, chartData, chartDateRange: dateRange }
+          : qa
+      )
+    );
+    setFilteredQAUsers((prev) =>
+      prev.map((qa) =>
+        qa.id === qaUserId
+          ? { ...qa, chartData, chartDateRange: dateRange }
+          : qa
+      )
+    );
+
+    // Clear loading state
+    setChartLoadingStates((prev) => ({ ...prev, [qaUserId]: false }));
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -831,18 +1343,29 @@ export default function ProductionDashboard() {
               <Building className="h-4 w-4 mr-1" />
               Modelers
             </Button>
+            <Button
+              variant={viewMode === "qa" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => handleViewModeChange("qa")}
+              className="text-xs"
+            >
+              <Users className="h-4 w-4 mr-1" />
+              QA
+            </Button>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          <Button
-            onClick={() => router.push("/production/allocate")}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Package className="h-4 w-4 mr-2" />
-            Allocate Assets
-          </Button>
+          {viewMode === "qa" && (
+            <Button
+              onClick={() => router.push("/production/qa-allocation")}
+              variant="outline"
+            >
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              QA Allocation
+            </Button>
+          )}
         </div>
       </div>
 
@@ -854,7 +1377,9 @@ export default function ProductionDashboard() {
             placeholder={
               viewMode === "batches"
                 ? "Search clients..."
-                : "Search modelers..."
+                : viewMode === "modelers"
+                  ? "Search modelers..."
+                  : "Search QA users..."
             }
             value={searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -898,45 +1423,35 @@ export default function ProductionDashboard() {
                     Client → Batch (Stable)
                   </SelectItem>
                   <SelectItem value="client-batch">Client → Batch</SelectItem>
-                  <SelectItem value="batch-client">Batch → Client</SelectItem>
-                  <SelectItem value="completion-high">
-                    Completion % (High to Low)
+                  <SelectItem value="completion">
+                    Completion % (Highest)
                   </SelectItem>
-                  <SelectItem value="completion-low">
-                    Completion % (Low to High)
+                  <SelectItem value="deadline">Deadline (Earliest)</SelectItem>
+                  <SelectItem value="unassigned">
+                    Unassigned Assets (Most)
                   </SelectItem>
-                  <SelectItem value="total-models-high">
-                    Total Models (High to Low)
+                </>
+              ) : viewMode === "modelers" ? (
+                <>
+                  <SelectItem value="completion">
+                    Completion % (Highest)
                   </SelectItem>
-                  <SelectItem value="total-models-low">
-                    Total Models (Low to High)
+                  <SelectItem value="total-assigned">
+                    Total Assigned (Most)
                   </SelectItem>
-                  <SelectItem value="deadline-asc">
-                    Deadline (Earliest First)
-                  </SelectItem>
-                  <SelectItem value="deadline-desc">
-                    Deadline (Latest First)
-                  </SelectItem>
-                  <SelectItem value="start-date-asc">
-                    Start Date (Earliest First)
-                  </SelectItem>
-                  <SelectItem value="start-date-desc">
-                    Start Date (Latest First)
-                  </SelectItem>
+                  <SelectItem value="completed">Completed (Most)</SelectItem>
+                  <SelectItem value="name">Name (A-Z)</SelectItem>
                 </>
               ) : (
                 <>
-                  <SelectItem value="completion-high">
-                    Completion % (High to Low)
+                  <SelectItem value="completion">
+                    Completion % (Highest)
                   </SelectItem>
-                  <SelectItem value="completion-low">
-                    Completion % (Low to High)
+                  <SelectItem value="total-assigned">
+                    Total Assigned (Most)
                   </SelectItem>
-                  <SelectItem value="total-models-high">
-                    Total Models (High to Low)
-                  </SelectItem>
-                  <SelectItem value="total-models-low">
-                    Total Models (Low to High)
+                  <SelectItem value="completed">
+                    Completed Reviews (Most)
                   </SelectItem>
                   <SelectItem value="name">Name (A-Z)</SelectItem>
                 </>
@@ -952,9 +1467,20 @@ export default function ProductionDashboard() {
           Showing{" "}
           {viewMode === "batches"
             ? filteredBatches.length
-            : filteredModelers.length}{" "}
-          of {viewMode === "batches" ? batches.length : modelers.length}{" "}
-          {viewMode === "batches" ? "batches" : "modelers"}
+            : viewMode === "modelers"
+              ? filteredModelers.length
+              : filteredQAUsers.length}{" "}
+          of{" "}
+          {viewMode === "batches"
+            ? batches.length
+            : viewMode === "modelers"
+              ? modelers.length
+              : qaUsers.length}{" "}
+          {viewMode === "batches"
+            ? "batches"
+            : viewMode === "modelers"
+              ? "modelers"
+              : "QA users"}
         </p>
       </div>
 
@@ -1159,278 +1685,571 @@ export default function ProductionDashboard() {
                   </Card>
                 );
               })
-          : // Modeler Cards
-            filteredModelers.map((modeler) => {
-              // Prepare chart data for modeler
-              const chartData = Object.entries(modeler.statusCounts)
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                .filter(([_, count]) => count > 0)
-                .map(([status, count]) => ({
-                  name: getStatusLabel(status),
-                  value: count,
-                  color: getStatusColor(status),
-                }));
+          : viewMode === "modelers"
+            ? // Modeler Cards
+              filteredModelers.map((modeler) => {
+                // Prepare chart data for modeler
+                const chartData = Object.entries(modeler.statusCounts)
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  .filter(([_, count]) => count > 0)
+                  .map(([status, count]) => ({
+                    name: getStatusLabel(status),
+                    value: count,
+                    color: getStatusColor(status),
+                  }));
 
-              return (
-                <Card
-                  key={modeler.id}
-                  className="hover:shadow-lg transition-shadow"
-                >
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-2 cursor-help">
-                              <CardTitle className="text-lg font-semibold text-muted-foreground">
-                                {modeler.name || modeler.email.split("@")[0]}
-                              </CardTitle>
-                              <Info className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="right"
-                            className="max-w-sm bg-background border border-border text-muted-foreground"
-                          >
-                            <div className="space-y-2">
-                              <div className="font-semibold">
-                                Completion Statistics
+                return (
+                  <Card
+                    key={modeler.id}
+                    className="hover:shadow-lg transition-shadow"
+                  >
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center justify-between">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-2 cursor-help">
+                                <CardTitle className="text-lg font-semibold text-muted-foreground">
+                                  {modeler.name || modeler.email.split("@")[0]}
+                                </CardTitle>
+                                <Info className="h-4 w-4 text-muted-foreground" />
                               </div>
-                              {modeler.completionStats.totalCompleted > 0 ? (
-                                <>
-                                  <div className="text-sm">
-                                    <span className="font-medium text-muted-foreground">
-                                      Average Time:
-                                    </span>{" "}
-                                    {modeler.completionStats.averageMinutes}m (
-                                    {modeler.completionStats.averageHours}h)
-                                  </div>
-                                  <div className="text-sm">
-                                    <span className="font-medium text-muted-foreground">
-                                      Fastest:
-                                    </span>{" "}
-                                    {
-                                      modeler.completionStats
-                                        .fastestCompletionMinutes
-                                    }
-                                    m (
-                                    {modeler.completionStats.fastestCompletion}
-                                    h)
-                                  </div>
-                                  <div className="text-sm">
-                                    <span className="font-medium text-muted-foreground">
-                                      Slowest:
-                                    </span>{" "}
-                                    {
-                                      modeler.completionStats
-                                        .slowestCompletionMinutes
-                                    }
-                                    m (
-                                    {modeler.completionStats.slowestCompletion}
-                                    h)
-                                  </div>
-                                  <div className="text-sm">
-                                    <span className="font-medium text-muted-foreground">
-                                      Total Completed:
-                                    </span>{" "}
-                                    {modeler.completionStats.totalCompleted}
-                                  </div>
-                                  <div className="text-sm">
-                                    <span className="font-medium text-muted-foreground">
-                                      Revision Rate:
-                                    </span>{" "}
-                                    {modeler.completionStats.revisionRate}% (
-                                    {modeler.completionStats.totalRevisions}{" "}
-                                    revisions)
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="text-sm text-muted-foreground">
-                                  No completed assignments yet
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="right"
+                              className="max-w-sm bg-background border border-border text-muted-foreground"
+                            >
+                              <div className="space-y-2">
+                                <div className="font-semibold">
+                                  Completion Statistics
                                 </div>
-                              )}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <Badge
-                        variant={
-                          modeler.completionPercentage >= 80
-                            ? "default"
-                            : modeler.completionPercentage >= 50
-                              ? "secondary"
-                              : "destructive"
-                        }
-                        className="text-sm"
-                      >
-                        {modeler.completionPercentage}%
-                      </Badge>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    {/* Progress Chart */}
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
-                            Total Assigned:
-                          </span>
-                          <span className="font-semibold">
-                            {modeler.totalAssigned}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-sm">
-                          <Building className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
-                            Assigned Batches:
-                          </span>
-                          <span className="font-medium">
-                            {modeler.assignedBatches.length}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-sm">
-                          <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
-                            Completed:
-                          </span>
-                          <span className="font-medium text-success">
-                            {modeler.completedModels}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
-                            In Progress:
-                          </span>
-                          <span className="font-medium text-warning">
-                            {modeler.inProgressModels}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-sm">
-                          <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
-                            Pending:
-                          </span>
-                          <span className="font-medium text-error">
-                            {modeler.pendingModels}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-sm">
-                          <RotateCcw className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
-                            Revisions:
-                          </span>
-                          <span className="font-medium text-info">
-                            {modeler.revisionModels}
-                          </span>
-                        </div>
-                        <div className="">
-                          <div
-                            className="flex w-full items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                            onClick={() =>
-                              handleModelerAdminReview(
-                                modeler.id,
-                                modeler.email
-                              )
-                            }
-                          >
-                            <ShieldCheck className="h-4 w-4" />
-                            <span>Admin Review</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Pie Chart */}
-                      <div className="w-40 h-40 relative">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={chartData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={45}
-                              outerRadius={65}
-                              paddingAngle={2}
-                              dataKey="value"
-                            >
-                              {chartData.map((entry, index) => (
-                                <Cell
-                                  key={`cell-${index}`}
-                                  fill={entry.color}
-                                />
-                              ))}
-                            </Pie>
-                            <RechartsTooltip
-                              wrapperStyle={{ zIndex: 99999 }}
-                              contentStyle={{
-                                backgroundColor: "var(--background)",
-                                border: "1px solid var(--border)",
-                                borderRadius: "8px",
-                                fontSize: "12px",
-                                zIndex: 99999,
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        {/* Centered fraction label */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="text-center p-2 border-0 pointer-events-none">
-                            <div className="text-2xl text-primary drop-shadow-sm pointer-events-none">
-                              {modeler.completedModels}/{modeler.totalAssigned}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1 font-medium tracking-wide">
-                              Completed
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Status Breakdown */}
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Asset Statistics
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        {Object.entries(modeler.statusCounts)
-                          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                          .filter(([_, count]) => count > 0)
-                          .map(([status, count]) => (
-                            <div
-                              key={status}
-                              className="flex items-center justify-between"
-                            >
-                              <div className="flex items-center gap-1">
-                                <div
-                                  className="w-2 h-2 rounded-full"
-                                  style={{
-                                    backgroundColor: getStatusColor(status),
-                                  }}
-                                />
-                                <span className="text-muted-foreground">
-                                  {getStatusLabel(status)}
-                                </span>
+                                {modeler.completionStats.totalCompleted > 0 ? (
+                                  <>
+                                    <div className="text-sm">
+                                      <span className="font-medium text-muted-foreground">
+                                        Average Time:
+                                      </span>{" "}
+                                      {modeler.completionStats.averageMinutes}m
+                                      ({modeler.completionStats.averageHours}h)
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium text-muted-foreground">
+                                        Fastest:
+                                      </span>{" "}
+                                      {
+                                        modeler.completionStats
+                                          .fastestCompletionMinutes
+                                      }
+                                      m (
+                                      {
+                                        modeler.completionStats
+                                          .fastestCompletion
+                                      }
+                                      h)
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium text-muted-foreground">
+                                        Slowest:
+                                      </span>{" "}
+                                      {
+                                        modeler.completionStats
+                                          .slowestCompletionMinutes
+                                      }
+                                      m (
+                                      {
+                                        modeler.completionStats
+                                          .slowestCompletion
+                                      }
+                                      h)
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium text-muted-foreground">
+                                        Total Completed:
+                                      </span>{" "}
+                                      {modeler.completionStats.totalCompleted}
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium text-muted-foreground">
+                                        Revision Rate:
+                                      </span>{" "}
+                                      {modeler.completionStats.revisionRate}% (
+                                      {modeler.completionStats.totalRevisions}{" "}
+                                      revisions)
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-sm text-muted-foreground">
+                                    No completed assignments yet
+                                  </div>
+                                )}
                               </div>
-                              <span className="font-medium">{count}</span>
-                            </div>
-                          ))}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <Badge
+                          variant={
+                            modeler.completionPercentage >= 80
+                              ? "default"
+                              : modeler.completionPercentage >= 50
+                                ? "secondary"
+                                : "destructive"
+                          }
+                          className="text-sm"
+                        >
+                          {modeler.completionPercentage}%
+                        </Badge>
                       </div>
-                    </div>
+                    </CardHeader>
 
-                    {/* Assigned Batches */}
+                    <CardContent className="space-y-4">
+                      {/* Progress Chart */}
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Total Assigned:
+                            </span>
+                            <span className="font-semibold">
+                              {modeler.totalAssigned}
+                            </span>
+                          </div>
 
-                    {/* Admin Review Button */}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                          <div className="flex items-center gap-2 text-sm">
+                            <Building className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Assigned Batches:
+                            </span>
+                            <span className="font-medium">
+                              {modeler.assignedBatches.length}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Completed:
+                            </span>
+                            <span className="font-medium text-success">
+                              {modeler.completedModels}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              In Progress:
+                            </span>
+                            <span className="font-medium text-warning">
+                              {modeler.inProgressModels}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-sm">
+                            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Pending:
+                            </span>
+                            <span className="font-medium text-error">
+                              {modeler.pendingModels}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-sm">
+                            <RotateCcw className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Revisions:
+                            </span>
+                            <span className="font-medium text-info">
+                              {modeler.revisionModels}
+                            </span>
+                          </div>
+                          <div className="">
+                            <div
+                              className="flex w-full items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                              onClick={() =>
+                                handleModelerAdminReview(
+                                  modeler.id,
+                                  modeler.email
+                                )
+                              }
+                            >
+                              <ShieldCheck className="h-4 w-4" />
+                              <span>Admin Review</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Pie Chart */}
+                        <div className="w-40 h-40 relative">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={chartData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={45}
+                                outerRadius={65}
+                                paddingAngle={2}
+                                dataKey="value"
+                              >
+                                {chartData.map((entry, index) => (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={entry.color}
+                                  />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip
+                                wrapperStyle={{ zIndex: 99999 }}
+                                contentStyle={{
+                                  backgroundColor: "var(--background)",
+                                  border: "1px solid var(--border)",
+                                  borderRadius: "8px",
+                                  fontSize: "12px",
+                                  zIndex: 99999,
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          {/* Centered fraction label */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="text-center p-2 border-0 pointer-events-none">
+                              <div className="text-2xl text-primary drop-shadow-sm pointer-events-none">
+                                {modeler.completedModels}/
+                                {modeler.totalAssigned}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1 font-medium tracking-wide">
+                                Completed
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Status Breakdown */}
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Asset Statistics
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {Object.entries(modeler.statusCounts)
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                            .filter(([_, count]) => count > 0)
+                            .map(([status, count]) => (
+                              <div
+                                key={status}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-1">
+                                  <div
+                                    className="w-2 h-2 rounded-full"
+                                    style={{
+                                      backgroundColor: getStatusColor(status),
+                                    }}
+                                  />
+                                  <span className="text-muted-foreground">
+                                    {getStatusLabel(status)}
+                                  </span>
+                                </div>
+                                <span className="font-medium">{count}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+
+                      {/* Assigned Batches */}
+
+                      {/* Admin Review Button */}
+                    </CardContent>
+                  </Card>
+                );
+              })
+            : // QA Cards
+              filteredQAUsers.map((qaUser) => {
+                // Prepare chart data for QA user
+                const chartData = Object.entries(qaUser.statusCounts)
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  .filter(([_, count]) => count > 0)
+                  .map(([status, count]) => ({
+                    name: getStatusLabel(status),
+                    value: count,
+                    color: getStatusColor(status),
+                  }));
+
+                return (
+                  <Card
+                    key={qaUser.id}
+                    className="hover:shadow-lg transition-shadow"
+                  >
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center justify-between">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <CardTitle className="text-lg font-semibold text-muted-foreground">
+                                {qaUser.name || qaUser.email.split("@")[0]}
+                              </CardTitle>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="right"
+                              className="max-w-sm bg-background border border-border text-muted-foreground"
+                            >
+                              <div className="space-y-2">
+                                <div className="font-semibold">
+                                  Completion Statistics
+                                </div>
+                                {qaUser.reviewStats.totalReviews > 0 ? (
+                                  <>
+                                    <div className="text-sm">
+                                      <span className="font-medium text-muted-foreground">
+                                        Average Time:
+                                      </span>{" "}
+                                      {qaUser.reviewStats.averageReviewTime}m
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium text-muted-foreground">
+                                        Fastest:
+                                      </span>{" "}
+                                      {qaUser.reviewStats.fastestReview}m
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium text-muted-foreground">
+                                        Slowest:
+                                      </span>{" "}
+                                      {qaUser.reviewStats.slowestReview}m
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium text-muted-foreground">
+                                        Total Reviews:
+                                      </span>{" "}
+                                      {qaUser.reviewStats.totalReviews}
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium text-muted-foreground">
+                                        Revision Rate:
+                                      </span>{" "}
+                                      {qaUser.reviewStats.revisionRate}% (
+                                      {qaUser.reviewStats.totalRevisions}{" "}
+                                      revisions)
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-sm text-muted-foreground">
+                                    No completed reviews yet
+                                  </div>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-4">
+                      {/* Connected Modelers Summary Stats */}
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-semibold text-muted-foreground">
+                          Connected Modelers Summary
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-2 cursor-help">
+                                  <Users className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-muted-foreground">
+                                    Total Modelers:
+                                  </span>
+                                  <span className="font-semibold">
+                                    {qaUser.totalModelers}
+                                  </span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="right"
+                                className="max-w-sm bg-background border border-border text-muted-foreground"
+                              >
+                                <div className="space-y-2">
+                                  <div className="font-semibold">
+                                    Connected Modelers (
+                                    {qaUser.connectedModelers.length})
+                                  </div>
+                                  {qaUser.connectedModelers.length > 0 ? (
+                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                      {qaUser.connectedModelers.map(
+                                        (modeler) => (
+                                          <div
+                                            key={modeler.id}
+                                            className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-xs"
+                                          >
+                                            <div className="flex-1 min-w-0">
+                                              <div className="font-medium truncate">
+                                                {modeler.name || modeler.email}
+                                              </div>
+                                              <div className="text-muted-foreground">
+                                                {modeler.totalAssets} assets •{" "}
+                                                {modeler.completedAssets}{" "}
+                                                completed •{" "}
+                                                {modeler.completionPercentage}%
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                              {modeler.clients
+                                                .slice(0, 2)
+                                                .map((client, idx) => (
+                                                  <Badge
+                                                    key={idx}
+                                                    variant="outline"
+                                                    className="text-xs"
+                                                  >
+                                                    {client}
+                                                  </Badge>
+                                                ))}
+                                              {modeler.clients.length > 2 && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className="text-xs"
+                                                >
+                                                  +{modeler.clients.length - 2}
+                                                </Badge>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="text-sm text-muted-foreground">
+                                      No modelers connected
+                                    </div>
+                                  )}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <div className="flex items-center gap-2">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Total Assets:
+                            </span>
+                            <span className="font-semibold">
+                              {qaUser.totalModelerAssets}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Completed:
+                            </span>
+                            <span className="font-medium text-success">
+                              {qaUser.totalModelerCompleted}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Completion Rate:
+                            </span>
+                            <span className="font-medium text-primary">
+                              {qaUser.modelerCompletionRate}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 7-Day Activity Chart */}
+                      {qaUser.chartData.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-muted-foreground">
+                              Activity Chart
+                            </h4>
+                            <DateRangePicker
+                              value={qaUser.chartDateRange}
+                              onChange={(newRange) => {
+                                if (newRange?.from && newRange?.to) {
+                                  // Refetch chart data for the new date range
+                                  refetchQAChartData(qaUser.id, newRange);
+                                }
+                              }}
+                              className="w-auto"
+                            />
+                          </div>
+                          <div className="h-44">
+                            {chartLoadingStates[qaUser.id] ? (
+                              <div className="flex items-center justify-center h-full">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                              </div>
+                            ) : (
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={qaUser.chartData}
+                                  margin={{
+                                    top: 5,
+                                    right: 5,
+                                    left: 5,
+                                    bottom: 5,
+                                  }}
+                                >
+                                  <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    stroke="hsl(var(--border))"
+                                  />
+                                  <XAxis
+                                    dataKey="date"
+                                    tick={{ fontSize: 10 }}
+                                    tickFormatter={(value) =>
+                                      new Date(value).toLocaleDateString(
+                                        "en-US",
+                                        { month: "short", day: "numeric" }
+                                      )
+                                    }
+                                  />
+                                  <YAxis tick={{ fontSize: 10 }} />
+                                  <RechartsTooltip
+                                    contentStyle={{
+                                      backgroundColor: "var(--background)",
+                                      border: "1px solid var(--border)",
+                                      borderRadius: "8px",
+                                      fontSize: "12px",
+                                    }}
+                                  />
+                                  <Bar
+                                    dataKey="reviewed"
+                                    fill="hsl(var(--chart-1))"
+                                    name="Reviewed"
+                                    radius={[2, 2, 0, 0]}
+                                  />
+                                  <Bar
+                                    dataKey="approved"
+                                    fill="hsl(var(--chart-2))"
+                                    name="Approved"
+                                    radius={[2, 2, 0, 0]}
+                                  />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Admin Review Button */}
+                      <div className="pt-2">
+                        <div
+                          className="flex w-full items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                          onClick={() =>
+                            handleModelerAdminReview(qaUser.id, qaUser.email)
+                          }
+                        >
+                          <ShieldCheck className="h-4 w-4" />
+                          <span>Admin Review</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
       </div>
 
       {/* Empty State */}

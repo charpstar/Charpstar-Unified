@@ -31,6 +31,11 @@ import {
 } from "@/components/dashboard/modeler-widgets";
 import { PendingAssignmentsWidget } from "@/components/dashboard/pending-assignments-widget";
 import ErrorBoundary from "@/components/dashboard/error-boundary";
+import {
+  QAWidgets,
+  PersonalMetricsWidget,
+  WaitingForApprovalWidget,
+} from "@/components/dashboard";
 
 // Lazy load heavy dashboard widgets
 const LazyTotalModelsWidget = lazy(() =>
@@ -323,6 +328,50 @@ export default function DashboardPage() {
               content: (
                 <ErrorBoundary>
                   <ModelerEarningsWidget />
+                </ErrorBoundary>
+              ),
+            },
+          ]
+        : []),
+      // Insert QA-specific widgets
+      ...(user?.metadata?.role === "qa"
+        ? [
+            {
+              id: "qa-personal-metrics",
+              title: "Personal Metrics",
+              type: "custom" as const,
+              size: "large" as const,
+              position: { x: 0, y: 1 },
+              visible: true,
+              content: (
+                <ErrorBoundary>
+                  <PersonalMetricsWidget />
+                </ErrorBoundary>
+              ),
+            },
+            {
+              id: "qa-modelers",
+              title: "My Modelers",
+              type: "custom" as const,
+              size: "large" as const,
+              position: { x: 1, y: 1 },
+              visible: true,
+              content: (
+                <ErrorBoundary>
+                  <QAWidgets />
+                </ErrorBoundary>
+              ),
+            },
+            {
+              id: "qa-waiting-approval",
+              title: "Waiting for Approval",
+              type: "custom" as const,
+              size: "medium" as const,
+              position: { x: 0, y: 2 },
+              visible: true,
+              content: (
+                <ErrorBoundary>
+                  <WaitingForApprovalWidget />
                 </ErrorBoundary>
               ),
             },

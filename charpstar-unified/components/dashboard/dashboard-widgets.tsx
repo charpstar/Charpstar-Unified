@@ -487,16 +487,27 @@ export function QuickActionsWidget() {
       },
     },
     {
-      name: user?.metadata?.role === "admin" ? "Asset Library" : "Reviews",
+      name:
+        user?.metadata?.role === "admin"
+          ? "Asset Library"
+          : user?.metadata?.role === "qa"
+            ? "QA Review"
+            : "Reviews",
       icon: Folder,
       description:
         user?.metadata?.role === "admin"
           ? "Browse and manage all assets"
-          : "Review assets awaiting your feedback",
+          : user?.metadata?.role === "qa"
+            ? "Review assets assigned to you for QA"
+            : "Review assets awaiting your feedback",
       action: () => {
-        router.push(
-          user?.metadata?.role === "admin" ? "/asset-library" : "/client-review"
-        );
+        if (user?.metadata?.role === "admin") {
+          router.push("/asset-library");
+        } else if (user?.metadata?.role === "qa") {
+          router.push("/qa-review");
+        } else {
+          router.push("/client-review");
+        }
       },
     },
     {
