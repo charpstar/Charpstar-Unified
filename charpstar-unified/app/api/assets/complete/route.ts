@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { notificationService } from "@/lib/notificationService";
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,6 +42,112 @@ export async function POST(request: NextRequest) {
         { error: "Failed to update asset status" },
         { status: 500 }
       );
+    }
+
+    // Send notification when asset is approved
+    if (status === "approved") {
+      try {
+        // Get asset details
+        const { data: assetDetails, error: assetDetailsError } = await supabase
+          .from("onboarding_assets")
+          .select("product_name, client")
+          .eq("id", assetId)
+          .single();
+
+        if (assetDetailsError) {
+          console.error("Error fetching asset details:", assetDetailsError);
+        } else {
+          // Get the modeler assigned to this asset
+          const { data: assignment, error: assignmentError } = await supabase
+            .from("asset_assignments")
+            .select("user_id")
+            .eq("asset_id", assetId)
+            .eq("role", "modeler")
+            .single();
+
+          if (assignmentError) {
+            console.error("Error fetching asset assignment:", assignmentError);
+          } else {
+            // Get modeler's email
+            const { data: modelerProfile, error: modelerError } = await supabase
+              .from("profiles")
+              .select("email")
+              .eq("id", assignment.user_id)
+              .single();
+
+            if (modelerError) {
+              console.error("Error fetching modeler profile:", modelerError);
+            } else {
+              // Send asset completed notification
+              await notificationService.sendAssetCompletedNotification(
+                assignment.user_id,
+                modelerProfile.email,
+                assetDetails.product_name,
+                assetDetails.client
+              );
+            }
+          }
+        }
+      } catch (notificationError) {
+        console.error(
+          "Failed to send approval notification:",
+          notificationError
+        );
+        // Don't fail the entire request if notification fails
+      }
+    }
+
+    // Send notification when asset needs revisions
+    if (status === "revisions") {
+      try {
+        // Get asset details
+        const { data: assetDetails, error: assetDetailsError } = await supabase
+          .from("onboarding_assets")
+          .select("product_name, client")
+          .eq("id", assetId)
+          .single();
+
+        if (assetDetailsError) {
+          console.error("Error fetching asset details:", assetDetailsError);
+        } else {
+          // Get the modeler assigned to this asset
+          const { data: assignment, error: assignmentError } = await supabase
+            .from("asset_assignments")
+            .select("user_id")
+            .eq("asset_id", assetId)
+            .eq("role", "modeler")
+            .single();
+
+          if (assignmentError) {
+            console.error("Error fetching asset assignment:", assignmentError);
+          } else {
+            // Get modeler's email
+            const { data: modelerProfile, error: modelerError } = await supabase
+              .from("profiles")
+              .select("email")
+              .eq("id", assignment.user_id)
+              .single();
+
+            if (modelerError) {
+              console.error("Error fetching modeler profile:", modelerError);
+            } else {
+              // Send revision notification
+              await notificationService.sendRevisionNotification(
+                assignment.user_id,
+                modelerProfile.email,
+                assetDetails.product_name,
+                assetDetails.client
+              );
+            }
+          }
+        }
+      } catch (notificationError) {
+        console.error(
+          "Failed to send revision notification:",
+          notificationError
+        );
+        // Don't fail the entire request if notification fails
+      }
     }
 
     // Check allocation list status whenever an asset status changes

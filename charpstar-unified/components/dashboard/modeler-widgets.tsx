@@ -638,13 +638,13 @@ export function ModelerEarningsWidget() {
   const isTrendingUp = earningsData.thisMonth > earningsData.lastMonth;
 
   return (
-    <Card>
+    <Card className="">
       <CardHeader>
         <CardTitle>Earnings & Performance</CardTitle>
         <CardDescription>Your earnings over the last 15 days</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
+        <ChartContainer className="h-62" config={chartConfig}>
           <LineChart
             accessibilityLayer
             data={earningsData.chartData}

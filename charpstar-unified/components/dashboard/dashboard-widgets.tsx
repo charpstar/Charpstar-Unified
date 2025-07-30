@@ -530,11 +530,6 @@ export function QuickActionsWidget() {
 
   return (
     <WidgetContainer>
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold text-foreground text-center">
-          Quick Actions
-        </CardTitle>
-      </CardHeader>
       <div className="grid grid-cols-2 gap-4 min-h-[238px]">
         {actions.map((action, idx) => (
           <Card
@@ -632,7 +627,7 @@ export function ActivityWidget() {
   return (
     <WidgetContainer>
       <WidgetHeader title="Recent Activity" icon={Activity} />
-      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+      <div className="space-y-2 max-h-[225px] overflow-y-auto">
         {activities.length === 0 ? (
           <div className="text-center py-4 text-muted-foreground">
             <p>No recent activity</p>
@@ -773,10 +768,10 @@ export function NewUsersChartWidget() {
             <Users className="h-6 w-6 text-primary" />
           </div>
         </div>
-        <div className="h-32 w-full overflow-hidden" ref={containerRef}>
+        <div className="h-32 w-full " ref={containerRef}>
           <BarChart
             data={chartData}
-            height={150}
+            height={190}
             width={chartWidth}
             className="w-full"
             margin={{
@@ -1005,7 +1000,7 @@ export function TotalModelsWidget() {
     <WidgetContainer>
       <WidgetHeader title="Total Models" icon={Package} />
 
-      <div className="space-y-4">
+      <div className="space-y-">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-3xl font-bold text-primary">

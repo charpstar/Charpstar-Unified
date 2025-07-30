@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { notificationService } from "@/lib/notificationService";
 
 export async function POST(request: NextRequest) {
   try {
@@ -140,6 +141,65 @@ export async function POST(request: NextRequest) {
           { error: "Failed to create assignments" },
           { status: 500 }
         );
+      }
+
+      // Send notifications to assigned modelers
+      try {
+        for (const userId of userIds) {
+          // Get user details
+          const { data: userProfile, error: userError } = await supabase
+            .from("profiles")
+            .select("email")
+            .eq("id", userId)
+            .single();
+
+          if (userError || !userProfile) {
+            console.error(
+              `Error fetching user profile for ${userId}:`,
+              userError
+            );
+            continue;
+          }
+
+          // Get asset details for this user's assignments
+          const userAssignments = assignments.filter(
+            (a) => a.user_id === userId
+          );
+          const assetIds = userAssignments.map((a) => a.asset_id);
+
+          // Get asset names
+          const { data: assetDetails, error: assetError } = await supabase
+            .from("onboarding_assets")
+            .select("product_name, client")
+            .in("id", assetIds);
+
+          if (assetError) {
+            console.error("Error fetching asset details:", assetError);
+            continue;
+          }
+
+          const assetNames = assetDetails?.map((a) => a.product_name) || [];
+          const client = assetDetails?.[0]?.client || "Unknown";
+          const totalPrice = userAssignments.reduce(
+            (sum, a) => sum + (a.price || 0),
+            0
+          );
+
+          // Send notification
+          await notificationService.sendAssetAllocationNotification({
+            modelerId: userId,
+            modelerEmail: userProfile.email,
+            assetIds: assetIds,
+            assetNames: assetNames,
+            deadline: deadline,
+            price: totalPrice,
+            bonus: bonus || 0,
+            client: client,
+          });
+        }
+      } catch (notificationError) {
+        console.error("Failed to send notifications:", notificationError);
+        // Don't fail the entire request if notifications fail
       }
 
       const message = `Successfully created ${allocationLists.length} allocation list(s) with ${assignments.length} asset(s)`;

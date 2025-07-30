@@ -1,4 +1,4 @@
-export { DraggableDashboard } from "./draggable-dashboard";
+export { FixedDashboard } from "./fixed-dashboard";
 
 export {
   StatsWidget,

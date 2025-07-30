@@ -295,11 +295,12 @@ export default function QAWidgets() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="font-semibold text-sm text-foreground">
             <Users className="h-5 w-5" />
             My Modelers
           </CardTitle>
         </CardHeader>
+
         <CardContent>
           <div className="text-center py-8">
             <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -315,14 +316,12 @@ export default function QAWidgets() {
   }
 
   return (
-    <Card className="p-6">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <User className="h-5 w-5" />
-          My Modelers
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <div className="h-full flex flex-col">
+      <div className="flex items-center gap-2 mb-3">
+        <User className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">My Modelers</h3>
+      </div>
+      <div className="flex-1 min-h-0 space-y-2 overflow-y-auto">
         {displayedModelers.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -422,8 +421,8 @@ export default function QAWidgets() {
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -683,22 +682,34 @@ export function PersonalMetricsWidget() {
       : "0.0";
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Personal Metrics</CardTitle>
-        <CardDescription>
-          Your review activity over the last 7 days
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">
+            Personal Metrics
+          </h3>
+          <p className="text-xs text-muted-foreground">Last 7 days</p>
+        </div>
+        <div className="text-right">
+          <div className="text-sm font-medium">
+            {totalReviewed} reviewed, {totalApproved} approved
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {trendPercentage}% approval rate
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0">
         <ChartContainer config={chartConfig}>
-          <BarChart accessibilityLayer data={chartData}>
+          <BarChart accessibilityLayer data={chartData} height={40}>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="day"
               tickLine={false}
-              tickMargin={10}
+              tickMargin={5}
               axisLine={false}
+              fontSize={10}
             />
             <ChartTooltip
               cursor={false}
@@ -708,17 +719,8 @@ export function PersonalMetricsWidget() {
             <Bar dataKey="approved" fill="#059669" radius={4} />
           </BarChart>
         </ChartContainer>
-      </CardContent>
-      <CardFooter className="flex-col items-start gap-2 text-sm">
-        <div className="flex gap-2 leading-none font-medium">
-          Reviewed {totalReviewed} assets, approved {totalApproved} (
-          {trendPercentage}% approval rate) <TrendingUp className="h-4 w-4" />
-        </div>
-        <div className="text-muted-foreground leading-none">
-          Showing your activity for the last 7 days
-        </div>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 

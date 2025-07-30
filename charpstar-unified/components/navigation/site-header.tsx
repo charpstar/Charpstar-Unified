@@ -7,6 +7,7 @@ import { usePathname, useParams } from "next/navigation";
 import { DateRangePicker } from "@/components/ui/utilities";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsCheck } from "@/lib/analyticsCheck";
+import { NotificationBell } from "@/components/ui/feedback/notification-bell";
 
 import { useState, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
@@ -108,6 +109,9 @@ export default function SiteHeader() {
         <h1 className="text-base font-medium">{pageTitle}</h1>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Notification Bell - Available for all users */}
+          <NotificationBell />
+
           {isAnalyticsPage && isLoaded && hasAnalyticsProfile && (
             <div className="flex items-center gap-2 relative ">
               <div className="relative">

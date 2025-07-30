@@ -1,10 +1,16 @@
 import { supabase } from "./supabaseClient";
+import { emailService } from "./emailService";
 
 export interface NotificationData {
   id?: string;
-  recipientId: string;
-  recipientEmail: string;
-  type: "asset_allocation" | "asset_completed" | "deadline_reminder";
+  recipient_id: string;
+  recipient_email: string;
+  type:
+    | "asset_allocation"
+    | "asset_completed"
+    | "deadline_reminder"
+    | "qa_review"
+    | "status_change";
   title: string;
   message: string;
   metadata?: Record<string, any>;
@@ -84,8 +90,8 @@ class NotificationService {
 
     // Create notification record
     const notification: Omit<NotificationData, "created_at"> = {
-      recipientId: modelerId,
-      recipientEmail: modelerEmail,
+      recipient_id: modelerId,
+      recipient_email: modelerEmail,
       type: "asset_allocation",
       title: `New Assets Assigned - ${client}`,
       message: `You have been assigned ${assetNames.length} new asset(s) with a deadline of ${new Date(deadline).toLocaleDateString()}.`,
@@ -105,8 +111,19 @@ class NotificationService {
     await this.createNotification(notification);
 
     // Send email notification
-    // TODO: Implement email sending
-    // await this.sendEmailNotification(modelerEmail, subject, htmlContent);
+    try {
+      await emailService.sendAssetAllocationEmail(
+        modelerEmail,
+        assetNames,
+        client,
+        deadline,
+        price,
+        bonus
+      );
+    } catch (emailError) {
+      console.error("Failed to send email notification:", emailError);
+      // Don't throw - email failure shouldn't break the notification process
+    }
   }
 
   private generateAssetAllocationEmailHTML(
@@ -183,8 +200,8 @@ class NotificationService {
     client: string
   ): Promise<void> {
     const notification: Omit<NotificationData, "created_at"> = {
-      recipientId: modelerId,
-      recipientEmail: modelerEmail,
+      recipient_id: modelerId,
+      recipient_email: modelerEmail,
       type: "asset_completed",
       title: `Asset Completed - ${assetName}`,
       message: `Your asset "${assetName}" for ${client} has been marked as completed.`,
@@ -196,6 +213,49 @@ class NotificationService {
     };
 
     await this.createNotification(notification);
+
+    // Send email notification
+    try {
+      await emailService.sendAssetCompletedEmail(
+        modelerEmail,
+        assetName,
+        client
+      );
+    } catch (emailError) {
+      console.error("Failed to send email notification:", emailError);
+      // Don't throw - email failure shouldn't break the notification process
+    }
+  }
+
+  async sendRevisionNotification(
+    modelerId: string,
+    modelerEmail: string,
+    assetName: string,
+    client: string
+  ): Promise<void> {
+    const notification: Omit<NotificationData, "created_at"> = {
+      recipient_id: modelerId,
+      recipient_email: modelerEmail,
+      type: "status_change",
+      title: `Revision Required - ${assetName}`,
+      message: `Your asset "${assetName}" for ${client} requires revisions. Please review the feedback and update your work.`,
+      metadata: {
+        assetName,
+        client,
+        revisionType: "required",
+      },
+      read: false,
+    };
+
+    await this.createNotification(notification);
+
+    // Send email notification
+    try {
+      await emailService.sendRevisionEmail(modelerEmail, assetName, client);
+    } catch (emailError) {
+      console.error("Failed to send email notification:", emailError);
+      // Don't throw - email failure shouldn't break the notification process
+    }
   }
 
   async sendDeadlineReminderNotification(
@@ -206,8 +266,8 @@ class NotificationService {
     client: string
   ): Promise<void> {
     const notification: Omit<NotificationData, "created_at"> = {
-      recipientId: modelerId,
-      recipientEmail: modelerEmail,
+      recipient_id: modelerId,
+      recipient_email: modelerEmail,
       type: "deadline_reminder",
       title: `Deadline Reminder - ${client}`,
       message: `Reminder: ${assetNames.length} asset(s) are due on ${new Date(deadline).toLocaleDateString()}.`,

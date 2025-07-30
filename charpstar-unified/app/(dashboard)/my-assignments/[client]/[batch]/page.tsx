@@ -731,19 +731,7 @@ export default function BatchDetailPage() {
             Batch {batch}
           </Badge>
         </div>
-        <div className="flex items-center gap-4 text-muted-foreground">
-          {allocationLists.length > 0 && allocationLists[0]?.deadline && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span
-                className={`text-sm ${isOverdue(allocationLists[0].deadline) ? "text-red-600 font-medium" : ""}`}
-              >
-                Deadline:{" "}
-                {new Date(allocationLists[0].deadline).toLocaleDateString()}
-              </span>
-            </div>
-          )}
-        </div>
+        <div className="flex items-center gap-4 text-muted-foreground"></div>
       </div>
 
       {/* Batch Earnings Statistics */}

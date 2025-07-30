@@ -83,6 +83,10 @@ export function NotificationBell({ className }: NotificationBellProps) {
         return "✅";
       case "deadline_reminder":
         return "⏰";
+      case "qa_review":
+        return "🔍";
+      case "status_change":
+        return "🔄";
       default:
         return "📢";
     }
@@ -96,6 +100,10 @@ export function NotificationBell({ className }: NotificationBellProps) {
         return "bg-green-50 border-green-200 text-green-800";
       case "deadline_reminder":
         return "bg-yellow-50 border-yellow-200 text-yellow-800";
+      case "qa_review":
+        return "bg-purple-50 border-purple-200 text-purple-800";
+      case "status_change":
+        return "bg-orange-50 border-orange-200 text-orange-800";
       default:
         return "bg-gray-50 border-gray-200 text-gray-800";
     }
