@@ -22,6 +22,13 @@ import {
   TableRow,
 } from "@/components/ui/display";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/interactive";
+import {
   Input,
   Select,
   SelectContent,
@@ -41,9 +48,21 @@ import {
   Filter,
   ShieldCheck,
   X,
+  MoreHorizontal,
+  Download,
+  Upload,
+  FolderOpen,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/containers";
+import { AssetFilesManager } from "@/components/asset-library/AssetFilesManager";
 
 const STATUS_LABELS = {
   in_production: {
@@ -96,6 +115,7 @@ interface AssignedAsset {
   category: string;
   subcategory: string;
   created_at: string;
+  reference?: string[] | null;
   modeler?: {
     id: string;
     email: string;
@@ -119,6 +139,10 @@ export default function QAReviewPage() {
   const [availableModelers, setAvailableModelers] = useState<
     Array<{ id: string; email: string; title?: string }>
   >([]);
+  const [filesManagerOpen, setFilesManagerOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<AssignedAsset | null>(
+    null
+  );
 
   useEffect(() => {
     document.title = "CharpstAR Platform - QA Review";
@@ -186,7 +210,8 @@ export default function QAReviewPage() {
             product_link,
             category,
             subcategory,
-            created_at
+            created_at,
+            reference
           )
         `
         )
@@ -240,6 +265,7 @@ export default function QAReviewPage() {
             category: asset.category,
             subcategory: asset.subcategory,
             created_at: asset.created_at,
+            reference: asset.reference,
             modeler: modelerMap.get(assignment.user_id),
           };
         }) || [];
@@ -312,6 +338,55 @@ export default function QAReviewPage() {
 
   const handleViewAsset = (assetId: string) => {
     router.push(`/client-review/${assetId}`);
+  };
+
+  const handleOpenFilesManager = (asset: AssignedAsset) => {
+    setSelectedAsset(asset);
+    setFilesManagerOpen(true);
+  };
+
+  const parseReferences = (
+    referenceImages: string[] | string | null
+  ): string[] => {
+    if (!referenceImages) return [];
+    if (Array.isArray(referenceImages)) return referenceImages;
+    try {
+      return JSON.parse(referenceImages);
+    } catch {
+      return [referenceImages];
+    }
+  };
+
+  const handleOpenReferences = (asset: AssignedAsset) => {
+    if (asset.reference) {
+      const references = parseReferences(asset.reference);
+      references.forEach((url) => {
+        window.open(url, "_blank");
+      });
+    }
+  };
+
+  const handleDownloadReference = (url: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = url.split("/").pop() || "reference";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadGLB = (asset: AssignedAsset) => {
+    if (asset.glb_link) {
+      const link = document.createElement("a");
+      link.href = asset.glb_link;
+      link.download = `${asset.product_name}_${asset.article_id}.glb`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("GLB file download started");
+    } else {
+      toast.error("No GLB file available for this asset");
+    }
   };
 
   const clearFilters = () => {
@@ -672,14 +747,63 @@ export default function QAReviewPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewAsset(asset.id)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => handleViewAsset(asset.id)}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Asset
+                          </DropdownMenuItem>
+
+                          {asset.product_link && (
+                            <DropdownMenuItem asChild>
+                              <a
+                                href={asset.product_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center"
+                              >
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Product Link
+                              </a>
+                            </DropdownMenuItem>
+                          )}
+
+                          {asset.reference && (
+                            <DropdownMenuItem
+                              onClick={() => handleOpenReferences(asset)}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              View References (
+                              {parseReferences(asset.reference).length})
+                            </DropdownMenuItem>
+                          )}
+
+                          {asset.glb_link && (
+                            <DropdownMenuItem
+                              onClick={() => handleDownloadGLB(asset)}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Download GLB
+                            </DropdownMenuItem>
+                          )}
+
+                          <DropdownMenuSeparator />
+
+                          <DropdownMenuItem
+                            onClick={() => handleOpenFilesManager(asset)}
+                          >
+                            <FolderOpen className="h-4 w-4 mr-2" />
+                            View Files
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -722,6 +846,25 @@ export default function QAReviewPage() {
           </div>
         )}
       </Card>
+
+      {/* Files Manager Dialog */}
+      <Dialog open={filesManagerOpen} onOpenChange={setFilesManagerOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5" />
+              Files Manager - {selectedAsset?.product_name}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedAsset && (
+            <AssetFilesManager
+              assetId={selectedAsset.id}
+              isOpen={filesManagerOpen}
+              onClose={() => setFilesManagerOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

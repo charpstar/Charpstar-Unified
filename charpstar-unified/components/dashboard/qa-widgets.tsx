@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   Card,
   CardContent,
+  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/containers";
@@ -28,15 +30,13 @@ import {
   Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/display/chart";
 
 interface ModelerProgress {
   id: string;
@@ -650,117 +650,74 @@ export function PersonalMetricsWidget() {
     );
   }
 
+  // Transform data for the new chart format
+  const chartData = metrics.weeklyData.map((day) => ({
+    day: new Date(day.date).toLocaleDateString("en-US", { weekday: "short" }),
+    reviewed: day.reviewed,
+    approved: day.approved,
+  }));
+
+  const chartConfig = {
+    reviewed: {
+      label: "Reviewed",
+      color: "var(--color-chart-1)",
+    },
+    approved: {
+      label: "Approved",
+      color: "var(--color-chart-2)",
+    },
+  } satisfies ChartConfig;
+
+  // Calculate trend percentage
+  const totalReviewed = metrics.weeklyData.reduce(
+    (sum, day) => sum + day.reviewed,
+    0
+  );
+  const totalApproved = metrics.weeklyData.reduce(
+    (sum, day) => sum + day.approved,
+    0
+  );
+  const trendPercentage =
+    totalReviewed > 0
+      ? ((totalApproved / totalReviewed) * 100).toFixed(1)
+      : "0.0";
+
   return (
-    <Card className="p-6">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <BarChart3 className="h-5 w-5" />
-          Personal Metrics
-        </CardTitle>
+    <Card>
+      <CardHeader>
+        <CardTitle>Personal Metrics</CardTitle>
+        <CardDescription>
+          Your review activity over the last 7 days
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {/* Small Today Metrics */}
-          <div className="flex gap-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp
-                className="h-4 w-4"
-                style={{ color: "hsl(var(--chart-1))" }}
-              />
-              <div>
-                <p className="text-xs text-muted-foreground">Reviewed Today</p>
-                <p
-                  className="text-lg font-bold"
-                  style={{ color: "hsl(var(--chart-1))" }}
-                >
-                  {metrics.reviewedToday}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle
-                className="h-4 w-4"
-                style={{ color: "hsl(var(--chart-2))" }}
-              />
-              <div>
-                <p className="text-xs text-muted-foreground">Approved Today</p>
-                <p
-                  className="text-lg font-bold"
-                  style={{ color: "hsl(var(--chart-2))" }}
-                >
-                  {metrics.approvedToday}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Weekly Chart - Takes most space */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              <span className="text-sm font-medium">Last 7 Days</span>
-            </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={metrics.weeklyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={(value) => {
-                      const date = new Date(value);
-                      return date.toLocaleDateString("en-US", {
-                        weekday: "short",
-                      });
-                    }}
-                    fontSize={12}
-                  />
-                  <YAxis fontSize={12} />
-                  <Tooltip
-                    formatter={(value, name) => [
-                      value,
-                      name === "reviewed" ? "Reviewed" : "Approved",
-                    ]}
-                    labelFormatter={(label) => {
-                      const date = new Date(label);
-                      return date.toLocaleDateString("en-US", {
-                        weekday: "long",
-                        month: "short",
-                        day: "numeric",
-                      });
-                    }}
-                  />
-                  <Bar
-                    dataKey="reviewed"
-                    fill="hsl(var(--chart-1))"
-                    name="Reviewed"
-                  />
-                  <Bar
-                    dataKey="approved"
-                    fill="hsl(var(--chart-2))"
-                    name="Approved"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <div
-                  className="w-3 h-3 rounded"
-                  style={{ backgroundColor: "hsl(var(--chart-1))" }}
-                />
-                <span>Reviewed</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div
-                  className="w-3 h-3 rounded"
-                  style={{ backgroundColor: "hsl(var(--chart-2))" }}
-                />
-                <span>Approved</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ChartContainer config={chartConfig}>
+          <BarChart accessibilityLayer data={chartData}>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="day"
+              tickLine={false}
+              tickMargin={10}
+              axisLine={false}
+            />
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent indicator="dashed" />}
+            />
+            <Bar dataKey="reviewed" fill="#0891b2" radius={4} />
+            <Bar dataKey="approved" fill="#059669" radius={4} />
+          </BarChart>
+        </ChartContainer>
       </CardContent>
+      <CardFooter className="flex-col items-start gap-2 text-sm">
+        <div className="flex gap-2 leading-none font-medium">
+          Reviewed {totalReviewed} assets, approved {totalApproved} (
+          {trendPercentage}% approval rate) <TrendingUp className="h-4 w-4" />
+        </div>
+        <div className="text-muted-foreground leading-none">
+          Showing your activity for the last 7 days
+        </div>
+      </CardFooter>
     </Card>
   );
 }

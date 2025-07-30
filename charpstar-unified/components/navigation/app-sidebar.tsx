@@ -54,24 +54,26 @@ export default function AppSidebar({
           url: "/dashboard",
           icon: LayoutDashboard,
         },
-        // Hide Analytics and Asset Library for clients in onboarding, and hide for modelers
+        // Hide Analytics and Asset Library for clients in onboarding, modelers, and QA
         ...(user?.metadata?.role === "client" &&
         user?.metadata?.onboarding === true
           ? []
           : user?.metadata?.role === "modeler"
             ? []
-            : [
-                {
-                  title: "Analytics",
-                  url: "/analytics",
-                  icon: BarChart3,
-                },
-                {
-                  title: "Asset Library",
-                  url: "/asset-library",
-                  icon: Folder,
-                },
-              ]),
+            : user?.metadata?.role === "qa"
+              ? []
+              : [
+                  {
+                    title: "Analytics",
+                    url: "/analytics",
+                    icon: BarChart3,
+                  },
+                  {
+                    title: "Asset Library",
+                    url: "/asset-library",
+                    icon: Folder,
+                  },
+                ]),
         // Add Products and Review pages for clients only
         ...(user?.metadata?.role === "client" &&
         user?.metadata?.onboarding === false

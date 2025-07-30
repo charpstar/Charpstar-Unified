@@ -45,8 +45,8 @@ export default function GuidelinesPage() {
   const router = useRouter();
   const { startLoading } = useLoading();
 
-  // Check if user is modeler
-  if (user?.metadata?.role !== "modeler") {
+  // Check if user is modeler or QA
+  if (user?.metadata?.role !== "modeler" && user?.metadata?.role !== "qa") {
     startLoading();
     router.push("/dashboard");
     return null;
@@ -134,7 +134,7 @@ export default function GuidelinesPage() {
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="gap-1">
             <Building className="h-3 w-3" />
-            3D Modeler
+            {user?.metadata?.role === "qa" ? "QA" : "3D Modeler"}
           </Badge>
         </div>
       </div>

@@ -7,7 +7,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
-import { Card } from "@/components/ui/containers";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/containers";
 import {
   Clock,
   CheckCircle,
@@ -339,17 +346,16 @@ export function AssignedModelsWidget() {
   );
 }
 
+import { TrendingUp } from "lucide-react";
+import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/display/chart";
 
-// Earnings Widget with Chart
+// Modeler Earnings Widget with Chart
 export function ModelerEarningsWidget() {
   const user = useUser();
   const [earningsData, setEarningsData] = useState({
@@ -491,8 +497,8 @@ export function ModelerEarningsWidget() {
       let totalEarnings = 0;
       let approvedThisMonth = 0;
 
-      // Group earnings by month for chart
-      const monthlyData = new Map<string, number>();
+      // Group earnings by day for chart
+      const dailyData = new Map<string, number>();
 
       fullyApprovedLists.forEach((list: any) => {
         const listEarnings = list.asset_assignments.reduce(
@@ -544,40 +550,29 @@ export function ModelerEarningsWidget() {
             lastMonthEarnings += totalListEarnings;
           }
 
-          // Add to monthly chart data
-          const monthKey = `${approvedYear}-${String(approvedMonth + 1).padStart(2, "0")}`;
-          monthlyData.set(
-            monthKey,
-            (monthlyData.get(monthKey) || 0) + totalListEarnings
+          // Add to daily chart data
+          const dayKey = `${approvedYear}-${String(approvedMonth + 1).padStart(2, "0")}-${String(approvedDate.getDate()).padStart(2, "0")}`;
+          dailyData.set(
+            dayKey,
+            (dailyData.get(dayKey) || 0) + totalListEarnings
           );
         }
       });
 
-      // Generate chart data for last 12 months
+      // Generate chart data for last 15 days
       const chartData = [];
-      const monthNames = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
 
-      for (let i = 11; i >= 0; i--) {
+      for (let i = 14; i >= 0; i--) {
         const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-        const earnings = monthlyData.get(monthKey) || 0;
+        date.setDate(date.getDate() - i);
+        const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        const earnings = dailyData.get(dayKey) || 0;
 
         chartData.push({
-          month: monthNames[date.getMonth()],
+          day: date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
           earnings: Math.round(earnings * 100) / 100, // Round to 2 decimal places
         });
       }
@@ -603,139 +598,101 @@ export function ModelerEarningsWidget() {
     }
   };
 
+  const chartConfig = {
+    earnings: {
+      label: "Earnings",
+      color: "var(--color-chart-1)",
+    },
+  } satisfies ChartConfig;
+
   if (!user) {
     return null;
   }
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col min-h-[400px]">
-        <h3 className="text-lg font-semibold mb-4">Earnings & Performance</h3>
-        <div className="flex items-center justify-center h-full">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Earnings & Performance</CardTitle>
+          <CardDescription>Loading your earnings data...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-48">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
+  // Calculate trend percentage
+  const trendPercentage =
+    earningsData.lastMonth > 0
+      ? (
+          ((earningsData.thisMonth - earningsData.lastMonth) /
+            earningsData.lastMonth) *
+          100
+        ).toFixed(1)
+      : "0.0";
+
+  const isTrendingUp = earningsData.thisMonth > earningsData.lastMonth;
+
   return (
-    <div className="h-full flex flex-col min-h-[400px]">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Earnings & Performance</h3>
-        <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-          Bonus only applies if completed before deadline
+    <Card>
+      <CardHeader>
+        <CardTitle>Earnings & Performance</CardTitle>
+        <CardDescription>Your earnings over the last 15 days</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={chartConfig}>
+          <LineChart
+            accessibilityLayer
+            data={earningsData.chartData}
+            margin={{
+              left: 12,
+              right: 12,
+            }}
+          >
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="day"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+            />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+            <Line
+              dataKey="earnings"
+              type="monotone"
+              stroke="#0891b2"
+              strokeWidth={3}
+              dot={{ fill: "#0891b2", strokeWidth: 2, r: 4 }}
+              activeDot={{
+                r: 6,
+                stroke: "#0891b2",
+                strokeWidth: 2,
+              }}
+            />
+          </LineChart>
+        </ChartContainer>
+      </CardContent>
+      <CardFooter>
+        <div className="flex w-full items-start gap-2 text-sm">
+          <div className="grid gap-2">
+            <div className="flex items-center gap-2 leading-none text-muted-foreground font-sm">
+              {isTrendingUp ? "Trending up" : "Trending down"} by{" "}
+              {trendPercentage}% this month
+              <TrendingUp
+                className={`h-4 w-4 ${isTrendingUp ? "" : "rotate-180"}`}
+              />
+            </div>
+            <div className=" flex items-center gap-2 leading-none font-medium">
+              Total earnings: €{earningsData.totalEarnings.toLocaleString()}
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <Card className="p-4">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">
-              This month&apos;s earnings
-            </p>
-            <p className="text-2xl font-bold text-accent-cyan">
-              €{earningsData.thisMonth.toLocaleString()}
-            </p>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">
-              Approved this month
-            </p>
-            <p className="text-2xl font-bold">
-              {earningsData.approvedThisMonth}
-            </p>
-          </div>
-        </Card>
-      </div>
-
-      {/* Chart */}
-      <div className="flex-1 min-h-[250px]">
-        <Card className="p-4 h-full">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h4 className="text-sm font-medium">Earnings</h4>
-              <div className="w-4 h-4 bg-muted rounded-full flex items-center justify-center">
-                <span className="text-xs">i</span>
-              </div>
-            </div>
-            <div className="text-sm text-accent-cyan font-medium">
-              12 months
-            </div>
-          </div>
-
-          {/* Summary Metrics */}
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div>
-              <p className="text-xs text-muted-foreground">Selected period</p>
-              <p className="text-sm font-semibold">
-                €{earningsData.thisMonth.toLocaleString()}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Average</p>
-              <p className="text-sm font-semibold">
-                €{(earningsData.totalEarnings / 12).toFixed(2)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Lifetime</p>
-              <p className="text-sm font-semibold">
-                €{earningsData.totalEarnings.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          {/* Chart */}
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={earningsData.chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis
-                  dataKey="month"
-                  stroke="#888888"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke="#888888"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `€${value}`}
-                />
-                <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-background border rounded-lg p-2 shadow-lg">
-                          <p className="text-sm font-medium">{label}</p>
-                          <p className="text-sm text-accent-cyan">
-                            €{payload[0].value}
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="earnings"
-                  stroke="#0891b2"
-                  strokeWidth={2}
-                  dot={{ fill: "#0891b2", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: "#0891b2", strokeWidth: 2 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   );
 }
 

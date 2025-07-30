@@ -134,33 +134,45 @@ export default function MyAssignmentsPage() {
         const batch = batchMap.get(key)!;
         batch.totalAssets++;
 
-        // Calculate earnings (bonus only applies if completed before deadline)
+        // Calculate earnings
         const baseEarnings = assignment.price || 0;
         const bonus = assignment.bonus || 0;
-        const totalEarnings = baseEarnings * (1 + bonus / 100);
 
-        batch.totalEarnings += totalEarnings;
+        // For potential earnings, always include bonus (assuming they complete on time)
+        const potentialEarnings = baseEarnings * (1 + bonus / 100);
+        batch.totalEarnings += potentialEarnings;
+
+        // For completed earnings, only include bonus if actually completed on time
+        let actualEarnings = baseEarnings;
+        if (asset.status === "approved" && asset.delivery_date) {
+          // Check if completed before deadline
+          const deliveryDate = new Date(asset.delivery_date);
+          const createdDate = new Date(asset.created_at);
+          if (createdDate <= deliveryDate) {
+            actualEarnings = baseEarnings * (1 + bonus / 100);
+          }
+        }
 
         // Count assets by status
         switch (asset.status) {
           case "approved":
             batch.completedAssets++;
-            batch.completedEarnings += totalEarnings;
+            batch.completedEarnings += actualEarnings;
             break;
           case "in_production":
             batch.inProgressAssets++;
-            batch.pendingEarnings += totalEarnings;
+            batch.pendingEarnings += potentialEarnings;
             break;
           case "delivered_by_artist":
-            batch.pendingEarnings += totalEarnings;
+            batch.pendingEarnings += potentialEarnings;
             break;
           case "revisions":
             batch.revisionAssets++;
-            batch.pendingEarnings += totalEarnings;
+            batch.pendingEarnings += potentialEarnings;
             break;
           case "not_started":
             batch.pendingAssets++;
-            batch.pendingEarnings += totalEarnings;
+            batch.pendingEarnings += potentialEarnings;
             break;
         }
 
