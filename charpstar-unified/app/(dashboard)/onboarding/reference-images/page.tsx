@@ -93,7 +93,15 @@ export default function ReferenceImagesPage() {
           description: error.message,
           variant: "destructive",
         });
-      else setAssets(data || []);
+      else {
+        // Sort assets by article_id
+        const sortedData = (data || []).sort((a, b) => {
+          const articleIdA = a.article_id || "";
+          const articleIdB = b.article_id || "";
+          return articleIdA.localeCompare(articleIdB);
+        });
+        setAssets(sortedData);
+      }
       setFetching(false);
     };
     fetchAssets();
@@ -306,7 +314,14 @@ export default function ReferenceImagesPage() {
         .from("onboarding_assets")
         .select("*")
         .eq("client", user?.metadata.client);
-      setAssets(data || []);
+
+      // Sort assets by article_id
+      const sortedData = (data || []).sort((a, b) => {
+        const articleIdA = a.article_id || "";
+        const articleIdB = b.article_id || "";
+        return articleIdA.localeCompare(articleIdB);
+      });
+      setAssets(sortedData);
 
       // Reset state
       setUploadedFiles([]);
@@ -317,6 +332,62 @@ export default function ReferenceImagesPage() {
       toast({
         title: "Error",
         description: "Failed to save references. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save references to multiple assets (bulk upload)
+  const saveBulkReferences = async () => {
+    if (selected.size === 0 || uploadedFiles.length === 0) return;
+
+    setLoading(true);
+    try {
+      const fileUrls = uploadedFiles.map((file) => file.url);
+      const selectedAssetIds = Array.from(selected);
+
+      // Update all selected assets with the same reference files
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ reference: fileUrls })
+        .in("id", selectedAssetIds);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Bulk upload successful",
+        description: `Reference files have been saved to ${selectedAssetIds.length} assets.`,
+      });
+
+      // Refresh assets
+      const { data } = await supabase
+        .from("onboarding_assets")
+        .select("*")
+        .eq("client", user?.metadata.client);
+
+      // Sort assets by article_id
+      const sortedData = (data || []).sort((a, b) => {
+        const articleIdA = a.article_id || "";
+        const articleIdB = b.article_id || "";
+        return articleIdA.localeCompare(articleIdB);
+      });
+      setAssets(sortedData);
+
+      // Reset state
+      setUploadedFiles([]);
+      setSelectedAsset(null);
+      setShowUploadDialog(false);
+      setSelected(new Set()); // Clear selection after bulk upload
+    } catch (error) {
+      console.error("Error saving bulk references:", error);
+      toast({
+        title: "Error",
+        description:
+          "Failed to save references to selected assets. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -351,7 +422,14 @@ export default function ReferenceImagesPage() {
         .from("onboarding_assets")
         .select("*")
         .eq("client", user?.metadata.client);
-      setAssets(data || []);
+
+      // Sort assets by article_id
+      const sortedData = (data || []).sort((a, b) => {
+        const articleIdA = a.article_id || "";
+        const articleIdB = b.article_id || "";
+        return articleIdA.localeCompare(articleIdB);
+      });
+      setAssets(sortedData);
 
       // Reset state
       setViewingFiles([]);
@@ -472,7 +550,7 @@ export default function ReferenceImagesPage() {
         </div>
       )}
 
-      <div className="mx-auto p-6 space-y-8">
+      <div className="container mx-auto p-6 space-y-6">
         {/* Enhanced Header */}
         <Card className="relative overflow-hidden bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-primary/20">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent" />
@@ -534,24 +612,26 @@ export default function ReferenceImagesPage() {
                 <Package className="h-5 w-5 text-primary" />
                 <span>Your Products</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={selectAll}
-                  disabled={assets.length === 0}
-                >
-                  Select All
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={deselectAll}
-                  disabled={selected.size === 0}
-                >
-                  Deselect All
-                </Button>
-              </div>
+              {selected.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {selected.size} selected
+                  </span>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedAsset(null); // Clear single asset selection
+                      setUploadedFiles([]);
+                      setShowUploadDialog(true);
+                    }}
+                    className="gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Upload to {selected.size} Assets
+                  </Button>
+                </div>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -578,7 +658,8 @@ export default function ReferenceImagesPage() {
                           onChange={(e) =>
                             e.target.checked ? selectAll() : deselectAll()
                           }
-                          className="rounded"
+                          className="rounded h-4 w-4"
+                          aria-invalid="false"
                         />
                       </th>
                       <th className="text-left p-3 font-medium">Product</th>
@@ -602,7 +683,8 @@ export default function ReferenceImagesPage() {
                               type="checkbox"
                               checked={selected.has(asset.id)}
                               onChange={() => toggleSelect(asset.id)}
-                              className="rounded"
+                              className="rounded h-4 w-4"
+                              aria-invalid="false"
                             />
                           </td>
                           <td className="p-3">
@@ -702,7 +784,9 @@ export default function ReferenceImagesPage() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl">
                 <Image className="h-5 w-5 text-primary" />
-                Upload Reference Files
+                {selectedAsset
+                  ? "Upload Reference Files"
+                  : `Upload to ${selected.size} Assets`}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-6">
@@ -714,6 +798,12 @@ export default function ReferenceImagesPage() {
                   OBJ, FBX, STL, etc.), CAD files (DWG, STEP, etc.), and
                   archives (ZIP, RAR, etc.). You can upload unlimited files and
                   remove them as needed.
+                  {!selectedAsset && selected.size > 0 && (
+                    <span className="block mt-2 font-medium text-primary">
+                      These files will be uploaded to all {selected.size}{" "}
+                      selected assets.
+                    </span>
+                  )}
                 </AlertDescription>
               </Alert>
 
@@ -829,12 +919,14 @@ export default function ReferenceImagesPage() {
                 </Button>
                 <Button
                   variant="default"
-                  onClick={saveReferences}
+                  onClick={selectedAsset ? saveReferences : saveBulkReferences}
                   loading={loading}
                   disabled={uploadedFiles.length === 0}
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  Save Files
+                  {selectedAsset
+                    ? "Save Files"
+                    : `Save to ${selected.size} Assets`}
                 </Button>
               </div>
             </div>

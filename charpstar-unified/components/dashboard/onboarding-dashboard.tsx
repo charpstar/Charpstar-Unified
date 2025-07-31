@@ -459,7 +459,7 @@ export function OnboardingDashboard() {
                     ${isExpanded ? "ring-2 ring-primary/20" : ""}
                   `}
                 >
-                  <CardContent className="p-6 lg:p-8">
+                  <CardContent className="p-6 lg:p-4">
                     <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                       {/* Step Icon */}
                       <div className="relative flex-shrink-0">

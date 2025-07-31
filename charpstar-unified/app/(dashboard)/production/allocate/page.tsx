@@ -675,31 +675,6 @@ export default function AllocateAssetsPage() {
                   </Select>
                 </div>
                 {/* QA Assignment */}
-                <div className="space-y-3">
-                  <label className="text-sm font-medium flex items-center">
-                    <User className="h-4 w-4 mr-2" />
-                    QA
-                  </label>
-                  <Select
-                    value={globalTeamAssignment.qaId}
-                    onValueChange={(value) =>
-                      updateGlobalTeamAssignment("qaId", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose QA" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users
-                        .filter((u) => u.role === "qa")
-                        .map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.email}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               {/* Assets Summary */}

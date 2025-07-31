@@ -1407,14 +1407,23 @@ export default function ReviewPage() {
 
     const itemDate = new Date(createdAt);
 
-    // Find the revision that was created before this item
     // Items created before the first revision are from revision 0 (original)
-    // Items created after a revision are from that revision number
+    const firstRevisionDate = new Date(revisionHistory[0].created_at);
+    if (itemDate < firstRevisionDate) {
+      return 0;
+    }
+
+    // Find which revision this item belongs to
+    // An item belongs to revision N if it was created after revision N-1 and before revision N+1
     for (let i = 0; i < revisionHistory.length; i++) {
-      const revisionDate = new Date(revisionHistory[i].created_at);
-      if (itemDate < revisionDate) {
-        // Item was created before this revision, so it belongs to the previous revision
-        return i === 0 ? 0 : revisionHistory[i - 1].revision_number;
+      const currentRevisionDate = new Date(revisionHistory[i].created_at);
+      const nextRevisionDate =
+        i < revisionHistory.length - 1
+          ? new Date(revisionHistory[i + 1].created_at)
+          : new Date(Date.now() + 86400000); // Far future date for latest revision
+
+      if (itemDate >= currentRevisionDate && itemDate < nextRevisionDate) {
+        return revisionHistory[i].revision_number;
       }
     }
 
@@ -1486,73 +1495,62 @@ export default function ReviewPage() {
   };
 
   // Function to get comments for selected annotation
-  const getCommentsForAnnotation = (annotationId: string) => {
-    return comments.filter((comment) => {
-      // Check if comment mentions this annotation or is related
-      const commentText = comment.comment.toLowerCase();
-
-      // Check for annotation number references (e.g., "annotation 1", "point 2")
-      const annotationIndex = annotations.findIndex(
-        (a) => a.id === annotationId
-      );
-      const annotationNumber = annotationIndex + 1;
-
-      return (
-        commentText.includes(`annotation ${annotationNumber}`) ||
-        commentText.includes(`point ${annotationNumber}`) ||
-        commentText.includes(`#${annotationNumber}`) ||
-        commentText.includes(`annotation ${annotationNumber}`) ||
-        commentText.includes(`point ${annotationNumber}`) ||
-        commentText.includes(`hotspot ${annotationNumber}`) ||
-        // If no specific annotation is selected, show all comments
-        !selectedHotspotId
-      );
-    });
+  // Comments should be independent of annotations - show all comments for the asset
+  const getAllComments = () => {
+    return comments;
   };
 
   // Filter annotations and comments for a specific revision
   const getRevisionItems = (revisionNumber: number) => {
-    if (revisionNumber === 1) {
-      // For revision 1, get items created before the first revision was requested
-      const firstRevision = revisionHistory.find(
-        (r) => r.revision_number === 1
-      );
-      if (!firstRevision) return { annotations: [], comments: [] };
+    if (revisionNumber === 0) {
+      // For revision 0 (original), get items created before the first revision was requested
+      if (revisionHistory.length === 0) {
+        // If no revisions exist, all items belong to revision 0
+        return { annotations, comments };
+      }
 
-      const revisionDate = new Date(firstRevision.created_at);
+      const firstRevisionDate = new Date(revisionHistory[0].created_at);
 
       const revisionAnnotations = annotations.filter(
-        (annotation) => new Date(annotation.created_at) < revisionDate
+        (annotation) => new Date(annotation.created_at) < firstRevisionDate
       );
 
       const revisionComments = comments.filter(
-        (comment) => new Date(comment.created_at) < revisionDate
+        (comment) => new Date(comment.created_at) < firstRevisionDate
       );
 
       return { annotations: revisionAnnotations, comments: revisionComments };
     } else {
-      // For subsequent revisions, get items created between this revision and the previous one
+      // For revision N, get items created after revision N-1 and before revision N+1
       const currentRevision = revisionHistory.find(
         (r) => r.revision_number === revisionNumber
       );
-      const previousRevision = revisionHistory.find(
-        (r) => r.revision_number === revisionNumber - 1
+
+      if (!currentRevision) return { annotations: [], comments: [] };
+
+      const currentRevisionDate = new Date(currentRevision.created_at);
+
+      // Find the next revision date (or use far future date for latest revision)
+      const nextRevision = revisionHistory.find(
+        (r) => r.revision_number === revisionNumber + 1
       );
-
-      if (!currentRevision || !previousRevision)
-        return { annotations: [], comments: [] };
-
-      const currentDate = new Date(currentRevision.created_at);
-      const previousDate = new Date(previousRevision.created_at);
+      const nextRevisionDate = nextRevision
+        ? new Date(nextRevision.created_at)
+        : new Date(Date.now() + 86400000); // Far future date
 
       const revisionAnnotations = annotations.filter((annotation) => {
         const annotationDate = new Date(annotation.created_at);
-        return annotationDate >= previousDate && annotationDate < currentDate;
+        return (
+          annotationDate >= currentRevisionDate &&
+          annotationDate < nextRevisionDate
+        );
       });
 
       const revisionComments = comments.filter((comment) => {
         const commentDate = new Date(comment.created_at);
-        return commentDate >= previousDate && commentDate < currentDate;
+        return (
+          commentDate >= currentRevisionDate && commentDate < nextRevisionDate
+        );
       });
 
       return { annotations: revisionAnnotations, comments: revisionComments };
@@ -3411,167 +3409,158 @@ export default function ReviewPage() {
                   {/* Comments Tab Content */}
                   {activeTab === "comments" && (
                     <div className="space-y-4">
-                      {getCommentsForAnnotation(selectedHotspotId || "").map(
-                        (comment) => (
-                          <Card
-                            key={comment.id}
-                            className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
-                          >
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <span className="text-sm font-medium text-foreground">
-                                    {comment.profiles?.email || "Unknown"}
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    {comment.profiles?.title && (
-                                      <Badge
-                                        variant={
-                                          getTitleBadgeVariant(
-                                            comment.profiles.title
-                                          ) as
-                                            | "default"
-                                            | "destructive"
-                                            | "secondary"
-                                            | "outline"
-                                            | null
-                                            | undefined
-                                        }
-                                        className="text-xs px-2 py-0.5 w-fit"
-                                      >
-                                        {comment.profiles.title}
-                                      </Badge>
-                                    )}
-                                    {/* Revision Badge */}
+                      {getAllComments().map((comment) => (
+                        <Card
+                          key={comment.id}
+                          className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
+                        >
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-sm font-medium text-foreground">
+                                  {comment.profiles?.email || "Unknown"}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  {comment.profiles?.title && (
                                     <Badge
-                                      variant="outline"
-                                      className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(comment.created_at))}`}
+                                      variant={
+                                        getTitleBadgeVariant(
+                                          comment.profiles.title
+                                        ) as
+                                          | "default"
+                                          | "destructive"
+                                          | "secondary"
+                                          | "outline"
+                                          | null
+                                          | undefined
+                                      }
+                                      className="text-xs px-2 py-0.5 w-fit"
                                     >
-                                      R{getRevisionForItem(comment.created_at)}
+                                      {comment.profiles.title}
                                     </Badge>
-                                  </div>
+                                  )}
+                                  {/* Revision Badge */}
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(comment.created_at))}`}
+                                  >
+                                    R{getRevisionForItem(comment.created_at)}
+                                  </Badge>
                                 </div>
                               </div>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 cursor-pointer"
-                                  >
-                                    <MoreVertical className="h-5 w-5" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="w-40"
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 cursor-pointer"
                                 >
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      startCommentInlineEdit(comment);
-                                    }}
-                                    disabled={isFunctionalityDisabled()}
-                                    className={
-                                      isFunctionalityDisabled()
-                                        ? "opacity-50 cursor-not-allowed"
-                                        : ""
-                                    }
-                                  >
-                                    <Edit3 className="h-3 w-3 mr-2" />
-                                    Edit Comment
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => deleteComment(comment.id)}
-                                    className="text-destructive hover:text-destructive"
-                                  >
-                                    <X className="h-3 w-3 mr-2" />
-                                    Delete Comment
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-
-                            {inlineEditingCommentId === comment.id ? (
-                              <div className="space-y-2">
-                                <Textarea
-                                  value={inlineEditCommentText}
-                                  onChange={(e) =>
-                                    setInlineEditCommentText(e.target.value)
-                                  }
-                                  onKeyDown={(e) =>
-                                    handleCommentInlineEditKeyDown(
-                                      e,
-                                      comment.id
-                                    )
-                                  }
-                                  onBlur={() => {
-                                    submitCommentInlineEdit(comment.id);
-                                  }}
-                                  className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
-                                  rows={3}
-                                  autoFocus
-                                  placeholder="Edit comment..."
-                                />
-                                <div className="flex gap-2 text-xs text-muted-foreground">
-                                  <span>
-                                    Press Enter to save, Escape to cancel
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div
-                                className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
-                                  isFunctionalityDisabled()
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : "cursor-pointer hover:bg-muted/50"
-                                }`}
-                                onClick={() => {
-                                  if (!isFunctionalityDisabled()) {
+                                  <MoreVertical className="h-5 w-5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40">
+                                <DropdownMenuItem
+                                  onClick={() => {
                                     startCommentInlineEdit(comment);
+                                  }}
+                                  disabled={isFunctionalityDisabled()}
+                                  className={
+                                    isFunctionalityDisabled()
+                                      ? "opacity-50 cursor-not-allowed"
+                                      : ""
                                   }
-                                }}
-                                title={
-                                  isFunctionalityDisabled()
-                                    ? "Editing disabled during revision"
-                                    : "Click to edit comment"
+                                >
+                                  <Edit3 className="h-3 w-3 mr-2" />
+                                  Edit Comment
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => deleteComment(comment.id)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <X className="h-3 w-3 mr-2" />
+                                  Delete Comment
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+
+                          {inlineEditingCommentId === comment.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={inlineEditCommentText}
+                                onChange={(e) =>
+                                  setInlineEditCommentText(e.target.value)
                                 }
-                              >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1 break-words w-full">
-                                    <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                                      {comment.comment}
-                                    </pre>
-                                  </div>
-                                  <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
-                                </div>
+                                onKeyDown={(e) =>
+                                  handleCommentInlineEditKeyDown(e, comment.id)
+                                }
+                                onBlur={() => {
+                                  submitCommentInlineEdit(comment.id);
+                                }}
+                                className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
+                                rows={3}
+                                autoFocus
+                                placeholder="Edit comment..."
+                              />
+                              <div className="flex gap-2 text-xs text-muted-foreground">
+                                <span>
+                                  Press Enter to save, Escape to cancel
+                                </span>
                               </div>
-                            )}
-
-                            <div className="mt-4 flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(
-                                  comment.created_at
-                                ).toLocaleDateString()}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                •
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(
-                                  comment.created_at
-                                ).toLocaleTimeString()}
-                              </span>
                             </div>
-                          </Card>
-                        )
-                      )}
+                          ) : (
+                            <div
+                              className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
+                                isFunctionalityDisabled()
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "cursor-pointer hover:bg-muted/50"
+                              }`}
+                              onClick={() => {
+                                if (!isFunctionalityDisabled()) {
+                                  startCommentInlineEdit(comment);
+                                }
+                              }}
+                              title={
+                                isFunctionalityDisabled()
+                                  ? "Editing disabled during revision"
+                                  : "Click to edit comment"
+                              }
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 break-words w-full">
+                                  <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                    {comment.comment}
+                                  </pre>
+                                </div>
+                                <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
+                              </div>
+                            </div>
+                          )}
 
-                      {getCommentsForAnnotation(selectedHotspotId || "")
-                        .length === 0 && (
+                          <div className="mt-4 flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(
+                                comment.created_at
+                              ).toLocaleDateString()}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              •
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(
+                                comment.created_at
+                              ).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        </Card>
+                      ))}
+
+                      {getAllComments().length === 0 && (
                         <div className="text-center py-12">
                           <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                             <MessageSquare className="h-8 w-8 text-muted-foreground" />
@@ -3580,9 +3569,7 @@ export default function ReviewPage() {
                             No comments yet
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            {selectedHotspotId
-                              ? `Be the first to add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}!`
-                              : "Be the first to add a comment!"}
+                            Be the first to add a comment!
                           </p>
                         </div>
                       )}

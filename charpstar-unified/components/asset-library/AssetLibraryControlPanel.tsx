@@ -396,6 +396,7 @@ export const AssetLibraryControlPanel: React.FC<
                                 )}
                                 onChange={() => {}}
                                 className="rounded"
+                                aria-invalid="false"
                               />
                               <span className="flex-1 text-sm truncate">
                                 {material.name}
@@ -471,6 +472,7 @@ export const AssetLibraryControlPanel: React.FC<
                                 checked={selectedColors.includes(color.id)}
                                 onChange={() => {}}
                                 className="rounded"
+                                aria-invalid="false"
                               />
                               <span className="flex-1 text-sm truncate">
                                 {color.name}

@@ -315,12 +315,7 @@ export default function ReviewDashboardPage() {
                 <SelectItem value="batch">
                   Sort by: Batch (1, 2, 3...)
                 </SelectItem>
-                <SelectItem value="date">
-                  Sort by: Delivery Date (Newest)
-                </SelectItem>
-                <SelectItem value="date-oldest">
-                  Sort by: Delivery Date (Oldest)
-                </SelectItem>
+
                 <SelectItem value="priority">
                   Sort by: Priority (Highest First)
                 </SelectItem>
@@ -329,14 +324,6 @@ export default function ReviewDashboardPage() {
                 </SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              onClick={() => router.push("/add-products")}
-              className="cursor-pointer hover:bg-primary/8 transition-all duration-200 rounded-lg"
-              variant="ghost"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Products
-            </Button>
           </div>
         </div>
 
@@ -436,16 +423,13 @@ export default function ReviewDashboardPage() {
                         <DropdownMenuItem onClick={() => setSort("za")}>
                           Z-A
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSort("date")}>
-                          Delivery Date
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableHead>
                   <TableHead>Model Name</TableHead>
                   <TableHead>Article ID</TableHead>
                   <TableHead>Priority</TableHead>
-                  <TableHead>Delivery Date</TableHead>
+
                   <TableHead>Status</TableHead>
                   <TableHead>Review</TableHead>
                 </TableRow>
@@ -548,7 +532,7 @@ export default function ReviewDashboardPage() {
                           </Select>
                         </div>
                       </TableCell>
-                      <TableCell>{asset.delivery_date || "-"}</TableCell>
+
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
                           <span
