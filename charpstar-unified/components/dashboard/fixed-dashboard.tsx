@@ -32,11 +32,6 @@ const LazyNewUsersChartWidget = lazy(() =>
     default: module.NewUsersChartWidget,
   }))
 );
-const LazyNewModelsChartWidget = lazy(() =>
-  import("@/components/dashboard").then((module) => ({
-    default: module.NewModelsChartWidget,
-  }))
-);
 
 // Import role-specific widgets
 import {

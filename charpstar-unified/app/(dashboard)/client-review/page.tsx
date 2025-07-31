@@ -26,7 +26,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
-  Plus,
   Package,
   Send,
   CheckCircle,

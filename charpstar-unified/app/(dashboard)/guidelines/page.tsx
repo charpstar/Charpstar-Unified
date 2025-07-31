@@ -14,19 +14,9 @@ import { Badge } from "@/components/ui/feedback";
 import {
   Building,
   CheckCircle,
-  Clock,
   FileText,
-  Download,
-  ExternalLink,
   ArrowLeft,
-  Star,
-  Target,
   Award,
-  Users,
-  Settings,
-  BookOpen,
-  Video,
-  HelpCircle,
 } from "lucide-react";
 
 interface GuidelineSection {

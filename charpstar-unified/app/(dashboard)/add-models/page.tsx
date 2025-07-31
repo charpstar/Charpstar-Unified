@@ -32,7 +32,6 @@ import {
   FolderOpen,
   Loader2,
 } from "lucide-react";
-import Link from "next/link";
 import { useToast } from "@/components/ui/utilities";
 
 interface UploadedFile {

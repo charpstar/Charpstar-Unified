@@ -12,7 +12,7 @@ export class EmailService {
   async sendEmail(emailData: EmailData): Promise<boolean> {
     try {
       // Use Supabase's built-in email functionality
-      const { data, error } = await supabase.functions.invoke("send-email", {
+      const { error } = await supabase.functions.invoke("send-email", {
         body: {
           to: emailData.to,
           subject: emailData.subject,

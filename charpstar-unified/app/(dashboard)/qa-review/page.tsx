@@ -5,12 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { supabase } from "@/lib/supabaseClient";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
+import { Card } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 import {
@@ -44,13 +39,10 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
-  Search,
-  Filter,
   ShieldCheck,
   X,
   MoreHorizontal,
   Download,
-  Upload,
   FolderOpen,
   ExternalLink,
 } from "lucide-react";
@@ -364,15 +356,6 @@ export default function QAReviewPage() {
         window.open(url, "_blank");
       });
     }
-  };
-
-  const handleDownloadReference = (url: string) => {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = url.split("/").pop() || "reference";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const handleDownloadGLB = (asset: AssignedAsset) => {

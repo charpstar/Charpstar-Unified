@@ -7,8 +7,6 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/containers";
@@ -18,16 +16,12 @@ import { Progress } from "@/components/ui/feedback";
 import { Skeleton } from "@/components/ui/skeletons";
 import {
   Users,
-  Package,
   CheckCircle,
   AlertCircle,
   Clock,
   Eye,
-  ChevronRight,
   User,
-  TrendingUp,
   BarChart3,
-  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
@@ -81,22 +75,6 @@ interface WaitingForApprovalAsset {
   delivery_date: string;
   modeler_email?: string;
 }
-
-const STATUS_COLORS = {
-  approved: "bg-green-100 text-green-800 border-green-200",
-  delivered_by_artist: "bg-blue-100 text-blue-800 border-blue-200",
-  revisions: "bg-red-100 text-red-800 border-red-200",
-  in_production: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  not_started: "bg-gray-100 text-gray-800 border-gray-200",
-};
-
-const STATUS_LABELS = {
-  approved: "Approved",
-  delivered_by_artist: "Delivered",
-  revisions: "Revisions",
-  in_production: "In Progress",
-  not_started: "Not Started",
-};
 
 export default function QAWidgets() {
   const user = useUser();
@@ -243,7 +221,7 @@ export default function QAWidgets() {
       });
 
       setModelers(modelerProgress);
-    } catch (error) {
+    } catch {
       toast.error("Failed to fetch modeler progress");
     } finally {
       setLoading(false);
@@ -251,7 +229,6 @@ export default function QAWidgets() {
   };
 
   const displayedModelers = showAll ? modelers : modelers.slice(0, 4);
-  const hasMoreModelers = modelers.length > 4;
 
   if (loading) {
     return (
@@ -434,7 +411,7 @@ export function PersonalMetricsWidget() {
 
   // Custom event listener to track QA approval actions
   useEffect(() => {
-    const handleQAApproval = (event: CustomEvent) => {
+    const handleQAApproval = () => {
       // Refresh metrics when QA approves an asset
       fetchPersonalMetrics();
     };
@@ -492,7 +469,7 @@ export function PersonalMetricsWidget() {
       }
 
       // 3. Get QA allocations to find assets this QA is responsible for
-      const { data: qaAllocations, error: allocationError } = await supabase
+      const { error: allocationError } = await supabase
         .from("qa_allocations")
         .select("modeler_id")
         .eq("qa_id", user?.id);
@@ -597,8 +574,8 @@ export function PersonalMetricsWidget() {
         approvedToday: todayData.approved,
         weeklyData,
       });
-    } catch (error) {
-      console.error("Error fetching personal metrics:", error);
+    } catch {
+      console.error("Error fetching personal metrics");
     } finally {
       setLoading(false);
     }

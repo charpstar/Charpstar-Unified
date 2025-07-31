@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
-import { Badge } from "@/components/ui/feedback";
 import {
   Table,
   TableBody,
@@ -32,8 +31,6 @@ import {
   ShieldCheck,
   Users,
   CheckCircle,
-  AlertCircle,
-  Clock,
   Package,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -186,7 +183,6 @@ export default function QAAllocationPage() {
     try {
       setAllocating(true);
 
-      const newAllocations = [];
       let successCount = 0;
       let errorCount = 0;
 

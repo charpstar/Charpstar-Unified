@@ -32,7 +32,6 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronUp,
-  Send,
   Clock,
   AlertCircle,
   ArrowLeft,
@@ -259,6 +258,7 @@ export default function AdminReviewPage() {
   const [annotationCounts, setAnnotationCounts] = useState<
     Record<string, number>
   >({});
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [clients, setClients] = useState<string[]>([]);
   const [assignedAssets, setAssignedAssets] = useState<
     Map<string, { email: string; name?: string }>

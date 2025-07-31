@@ -689,7 +689,7 @@ export default function PendingAssignmentsPage() {
                   No pending allocation lists found
                 </h3>
                 <p className="text-muted-foreground">
-                  You don't have any pending assignments at the moment.
+                  You don&apos;t have any pending assignments at the moment.
                 </p>
               </div>
             ) : (

@@ -531,7 +531,7 @@ export function QuickActionsWidget() {
   return (
     <WidgetContainer>
       <div className="grid grid-cols-2 gap-4 min-h-[238px]">
-        {actions.map((action, idx) => (
+        {actions.map((action) => (
           <Card
             key={action.name}
             className="p-4 hover:shadow-md transition-shadow cursor-pointer h-full flex flex-col justify-center"

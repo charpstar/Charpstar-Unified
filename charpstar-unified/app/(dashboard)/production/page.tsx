@@ -165,9 +165,6 @@ interface QAProgress {
 }
 
 // Helper function to check if deadline is overdue
-const isOverdue = (deadline: string) => {
-  return new Date(deadline) < new Date();
-};
 
 export default function ProductionDashboard() {
   const router = useRouter();
@@ -471,9 +468,9 @@ export default function ProductionDashboard() {
       await fetchModelerProgress(assetData || []);
 
       // Fetch QA data
-      await fetchQAProgress(assetData || []);
-    } catch (error) {
-      console.error("Error fetching client progress:", error);
+      await fetchQAProgress();
+    } catch {
+      console.error("Error fetching client progress");
     } finally {
       setLoading(false);
     }
@@ -685,7 +682,7 @@ export default function ProductionDashboard() {
   };
 
   // Fetch QA progress data
-  const fetchQAProgress = async (assetData: any[]) => {
+  const fetchQAProgress = async () => {
     try {
       // Get all QA users from profiles table
       const { data: qaDetails, error: userError } = await supabase
@@ -1967,7 +1964,7 @@ export default function ProductionDashboard() {
               })
             : // QA Cards
               filteredQAUsers.map((qaUser) => {
-                // Prepare chart data for QA user
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const chartData = Object.entries(qaUser.statusCounts)
                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   .filter(([_, count]) => count > 0)
