@@ -42,6 +42,18 @@ import {
 } from "@/components/ui/containers";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { STATUS_LABELS, type StatusKey } from "@/lib/constants";
+
+// Helper function to get status color CSS variable
+const getStatusColor = (status: StatusKey): string => {
+  const statusColorMap = {
+    in_production: "var(--status-in-production)",
+    revisions: "var(--status-revisions)",
+    approved: "var(--status-approved)",
+    delivered_by_artist: "var(--status-delivered-by-artist)",
+  };
+  return statusColorMap[status];
+};
 
 // Unified Widget Header Component
 interface WidgetHeaderProps {
@@ -1089,22 +1101,6 @@ export function CategoriesWidget({ stats }: { stats?: any }) {
   );
 }
 
-const STATUS_LABELS = {
-  in_production: "In Production",
-  revisions: "Ready for Revision",
-  approved: "Approved",
-  delivered_by_artist: "Delivered by Artist",
-};
-
-type StatusKey = keyof typeof STATUS_LABELS;
-
-const STATUS_COLORS: Record<StatusKey, string> = {
-  in_production: "#FACC15", // yellow
-  revisions: "#F87171", // red
-  approved: "#4ADE80", // green
-  delivered_by_artist: "#60A5FA", // blue
-};
-
 export function ModelStatusWidget() {
   const user = useUser();
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
@@ -1179,7 +1175,7 @@ export function ModelStatusWidget() {
                 >
                   <span
                     className="inline-block w-3 h-3 rounded-full"
-                    style={{ background: STATUS_COLORS[key] }}
+                    style={{ background: getStatusColor(key) }}
                   />
                   <span className="font-medium flex-1 text-sm">{label}</span>
                   <span className=" text-lg ">{counts[key]}</span>
@@ -1292,7 +1288,7 @@ export function StatusPieChartWidget() {
                     {chartData.map((entry) => (
                       <Cell
                         key={`cell-${entry.key}`}
-                        fill={STATUS_COLORS[entry.key]}
+                        fill={getStatusColor(entry.key)}
                       />
                     ))}
                   </Pie>
@@ -1322,7 +1318,7 @@ export function StatusPieChartWidget() {
                   <div key={entry.key} className="flex items-center gap-3">
                     <span
                       className="inline-block w-4 h-4 rounded-full"
-                      style={{ background: STATUS_COLORS[entry.key] }}
+                      style={{ background: getStatusColor(entry.key) }}
                     />
                     <span className="font-medium text-sm flex-1">
                       {entry.name}

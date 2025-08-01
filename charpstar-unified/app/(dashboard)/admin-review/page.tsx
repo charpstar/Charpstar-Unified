@@ -35,6 +35,7 @@ import {
   Clock,
   AlertCircle,
   ArrowLeft,
+  Trash2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -42,9 +43,26 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/interactive/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/containers";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
+import { getPriorityLabel } from "@/lib/constants";
+
+// Helper function to get priority CSS class
+const getPriorityClass = (priority: number): string => {
+  if (priority === 1) return "priority-high";
+  if (priority === 2) return "priority-medium";
+  return "priority-low";
+};
 
 const STATUS_LABELS = {
   in_production: {
@@ -70,18 +88,6 @@ const STATUS_LABELS = {
 };
 
 const PAGE_SIZE = 18;
-
-const getPriorityColor = (priority: number) => {
-  if (priority === 1) return "bg-error-muted text-error border-error/20";
-  if (priority === 2) return "bg-warning-muted text-warning border-warning/20";
-  return "bg-muted text-muted-foreground border-border";
-};
-
-const getPriorityLabel = (priority: number) => {
-  if (priority === 1) return "High";
-  if (priority === 2) return "Medium";
-  return "Low";
-};
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -277,6 +283,7 @@ export default function AdminReviewPage() {
     new Set()
   );
   const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
+  const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
 
   // Calculate status totals based on filtered data
   const statusTotals = useMemo(() => {
@@ -987,6 +994,152 @@ export default function AdminReviewPage() {
     }
   };
 
+  const deleteAsset = async (assetId: string) => {
+    setDeletingAsset(assetId);
+
+    try {
+      // Get allocation list IDs that are linked to this asset
+      const { data: assignments, error: assignmentsQueryError } = await supabase
+        .from("asset_assignments")
+        .select("allocation_list_id")
+        .eq("asset_id", assetId)
+        .not("allocation_list_id", "is", null);
+
+      if (assignmentsQueryError) {
+        console.error(
+          "Error fetching asset assignments:",
+          assignmentsQueryError
+        );
+        throw assignmentsQueryError;
+      }
+
+      // Extract unique allocation list IDs
+      const allocationListIds = [
+        ...new Set(
+          assignments
+            ?.map((assignment) => assignment.allocation_list_id)
+            .filter(Boolean) || []
+        ),
+      ];
+
+      // Delete related records in the correct order to maintain referential integrity
+
+      // 1. Delete asset assignments
+      const { error: assignmentsError } = await supabase
+        .from("asset_assignments")
+        .delete()
+        .eq("asset_id", assetId);
+
+      if (assignmentsError) {
+        console.error("Error deleting asset assignments:", assignmentsError);
+        throw assignmentsError;
+      }
+
+      // 2. Delete asset comments
+      const { error: commentsError } = await supabase
+        .from("asset_comments")
+        .delete()
+        .eq("asset_id", assetId);
+
+      if (commentsError) {
+        console.error("Error deleting asset comments:", commentsError);
+        throw commentsError;
+      }
+
+      // 3. Delete revision history
+      const { error: revisionError } = await supabase
+        .from("revision_history")
+        .delete()
+        .eq("asset_id", assetId);
+
+      if (revisionError) {
+        console.error("Error deleting revision history:", revisionError);
+        throw revisionError;
+      }
+
+      // 4. Delete QA approvals
+      const { error: approvalsError } = await supabase
+        .from("qa_approvals")
+        .delete()
+        .eq("asset_id", assetId);
+
+      if (approvalsError) {
+        console.error("Error deleting QA approvals:", approvalsError);
+        throw approvalsError;
+      }
+
+      // 5. Check each allocation list and delete only if it becomes empty
+      if (allocationListIds.length > 0) {
+        for (const listId of allocationListIds) {
+          // Check how many assets are left in this allocation list
+          const { data: remainingAssets, error: countError } = await supabase
+            .from("asset_assignments")
+            .select("asset_id")
+            .eq("allocation_list_id", listId);
+
+          if (countError) {
+            console.error(
+              "Error checking remaining assets in list:",
+              countError
+            );
+            throw countError;
+          }
+
+          // If no assets remain in this list, delete the allocation list
+          if (!remainingAssets || remainingAssets.length === 0) {
+            const { error: allocationListError } = await supabase
+              .from("allocation_lists")
+              .delete()
+              .eq("id", listId);
+
+            if (allocationListError) {
+              console.error(
+                "Error deleting empty allocation list:",
+                allocationListError
+              );
+              throw allocationListError;
+            }
+
+            console.log(`Deleted empty allocation list ${listId}`);
+          } else {
+            console.log(
+              `Allocation list ${listId} still has ${remainingAssets.length} assets, keeping it`
+            );
+          }
+        }
+      }
+
+      // 6. Finally, delete the asset itself
+      const { error: assetDeleteError } = await supabase
+        .from("onboarding_assets")
+        .delete()
+        .eq("id", assetId);
+
+      if (assetDeleteError) {
+        console.error("Error deleting asset:", assetDeleteError);
+        throw assetDeleteError;
+      }
+
+      // Remove from local state
+      setAssets((prevAssets) =>
+        prevAssets.filter((asset) => asset.id !== assetId)
+      );
+      setSelected((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(assetId);
+        return newSet;
+      });
+
+      toast.success("Asset deleted successfully");
+      console.log(`Successfully deleted asset ${assetId}`);
+    } catch (error) {
+      console.error("Error deleting asset:", error);
+      toast.error("Failed to delete asset");
+    } finally {
+      setDeletingAsset(null);
+    }
+  };
+
   if (
     user &&
     user.metadata?.role !== "admin" &&
@@ -1322,7 +1475,7 @@ export default function AdminReviewPage() {
                                 <TableCell>
                                   <div className="flex items-center justify-center gap-2">
                                     <span
-                                      className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(
+                                      className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
                                         assignment.onboarding_assets.priority ||
                                           2
                                       )}`}
@@ -1407,18 +1560,90 @@ export default function AdminReviewPage() {
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="cursor-pointer"
-                                    onClick={() =>
-                                      router.push(
-                                        `/client-review/${assignment.onboarding_assets.id}`
-                                      )
-                                    }
-                                  >
-                                    <Eye className="h-5 w-5" />
-                                  </Button>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        router.push(
+                                          `/client-review/${assignment.onboarding_assets.id}`
+                                        );
+                                      }}
+                                    >
+                                      <Eye className="h-5 w-5" />
+                                    </Button>
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="cursor-pointer text-error hover:text-error hover:bg-error/10"
+                                          onClick={(e) => e.stopPropagation()}
+                                          disabled={
+                                            deletingAsset ===
+                                            assignment.onboarding_assets.id
+                                          }
+                                        >
+                                          {deletingAsset ===
+                                          assignment.onboarding_assets.id ? (
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-error" />
+                                          ) : (
+                                            <Trash2 className="h-5 w-5" />
+                                          )}
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent>
+                                        <DialogHeader>
+                                          <DialogTitle>
+                                            Delete Asset
+                                          </DialogTitle>
+                                          <DialogDescription>
+                                            Are you sure you want to delete this
+                                            asset? This action cannot be undone
+                                            and will permanently delete:
+                                            <ul className="list-disc list-inside mt-2 space-y-1">
+                                              <li>The asset itself</li>
+                                              <li>
+                                                All assignments and comments
+                                              </li>
+                                              <li>All revision history</li>
+                                              <li>All QA approvals</li>
+                                              <li>
+                                                Any empty allocation lists (only
+                                                if this was the last asset in
+                                                the list)
+                                              </li>
+                                            </ul>
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                        <DialogFooter>
+                                          <Button variant="outline">
+                                            Cancel
+                                          </Button>
+                                          <Button
+                                            variant="destructive"
+                                            onClick={() =>
+                                              deleteAsset(
+                                                assignment.onboarding_assets.id
+                                              )
+                                            }
+                                            disabled={
+                                              deletingAsset ===
+                                              assignment.onboarding_assets.id
+                                            }
+                                          >
+                                            {deletingAsset ===
+                                            assignment.onboarding_assets.id ? (
+                                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                            ) : null}
+                                            Delete Asset
+                                          </Button>
+                                        </DialogFooter>
+                                      </DialogContent>
+                                    </Dialog>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -1558,7 +1783,7 @@ export default function AdminReviewPage() {
                       <TableCell>
                         <div className="flex items-center justify-center gap-2">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(
+                            className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
                               asset.priority || 2
                             )}`}
                           >
@@ -1626,6 +1851,55 @@ export default function AdminReviewPage() {
                         >
                           <Eye className="h-5 w-5" />
                         </Button>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="cursor-pointer text-error hover:text-error hover:bg-error/10"
+                              disabled={deletingAsset === asset.id}
+                            >
+                              {deletingAsset === asset.id ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-error" />
+                              ) : (
+                                <Trash2 className="h-5 w-5" />
+                              )}
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Delete Asset</DialogTitle>
+                              <DialogDescription>
+                                Are you sure you want to delete this asset? This
+                                action cannot be undone and will permanently
+                                delete:
+                                <ul className="list-disc list-inside mt-2 space-y-1">
+                                  <li>The asset itself</li>
+                                  <li>All assignments and comments</li>
+                                  <li>All revision history</li>
+                                  <li>All QA approvals</li>
+                                  <li>
+                                    Any empty allocation lists (only if this was
+                                    the last asset in the list)
+                                  </li>
+                                </ul>
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button variant="outline">Cancel</Button>
+                              <Button
+                                variant="destructive"
+                                onClick={() => deleteAsset(asset.id)}
+                                disabled={deletingAsset === asset.id}
+                              >
+                                {deletingAsset === asset.id ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                ) : null}
+                                Delete Asset
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
                       </TableCell>
                     </TableRow>
                   ))

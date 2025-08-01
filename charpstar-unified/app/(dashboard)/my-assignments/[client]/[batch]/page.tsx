@@ -4,6 +4,14 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
+import { getPriorityLabel } from "@/lib/constants";
+
+// Helper function to get priority CSS class
+const getPriorityClass = (priority: number): string => {
+  if (priority === 1) return "priority-high";
+  if (priority === 2) return "priority-medium";
+  return "priority-low";
+};
 import { supabase } from "@/lib/supabaseClient";
 import {
   Card,
@@ -420,32 +428,6 @@ export default function BatchDetailPage() {
         return "bg-info-muted text-info border-info/20";
       default:
         return "bg-muted text-muted-foreground border-border";
-    }
-  };
-
-  const getPriorityColor = (priority: number) => {
-    switch (priority) {
-      case 1:
-        return "bg-error-muted text-error border-error/20";
-      case 2:
-        return "bg-warning-muted text-warning border-warning/20";
-      case 3:
-        return "bg-success-muted text-success border-success/20";
-      default:
-        return "bg-muted text-muted-foreground border-border";
-    }
-  };
-
-  const getPriorityLabel = (priority: number) => {
-    switch (priority) {
-      case 1:
-        return "High";
-      case 2:
-        return "Medium";
-      case 3:
-        return "Low";
-      default:
-        return "Unknown";
     }
   };
 
@@ -1081,7 +1063,7 @@ export default function BatchDetailPage() {
                           <TableCell>
                             <Badge
                               variant="outline"
-                              className={`text-xs ${getPriorityColor(asset.priority)}`}
+                              className={`text-xs ${getPriorityClass(asset.priority)}`}
                             >
                               {getPriorityLabel(asset.priority)}
                             </Badge>

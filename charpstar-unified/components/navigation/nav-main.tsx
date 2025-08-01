@@ -1,6 +1,6 @@
 "use client";
 
-import { type Icon } from "@tabler/icons-react";
+import { LucideIcon } from "lucide-react";
 
 import {
   SidebarGroup,
@@ -11,7 +11,6 @@ import {
 } from "@/components/navigation/sidebar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LucideIcon } from "lucide-react";
 
 export default function NavMain({
   items,
@@ -19,7 +18,7 @@ export default function NavMain({
   items: {
     title: string;
     url: string;
-    icon?: Icon | LucideIcon;
+    icon?: LucideIcon;
   }[];
 }) {
   const pathname = usePathname();

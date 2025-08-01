@@ -142,6 +142,28 @@
   --banner-text: oklch(0.92 0.01 235); /* Near-white text for contrast */
   --banner-text-foreground: oklch(0.72 0.02 235);
 
+  /* Status color variables */
+  --status-in-production: #facc15; /* yellow */
+  --status-revisions: #f87171; /* red */
+  --status-approved: #4ade80; /* green */
+  --status-delivered-by-artist: #60a5fa; /* blue */
+  --status-approved-alt: #059669; /* darker green for charts */
+  --status-reviewed: #0891b2; /* cyan for reviewed items */
+
+  /* Priority color variables */
+  --priority-high: var(--error-muted);
+  --priority-high-text: var(--error);
+  --priority-high-border: var(--error);
+  --priority-medium: var(--warning-muted);
+  --priority-medium-text: var(--warning);
+  --priority-medium-border: var(--warning);
+  --priority-low: var(--muted);
+  --priority-low-text: var(--muted-foreground);
+  --priority-low-border: var(--border);
+  --priority-low-guidelines: var(--success-muted);
+  --priority-low-guidelines-text: var(--success);
+  --priority-low-guidelines-border: var(--success);
+
   /* White for highlighted/foreground text */
 }
 
@@ -225,6 +247,28 @@
   --banner-border: oklch(0.32 0.07 220); /* Lighter blue accent for border */
   --banner-text: oklch(0.92 0.01 235); /* Near-white text for contrast */
   --banner-text-foreground: oklch(0.72 0.02 235);
+
+  /* Status color variables */
+  --status-in-production: #facc15; /* yellow */
+  --status-revisions: #f87171; /* red */
+  --status-approved: #4ade80; /* green */
+  --status-delivered-by-artist: #60a5fa; /* blue */
+  --status-approved-alt: #059669; /* darker green for charts */
+  --status-reviewed: #0891b2; /* cyan for reviewed items */
+
+  /* Priority color variables */
+  --priority-high: var(--error-muted);
+  --priority-high-text: var(--error);
+  --priority-high-border: var(--error);
+  --priority-medium: var(--warning-muted);
+  --priority-medium-text: var(--warning);
+  --priority-medium-border: var(--warning);
+  --priority-low: var(--muted);
+  --priority-low-text: var(--muted-foreground);
+  --priority-low-border: var(--border);
+  --priority-low-guidelines: var(--success-muted);
+  --priority-low-guidelines-text: var(--success);
+  --priority-low-guidelines-border: var(--success);
 
   /* White for highlighted/foreground text */
 }
@@ -517,6 +561,67 @@ model-viewer::part(default-ar-button):focus-visible {
   }
   .bg-accent-yellow {
     background-color: var(--accent-yellow);
+  }
+
+  /* Status color utility classes */
+  .text-status-in-production {
+    color: var(--status-in-production);
+  }
+  .text-status-revisions {
+    color: var(--status-revisions);
+  }
+  .text-status-approved {
+    color: var(--status-approved);
+  }
+  .text-status-delivered-by-artist {
+    color: var(--status-delivered-by-artist);
+  }
+  .text-status-approved-alt {
+    color: var(--status-approved-alt);
+  }
+  .text-status-reviewed {
+    color: var(--status-reviewed);
+  }
+
+  .bg-status-in-production {
+    background-color: var(--status-in-production);
+  }
+  .bg-status-revisions {
+    background-color: var(--status-revisions);
+  }
+  .bg-status-approved {
+    background-color: var(--status-approved);
+  }
+  .bg-status-delivered-by-artist {
+    background-color: var(--status-delivered-by-artist);
+  }
+  .bg-status-approved-alt {
+    background-color: var(--status-approved-alt);
+  }
+  .bg-status-reviewed {
+    background-color: var(--status-reviewed);
+  }
+
+  /* Priority color utility classes */
+  .priority-high {
+    background-color: var(--priority-high);
+    color: var(--priority-high-text);
+    border-color: var(--priority-high-border);
+  }
+  .priority-medium {
+    background-color: var(--priority-medium);
+    color: var(--priority-medium-text);
+    border-color: var(--priority-medium-border);
+  }
+  .priority-low {
+    background-color: var(--priority-low);
+    color: var(--priority-low-text);
+    border-color: var(--priority-low-border);
+  }
+  .priority-low-guidelines {
+    background-color: var(--priority-low-guidelines);
+    color: var(--priority-low-guidelines-text);
+    border-color: var(--priority-low-guidelines-border);
   }
 }
 

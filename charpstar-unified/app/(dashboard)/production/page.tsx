@@ -24,6 +24,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/inputs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/containers";
 
 import { TeamInfoTooltip } from "@/components/production/TeamInfoTooltip";
 
@@ -43,6 +52,7 @@ import {
   AlertCircle,
   RotateCcw,
   Info,
+  Trash2,
 } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/utilities";
 import type { DateRange } from "react-day-picker";
@@ -181,6 +191,7 @@ export default function ProductionDashboard() {
   const [chartLoadingStates, setChartLoadingStates] = useState<
     Record<string, boolean>
   >({});
+  const [deletingBatch, setDeletingBatch] = useState<string | null>(null);
 
   // Get state from URL params with defaults
   const searchTerm = searchParams.get("search") || "";
@@ -1293,6 +1304,145 @@ export default function ProductionDashboard() {
     setChartLoadingStates((prev) => ({ ...prev, [qaUserId]: false }));
   };
 
+  // Function to delete all assets in a batch
+  const deleteBatchAssets = async (clientName: string, batchNumber: number) => {
+    const batchKey = `${clientName}-${batchNumber}`;
+    setDeletingBatch(batchKey);
+
+    try {
+      // First, get all asset IDs for this batch
+      const { data: assets, error: assetsError } = await supabase
+        .from("onboarding_assets")
+        .select("id")
+        .eq("client", clientName)
+        .eq("batch", batchNumber);
+
+      if (assetsError) {
+        console.error("Error fetching assets:", assetsError);
+        throw assetsError;
+      }
+
+      if (!assets || assets.length === 0) {
+        console.log("No assets found for this batch");
+        return;
+      }
+
+      const assetIds = assets.map((asset) => asset.id);
+
+      // Get allocation list IDs that are linked to these assets
+      const { data: assignments, error: assignmentsQueryError } = await supabase
+        .from("asset_assignments")
+        .select("allocation_list_id")
+        .in("asset_id", assetIds)
+        .not("allocation_list_id", "is", null);
+
+      if (assignmentsQueryError) {
+        console.error(
+          "Error fetching asset assignments:",
+          assignmentsQueryError
+        );
+        throw assignmentsQueryError;
+      }
+
+      // Extract unique allocation list IDs
+      const allocationListIds = [
+        ...new Set(
+          assignments
+            ?.map((assignment) => assignment.allocation_list_id)
+            .filter(Boolean) || []
+        ),
+      ];
+
+      // Delete related records in the correct order to maintain referential integrity
+
+      // 1. Delete asset assignments
+      const { error: assignmentsError } = await supabase
+        .from("asset_assignments")
+        .delete()
+        .in("asset_id", assetIds);
+
+      if (assignmentsError) {
+        console.error("Error deleting asset assignments:", assignmentsError);
+        throw assignmentsError;
+      }
+
+      // 2. Delete asset comments
+      const { error: commentsError } = await supabase
+        .from("asset_comments")
+        .delete()
+        .in("asset_id", assetIds);
+
+      if (commentsError) {
+        console.error("Error deleting asset comments:", commentsError);
+        throw commentsError;
+      }
+
+      // 3. Delete revision history
+      const { error: revisionError } = await supabase
+        .from("revision_history")
+        .delete()
+        .in("asset_id", assetIds);
+
+      if (revisionError) {
+        console.error("Error deleting revision history:", revisionError);
+        throw revisionError;
+      }
+
+      // 4. Delete QA approvals
+      const { error: approvalsError } = await supabase
+        .from("qa_approvals")
+        .delete()
+        .in("asset_id", assetIds);
+
+      if (approvalsError) {
+        console.error("Error deleting QA approvals:", approvalsError);
+        throw approvalsError;
+      }
+
+      // 5. Delete allocation lists that are now empty (no more assets)
+      if (allocationListIds.length > 0) {
+        const { error: allocationListsError } = await supabase
+          .from("allocation_lists")
+          .delete()
+          .in("id", allocationListIds);
+
+        if (allocationListsError) {
+          console.error(
+            "Error deleting allocation lists:",
+            allocationListsError
+          );
+          throw allocationListsError;
+        }
+
+        console.log(`Deleted ${allocationListIds.length} allocation lists`);
+      }
+
+      // 6. Finally, delete the assets themselves
+      const { error: assetsDeleteError } = await supabase
+        .from("onboarding_assets")
+        .delete()
+        .eq("client", clientName)
+        .eq("batch", batchNumber);
+
+      if (assetsDeleteError) {
+        console.error("Error deleting assets:", assetsDeleteError);
+        throw assetsDeleteError;
+      }
+
+      // Refresh the data
+      await fetchBatchProgress();
+
+      console.log(
+        `Successfully deleted ${assetIds.length} assets from ${clientName} Batch ${batchNumber}`
+      );
+    } catch (error) {
+      console.error("Error deleting batch assets:", error);
+      // You might want to show a toast notification here
+    } finally {
+      setDeletingBatch(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -1503,6 +1653,9 @@ export default function ProductionDashboard() {
                     color: getStatusColor(status),
                   }));
 
+                const batchKey = `${batch.client}-${batch.batch}`;
+                const isDeleting = deletingBatch === batchKey;
+
                 return (
                   <Card
                     key={batch.id}
@@ -1515,18 +1668,76 @@ export default function ProductionDashboard() {
                             {batch.client} - Batch {batch.batch}
                           </CardTitle>
                         </div>
-                        <Badge
-                          variant={
-                            batch.completionPercentage >= 80
-                              ? "default"
-                              : batch.completionPercentage >= 50
-                                ? "secondary"
-                                : "destructive"
-                          }
-                          className="text-sm"
-                        >
-                          {batch.completionPercentage}%
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              batch.completionPercentage >= 80
+                                ? "default"
+                                : batch.completionPercentage >= 50
+                                  ? "secondary"
+                                  : "destructive"
+                            }
+                            className="text-sm"
+                          >
+                            {batch.completionPercentage}%
+                          </Badge>
+
+                          {/* Delete Button */}
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                disabled={isDeleting}
+                              >
+                                {isDeleting ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Delete Batch</DialogTitle>
+                                <DialogDescription>
+                                  Are you sure you want to delete all assets in{" "}
+                                  <strong>
+                                    {batch.client} - Batch {batch.batch}
+                                  </strong>
+                                  ?
+                                  <br />
+                                  <br />
+                                  This will permanently delete:
+                                  <ul className="list-disc list-inside mt-2 space-y-1">
+                                    <li>{batch.totalModels} assets</li>
+                                    <li>All asset assignments</li>
+                                    <li>All comments and revision history</li>
+                                    <li>All QA approvals</li>
+                                    <li>
+                                      All allocation lists containing these
+                                      assets
+                                    </li>
+                                  </ul>
+                                  <br />
+                                  This action cannot be undone.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <DialogFooter>
+                                <Button variant="outline">Cancel</Button>
+                                <Button
+                                  onClick={() =>
+                                    deleteBatchAssets(batch.client, batch.batch)
+                                  }
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  {isDeleting ? "Deleting..." : "Delete Batch"}
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
                       </div>
                     </CardHeader>
 

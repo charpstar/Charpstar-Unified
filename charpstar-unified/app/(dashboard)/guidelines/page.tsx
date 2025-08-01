@@ -3,6 +3,21 @@
 import { useUser } from "@/contexts/useUser";
 import { useRouter } from "next/navigation";
 import { useLoading } from "@/contexts/LoadingContext";
+
+// Helper function to get priority CSS class for guidelines (string-based)
+const getPriorityClassString = (priority: string): string => {
+  switch (priority) {
+    case "high":
+      return "priority-high";
+    case "medium":
+      return "priority-medium";
+    case "low":
+      return "priority-low-guidelines";
+    default:
+      return "priority-low";
+  }
+};
+
 import {
   Card,
   CardContent,
@@ -93,19 +108,6 @@ export default function GuidelinesPage() {
     },
   ];
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "bg-error-muted text-error border-error/20";
-      case "medium":
-        return "bg-warning-muted text-warning border-warning/20";
-      case "low":
-        return "bg-success-muted text-success border-success/20";
-      default:
-        return "bg-muted text-muted-foreground border-border";
-    }
-  };
-
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
@@ -150,7 +152,7 @@ export default function GuidelinesPage() {
                 </div>
                 <Badge
                   variant="outline"
-                  className={`text-xs ${getPriorityColor(section.priority)}`}
+                  className={`text-xs ${getPriorityClassString(section.priority)}`}
                 >
                   {section.priority.charAt(0).toUpperCase() +
                     section.priority.slice(1)}{" "}

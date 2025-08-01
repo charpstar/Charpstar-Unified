@@ -28,10 +28,8 @@ serve(async (req) => {
       );
     }
 
-    // Create SMTP client using environment variables
     const client = new SmtpClient();
 
-    // Configure SMTP connection
     await client.connectTLS({
       hostname: Deno.env.get("SMTP_HOSTNAME") || "",
       port: parseInt(Deno.env.get("SMTP_PORT") || "587"),
@@ -39,7 +37,6 @@ serve(async (req) => {
       password: Deno.env.get("SMTP_PASSWORD") || "",
     });
 
-    // Send email
     await client.send({
       from: Deno.env.get("SMTP_FROM_EMAIL") || "noreply@charpstar.com",
       to: to,

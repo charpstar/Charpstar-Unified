@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { type Icon } from "@tabler/icons-react";
+import { LucideIcon } from "lucide-react";
 import Link from "next/link";
 
 import {
@@ -19,7 +19,7 @@ export default function NavSecondary({
   items: {
     title: string;
     url: string;
-    icon: Icon;
+    icon: LucideIcon;
   }[];
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (

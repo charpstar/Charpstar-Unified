@@ -26,6 +26,13 @@ import {
   MessageSquare,
 } from "lucide-react";
 
+// Helper function to get priority CSS class
+const getPriorityClass = (priority: number): string => {
+  if (priority === 1) return "priority-high";
+  if (priority === 2) return "priority-medium";
+  return "priority-low";
+};
+
 // Simple Modeler Stats Widget
 export function ModelerStatsWidget() {
   const user = useUser();
@@ -251,19 +258,6 @@ export function AssignedModelsWidget() {
     }
   };
 
-  const getPriorityColor = (priority: number) => {
-    switch (priority) {
-      case 1:
-        return "bg-error-muted text-error border-error/20";
-      case 2:
-        return "bg-warning-muted text-warning border-warning/20";
-      case 3:
-        return "bg-success-muted text-success border-success/20";
-      default:
-        return "bg-muted text-muted-foreground border-border";
-    }
-  };
-
   return (
     <div className="space-y-4 min-h-[283px]">
       <div className="flex items-center justify-between">
@@ -322,7 +316,7 @@ export function AssignedModelsWidget() {
                 <div className="flex items-center gap-2">
                   <Badge
                     variant="outline"
-                    className={`text-xs ${getPriorityColor(asset.priority)}`}
+                    className={`text-xs ${getPriorityClass(asset.priority)}`}
                   >
                     Priority {asset.priority}
                   </Badge>

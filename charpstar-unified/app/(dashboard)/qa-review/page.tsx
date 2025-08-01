@@ -55,6 +55,14 @@ import {
   DialogTitle,
 } from "@/components/ui/containers";
 import { AssetFilesManager } from "@/components/asset-library/AssetFilesManager";
+import { getPriorityLabel } from "@/lib/constants";
+
+// Helper function to get priority CSS class
+const getPriorityClass = (priority: number): string => {
+  if (priority === 1) return "priority-high";
+  if (priority === 2) return "priority-medium";
+  return "priority-low";
+};
 
 const STATUS_LABELS = {
   in_production: {
@@ -80,18 +88,6 @@ const STATUS_LABELS = {
 };
 
 const PAGE_SIZE = 18;
-
-const getPriorityColor = (priority: number) => {
-  if (priority === 1) return "bg-error-muted text-error border-error/20";
-  if (priority === 2) return "bg-warning-muted text-warning border-warning/20";
-  return "bg-muted text-muted-foreground border-border";
-};
-
-const getPriorityLabel = (priority: number) => {
-  if (priority === 1) return "High";
-  if (priority === 2) return "Medium";
-  return "Low";
-};
 
 interface AssignedAsset {
   id: string;
@@ -688,7 +684,7 @@ export default function QAReviewPage() {
                     <TableCell>
                       <Badge
                         variant="outline"
-                        className={`text-xs ${getPriorityColor(asset.priority)}`}
+                        className={`text-xs ${getPriorityClass(asset.priority)}`}
                       >
                         {getPriorityLabel(asset.priority)}
                       </Badge>

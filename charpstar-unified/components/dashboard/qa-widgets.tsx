@@ -25,6 +25,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import { getPriorityLabel } from "@/lib/constants";
+
+// Helper function to get priority CSS class
+const getPriorityClass = (priority: number): string => {
+  if (priority === 1) return "priority-high";
+  if (priority === 2) return "priority-medium";
+  return "priority-low";
+};
 import {
   ChartConfig,
   ChartContainer,
@@ -692,8 +700,12 @@ export function PersonalMetricsWidget() {
               cursor={false}
               content={<ChartTooltipContent indicator="dashed" />}
             />
-            <Bar dataKey="reviewed" fill="#0891b2" radius={4} />
-            <Bar dataKey="approved" fill="#059669" radius={4} />
+            <Bar dataKey="reviewed" fill="var(--status-reviewed)" radius={4} />
+            <Bar
+              dataKey="approved"
+              fill="var(--status-approved-alt)"
+              radius={4}
+            />
           </BarChart>
         </ChartContainer>
       </div>
@@ -705,19 +717,6 @@ export function WaitingForApprovalWidget() {
   const [assets, setAssets] = useState<WaitingForApprovalAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const user = useUser();
-
-  const getPriorityColor = (priority: number) => {
-    if (priority === 1) return "bg-error-muted text-error border-error/20";
-    if (priority === 2)
-      return "bg-warning-muted text-warning border-warning/20";
-    return "bg-muted text-muted-foreground border-border";
-  };
-
-  const getPriorityLabel = (priority: number) => {
-    if (priority === 1) return "High";
-    if (priority === 2) return "Medium";
-    return "Low";
-  };
 
   useEffect(() => {
     const fetchWaitingForApprovalAssets = async () => {
@@ -929,7 +928,7 @@ export function WaitingForApprovalWidget() {
               </div>
               <div className="flex items-center gap-2">
                 <span
-                  className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(
+                  className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
                     asset.priority
                   )}`}
                 >

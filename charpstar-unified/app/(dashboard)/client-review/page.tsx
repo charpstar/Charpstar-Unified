@@ -39,6 +39,14 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
+import { getPriorityLabel } from "@/lib/constants";
+
+// Helper function to get priority CSS class
+const getPriorityClass = (priority: number): string => {
+  if (priority === 1) return "priority-high";
+  if (priority === 2) return "priority-medium";
+  return "priority-low";
+};
 
 const STATUS_LABELS = {
   in_production: {
@@ -64,18 +72,6 @@ const STATUS_LABELS = {
 };
 
 const PAGE_SIZE = 18;
-
-const getPriorityColor = (priority: number) => {
-  if (priority === 1) return "bg-error-muted text-error border-error/20";
-  if (priority === 2) return "bg-warning-muted text-warning border-warning/20";
-  return "bg-muted text-muted-foreground border-border";
-};
-
-const getPriorityLabel = (priority: number) => {
-  if (priority === 1) return "High";
-  if (priority === 2) return "Medium";
-  return "Low";
-};
 
 const ReviewTableSkeleton = () => (
   <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[78vh]">
@@ -473,7 +469,7 @@ export default function ReviewDashboardPage() {
                       <TableCell>
                         <div className="flex items-center justify-center gap-2">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(
+                            className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
                               asset.priority || 2
                             )}`}
                           >
