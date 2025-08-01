@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { Card } from "@/components/ui/containers";
@@ -25,7 +25,6 @@ import {
   Camera,
   MessageSquare,
   CheckCircle,
-  AlertCircle,
   Loader2,
   Download,
 } from "lucide-react";
@@ -91,6 +90,7 @@ const STATUS_LABELS = {
 export default function ModelerReviewPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const user = useUser();
   const assetId = params.id as string;
 
@@ -124,6 +124,18 @@ export default function ModelerReviewPage() {
 
   const modelViewerRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleBackNavigation = () => {
+    const from = searchParams.get("from");
+    const client = searchParams.get("client");
+    const batch = searchParams.get("batch");
+
+    if (from === "my-assignments" && client && batch) {
+      router.push(`/my-assignments/${decodeURIComponent(client)}/${batch}`);
+    } else {
+      router.push("/modeler-review");
+    }
+  };
 
   // Function to get a title-specific badge color
   const getTitleBadgeVariant = (title: string) => {
@@ -307,8 +319,9 @@ export default function ModelerReviewPage() {
 
   // Validate and set file for upload
   const validateAndSetFile = (file: File) => {
-    if (!file.name.toLowerCase().endsWith(".glb")) {
-      toast.error("Please select a GLB file");
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith(".glb") && !fileName.endsWith(".gltf")) {
+      toast.error("Please select a GLB or GLTF file");
       return;
     }
 
@@ -714,11 +727,11 @@ export default function ModelerReviewPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push("/modeler-review")}
+            onClick={handleBackNavigation}
             className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Modeler Review
+            Back
           </Button>
         </div>
       </div>
@@ -735,7 +748,7 @@ export default function ModelerReviewPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push("/modeler-review")}
+                onClick={handleBackNavigation}
                 className="w-10 h-10 rounded-xl hover:bg-primary/8 transition-colors cursor-pointer"
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -915,9 +928,9 @@ export default function ModelerReviewPage() {
                   <p className="text-muted-foreground mb-4">
                     No 3D model available for this asset
                   </p>
-                  <Button onClick={() => router.push("/modeler-review")}>
+                  <Button onClick={handleBackNavigation}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Modeler Review
+                    Back
                   </Button>
                 </div>
               </div>
@@ -1012,7 +1025,7 @@ export default function ModelerReviewPage() {
                       : "outline"
                   }
                   size="sm"
-                  className="flex-1 cursor-pointer"
+                  className="w-full cursor-pointer"
                 >
                   {statusUpdating ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1020,22 +1033,6 @@ export default function ModelerReviewPage() {
                     <CheckCircle className="h-4 w-4 mr-2" />
                   )}
                   Mark as Delivered
-                </Button>
-                <Button
-                  onClick={() => updateAssetStatus("revisions")}
-                  disabled={asset?.status === "revisions" || statusUpdating}
-                  variant={
-                    asset?.status === "revisions" ? "default" : "outline"
-                  }
-                  size="sm"
-                  className="flex-1 cursor-pointer"
-                >
-                  {statusUpdating ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Send for Revision
                 </Button>
               </div>
             </div>
@@ -1699,7 +1696,7 @@ export default function ModelerReviewPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".glb"
+                  accept=".glb,.gltf"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
@@ -1714,10 +1711,10 @@ export default function ModelerReviewPage() {
                   <div>
                     <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground mb-2">
-                      Click to select a GLB file
+                      Click to select a GLB or GLTF file
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      or drag and drop a GLB file here
+                      or drag and drop a GLB or GLTF file here
                     </p>
                   </div>
                 )}

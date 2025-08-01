@@ -432,7 +432,9 @@ export default function BatchDetailPage() {
   };
 
   const handleViewAsset = (assetId: string) => {
-    router.push(`/modeler-review/${assetId}`);
+    router.push(
+      `/modeler-review/${assetId}?from=my-assignments&client=${encodeURIComponent(params.client as string)}&batch=${params.batch}`
+    );
   };
 
   const handleGenerateInvoice = (allocationListId: string) => {
@@ -485,8 +487,9 @@ export default function BatchDetailPage() {
       setUploadingGLB(assetId);
 
       // Validate file
-      if (!file.name.toLowerCase().endsWith(".glb")) {
-        toast.error("Please select a GLB file");
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith(".glb") && !fileName.endsWith(".gltf")) {
+        toast.error("Please select a GLB or GLTF file");
         return;
       }
 
@@ -1344,14 +1347,14 @@ export default function BatchDetailPage() {
                 Drop your asset files here or click to browse
               </p>
               <p className="text-xs text-muted-foreground mb-4">
-                Supports ZIP archives, 3D files (BLEND, OBJ, FBX), images, and
+                Supports ZIP archives, 3D files (BLEND, OBJ, FBX, GLB, GLTF, Substance), images, and
                 other asset formats
               </p>
 
               <input
                 type="file"
                 multiple
-                accept=".zip,.blend,.obj,.fbx,.dae,.max,.ma,.mb,.3ds,.stl,.ply,.wrl,.x3d,.usd,.abc,.c4d,.skp,.dwg,.dxf,.iges,.step,.stp,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.tga,.hdr,.exr,.psd,.ai,.eps,.svg,.pdf"
+                accept=".zip,.blend,.obj,.fbx,.dae,.max,.ma,.mb,.3ds,.stl,.ply,.wrl,.x3d,.usd,.abc,.c4d,.skp,.dwg,.dxf,.iges,.step,.stp,.sbs,.sbsar,.spp,.spt,.sbsa,.sbsb,.sbsm,.sbsn,.sbsr,.sbst,.sbsu,.sbsv,.sbsx,.sbsy,.sbsz,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.tga,.hdr,.exr,.psd,.ai,.eps,.svg,.pdf,.glb,.gltf,.3dm,.3ds,.ac,.ac3d,.ase,.ask,.b3d,.bvh,.cob,.csm,.dae,.dxf,.enff,.fbx,.gltf,.glb,.ifc,.irr,.lwo,.lws,.lxo,.md2,.md3,.md5anim,.mdl,.m3d,.m3ds,.mesh,.mot,.ms3d,.ndo,.nff,.obj,.off,.ogex,.ply,.pmx,.prj,.q3o,.q3s,.raw,.scn,.sib,.smd,.stl,.ter,.uc,.vta,.x,.x3d,.xgl,.xml,.zae,.zgl"
                 onChange={handleFileSelectMultiple}
                 className="hidden"
                 id="asset-file-input"

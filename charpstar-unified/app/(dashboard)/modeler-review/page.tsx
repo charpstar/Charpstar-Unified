@@ -306,8 +306,12 @@ export default function ModelerReviewPage() {
     if (sort === "priority-lowest")
       data.sort((a, b) => (b.priority || 2) - (a.priority || 2));
     setFiltered(data);
-    setPage(1); // Reset to first page on filter/sort/search
   }, [assets, statusFilter, sort, search]);
+
+  // Reset page when filters change (but not when assets are updated)
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, sort, search]);
 
   // Pagination
   const paged = useMemo(() => {

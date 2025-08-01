@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { Card } from "@/components/ui/containers";
@@ -100,6 +100,7 @@ const STATUS_LABELS = {
 export default function ReviewPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const user = useUser();
   const assetId = params.id as string;
 
@@ -182,6 +183,18 @@ export default function ReviewPage() {
   const [selectedRevision, setSelectedRevision] = useState<any>(null);
 
   const modelViewerRef = useRef<any>(null);
+
+  // Function to handle back navigation based on where user came from
+  const handleBackNavigation = () => {
+    const from = searchParams.get("from");
+    if (from === "admin-review") {
+      router.push("/admin-review");
+    } else if (from === "qa-review") {
+      router.push("/qa-review");
+    } else {
+      router.push("/client-review");
+    }
+  };
 
   // Function to get a title-specific badge color
   const getTitleBadgeVariant = (title: string) => {
@@ -1881,11 +1894,11 @@ export default function ReviewPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push("/client-review")}
+            onClick={handleBackNavigation}
             className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Client Review
+            Back
           </Button>
         </div>
       </div>
@@ -1902,7 +1915,7 @@ export default function ReviewPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push("/client-review")}
+                onClick={handleBackNavigation}
                 className="w-10 h-10 rounded-xl hover:bg-primary/8 transition-colors cursor-pointer"
               >
                 <ArrowLeft className="h-5 w-5" />

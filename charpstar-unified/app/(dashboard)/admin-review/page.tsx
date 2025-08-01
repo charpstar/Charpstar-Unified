@@ -70,8 +70,8 @@ const STATUS_LABELS = {
     color: "bg-warning-muted text-warning border-warning/20",
   },
   revisions: {
-    label: "Ready for Revision",
-    color: "bg-info-muted text-info border-info/20",
+    label: "Waiting on Approval",
+    color: "bg-blue-50 text-blue-600 border-blue-200",
   },
   approved: {
     label: "Approved",
@@ -117,7 +117,7 @@ const getStatusColor = (status: string) => {
     case "not_started":
       return "bg-error-muted text-error border-error/20";
     case "revisions":
-      return "bg-info-muted text-info border-info/20";
+      return "bg-blue-50 text-blue-600 border-blue-200";
     default:
       return "bg-muted text-muted-foreground border-border";
   }
@@ -288,40 +288,48 @@ export default function AdminReviewPage() {
   // Calculate status totals based on filtered data
   const statusTotals = useMemo(() => {
     if (showAllocationLists) {
+      // Aggregate asset statuses from all assets within filtered allocation lists
       const totals = {
-        total: filteredLists.length,
-        pending: 0,
-        in_progress: 0,
+        total: 0, // Total assets across all lists
+        in_production: 0,
+        revisions: 0,
         approved: 0,
-        completed: 0,
+        delivered_by_artist: 0,
+        not_started: 0,
       };
 
       filteredLists.forEach((list) => {
-        const displayStatus = list.status;
-
-        if (displayStatus && totals.hasOwnProperty(displayStatus)) {
-          totals[displayStatus as keyof typeof totals]++;
-        }
+        list.asset_assignments.forEach((assignment: any) => {
+          const assetStatus = assignment.onboarding_assets.status;
+          totals.total++;
+          if (totals.hasOwnProperty(assetStatus)) {
+            totals[assetStatus as keyof typeof totals]++;
+          }
+        });
       });
 
       // Calculate percentages
       const percentages = {
         total: 100,
-        pending:
-          filteredLists.length > 0
-            ? Math.round((totals.pending / filteredLists.length) * 100)
+        in_production:
+          totals.total > 0
+            ? Math.round((totals.in_production / totals.total) * 100)
             : 0,
-        in_progress:
-          filteredLists.length > 0
-            ? Math.round((totals.in_progress / filteredLists.length) * 100)
+        revisions:
+          totals.total > 0
+            ? Math.round((totals.revisions / totals.total) * 100)
             : 0,
         approved:
-          filteredLists.length > 0
-            ? Math.round((totals.approved / filteredLists.length) * 100)
+          totals.total > 0
+            ? Math.round((totals.approved / totals.total) * 100)
             : 0,
-        completed:
-          filteredLists.length > 0
-            ? Math.round((totals.completed / filteredLists.length) * 100)
+        delivered_by_artist:
+          totals.total > 0
+            ? Math.round((totals.delivered_by_artist / totals.total) * 100)
+            : 0,
+        not_started:
+          totals.total > 0
+            ? Math.round((totals.not_started / totals.total) * 100)
             : 0,
       };
 
@@ -333,6 +341,7 @@ export default function AdminReviewPage() {
         revisions: 0,
         approved: 0,
         delivered_by_artist: 0,
+        not_started: 0, // Include not_started for consistency
       };
 
       filtered.forEach((asset) => {
@@ -361,6 +370,10 @@ export default function AdminReviewPage() {
         delivered_by_artist:
           filtered.length > 0
             ? Math.round((totals.delivered_by_artist / filtered.length) * 100)
+            : 0,
+        not_started:
+          filtered.length > 0
+            ? Math.round((totals.not_started / filtered.length) * 100)
             : 0,
       };
 
@@ -630,7 +643,6 @@ export default function AdminReviewPage() {
       );
 
     setFilteredLists(data);
-    setPage(1); // Reset to first page on filter/sort/search
   }, [allocationLists, statusFilter, sort, search, showAllocationLists]);
 
   // Filtering, sorting, searching for assets
@@ -688,9 +700,21 @@ export default function AdminReviewPage() {
       data.sort((a, b) => (a.client || "").localeCompare(b.client || ""));
 
     setFiltered(data);
-    setPage(1); // Reset to first page on filter/sort/search
   }, [
     assets,
+    statusFilter,
+    clientFilter,
+    batchFilter,
+    modelerFilter,
+    sort,
+    search,
+    showAllocationLists,
+  ]);
+
+  // Reset page when filters change (but not when assets are updated)
+  useEffect(() => {
+    setPage(1);
+  }, [
     statusFilter,
     clientFilter,
     batchFilter,
@@ -889,6 +913,33 @@ export default function AdminReviewPage() {
       else next.add(id);
       return next;
     });
+  };
+
+  // Select all products
+  const selectAll = () => {
+    const allAssetIds = paged.map((asset) => asset.id);
+    setSelected(new Set(allAssetIds));
+  };
+
+  // Deselect all products
+  const deselectAll = () => {
+    setSelected(new Set());
+  };
+
+  // Check if all products are selected
+  const isAllSelected =
+    paged.length > 0 && paged.every((asset) => selected.has(asset.id));
+
+  // Check if some products are selected
+  const isSomeSelected = paged.some((asset) => selected.has(asset.id));
+
+  // Handle select all checkbox
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      deselectAll();
+    } else {
+      selectAll();
+    }
   };
 
   const toggleListExpansion = (listId: string) => {
@@ -1269,10 +1320,9 @@ export default function AdminReviewPage() {
                     In Production
                   </p>
                   <p className="text-2xl font-bold text-warning">
-                    {showAllocationLists
-                      ? (statusTotals.totals as any).in_progress
-                      : (statusTotals.totals as any).in_production +
-                        (statusTotals.totals as any).revisions}
+                    {statusTotals.totals.in_production +
+                      statusTotals.totals.delivered_by_artist +
+                      statusTotals.totals.not_started}
                   </p>
                 </div>
               </div>
@@ -1296,17 +1346,15 @@ export default function AdminReviewPage() {
 
             <Card className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-error-muted rounded-lg">
-                  <Eye className="h-5 w-5 text-error" />
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Eye className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Ready for Revision
+                    Waiting on Approval
                   </p>
-                  <p className="text-2xl font-bold text-error">
-                    {showAllocationLists
-                      ? (statusTotals.totals as any).pending
-                      : (statusTotals.totals as any).revisions}
+                  <p className="text-2xl font-bold text-blue-600">
+                    {statusTotals.totals.revisions}
                   </p>
                 </div>
               </div>
@@ -1568,7 +1616,7 @@ export default function AdminReviewPage() {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         router.push(
-                                          `/client-review/${assignment.onboarding_assets.id}`
+                                          `/client-review/${assignment.onboarding_assets.id}?from=admin-review`
                                         );
                                       }}
                                     >
@@ -1663,30 +1711,43 @@ export default function AdminReviewPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          className="p-1 rounded hover:bg-accent cursor-pointer"
-                          aria-label="Sort"
-                        >
-                          <Menu className="h-5 w-5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => setSort("batch")}>
-                          Batch
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSort("client")}>
-                          Client
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSort("az")}>
-                          A-Z
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSort("za")}>
-                          Z-A
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        ref={(el) => {
+                          if (el) {
+                            el.indeterminate = isSomeSelected && !isAllSelected;
+                          }
+                        }}
+                        onChange={handleSelectAll}
+                        className="h-4 w-4"
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="p-1 rounded hover:bg-accent cursor-pointer"
+                            aria-label="Sort"
+                          >
+                            <Menu className="h-5 w-5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem onClick={() => setSort("batch")}>
+                            Batch
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setSort("client")}>
+                            Client
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setSort("az")}>
+                            A-Z
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setSort("za")}>
+                            Z-A
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableHead>
                   <TableHead>Model Name</TableHead>
                   <TableHead>Client</TableHead>
@@ -1846,7 +1907,9 @@ export default function AdminReviewPage() {
                           size="icon"
                           className="cursor-pointer"
                           onClick={() =>
-                            router.push(`/client-review/${asset.id}`)
+                            router.push(
+                              `/client-review/${asset.id}?from=admin-review`
+                            )
                           }
                         >
                           <Eye className="h-5 w-5" />

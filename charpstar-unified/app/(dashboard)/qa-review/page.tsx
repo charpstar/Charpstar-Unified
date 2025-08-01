@@ -325,7 +325,7 @@ export default function QAReviewPage() {
   };
 
   const handleViewAsset = (assetId: string) => {
-    router.push(`/client-review/${assetId}`);
+    router.push(`/client-review/${assetId}?from=qa-review`);
   };
 
   const handleOpenFilesManager = (asset: AssignedAsset) => {

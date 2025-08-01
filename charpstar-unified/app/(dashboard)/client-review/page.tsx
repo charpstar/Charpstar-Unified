@@ -29,6 +29,11 @@ import {
   Package,
   Send,
   CheckCircle,
+  MoreVertical,
+  ExternalLink,
+  FileText,
+  Download,
+  Info,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -36,6 +41,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/interactive/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/containers";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
@@ -96,9 +108,6 @@ const ReviewTableSkeleton = () => (
           <TableHead>
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
-            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -130,9 +139,6 @@ const ReviewTableSkeleton = () => (
             </TableCell>
             <TableCell>
               <div className="h-6 w-20 bg-muted rounded animate-pulse" />
-            </TableCell>
-            <TableCell>
-              <div className="h-8 w-8 bg-muted rounded animate-pulse" />
             </TableCell>
           </TableRow>
         ))}
@@ -187,7 +193,7 @@ export default function ReviewDashboardPage() {
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference"
         )
         .eq("client", user.metadata.client);
       if (!error && data) setAssets(data);
@@ -255,8 +261,12 @@ export default function ReviewDashboardPage() {
     if (sort === "priority-lowest")
       data.sort((a, b) => (b.priority || 2) - (a.priority || 2));
     setFiltered(data);
-    setPage(1); // Reset to first page on filter/sort/search
   }, [assets, statusFilter, sort, search]);
+
+  // Reset page when filters change (but not when assets are updated)
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, sort, search]);
 
   // Pagination
   const paged = useMemo(() => {
@@ -272,6 +282,111 @@ export default function ReviewDashboardPage() {
       else next.add(id);
       return next;
     });
+  };
+
+  // Helper function to parse references
+  const parseReferences = (
+    referenceImages: string[] | string | null
+  ): string[] => {
+    if (!referenceImages) return [];
+    if (Array.isArray(referenceImages)) return referenceImages;
+    try {
+      return JSON.parse(referenceImages);
+    } catch {
+      return [referenceImages];
+    }
+  };
+
+  // More Info Dialog Component
+  const MoreInfoDialog = ({ asset }: { asset: any }) => {
+    const [open, setOpen] = useState(false);
+    const references = parseReferences(asset.reference);
+
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            <Info className="mr-2 h-4 w-4" />
+            More Info
+          </DropdownMenuItem>
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Asset Information</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-medium text-sm text-muted-foreground mb-2">
+                Product Link
+              </h4>
+              {asset.product_link ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => window.open(asset.product_link, "_blank")}
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Open Product Link
+                </Button>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No product link available
+                </p>
+              )}
+            </div>
+
+            <div>
+              <h4 className="font-medium text-sm text-muted-foreground mb-2">
+                Reference Images
+              </h4>
+              {references.length > 0 ? (
+                <div className="space-y-2">
+                  {references.map((ref, index) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => window.open(ref, "_blank")}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      View Reference{" "}
+                      {references.length > 1 ? `${index + 1}` : ""}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No reference images available
+                </p>
+              )}
+            </div>
+
+            <div>
+              <h4 className="font-medium text-sm text-muted-foreground mb-2">
+                GLB File
+              </h4>
+              {asset.glb_link ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => window.open(asset.glb_link, "_blank")}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download GLB
+                </Button>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No GLB file available
+                </p>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
   };
 
   return (
@@ -424,15 +539,14 @@ export default function ReviewDashboardPage() {
                   <TableHead>Model Name</TableHead>
                   <TableHead>Article ID</TableHead>
                   <TableHead>Priority</TableHead>
-
                   <TableHead>Status</TableHead>
-                  <TableHead>Review</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center">
+                    <TableCell colSpan={6} className="text-center">
                       No products found.
                     </TableCell>
                   </TableRow>
@@ -556,16 +670,28 @@ export default function ReviewDashboardPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="cursor-pointer"
-                          onClick={() =>
-                            router.push(`/client-review/${asset.id}`)
-                          }
-                        >
-                          <Eye className="h-5 w-5" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                router.push(`/client-review/${asset.id}`)
+                              }
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              Review
+                            </DropdownMenuItem>
+                            <MoreInfoDialog asset={asset} />
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))

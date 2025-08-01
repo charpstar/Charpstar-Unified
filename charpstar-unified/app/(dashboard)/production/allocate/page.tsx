@@ -150,6 +150,9 @@ export default function AllocateAssetsPage() {
   const [assets, setAssets] = useState<UnallocatedAsset[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
   const [allocationData, setAllocationData] = useState<AllocationData[]>([]);
+  const [selectedForPricing, setSelectedForPricing] = useState<Set<string>>(
+    new Set()
+  );
   const [groupSettings, setGroupSettings] = useState<GroupSettings>({
     deadline: format(
       new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -291,7 +294,7 @@ export default function AllocateAssetsPage() {
           globalTeamAssignment.modelerId ||
           (modelers.length > 0 ? modelers[0].id : ""),
         qaId: globalTeamAssignment.qaId || (qas.length > 0 ? qas[0].id : ""),
-        price: 0,
+        price: 18, // Set default price to 18 euro
         pricingOptionId: "pbr_3d_model", // Default to PBR 3D Model Creation
       })
     );
@@ -353,6 +356,51 @@ export default function AllocateAssetsPage() {
     setAllocationData((prev) =>
       prev.map((item) => ({ ...item, [field]: value }))
     );
+  };
+
+  // Bulk pricing functions
+  const applyBulkPricing = (pricingOptionId: string) => {
+    const option = getPricingOptionById(pricingOptionId);
+    const price = option?.price || 0;
+
+    setAllocationData((prev) =>
+      prev.map((item) =>
+        selectedForPricing.has(item.assetId)
+          ? { ...item, pricingOptionId, price }
+          : item
+      )
+    );
+  };
+
+  const applyBulkCustomPrice = (price: number) => {
+    setAllocationData((prev) =>
+      prev.map((item) =>
+        selectedForPricing.has(item.assetId) ? { ...item, price } : item
+      )
+    );
+  };
+
+  // Toggle product selection for pricing
+  const togglePricingSelection = (assetId: string) => {
+    setSelectedForPricing((prev) => {
+      const next = new Set(prev);
+      if (next.has(assetId)) {
+        next.delete(assetId);
+      } else {
+        next.add(assetId);
+      }
+      return next;
+    });
+  };
+
+  // Select all products for pricing
+  const selectAllForPricing = () => {
+    setSelectedForPricing(new Set(allocationData.map((data) => data.assetId)));
+  };
+
+  // Clear all pricing selections
+  const clearPricingSelections = () => {
+    setSelectedForPricing(new Set());
   };
 
   // Handle allocation
@@ -642,7 +690,7 @@ export default function AllocateAssetsPage() {
         /* Step 1: Team Assignment */
         <Card>
           <CardHeader>
-            <CardTitle>Assign Modeler & QA to All Assets</CardTitle>
+            <CardTitle>Assign Modeler</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
@@ -831,60 +879,165 @@ export default function AllocateAssetsPage() {
 
               {/* Individual Asset Pricing */}
               <div className="border-t pt-6">
-                <h3 className="text-lg font-medium mb-4">
-                  Individual Asset Pricing
-                </h3>
+                <h3 className="text-lg font-medium mb-4">Asset Pricing</h3>
+
+                {/* Bulk Pricing Options */}
+                <div className="mb-6 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">Bulk Pricing Options</h4>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllForPricing}
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearPricingSelections}
+                      >
+                        Clear Selection
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="mb-3 text-sm text-muted-foreground">
+                    {selectedForPricing.size > 0
+                      ? `${selectedForPricing.size} product${selectedForPricing.size > 1 ? "s" : ""} selected for pricing`
+                      : "Select products above to apply bulk pricing"}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {getCurrentPricingOptions().map((option) => (
+                      <Button
+                        key={option.id}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyBulkPricing(option.id)}
+                        disabled={selectedForPricing.size === 0}
+                        className="justify-start"
+                      >
+                        <Euro className="h-4 w-4 mr-2" />
+                        {option.label} - €{option.price}
+                      </Button>
+                    ))}
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Custom price"
+                        className="flex-1"
+                        disabled={selectedForPricing.size === 0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const price = parseFloat(e.currentTarget.value);
+                            if (price > 0) {
+                              applyBulkCustomPrice(price);
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={selectedForPricing.size === 0}
+                        onClick={() => {
+                          const input = document.querySelector(
+                            'input[placeholder="Custom price"]'
+                          ) as HTMLInputElement;
+                          const price = parseFloat(input?.value || "0");
+                          if (price > 0) {
+                            applyBulkCustomPrice(price);
+                            input.value = "";
+                          }
+                        }}
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {allocationData.map((data) => {
                     const asset = getAssetById(data.assetId);
                     if (!asset) return null;
 
+                    const isSelectedForPricing = selectedForPricing.has(
+                      data.assetId
+                    );
+
                     return (
-                      <Card key={data.assetId} className="p-4">
+                      <Card
+                        key={data.assetId}
+                        className={`p-4 transition-all duration-200 cursor-pointer ${
+                          isSelectedForPricing
+                            ? "ring-2 ring-primary/20 bg-primary/5"
+                            : "hover:bg-muted/50"
+                        }`}
+                        onClick={() => togglePricingSelection(data.assetId)}
+                      >
                         <div className="space-y-4">
-                          <div>
-                            <h4 className="font-medium text-sm">
-                              {asset.product_name}
-                            </h4>
-                            <p className="text-xs text-muted-foreground">
-                              {asset.article_id}
-                            </p>
-                            <Badge variant="outline" className="text-xs mt-1">
-                              {asset.category}
-                            </Badge>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-sm">
+                                {asset.product_name}
+                              </h4>
+                              <p className="text-xs text-muted-foreground">
+                                {asset.article_id}
+                              </p>
+                              <Badge variant="outline" className="text-xs mt-1">
+                                {asset.category}
+                              </Badge>
+                            </div>
+                            <div className="ml-2">
+                              <input
+                                type="checkbox"
+                                checked={isSelectedForPricing}
+                                onChange={() =>
+                                  togglePricingSelection(data.assetId)
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-4 w-4"
+                              />
+                            </div>
                           </div>
                           <div className="space-y-2">
                             <label className="text-sm font-medium flex items-center">
                               <Euro className="h-4 w-4 mr-2" />
                               Pricing Option
                             </label>
-                            <Select
-                              value={data.pricingOptionId}
-                              onValueChange={(value) => {
-                                const option = getPricingOptionById(value);
-                                updateAllocationData(
-                                  data.assetId,
-                                  "pricingOptionId",
-                                  value
-                                );
-                                updateAllocationData(
-                                  data.assetId,
-                                  "price",
-                                  option?.price || 0
-                                );
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select pricing option" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {getCurrentPricingOptions().map((option) => (
-                                  <SelectItem key={option.id} value={option.id}>
-                                    {option.label} - €{option.price}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <Select
+                                value={data.pricingOptionId}
+                                onValueChange={(value) => {
+                                  const option = getPricingOptionById(value);
+                                  updateAllocationData(
+                                    data.assetId,
+                                    "pricingOptionId",
+                                    value
+                                  );
+                                  updateAllocationData(
+                                    data.assetId,
+                                    "price",
+                                    option?.price || 0
+                                  );
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select pricing option" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {getCurrentPricingOptions().map((option) => (
+                                    <SelectItem
+                                      key={option.id}
+                                      value={option.id}
+                                    >
+                                      {option.label} - €{option.price}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                             {data.pricingOptionId === "hard_3d_model" ||
                             data.pricingOptionId === "hard_3d_model_future" ? (
                               <div className="space-y-2">
@@ -903,6 +1056,7 @@ export default function AllocateAssetsPage() {
                                       parseFloat(e.target.value) || 0
                                     )
                                   }
+                                  onClick={(e) => e.stopPropagation()}
                                 />
                               </div>
                             ) : (
