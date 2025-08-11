@@ -13,7 +13,6 @@ import {
   TableRow,
 } from "@/components/ui/display";
 import {
-  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -24,7 +23,6 @@ import { Button } from "@/components/ui/display";
 import {
   ChevronLeft,
   ChevronRight,
-  Menu,
   Users,
   Eye,
   Package,
@@ -37,12 +35,7 @@ import {
   ArrowLeft,
   Trash2,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/interactive/dropdown-menu";
+
 import {
   Dialog,
   DialogContent,
@@ -276,12 +269,9 @@ export default function AdminReviewPage() {
   const searchParams = useSearchParams();
   const [assets, setAssets] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>("");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [batchFilter, setBatchFilter] = useState<string>("all");
   const [modelerFilter, setModelerFilter] = useState<string>("all");
-  const [sort, setSort] = useState<string>("date-newest");
-  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -628,130 +618,22 @@ export default function AdminReviewPage() {
     fetchAnnotationCounts();
   }, [assets]);
 
-  // Filtering, sorting, searching for allocation lists
+  // Set filtered lists directly since we're not filtering anymore
   useEffect(() => {
     if (!showAllocationLists) return;
+    setFilteredLists([...allocationLists]);
+  }, [allocationLists, showAllocationLists]);
 
-    let data = [...allocationLists];
-
-    // Filter by status
-    if (statusFilter)
-      data = data.filter((list) => list.status === statusFilter);
-
-    // Search
-    if (search) {
-      const s = search.toLowerCase();
-      data = data.filter(
-        (list) =>
-          list.name?.toLowerCase().includes(s) ||
-          list.asset_assignments.some((assignment: any) =>
-            assignment.onboarding_assets.product_name?.toLowerCase().includes(s)
-          )
-      );
-    }
-
-    // Sorting
-    if (sort === "az") data.sort((a, b) => a.name.localeCompare(b.name));
-    if (sort === "za") data.sort((a, b) => b.name.localeCompare(a.name));
-    if (sort === "date")
-      data.sort(
-        (a, b) =>
-          new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
-      );
-    if (sort === "date-oldest")
-      data.sort(
-        (a, b) =>
-          new Date(b.deadline).getTime() - new Date(a.deadline).getTime()
-      );
-    if (sort === "status")
-      data.sort((a, b) => a.status.localeCompare(b.status));
-    if (sort === "batch")
-      data.sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-
-    setFilteredLists(data);
-  }, [allocationLists, statusFilter, sort, search, showAllocationLists]);
-
-  // Filtering, sorting, searching for assets
+  // Set filtered assets directly since we're not filtering anymore
   useEffect(() => {
     if (showAllocationLists) return;
+    setFiltered([...assets]);
+  }, [assets, showAllocationLists]);
 
-    let data = [...assets];
-
-    // Filter by client
-    if (clientFilter && clientFilter !== "all") {
-      data = data.filter((a) => a.client === clientFilter);
-    }
-
-    // Filter by batch
-    if (batchFilter && batchFilter !== "all") {
-      data = data.filter((a) => a.batch === parseInt(batchFilter));
-    }
-
-    // Filter by modeler is now handled at the asset fetch level
-    // No need to filter here since we already filtered the assets
-
-    // Filter by status
-    if (statusFilter) data = data.filter((a) => a.status === statusFilter);
-
-    // Search
-    if (search) {
-      const s = search.toLowerCase();
-      data = data.filter(
-        (a) =>
-          a.product_name?.toLowerCase().includes(s) ||
-          a.article_id?.toLowerCase().includes(s) ||
-          a.client?.toLowerCase().includes(s)
-      );
-    }
-
-    // Sorting
-    if (sort === "az")
-      data.sort((a, b) => a.product_name.localeCompare(b.product_name));
-    if (sort === "za")
-      data.sort((a, b) => b.product_name.localeCompare(a.product_name));
-    if (sort === "date")
-      data.sort((a, b) =>
-        (b.delivery_date || "").localeCompare(a.delivery_date || "")
-      );
-    if (sort === "date-oldest")
-      data.sort((a, b) =>
-        (a.delivery_date || "").localeCompare(b.delivery_date || "")
-      );
-    if (sort === "batch") data.sort((a, b) => (a.batch || 1) - (b.batch || 1));
-    if (sort === "priority")
-      data.sort((a, b) => (a.priority || 2) - (b.priority || 2));
-    if (sort === "priority-lowest")
-      data.sort((a, b) => (b.priority || 2) - (a.priority || 2));
-    if (sort === "client")
-      data.sort((a, b) => (a.client || "").localeCompare(b.client || ""));
-
-    setFiltered(data);
-  }, [
-    assets,
-    statusFilter,
-    clientFilter,
-    batchFilter,
-    modelerFilter,
-    sort,
-    search,
-    showAllocationLists,
-  ]);
-
-  // Reset page when filters change (but not when assets are updated)
+  // Reset page when view changes
   useEffect(() => {
     setPage(1);
-  }, [
-    statusFilter,
-    clientFilter,
-    batchFilter,
-    modelerFilter,
-    sort,
-    search,
-    showAllocationLists,
-  ]);
+  }, [showAllocationLists]);
 
   // Pagination
   const paged = useMemo(() => {
@@ -1360,73 +1242,29 @@ export default function AdminReviewPage() {
           {/* Cleanup Controls */}
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
-          <div className="flex gap-2">
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value)}
+        {selected.size > 0 && (
+          <div className="flex justify-end mb-4">
+            <Button
+              onClick={() => {
+                // Navigate to the allocate page with selected assets
+                const selectedAssetIds = Array.from(selected);
+
+                // Create URL with selected asset IDs as query parameters
+                const params = new URLSearchParams();
+                selectedAssetIds.forEach((id) =>
+                  params.append("selectedAssets", id)
+                );
+
+                // Navigate to allocate page with selected assets
+                router.push(`/production/allocate?${params.toString()}`);
+              }}
+              className="flex items-center gap-2"
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(STATUS_LABELS).map(([key, val]) => (
-                  <SelectItem key={key} value={key}>
-                    {val.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              className="w-full md:w-64"
-              placeholder="Search by name or article ID"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+              <Users className="h-4 w-4" />
+              Assign ({selected.size})
+            </Button>
           </div>
-          <div className="flex gap-2">
-            <Select value={sort} onValueChange={(value) => setSort(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date-newest">
-                  Sort by: Delivery Date (Newest)
-                </SelectItem>
-                <SelectItem value="date-oldest">
-                  Sort by: Delivery Date (Oldest)
-                </SelectItem>
-                <SelectItem value="priority">
-                  Sort by: Priority (Highest First)
-                </SelectItem>
-                <SelectItem value="priority-lowest">
-                  Sort by: Priority (Lowest First)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {selected.size > 0 && (
-              <Button
-                onClick={() => {
-                  // Navigate to the allocate page with selected assets
-                  const selectedAssetIds = Array.from(selected);
-
-                  // Create URL with selected asset IDs as query parameters
-                  const params = new URLSearchParams();
-                  selectedAssetIds.forEach((id) =>
-                    params.append("selectedAssets", id)
-                  );
-
-                  // Navigate to allocate page with selected assets
-                  router.push(`/production/allocate?${params.toString()}`);
-                }}
-                className="flex items-center gap-2"
-              >
-                <Users className="h-4 w-4" />
-                Assign ({selected.size})
-              </Button>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Status Summary Cards */}
         {!loading && (
@@ -1877,28 +1715,6 @@ export default function AdminReviewPage() {
                         onChange={handleSelectAll}
                         className="h-4 w-4"
                       />
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            className="p-1 rounded hover:bg-accent cursor-pointer"
-                            aria-label="Sort"
-                          >
-                            <Menu className="h-5 w-5" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                          <DropdownMenuItem onClick={() => setSort("batch")}>
-                            Batch
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem onClick={() => setSort("az")}>
-                            A-Z
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setSort("za")}>
-                            Z-A
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </div>
                   </TableHead>
                   <TableHead>Model Name</TableHead>
