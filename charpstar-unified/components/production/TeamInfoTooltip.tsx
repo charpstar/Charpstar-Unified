@@ -3,6 +3,7 @@
 import React from "react";
 import { Building, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/feedback/badge";
+import { useRouter } from "next/navigation";
 
 import {
   Tooltip,
@@ -33,7 +34,17 @@ export function TeamInfoTooltip({
   batchNumber,
   children,
 }: TeamInfoTooltipProps) {
+  const router = useRouter();
   const hasTeamMembers = modelers.length > 0 || qa.length > 0;
+
+  const handleModelerClick = (modeler: User) => {
+    // Navigate to admin-review page filtered by this modeler
+    const params = new URLSearchParams({
+      modeler: modeler.id,
+      email: encodeURIComponent(modeler.email),
+    });
+    router.push(`/admin-review?${params.toString()}`);
+  };
 
   if (!hasTeamMembers) {
     return <>{children}</>;
@@ -67,9 +78,13 @@ export function TeamInfoTooltip({
                   >
                     <div className="flex items-center justify-between min-w-0 flex-1">
                       <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-foreground truncate">
+                        <button
+                          onClick={() => handleModelerClick(user)}
+                          className="text-foreground truncate hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                          title={`Click to view ${user.email.split("@")[0]}'s details`}
+                        >
                           {user.email.split("@")[0]}
-                        </span>
+                        </button>
                         {user.modelerCount && user.modelerCount > 1 && (
                           <Badge
                             variant="secondary"

@@ -50,6 +50,7 @@ const getStatusColor = (status: StatusKey): string => {
     in_production: "var(--status-in-production)",
     revisions: "var(--status-revisions)",
     approved: "var(--status-approved)",
+    approved_by_client: "var(--status-emerald)",
     delivered_by_artist: "var(--status-delivered-by-artist)",
   };
   return statusColorMap[status];
@@ -1107,6 +1108,7 @@ export function ModelStatusWidget() {
     in_production: 0,
     revisions: 0,
     approved: 0,
+    approved_by_client: 0,
     delivered_by_artist: 0,
   });
   const [products, setProducts] = useState<any[]>([]);
@@ -1123,17 +1125,53 @@ export function ModelStatusWidget() {
           in_production: 0,
           revisions: 0,
           approved: 0,
+          approved_by_client: 0,
           delivered_by_artist: 0,
         };
         for (const row of data) {
           const status = row.status as StatusKey;
           if (status in newCounts) newCounts[status]++;
         }
-        // For clients, combine approved and delivered_by_artist into approved
+
+        // Debug logging to see what we're counting
+        console.log("Widget raw counts:", newCounts);
+        console.log("Widget client filter:", user.metadata.client);
+        console.log("Widget total data rows:", data.length);
+        console.log("Widget all statuses found:", [
+          ...new Set(data.map((row) => row.status)),
+        ]);
+        console.log(
+          "Widget raw data sample:",
+          data.slice(0, 3).map((row) => ({ id: row.id, status: row.status }))
+        );
+
+        // Add detailed counting debug
+        console.log("Widget counting details:");
+        for (const row of data) {
+          const status = row.status as StatusKey;
+          console.log(
+            `Row ${row.id}: status = "${status}", type = ${typeof status}`
+          );
+          if (status in newCounts) {
+            console.log(
+              `  ✓ Status "${status}" found in newCounts, incrementing`
+            );
+          } else {
+            console.log(
+              `  ✗ Status "${status}" NOT found in newCounts keys:`,
+              Object.keys(newCounts)
+            );
+          }
+        }
+
+        // For clients, show delivered_by_artist as "In Production" instead of "Waiting for Approval"
+        // This gives clients a cleaner view without internal workflow statuses
         if (user?.metadata?.role === "client") {
-          newCounts.approved += newCounts.delivered_by_artist;
+          newCounts.in_production += newCounts.delivered_by_artist;
           newCounts.delivered_by_artist = 0;
         }
+
+        console.log("Widget final counts:", newCounts);
         setCounts(newCounts);
         setProducts(data);
       }
@@ -1161,13 +1199,14 @@ export function ModelStatusWidget() {
         <div className="w-full space-y-3">
           {(Object.entries(STATUS_LABELS) as [StatusKey, string][]).map(
             ([key, label]) => {
-              // Hide "Delivered by Artist" for clients
+              // Hide "Delivered by Artist" row for clients since it's shown as "In Production"
               if (
                 user?.metadata?.role === "client" &&
                 key === "delivered_by_artist"
               ) {
                 return null;
               }
+
               return (
                 <div
                   key={key}
@@ -1195,6 +1234,7 @@ export function StatusPieChartWidget() {
     in_production: 0,
     revisions: 0,
     approved: 0,
+    approved_by_client: 0,
     delivered_by_artist: 0,
   });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1213,17 +1253,53 @@ export function StatusPieChartWidget() {
           in_production: 0,
           revisions: 0,
           approved: 0,
+          approved_by_client: 0,
           delivered_by_artist: 0,
         };
         for (const row of data) {
           const status = row.status as StatusKey;
           if (status in newCounts) newCounts[status]++;
         }
-        // For clients, combine approved and delivered_by_artist into approved
+
+        // Debug logging to see what we're counting
+        console.log("PieChart raw counts:", newCounts);
+        console.log("PieChart client filter:", user.metadata.client);
+        console.log("PieChart total data rows:", data.length);
+        console.log("PieChart all statuses found:", [
+          ...new Set(data.map((row) => row.status)),
+        ]);
+        console.log(
+          "PieChart raw data sample:",
+          data.slice(0, 3).map((row) => ({ id: row.id, status: row.status }))
+        );
+
+        // Add detailed counting debug
+        console.log("PieChart counting details:");
+        for (const row of data) {
+          const status = row.status as StatusKey;
+          console.log(
+            `Row ${row.id}: status = "${status}", type = ${typeof status}`
+          );
+          if (status in newCounts) {
+            console.log(
+              `  ✓ Status "${status}" found in newCounts, incrementing`
+            );
+          } else {
+            console.log(
+              `  ✗ Status "${status}" NOT found in newCounts keys:`,
+              Object.keys(newCounts)
+            );
+          }
+        }
+
+        // For clients, show delivered_by_artist as "In Production" instead of "Waiting for Approval"
+        // This gives clients a cleaner view without internal workflow statuses
         if (user?.metadata?.role === "client") {
-          newCounts.approved += newCounts.delivered_by_artist;
+          newCounts.in_production += newCounts.delivered_by_artist;
           newCounts.delivered_by_artist = 0;
         }
+
+        console.log("PieChart final counts:", newCounts);
         setCounts(newCounts);
       }
       setLoading(false);
@@ -1236,7 +1312,7 @@ export function StatusPieChartWidget() {
 
   const chartData = Object.entries(STATUS_LABELS)
     .filter(([key]) => {
-      // Hide "Delivered by Artist" for clients
+      // Hide "Delivered by Artist" for clients since it's shown as "In Production"
       if (user?.metadata?.role === "client" && key === "delivered_by_artist") {
         return false;
       }

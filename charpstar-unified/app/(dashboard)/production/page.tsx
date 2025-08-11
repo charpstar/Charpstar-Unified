@@ -41,7 +41,6 @@ import {
   CloudUpload,
   TrendingUp,
   Calendar,
-  Clock,
   Package,
   Search,
   Filter,
@@ -50,7 +49,6 @@ import {
   ShieldCheck,
   CheckCircle,
   AlertCircle,
-  RotateCcw,
   Info,
   Trash2,
 } from "lucide-react";
@@ -83,6 +81,7 @@ interface BatchProgress {
     in_production: number;
     revisions: number;
     approved: number;
+    approved_by_client: number;
     delivered_by_artist: number;
   };
   assignedUsers: {
@@ -106,6 +105,7 @@ interface ModelerProgress {
     in_production: number;
     revisions: number;
     approved: number;
+    approved_by_client: number;
     delivered_by_artist: number;
   };
   completionStats: {
@@ -137,6 +137,7 @@ interface QAProgress {
     in_production: number;
     revisions: number;
     approved: number;
+    approved_by_client: number;
     delivered_by_artist: number;
   };
   reviewStats: {
@@ -192,6 +193,10 @@ export default function ProductionDashboard() {
     Record<string, boolean>
   >({});
   const [deletingBatch, setDeletingBatch] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<{
+    client: string;
+    batch: number;
+  } | null>(null);
 
   // Get state from URL params with defaults
   const searchTerm = searchParams.get("search") || "";
@@ -281,6 +286,7 @@ export default function ProductionDashboard() {
               in_production: 0,
               revisions: 0,
               approved: 0,
+              approved_by_client: 0,
               delivered_by_artist: 0,
             },
             assignedUsers: {
@@ -302,9 +308,10 @@ export default function ProductionDashboard() {
           }
         }
 
-        // Count completed models (approved + delivered)
+        // Count completed models (approved + approved_by_client + delivered)
         if (
           asset.status === "approved" ||
+          asset.status === "approved_by_client" ||
           asset.status === "delivered_by_artist"
         ) {
           batchProgress.completedModels++;
@@ -538,6 +545,7 @@ export default function ProductionDashboard() {
             in_production: 0,
             revisions: 0,
             approved: 0,
+            approved_by_client: 0,
             delivered_by_artist: 0,
           },
           completionStats: {
@@ -590,13 +598,16 @@ export default function ProductionDashboard() {
         // Count by category
         if (
           asset.status === "approved" ||
-          asset.status === "delivered_by_artist"
+          asset.status === "approved_by_client"
         ) {
           modeler.completedModels++;
         } else if (asset.status === "in_production") {
           modeler.inProgressModels++;
         } else if (asset.status === "revisions") {
           modeler.revisionModels++;
+        } else if (asset.status === "delivered_by_artist") {
+          // delivered_by_artist is not counted as completed for modelers
+          // It's shown separately in the status breakdown
         } else if (!asset.status || asset.status === "not_started") {
           modeler.pendingModels++;
         }
@@ -676,11 +687,13 @@ export default function ProductionDashboard() {
 
       // Calculate completion percentages
       modelerMap.forEach((modeler) => {
+        // Only count approved and approved_by_client as completed for percentage calculation
+        const completedCount =
+          modeler.statusCounts.approved +
+          modeler.statusCounts.approved_by_client;
         modeler.completionPercentage =
           modeler.totalAssigned > 0
-            ? Math.round(
-                (modeler.completedModels / modeler.totalAssigned) * 100
-              )
+            ? Math.round((completedCount / modeler.totalAssigned) * 100)
             : 0;
       });
 
@@ -743,6 +756,7 @@ export default function ProductionDashboard() {
             in_production: 0,
             revisions: 0,
             approved: 0,
+            approved_by_client: 0,
             delivered_by_artist: 0,
           },
           reviewStats: {
@@ -800,7 +814,10 @@ export default function ProductionDashboard() {
         }
 
         // Count by category
-        if (asset.status === "approved") {
+        if (
+          asset.status === "approved" ||
+          asset.status === "approved_by_client"
+        ) {
           qaUser.completedReviews++;
         } else if (asset.status === "delivered_by_artist") {
           qaUser.inProgressReviews++;
@@ -1169,6 +1186,8 @@ export default function ProductionDashboard() {
         return "#3B82F6"; // info color
       case "approved":
         return "#22C55E"; // success color
+      case "approved_by_client":
+        return "#10B981"; // emerald color
       case "delivered_by_artist":
         return "#A855F7"; // accent-purple color
       case "not_started":
@@ -1187,6 +1206,8 @@ export default function ProductionDashboard() {
         return "Ready for Revision";
       case "approved":
         return "Approved";
+      case "approved_by_client":
+        return "Approved by Client";
       case "delivered_by_artist":
         return "Delivered";
 
@@ -1272,8 +1293,9 @@ export default function ProductionDashboard() {
         revisions?.filter((revision) => revision.created_at.startsWith(dateStr))
           .length || 0;
 
-      const reviewed = dayComments + dayRevisions;
       const approved = dayApprovals;
+      // Approved products should always be counted as reviewed since QA reviews before approving
+      const reviewed = dayComments + dayRevisions + dayApprovals;
 
       chartData.push({
         date: dateStr,
@@ -1435,6 +1457,9 @@ export default function ProductionDashboard() {
       console.log(
         `Successfully deleted ${assetIds.length} assets from ${clientName} Batch ${batchNumber}`
       );
+
+      // Close the dialog after successful deletion
+      setDeleteDialogOpen(null);
     } catch (error) {
       console.error("Error deleting batch assets:", error);
       // You might want to show a toast notification here
@@ -1635,264 +1660,274 @@ export default function ProductionDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {viewMode === "batches"
           ? // Batch Cards
-            filteredBatches
-              .sort((a, b) => {
-                // Always sort by client first, then by batch number for consistent display
-                const clientComparison = a.client.localeCompare(b.client);
-                if (clientComparison !== 0) return clientComparison;
-                return a.batch - b.batch;
-              })
-              .map((batch) => {
-                // Prepare chart data
-                const chartData = Object.entries(batch.statusCounts)
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  .filter(([_, count]) => count > 0)
-                  .map(([status, count]) => ({
-                    name: getStatusLabel(status),
-                    value: count,
-                    color: getStatusColor(status),
-                  }));
+            filteredBatches.map((batch) => {
+              // Prepare chart data
+              const chartData = Object.entries(batch.statusCounts)
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                .filter(([_, count]) => count > 0)
+                .map(([status, count]) => ({
+                  name: getStatusLabel(status),
+                  value: count,
+                  color: getStatusColor(status),
+                }));
 
-                const batchKey = `${batch.client}-${batch.batch}`;
-                const isDeleting = deletingBatch === batchKey;
+              const batchKey = `${batch.client}-${batch.batch}`;
+              const isDeleting = deletingBatch === batchKey;
 
-                return (
-                  <Card
-                    key={batch.id}
-                    className="hover:shadow-lg transition-shadow"
-                  >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-lg font-semibold">
-                            {batch.client} - Batch {batch.batch}
-                          </CardTitle>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={
-                              batch.completionPercentage >= 80
-                                ? "default"
-                                : batch.completionPercentage >= 50
-                                  ? "secondary"
-                                  : "destructive"
-                            }
-                            className="text-sm"
-                          >
-                            {batch.completionPercentage}%
-                          </Badge>
-
-                          {/* Delete Button */}
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                disabled={isDeleting}
-                              >
-                                {isDeleting ? (
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Delete Batch</DialogTitle>
-                                <DialogDescription>
-                                  Are you sure you want to delete all assets in{" "}
-                                  <strong>
-                                    {batch.client} - Batch {batch.batch}
-                                  </strong>
-                                  ?
-                                  <br />
-                                  <br />
-                                  This will permanently delete:
-                                  <ul className="list-disc list-inside mt-2 space-y-1">
-                                    <li>{batch.totalModels} assets</li>
-                                    <li>All asset assignments</li>
-                                    <li>All comments and revision history</li>
-                                    <li>All QA approvals</li>
-                                    <li>
-                                      All allocation lists containing these
-                                      assets
-                                    </li>
-                                  </ul>
-                                  <br />
-                                  This action cannot be undone.
-                                </DialogDescription>
-                              </DialogHeader>
-                              <DialogFooter>
-                                <Button variant="outline">Cancel</Button>
-                                <Button
-                                  onClick={() =>
-                                    deleteBatchAssets(batch.client, batch.batch)
-                                  }
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  {isDeleting ? "Deleting..." : "Delete Batch"}
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
+              return (
+                <Card
+                  key={batch.id}
+                  className="hover:shadow-lg transition-shadow"
+                >
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg font-semibold">
+                          {batch.client} - Batch {batch.batch}
+                        </CardTitle>
                       </div>
-                    </CardHeader>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            batch.completionPercentage >= 80
+                              ? "default"
+                              : batch.completionPercentage >= 50
+                                ? "secondary"
+                                : "destructive"
+                          }
+                          className="text-sm"
+                        >
+                          {batch.completionPercentage}%
+                        </Badge>
 
-                    <CardContent className="space-y-4">
-                      {/* Progress Chart */}
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-2 flex-1">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              Total Models:
-                            </span>
-                            <span className="font-semibold">
-                              {batch.totalModels}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 text-sm">
-                            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              Assets Left to Assign:
-                            </span>
-                            <span
-                              className={`font-semibold ${batch.unassignedAssets > 0 ? "text-warning" : "text-success"}`}
+                        {/* Delete Button */}
+                        <Dialog
+                          open={
+                            deleteDialogOpen?.client === batch.client &&
+                            deleteDialogOpen?.batch === batch.batch
+                          }
+                          onOpenChange={(open) => {
+                            if (!open) setDeleteDialogOpen(null);
+                          }}
+                        >
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              disabled={isDeleting}
+                              onClick={() =>
+                                setDeleteDialogOpen({
+                                  client: batch.client,
+                                  batch: batch.batch,
+                                })
+                              }
                             >
-                              {batch.unassignedAssets}
-                            </span>
-                          </div>
+                              {isDeleting ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="bg-background h-fit">
+                            <DialogHeader>
+                              <DialogTitle>Delete Batch</DialogTitle>
+                              <DialogDescription>
+                                Are you sure you want to delete all assets in{" "}
+                                <strong>
+                                  {batch.client} - Batch {batch.batch}
+                                </strong>
+                                ?
+                                <br />
+                                <br />
+                                This will permanently delete:
+                                <ul className="list-disc list-inside mt-2 space-y-1">
+                                  <li>{batch.totalModels} assets</li>
+                                  <li>All asset assignments</li>
+                                  <li>All comments and revision history</li>
+                                  <li>All QA approvals</li>
+                                  <li>
+                                    All allocation lists containing these assets
+                                  </li>
+                                </ul>
+                                <br />
+                                This action cannot be undone.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button
+                                variant="outline"
+                                onClick={() => setDeleteDialogOpen(null)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                onClick={() =>
+                                  deleteBatchAssets(batch.client, batch.batch)
+                                }
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                {isDeleting ? "Deleting..." : "Delete Batch"}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                  </CardHeader>
 
-                          <div className="flex items-center gap-2 text-sm">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              Start Date:
-                            </span>
-                            <span className="font-medium">
-                              {batch.startDate}
-                            </span>
-                          </div>
-
-                          {/* Assigned Team Indicator */}
-                          {(batch.assignedUsers.modelers.length > 0 ||
-                            batch.assignedUsers.qa.length > 0) && (
-                            <TeamInfoTooltip
-                              modelers={batch.assignedUsers.modelers}
-                              qa={batch.assignedUsers.qa}
-                              clientName={batch.client}
-                              batchNumber={batch.batch}
-                            >
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                                <Users className="h-4 w-4" />
-                                <span>
-                                  Team (
-                                  {batch.assignedUsers.modelers.length +
-                                    batch.assignedUsers.qa.length}
-                                  )
-                                </span>
-                              </div>
-                            </TeamInfoTooltip>
-                          )}
-
-                          {/* Admin Review Button under Team */}
-                          <div
-                            className="flex w-[150px] items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                            onClick={() =>
-                              handleAdminReview(batch.client, batch.batch)
-                            }
-                          >
-                            <ShieldCheck className="h-4 w-4" />
-                            <span>Admin Review</span>
-                          </div>
+                  <CardContent className="space-y-4">
+                    {/* Progress Chart */}
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            Total Models:
+                          </span>
+                          <span className="font-semibold">
+                            {batch.totalModels}
+                          </span>
                         </div>
 
-                        {/* Pie Chart */}
-                        <div className="w-40 h-40 relative">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={chartData}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={45}
-                                outerRadius={65}
-                                paddingAngle={2}
-                                dataKey="value"
-                              >
-                                {chartData.map((entry, index) => (
-                                  <Cell
-                                    key={`cell-${index}`}
-                                    fill={entry.color}
-                                  />
-                                ))}
-                              </Pie>
-                              <RechartsTooltip
-                                wrapperStyle={{ zIndex: 99999 }}
-                                contentStyle={{
-                                  backgroundColor: "var(--background)",
-                                  border: "1px solid var(--border)",
-                                  borderRadius: "8px",
-                                  fontSize: "12px",
-                                  zIndex: 99999,
-                                }}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                          {/* Centered fraction label */}
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="text-center p-2 border-0 pointer-events-none">
-                              <div className="text-2xl text-primary drop-shadow-sm pointer-events-none">
-                                {batch.statusCounts.approved}/
-                                {batch.totalModels}
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1 font-medium tracking-wide">
-                                Approved
-                              </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            Assets Left to Assign:
+                          </span>
+                          <span
+                            className={`font-semibold ${batch.unassignedAssets > 0 ? "text-warning" : "text-success"}`}
+                          >
+                            {batch.unassignedAssets}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            Start Date:
+                          </span>
+                          <span className="font-medium">{batch.startDate}</span>
+                        </div>
+
+                        {/* Assigned Team Indicator */}
+                        {(batch.assignedUsers.modelers.length > 0 ||
+                          batch.assignedUsers.qa.length > 0) && (
+                          <TeamInfoTooltip
+                            modelers={batch.assignedUsers.modelers}
+                            qa={batch.assignedUsers.qa}
+                            clientName={batch.client}
+                            batchNumber={batch.batch}
+                          >
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                              <Users className="h-4 w-4" />
+                              <span>
+                                Team (
+                                {batch.assignedUsers.modelers.length +
+                                  batch.assignedUsers.qa.length}
+                                )
+                              </span>
+                            </div>
+                          </TeamInfoTooltip>
+                        )}
+
+                        {/* Admin Review Button under Team */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-[150px] h-8 text-xs"
+                          onClick={() =>
+                            handleAdminReview(batch.client, batch.batch)
+                          }
+                        >
+                          <ShieldCheck className="h-4 w-4 mr-1" />
+                          Admin Review
+                        </Button>
+                      </div>
+
+                      {/* Pie Chart */}
+                      <div className="w-40 h-40 relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={chartData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={45}
+                              outerRadius={65}
+                              paddingAngle={2}
+                              dataKey="value"
+                            >
+                              {chartData.map((entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={entry.color}
+                                />
+                              ))}
+                            </Pie>
+                            <RechartsTooltip
+                              wrapperStyle={{ zIndex: 99999 }}
+                              contentStyle={{
+                                backgroundColor: "var(--background)",
+                                border: "1px solid var(--border)",
+                                borderRadius: "8px",
+                                fontSize: "12px",
+                                zIndex: 99999,
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        {/* Centered fraction label */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="text-center p-2 border-0 pointer-events-none">
+                            <div className="text-2xl text-primary drop-shadow-sm pointer-events-none">
+                              {batch.statusCounts.approved}/{batch.totalModels}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1 font-medium tracking-wide">
+                              Approved
                             </div>
                           </div>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Status Breakdown */}
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">
-                          Model Statistics
-                        </p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          {Object.entries(batch.statusCounts)
-                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                            .filter(([_, count]) => count > 0)
-                            .map(([status, count]) => (
-                              <div
-                                key={status}
-                                className="flex items-center justify-between"
-                              >
-                                <div className="flex items-center gap-1">
-                                  <div
-                                    className="w-2 h-2 rounded-full"
-                                    style={{
-                                      backgroundColor: getStatusColor(status),
-                                    }}
-                                  />
-                                  <span className="text-muted-foreground">
-                                    {getStatusLabel(status)}
-                                  </span>
-                                </div>
-                                <span className="font-medium">{count}</span>
+                    {/* Status Breakdown */}
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Model Statistics
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {Object.entries(batch.statusCounts)
+                          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                          .filter(([_, count]) => count > 0)
+                          .map(([status, count]) => (
+                            <div
+                              key={status}
+                              className="flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-1">
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{
+                                    backgroundColor: getStatusColor(status),
+                                  }}
+                                />
+                                <span className="text-muted-foreground">
+                                  {getStatusLabel(status)}
+                                </span>
                               </div>
-                            ))}
-                        </div>
+                              <span className="font-medium">{count}</span>
+                            </div>
+                          ))}
                       </div>
+                    </div>
 
-                      {/* Action Buttons */}
-                    </CardContent>
-                  </Card>
-                );
-              })
+                    {/* Action Buttons */}
+                  </CardContent>
+                </Card>
+              );
+            })
           : viewMode === "modelers"
             ? // Modeler Cards
               filteredModelers.map((modeler) => {
@@ -2033,48 +2068,11 @@ export default function ProductionDashboard() {
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2 text-sm">
-                            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              Completed:
-                            </span>
-                            <span className="font-medium text-success">
-                              {modeler.completedModels}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 text-sm">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              In Progress:
-                            </span>
-                            <span className="font-medium text-warning">
-                              {modeler.inProgressModels}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 text-sm">
-                            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              Pending:
-                            </span>
-                            <span className="font-medium text-error">
-                              {modeler.pendingModels}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 text-sm">
-                            <RotateCcw className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              Revisions:
-                            </span>
-                            <span className="font-medium text-info">
-                              {modeler.revisionModels}
-                            </span>
-                          </div>
                           <div className="">
-                            <div
-                              className="flex w-full items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-8 text-xs"
                               onClick={() =>
                                 handleModelerAdminReview(
                                   modeler.id,
@@ -2082,9 +2080,9 @@ export default function ProductionDashboard() {
                                 )
                               }
                             >
-                              <ShieldCheck className="h-4 w-4" />
-                              <span>Admin Review</span>
-                            </div>
+                              <ShieldCheck className="h-4 w-4 mr-1" />
+                              Admin Review
+                            </Button>
                           </div>
                         </div>
 
@@ -2120,18 +2118,6 @@ export default function ProductionDashboard() {
                               />
                             </PieChart>
                           </ResponsiveContainer>
-                          {/* Centered fraction label */}
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="text-center p-2 border-0 pointer-events-none">
-                              <div className="text-2xl text-primary drop-shadow-sm pointer-events-none">
-                                {modeler.completedModels}/
-                                {modeler.totalAssigned}
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1 font-medium tracking-wide">
-                                Completed
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       </div>
 
@@ -2283,13 +2269,22 @@ export default function ProductionDashboard() {
                                     Connected Modelers (
                                     {qaUser.connectedModelers.length})
                                   </div>
+                                  <div className="text-xs text-muted-foreground mb-2">
+                                    Click on a modeler to view their allocations
+                                  </div>
                                   {qaUser.connectedModelers.length > 0 ? (
                                     <div className="space-y-2 max-h-48 overflow-y-auto">
                                       {qaUser.connectedModelers.map(
                                         (modeler) => (
                                           <div
                                             key={modeler.id}
-                                            className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-xs"
+                                            className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-xs cursor-pointer hover:bg-muted/50 transition-colors"
+                                            onClick={() =>
+                                              handleModelerAdminReview(
+                                                modeler.id,
+                                                modeler.email
+                                              )
+                                            }
                                           >
                                             <div className="flex-1 min-w-0">
                                               <div className="font-medium truncate">
@@ -2443,17 +2438,6 @@ export default function ProductionDashboard() {
                       )}
 
                       {/* Admin Review Button */}
-                      <div className="pt-2">
-                        <div
-                          className="flex w-full items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                          onClick={() =>
-                            handleModelerAdminReview(qaUser.id, qaUser.email)
-                          }
-                        >
-                          <ShieldCheck className="h-4 w-4" />
-                          <span>Admin Review</span>
-                        </div>
-                      </div>
                     </CardContent>
                   </Card>
                 );

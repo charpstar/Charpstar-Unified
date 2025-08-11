@@ -90,6 +90,15 @@ export default function AddProductsPage() {
   const [csvErrors, setCsvErrors] = useState<
     { row: number; message: string }[]
   >([]);
+  const [csvWarnings, setCsvWarnings] = useState<
+    {
+      row: number;
+      message: string;
+      type: "duplicate_article_id" | "missing_fields";
+    }[]
+  >([]);
+  const [editingRow, setEditingRow] = useState<number | null>(null);
+  const [editedCsvData, setEditedCsvData] = useState<string[][] | null>(null);
 
   // Helper function to reset file input
   const resetFileInput = () => {
@@ -263,6 +272,9 @@ export default function AddProductsPage() {
     setCsvFile(file);
     setCsvLoading(true);
     setCsvErrors([]);
+    setCsvWarnings([]);
+    setEditingRow(null);
+    setEditedCsvData(null);
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
@@ -291,9 +303,15 @@ export default function AddProductsPage() {
           return result;
         });
 
-      // Validate rows
+      // Validate rows for errors and warnings
       const errors: { row: number; message: string }[] = [];
+      const warnings: {
+        row: number;
+        message: string;
+        type: "duplicate_article_id" | "missing_fields";
+      }[] = [];
 
+      // Check for missing required fields
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         if (!row[0] || !row[1] || !row[2] || !row[3]) {
@@ -304,8 +322,37 @@ export default function AddProductsPage() {
           });
         }
       }
+
+      // Check for duplicate article IDs
+      const articleIds = new Map<string, number[]>();
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const articleId = row[0]?.trim();
+        if (articleId) {
+          if (!articleIds.has(articleId)) {
+            articleIds.set(articleId, []);
+          }
+          articleIds.get(articleId)!.push(i + 1);
+        }
+      }
+
+      // Add warnings for duplicate article IDs
+      for (const [articleId, rowNumbers] of articleIds.entries()) {
+        if (rowNumbers.length > 1) {
+          for (const rowNum of rowNumbers) {
+            warnings.push({
+              row: rowNum,
+              message: `Duplicate Article ID: "${articleId}" appears in ${rowNumbers.length} rows`,
+              type: "duplicate_article_id",
+            });
+          }
+        }
+      }
+
       setCsvPreview(rows);
+      setEditedCsvData([...rows]); // Initialize edited data
       setCsvErrors(errors);
+      setCsvWarnings(warnings);
       setCsvLoading(false);
     };
     reader.readAsText(file);
@@ -335,12 +382,90 @@ export default function AddProductsPage() {
     }
   };
 
+  const startEditing = (rowIndex: number) => {
+    setEditingRow(rowIndex);
+  };
+
+  const saveEdit = (rowIndex: number, columnIndex: number, value: string) => {
+    if (!editedCsvData) return;
+
+    const newData = [...editedCsvData];
+    newData[rowIndex][columnIndex] = value;
+    setEditedCsvData(newData);
+
+    // Update csvPreview to reflect changes
+    setCsvPreview(newData);
+
+    // Re-validate after edit
+    validateCsvData(newData);
+  };
+
+  const cancelEdit = () => {
+    setEditingRow(null);
+    // Restore original data
+    if (csvPreview) {
+      setEditedCsvData([...csvPreview]);
+    }
+  };
+
+  const validateCsvData = (data: string[][]) => {
+    const errors: { row: number; message: string }[] = [];
+    const warnings: {
+      row: number;
+      message: string;
+      type: "duplicate_article_id" | "missing_fields";
+    }[] = [];
+
+    // Check for missing required fields
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (!row[0] || !row[1] || !row[2] || !row[3]) {
+        errors.push({
+          row: i + 1,
+          message:
+            "Missing required fields (Article ID, Product Name, Product Link, GLB Link)",
+        });
+      }
+    }
+
+    // Check for duplicate article IDs
+    const articleIds = new Map<string, number[]>();
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const articleId = row[0]?.trim();
+      if (articleId) {
+        if (!articleIds.has(articleId)) {
+          articleIds.set(articleId, []);
+        }
+        articleIds.get(articleId)!.push(i + 1);
+      }
+    }
+
+    // Add warnings for duplicate article IDs
+    for (const [articleId, rowNumbers] of articleIds.entries()) {
+      if (rowNumbers.length > 1) {
+        for (const rowNum of rowNumbers) {
+          warnings.push({
+            row: rowNum,
+            message: `Duplicate Article ID: "${articleId}" appears in ${rowNumbers.length} rows`,
+            type: "duplicate_article_id",
+          });
+        }
+      }
+    }
+
+    setCsvErrors(errors);
+    setCsvWarnings(warnings);
+  };
+
   const handleCsvUpload = async () => {
     if (!csvPreview || !user?.metadata?.client) return;
 
     setLoading(true);
     const client = user.metadata.client;
-    const rows = csvPreview.slice(1); // skip header
+    // Use edited data if available, otherwise use original preview
+    const dataToUpload = editedCsvData || csvPreview;
+    const rows = dataToUpload.slice(1); // skip header
     let successCount = 0;
     let failCount = 0;
 
@@ -400,6 +525,11 @@ export default function AddProductsPage() {
     setLoading(false);
     setCsvFile(null);
     setCsvPreview(null);
+    setCsvErrors([]);
+    setCsvWarnings([]);
+    setEditingRow(null);
+    setEditedCsvData(null);
+    setShowPreviewDialog(false); // Close the preview dialog after upload
     resetFileInput();
 
     if (successCount > 0) {
@@ -720,6 +850,9 @@ export default function AddProductsPage() {
               <CardTitle className="flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5" />
                 CSV Upload
+                {csvWarnings.length > 0 && (
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -763,6 +896,17 @@ export default function AddProductsPage() {
                         ? `${csvPreview.length - 1} products ready to upload`
                         : "Processing..."}
                     </p>
+                    {csvWarnings.length > 0 && (
+                      <p className="text-xs text-amber-600 font-medium mt-1">
+                        ⚠️{" "}
+                        {
+                          csvWarnings.filter(
+                            (w) => w.type === "duplicate_article_id"
+                          ).length
+                        }{" "}
+                        duplicate Article IDs detected
+                      </p>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -770,6 +914,9 @@ export default function AddProductsPage() {
                         setCsvFile(null);
                         setCsvPreview(null);
                         setCsvErrors([]);
+                        setCsvWarnings([]);
+                        setEditingRow(null);
+                        setEditedCsvData(null);
                         resetFileInput();
                       }}
                       className="mt-2 cursor-pointer"
@@ -815,6 +962,11 @@ export default function AddProductsPage() {
                     onClick={handleCsvUpload}
                     disabled={loading}
                     className="w-full cursor-pointer"
+                    title={
+                      csvWarnings.length > 0
+                        ? "Warning: Some products have duplicate Article IDs"
+                        : ""
+                    }
                   >
                     {loading ? (
                       <>
@@ -908,6 +1060,11 @@ export default function AddProductsPage() {
               <FileSpreadsheet className="h-5 w-5" />
               CSV Preview ({csvPreview?.length ? csvPreview.length - 1 : 0}{" "}
               products)
+              {editedCsvData && (
+                <Badge variant="outline" className="text-xs">
+                  Editable
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           <div className="mb-2 flex items-center justify-between">
@@ -916,21 +1073,41 @@ export default function AddProductsPage() {
                 ? `${csvPreview.length - 1} products found. Please review before confirming.`
                 : ""}
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setCsvFile(null);
-                setCsvPreview(null);
-                setCsvErrors([]);
-                setShowPreviewDialog(false);
-                resetFileInput();
-              }}
-              className="cursor-pointer"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Remove file & re-upload
-            </Button>
+            <div className="flex items-center gap-2">
+              {editedCsvData && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditedCsvData([...csvPreview!]);
+                    setEditingRow(null);
+                    validateCsvData(csvPreview!);
+                  }}
+                  className="cursor-pointer"
+                  title="Reset all changes to original values"
+                >
+                  Reset Changes
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setCsvFile(null);
+                  setCsvPreview(null);
+                  setCsvErrors([]);
+                  setCsvWarnings([]);
+                  setEditingRow(null);
+                  setEditedCsvData(null);
+                  setShowPreviewDialog(false);
+                  resetFileInput();
+                }}
+                className="cursor-pointer"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Remove file & re-upload
+              </Button>
+            </div>
           </div>
           {csvErrors.length > 0 && (
             <Alert variant="destructive" className="mb-2">
@@ -957,6 +1134,38 @@ export default function AddProductsPage() {
               </AlertDescription>
             </Alert>
           )}
+
+          {csvWarnings.length > 0 && (
+            <Alert
+              variant="default"
+              className="mb-2 border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800"
+            >
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="flex items-center gap-2">
+                <span>
+                  Some rows have duplicate Article IDs. Please review before
+                  proceeding.
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!csvPreview) return;
+                    const warningCsv = [
+                      csvPreview[0],
+                      ...csvWarnings.map((w) => [w.row, w.message]),
+                    ]
+                      .map((r) => r.join(","))
+                      .join("\n");
+                    const blob = new Blob([warningCsv], { type: "text/csv" });
+                    saveAs.saveAs(blob, "csv-warnings.csv");
+                  }}
+                >
+                  Download warning report
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="flex-1 overflow-hidden">
             <div className="h-full overflow-y-auto">
               <Table>
@@ -966,6 +1175,7 @@ export default function AddProductsPage() {
                     <TableHead>Product Name</TableHead>
                     <TableHead>Product Link</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -974,46 +1184,163 @@ export default function AddProductsPage() {
                       articleId,
                       productName,
                       productLink,
-
                       category,
                       subcategory,
                     ] = row;
                     const hasError = csvErrors.some((e) => e.row === index + 2);
+                    const hasWarning = csvWarnings.some(
+                      (w) => w.row === index + 2
+                    );
+                    const rowClassName = hasError
+                      ? "bg-red-50"
+                      : hasWarning
+                        ? "bg-amber-50 dark:bg-amber-950/20"
+                        : "";
+                    const isEditing = editingRow === index;
+
                     return (
-                      <TableRow
-                        key={index}
-                        className={hasError ? "bg-red-50" : ""}
-                      >
+                      <TableRow key={index} className={rowClassName}>
                         <TableCell className="font-medium">
-                          {articleId || "-"}
-                        </TableCell>
-                        <TableCell>{productName || "-"}</TableCell>
-                        <TableCell className="flex items-center">
-                          {productLink ? (
-                            <a
-                              href={productLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-info hover:text-info/80 underline truncate block max-w-48"
-                              title={productLink}
-                            >
-                              {productLink.length > 50
-                                ? `${productLink.substring(0, 50)}...`
-                                : productLink}
-                            </a>
+                          {isEditing ? (
+                            <Input
+                              value={
+                                editedCsvData?.[index + 1]?.[0] ||
+                                articleId ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                saveEdit(index + 1, 0, e.target.value)
+                              }
+                              className="h-8 text-sm"
+                              placeholder="Article ID"
+                            />
                           ) : (
-                            <span className="text-muted-foreground">-</span>
+                            articleId || "-"
                           )}
                         </TableCell>
                         <TableCell>
-                          <div>
-                            <span className="font-medium">
-                              {category || "-"}
-                            </span>
-                            {subcategory && (
-                              <span className="text-xs text-muted-foreground block">
-                                {subcategory}
+                          {isEditing ? (
+                            <Input
+                              value={
+                                editedCsvData?.[index + 1]?.[1] ||
+                                productName ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                saveEdit(index + 1, 1, e.target.value)
+                              }
+                              className="h-8 text-sm"
+                              placeholder="Product Name"
+                            />
+                          ) : (
+                            productName || "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              value={
+                                editedCsvData?.[index + 1]?.[2] ||
+                                productLink ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                saveEdit(index + 1, 2, e.target.value)
+                              }
+                              className="h-8 text-sm"
+                              placeholder="Product Link"
+                            />
+                          ) : (
+                            <div className="flex items-center">
+                              {productLink ? (
+                                <a
+                                  href={productLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-info hover:text-info/80 underline truncate block max-w-48"
+                                  title={productLink}
+                                >
+                                  {productLink.length > 50
+                                    ? `${productLink.substring(0, 50)}...`
+                                    : productLink}
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <div className="space-y-1">
+                              <Input
+                                value={
+                                  editedCsvData?.[index + 1]?.[4] ||
+                                  category ||
+                                  ""
+                                }
+                                onChange={(e) =>
+                                  saveEdit(index + 1, 4, e.target.value)
+                                }
+                                className="h-8 text-sm"
+                                placeholder="Category"
+                              />
+                              <Input
+                                value={
+                                  editedCsvData?.[index + 1]?.[5] ||
+                                  subcategory ||
+                                  ""
+                                }
+                                onChange={(e) =>
+                                  saveEdit(index + 1, 5, e.target.value)
+                                }
+                                className="h-8 text-sm"
+                                placeholder="Subcategory"
+                              />
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="font-medium">
+                                {category || "-"}
                               </span>
+                              {subcategory && (
+                                <span className="text-xs text-muted-foreground block">
+                                  {subcategory}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {isEditing ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingRow(null)}
+                                  className="h-6 px-2 text-xs"
+                                >
+                                  Done
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={cancelEdit}
+                                  className="h-6 px-2 text-xs text-muted-foreground"
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => startEditing(index)}
+                                className="h-6 px-2 text-xs"
+                              >
+                                Edit
+                              </Button>
                             )}
                           </div>
                         </TableCell>
@@ -1037,6 +1364,11 @@ export default function AddProductsPage() {
               onClick={handleCsvUpload}
               disabled={loading || csvErrors.length > 0}
               className="cursor-pointer"
+              title={
+                csvWarnings.length > 0
+                  ? "Warning: Some products have duplicate Article IDs"
+                  : ""
+              }
             >
               {loading ? (
                 <>

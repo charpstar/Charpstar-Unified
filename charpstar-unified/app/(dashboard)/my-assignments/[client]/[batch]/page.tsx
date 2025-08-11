@@ -126,6 +126,17 @@ interface BatchStats {
   averageAssetPrice: number;
 }
 
+interface AssetFileHistory {
+  assetId: string;
+  previousModelerId: string;
+  previousModelerName: string;
+  files: {
+    glb_link?: string;
+    reference?: string[];
+    other_files?: string[];
+  };
+}
+
 // Helper function to check if deadline is overdue
 const isOverdue = (deadline: string) => {
   return new Date(deadline) < new Date();
@@ -182,6 +193,9 @@ export default function BatchDetailPage() {
   const [showInvoice, setShowInvoice] = useState(false);
   const [selectedAllocationListId, setSelectedAllocationListId] =
     useState<string>("");
+  const [assetFileHistory, setAssetFileHistory] = useState<AssetFileHistory[]>(
+    []
+  );
 
   useEffect(() => {
     document.title = `CharpstAR Platform - ${client} Batch ${batch}`;
@@ -196,6 +210,151 @@ export default function BatchDetailPage() {
   useEffect(() => {
     filterAndSortAssets();
   }, [allocationLists, searchTerm, statusFilter, sortBy]);
+
+  // Check for previous modeler files when component mounts
+  useEffect(() => {
+    if (allocationLists.length > 0) {
+      checkForPreviousModelerFiles();
+    }
+  }, [allocationLists]);
+
+  // Check for previous modeler files for re-allocated assets
+  const checkForPreviousModelerFiles = async () => {
+    try {
+      const assetIds = allocationLists.flatMap((list) =>
+        list.assets.map((asset) => asset.id)
+      );
+
+      if (assetIds.length === 0) return;
+
+      // Get previous modeler assignments for these assets
+      const { data: previousAssignments, error } = await supabase
+        .from("asset_assignments")
+        .select(
+          `
+          asset_id,
+          user_id,
+          profiles!inner(title, email)
+        `
+        )
+        .in("asset_id", assetIds)
+        .eq("role", "modeler")
+        .neq("user_id", user?.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching previous assignments:", error);
+        return;
+      }
+
+      if (!previousAssignments || previousAssignments.length === 0) {
+        setAssetFileHistory([]);
+        return;
+      }
+
+      // Get asset details including files
+      const { data: assetDetails, error: assetError } = await supabase
+        .from("onboarding_assets")
+        .select("id, glb_link, reference, product_link")
+        .in("id", assetIds);
+
+      if (assetError) {
+        console.error("Error fetching asset details:", assetError);
+        return;
+      }
+
+      // Get GLB upload history for these assets
+      const { data: glbHistory, error: glbError } = await supabase
+        .from("glb_upload_history")
+        .select("asset_id, glb_url, file_name, uploaded_at")
+        .in("asset_id", assetIds)
+        .order("uploaded_at", { ascending: false });
+
+      if (glbError) {
+        console.error("Error fetching GLB history:", glbError);
+      }
+
+      // Get additional asset files if the table exists
+      let assetFiles: any[] = [];
+      try {
+        const { data: filesData, error: filesError } = await supabase
+          .from("asset_files")
+          .select("asset_id, file_url, file_name, file_type")
+          .in("asset_id", assetIds)
+          .order("uploaded_at", { ascending: false });
+
+        if (!filesError && filesData) {
+          assetFiles = filesData;
+        }
+      } catch (error) {
+        console.log("asset_files table not available");
+      }
+
+      // Create file history for assets with previous modelers
+      const history: AssetFileHistory[] = [];
+
+      for (const assignment of previousAssignments) {
+        const asset = assetDetails?.find((a) => a.id === assignment.asset_id);
+        if (
+          asset &&
+          (asset.glb_link || asset.reference?.length > 0 || asset.product_link)
+        ) {
+          const existingHistory = history.find(
+            (h) => h.assetId === assignment.asset_id
+          );
+          if (!existingHistory) {
+            const profile = Array.isArray(assignment.profiles)
+              ? assignment.profiles[0]
+              : assignment.profiles;
+
+            const assetGlbHistory =
+              glbHistory?.filter((h) => h.asset_id === assignment.asset_id) ||
+              [];
+
+            const assetAdditionalFiles =
+              assetFiles?.filter((f) => f.asset_id === assignment.asset_id) ||
+              [];
+
+            history.push({
+              assetId: assignment.asset_id,
+              previousModelerId: assignment.user_id,
+              previousModelerName:
+                profile?.title || profile?.email || "Unknown",
+              files: {
+                glb_link: asset.glb_link,
+                reference: asset.reference,
+                other_files: [
+                  ...(asset.product_link ? [asset.product_link] : []),
+                  ...assetGlbHistory.map((h) => h.glb_url),
+                  ...assetAdditionalFiles.map((f) => f.file_url),
+                ],
+              },
+            });
+          }
+        }
+      }
+
+      setAssetFileHistory(history);
+    } catch (error) {
+      console.error("Error checking for previous modeler files:", error);
+    }
+  };
+
+  // Handle file download
+  const handleFileDownload = (url: string, fileName: string) => {
+    try {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      window.open(url, "_blank");
+    }
+  };
 
   const fetchBatchAssets = async () => {
     try {
@@ -1182,6 +1341,134 @@ export default function BatchDetailPage() {
         )}
       </div>
 
+      {/* Previous Modeler Files Section */}
+      {assetFileHistory.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-amber-600" />
+            <h3 className="text-lg font-medium">
+              Previous Modeler Files Available
+            </h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            These assets have files from previous modelers that you can
+            download:
+          </p>
+
+          <div className="space-y-4">
+            {assetFileHistory.map((history) => {
+              const asset = allocationLists
+                .flatMap((list) => list.assets)
+                .find((asset) => asset.id === history.assetId);
+
+              if (!asset) return null;
+
+              return (
+                <Card
+                  key={history.assetId}
+                  className="p-4 border-amber-200 bg-amber-50/50"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-sm">
+                          {asset.product_name} ({asset.article_id})
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          Previously worked on by: {history.previousModelerName}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {history.files.glb_link && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            Current GLB File
+                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              handleFileDownload(
+                                history.files.glb_link!,
+                                `${asset.product_name}-${asset.article_id}.glb`
+                              )
+                            }
+                            className="text-xs h-6 px-2"
+                          >
+                            Download
+                          </Button>
+                        </div>
+                      )}
+
+                      {history.files.reference &&
+                        history.files.reference.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              Reference Images ({history.files.reference.length}
+                              )
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {history.files.reference.map((ref, index) => (
+                                <Button
+                                  key={index}
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleFileDownload(
+                                      ref,
+                                      `ref-${index + 1}.png`
+                                    )
+                                  }
+                                  className="text-xs h-6 px-2"
+                                >
+                                  Ref {index + 1}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                      {history.files.other_files &&
+                        history.files.other_files.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              Additional Files (
+                              {history.files.other_files.length})
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {history.files.other_files.map((file, index) => {
+                                const fileName =
+                                  file.split("/").pop() || `file-${index + 1}`;
+                                const fileExtension =
+                                  fileName.split(".").pop() || "file";
+                                return (
+                                  <Button
+                                    key={index}
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleFileDownload(file, fileName)
+                                    }
+                                    className="text-xs h-6 px-2"
+                                  >
+                                    {fileExtension.toUpperCase()} {index + 1}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Reference Images Dialog */}
       <Dialog open={referenceDialogOpen} onOpenChange={setReferenceDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -1347,8 +1634,8 @@ export default function BatchDetailPage() {
                 Drop your asset files here or click to browse
               </p>
               <p className="text-xs text-muted-foreground mb-4">
-                Supports ZIP archives, 3D files (BLEND, OBJ, FBX, GLB, GLTF, Substance), images, and
-                other asset formats
+                Supports ZIP archives, 3D files (BLEND, OBJ, FBX, GLB, GLTF,
+                Substance), images, and other asset formats
               </p>
 
               <input

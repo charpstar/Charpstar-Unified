@@ -4,6 +4,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { notificationService } from "@/lib/notificationService";
+import { createClient } from "@supabase/supabase-js";
+import { cleanupEmptyAllocationLists } from "@/lib/allocationListCleanup";
 
 export async function POST(request: NextRequest) {
   try {
@@ -289,6 +291,32 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Get allocation list IDs that are linked to these assets before deletion
+    const { data: assignments, error: assignmentsQueryError } = await supabase
+      .from("asset_assignments")
+      .select("allocation_list_id")
+      .in("asset_id", assetIds)
+      .in("user_id", userIds)
+      .eq("role", role)
+      .not("allocation_list_id", "is", null);
+
+    if (assignmentsQueryError) {
+      console.error("Error fetching asset assignments:", assignmentsQueryError);
+      return NextResponse.json(
+        { error: "Failed to fetch asset assignments" },
+        { status: 500 }
+      );
+    }
+
+    // Extract unique allocation list IDs
+    const allocationListIds = [
+      ...new Set(
+        assignments
+          ?.map((assignment) => assignment.allocation_list_id)
+          .filter(Boolean) || []
+      ),
+    ];
+
     // Delete assignments
     const { error } = await supabase
       .from("asset_assignments")
@@ -303,6 +331,11 @@ export async function DELETE(request: NextRequest) {
         { error: "Failed to delete assignments" },
         { status: 500 }
       );
+    }
+
+    // Clean up empty allocation lists
+    if (allocationListIds.length > 0) {
+      await cleanupEmptyAllocationLists(supabase, allocationListIds);
     }
 
     return NextResponse.json({

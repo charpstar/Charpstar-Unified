@@ -77,6 +77,10 @@ const STATUS_LABELS = {
     label: "Approved",
     color: "bg-success-muted text-success border-success/20",
   },
+  approved_by_client: {
+    label: "Approved by Client",
+    color: "bg-emerald-muted text-emerald border-emerald/20",
+  },
   delivered_by_artist: {
     label: "Waiting for Review",
     color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",

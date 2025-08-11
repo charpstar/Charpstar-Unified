@@ -3,7 +3,8 @@
 export const STATUS_LABELS = {
   in_production: "In Production",
   revisions: "Ready for Revision",
-  approved: "Approved",
+  approved: "Waiting for Approval",
+  approved_by_client: "Approved by Client",
   delivered_by_artist: "Delivered by Artist",
 } as const;
 

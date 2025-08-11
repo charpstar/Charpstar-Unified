@@ -25,33 +25,58 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
-  Menu,
   Package,
   Send,
   CheckCircle,
-  MoreVertical,
   ExternalLink,
   FileText,
   Download,
-  Info,
+  Clock,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/interactive/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/containers";
+
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import { getPriorityLabel } from "@/lib/constants";
+
+const STATUS_LABELS = {
+  in_production: {
+    label: "In Production",
+    color: "bg-warning-muted text-warning border-warning/20",
+    rowColor: "table-row-status-in-production",
+    hoverColor: "",
+  },
+  revisions: {
+    label: "Ready for Revision",
+    color: "bg-info-muted text-info border-info/20",
+    rowColor: "table-row-status-revisions",
+    hoverColor: "",
+  },
+  approved: {
+    label: "Waiting for Approval",
+    color: "bg-success-muted text-success border-success/20",
+    rowColor: "table-row-status-approved",
+    hoverColor: "",
+  },
+  approved_by_client: {
+    label: "Approved by Client",
+    color: "bg-emerald-muted text-emerald border-emerald/20",
+    rowColor: "table-row-status-approved-by-client",
+    hoverColor: "",
+  },
+  delivered_by_artist: {
+    label: "In Production",
+    color: "bg-warning-muted text-warning border-warning/20",
+    rowColor: "table-row-status-in-production",
+    hoverColor: "",
+  },
+  not_started: {
+    label: "Not Started",
+    color: "bg-error-muted text-error border-error/20",
+    rowColor: "table-row-status-not-started",
+    hoverColor: "",
+  },
+};
 
 // Helper function to get priority CSS class
 const getPriorityClass = (priority: number): string => {
@@ -60,27 +85,20 @@ const getPriorityClass = (priority: number): string => {
   return "priority-low";
 };
 
-const STATUS_LABELS = {
-  in_production: {
-    label: "In Production",
-    color: "bg-warning-muted text-warning border-warning/20",
-  },
-  revisions: {
-    label: "Ready for Revision",
-    color: "bg-info-muted text-info border-info/20",
-  },
-  approved: {
-    label: "Approved",
-    color: "bg-success-muted text-success border-success/20",
-  },
-  delivered_by_artist: {
-    label: "Waiting for Approval",
-    color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
-  },
-  not_started: {
-    label: "Not Started",
-    color: "bg-error-muted text-error border-error/20",
-  },
+// Helper function to get row styling based on status
+const getRowStyling = (status: string): { base: string; hover: string } => {
+  if (status in STATUS_LABELS) {
+    const statusConfig = STATUS_LABELS[status as keyof typeof STATUS_LABELS];
+    return {
+      base: statusConfig.rowColor,
+      hover: statusConfig.hoverColor,
+    };
+  }
+  // Default styling for unknown statuses
+  return {
+    base: "table-row-status-unknown",
+    hover: "",
+  };
 };
 
 const PAGE_SIZE = 18;
@@ -162,6 +180,7 @@ export default function ReviewDashboardPage() {
   const [annotationCounts, setAnnotationCounts] = useState<
     Record<string, number>
   >({});
+  const [bulkPriority, setBulkPriority] = useState<number>(2);
 
   // Calculate status totals
   const statusTotals = useMemo(() => {
@@ -170,6 +189,8 @@ export default function ReviewDashboardPage() {
       in_production: 0,
       revisions: 0,
       approved: 0,
+      approved_by_client: 0,
+      delivered_by_artist: 0,
       review: 0,
     };
 
@@ -185,23 +206,47 @@ export default function ReviewDashboardPage() {
   }, [assets]);
 
   // Fetch assets for this client
-  useEffect(() => {
-    async function fetchAssets() {
-      if (!user?.metadata?.client) return;
-      startLoading();
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("onboarding_assets")
-        .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference"
-        )
-        .eq("client", user.metadata.client);
-      if (!error && data) setAssets(data);
-      setLoading(false);
-      stopLoading();
+  const fetchAssets = async () => {
+    if (!user?.metadata?.client) return;
+    startLoading();
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("onboarding_assets")
+      .select(
+        "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference"
+      )
+      .eq("client", user.metadata.client);
+    if (!error && data) {
+      setAssets(data);
+    } else if (error) {
+      console.error("Error fetching assets:", error);
     }
+    setLoading(false);
+    stopLoading();
+  };
+
+  useEffect(() => {
     fetchAssets();
   }, [user?.metadata?.client]);
+
+  // Listen for asset status updates from individual review pages
+  useEffect(() => {
+    const handleAssetStatusUpdate = (event: CustomEvent) => {
+      fetchAssets();
+    };
+
+    window.addEventListener(
+      "assetStatusUpdated",
+      handleAssetStatusUpdate as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "assetStatusUpdated",
+        handleAssetStatusUpdate as EventListener
+      );
+    };
+  }, []);
 
   // Fetch annotation counts for assets
   useEffect(() => {
@@ -284,6 +329,58 @@ export default function ReviewDashboardPage() {
     });
   };
 
+  const selectAll = () => {
+    if (selected.size === paged.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(paged.map((asset) => asset.id)));
+    }
+  };
+
+  const isAllSelected = selected.size === paged.length && paged.length > 0;
+  const isIndeterminate = selected.size > 0 && selected.size < paged.length;
+
+  const handleBulkPriorityChange = async () => {
+    if (selected.size === 0) return;
+
+    startLoading();
+    try {
+      const selectedIds = Array.from(selected);
+
+      // Update local state immediately
+      setAssets((prev) =>
+        prev.map((a) =>
+          selectedIds.includes(a.id) ? { ...a, priority: bulkPriority } : a
+        )
+      );
+
+      // Update database
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ priority: bulkPriority })
+        .in("id", selectedIds);
+
+      if (error) {
+        console.error("Error updating bulk priority:", error);
+        toast.error("Failed to update priorities");
+        // Revert on error
+        setAssets((prev) =>
+          prev.map((a) =>
+            selectedIds.includes(a.id) ? { ...a, priority: a.priority || 2 } : a
+          )
+        );
+      } else {
+        toast.success(`Updated priority for ${selectedIds.length} product(s)`);
+        setSelected(new Set()); // Clear selection
+      }
+    } catch (error) {
+      console.error("Error in bulk priority update:", error);
+      toast.error("Failed to update priorities");
+    } finally {
+      stopLoading();
+    }
+  };
+
   // Helper function to parse references
   const parseReferences = (
     referenceImages: string[] | string | null
@@ -295,98 +392,6 @@ export default function ReviewDashboardPage() {
     } catch {
       return [referenceImages];
     }
-  };
-
-  // More Info Dialog Component
-  const MoreInfoDialog = ({ asset }: { asset: any }) => {
-    const [open, setOpen] = useState(false);
-    const references = parseReferences(asset.reference);
-
-    return (
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-            <Info className="mr-2 h-4 w-4" />
-            More Info
-          </DropdownMenuItem>
-        </DialogTrigger>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Asset Information</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-medium text-sm text-muted-foreground mb-2">
-                Product Link
-              </h4>
-              {asset.product_link ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => window.open(asset.product_link, "_blank")}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Open Product Link
-                </Button>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No product link available
-                </p>
-              )}
-            </div>
-
-            <div>
-              <h4 className="font-medium text-sm text-muted-foreground mb-2">
-                Reference Images
-              </h4>
-              {references.length > 0 ? (
-                <div className="space-y-2">
-                  {references.map((ref, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => window.open(ref, "_blank")}
-                    >
-                      <FileText className="mr-2 h-4 w-4" />
-                      View Reference{" "}
-                      {references.length > 1 ? `${index + 1}` : ""}
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No reference images available
-                </p>
-              )}
-            </div>
-
-            <div>
-              <h4 className="font-medium text-sm text-muted-foreground mb-2">
-                GLB File
-              </h4>
-              {asset.glb_link ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => window.open(asset.glb_link, "_blank")}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download GLB
-                </Button>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No GLB file available
-                </p>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
   };
 
   return (
@@ -437,9 +442,56 @@ export default function ReviewDashboardPage() {
           </div>
         </div>
 
+        {/* Bulk Actions */}
+        {selected.size > 0 && (
+          <div className="mb-4 p-4 bg-muted/50 rounded-lg border">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  {selected.size} product(s) selected
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelected(new Set())}
+                  className="h-6 px-2 text-xs"
+                >
+                  Clear
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Set priority:
+                </span>
+                <Select
+                  value={bulkPriority.toString()}
+                  onValueChange={(value) => setBulkPriority(parseInt(value))}
+                >
+                  <SelectTrigger className="w-24 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">High</SelectItem>
+                    <SelectItem value="2">Medium</SelectItem>
+                    <SelectItem value="3">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  onClick={handleBulkPriorityChange}
+                  className="h-8"
+                >
+                  Apply to {selected.size} product(s)
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Status Summary Cards */}
         {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <Card className="p-4 ">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-info-muted rounded-lg">
@@ -466,7 +518,9 @@ export default function ReviewDashboardPage() {
                     In Production
                   </p>
                   <p className="text-2xl font-bold text-warning">
-                    {statusTotals.in_production + statusTotals.revisions}
+                    {statusTotals.in_production +
+                      statusTotals.revisions +
+                      statusTotals.delivered_by_artist}
                   </p>
                 </div>
               </div>
@@ -482,7 +536,7 @@ export default function ReviewDashboardPage() {
                     Approved
                   </p>
                   <p className="text-2xl font-medium text-success">
-                    {statusTotals.approved}
+                    {statusTotals.approved + statusTotals.approved_by_client}
                   </p>
                 </div>
               </div>
@@ -503,205 +557,300 @@ export default function ReviewDashboardPage() {
                 </div>
               </div>
             </Card>
+
+            <Card className="p-4 ">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-muted rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-emerald" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Approved by Client
+                  </p>
+                  <p className="text-2xl font-bold text-emerald">
+                    {statusTotals.approved_by_client}
+                  </p>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
 
         {loading ? (
           <ReviewTableSkeleton />
         ) : (
-          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[70vh]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          className="p-1 rounded hover:bg-accent cursor-pointer"
-                          aria-label="Sort"
-                        >
-                          <Menu className="h-5 w-5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => setSort("batch")}>
-                          Batch
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSort("az")}>
-                          A-Z
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setSort("za")}>
-                          Z-A
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableHead>
-                  <TableHead>Model Name</TableHead>
-                  <TableHead>Article ID</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paged.length === 0 ? (
+          <div className="overflow-auto rounded-lg border bg-background flex-1 max-h-[70vh]">
+            <div className="min-w-[1200px]">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center">
-                      No products found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paged.map((asset) => (
-                    <TableRow key={asset.id}>
-                      <TableCell>
+                    <TableHead className="w-12">
+                      <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={selected.has(asset.id)}
-                          onChange={() => toggleSelect(asset.id)}
+                          checked={isAllSelected}
+                          ref={(input) => {
+                            if (input) {
+                              input.indeterminate = isIndeterminate;
+                            }
+                          }}
+                          onChange={selectAll}
+                          className="rounded"
                         />
+                      </div>
+                    </TableHead>
+                    <TableHead>Model Name</TableHead>
+                    <TableHead>Article ID</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Product Link</TableHead>
+                    <TableHead>Review</TableHead>
+                    <TableHead>References</TableHead>
+                    <TableHead>GLB File</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paged.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center">
+                        No products found.
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium">
-                            {asset.product_name}
-                          </span>
-                          <div className="flex items-center justify-center gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              {annotationCounts[asset.id] || 0} annotation
-                              {(annotationCounts[asset.id] || 0) !== 1
-                                ? "s"
-                                : ""}
-                            </span>
-                            <span className="text-xs text-slate-500">•</span>
-                            <Badge variant="outline" className="text-xs">
-                              Batch {asset.batch || 1}
-                            </Badge>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{asset.article_id}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-2">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
-                              asset.priority || 2
-                            )}`}
-                          >
-                            {getPriorityLabel(asset.priority || 2)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            ({asset.priority || 2})
-                          </span>
-                          <Select
-                            value={(asset.priority || 2).toString()}
-                            onValueChange={(value) => {
-                              const newPriority = parseInt(value);
-                              setAssets((prev) =>
-                                prev.map((a) =>
-                                  a.id === asset.id
-                                    ? { ...a, priority: newPriority }
-                                    : a
-                                )
-                              );
-                              // Auto-save to database
-                              supabase
-                                .from("onboarding_assets")
-                                .update({ priority: newPriority })
-                                .eq("id", asset.id)
-                                .then(({ error }) => {
-                                  if (error) {
-                                    console.error(
-                                      "Error updating priority:",
-                                      error
-                                    );
-                                    toast.error("Failed to update priority");
-                                    // Revert on error
-                                    setAssets((prev) =>
-                                      prev.map((a) =>
-                                        a.id === asset.id
-                                          ? {
-                                              ...a,
-                                              priority: asset.priority || 2,
-                                            }
-                                          : a
-                                      )
-                                    );
-                                  } else {
-                                    toast.success("Priority updated");
-                                  }
-                                });
-                            }}
-                          >
-                            <SelectTrigger className="w-6 h-6 p-1 border-0 bg-transparent hover:bg-muted/50 rounded transition-colors"></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">High </SelectItem>
-                              <SelectItem value="2">Medium</SelectItem>
-                              <SelectItem value="3">Low </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paged.map((asset) => {
+                      const rowStyling = getRowStyling(asset.status);
+                      return (
+                        <TableRow
+                          key={asset.id}
+                          className={`${rowStyling.base} transition-all duration-200`}
+                        >
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              checked={selected.has(asset.id)}
+                              onChange={() => toggleSelect(asset.id)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <span className="font-medium">
+                                {asset.product_name}
+                              </span>
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {annotationCounts[asset.id] || 0} annotation
+                                  {(annotationCounts[asset.id] || 0) !== 1
+                                    ? "s"
+                                    : ""}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  •
+                                </span>
+                                <Badge variant="outline" className="text-xs">
+                                  Batch {asset.batch || 1}
+                                </Badge>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{asset.article_id}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-center gap-2">
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                  asset.priority || 2
+                                )}`}
+                              >
+                                {getPriorityLabel(asset.priority || 2)}
+                              </span>
 
-                      <TableCell>
-                        <div className="flex items-center gap-2 justify-center">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${
-                              asset.status in STATUS_LABELS
-                                ? STATUS_LABELS[
-                                    asset.status as keyof typeof STATUS_LABELS
-                                  ].color
-                                : "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {asset.status in STATUS_LABELS
-                              ? STATUS_LABELS[
-                                  asset.status as keyof typeof STATUS_LABELS
-                                ].label
-                              : asset.status}
-                          </span>
-                          {(asset.revision_count || 0) > 0 && (
-                            <Badge
-                              variant="secondary"
-                              className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                            >
-                              R{asset.revision_count}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                              <Select
+                                value={(asset.priority || 2).toString()}
+                                onValueChange={(value) => {
+                                  const newPriority = parseInt(value);
+                                  setAssets((prev) =>
+                                    prev.map((a) =>
+                                      a.id === asset.id
+                                        ? { ...a, priority: newPriority }
+                                        : a
+                                    )
+                                  );
+                                  // Auto-save to database
+                                  supabase
+                                    .from("onboarding_assets")
+                                    .update({ priority: newPriority })
+                                    .eq("id", asset.id)
+                                    .then(({ error }) => {
+                                      if (error) {
+                                        console.error(
+                                          "Error updating priority:",
+                                          error
+                                        );
+                                        toast.error(
+                                          "Failed to update priority"
+                                        );
+                                        // Revert on error
+                                        setAssets((prev) =>
+                                          prev.map((a) =>
+                                            a.id === asset.id
+                                              ? {
+                                                  ...a,
+                                                  priority: asset.priority || 2,
+                                                }
+                                              : a
+                                          )
+                                        );
+                                      } else {
+                                        toast.success("Priority updated");
+                                      }
+                                    });
+                                }}
+                              >
+                                <SelectTrigger className="w-6 h-6 p-1 border-0 bg-transparent hover:bg-muted/50 rounded transition-colors"></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">High </SelectItem>
+                                  <SelectItem value="2">Medium</SelectItem>
+                                  <SelectItem value="3">Low </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center gap-2 justify-center">
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-semibold ${
+                                  asset.status in STATUS_LABELS
+                                    ? STATUS_LABELS[
+                                        asset.status as keyof typeof STATUS_LABELS
+                                      ].color
+                                    : "bg-gray-100 text-gray-600"
+                                }`}
+                              >
+                                {asset.status in STATUS_LABELS
+                                  ? STATUS_LABELS[
+                                      asset.status as keyof typeof STATUS_LABELS
+                                    ].label
+                                  : asset.status}
+                              </span>
+                              {(asset.revision_count || 0) > 0 && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
+                                >
+                                  R{asset.revision_count}
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {asset.product_link ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start text-xs hover:text-blue-700 hover:underline"
+                                onClick={() =>
+                                  window.open(asset.product_link, "_blank")
+                                }
+                              >
+                                <ExternalLink className="mr-2 h-3 w-3" />
+                                Open Link
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                No link
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
+                              variant="outline"
+                              size="sm"
+                              className="w-full justify-start text-xs"
                               onClick={() =>
                                 router.push(`/client-review/${asset.id}`)
                               }
                             >
-                              <Eye className="mr-2 h-4 w-4" />
+                              <Eye className="mr-2 h-3 w-3" />
                               Review
-                            </DropdownMenuItem>
-                            <MoreInfoDialog asset={asset} />
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-2 flex flex-row items-center justify-center">
+                              {asset.reference &&
+                              parseReferences(asset.reference).length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {parseReferences(asset.reference).map(
+                                    (ref, index) => (
+                                      <Button
+                                        key={index}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs px-2 py-1 h-6"
+                                        onClick={() =>
+                                          window.open(ref, "_blank")
+                                        }
+                                      >
+                                        <FileText className="mr-1 h-3 w-3" />
+                                        Ref {index + 1}
+                                      </Button>
+                                    )
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  No refs
+                                </span>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start text-xs text-blue-600 hover:text-blue-700"
+                                onClick={() => {
+                                  // TODO: Implement add reference functionality
+                                  toast.info(
+                                    "Add reference functionality coming soon"
+                                  );
+                                }}
+                              >
+                                <FileText className="mr-2 h-3 w-3" />+ Add Ref
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {asset.glb_link ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start text-xs hover:text-blue-700 hover:underline"
+                                onClick={() =>
+                                  window.open(asset.glb_link, "_blank")
+                                }
+                              >
+                                <Download className="mr-2 h-3 w-3" />
+                                Download
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                No GLB
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
         {/* Pagination - Always at bottom */}
-        <div className="flex items-center justify-center  gap-2  ">
+        <div className="flex items-center justify-center gap-2">
+          {selected.size > 0 && (
+            <div className="text-sm text-muted-foreground mr-4">
+              {selected.size} of {paged.length} on this page selected
+            </div>
+          )}
           <div className="text-sm text-muted-foreground">
             {filtered.length === 0
               ? "No items"

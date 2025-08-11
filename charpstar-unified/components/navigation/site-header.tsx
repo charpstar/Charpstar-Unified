@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/display";
 import { SidebarTrigger } from "./sidebar";
 import { Separator } from "@/components/ui/containers";
-import { usePathname, useParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { DateRangePicker } from "@/components/ui/utilities";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsCheck } from "@/lib/analyticsCheck";
@@ -40,14 +40,14 @@ const TITLES = {
 
 export default function SiteHeader() {
   const pathname = usePathname();
-  const params = useParams();
-  const clientName = params?.id as string;
+  const searchParams = useSearchParams();
+  const clientName = searchParams?.get("id") as string;
   const { pendingRange, setPendingRange, setAppliedRange, isApplyDisabled } =
     useDateRange();
   const { hasAnalyticsProfile } = useAnalyticsCheck();
   const [isLoaded, setIsLoaded] = useState(false);
 
-  let pageTitle = "Unified";
+  let pageTitle: string | React.ReactNode = "Unified";
 
   if (pathname.startsWith("/3d-editor/")) {
     if (pathname.includes("/demo")) {
@@ -68,19 +68,28 @@ export default function SiteHeader() {
   ) {
     pageTitle = "Client Asset Review";
   } else if (pathname === "/admin-review") {
-    // Handle admin-review with query parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const client = urlParams.get("client");
-    const batch = urlParams.get("batch");
-    const modeler = urlParams.get("modeler");
-    const email = urlParams.get("email");
+    // Handle admin-review with query parameters using useSearchParams
+    const client = searchParams.get("client");
+    const batch = searchParams.get("batch");
+    const modeler = searchParams.get("modeler");
+    const email = searchParams.get("email");
 
     if (client && batch) {
-      pageTitle = `${client} Batch ${batch} - Admin Review`;
+      pageTitle = (
+        <>
+          <span className="text-blue-600">{client}</span>
+          <span> Batch {batch} - Admin Review</span>
+        </>
+      );
     } else if (modeler && email) {
       // Decode the email URL parameter
       const decodedEmail = decodeURIComponent(email);
-      pageTitle = `Admin Modeler Review - ${decodedEmail}`;
+      pageTitle = (
+        <>
+          <span className="text-blue-600">{decodedEmail}</span>
+          <span> - Admin Modeler Review</span>
+        </>
+      );
     } else {
       pageTitle = "Admin Review";
     }
@@ -106,7 +115,9 @@ export default function SiteHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium">{pageTitle}</h1>
+        <h1 className="text-base font-medium">
+          {typeof pageTitle === "string" ? pageTitle : pageTitle}
+        </h1>
 
         <div className="ml-auto flex items-center gap-2">
           {/* Notification Bell - Available for all users */}

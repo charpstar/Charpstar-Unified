@@ -91,6 +91,10 @@ const STATUS_LABELS = {
   },
   revisions: { label: "Ready for Revision", color: "bg-red-100 text-red-700" },
   approved: { label: "Approved", color: "bg-green-100 text-green-700" },
+  approved_by_client: {
+    label: "Approved by Client",
+    color: "bg-emerald-100 text-emerald-700",
+  },
   delivered_by_artist: {
     label: "Delivered by Artist",
     color: "bg-blue-100 text-blue-700",
@@ -188,7 +192,20 @@ export default function ReviewPage() {
   const handleBackNavigation = () => {
     const from = searchParams.get("from");
     if (from === "admin-review") {
-      router.push("/admin-review");
+      // Preserve filter parameters when navigating back to admin-review
+      const params = new URLSearchParams();
+      const client = searchParams.get("client");
+      const batch = searchParams.get("batch");
+      const modeler = searchParams.get("modeler");
+      const email = searchParams.get("email");
+
+      if (client) params.set("client", client);
+      if (batch) params.set("batch", batch);
+      if (modeler) params.set("modeler", modeler);
+      if (email) params.set("email", email);
+
+      const queryString = params.toString();
+      router.push(`/admin-review${queryString ? `?${queryString}` : ""}`);
     } else if (from === "qa-review") {
       router.push("/qa-review");
     } else {
@@ -1183,8 +1200,8 @@ export default function ReviewPage() {
 
       const result = await response.json();
 
-      // If status is approved, update the modeler's end time
-      if (newStatus === "approved") {
+      // If status is approved_by_client, update the modeler's end time
+      if (newStatus === "approved_by_client") {
         await updateModelerEndTime(assetId);
 
         // Dispatch custom event for QA metrics tracking if user is QA
@@ -1219,15 +1236,24 @@ export default function ReviewPage() {
         setRevisionCount((prev) => prev + 1);
       }
 
+      // Dispatch custom event to notify other components to refresh
+      window.dispatchEvent(
+        new CustomEvent("assetStatusUpdated", {
+          detail: { assetId, newStatus },
+        })
+      );
+
       // Show success message and trigger earnings widget refresh
       if (result.allocationListApproved) {
-        toast.success("Asset approved and allocation list completed!");
+        toast.success(
+          "Asset approved by client and allocation list completed!"
+        );
         // Trigger earnings widget refresh for approval
         window.dispatchEvent(new CustomEvent("allocationListApproved"));
       } else if (result.allocationListId) {
-        // Check if this was an unapproval (status changed from approved to something else)
-        const wasApproved = asset?.status === "approved";
-        if (wasApproved && newStatus !== "approved") {
+        // Check if this was an unapproval (status changed from approved_by_client to something else)
+        const wasApprovedByClient = asset?.status === "approved_by_client";
+        if (wasApprovedByClient && newStatus !== "approved_by_client") {
           toast.success("Asset unapproved and allocation list updated!");
           // Trigger earnings widget refresh for unapproval
           window.dispatchEvent(new CustomEvent("allocationListUnapproved"));
@@ -2328,7 +2354,10 @@ export default function ReviewPage() {
                 <div className="flex items-center gap-2">
                   <Badge
                     variant={
-                      asset?.status === "approved" ? "default" : "secondary"
+                      asset?.status === "approved" ||
+                      asset?.status === "approved_by_client"
+                        ? "default"
+                        : "secondary"
                     }
                     className="text-xs"
                   >
@@ -2344,9 +2373,15 @@ export default function ReviewPage() {
               </div>
               <div className="flex gap-3">
                 <Button
-                  onClick={() => updateAssetStatus("approved")}
-                  disabled={asset?.status === "approved" || statusUpdating}
-                  variant={asset?.status === "approved" ? "default" : "outline"}
+                  onClick={() => updateAssetStatus("approved_by_client")}
+                  disabled={
+                    asset?.status === "approved_by_client" || statusUpdating
+                  }
+                  variant={
+                    asset?.status === "approved_by_client"
+                      ? "default"
+                      : "outline"
+                  }
                   size="sm"
                   className="flex-1 cursor-pointer"
                 >
@@ -2355,7 +2390,7 @@ export default function ReviewPage() {
                   ) : (
                     <CheckCircle className="h-4 w-4 mr-2" />
                   )}
-                  Approve
+                  Approve as Client
                 </Button>
                 <Button
                   onClick={() => updateAssetStatus("revisions")}

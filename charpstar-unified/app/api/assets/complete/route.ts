@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { notificationService } from "@/lib/notificationService";
+import { cleanupSingleAllocationList } from "@/lib/allocationListCleanup";
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,8 +45,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send notification when asset is approved
-    if (status === "approved") {
+    // Send notification when asset is approved (either by client or other means)
+    if (status === "approved" || status === "approved_by_client") {
       try {
         // Get asset details
         const { data: assetDetails, error: assetDetailsError } = await supabase
@@ -167,11 +168,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let allocationListId: string | null = null;
+
     if (assignments && assignments.length > 0) {
       // Use the first assignment if multiple exist
       const assignment = assignments[0];
 
       if (assignment?.allocation_list_id) {
+        allocationListId = assignment.allocation_list_id;
+
         // Get all assets in this allocation list
         const { data: listAssets, error: listError } = await supabase
           .from("asset_assignments")
@@ -202,10 +207,12 @@ export async function POST(request: NextRequest) {
           listAssets?.map((item: any) => item.onboarding_assets?.status)
         );
 
-        // Only assets with status "approved" count for allocation list approval
+        // Only assets with status "approved" or "approved_by_client" count for allocation list approval
         // "delivered_by_artist" and "revisions" do NOT count as approved
         const allApproved = listAssets?.every(
-          (item: any) => item.onboarding_assets?.status === "approved"
+          (item: any) =>
+            item.onboarding_assets?.status === "approved" ||
+            item.onboarding_assets?.status === "approved_by_client"
         );
 
         console.log(
@@ -217,6 +224,11 @@ export async function POST(request: NextRequest) {
           approved:
             listAssets?.filter(
               (item: any) => item.onboarding_assets?.status === "approved"
+            ).length || 0,
+          approved_by_client:
+            listAssets?.filter(
+              (item: any) =>
+                item.onboarding_assets?.status === "approved_by_client"
             ).length || 0,
           delivered_by_artist:
             listAssets?.filter(
@@ -230,9 +242,12 @@ export async function POST(request: NextRequest) {
           other:
             listAssets?.filter(
               (item: any) =>
-                !["approved", "delivered_by_artist", "revisions"].includes(
-                  item.onboarding_assets?.status
-                )
+                ![
+                  "approved",
+                  "approved_by_client",
+                  "delivered_by_artist",
+                  "revisions",
+                ].includes(item.onboarding_assets?.status)
             ).length || 0,
         });
 
@@ -258,7 +273,6 @@ export async function POST(request: NextRequest) {
         }
 
         let allocationListApproved = false;
-        const allocationListId = assignment.allocation_list_id;
 
         if (allApproved && currentList?.status !== "approved") {
           // Update the allocation list status to approved
@@ -304,6 +318,11 @@ export async function POST(request: NextRequest) {
           }
 
           allocationListApproved = false;
+        }
+
+        // Check if the allocation list is now empty and clean it up if necessary
+        if (allocationListId) {
+          await cleanupSingleAllocationList(supabase, allocationListId);
         }
 
         return NextResponse.json({

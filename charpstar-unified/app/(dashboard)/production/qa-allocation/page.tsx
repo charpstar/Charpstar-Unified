@@ -61,10 +61,29 @@ export default function QAAllocationPage() {
   const [selectedQA, setSelectedQA] = useState<string>("");
   const [selectedModelers, setSelectedModelers] = useState<string[]>([]);
   const [allocating, setAllocating] = useState(false);
+  const [currentQAModelers, setCurrentQAModelers] = useState<string[]>([]);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Update current QA modelers when selectedQA changes
+  useEffect(() => {
+    if (selectedQA) {
+      const qaAllocations = allocations.filter(
+        (allocation) => allocation.qa_id === selectedQA
+      );
+      const modelerIds = qaAllocations.map(
+        (allocation) => allocation.modeler_id
+      );
+      setCurrentQAModelers(modelerIds);
+      // Pre-select current modelers
+      setSelectedModelers(modelerIds);
+    } else {
+      setCurrentQAModelers([]);
+      setSelectedModelers([]);
+    }
+  }, [selectedQA, allocations]);
 
   const fetchData = async () => {
     try {
@@ -186,22 +205,49 @@ export default function QAAllocationPage() {
       let successCount = 0;
       let errorCount = 0;
 
-      for (const modelerId of selectedModelers) {
-        // Check if allocation already exists
-        const existingAllocation = allocations.find(
+      // Get current modelers for this QA
+      const currentModelerIds = allocations
+        .filter((allocation) => allocation.qa_id === selectedQA)
+        .map((allocation) => allocation.modeler_id);
+
+      // Find modelers to add (new selections not currently assigned)
+      const modelersToAdd = selectedModelers.filter(
+        (modelerId) => !currentModelerIds.includes(modelerId)
+      );
+
+      // Find modelers to remove (currently assigned but not in new selection)
+      const modelersToRemove = currentModelerIds.filter(
+        (modelerId) => !selectedModelers.includes(modelerId)
+      );
+
+      // Remove modelers that are no longer selected
+      for (const modelerId of modelersToRemove) {
+        const allocationToRemove = allocations.find(
           (allocation) =>
             allocation.qa_id === selectedQA &&
             allocation.modeler_id === modelerId
         );
 
-        if (existingAllocation) {
-          const modelerName =
-            modelers.find((m) => m.id === modelerId)?.title || modelerId;
-          toast.error(`Allocation for ${modelerName} already exists`);
-          errorCount++;
-          continue;
-        }
+        if (allocationToRemove) {
+          const { error } = await supabase
+            .from("qa_allocations")
+            .delete()
+            .eq("id", allocationToRemove.id);
 
+          if (error) {
+            console.error("Error removing QA allocation:", error);
+            const modelerName =
+              modelers.find((m) => m.id === modelerId)?.title || modelerId;
+            toast.error(`Failed to remove ${modelerName} from QA`);
+            errorCount++;
+            continue;
+          }
+          successCount++;
+        }
+      }
+
+      // Add new modelers
+      for (const modelerId of modelersToAdd) {
         const { error } = await supabase.from("qa_allocations").insert({
           qa_id: selectedQA,
           modeler_id: modelerId,
@@ -212,7 +258,7 @@ export default function QAAllocationPage() {
           console.error("Error creating QA allocation:", error);
           const modelerName =
             modelers.find((m) => m.id === modelerId)?.title || modelerId;
-          toast.error(`Failed to create allocation for ${modelerName}`);
+          toast.error(`Failed to assign ${modelerName} to QA`);
           errorCount++;
           continue;
         }
@@ -222,7 +268,7 @@ export default function QAAllocationPage() {
 
       if (successCount > 0) {
         toast.success(
-          `Created ${successCount} allocation(s) successfully${errorCount > 0 ? ` (${errorCount} failed)` : ""}`
+          `Updated ${successCount} allocation(s) successfully${errorCount > 0 ? ` (${errorCount} failed)` : ""}`
         );
       }
 
@@ -233,8 +279,8 @@ export default function QAAllocationPage() {
       // Refresh data
       await fetchData();
     } catch (error) {
-      console.error("Error creating QA allocations:", error);
-      toast.error("Failed to create QA allocations");
+      console.error("Error updating QA allocations:", error);
+      toast.error("Failed to update QA allocations");
     } finally {
       setAllocating(false);
     }
@@ -262,7 +308,6 @@ export default function QAAllocationPage() {
   };
 
   const getAvailableModelers = () => {
-    // Allow modelers to be allocated to multiple QA users
     // Show all modelers since the system allows multiple allocations
     return modelers;
   };
@@ -271,6 +316,37 @@ export default function QAAllocationPage() {
     // Allow QA users to be allocated to multiple modelers
     // No filtering needed since we're selecting QA first
     return qaUsers;
+  };
+
+  const handleRemoveModelerFromQA = async (modelerId: string) => {
+    try {
+      const allocationToRemove = allocations.find(
+        (allocation) =>
+          allocation.qa_id === selectedQA && allocation.modeler_id === modelerId
+      );
+
+      if (!allocationToRemove) {
+        toast.error("Allocation not found");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("qa_allocations")
+        .delete()
+        .eq("id", allocationToRemove.id);
+
+      if (error) {
+        console.error("Error removing QA allocation:", error);
+        toast.error("Failed to remove QA allocation");
+        return;
+      }
+
+      toast.success("Modeler removed from QA successfully");
+      await fetchData();
+    } catch (error) {
+      console.error("Error removing modeler from QA:", error);
+      toast.error("Failed to remove modeler from QA");
+    }
   };
 
   if (loading) {
@@ -309,8 +385,12 @@ export default function QAAllocationPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Create New QA Allocation
+              Manage QA Allocations
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Select a QA to view their current modelers and add/remove
+              assignments
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -332,51 +412,111 @@ export default function QAAllocationPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Modelers</label>
               {selectedQA ? (
-                <div className="space-y-2">
-                  {/* Simple checkbox list for testing */}
-                  <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
-                    <div className="text-sm font-medium mb-2">
-                      Select Modelers:
-                    </div>
-                    {getAvailableModelers().map((modeler) => (
-                      <div
-                        key={modeler.id}
-                        className="flex items-center space-x-2 py-1"
-                      >
-                        <input
-                          type="checkbox"
-                          id={modeler.id}
-                          checked={selectedModelers.includes(modeler.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedModelers([
-                                ...selectedModelers,
-                                modeler.id,
-                              ]);
-                            } else {
-                              setSelectedModelers(
-                                selectedModelers.filter(
-                                  (id) => id !== modeler.id
-                                )
-                              );
-                            }
-                          }}
-                        />
-                        <label htmlFor={modeler.id} className="text-sm">
-                          {modeler.title || modeler.email}
-                        </label>
+                <div className="space-y-4">
+                  {/* Current QA Modelers */}
+                  {currentQAModelers.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-muted-foreground">
+                        Currently assigned to this QA:
                       </div>
-                    ))}
+                      <div className="border rounded-md p-3 bg-muted/20">
+                        {currentQAModelers.map((modelerId) => {
+                          const modeler = modelers.find(
+                            (m) => m.id === modelerId
+                          );
+                          if (!modeler) return null;
+
+                          return (
+                            <div
+                              key={modelerId}
+                              className="flex items-center justify-between py-2 px-3 bg-background rounded border"
+                            >
+                              <span className="text-sm">
+                                {modeler.title || modeler.email}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleRemoveModelerFromQA(modelerId)
+                                }
+                                className="text-destructive hover:text-destructive h-7 px-2"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add New Modelers */}
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Add new modelers to this QA:
+                    </div>
+                    <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
+                      <div className="text-sm font-medium mb-2">
+                        Select Modelers:
+                      </div>
+                      {getAvailableModelers()
+                        .filter(
+                          (modeler) => !currentQAModelers.includes(modeler.id)
+                        )
+                        .map((modeler) => (
+                          <div
+                            key={modeler.id}
+                            className="flex items-center space-x-2 py-1"
+                          >
+                            <input
+                              type="checkbox"
+                              id={modeler.id}
+                              checked={selectedModelers.includes(modeler.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedModelers([
+                                    ...selectedModelers,
+                                    modeler.id,
+                                  ]);
+                                } else {
+                                  setSelectedModelers(
+                                    selectedModelers.filter(
+                                      (id) => id !== modeler.id
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+                            <label htmlFor={modeler.id} className="text-sm">
+                              {modeler.title || modeler.email}
+                            </label>
+                          </div>
+                        ))}
+                    </div>
                   </div>
 
                   {/* Original MultiSelect for comparison */}
                   <MultiSelect
-                    options={getAvailableModelers().map((modeler) => ({
-                      value: modeler.id,
-                      label: modeler.title || modeler.email,
-                    }))}
-                    value={selectedModelers}
-                    onChange={setSelectedModelers}
+                    options={getAvailableModelers()
+                      .filter(
+                        (modeler) => !currentQAModelers.includes(modeler.id)
+                      )
+                      .map((modeler) => ({
+                        value: modeler.id,
+                        label: modeler.title || modeler.email,
+                      }))}
+                    value={selectedModelers.filter(
+                      (id) => !currentQAModelers.includes(id)
+                    )}
+                    onChange={(newSelected) => {
+                      // Combine current QA modelers with newly selected ones
+                      const allSelected = [
+                        ...currentQAModelers,
+                        ...newSelected,
+                      ];
+                      setSelectedModelers(allSelected);
+                    }}
                     placeholder="Select modelers"
                   />
                 </div>
@@ -390,12 +530,36 @@ export default function QAAllocationPage() {
             <Button
               onClick={handleAllocate}
               disabled={
-                !selectedQA || selectedModelers.length === 0 || allocating
+                !selectedQA ||
+                selectedModelers.length === 0 ||
+                allocating ||
+                (currentQAModelers.length > 0 &&
+                  selectedModelers.length === currentQAModelers.length &&
+                  selectedModelers.every((id) =>
+                    currentQAModelers.includes(id)
+                  ))
               }
               className="w-full"
             >
-              {allocating ? "Creating..." : "Create Allocation"}
+              {allocating
+                ? "Updating..."
+                : currentQAModelers.length > 0 &&
+                    selectedModelers.length === currentQAModelers.length &&
+                    selectedModelers.every((id) =>
+                      currentQAModelers.includes(id)
+                    )
+                  ? "No Changes Needed"
+                  : "Update Allocations"}
             </Button>
+            {currentQAModelers.length > 0 &&
+              selectedModelers.length === currentQAModelers.length &&
+              selectedModelers.every((id) =>
+                currentQAModelers.includes(id)
+              ) && (
+                <div className="text-xs text-muted-foreground text-center">
+                  All current modelers are selected. No changes needed.
+                </div>
+              )}
           </CardContent>
         </Card>
 

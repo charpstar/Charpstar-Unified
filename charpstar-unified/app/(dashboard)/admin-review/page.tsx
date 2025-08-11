@@ -64,18 +64,42 @@ const getPriorityClass = (priority: number): string => {
   return "priority-low";
 };
 
+// Helper function to get status-based row color class
+const getStatusRowClass = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "table-row-status-in-production";
+    case "revisions":
+      return "table-row-status-revisions";
+    case "approved":
+      return "table-row-status-approved";
+    case "approved_by_client":
+      return "table-row-status-approved-by-client";
+    case "delivered_by_artist":
+      return "table-row-status-delivered-by-artist";
+    case "not_started":
+      return "table-row-status-not-started";
+    default:
+      return "table-row-status-unknown";
+  }
+};
+
 const STATUS_LABELS = {
   in_production: {
     label: "In Production",
     color: "bg-warning-muted text-warning border-warning/20",
   },
   revisions: {
-    label: "Waiting on Approval",
+    label: "Sent for Revision",
     color: "bg-blue-50 text-blue-600 border-blue-200",
   },
   approved: {
     label: "Approved",
     color: "bg-success-muted text-success border-success/20",
+  },
+  approved_by_client: {
+    label: "Approved by Client",
+    color: "bg-emerald-muted text-emerald border-emerald/20",
   },
   delivered_by_artist: {
     label: "Waiting for Approval",
@@ -256,7 +280,7 @@ export default function AdminReviewPage() {
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [batchFilter, setBatchFilter] = useState<string>("all");
   const [modelerFilter, setModelerFilter] = useState<string>("all");
-  const [sort, setSort] = useState<string>("batch");
+  const [sort, setSort] = useState<string>("date-newest");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -284,6 +308,11 @@ export default function AdminReviewPage() {
   );
   const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
+
+  // Allocation list cleanup state
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<any>(null);
+  const [showCleanupDialog, setShowCleanupDialog] = useState(false);
 
   // Calculate status totals based on filtered data
   const statusTotals = useMemo(() => {
@@ -1181,6 +1210,45 @@ export default function AdminReviewPage() {
         return newSet;
       });
 
+      // Also update allocation lists state to remove the deleted asset
+      setAllocationLists((prevLists) =>
+        prevLists.map((list) => ({
+          ...list,
+          asset_assignments: list.asset_assignments.filter(
+            (assignment: any) => assignment.onboarding_assets.id !== assetId
+          ),
+        }))
+      );
+
+      // Update filtered lists as well
+      setFilteredLists((prevLists) =>
+        prevLists.map((list) => ({
+          ...list,
+          asset_assignments: list.asset_assignments.filter(
+            (assignment: any) => assignment.onboarding_assets.id !== assetId
+          ),
+        }))
+      );
+
+      // Remove allocation lists that become empty after asset deletion
+      setAllocationLists((prevLists) =>
+        prevLists.filter((list) => {
+          const updatedAssignments = list.asset_assignments.filter(
+            (assignment: any) => assignment.onboarding_assets.id !== assetId
+          );
+          return updatedAssignments.length > 0;
+        })
+      );
+
+      setFilteredLists((prevLists) =>
+        prevLists.filter((list) => {
+          const updatedAssignments = list.asset_assignments.filter(
+            (assignment: any) => assignment.onboarding_assets.id !== assetId
+          );
+          return updatedAssignments.length > 0;
+        })
+      );
+
       toast.success("Asset deleted successfully");
       console.log(`Successfully deleted asset ${assetId}`);
     } catch (error) {
@@ -1188,6 +1256,74 @@ export default function AdminReviewPage() {
       toast.error("Failed to delete asset");
     } finally {
       setDeletingAsset(null);
+    }
+  };
+
+  // Clean up empty allocation lists
+  const cleanupEmptyAllocationLists = async () => {
+    setCleanupLoading(true);
+    try {
+      const response = await fetch("/api/admin/cleanup-allocation-lists", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || "Failed to cleanup allocation lists"
+        );
+      }
+
+      const result = await response.json();
+      setCleanupResult(result);
+      setShowCleanupDialog(true);
+
+      // Refresh the data
+      if (showAllocationLists) {
+        // Trigger a refresh by updating the refresh trigger
+        window.location.reload();
+      }
+
+      toast.success(result.message);
+    } catch (error) {
+      console.error("Error cleaning up allocation lists:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to cleanup allocation lists"
+      );
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
+  // Check for orphaned allocation lists
+  const checkOrphanedAllocationLists = async () => {
+    setCleanupLoading(true);
+    try {
+      const response = await fetch("/api/admin/cleanup-allocation-lists", {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to check allocation lists");
+      }
+
+      const result = await response.json();
+      setCleanupResult(result);
+      setShowCleanupDialog(true);
+
+      toast.success(result.message);
+    } catch (error) {
+      console.error("Error checking allocation lists:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to check allocation lists"
+      );
+    } finally {
+      setCleanupLoading(false);
     }
   };
 
@@ -1219,6 +1355,11 @@ export default function AdminReviewPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <Card className="p-6 flex-1 flex flex-col border-0 shadow-none bg-background  ">
+        {/* Page Title and Cleanup Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          {/* Cleanup Controls */}
+        </div>
+
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">
             <Select
@@ -1249,11 +1390,7 @@ export default function AdminReviewPage() {
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="batch">
-                  Sort by: Batch (1, 2, 3...)
-                </SelectItem>
-                <SelectItem value="client">Sort by: Client (A-Z)</SelectItem>
-                <SelectItem value="date">
+                <SelectItem value="date-newest">
                   Sort by: Delivery Date (Newest)
                 </SelectItem>
                 <SelectItem value="date-oldest">
@@ -1351,7 +1488,7 @@ export default function AdminReviewPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Waiting on Approval
+                    Sent for Revision
                   </p>
                   <p className="text-2xl font-bold text-blue-600">
                     {statusTotals.totals.revisions}
@@ -1503,13 +1640,17 @@ export default function AdminReviewPage() {
                               <TableHead className="w-24">Priority</TableHead>
                               <TableHead className="w-24">Price</TableHead>
                               <TableHead className="w-32">Status</TableHead>
-                              <TableHead className="w-32">Client</TableHead>
                               <TableHead className="w-12">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {list.asset_assignments.map((assignment: any) => (
-                              <TableRow key={assignment.asset_id}>
+                              <TableRow
+                                key={assignment.asset_id}
+                                className={getStatusRowClass(
+                                  assignment.onboarding_assets.status
+                                )}
+                              >
                                 <TableCell>
                                   <div className="font-medium">
                                     {assignment.onboarding_assets.product_name}
@@ -1600,14 +1741,6 @@ export default function AdminReviewPage() {
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
-                                  <div className="text-sm">
-                                    {assignment.onboarding_assets.client}
-                                    <div className="text-xs text-muted-foreground">
-                                      Batch {assignment.onboarding_assets.batch}
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
                                   <div className="flex items-center gap-1">
                                     <Button
                                       variant="ghost"
@@ -1615,8 +1748,32 @@ export default function AdminReviewPage() {
                                       className="cursor-pointer"
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        // Preserve current filter parameters when navigating to asset detail
+                                        const params = new URLSearchParams();
+                                        params.set("from", "admin-review");
+                                        if (
+                                          clientFilter &&
+                                          clientFilter !== "all"
+                                        ) {
+                                          params.set("client", clientFilter);
+                                        }
+                                        if (
+                                          batchFilter &&
+                                          batchFilter !== "all"
+                                        ) {
+                                          params.set("batch", batchFilter);
+                                        }
+                                        if (
+                                          modelerFilter &&
+                                          modelerFilter !== "all"
+                                        ) {
+                                          params.set("modeler", modelerFilter);
+                                        }
+                                        if (modelerEmail) {
+                                          params.set("email", modelerEmail);
+                                        }
                                         router.push(
-                                          `/client-review/${assignment.onboarding_assets.id}?from=admin-review`
+                                          `/client-review/${assignment.onboarding_assets.id}?${params.toString()}`
                                         );
                                       }}
                                     >
@@ -1642,7 +1799,7 @@ export default function AdminReviewPage() {
                                           )}
                                         </Button>
                                       </DialogTrigger>
-                                      <DialogContent>
+                                      <DialogContent className="h-fit overflow-y-auto">
                                         <DialogHeader>
                                           <DialogTitle>
                                             Delete Asset
@@ -1667,9 +1824,6 @@ export default function AdminReviewPage() {
                                           </DialogDescription>
                                         </DialogHeader>
                                         <DialogFooter>
-                                          <Button variant="outline">
-                                            Cancel
-                                          </Button>
                                           <Button
                                             variant="destructive"
                                             onClick={() =>
@@ -1736,9 +1890,7 @@ export default function AdminReviewPage() {
                           <DropdownMenuItem onClick={() => setSort("batch")}>
                             Batch
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setSort("client")}>
-                            Client
-                          </DropdownMenuItem>
+
                           <DropdownMenuItem onClick={() => setSort("az")}>
                             A-Z
                           </DropdownMenuItem>
@@ -1750,7 +1902,6 @@ export default function AdminReviewPage() {
                     </div>
                   </TableHead>
                   <TableHead>Model Name</TableHead>
-                  <TableHead>Client</TableHead>
                   <TableHead>Article ID</TableHead>
                   <TableHead>Priority</TableHead>
 
@@ -1761,13 +1912,16 @@ export default function AdminReviewPage() {
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
+                    <TableCell colSpan={8} className="text-center">
                       No products found.
                     </TableCell>
                   </TableRow>
                 ) : (
                   paged.map((asset) => (
-                    <TableRow key={asset.id}>
+                    <TableRow
+                      key={asset.id}
+                      className={getStatusRowClass(asset.status)}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <input
@@ -1830,14 +1984,6 @@ export default function AdminReviewPage() {
                               </>
                             )}
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 justify-center">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">
-                            {asset.client || "Unknown"}
-                          </span>
                         </div>
                       </TableCell>
                       <TableCell>{asset.article_id}</TableCell>
@@ -1906,11 +2052,26 @@ export default function AdminReviewPage() {
                           variant="ghost"
                           size="icon"
                           className="cursor-pointer"
-                          onClick={() =>
+                          onClick={() => {
+                            // Preserve current filter parameters when navigating to asset detail
+                            const params = new URLSearchParams();
+                            params.set("from", "admin-review");
+                            if (clientFilter && clientFilter !== "all") {
+                              params.set("client", clientFilter);
+                            }
+                            if (batchFilter && batchFilter !== "all") {
+                              params.set("batch", batchFilter);
+                            }
+                            if (modelerFilter && modelerFilter !== "all") {
+                              params.set("modeler", modelerFilter);
+                            }
+                            if (modelerEmail) {
+                              params.set("email", modelerEmail);
+                            }
                             router.push(
-                              `/client-review/${asset.id}?from=admin-review`
-                            )
-                          }
+                              `/client-review/${asset.id}?${params.toString()}`
+                            );
+                          }}
                         >
                           <Eye className="h-5 w-5" />
                         </Button>
@@ -1929,7 +2090,7 @@ export default function AdminReviewPage() {
                               )}
                             </Button>
                           </DialogTrigger>
-                          <DialogContent>
+                          <DialogContent className="h-fit ">
                             <DialogHeader>
                               <DialogTitle>Delete Asset</DialogTitle>
                               <DialogDescription>
@@ -1949,7 +2110,6 @@ export default function AdminReviewPage() {
                               </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>
-                              <Button variant="outline">Cancel</Button>
                               <Button
                                 variant="destructive"
                                 onClick={() => deleteAsset(asset.id)}
@@ -2021,6 +2181,148 @@ export default function AdminReviewPage() {
           </div>
         </div>
       </Card>
+
+      {/* Cleanup Results Dialog */}
+      <Dialog open={showCleanupDialog} onOpenChange={setShowCleanupDialog}>
+        <DialogContent className="max-w-4xl h-fit overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Allocation List Cleanup Results</DialogTitle>
+            <DialogDescription>
+              {cleanupResult?.message || "Cleanup operation completed"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {cleanupResult && (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-4 bg-info-muted rounded-lg">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Total Processed
+                    </p>
+                    <p className="text-2xl font-bold text-info">
+                      {cleanupResult.totalProcessed || 0}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-success-muted rounded-lg">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Deleted
+                    </p>
+                    <p className="text-2xl font-bold text-success">
+                      {cleanupResult.deletedCount || 0}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-warning-muted rounded-lg">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Remaining
+                    </p>
+                    <p className="text-2xl font-bold text-warning">
+                      {cleanupResult.remainingCount || 0}
+                    </p>
+                  </div>
+                  {cleanupResult.orphanedCount !== undefined && (
+                    <div className="p-4 bg-error-muted rounded-lg">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Orphaned
+                      </p>
+                      <p className="text-2xl font-bold text-error">
+                        {cleanupResult.orphanedCount}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {cleanupResult.deletedLists &&
+                  cleanupResult.deletedLists.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">
+                        Deleted Lists
+                      </h3>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {cleanupResult.deletedLists.map((list: any) => (
+                          <div
+                            key={list.id}
+                            className="p-3 bg-muted rounded-lg"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium">{list.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {list.reason}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="text-xs">
+                                {list.id}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {cleanupResult.orphanedLists &&
+                  cleanupResult.orphanedLists.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">
+                        Orphaned Lists
+                      </h3>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {cleanupResult.orphanedLists.map((list: any) => (
+                          <div
+                            key={list.id}
+                            className="p-3 bg-muted rounded-lg"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium">{list.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Created:{" "}
+                                  {new Date(
+                                    list.created_at
+                                  ).toLocaleDateString()}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  User: {list.user_id} | Role: {list.role}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="text-xs">
+                                {list.assetCount} assets
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {cleanupResult.errors && cleanupResult.errors.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-error">
+                      Errors
+                    </h3>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {cleanupResult.errors.map((error: any) => (
+                        <div
+                          key={error.id}
+                          className="p-3 bg-error-muted rounded-lg"
+                        >
+                          <p className="font-medium text-error">{error.id}</p>
+                          <p className="text-sm text-error">{error.error}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setShowCleanupDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
