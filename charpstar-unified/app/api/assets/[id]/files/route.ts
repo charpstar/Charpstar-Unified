@@ -23,7 +23,7 @@ export async function GET(
     // Get asset details to find the storage path
     const { data: asset, error: assetError } = await supabase
       .from("onboarding_assets")
-      .select("article_id, client")
+      .select("article_id, client, glb_link, reference, product_link")
       .eq("id", assetId)
       .single();
 
@@ -32,6 +32,13 @@ export async function GET(
     }
 
     // List files from storage - check all subfolders
+    if (!asset.client || !asset.article_id) {
+      console.log(
+        "Asset missing client or article_id, skipping storage file lookup"
+      );
+      return NextResponse.json({ files: [] });
+    }
+
     const basePath = `assets/${asset.client}/${asset.article_id}/`;
 
     try {
@@ -96,7 +103,107 @@ export async function GET(
         }
       }
 
+      // Also check for GLB files in the models folder
+      const modelsPath = `models/`;
+      console.log("Checking models folder:", modelsPath);
+
+      const { data: modelsFiles, error: modelsError } = await supabase.storage
+        .from("assets")
+        .list(modelsPath, {
+          limit: 100,
+          offset: 0,
+        });
+
+      if (!modelsError && modelsFiles) {
+        console.log(
+          `Files in ${modelsPath}:`,
+          modelsFiles?.map((f) => f.name)
+        );
+
+        // Filter for files that belong to this asset (check if filename contains article_id)
+        const assetModelsFiles = modelsFiles.filter(
+          (file) =>
+            file.name &&
+            asset.article_id &&
+            file.name.includes(asset.article_id)
+        );
+
+        console.log(
+          `Asset-specific files in models:`,
+          assetModelsFiles?.map((f) => f.name)
+        );
+
+        if (assetModelsFiles.length > 0) {
+          const modelsFileList = assetModelsFiles.map((file) => ({
+            id: `models_${file.id || file.name}`,
+            file_name: file.name,
+            file_url: supabase.storage
+              .from("assets")
+              .getPublicUrl(`${modelsPath}${file.name}`).data.publicUrl,
+            file_type: getFileType(file.name),
+            file_size: file.metadata?.size || 0,
+            mime_type: file.metadata?.mimetype || "application/octet-stream",
+            uploaded_at: file.updated_at || new Date().toISOString(),
+            uploaded_by: session.user.email
+              ? session.user.email.split("@")[0]
+              : "Unknown",
+          }));
+
+          allFiles = [...allFiles, ...modelsFileList];
+        }
+      }
+
       console.log("Total files found:", allFiles.length);
+      console.log("Files breakdown:", {
+        storageFiles: allFiles.filter(
+          (f) =>
+            !f.id.startsWith("glb_history_") && !f.id.startsWith("current_")
+        ).length,
+        currentAssetFiles: allFiles.filter((f) => f.id.startsWith("current_"))
+          .length,
+      });
+
+      // Also add current asset files (GLB, reference images, product link)
+      if (asset.glb_link) {
+        allFiles.unshift({
+          id: "current_glb",
+          file_name: "Current GLB File",
+          file_url: asset.glb_link,
+          file_type: "glb" as const,
+          file_size: 0,
+          mime_type: "model/gltf-binary",
+          uploaded_at: new Date().toISOString(),
+          uploaded_by: "Current Asset",
+        });
+      }
+
+      if (asset.reference && asset.reference.length > 0) {
+        asset.reference.forEach((refUrl: string, index: number) => {
+          allFiles.unshift({
+            id: `current_ref_${index}`,
+            file_name: `Reference Image ${index + 1}`,
+            file_url: refUrl,
+            file_type: "reference" as const,
+            file_size: 0,
+            mime_type: "image/png", // Assuming reference images are PNG
+            uploaded_at: new Date().toISOString(),
+            uploaded_by: "Asset Reference",
+          });
+        });
+      }
+
+      if (asset.product_link) {
+        allFiles.unshift({
+          id: "current_product",
+          file_name: "Product Link",
+          file_url: asset.product_link,
+          file_type: "misc" as const,
+          file_size: 0,
+          mime_type: "text/uri-list",
+          uploaded_at: new Date().toISOString(),
+          uploaded_by: "Asset Reference",
+        });
+      }
 
       return NextResponse.json({ files: allFiles });
     } catch (storageError) {
@@ -169,6 +276,9 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const fileName = searchParams.get("file_name");
     const filePath = searchParams.get("file_path");
+    const assetId = searchParams.get("asset_id");
+
+    console.log("DELETE request params:", { fileName, filePath, assetId });
 
     if (!fileName || !filePath) {
       return NextResponse.json(
@@ -177,24 +287,49 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Clean up the file path - remove any leading "assets/" if present
+    let cleanFilePath = filePath;
+    if (cleanFilePath.startsWith("assets/")) {
+      cleanFilePath = cleanFilePath.substring(7); // Remove "assets/" prefix
+    }
+
+    console.log("Attempting to delete file:", {
+      originalPath: filePath,
+      cleanPath: cleanFilePath,
+      fileName,
+    });
+
     // Delete from storage
     const { error: storageError } = await supabase.storage
       .from("assets")
-      .remove([filePath]);
+      .remove([cleanFilePath]);
 
     if (storageError) {
       console.error("Error deleting file from storage:", storageError);
       return NextResponse.json(
-        { error: "Failed to delete file" },
+        {
+          error: "Failed to delete file from storage",
+          details: storageError.message,
+        },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true });
+    console.log("File deleted successfully from storage:", cleanFilePath);
+
+    return NextResponse.json({
+      success: true,
+      message: "File deleted successfully",
+      deletedPath: cleanFilePath,
+    });
   } catch (error) {
     console.error("Error in delete file API:", error);
+    // Ensure we return a proper error response instead of throwing
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

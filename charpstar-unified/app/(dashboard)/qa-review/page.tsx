@@ -48,14 +48,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/containers";
+// Removed local Dialog wrapper; AssetFilesManager provides its own dialog
 import { AssetFilesManager } from "@/components/asset-library/AssetFilesManager";
 import { getPriorityLabel } from "@/lib/constants";
+import dayjs from "@/utils/dayjs";
 
 // Helper function to get priority CSS class
 const getPriorityClass = (priority: number): string => {
@@ -66,24 +62,24 @@ const getPriorityClass = (priority: number): string => {
 
 const STATUS_LABELS = {
   in_production: {
-    label: "In Production",
+    label: "In Progress",
     color: "bg-warning-muted text-warning border-warning/20",
   },
+  delivered_by_artist: {
+    label: "Waiting for Approval",
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+  },
   revisions: {
-    label: "Ready for Revision",
-    color: "bg-info-muted text-info border-info/20",
+    label: "Sent for Revision",
+    color: "bg-error-muted text-error border-error/20",
   },
   approved: {
     label: "Approved",
-    color: "bg-success-muted text-success border-success/20",
+    color: "bg-green-100 text-green-800 border-green-200",
   },
   approved_by_client: {
     label: "Approved by Client",
-    color: "bg-emerald-muted text-emerald border-emerald/20",
-  },
-  delivered_by_artist: {
-    label: "Waiting for Review",
-    color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
+    color: "bg-blue-100 text-blue-700 border-blue-200",
   },
   not_started: {
     label: "Not Started",
@@ -127,13 +123,17 @@ export default function QAReviewPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [modelerFilter, setModelerFilter] = useState("all");
-  const [sort, setSort] = useState("priority");
+  const [sort, setSort] = useState("status-progress");
   const [availableModelers, setAvailableModelers] = useState<
     Array<{ id: string; email: string; title?: string }>
   >([]);
   const [filesManagerOpen, setFilesManagerOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssignedAsset | null>(
     null
+  );
+  const [updatingAssetId, setUpdatingAssetId] = useState<string | null>(null);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(
+    new Set()
   );
 
   useEffect(() => {
@@ -157,6 +157,33 @@ export default function QAReviewPage() {
   useEffect(() => {
     filterAndSortAssets();
   }, [assets, search, statusFilter, modelerFilter, sort]);
+
+  const updateAssetStatus = async (assetId: string, newStatus: string) => {
+    try {
+      setUpdatingAssetId(assetId);
+      const response = await fetch("/api/assets/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetId, status: newStatus }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update status");
+      }
+      // Update local state
+      setAssets((prev) =>
+        prev.map((a) => (a.id === assetId ? { ...a, status: newStatus } : a))
+      );
+      toast.success(
+        newStatus === "approved" ? "Approved" : "Sent for revision"
+      );
+    } catch (err) {
+      console.error("Error updating status:", err);
+      toast.error("Failed to update status");
+    } finally {
+      setUpdatingAssetId(null);
+    }
+  };
 
   const fetchAssignedAssets = async () => {
     try {
@@ -300,10 +327,24 @@ export default function QAReviewPage() {
     // Apply sorting
     filtered.sort((a, b) => {
       switch (sort) {
+        case "status-progress": {
+          const statusPriority: Record<string, number> = {
+            in_production: 1,
+            delivered_by_artist: 2,
+            revisions: 3,
+            approved: 4,
+            approved_by_client: 5,
+          };
+          return (
+            (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
+          );
+        }
         case "priority":
-          return b.priority - a.priority;
-        case "priority-lowest":
+          // 1 is highest priority; show lowest numeric value first
           return a.priority - b.priority;
+        case "priority-lowest":
+          // Lowest priority first means highest numeric value first
+          return b.priority - a.priority;
         case "batch":
           return a.batch - b.batch;
         case "az":
@@ -311,14 +352,14 @@ export default function QAReviewPage() {
         case "za":
           return b.product_name.localeCompare(a.product_name);
         case "date":
+          // Newest first using asset delivery_date
           return (
-            new Date(b.delivery_date).getTime() -
-            new Date(a.delivery_date).getTime()
+            dayjs(b.delivery_date).valueOf() - dayjs(a.delivery_date).valueOf()
           );
         case "date-oldest":
+          // Oldest first using asset delivery_date
           return (
-            new Date(a.delivery_date).getTime() -
-            new Date(b.delivery_date).getTime()
+            dayjs(a.delivery_date).valueOf() - dayjs(b.delivery_date).valueOf()
           );
         default:
           return 0;
@@ -337,26 +378,7 @@ export default function QAReviewPage() {
     setFilesManagerOpen(true);
   };
 
-  const parseReferences = (
-    referenceImages: string[] | string | null
-  ): string[] => {
-    if (!referenceImages) return [];
-    if (Array.isArray(referenceImages)) return referenceImages;
-    try {
-      return JSON.parse(referenceImages);
-    } catch {
-      return [referenceImages];
-    }
-  };
-
-  const handleOpenReferences = (asset: AssignedAsset) => {
-    if (asset.reference) {
-      const references = parseReferences(asset.reference);
-      references.forEach((url) => {
-        window.open(url, "_blank");
-      });
-    }
-  };
+  // References column removed
 
   const handleDownloadGLB = (asset: AssignedAsset) => {
     if (asset.glb_link) {
@@ -376,7 +398,7 @@ export default function QAReviewPage() {
     setSearch("");
     setStatusFilter("all");
     setModelerFilter("all");
-    setSort("priority");
+    setSort("status-progress");
     setCurrentPage(1);
   };
 
@@ -384,6 +406,60 @@ export default function QAReviewPage() {
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = startIndex + PAGE_SIZE;
   const currentAssets = filteredAssets.slice(startIndex, endIndex);
+
+  const isAssetSelected = (id: string) => selectedAssetIds.has(id);
+  const areAllCurrentSelected =
+    currentAssets.length > 0 &&
+    currentAssets.every((a) => selectedAssetIds.has(a.id));
+  const someCurrentSelected =
+    currentAssets.some((a) => selectedAssetIds.has(a.id)) &&
+    !areAllCurrentSelected;
+
+  const toggleSelectAsset = (id: string) => {
+    setSelectedAssetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllCurrent = () => {
+    setSelectedAssetIds((prev) => {
+      const next = new Set(prev);
+      if (areAllCurrentSelected) {
+        // Unselect only current page assets
+        currentAssets.forEach((a) => next.delete(a.id));
+      } else {
+        // Select all current page assets
+        currentAssets.forEach((a) => next.add(a.id));
+      }
+      return next;
+    });
+  };
+
+  const handleDownloadSelectedGLBs = async () => {
+    const selected = filteredAssets.filter((a) => selectedAssetIds.has(a.id));
+    const withGlb = selected.filter((a) => a.glb_link);
+    if (withGlb.length === 0) {
+      toast.info("No GLB files found for selected items");
+      return;
+    }
+    for (const asset of withGlb) {
+      try {
+        const a = document.createElement("a");
+        a.href = asset.glb_link as string;
+        a.download = `${asset.product_name}_${asset.article_id}.glb`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        await new Promise((res) => setTimeout(res, 120));
+      } catch (e) {
+        console.error("Failed to start GLB download for", asset.id, e);
+      }
+    }
+    toast.success(`Started downloading ${withGlb.length} GLB file(s)`);
+  };
 
   const statusTotals = {
     total: assets.length,
@@ -473,12 +549,15 @@ export default function QAReviewPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Select value={sort} onValueChange={(value) => setSort(value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="status-progress">
+                  Sort by: Status Progression
+                </SelectItem>
                 <SelectItem value="priority">
                   Sort by: Priority (Highest First)
                 </SelectItem>
@@ -506,6 +585,14 @@ export default function QAReviewPage() {
             >
               <X className="h-4 w-4" />
               Clear Filters
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={selectedAssetIds.size === 0}
+              onClick={handleDownloadSelectedGLBs}
+            >
+              Download GLBs (Selected {selectedAssetIds.size})
             </Button>
           </div>
         </div>
@@ -568,7 +655,7 @@ export default function QAReviewPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Ready for Revision
+                    Revision
                   </p>
                   <p className="text-2xl font-bold text-info">
                     {statusTotals.revisions}
@@ -601,7 +688,19 @@ export default function QAReviewPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">
-                  <input type="checkbox" className="rounded" />
+                  <input
+                    type="checkbox"
+                    className="rounded"
+                    checked={areAllCurrentSelected}
+                    onChange={toggleSelectAllCurrent}
+                    aria-checked={
+                      areAllCurrentSelected
+                        ? "true"
+                        : someCurrentSelected
+                          ? "mixed"
+                          : "false"
+                    }
+                  />
                 </TableHead>
                 <TableHead>Product Name</TableHead>
                 <TableHead>Article ID</TableHead>
@@ -611,7 +710,10 @@ export default function QAReviewPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Modeler</TableHead>
                 <TableHead>Delivery Date</TableHead>
-                <TableHead className="w-20">Actions</TableHead>
+                <TableHead className="w-16">View</TableHead>
+                <TableHead className="w-24">Product</TableHead>
+                <TableHead className="w-20">GLB</TableHead>
+                <TableHead className="w-20">Files</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -668,9 +770,31 @@ export default function QAReviewPage() {
                 </TableRow>
               ) : (
                 currentAssets.map((asset) => (
-                  <TableRow key={asset.id}>
+                  <TableRow
+                    key={asset.id}
+                    className={
+                      asset.status === "in_production"
+                        ? "table-row-status-in-production"
+                        : asset.status === "revisions"
+                          ? "table-row-status-revisions"
+                          : asset.status === "approved"
+                            ? "table-row-status-approved"
+                            : asset.status === "approved_by_client"
+                              ? "table-row-status-approved-by-client"
+                              : asset.status === "delivered_by_artist"
+                                ? "table-row-status-delivered-by-artist"
+                                : asset.status === "not_started"
+                                  ? "table-row-status-not-started"
+                                  : "table-row-status-unknown"
+                    }
+                  >
                     <TableCell>
-                      <input type="checkbox" className="rounded" />
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={isAssetSelected(asset.id)}
+                        onChange={() => toggleSelectAsset(asset.id)}
+                      />
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">{asset.product_name}</div>
@@ -726,67 +850,66 @@ export default function QAReviewPage() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        {new Date(asset.delivery_date).toLocaleDateString()}
+                        {dayjs(asset.delivery_date).format("YYYY-MM-DD")}
                       </div>
                     </TableCell>
+                    {/* View */}
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => handleViewAsset(asset.id)}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Asset
-                          </DropdownMenuItem>
-
-                          {asset.product_link && (
-                            <DropdownMenuItem asChild>
-                              <a
-                                href={asset.product_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center"
-                              >
-                                <ExternalLink className="h-4 w-4 mr-2" />
-                                Product Link
-                              </a>
-                            </DropdownMenuItem>
-                          )}
-
-                          {asset.reference && (
-                            <DropdownMenuItem
-                              onClick={() => handleOpenReferences(asset)}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              View References (
-                              {parseReferences(asset.reference).length})
-                            </DropdownMenuItem>
-                          )}
-
-                          {asset.glb_link && (
-                            <DropdownMenuItem
-                              onClick={() => handleDownloadGLB(asset)}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Download GLB
-                            </DropdownMenuItem>
-                          )}
-
-                          <DropdownMenuSeparator />
-
-                          <DropdownMenuItem
-                            onClick={() => handleOpenFilesManager(asset)}
-                          >
-                            <FolderOpen className="h-4 w-4 mr-2" />
-                            View Files
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewAsset(asset.id)}
+                        title="View Asset"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                    {/* Product */}
+                    <TableCell>
+                      {asset.product_link ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Open Product Link"
+                          onClick={() =>
+                            window.open(asset.product_link as string, "_blank")
+                          }
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    {/* References column removed */}
+                    {/* GLB */}
+                    <TableCell>
+                      {asset.glb_link ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadGLB(asset)}
+                          title="Download GLB"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    {/* Files */}
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenFilesManager(asset)}
+                          title="View Files"
+                        >
+                          <FolderOpen className="h-4 w-4" />
+                        </Button>
+                        {/* Review actions removed */}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -830,24 +953,14 @@ export default function QAReviewPage() {
         )}
       </Card>
 
-      {/* Files Manager Dialog */}
-      <Dialog open={filesManagerOpen} onOpenChange={setFilesManagerOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FolderOpen className="h-5 w-5" />
-              Files Manager - {selectedAsset?.product_name}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedAsset && (
-            <AssetFilesManager
-              assetId={selectedAsset.id}
-              isOpen={filesManagerOpen}
-              onClose={() => setFilesManagerOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Files Manager (single dialog instance provided internally) */}
+      {selectedAsset && (
+        <AssetFilesManager
+          assetId={selectedAsset.id}
+          isOpen={filesManagerOpen}
+          onClose={() => setFilesManagerOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
 
     // Validate file size based on type
     const maxSizes = {
-      glb: 100 * 1024 * 1024, // 100MB for GLB files
-      asset: 50 * 1024 * 1024, // 50MB for asset files
-      reference: 10 * 1024 * 1024, // 10MB for reference files
+      glb: 200 * 1024 * 1024, // 200MB for GLB files
+      asset: 500 * 1024 * 1024, // 500MB for general asset files (e.g., .ma/.mb/.sbs/.sbsar/.spp)
+      reference: 50 * 1024 * 1024, // 50MB for reference files
     };
 
     const maxSize =
@@ -71,7 +71,11 @@ export async function POST(request: NextRequest) {
         break;
       case "asset":
         storagePath = `assets/${asset.client}/${asset.article_id}/files/`;
-        contentType = file.type || "application/octet-stream";
+        // Some desktop formats (Maya/Substance) come without a MIME type; force binary if missing
+        contentType =
+          file.type && file.type.trim() !== ""
+            ? file.type
+            : "application/octet-stream";
         break;
       case "reference":
         storagePath = `assets/${asset.client}/${asset.article_id}/references/`;

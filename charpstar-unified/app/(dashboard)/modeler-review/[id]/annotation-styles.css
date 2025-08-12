@@ -426,6 +426,8 @@
     box-shadow 0.2s,
     border 0.17s;
   pointer-events: auto;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .hotspot-marker.selected .comment-bubble {

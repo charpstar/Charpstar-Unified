@@ -34,6 +34,34 @@ class NotificationService {
     notification: Omit<NotificationData, "created_at">
   ): Promise<void> {
     try {
+      // Check for duplicate notifications within the last 5 minutes
+      // This prevents duplicate notifications from being created
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+      const { data: existingNotifications, error: checkError } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("recipient_id", notification.recipient_id)
+        .eq("type", notification.type)
+        .eq("title", notification.title)
+        .gte("created_at", fiveMinutesAgo)
+        .limit(1);
+
+      if (checkError) {
+        console.error(
+          "Error checking for duplicate notifications:",
+          checkError
+        );
+        // Continue with creation even if check fails
+      } else if (existingNotifications && existingNotifications.length > 0) {
+        console.log("Duplicate notification detected, skipping creation:", {
+          recipient_id: notification.recipient_id,
+          type: notification.type,
+          title: notification.title,
+        });
+        return; // Skip creating duplicate notification
+      }
+
       const { error } = await supabase.from("notifications").insert({
         ...notification,
         created_at: new Date().toISOString(),

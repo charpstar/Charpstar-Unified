@@ -21,6 +21,12 @@ import {
 } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/interactive";
+import {
   ChevronLeft,
   ChevronRight,
   Users,
@@ -84,15 +90,15 @@ const STATUS_LABELS = {
   },
   revisions: {
     label: "Sent for Revision",
-    color: "bg-blue-50 text-blue-600 border-blue-200",
+    color: "bg-error-muted text-error border-error/20",
   },
   approved: {
     label: "Approved",
-    color: "bg-success-muted text-success border-success/20",
+    color: "bg-green-100 text-green-800 border-green-200",
   },
   approved_by_client: {
     label: "Approved by Client",
-    color: "bg-emerald-muted text-emerald border-emerald/20",
+    color: "bg-blue-100 text-blue-700 border-blue-200",
   },
   delivered_by_artist: {
     label: "Waiting for Approval",
@@ -117,7 +123,7 @@ const getStatusIcon = (status: string) => {
     case "not_started":
       return <AlertCircle className="h-4 w-4 text-error" />;
     case "revisions":
-      return <RotateCcw className="h-4 w-4 text-info" />;
+      return <RotateCcw className="h-4 w-4 text-error" />;
     default:
       return <Eye className="h-4 w-4 text-gray-600" />;
   }
@@ -134,7 +140,7 @@ const getStatusColor = (status: string) => {
     case "not_started":
       return "bg-error-muted text-error border-error/20";
     case "revisions":
-      return "bg-blue-50 text-blue-600 border-blue-200";
+      return "bg-error-muted text-error border-error/20";
     default:
       return "bg-muted text-muted-foreground border-border";
   }
@@ -269,9 +275,9 @@ export default function AdminReviewPage() {
   const searchParams = useSearchParams();
   const [assets, setAssets] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
-  const [clientFilter, setClientFilter] = useState<string>("all");
-  const [batchFilter, setBatchFilter] = useState<string>("all");
-  const [modelerFilter, setModelerFilter] = useState<string>("all");
+  const [clientFilters, setClientFilters] = useState<string[]>([]);
+  const [batchFilters, setBatchFilters] = useState<number[]>([]);
+  const [modelerFilters, setModelerFilters] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -280,8 +286,11 @@ export default function AdminReviewPage() {
   >({});
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [clients, setClients] = useState<string[]>([]);
+  const [modelers, setModelers] = useState<
+    Array<{ id: string; email: string; title?: string }>
+  >([]);
   const [assignedAssets, setAssignedAssets] = useState<
-    Map<string, { email: string; name?: string }>
+    Map<string, { id: string; email: string; name?: string }>
   >(new Map());
   const [pendingAssets, setPendingAssets] = useState<
     Map<string, { email: string; name?: string }>
@@ -408,15 +417,30 @@ export default function AdminReviewPage() {
     const emailParam = searchParams.get("email");
 
     if (clientParam) {
-      setClientFilter(clientParam);
+      setClientFilters(
+        clientParam
+          .split(",")
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0)
+      );
     }
 
     if (batchParam) {
-      setBatchFilter(batchParam);
+      setBatchFilters(
+        batchParam
+          .split(",")
+          .map((b) => parseInt(b.trim()))
+          .filter((n) => !Number.isNaN(n))
+      );
     }
 
     if (modelerParam) {
-      setModelerFilter(modelerParam);
+      setModelerFilters(
+        modelerParam
+          .split(",")
+          .map((m) => m.trim())
+          .filter((m) => m.length > 0)
+      );
     }
 
     if (emailParam) {
@@ -430,6 +454,29 @@ export default function AdminReviewPage() {
       setShowAllocationLists(false);
     }
   }, [searchParams]);
+
+  // Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (clientFilters.length > 0) {
+      params.set("client", clientFilters.join(","));
+    }
+
+    if (batchFilters.length > 0) {
+      params.set("batch", batchFilters.join(","));
+    }
+
+    if (modelerFilters.length > 0) {
+      params.set("modeler", modelerFilters.join(","));
+    }
+
+    // Update URL without triggering a page reload
+    const newUrl = params.toString()
+      ? `?${params.toString()}`
+      : window.location.pathname;
+    window.history.replaceState({}, "", newUrl);
+  }, [clientFilters, batchFilters, modelerFilters]);
 
   // Check if user is admin
   useEffect(() => {
@@ -447,7 +494,7 @@ export default function AdminReviewPage() {
         (user.metadata?.role !== "admin" &&
           user.metadata?.role !== "production") ||
         !showAllocationLists ||
-        !modelerFilter
+        modelerFilters.length === 0
       )
         return;
 
@@ -483,7 +530,7 @@ export default function AdminReviewPage() {
             )
           `
           )
-          .eq("user_id", modelerFilter)
+          .in("user_id", modelerFilters)
           .eq("role", "modeler")
           .order("created_at", { ascending: false });
 
@@ -509,7 +556,7 @@ export default function AdminReviewPage() {
   }, [
     user?.metadata?.role,
     showAllocationLists,
-    modelerFilter,
+    modelerFilters,
     refreshTrigger,
   ]);
 
@@ -526,19 +573,34 @@ export default function AdminReviewPage() {
       startLoading();
       setLoading(true);
 
+      // Fetch modelers for the filter
+      try {
+        const { data: modelersData, error: modelersError } = await supabase
+          .from("profiles")
+          .select("id, email, title")
+          .eq("role", "modeler")
+          .order("email");
+
+        if (!modelersError && modelersData) {
+          setModelers(modelersData);
+        }
+      } catch (error) {
+        console.error("Error fetching modelers:", error);
+      }
+
       let query = supabase
         .from("onboarding_assets")
         .select(
           "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client"
         );
 
-      // If modeler filter is applied, only fetch assets assigned to that modeler
-      if (modelerFilter && modelerFilter !== "all") {
+      // If modeler filters are applied, only fetch assets assigned to those modelers
+      if (modelerFilters && modelerFilters.length > 0) {
         // First get the asset IDs assigned to this modeler (only accepted assignments)
         const { data: assignmentData, error: assignmentError } = await supabase
           .from("asset_assignments")
           .select("asset_id")
-          .eq("user_id", modelerFilter)
+          .in("user_id", modelerFilters)
           .eq("role", "modeler")
           .eq("status", "accepted");
 
@@ -585,7 +647,9 @@ export default function AdminReviewPage() {
     fetchAssets();
   }, [
     user?.metadata?.role,
-    modelerFilter,
+    modelerFilters,
+    clientFilters,
+    batchFilters,
     showAllocationLists,
     refreshTrigger,
   ]);
@@ -618,17 +682,86 @@ export default function AdminReviewPage() {
     fetchAnnotationCounts();
   }, [assets]);
 
-  // Set filtered lists directly since we're not filtering anymore
+  // Apply filters to allocation lists
   useEffect(() => {
     if (!showAllocationLists) return;
-    setFilteredLists([...allocationLists]);
-  }, [allocationLists, showAllocationLists]);
 
-  // Set filtered assets directly since we're not filtering anymore
+    let filteredListsData = [...allocationLists];
+
+    // Apply client filter to allocation lists
+    if (clientFilters.length > 0) {
+      filteredListsData = filteredListsData.filter((list) => {
+        // Check if any asset in the list matches the client filter
+        return list.asset_assignments.some((assignment: any) =>
+          clientFilters.includes(assignment.onboarding_assets?.client)
+        );
+      });
+    }
+
+    // Apply batch filter to allocation lists
+    if (batchFilters.length > 0) {
+      filteredListsData = filteredListsData.filter((list) => {
+        // Check if any asset in the list matches the batch filter
+        return list.asset_assignments.some((assignment: any) =>
+          batchFilters.includes(assignment.onboarding_assets?.batch)
+        );
+      });
+    }
+
+    setFilteredLists(filteredListsData);
+  }, [allocationLists, clientFilters, batchFilters, showAllocationLists]);
+
+  // Apply filters to assets
   useEffect(() => {
     if (showAllocationLists) return;
-    setFiltered([...assets]);
-  }, [assets, showAllocationLists]);
+
+    let filteredAssets = [...assets];
+
+    // Apply multi client filter
+    if (clientFilters.length > 0) {
+      filteredAssets = filteredAssets.filter((asset) =>
+        clientFilters.includes(asset.client)
+      );
+    }
+
+    // Apply multi batch filter
+    if (batchFilters.length > 0) {
+      filteredAssets = filteredAssets.filter((asset) =>
+        batchFilters.includes(Number(asset.batch))
+      );
+    }
+
+    // Apply multi modeler filter using assignedAssets map (by modeler id)
+    if (modelerFilters.length > 0) {
+      filteredAssets = filteredAssets.filter((asset) => {
+        const assigned = assignedAssets.get(asset.id);
+        if (!assigned) return false;
+        return modelerFilters.includes(assigned.id);
+      });
+    }
+
+    // Default sort: status progression like QA Review
+    const statusPriority: Record<string, number> = {
+      in_production: 1,
+      delivered_by_artist: 2,
+      revisions: 3,
+      approved: 4,
+      approved_by_client: 5,
+    };
+    filteredAssets.sort(
+      (a, b) =>
+        (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
+    );
+
+    setFiltered(filteredAssets);
+  }, [
+    assets,
+    clientFilters,
+    batchFilters,
+    modelerFilters,
+    showAllocationLists,
+    assignedAssets,
+  ]);
 
   // Reset page when view changes
   useEffect(() => {
@@ -726,13 +859,13 @@ export default function AdminReviewPage() {
 
       // If modeler filter is applied, we already filtered at the asset level
       // so we don't need to filter again here
-      if (modelerFilter && modelerFilter !== "all") {
+      if (modelerFilters.length > 0) {
         // For modeler filter, we need to check which assets are actually accepted
         const { data: acceptedAssignments, error: acceptedError } =
           await supabase
             .from("asset_assignments")
             .select("asset_id")
-            .eq("user_id", modelerFilter)
+            .in("user_id", modelerFilters)
             .eq("role", "modeler")
             .eq("status", "accepted")
             .in("asset_id", assetIds);
@@ -744,20 +877,21 @@ export default function AdminReviewPage() {
 
         const assignedAssetsMap = new Map<
           string,
-          { email: string; name?: string }
+          { id: string; email: string; name?: string }
         >();
 
         // Get the modeler's profile
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("id, email, title")
-          .eq("id", modelerFilter)
+          .in("id", modelerFilters)
           .single();
 
         if (!profileError && profileData && acceptedAssignments) {
           // Only mark accepted assets as assigned to this modeler
           acceptedAssignments.forEach((assignment) => {
             assignedAssetsMap.set(assignment.asset_id, {
+              id: modelerFilters[0] || "",
               email: profileData.email,
               name: profileData.title,
             });
@@ -799,12 +933,13 @@ export default function AdminReviewPage() {
 
       const assignedAssetsMap = new Map<
         string,
-        { email: string; name?: string }
+        { id: string; email: string; name?: string }
       >();
       data?.forEach((assignment) => {
         const profile = profilesMap.get(assignment.user_id);
         if (profile) {
           assignedAssetsMap.set(assignment.asset_id, {
+            id: assignment.user_id,
             email: profile.email,
             name: profile.title,
           });
@@ -1337,6 +1472,203 @@ export default function AdminReviewPage() {
           </div>
         )}
 
+        {/* Filter Controls */}
+        {!loading && (
+          <Card className="p-4 mb-6">
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                  Filters
+                </h3>
+                <div className="flex flex-col md:flex-row gap-4">
+                  {/* Client Filter (multi) */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Client
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setClientFilters([]);
+                          setPage(1);
+                        }}
+                      >
+                        {clientFilters.length > 0
+                          ? `${clientFilters.length} selected`
+                          : "All Clients"}
+                      </Button>
+                      {clients.map((client) => (
+                        <Button
+                          key={client}
+                          variant={
+                            clientFilters.includes(client)
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() => {
+                            setClientFilters((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(client)) next.delete(client);
+                              else next.add(client);
+                              return Array.from(next);
+                            });
+                            setPage(1);
+                          }}
+                        >
+                          {client}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Batch Filter (multi) */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Batch
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBatchFilters([]);
+                          setPage(1);
+                        }}
+                      >
+                        {batchFilters.length > 0
+                          ? `${batchFilters.length} selected`
+                          : "All Batches"}
+                      </Button>
+                      {Array.from(
+                        new Set(
+                          assets.map((asset) => asset.batch).filter(Boolean)
+                        )
+                      )
+                        .sort((a, b) => a - b)
+                        .map((batch) => (
+                          <Button
+                            key={batch}
+                            variant={
+                              batchFilters.includes(batch)
+                                ? "default"
+                                : "outline"
+                            }
+                            size="sm"
+                            onClick={() => {
+                              setBatchFilters((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(batch)) next.delete(batch);
+                                else next.add(batch);
+                                return Array.from(next) as number[];
+                              });
+                              setPage(1);
+                            }}
+                          >
+                            Batch {batch}
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Modeler Filter (multi) */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Modeler
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setModelerFilters([]);
+                          setPage(1);
+                        }}
+                      >
+                        {modelerFilters.length > 0
+                          ? `${modelerFilters.length} selected`
+                          : "All Modelers"}
+                      </Button>
+                      {modelers.map((modeler) => (
+                        <Button
+                          key={modeler.id}
+                          variant={
+                            modelerFilters.includes(modeler.id)
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() => {
+                            setModelerFilters((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(modeler.id)) next.delete(modeler.id);
+                              else next.add(modeler.id);
+                              return Array.from(next);
+                            });
+                            setPage(1);
+                          }}
+                        >
+                          {modeler.title || modeler.email}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Clear Filters Button */}
+                  {(clientFilters.length > 0 ||
+                    batchFilters.length > 0 ||
+                    modelerFilters.length > 0) && (
+                    <div className="flex items-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setClientFilters([]);
+                          setBatchFilters([]);
+                          setModelerFilters([]);
+                          setPage(1);
+                        }}
+                        className="h-10"
+                      >
+                        Clear Filters
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Active Filters Display */}
+              {(clientFilters.length > 0 ||
+                batchFilters.length > 0 ||
+                modelerFilters.length > 0) && (
+                <div className="flex flex-wrap gap-2">
+                  {clientFilters.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      Client: {clientFilters.join(", ")}
+                    </Badge>
+                  )}
+                  {batchFilters.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      Batch: {batchFilters.join(", ")}
+                    </Badge>
+                  )}
+                  {modelerFilters.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      Modeler:{" "}
+                      {modelers
+                        .filter((m) => modelerFilters.includes(m.id))
+                        .map((m) => m.title || m.email)
+                        .join(", ")}
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
         {loading ? (
           <AdminReviewTableSkeleton />
         ) : showAllocationLists ? (
@@ -1475,7 +1807,9 @@ export default function AdminReviewPage() {
                             <TableRow>
                               <TableHead>Product Name</TableHead>
                               <TableHead className="w-32">Article ID</TableHead>
-                              <TableHead className="w-24">Priority</TableHead>
+                              <TableHead className="w-24 text-center">
+                                Priority
+                              </TableHead>
                               <TableHead className="w-24">Price</TableHead>
                               <TableHead className="w-32">Status</TableHead>
                               <TableHead className="w-12">Actions</TableHead>
@@ -1489,7 +1823,7 @@ export default function AdminReviewPage() {
                                   assignment.onboarding_assets.status
                                 )}
                               >
-                                <TableCell>
+                                <TableCell className="text-center">
                                   <div className="font-medium">
                                     {assignment.onboarding_assets.product_name}
                                   </div>
@@ -1500,55 +1834,44 @@ export default function AdminReviewPage() {
                                   </span>
                                 </TableCell>
                                 <TableCell>
-                                  <div className="flex items-center justify-center gap-2">
-                                    <span
-                                      className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                        assignment.onboarding_assets.priority ||
-                                          2
-                                      )}`}
-                                    >
-                                      {getPriorityLabel(
-                                        assignment.onboarding_assets.priority ||
-                                          2
-                                      )}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      (
-                                      {assignment.onboarding_assets.priority ||
-                                        2}
+                                  <Select
+                                    value={(
+                                      assignment.onboarding_assets.priority || 2
+                                    ).toString()}
+                                    onValueChange={(value) =>
+                                      handlePriorityUpdate(
+                                        assignment.onboarding_assets.id,
+                                        parseInt(value)
                                       )
-                                    </span>
-                                    <Select
-                                      value={(
-                                        assignment.onboarding_assets.priority ||
-                                        2
-                                      ).toString()}
-                                      onValueChange={(value) =>
-                                        handlePriorityUpdate(
-                                          assignment.onboarding_assets.id,
-                                          parseInt(value)
-                                        )
-                                      }
-                                      disabled={updatingPriorities.has(
+                                    }
+                                    disabled={updatingPriorities.has(
+                                      assignment.onboarding_assets.id
+                                    )}
+                                  >
+                                    <SelectTrigger className="border-0 bg-transparent p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
+                                      <span
+                                        className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                          assignment.onboarding_assets
+                                            .priority || 2
+                                        )}`}
+                                      >
+                                        {getPriorityLabel(
+                                          assignment.onboarding_assets
+                                            .priority || 2
+                                        )}
+                                      </span>
+                                      {updatingPriorities.has(
                                         assignment.onboarding_assets.id
-                                      )}
-                                    >
-                                      <SelectTrigger className="w-6 h-6 p-1 border-0 bg-transparent hover:bg-muted/50 rounded transition-colors">
-                                        {updatingPriorities.has(
-                                          assignment.onboarding_assets.id
-                                        ) ? (
-                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
-                                        ) : null}
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="1">High</SelectItem>
-                                        <SelectItem value="2">
-                                          Medium
-                                        </SelectItem>
-                                        <SelectItem value="3">Low</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
+                                      ) ? (
+                                        <div className="ml-2 animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
+                                      ) : null}
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="1">High</SelectItem>
+                                      <SelectItem value="2">Medium</SelectItem>
+                                      <SelectItem value="3">Low</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-1">
@@ -1589,23 +1912,23 @@ export default function AdminReviewPage() {
                                         // Preserve current filter parameters when navigating to asset detail
                                         const params = new URLSearchParams();
                                         params.set("from", "admin-review");
-                                        if (
-                                          clientFilter &&
-                                          clientFilter !== "all"
-                                        ) {
-                                          params.set("client", clientFilter);
+                                        if (clientFilters.length > 0) {
+                                          params.set(
+                                            "client",
+                                            clientFilters.join(",")
+                                          );
                                         }
-                                        if (
-                                          batchFilter &&
-                                          batchFilter !== "all"
-                                        ) {
-                                          params.set("batch", batchFilter);
+                                        if (batchFilters.length > 0) {
+                                          params.set(
+                                            "batch",
+                                            batchFilters.join(",")
+                                          );
                                         }
-                                        if (
-                                          modelerFilter &&
-                                          modelerFilter !== "all"
-                                        ) {
-                                          params.set("modeler", modelerFilter);
+                                        if (modelerFilters.length > 0) {
+                                          params.set(
+                                            "modeler",
+                                            modelerFilters.join(",")
+                                          );
                                         }
                                         if (modelerEmail) {
                                           params.set("email", modelerEmail);
@@ -1719,7 +2042,7 @@ export default function AdminReviewPage() {
                   </TableHead>
                   <TableHead>Model Name</TableHead>
                   <TableHead>Article ID</TableHead>
-                  <TableHead>Priority</TableHead>
+                  <TableHead className="text-center">Priority</TableHead>
 
                   <TableHead>Status</TableHead>
                   <TableHead>Review</TableHead>
@@ -1738,7 +2061,7 @@ export default function AdminReviewPage() {
                       key={asset.id}
                       className={getStatusRowClass(asset.status)}
                     >
-                      <TableCell>
+                      <TableCell className="text-center">
                         <div className="flex items-center gap-2">
                           <input
                             type="checkbox"
@@ -1786,54 +2109,43 @@ export default function AdminReviewPage() {
                             <Badge variant="outline" className="text-xs">
                               Batch {asset.batch || 1}
                             </Badge>
-                            {(asset.revision_count || 0) > 0 && (
-                              <>
-                                <span className="text-xs text-slate-500">
-                                  •
-                                </span>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400"
-                                >
-                                  R{asset.revision_count}
-                                </Badge>
-                              </>
-                            )}
+                            {/* Revision number removed */}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>{asset.article_id}</TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-center gap-2">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
-                              asset.priority || 2
-                            )}`}
-                          >
-                            {getPriorityLabel(asset.priority || 2)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            ({asset.priority || 2})
-                          </span>
-                          <Select
-                            value={(asset.priority || 2).toString()}
-                            onValueChange={(value) =>
-                              handlePriorityUpdate(asset.id, parseInt(value))
-                            }
-                            disabled={updatingPriorities.has(asset.id)}
-                          >
-                            <SelectTrigger className="w-6 h-6 p-1 border-0 bg-transparent hover:bg-muted/50 rounded transition-colors">
-                              {updatingPriorities.has(asset.id) ? (
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
-                              ) : null}
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">High</SelectItem>
-                              <SelectItem value="2">Medium</SelectItem>
-                              <SelectItem value="3">Low</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <Select
+                          value={(asset.priority || 2).toString()}
+                          onValueChange={(value) =>
+                            handlePriorityUpdate(asset.id, parseInt(value))
+                          }
+                          disabled={updatingPriorities.has(asset.id)}
+                        >
+                          <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit  cursor-pointer">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                asset.priority || 2
+                              )}`}
+                            >
+                              {getPriorityLabel(asset.priority || 2)}
+                            </span>
+                            {updatingPriorities.has(asset.id) ? (
+                              <div className="ml-2 animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 cursor-pointer" />
+                            ) : null}
+                          </SelectTrigger>
+                          <SelectContent className="cursor-pointer">
+                            <SelectItem className="cursor-pointer" value="1">
+                              High
+                            </SelectItem>
+                            <SelectItem className="cursor-pointer" value="2">
+                              Medium
+                            </SelectItem>
+                            <SelectItem className="cursor-pointer" value="3">
+                              Low
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
 
                       <TableCell>
@@ -1853,14 +2165,7 @@ export default function AdminReviewPage() {
                                 ].label
                               : asset.status}
                           </span>
-                          {(asset.revision_count || 0) > 0 && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400"
-                            >
-                              R{asset.revision_count}
-                            </Badge>
-                          )}
+                          {/* Revision badge removed */}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1872,14 +2177,14 @@ export default function AdminReviewPage() {
                             // Preserve current filter parameters when navigating to asset detail
                             const params = new URLSearchParams();
                             params.set("from", "admin-review");
-                            if (clientFilter && clientFilter !== "all") {
-                              params.set("client", clientFilter);
+                            if (clientFilters.length > 0) {
+                              params.set("client", clientFilters.join(","));
                             }
-                            if (batchFilter && batchFilter !== "all") {
-                              params.set("batch", batchFilter);
+                            if (batchFilters.length > 0) {
+                              params.set("batch", batchFilters.join(","));
                             }
-                            if (modelerFilter && modelerFilter !== "all") {
-                              params.set("modeler", modelerFilter);
+                            if (modelerFilters.length > 0) {
+                              params.set("modeler", modelerFilters.join(","));
                             }
                             if (modelerEmail) {
                               params.set("email", modelerEmail);

@@ -51,6 +51,22 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                // Global error handler to prevent app crashes
+                window.addEventListener('error', function(event) {
+                  console.error('Global error caught:', event.error);
+                  // Prevent the default error handling that might cause page reload
+                  event.preventDefault();
+                  return false;
+                });
+
+                // Global unhandled promise rejection handler
+                window.addEventListener('unhandledrejection', function(event) {
+                  console.error('Unhandled promise rejection:', event.reason);
+                  // Prevent the default error handling that might cause page reload
+                  event.preventDefault();
+                  return false;
+                });
+
                 function restoreEditorTheme() {
                   try {
                     const isDark = document.documentElement.classList.contains('dark');

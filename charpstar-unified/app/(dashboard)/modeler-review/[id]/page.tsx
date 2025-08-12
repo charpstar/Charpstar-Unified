@@ -83,7 +83,7 @@ const STATUS_LABELS = {
   approved: { label: "Approved", color: "bg-green-100 text-green-700" },
   approved_by_client: {
     label: "Approved by Client",
-    color: "bg-emerald-100 text-emerald-700",
+    color: "bg-blue-100 text-blue-700",
   },
   delivered_by_artist: {
     label: "Delivered by Artist",
@@ -104,6 +104,8 @@ export default function ModelerReviewPage() {
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(
     null
   );
+  const [selectedAnnotation, setSelectedAnnotation] =
+    useState<Annotation | null>(null);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [comments, setComments] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"annotations" | "comments">(
@@ -113,6 +115,28 @@ export default function ModelerReviewPage() {
     "images"
   );
   const [statusUpdating, setStatusUpdating] = useState(false);
+  // Make URLs in text clickable with blue styling
+  const linkifyText = (text: string): React.ReactNode => {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    const parts = text.split(urlRegex);
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline break-words"
+          >
+            {part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
 
   // Comment state variables
   const [newCommentText, setNewCommentText] = useState("");
@@ -125,8 +149,12 @@ export default function ModelerReviewPage() {
   const [isDialogDragOver, setIsDialogDragOver] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [restoringVersion, setRestoringVersion] = useState(false);
+  // Components panel state
+  const [dependencies, setDependencies] = useState<any[]>([]);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
 
   const modelViewerRef = useRef<any>(null);
+  const [modelLoaded, setModelLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBackNavigation = () => {
@@ -278,39 +306,210 @@ export default function ModelerReviewPage() {
   }, [assetId]);
 
   // Fetch GLB upload history
-  useEffect(() => {
-    async function fetchGlbHistory() {
-      if (!assetId) return;
+  const fetchGlbHistory = async () => {
+    if (!assetId) return;
 
-      try {
-        const { data, error } = await supabase
-          .from("glb_upload_history")
-          .select("*")
-          .eq("asset_id", assetId)
-          .order("uploaded_at", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("glb_upload_history")
+        .select("*")
+        .eq("asset_id", assetId)
+        .order("uploaded_at", { ascending: false });
 
-        if (error) {
-          console.error("Error fetching GLB history:", error);
-          if (error.code === "42P01") {
-            setGlbHistory([]);
-            return;
-          }
+      if (error) {
+        console.error("Error fetching GLB history:", error);
+        if (error.code === "42P01") {
+          setGlbHistory([]);
           return;
         }
-
-        setGlbHistory(data || []);
-      } catch (error) {
-        console.error("Error fetching GLB history:", error);
-        setGlbHistory([]);
+        return;
       }
-    }
 
+      setGlbHistory(data || []);
+
+      // Debug logging to help understand the data
+      if (data && data.length > 0) {
+        console.log("GLB History loaded:", data.length, "items");
+        console.log("Current asset GLB link:", asset?.glb_link);
+        data.forEach((item, index) => {
+          console.log(`Item ${index}:`, {
+            id: item.id,
+            file_name: item.file_name,
+            glb_url: item.glb_url,
+            isCurrent: asset?.glb_link === item.glb_url,
+            uploaded_at: item.uploaded_at,
+          });
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching GLB history:", error);
+      setGlbHistory([]);
+    }
+  };
+
+  // Clean up problematic GLB history entries
+  // This function removes entries with the old naming convention (Current_ prefix)
+  // and handles duplicate URLs by keeping only the most recent entry for each unique URL.
+  // It's called when the component mounts to ensure a clean state.
+  const cleanupGlbHistory = async () => {
+    if (!assetId) return;
+
+    try {
+      // First, remove entries with the old naming convention (Current_ prefix)
+      const { error: cleanupError } = await supabase
+        .from("glb_upload_history")
+        .delete()
+        .eq("asset_id", assetId)
+        .like("file_name", "Current_%");
+
+      if (cleanupError) {
+        console.error("Error cleaning up GLB history:", cleanupError);
+      } else {
+        console.log("Cleaned up old GLB history entries");
+      }
+
+      // Now handle potential duplicate URLs - keep only the most recent entry for each unique URL
+      const { data: currentHistory, error: fetchError } = await supabase
+        .from("glb_upload_history")
+        .select("*")
+        .eq("asset_id", assetId)
+        .order("uploaded_at", { ascending: false });
+
+      if (fetchError) {
+        console.error(
+          "Error fetching current history for cleanup:",
+          fetchError
+        );
+        return;
+      }
+
+      if (currentHistory && currentHistory.length > 1) {
+        // Group by glb_url and find duplicates
+        const urlGroups = currentHistory.reduce(
+          (groups, item) => {
+            if (!groups[item.glb_url]) {
+              groups[item.glb_url] = [];
+            }
+            groups[item.glb_url].push(item);
+            return groups;
+          },
+          {} as Record<string, typeof currentHistory>
+        );
+
+        // For each group with duplicates, keep only the most recent
+        for (const [url, items] of Object.entries(urlGroups)) {
+          if ((items as any[]).length > 1) {
+            // Sort by uploaded_at descending and keep only the first (most recent)
+            const itemsToDelete = (items as any[]).slice(1);
+            const idsToDelete = itemsToDelete.map((item: any) => item.id);
+
+            if (idsToDelete.length > 0) {
+              const { error: deleteError } = await supabase
+                .from("glb_upload_history")
+                .delete()
+                .in("id", idsToDelete);
+
+              if (deleteError) {
+                console.error(
+                  "Error deleting duplicate GLB history entries:",
+                  deleteError
+                );
+              } else {
+                console.log(
+                  `Cleaned up ${idsToDelete.length} duplicate entries for URL: ${url}`
+                );
+              }
+            }
+          }
+        }
+      }
+
+      // Refresh the history after cleanup
+      await fetchGlbHistory();
+    } catch (error) {
+      console.error("Error during GLB history cleanup:", error);
+    }
+  };
+
+  useEffect(() => {
     fetchGlbHistory();
+    // Clean up any problematic entries when component mounts
+    cleanupGlbHistory();
   }, [assetId]);
+
+  // Fetch attached components (dependencies)
+  const fetchDependencies = async () => {
+    if (!assetId) return;
+    try {
+      const res = await fetch(`/api/assets/${assetId}/dependencies`);
+      const json = await res.json();
+      const deps = json.dependencies || [];
+      setDependencies(deps);
+    } catch (e) {
+      console.error("Failed to fetch dependencies", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchDependencies();
+  }, [assetId]);
+
+  // Check if newer versions exist for each dependency
+  const checkForUpdates = async () => {
+    setCheckingUpdates(true);
+    try {
+      const updated = await Promise.all(
+        dependencies.map(async (dep) => {
+          const compId = dep.component_versions?.component?.id;
+          const attachedCreatedAt = new Date(
+            dep.component_versions?.created_at
+          ).getTime();
+          if (!compId) return { ...dep, updateAvailable: false };
+          try {
+            const res = await fetch(`/api/components/${compId}/versions`);
+            const json = await res.json();
+            const latest = (json.versions || [])[0];
+            const latestCreatedAt = latest
+              ? new Date(latest.created_at).getTime()
+              : attachedCreatedAt;
+            return {
+              ...dep,
+              latestVersion: latest,
+              updateAvailable: latestCreatedAt > attachedCreatedAt,
+            };
+          } catch {
+            return { ...dep, updateAvailable: false };
+          }
+        })
+      );
+      setDependencies(updated);
+    } finally {
+      setCheckingUpdates(false);
+    }
+  };
 
   // Handle hotspot selection
   const handleHotspotSelect = (hotspotId: string | null) => {
     setSelectedHotspotId(hotspotId);
+    if (!hotspotId) return;
+
+    const annotation = annotations.find((ann) => ann.id === hotspotId);
+    if (!annotation) return;
+    setSelectedAnnotation(annotation);
+
+    // Move/zoom camera to the hotspot
+    const mv = modelViewerRef.current as any;
+    if (!mv) return;
+    try {
+      const [x, y, z] = annotation.position.split(" ").map(Number);
+      const distance = 1.5;
+      mv.cameraControls = true;
+      mv.cameraTarget = `${x}m ${y}m ${z}m`;
+      mv.cameraOrbit = `45deg 60deg ${distance}m`;
+      mv.play?.();
+    } catch (err) {
+      console.warn("Failed to move camera to hotspot:", err);
+    }
   };
 
   // Handle file selection for GLB upload
@@ -404,33 +603,15 @@ export default function ModelerReviewPage() {
   };
 
   // Handle GLB upload
+  // Note: We no longer save the previous GLB to history to avoid confusion.
+  // Only the new GLB is saved to history, and the current version is determined
+  // by matching the asset's glb_link with the history item's glb_url.
   const handleUpload = async () => {
     if (!selectedFile || !asset) return;
 
     setUploading(true);
 
     try {
-      // Save current GLB to history if it exists
-      if (asset.glb_link) {
-        const { error: originalHistoryError } = await supabase
-          .from("glb_upload_history")
-          .insert({
-            asset_id: asset.id,
-            glb_url: asset.glb_link,
-            file_name: `Current_${asset.article_id}_${Date.now()}.glb`,
-            file_size: 0,
-            uploaded_by: user?.id,
-            uploaded_at: new Date().toISOString(),
-          });
-
-        if (originalHistoryError) {
-          console.error(
-            "Error recording original GLB to history:",
-            originalHistoryError
-          );
-        }
-      }
-
       // Upload to Supabase Storage
       const fileName = `${asset.article_id}_${Date.now()}.glb`;
       const filePath = `models/${fileName}`;
@@ -464,7 +645,7 @@ export default function ModelerReviewPage() {
         throw updateError;
       }
 
-      // Record GLB upload history
+      // Record GLB upload history for the new file
       const { error: historyError } = await supabase
         .from("glb_upload_history")
         .insert({
@@ -490,6 +671,9 @@ export default function ModelerReviewPage() {
             }
           : null
       );
+
+      // Refresh GLB history to show the new version
+      await fetchGlbHistory();
 
       toast.success("GLB file uploaded successfully!");
       setShowUploadDialog(false);
@@ -850,6 +1034,7 @@ export default function ModelerReviewPage() {
                   min-field-of-view="5deg"
                   max-field-of-view="35deg"
                   style={{ width: "100%", height: "100%" }}
+                  onLoad={() => setModelLoaded(true)}
                 >
                   {hotspots.map(
                     (hotspot) =>
@@ -1465,10 +1650,8 @@ export default function ModelerReviewPage() {
                           </div>
 
                           <div className="space-y-2">
-                            <div className="text-sm text-foreground p-2 rounded-md">
-                              <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                                {annotation.comment}
-                              </pre>
+                            <div className="text-sm text-foreground p-2 rounded-md break-words overflow-hidden whitespace-pre-wrap font-sans">
+                              {linkifyText(annotation.comment)}
                             </div>
 
                             {annotation.image_url && (
@@ -1628,10 +1811,8 @@ export default function ModelerReviewPage() {
                             </div>
                           </div>
 
-                          <div className="text-sm text-foreground p-2 rounded-md">
-                            <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                              {comment.comment}
-                            </pre>
+                          <div className="text-sm text-foreground p-2 rounded-md break-words overflow-hidden whitespace-pre-wrap font-sans">
+                            {linkifyText(comment.comment)}
                           </div>
 
                           <div className="mt-4 flex items-center gap-2">
@@ -1753,107 +1934,222 @@ export default function ModelerReviewPage() {
 
         {/* GLB Version History Dialog */}
         <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
-          <DialogContent className="max-w-4xl w-full h-fit max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>GLB Version History</DialogTitle>
+          <DialogContent className="max-w-4xl w-full max-h-[50vh] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5 text-primary" />
+                GLB Version History
+              </DialogTitle>
               <DialogDescription>
                 View and restore previous versions of this asset&apos;s GLB
                 file.
+                {glbHistory.length > 0 && (
+                  <span className="block mt-1 text-sm font-medium text-foreground">
+                    {glbHistory.length} version
+                    {glbHistory.length !== 1 ? "s" : ""} available
+                  </span>
+                )}
+                {/* Note: Only the current asset's GLB link is considered "current" */}
+                <span className="block mt-1 text-xs text-muted-foreground">
+                  Current version is determined by the asset&apos;s active GLB
+                  link
+                </span>
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto pr-2 -mr-2">
               {glbHistory.length > 0 ? (
                 <div className="space-y-3">
-                  {glbHistory.map((historyItem, index) => (
-                    <div
-                      key={historyItem.id}
-                      className={`p-4 rounded-lg border transition-all duration-200 ${
-                        asset?.glb_link === historyItem.glb_url
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-border/60"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Download className="h-4 w-4 text-primary" />
+                  {(() => {
+                    // Sort history: current version first, then others by upload date (newest first)
+                    // The current version is the one whose glb_url matches the asset's current glb_link
+                    const sortedHistory = [...glbHistory].sort((a, b) => {
+                      const aIsCurrent = asset?.glb_link === a.glb_url;
+                      const bIsCurrent = asset?.glb_link === b.glb_url;
+
+                      if (aIsCurrent && !bIsCurrent) return -1; // a is current, b is not
+                      if (!aIsCurrent && bIsCurrent) return 1; // b is current, a is not
+
+                      // Both are either current or not current, sort by upload date (newest first)
+                      return (
+                        new Date(b.uploaded_at).getTime() -
+                        new Date(a.uploaded_at).getTime()
+                      );
+                    });
+
+                    // Debug logging to help identify any issues
+                    if (sortedHistory.length > 0) {
+                      console.log("Sorted GLB History for display:");
+                      console.log("Current asset GLB link:", asset?.glb_link);
+                      sortedHistory.forEach((item, index) => {
+                        const isCurrent = asset?.glb_link === item.glb_url;
+                        console.log(`[${index}] ${item.file_name}:`, {
+                          glb_url: item.glb_url,
+                          isCurrent,
+                          uploaded_at: item.uploaded_at,
+                        });
+                      });
+                    }
+
+                    return sortedHistory.map((historyItem, index) => {
+                      const isCurrentVersion =
+                        asset?.glb_link === historyItem.glb_url;
+                      const versionNumber = sortedHistory.length - index;
+                      const uploadDate = new Date(historyItem.uploaded_at);
+                      const isToday =
+                        uploadDate.toDateString() === new Date().toDateString();
+                      const isYesterday =
+                        uploadDate.toDateString() ===
+                        new Date(Date.now() - 86400000).toDateString();
+
+                      let dateDisplay = "";
+                      if (isToday) {
+                        dateDisplay = `Today at ${uploadDate.toLocaleTimeString(
+                          [],
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )}`;
+                      } else if (isYesterday) {
+                        dateDisplay = `Yesterday at ${uploadDate.toLocaleTimeString(
+                          [],
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )}`;
+                      } else {
+                        dateDisplay = uploadDate.toLocaleDateString([], {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+                      }
+
+                      return (
+                        <div
+                          key={historyItem.id}
+                          className={`p-4 rounded-lg border transition-all duration-200 hover:shadow-sm ${
+                            isCurrentVersion
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : "border-border hover:border-primary/30 hover:bg-primary/2"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-3 mb-3">
+                                <div
+                                  className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                    isCurrentVersion
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-muted text-muted-foreground"
+                                  }`}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h4 className="font-semibold text-foreground truncate">
+                                      {historyItem.file_name}
+                                    </h4>
+                                    {isCurrentVersion && (
+                                      <Badge
+                                        variant="default"
+                                        className="text-xs px-2 py-1"
+                                      >
+                                        Current Version
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mb-2">
+                                    {dateDisplay}
+                                  </p>
+                                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                    {historyItem.file_size > 0 && (
+                                      <span className="flex items-center gap-1">
+                                        <span className="w-2 h-2 bg-muted-foreground rounded-full"></span>
+                                        {(
+                                          historyItem.file_size /
+                                          1024 /
+                                          1024
+                                        ).toFixed(2)}{" "}
+                                        MB
+                                      </span>
+                                    )}
+                                    <span className="flex items-center gap-1">
+                                      <span className="w-2 h-2 bg-muted-foreground rounded-full"></span>
+                                      Version {versionNumber}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <h4 className="font-medium text-foreground">
-                                {historyItem.file_name}
-                              </h4>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(
-                                  historyItem.uploaded_at
-                                ).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            {historyItem.file_size > 0 && (
-                              <span>
-                                Size:{" "}
-                                {(historyItem.file_size / 1024 / 1024).toFixed(
-                                  2
-                                )}{" "}
-                                MB
-                              </span>
-                            )}
-                            <span>Version: {glbHistory.length - index}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {asset?.glb_link === historyItem.glb_url && (
-                            <Badge variant="default" className="text-xs">
-                              Current
-                            </Badge>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              window.open(historyItem.glb_url, "_blank")
-                            }
-                            className="text-xs"
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            Download
-                          </Button>
-                          {asset?.glb_link !== historyItem.glb_url && (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => restoreGlbVersion(historyItem)}
-                              disabled={restoringVersion}
-                              className="text-xs"
-                            >
-                              {restoringVersion ? (
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              ) : (
+
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  window.open(historyItem.glb_url, "_blank")
+                                }
+                                className="text-xs h-8 px-3"
+                                title="Download this version"
+                              >
                                 <Download className="h-3 w-3 mr-1" />
+                                Download
+                              </Button>
+                              {!isCurrentVersion && (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => restoreGlbVersion(historyItem)}
+                                  disabled={restoringVersion}
+                                  className="text-xs h-8 px-3"
+                                  title="Restore this version as current"
+                                >
+                                  {restoringVersion ? (
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Download className="h-3 w-3 mr-1" />
+                                  )}
+                                  Restore
+                                </Button>
                               )}
-                              Restore
-                            </Button>
-                          )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    });
+                  })()}
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <Download className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Download className="h-8 w-8 text-muted-foreground" />
+                  </div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">
                     No version history yet
                   </h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                     Upload your first GLB file to start building version
-                    history.
+                    history. Each upload will create a new version that you can
+                    restore later.
                   </p>
                 </div>
               )}
+            </div>
+            <div className="flex justify-end mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={cleanupGlbHistory}
+                className="text-xs"
+              >
+                Clean Up History
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

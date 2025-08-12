@@ -1025,58 +1025,9 @@ export default function AllocateAssetsPage() {
         );
       }
 
-      // Send notifications to assigned modelers and QA
-      try {
-        const modeler = users.find(
-          (u) => u.id === globalTeamAssignment.modelerId
-        );
-        const qa = users.find((u) => u.id === globalTeamAssignment.qaId);
-
-        if (modeler) {
-          const assetDetails = assetsToAllocate.map((data) => {
-            const asset = getAssetById(data.assetId);
-            return asset?.product_name || data.assetId;
-          });
-
-          await notificationService.sendAssetAllocationNotification({
-            modelerId: globalTeamAssignment.modelerId,
-            modelerEmail: modeler.email,
-            assetIds: assetsToAllocate.map((data) => data.assetId),
-            assetNames: assetDetails,
-            deadline: new Date(
-              groupSettings.deadline + "T00:00:00.000Z"
-            ).toISOString(),
-            price: assetsToAllocate.reduce((sum, data) => sum + data.price, 0),
-            bonus: groupSettings.bonus,
-            client:
-              getAssetById(assetsToAllocate[0].assetId)?.client || "Unknown",
-          });
-        }
-
-        if (qa) {
-          const assetDetails = assetsToAllocate.map((data) => {
-            const asset = getAssetById(data.assetId);
-            return asset?.product_name || data.assetId;
-          });
-
-          await notificationService.sendAssetAllocationNotification({
-            modelerId: globalTeamAssignment.qaId,
-            modelerEmail: qa.email,
-            assetIds: assetsToAllocate.map((data) => data.assetId),
-            assetNames: assetDetails,
-            deadline: new Date(
-              groupSettings.deadline + "T00:00:00.000Z"
-            ).toISOString(),
-            price: 0, // QA doesn't get paid for review
-            bonus: 0, // QA doesn't get bonus
-            client:
-              getAssetById(assetsToAllocate[0].assetId)?.client || "Unknown",
-          });
-        }
-      } catch (notificationError) {
-        console.error("Failed to send notifications:", notificationError);
-        // Don't fail the allocation process if notifications fail
-      }
+      // Note: Notifications are now handled by the API route to prevent duplicates
+      // The API route (/api/assets/assign) will send notifications to assigned modelers and QA
+      // This prevents the issue of receiving the same notification twice
 
       // Clear file history since allocation is successful
       setAssetFileHistory([]);

@@ -48,6 +48,7 @@ import {
   Info,
 } from "lucide-react";
 import { toast } from "sonner";
+import { notificationService } from "@/lib/notificationService";
 
 interface PendingAssignment {
   asset_id: string;
@@ -104,6 +105,36 @@ export default function PendingAssignmentsPage() {
     if (user?.id) {
       fetchPendingAssignments();
     }
+  }, [user?.id]);
+
+  // Mark related notifications as read when visiting this page
+  useEffect(() => {
+    const markPageNotificationsRead = async () => {
+      if (!user?.id) return;
+      try {
+        const unread = await notificationService.getUnreadNotifications(
+          user.id
+        );
+        const toMark = unread.filter(
+          (n) => n.type === "asset_allocation" || n.type === "deadline_reminder"
+        );
+        if (toMark.length > 0) {
+          await Promise.all(
+            toMark
+              .filter((n) => n.id)
+              .map((n) => notificationService.markNotificationAsRead(n.id!))
+          );
+          // notify bell to refresh immediately
+          window.dispatchEvent(new Event("notificationsUpdated"));
+        }
+      } catch (e) {
+        console.error(
+          "Failed marking notifications as read on pending page",
+          e
+        );
+      }
+    };
+    markPageNotificationsRead();
   }, [user?.id]);
 
   useEffect(() => {

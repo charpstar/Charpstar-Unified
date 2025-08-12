@@ -41,6 +41,7 @@ import {
   AlertCircle,
   Loader2,
   Ruler,
+  Download,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -138,6 +139,28 @@ export default function ReviewPage() {
   const [viewerEditComment, setViewerEditComment] = useState("");
   const [isSwitchingEdit, setIsSwitchingEdit] = useState(false);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  // Make URLs in text clickable with blue styling
+  const linkifyText = (text: string): any => {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    const parts = text.split(urlRegex);
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline break-words"
+          >
+            {part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
   const [selectedReferenceIndex, setSelectedReferenceIndex] = useState<
     number | null
   >(0); // Always start with the first image selected
@@ -1167,13 +1190,15 @@ export default function ReviewPage() {
     // Handle revision workflow
     if (newStatus === "revisions") {
       const currentRevisionCount = revisionCount + 1;
-
-      if (currentRevisionCount === 1 || currentRevisionCount === 2) {
-        setShowRevisionDialog(true);
-        return;
-      } else if (currentRevisionCount >= 3) {
-        setShowSecondRevisionDialog(true);
-        return;
+      const isClient = user?.metadata?.role === "client";
+      if (isClient) {
+        if (currentRevisionCount === 1 || currentRevisionCount === 2) {
+          setShowRevisionDialog(true);
+          return;
+        } else if (currentRevisionCount >= 3) {
+          setShowSecondRevisionDialog(true);
+          return;
+        }
       }
     }
 
@@ -1275,7 +1300,7 @@ export default function ReviewPage() {
     }
   };
 
-  // Handle revision confirmation
+  // Handle revision confirmation (client submits revision -> do NOT change status or notify)
   const handleRevisionConfirm = async () => {
     setShowRevisionDialog(false);
     setStatusUpdating(true);
@@ -1297,31 +1322,11 @@ export default function ReviewPage() {
 
       if (historyError) {
         console.error("Error saving revision history:", historyError);
-        // Continue with status update even if history save fails
+        toast.error("Failed to save revision");
+        return;
       }
-
-      // Use the complete API endpoint for proper allocation list handling
-      const response = await fetch("/api/assets/complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          assetId,
-          status: "revisions",
-          revisionCount: revisionCount,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update status");
-      }
-
-      setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
-      setRevisionCount((prev) => prev + 1);
-      toast.success("Status updated to Ready for Revision");
-      // Refresh revision history in real-time
+      // Do NOT change asset status or notify here. Production will forward.
+      toast.success("Revision submitted. Awaiting production review.");
       await fetchRevisionHistory();
     } catch (error) {
       console.error("Error updating asset status:", error);
@@ -1331,7 +1336,7 @@ export default function ReviewPage() {
     }
   };
 
-  // Handle second revision confirmation
+  // Handle second revision confirmation (no status change or notify)
   const handleSecondRevisionConfirm = async () => {
     setShowSecondRevisionDialog(false);
     setStatusUpdating(true);
@@ -1353,27 +1358,12 @@ export default function ReviewPage() {
 
       if (historyError) {
         console.error("Error saving revision history:", historyError);
-        // Continue with status update even if history save fails
+        toast.error("Failed to save revision");
+        return;
       }
-
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({
-          status: "revisions",
-          revision_count: revisionCount + 1,
-        })
-        .eq("id", assetId);
-
-      if (error) {
-        console.error("Error updating asset status:", error);
-        toast.error("Failed to update status");
-      } else {
-        setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
-        setRevisionCount((prev) => prev + 1);
-        toast.success("Status updated to Ready for Revision");
-        // Refresh revision history in real-time
-        await fetchRevisionHistory();
-      }
+      // Do NOT update asset status or revision_count here
+      toast.success("Revision submitted. Awaiting production review.");
+      await fetchRevisionHistory();
     } catch (error) {
       console.error("Error updating asset status:", error);
       toast.error("Failed to update status");
@@ -1382,7 +1372,7 @@ export default function ReviewPage() {
     }
   };
 
-  // Handle additional revision confirmation (3rd and beyond)
+  // Handle additional revision confirmation (3rd and beyond) — no status change/notify
   const handleAdditionalRevisionConfirm = async () => {
     setShowSecondRevisionDialog(false);
     setStatusUpdating(true);
@@ -1404,29 +1394,12 @@ export default function ReviewPage() {
 
       if (historyError) {
         console.error("Error saving revision history:", historyError);
-        // Continue with status update even if history save fails
+        toast.error("Failed to save revision");
+        return;
       }
-
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({
-          status: "revisions",
-          revision_count: revisionCount + 1,
-        })
-        .eq("id", assetId);
-
-      if (error) {
-        console.error("Error updating asset status:", error);
-        toast.error("Failed to update status");
-      } else {
-        setAsset((prev) => (prev ? { ...prev, status: "revisions" } : null));
-        setRevisionCount((prev) => prev + 1);
-        toast.success(
-          `Status updated to Ready for Revision (Revision ${revisionCount + 1})`
-        );
-        // Refresh revision history in real-time
-        await fetchRevisionHistory();
-      }
+      // No status change; production will forward to modeler later
+      toast.success("Revision submitted. Awaiting production review.");
+      await fetchRevisionHistory();
     } catch (error) {
       console.error("Error updating asset status:", error);
       toast.error("Failed to update status");
@@ -2292,7 +2265,24 @@ export default function ReviewPage() {
 
             {/* Dimensions Toggle Button */}
             {asset.glb_link && (
-              <div className="absolute top-4 right-0 z-20 w-fit min-w-[200px]">
+              <div className="absolute top-4 right-0 z-20 w-fit min-w-[200px] flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = asset.glb_link as string;
+                    a.download = `${asset.product_name}_${asset.article_id}.glb`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }}
+                  className="bg-background/95 backdrop-blur-sm border-border/50 shadow-md cursor-pointer"
+                  title="Download GLB"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download GLB
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -2372,26 +2362,49 @@ export default function ReviewPage() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button
-                  onClick={() => updateAssetStatus("approved_by_client")}
-                  disabled={
-                    asset?.status === "approved_by_client" || statusUpdating
-                  }
-                  variant={
-                    asset?.status === "approved_by_client"
-                      ? "default"
-                      : "outline"
-                  }
-                  size="sm"
-                  className="flex-1 cursor-pointer"
-                >
-                  {statusUpdating ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Approve as Client
-                </Button>
+                {user?.metadata?.role === "client" && (
+                  <Button
+                    onClick={() => updateAssetStatus("approved_by_client")}
+                    disabled={
+                      asset?.status === "approved_by_client" || statusUpdating
+                    }
+                    variant={
+                      asset?.status === "approved_by_client"
+                        ? "default"
+                        : "outline"
+                    }
+                    size="sm"
+                    className="flex-1 cursor-pointer"
+                  >
+                    {statusUpdating ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                    )}
+                    Approve as Client
+                  </Button>
+                )}
+
+                {(user?.metadata?.role === "admin" ||
+                  user?.metadata?.role === "production" ||
+                  user?.metadata?.role === "qa") && (
+                  <Button
+                    onClick={() => updateAssetStatus("approved")}
+                    disabled={asset?.status === "approved" || statusUpdating}
+                    variant={
+                      asset?.status === "approved" ? "default" : "outline"
+                    }
+                    size="sm"
+                    className="flex-1 cursor-pointer"
+                  >
+                    {statusUpdating ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                    )}
+                    Approve (Internal)
+                  </Button>
+                )}
                 <Button
                   onClick={() => updateAssetStatus("revisions")}
                   disabled={asset?.status === "revisions" || statusUpdating}
@@ -2496,9 +2509,11 @@ export default function ReviewPage() {
                                           Annotation {index + 1}
                                         </div>
                                         <div className="text-foreground">
-                                          {annotation.comment?.length > 100
-                                            ? `${annotation.comment.substring(0, 100)}...`
-                                            : annotation.comment}
+                                          <span className="break-words whitespace-pre-wrap">
+                                            {annotation.comment?.length > 100
+                                              ? `${annotation.comment.substring(0, 100)}...`
+                                              : annotation.comment}
+                                          </span>
                                         </div>
                                       </div>
                                     ))}
@@ -3367,9 +3382,9 @@ export default function ReviewPage() {
                                 >
                                   <div className="flex items-start justify-between">
                                     <div className="flex-1 break-words w-full">
-                                      <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                                        {annotation.comment}
-                                      </pre>
+                                      <div className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                        {linkifyText(annotation.comment)}
+                                      </div>
                                     </div>
                                     <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
                                   </div>
@@ -3579,11 +3594,11 @@ export default function ReviewPage() {
                                   : "Click to edit comment"
                               }
                             >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 break-words w-full">
-                                  <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                                    {comment.comment}
-                                  </pre>
+                              <div className="flex items-start justify-between min-w-0">
+                                <div className="flex-1 break-words w-full overflow-hidden">
+                                  <div className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                    {linkifyText(comment.comment)}
+                                  </div>
                                 </div>
                                 <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
                               </div>
@@ -4020,68 +4035,70 @@ export default function ReviewPage() {
             </DialogContent>
           </Dialog>
 
-          {/* Additional Ready for Revision Dialog */}
-          <Dialog
-            open={showSecondRevisionDialog}
-            onOpenChange={setShowSecondRevisionDialog}
-          >
-            <DialogContent className="sm:max-w-[500px] h-fit">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-red-700 dark:text-red-400">
-                  ⚠️ Additional Revision Warning
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  This is revision #{revisionCount + 1} for this asset.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-950/20 dark:border-red-800/30">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
-                    <div className="space-y-2">
-                      <h4 className="font-semibold text-red-800 dark:text-red-200">
-                        Cost Warning
-                      </h4>
-                      <p className="text-sm text-red-700 dark:text-red-300">
-                        Additional revisions may incur costs if the changes are
-                        client requests and not due to modeling errors.
-                      </p>
+          {/* Additional Ready for Revision Dialog (client-only warning) */}
+          {user?.metadata?.role === "client" && (
+            <Dialog
+              open={showSecondRevisionDialog}
+              onOpenChange={setShowSecondRevisionDialog}
+            >
+              <DialogContent className="sm:max-w-[500px] h-fit">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-bold text-red-700 dark:text-red-400">
+                    ⚠️ Additional Revision Warning
+                  </DialogTitle>
+                  <DialogDescription className="text-muted-foreground">
+                    This is revision #{revisionCount + 1} for this asset.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-950/20 dark:border-red-800/30">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-red-800 dark:text-red-200">
+                          Cost Warning
+                        </h4>
+                        <p className="text-sm text-red-700 dark:text-red-300">
+                          Additional revisions may incur costs if the changes
+                          are client requests and not due to modeling errors.
+                        </p>
+                      </div>
                     </div>
                   </div>
+                  <div className="text-sm text-muted-foreground">
+                    <p>• This revision will be reviewed for billing purposes</p>
+                    <p>• Client-requested changes may be added to invoice</p>
+                    <p>• Modeling errors will not incur additional costs</p>
+                    {revisionCount >= 3 && (
+                      <p className="font-medium text-red-600 dark:text-red-400">
+                        • This is revision #{revisionCount + 1} - fees will
+                        likely apply
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  <p>• This revision will be reviewed for billing purposes</p>
-                  <p>• Client-requested changes may be added to invoice</p>
-                  <p>• Modeling errors will not incur additional costs</p>
-                  {revisionCount >= 3 && (
-                    <p className="font-medium text-red-600 dark:text-red-400">
-                      • This is revision #{revisionCount + 1} - fees will likely
-                      apply
-                    </p>
-                  )}
+                <div className="flex gap-3 pt-4 border-t border-border">
+                  <Button
+                    onClick={
+                      revisionCount >= 2
+                        ? handleAdditionalRevisionConfirm
+                        : handleSecondRevisionConfirm
+                    }
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
+                  >
+                    Proceed with Revision #{revisionCount + 1}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSecondRevisionDialog(false)}
+                    className="border-border hover:bg-accent cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
                 </div>
-              </div>
-              <div className="flex gap-3 pt-4 border-t border-border">
-                <Button
-                  onClick={
-                    revisionCount >= 2
-                      ? handleAdditionalRevisionConfirm
-                      : handleSecondRevisionConfirm
-                  }
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
-                >
-                  Proceed with Revision #{revisionCount + 1}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowSecondRevisionDialog(false)}
-                  className="border-border hover:bg-accent cursor-pointer"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
 
           {/* Revision Details Dialog */}
           <Dialog
@@ -4146,7 +4163,9 @@ export default function ReviewPage() {
                                   </div>
                                 </div>
                                 <div className="text-sm text-foreground">
-                                  {annotation.comment}
+                                  <span className="break-words whitespace-pre-wrap">
+                                    {linkifyText(annotation.comment)}
+                                  </span>
                                 </div>
                                 {annotation.image_url && (
                                   <div className="mt-3">
@@ -4218,10 +4237,10 @@ export default function ReviewPage() {
                                     ).toLocaleDateString()}
                                   </div>
                                 </div>
-                                <div className="text-sm text-foreground">
-                                  <pre className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                                    {comment.comment}
-                                  </pre>
+                                <div className="text-sm text-foreground break-words overflow-hidden">
+                                  <div className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                    {linkifyText(comment.comment)}
+                                  </div>
                                 </div>
                               </Card>
                             )

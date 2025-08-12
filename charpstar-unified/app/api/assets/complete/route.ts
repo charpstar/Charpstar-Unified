@@ -26,10 +26,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Enforce role on client approval
+    if (
+      status === "approved_by_client" &&
+      user.user_metadata?.role !== "client"
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Update the asset status
     const updateData: any = { status };
-    if (status === "revisions" && revisionCount !== undefined) {
-      updateData.revision_count = revisionCount + 1;
+    // On revisions, increment revision_count immediately and notify modeler
+    if (status === "revisions") {
+      // Fetch latest revision number to set on asset
+      const { data: latestRev } = await supabase
+        .from("revision_history")
+        .select("revision_number")
+        .eq("asset_id", assetId)
+        .order("revision_number", { ascending: false })
+        .limit(1)
+        .single();
+      const latestNumber = latestRev?.revision_number ?? revisionCount ?? null;
+      if (latestNumber !== null) updateData.revision_count = latestNumber;
+    } else if (revisionCount !== undefined) {
+      updateData.revision_count = revisionCount;
     }
 
     const { error: assetError } = await supabase
@@ -47,6 +67,37 @@ export async function POST(request: NextRequest) {
 
     // Send notification when asset is approved (either by client or other means)
     if (status === "approved" || status === "approved_by_client") {
+      // Send notification immediately to modeler when revisions requested
+      if (status === "revisions") {
+        try {
+          const { data: assignments } = await supabase
+            .from("asset_assignments")
+            .select("user_id")
+            .eq("asset_id", assetId)
+            .eq("role", "modeler");
+          if (assignments && assignments.length > 0) {
+            const modelerId = assignments[0].user_id;
+            const { data: asset } = await supabase
+              .from("onboarding_assets")
+              .select("product_name, client")
+              .eq("id", assetId)
+              .single();
+            const { data: modelerProfile } = await supabase
+              .from("profiles")
+              .select("email")
+              .eq("id", modelerId)
+              .single();
+            await notificationService.sendRevisionNotification(
+              modelerId,
+              modelerProfile?.email,
+              asset?.product_name,
+              asset?.client
+            );
+          }
+        } catch (e) {
+          // swallow
+        }
+      }
       try {
         // Get asset details
         const { data: assetDetails, error: assetDetailsError } = await supabase
@@ -99,59 +150,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send notification when asset needs revisions
-    if (status === "revisions") {
-      try {
-        // Get asset details
-        const { data: assetDetails, error: assetDetailsError } = await supabase
-          .from("onboarding_assets")
-          .select("product_name, client")
-          .eq("id", assetId)
-          .single();
-
-        if (assetDetailsError) {
-          console.error("Error fetching asset details:", assetDetailsError);
-        } else {
-          // Get the modeler assigned to this asset
-          const { data: assignments, error: assignmentError } = await supabase
-            .from("asset_assignments")
-            .select("user_id")
-            .eq("asset_id", assetId)
-            .eq("role", "modeler");
-
-          if (assignmentError) {
-            console.error("Error fetching asset assignment:", assignmentError);
-          } else if (assignments && assignments.length > 0) {
-            // Use the first assignment if multiple exist
-            const assignment = assignments[0];
-            // Get modeler's email
-            const { data: modelerProfile, error: modelerError } = await supabase
-              .from("profiles")
-              .select("email")
-              .eq("id", assignment.user_id)
-              .single();
-
-            if (modelerError) {
-              console.error("Error fetching modeler profile:", modelerError);
-            } else {
-              // Send revision notification
-              await notificationService.sendRevisionNotification(
-                assignment.user_id,
-                modelerProfile.email,
-                assetDetails.product_name,
-                assetDetails.client
-              );
-            }
-          }
-        }
-      } catch (notificationError) {
-        console.error(
-          "Failed to send revision notification:",
-          notificationError
-        );
-        // Don't fail the entire request if notification fails
-      }
-    }
+    // Do NOT notify on client submission of revisions; production will forward later
 
     // Check allocation list status whenever an asset status changes
     const { data: assignments, error: assignmentError } = await supabase

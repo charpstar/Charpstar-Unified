@@ -41,33 +41,33 @@ import { getPriorityLabel } from "@/lib/constants";
 
 const STATUS_LABELS = {
   in_production: {
-    label: "In Production",
+    label: "In Progress",
     color: "bg-warning-muted text-warning border-warning/20",
     rowColor: "table-row-status-in-production",
     hoverColor: "",
   },
+  delivered_by_artist: {
+    label: "Waiting for Approval",
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+    rowColor: "table-row-status-in-production",
+    hoverColor: "",
+  },
   revisions: {
-    label: "Ready for Revision",
-    color: "bg-info-muted text-info border-info/20",
+    label: "Sent for Revision",
+    color: "bg-error-muted text-error border-error/20",
     rowColor: "table-row-status-revisions",
     hoverColor: "",
   },
   approved: {
-    label: "Waiting for Approval",
-    color: "bg-success-muted text-success border-success/20",
+    label: "Approved",
+    color: "bg-green-100 text-green-800 border-green-200",
     rowColor: "table-row-status-approved",
     hoverColor: "",
   },
   approved_by_client: {
     label: "Approved by Client",
-    color: "bg-emerald-muted text-emerald border-emerald/20",
+    color: "bg-blue-100 text-blue-700 border-blue-200",
     rowColor: "table-row-status-approved-by-client",
-    hoverColor: "",
-  },
-  delivered_by_artist: {
-    label: "In Production",
-    color: "bg-warning-muted text-warning border-warning/20",
-    rowColor: "table-row-status-in-production",
     hoverColor: "",
   },
   not_started: {
@@ -172,7 +172,7 @@ export default function ReviewDashboardPage() {
   const [assets, setAssets] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [sort, setSort] = useState<string>("batch");
+  const [sort, setSort] = useState<string>("status-progress");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -305,6 +305,19 @@ export default function ReviewDashboardPage() {
       data.sort((a, b) => (a.priority || 2) - (b.priority || 2));
     if (sort === "priority-lowest")
       data.sort((a, b) => (b.priority || 2) - (a.priority || 2));
+    if (sort === "status-progress") {
+      const statusPriority: Record<string, number> = {
+        in_production: 1,
+        delivered_by_artist: 2,
+        revisions: 3,
+        approved: 4,
+        approved_by_client: 5,
+      };
+      data.sort(
+        (a, b) =>
+          (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
+      );
+    }
     setFiltered(data);
   }, [assets, statusFilter, sort, search]);
 
@@ -427,6 +440,9 @@ export default function ReviewDashboardPage() {
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="status-progress">
+                  Sort by: Status Progression
+                </SelectItem>
                 <SelectItem value="batch">
                   Sort by: Batch (1, 2, 3...)
                 </SelectItem>

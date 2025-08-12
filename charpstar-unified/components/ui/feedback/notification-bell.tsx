@@ -11,6 +11,7 @@ import {
   RefreshCw,
   AlertCircle,
   X,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
@@ -25,6 +26,7 @@ import {
 } from "@/lib/notificationService";
 import { useUser } from "@/contexts/useUser";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 
 interface NotificationBellProps {
   className?: string;
@@ -32,6 +34,7 @@ interface NotificationBellProps {
 
 export function NotificationBell({ className }: NotificationBellProps) {
   const user = useUser();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -58,7 +61,16 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
     // Refresh notifications every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    // Listen for global notification updates to refresh immediately
+    const handler = () => fetchNotifications();
+    window.addEventListener("notificationsUpdated", handler as EventListener);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener(
+        "notificationsUpdated",
+        handler as EventListener
+      );
+    };
   }, [user?.id]);
 
   const markAsRead = async (notificationId: string) => {
@@ -82,6 +94,59 @@ export function NotificationBell({ className }: NotificationBellProps) {
       setUnreadCount(0);
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
+    }
+  };
+
+  const handleNotificationClick = async (notification: NotificationData) => {
+    // Mark notification as read first
+    if (notification.id) {
+      await markAsRead(notification.id);
+    }
+
+    // Close the notification popover
+    setOpen(false);
+
+    // Smart navigation based on notification type:
+    // - asset_allocation: Go to pending assignments (new work)
+    // - asset_completed: Go to my-assignments (view completed work)
+    // - qa_review: Go to specific asset review page if available
+    // - status_change: Go to my-assignments (view status updates)
+    // - deadline_reminder: Go to pending assignments (view deadlines)
+    try {
+      switch (notification.type) {
+        case "asset_allocation":
+          // Navigate to pending assignments page for new asset allocations
+          router.push("/pending-assignments");
+          break;
+        case "asset_completed":
+          // Navigate to my-assignments page to see completed assets
+          router.push("/my-assignments");
+          break;
+        case "qa_review":
+          // Navigate to QA review page if we have asset ID
+          if (notification.metadata?.assetIds?.[0]) {
+            router.push(`/modeler-review/${notification.metadata.assetIds[0]}`);
+          } else {
+            router.push("/my-assignments");
+          }
+          break;
+        case "status_change":
+          // Navigate to my-assignments page to see status changes
+          router.push("/my-assignments");
+          break;
+        case "deadline_reminder":
+          // Navigate to pending assignments page to see upcoming deadlines
+          router.push("/pending-assignments");
+          break;
+        default:
+          // Default to my-assignments page
+          router.push("/my-assignments");
+          break;
+      }
+    } catch (error) {
+      console.error("Error navigating to notification page:", error);
+      // Fallback to my-assignments page
+      router.push("/my-assignments");
     }
   };
 
@@ -170,6 +235,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                 </Badge>
               )}
             </div>
+
             <div className="flex items-center gap-1">
               {unreadCount > 0 && (
                 <Button
@@ -193,6 +259,11 @@ export function NotificationBell({ className }: NotificationBellProps) {
           </div>
         </div>
 
+        <div className="px-4 py-2 bg-blue-50 border-b border-blue-200">
+          <p className="text-xs text-blue-700 text-center">
+            💡 Click any notification to navigate to the relevant page
+          </p>
+        </div>
         <div className="max-h-96 overflow-y-auto bg-gray-50">
           {loading ? (
             <div className="p-8 text-center">
@@ -214,8 +285,8 @@ export function NotificationBell({ className }: NotificationBellProps) {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 border-l-4 ${getNotificationColor(notification.type)} hover:bg-white transition-colors cursor-pointer`}
-                  onClick={() => notification.id && markAsRead(notification.id)}
+                  className={`p-4 border-l-4 ${getNotificationColor(notification.type)} hover:bg-white transition-colors cursor-pointer group`}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start gap-3">
                     <div
@@ -239,13 +310,12 @@ export function NotificationBell({ className }: NotificationBellProps) {
                                 "MMM d, h:mm a"
                               )}
                             </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-gray-400 group-hover:text-gray-600 transition-colors">
+                                Click to navigate
+                              </span>
+                              <ArrowRight className="h-3 w-3 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                            </div>
                           </div>
                         </div>
                       </div>

@@ -38,7 +38,8 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        // default: non-interactive; only interactive while open
+        "fixed inset-0 z-50 bg-black/50 pointer-events-none data-[state=open]:pointer-events-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className
       )}
       {...props}
@@ -132,12 +133,14 @@ function UploadAssetDialogContent({
         )}
         onCloseAutoFocus={(e) => {
           e.preventDefault();
+          document.body.style.pointerEvents = "";
         }}
         onEscapeKeyDown={() => {
-          // Handle escape key
+          document.body.style.pointerEvents = "";
         }}
         onInteractOutside={(e) => {
           e.preventDefault();
+          document.body.style.pointerEvents = "";
         }}
         {...props}
       >
@@ -167,12 +170,14 @@ function PreviewGeneratorDialogContent({
         )}
         onCloseAutoFocus={(e) => {
           e.preventDefault();
+          document.body.style.pointerEvents = "";
         }}
         onEscapeKeyDown={() => {
-          // Handle escape key
+          document.body.style.pointerEvents = "";
         }}
         onInteractOutside={(e) => {
           e.preventDefault();
+          document.body.style.pointerEvents = "";
         }}
         {...props}
       >

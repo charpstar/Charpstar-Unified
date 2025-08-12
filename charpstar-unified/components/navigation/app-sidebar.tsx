@@ -114,6 +114,7 @@ export default function AppSidebar({
             url: "/production",
             icon: Factory,
           },
+          // Pending Revisions removed (reverted)
 
           {
             title: "Create Users",
@@ -137,11 +138,7 @@ export default function AppSidebar({
             url: "/my-assignments",
             icon: Package,
           },
-          {
-            title: "Modeler Review",
-            url: "/modeler-review",
-            icon: MessageSquare,
-          },
+
           {
             title: "Guidelines",
             url: "/guidelines",
@@ -159,6 +156,7 @@ export default function AppSidebar({
             url: "/qa-review",
             icon: MessageSquare,
           },
+          // Pending Revisions removed (reverted)
           {
             title: "Guidelines",
             url: "/guidelines",

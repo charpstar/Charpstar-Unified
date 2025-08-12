@@ -15,6 +15,12 @@ import { Badge } from "@/components/ui/feedback";
 import { Progress } from "@/components/ui/feedback";
 import { Skeleton } from "@/components/ui/skeletons";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/interactive";
+import {
   Users,
   CheckCircle,
   AlertCircle,
@@ -90,6 +96,13 @@ export default function QAWidgets() {
   const [modelers, setModelers] = useState<ModelerProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
+  const [projects, setProjects] = useState<
+    Array<{
+      client: string;
+      batch: number;
+      modelers: Array<{ id: string; email: string; title?: string }>;
+    }>
+  >([]);
 
   useEffect(() => {
     if (user?.id) {
@@ -140,7 +153,9 @@ export default function QAWidgets() {
             id,
             product_name,
             status,
-            created_at
+            created_at,
+            client,
+            batch
           )
         `
         )
@@ -229,6 +244,48 @@ export default function QAWidgets() {
       });
 
       setModelers(modelerProgress);
+
+      // Build projects list (client + batch) with modelers working on them
+      const modelerDetailMap = new Map(
+        (modelerDetails || []).map((m) => [m.id, m])
+      );
+      const projectMap = new Map<
+        string,
+        { client: string; batch: number; modelerIds: Set<string> }
+      >();
+
+      assetAssignments?.forEach((assignment) => {
+        const asset = assignment.onboarding_assets as any;
+        if (!asset?.client || asset.batch === undefined || asset.batch === null)
+          return;
+        const key = `${asset.client}__${asset.batch}`;
+        if (!projectMap.has(key)) {
+          projectMap.set(key, {
+            client: asset.client,
+            batch: asset.batch,
+            modelerIds: new Set<string>(),
+          });
+        }
+        projectMap.get(key)!.modelerIds.add(assignment.user_id);
+      });
+
+      const projectsArr = Array.from(projectMap.values())
+        .map((p) => ({
+          client: p.client,
+          batch: p.batch,
+          modelers: Array.from(p.modelerIds).map((id) => ({
+            id,
+            email: modelerDetailMap.get(id)?.email || id,
+            title: modelerDetailMap.get(id)?.title,
+          })),
+        }))
+        .sort((a, b) =>
+          a.client === b.client
+            ? a.batch - b.batch
+            : a.client.localeCompare(b.client)
+        );
+
+      setProjects(projectsArr);
     } catch {
       toast.error("Failed to fetch modeler progress");
     } finally {
@@ -244,7 +301,7 @@ export default function QAWidgets() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            My Modelers
+            Projects
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -256,11 +313,11 @@ export default function QAWidgets() {
               >
                 <div className="flex items-center gap-3 flex-1">
                   <div className="h-4 w-4 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-48 bg-muted animate-pulse rounded" />
                 </div>
                 <div className="flex items-center gap-3 flex-1">
-                  <div className="h-2 w-32 bg-muted animate-pulse rounded" />
-                  <div className="h-5 w-12 bg-muted animate-pulse rounded" />
+                  <div className="h-2 w-40 bg-muted animate-pulse rounded" />
+                  <div className="h-5 w-16 bg-muted animate-pulse rounded" />
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="h-3 w-8 bg-muted animate-pulse rounded" />
@@ -276,23 +333,23 @@ export default function QAWidgets() {
     );
   }
 
-  if (modelers.length === 0) {
+  if (projects.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="font-semibold text-sm text-foreground">
             <Users className="h-5 w-5" />
-            My Modelers
+            Projects
           </CardTitle>
         </CardHeader>
 
         <CardContent>
           <div className="text-center py-8">
             <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No modelers allocated yet</p>
+            <p className="text-muted-foreground">No projects found</p>
             <p className="text-sm text-muted-foreground">
-              You will see your allocated modelers here once production assigns
-              them to you.
+              You will see your allocated projects here once production assigns
+              modelers to you.
             </p>
           </div>
         </CardContent>
@@ -304,108 +361,64 @@ export default function QAWidgets() {
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-2 mb-3">
         <User className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">My Modelers</h3>
+        <h3 className="text-sm font-semibold text-foreground">Projects</h3>
       </div>
-      <div className="flex-1 min-h-0 space-y-2 overflow-y-auto">
-        {displayedModelers.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">No modelers allocated yet</p>
-            <p className="text-xs mt-1">
-              Contact production to get assigned to modelers
-            </p>
-          </div>
-        ) : (
-          displayedModelers.map((modeler) => (
-            <div
-              key={modeler.id}
-              className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-            >
-              {/* Modeler Info */}
-              <div className="flex items-center gap-3 flex-1">
-                <User className="h-4 w-4 text-primary" />
-                <div>
-                  <p className="font-medium text-sm">
-                    {modeler.title || modeler.email.split("@")[0]}
-                  </p>
-                </div>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="flex items-center gap-3 flex-1">
-                <div className="flex-1 max-w-32">
-                  <Progress
-                    value={modeler.completionPercentage}
-                    className="h-2"
-                  />
-                </div>
-                <Badge
-                  variant="outline"
-                  className={`text-xs min-w-[3rem] ${
-                    modeler.completionPercentage >= 80
-                      ? "bg-green-50 text-green-700 border-green-200"
-                      : modeler.completionPercentage >= 50
-                        ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                        : "bg-red-50 text-red-700 border-red-200"
-                  }`}
-                >
-                  {modeler.completionPercentage}%
-                </Badge>
-              </div>
-
-              {/* Status Breakdown */}
-              <div className="flex items-center gap-3 text-xs">
-                <div className="flex items-center gap-1">
-                  <CheckCircle className="h-3 w-3 text-green-600" />
-                  <span className="font-medium">{modeler.completedAssets}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3 text-blue-600" />
-                  <span className="font-medium">{modeler.pendingAssets}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3 text-red-600" />
-                  <span className="font-medium">{modeler.revisionAssets}</span>
-                </div>
-              </div>
-
-              {/* View Modeler Assets Link */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push(`/qa-review?modeler=${modeler.id}`)}
-                className="h-8 w-8 p-0 hover:bg-muted"
-                title={`View ${modeler.title || modeler.email.split("@")[0]}'s assets`}
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-            </div>
-          ))
-        )}
-
-        {modelers.length > 4 && (
-          <div className="pt-2">
-            {!showAll ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAll(true)}
-                className="gap-2"
-              >
-                View More ({modelers.length - 4} more)
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAll(false)}
-                className="gap-2"
-              >
-                Show Less
-              </Button>
-            )}
-          </div>
-        )}
+      <div className="flex-1 min-h-0 space-y-2">
+        <div className="max-h-[50vh] overflow-y-auto pr-1">
+          <Accordion type="single" collapsible className="space-y-1">
+            {projects.map((p) => {
+              const value = `${p.client}-${p.batch}`;
+              return (
+                <AccordionItem key={value} value={value}>
+                  <AccordionTrigger className="px-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">
+                        {p.client} - Batch {p.batch}
+                      </span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {p.modelers.length} modelers
+                      </Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2">
+                      {p.modelers.map((m) => (
+                        <div
+                          key={m.id}
+                          className="flex items-center justify-between p-2 border rounded-md"
+                        >
+                          <div className="flex items-center gap-2 text-sm">
+                            <User className="h-4 w-4 text-primary" />
+                            <span className="font-medium">
+                              {m.title || m.email.split("@")[0]}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {m.email}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="View QA review for this modeler"
+                            onClick={() =>
+                              router.push(
+                                `/qa-review?modeler=${m.id}&client=${encodeURIComponent(
+                                  p.client
+                                )}&batch=${p.batch}`
+                              )
+                            }
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        </div>
       </div>
     </div>
   );
@@ -416,6 +429,7 @@ export function PersonalMetricsWidget() {
   const user = useUser();
   const [metrics, setMetrics] = useState<PersonalMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [modelsToReview, setModelsToReview] = useState<number>(0);
 
   // Custom event listener to track QA approval actions
   useEffect(() => {
@@ -582,6 +596,79 @@ export function PersonalMetricsWidget() {
         approvedToday: todayData.approved,
         weeklyData,
       });
+
+      // Calculate total models to review ("Waiting for Approval" / delivered_by_artist)
+      try {
+        // For QA users, count assets from their allocated modelers
+        if (user?.metadata?.role === "qa") {
+          const { data: qaAllocations, error: qaError } = await supabase
+            .from("qa_allocations")
+            .select("modeler_id")
+            .eq("qa_id", user.id);
+
+          if (qaError) {
+            console.error("Error fetching QA allocations:", qaError);
+            setModelsToReview(0);
+          } else if (!qaAllocations || qaAllocations.length === 0) {
+            setModelsToReview(0);
+          } else {
+            const modelerIds = qaAllocations.map((a: any) => a.modeler_id);
+            const { data: assetAssignments, error: assignmentError } =
+              await supabase
+                .from("asset_assignments")
+                .select(
+                  `
+                asset_id,
+                onboarding_assets!inner(
+                  id,
+                  status
+                )
+              `
+                )
+                .in("user_id", modelerIds)
+                .eq("role", "modeler")
+                .eq("onboarding_assets.status", "delivered_by_artist");
+
+            if (assignmentError) {
+              console.error(
+                "Error fetching asset assignments:",
+                assignmentError
+              );
+              setModelsToReview(0);
+            } else {
+              setModelsToReview(assetAssignments?.length || 0);
+            }
+          }
+        } else {
+          // For other roles, count all assets waiting for approval
+          const { data: allAssets, error: assetsError } = await supabase
+            .from("onboarding_assets")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "delivered_by_artist");
+
+          if (assetsError) {
+            console.error("Error counting waiting assets:", assetsError);
+            setModelsToReview(0);
+          } else {
+            // When using head:true with count:exact, data is null; count is in the response
+            // However, supabase-js v2 requires select without head to return data; fallback: another query
+            // Do a lightweight query to fetch ids and count length
+            const { data: ids, error: idsError } = await supabase
+              .from("onboarding_assets")
+              .select("id")
+              .eq("status", "delivered_by_artist");
+            if (idsError) {
+              console.error("Error fetching waiting asset ids:", idsError);
+              setModelsToReview(0);
+            } else {
+              setModelsToReview(ids?.length || 0);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error computing models to review:", err);
+        setModelsToReview(0);
+      }
     } catch {
       console.error("Error fetching personal metrics");
     } finally {
@@ -679,6 +766,9 @@ export function PersonalMetricsWidget() {
           <div className="text-sm font-medium">
             {totalReviewed} reviewed, {totalApproved} approved
           </div>
+          <div className="text-xs text-foreground">
+            To review: <span className="font-semibold">{modelsToReview}</span>
+          </div>
           <div className="text-xs text-muted-foreground">
             {trendPercentage}% approval rate
           </div>
@@ -717,6 +807,7 @@ export function WaitingForApprovalWidget() {
   const [assets, setAssets] = useState<WaitingForApprovalAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const user = useUser();
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const fetchWaitingForApprovalAssets = async () => {
@@ -899,8 +990,14 @@ export function WaitingForApprovalWidget() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
-          {assets.slice(0, 5).map((asset) => (
+        <div
+          className={
+            expanded
+              ? "space-y-3 max-h-[50vh] overflow-y-auto pr-1"
+              : "space-y-3"
+          }
+        >
+          {(expanded ? assets : assets.slice(0, 5)).map((asset) => (
             <div
               key={asset.id}
               className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -951,11 +1048,9 @@ export function WaitingForApprovalWidget() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() =>
-                  window.open("/qa-review?status=delivered_by_artist", "_blank")
-                }
+                onClick={() => setExpanded((v) => !v)}
               >
-                View All ({assets.length})
+                {expanded ? "Collapse" : `View All (${assets.length})`}
               </Button>
             </div>
           )}

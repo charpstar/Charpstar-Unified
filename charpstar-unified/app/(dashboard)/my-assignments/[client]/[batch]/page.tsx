@@ -38,11 +38,10 @@ import {
   TableRow,
 } from "@/components/ui/display";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
 } from "@/components/ui/interactive";
 import {
   Search,
@@ -56,16 +55,14 @@ import {
   Calendar,
   Building,
   ArrowLeft,
-  ExternalLink,
   Download,
   Upload,
-  File,
   Image,
   Euro,
-  MoreHorizontal,
   FolderOpen,
   X,
   FileText,
+  Link2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -76,6 +73,8 @@ import {
 } from "@/components/ui/containers";
 import { AssetFilesManager } from "@/components/asset-library/AssetFilesManager";
 import { InvoiceGenerator } from "@/components/invoice";
+import ErrorBoundary from "@/components/dashboard/error-boundary";
+import { notificationService } from "@/lib/notificationService";
 
 interface BatchAsset {
   id: string;
@@ -207,6 +206,36 @@ export default function BatchDetailPage() {
     }
   }, [user?.id, client, batch]);
 
+  // Mark relevant notifications as read when visiting this page
+  useEffect(() => {
+    const markPageNotificationsRead = async () => {
+      if (!user?.id) return;
+      try {
+        const unread = await notificationService.getUnreadNotifications(
+          user.id
+        );
+        const toMark = unread.filter(
+          (n) => n.type === "asset_completed" || n.type === "status_change"
+        );
+        if (toMark.length > 0) {
+          await Promise.all(
+            toMark
+              .filter((n) => n.id)
+              .map((n) => notificationService.markNotificationAsRead(n.id!))
+          );
+          // notify bell to refresh immediately
+          window.dispatchEvent(new Event("notificationsUpdated"));
+        }
+      } catch (e) {
+        console.error(
+          "Failed marking notifications as read on my-assignments",
+          e
+        );
+      }
+    };
+    markPageNotificationsRead();
+  }, [user?.id]);
+
   useEffect(() => {
     filterAndSortAssets();
   }, [allocationLists, searchTerm, statusFilter, sortBy]);
@@ -233,14 +262,13 @@ export default function BatchDetailPage() {
         .select(
           `
           asset_id,
-          user_id,
-          profiles!inner(title, email)
+          user_id
         `
         )
         .in("asset_id", assetIds)
         .eq("role", "modeler")
         .neq("user_id", user?.id)
-        .order("created_at", { ascending: false });
+        .order("start_time", { ascending: false });
 
       if (error) {
         console.error("Error fetching previous assignments:", error);
@@ -303,10 +331,6 @@ export default function BatchDetailPage() {
             (h) => h.assetId === assignment.asset_id
           );
           if (!existingHistory) {
-            const profile = Array.isArray(assignment.profiles)
-              ? assignment.profiles[0]
-              : assignment.profiles;
-
             const assetGlbHistory =
               glbHistory?.filter((h) => h.asset_id === assignment.asset_id) ||
               [];
@@ -318,8 +342,7 @@ export default function BatchDetailPage() {
             history.push({
               assetId: assignment.asset_id,
               previousModelerId: assignment.user_id,
-              previousModelerName:
-                profile?.title || profile?.email || "Unknown",
+              previousModelerName: `User ${assignment.user_id.slice(0, 8)}...`,
               files: {
                 glb_link: asset.glb_link,
                 reference: asset.reference,
@@ -511,9 +534,36 @@ export default function BatchDetailPage() {
     } catch (error) {
       console.error("Error fetching batch assets:", error);
       toast.error("Failed to fetch batch assets");
+      // Don't let errors crash the app - set default values instead
+      setAllocationLists([]);
+      setBatchStats({
+        totalAssets: 0,
+        completedAssets: 0,
+        inProgressAssets: 0,
+        pendingAssets: 0,
+        revisionAssets: 0,
+        waitingForApprovalAssets: 0,
+        completionPercentage: 0,
+        totalBaseEarnings: 0,
+        totalBonusEarnings: 0,
+        totalPotentialEarnings: 0,
+        completedEarnings: 0,
+        pendingEarnings: 0,
+        averageAssetPrice: 0,
+      });
     } finally {
       setLoading(false);
       stopLoading();
+    }
+  };
+
+  // Safe wrapper for fetchBatchAssets to prevent app crashes
+  const safeFetchBatchAssets = async () => {
+    try {
+      await fetchBatchAssets();
+    } catch (error) {
+      console.error("Error in safeFetchBatchAssets:", error);
+      toast.error("Failed to refresh asset list");
     }
   };
 
@@ -556,6 +606,29 @@ export default function BatchDetailPage() {
     setFilteredAssets(filtered);
   };
 
+  // Highlight helper for search matches
+  const escapeRegExp = (value: string) =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const highlightMatch = (text: string, query: string): React.ReactNode => {
+    if (!query) return text;
+    const pattern = new RegExp(`(${escapeRegExp(query)})`, "ig");
+    const parts = text.split(pattern);
+    if (parts.length === 1) return text;
+    return (
+      <>
+        {parts.map((part, idx) =>
+          part.toLowerCase() === query.toLowerCase() ? (
+            <span key={idx} className="bg-yellow-200/70 rounded px-0.5">
+              {part}
+            </span>
+          ) : (
+            <span key={idx}>{part}</span>
+          )
+        )}
+      </>
+    );
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "approved":
@@ -567,7 +640,7 @@ export default function BatchDetailPage() {
       case "not_started":
         return <AlertCircle className="h-4 w-4 text-error" />;
       case "revisions":
-        return <RotateCcw className="h-4 w-4 text-info" />;
+        return <RotateCcw className="h-4 w-4 text-error" />;
       default:
         return <Eye className="h-4 w-4 text-gray-600" />;
     }
@@ -577,6 +650,8 @@ export default function BatchDetailPage() {
     switch (status) {
       case "approved":
         return "bg-success-muted text-success border-success/20";
+      case "approved_by_client":
+        return "bg-blue-100 text-blue-700 border-blue-200";
       case "delivered_by_artist":
         return "bg-accent-purple/10 text-accent-purple border-accent-purple/20";
       case "in_production":
@@ -584,9 +659,29 @@ export default function BatchDetailPage() {
       case "not_started":
         return "bg-error-muted text-error border-error/20";
       case "revisions":
-        return "bg-info-muted text-info border-info/20";
+        return "bg-error-muted text-error border-error/20";
       default:
         return "bg-muted text-muted-foreground border-border";
+    }
+  };
+
+  // Match admin-review row styling by status
+  const getStatusRowClass = (status: string): string => {
+    switch (status) {
+      case "in_production":
+        return "table-row-status-in-production";
+      case "revisions":
+        return "table-row-status-revisions";
+      case "approved":
+        return "table-row-status-approved";
+      case "approved_by_client":
+        return "table-row-status-approved-by-client";
+      case "delivered_by_artist":
+        return "table-row-status-delivered-by-artist";
+      case "not_started":
+        return "table-row-status-not-started";
+      default:
+        return "table-row-status-unknown";
     }
   };
 
@@ -594,6 +689,12 @@ export default function BatchDetailPage() {
     router.push(
       `/modeler-review/${assetId}?from=my-assignments&client=${encodeURIComponent(params.client as string)}&batch=${params.batch}`
     );
+  };
+
+  const handleOpenProductLink = (productLink: string) => {
+    if (productLink) {
+      window.open(productLink, "_blank");
+    }
   };
 
   const handleGenerateInvoice = (allocationListId: string) => {
@@ -644,6 +745,12 @@ export default function BatchDetailPage() {
   const handleUploadGLB = async (assetId: string, file: File) => {
     try {
       setUploadingGLB(assetId);
+      console.log(
+        "Starting GLB upload for asset:",
+        assetId,
+        "File:",
+        file.name
+      );
 
       // Validate file
       const fileName = file.name.toLowerCase();
@@ -652,20 +759,100 @@ export default function BatchDetailPage() {
         return;
       }
 
-      // Create FormData for file upload
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("asset_id", assetId);
-      formData.append("file_type", "glb");
+      if (file.size > 100 * 1024 * 1024) {
+        toast.error("File size must be less than 100MB");
+        return;
+      }
 
-      const response = await fetch("/api/assets/upload-file", {
-        method: "POST",
-        body: formData,
-      });
+      // Get the asset to save current GLB to history if it exists
+      const asset = allocationLists
+        .flatMap((list) => list.assets)
+        .find((a) => a.id === assetId);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upload GLB file");
+      console.log("Found asset:", asset);
+
+      if (asset?.glb_link) {
+        console.log("Saving current GLB to history:", asset.glb_link);
+        // Save current GLB to history
+        const { error: historyError } = await supabase
+          .from("glb_upload_history")
+          .insert({
+            asset_id: assetId,
+            glb_url: asset.glb_link,
+            file_name: `Current_${asset.article_id}_${Date.now()}.glb`,
+            file_size: 0,
+            uploaded_by: user?.id,
+            uploaded_at: new Date().toISOString(),
+          });
+
+        if (historyError) {
+          console.error(
+            "Error recording original GLB to history:",
+            historyError
+          );
+        } else {
+          console.log("Successfully saved current GLB to history");
+        }
+      }
+
+      // Upload to Supabase Storage
+      const fileNameForUpload = `${asset?.article_id || assetId}_${Date.now()}.glb`;
+      const filePath = `models/${fileNameForUpload}`;
+      console.log("Uploading to path:", filePath);
+
+      const { error: uploadError } = await supabase.storage
+        .from("assets")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        throw uploadError;
+      }
+
+      console.log("File uploaded successfully to storage");
+
+      // Get the public URL
+      const { data: urlData } = supabase.storage
+        .from("assets")
+        .getPublicUrl(filePath);
+
+      console.log("Got public URL:", urlData.publicUrl);
+
+      // Update the asset with the new GLB link
+      const { error: updateError } = await supabase
+        .from("onboarding_assets")
+        .update({
+          glb_link: urlData.publicUrl,
+          status: "in_production",
+        })
+        .eq("id", assetId);
+
+      if (updateError) {
+        console.error("Database update error:", updateError);
+        throw updateError;
+      }
+
+      console.log("Asset updated successfully in database");
+
+      // Record GLB upload history
+      const { error: newHistoryError } = await supabase
+        .from("glb_upload_history")
+        .insert({
+          asset_id: assetId,
+          glb_url: urlData.publicUrl,
+          file_name: file.name,
+          file_size: file.size,
+          uploaded_by: user?.id,
+          uploaded_at: new Date().toISOString(),
+        });
+
+      if (newHistoryError) {
+        console.error("Error recording GLB history:", newHistoryError);
+      } else {
+        console.log("GLB history recorded successfully");
       }
 
       toast.success("GLB file uploaded successfully!");
@@ -717,11 +904,14 @@ export default function BatchDetailPage() {
   };
 
   const handleOpenUploadDialog = (asset: BatchAsset, type: "glb" | "asset") => {
+    console.log("Opening upload dialog for asset:", asset.id, "type:", type);
     setCurrentUploadAsset(asset);
     setUploadType(type);
     if (type === "glb") {
+      console.log("Setting GLB upload dialog open");
       setGlbUploadDialogOpen(true);
     } else {
+      console.log("Setting asset upload dialog open");
       setAssetUploadDialogOpen(true);
     }
   };
@@ -811,11 +1001,24 @@ export default function BatchDetailPage() {
   };
 
   const handleFileUpload = (file: File) => {
-    if (!currentUploadAsset) return;
+    console.log("handleFileUpload called with:", {
+      file: file.name,
+      uploadType,
+      currentUploadAsset,
+    });
+    if (!currentUploadAsset) {
+      console.error("No current upload asset");
+      return;
+    }
 
     if (uploadType === "glb") {
+      console.log("Calling handleUploadGLB for asset:", currentUploadAsset.id);
       handleUploadGLB(currentUploadAsset.id, file);
     } else {
+      console.log(
+        "Calling handleUploadAsset for asset:",
+        currentUploadAsset.id
+      );
       handleUploadAsset(currentUploadAsset.id, file);
     }
 
@@ -829,7 +1032,14 @@ export default function BatchDetailPage() {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    console.log("File selected:", file);
     if (file) {
+      console.log(
+        "Calling handleFileUpload with file:",
+        file.name,
+        "uploadType:",
+        uploadType
+      );
       handleFileUpload(file);
     }
     // Clear the input
@@ -1008,24 +1218,13 @@ export default function BatchDetailPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="not_started">Not Started</SelectItem>
+
                 <SelectItem value="in_production">In Progress</SelectItem>
                 <SelectItem value="revisions">Sent for Revisions</SelectItem>
                 <SelectItem value="delivered_by_artist">
                   Waiting for Approval
                 </SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="priority">Priority</SelectItem>
-                <SelectItem value="name">Name</SelectItem>
-                <SelectItem value="status">Status</SelectItem>
-                <SelectItem value="article_id">Article ID</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1114,229 +1313,294 @@ export default function BatchDetailPage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            {allocationLists.map((allocationList) => (
-              <Card key={allocationList.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <Package className="h-5 w-5" />
-                        Allocation {allocationList.number} -{" "}
-                        {new Date(allocationList.deadline).toLocaleDateString()}{" "}
-                        - {allocationList.assets.length} assets
-                      </CardTitle>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          <span
-                            className={
-                              isOverdue(allocationList.deadline)
-                                ? "text-red-600 font-medium"
-                                : ""
-                            }
-                          >
-                            Deadline:{" "}
-                            {new Date(
-                              allocationList.deadline
-                            ).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Euro className="h-4 w-4" />
-                          <span>Bonus: +{allocationList.bonus}%</span>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            allocationList.status === "approved"
-                              ? "bg-success-muted text-success border-success/20"
-                              : "bg-warning-muted text-warning border-warning/20"
-                          }`}
-                        >
-                          {allocationList.status === "approved"
-                            ? "Approved"
-                            : allocationList.status}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {/* Invoice Button - Only show if allocation list is approved */}
-                      {allocationList.status === "approved" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            handleGenerateInvoice(allocationList.id)
-                          }
-                          className="gap-2"
-                        >
-                          <FileText className="h-4 w-4" />
-                          Generate Invoice
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">Status</TableHead>
-                        <TableHead>Product Name</TableHead>
-                        <TableHead className="w-32">Article ID</TableHead>
-                        <TableHead className="w-24">Priority</TableHead>
-                        <TableHead className="w-24">Price</TableHead>
-                        <TableHead className="w-32">Category</TableHead>
-                        <TableHead className="w-12">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {allocationList.assets.map((asset) => (
-                        <TableRow key={asset.id} className="hover:bg-muted/50">
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {getStatusIcon(asset.status)}
-                              <Badge
-                                variant="outline"
-                                className={`text-xs ${getStatusColor(asset.status)}`}
-                              >
-                                {asset.status === "delivered_by_artist"
-                                  ? "Waiting for Approval"
-                                  : asset.status === "not_started"
-                                    ? "Not Started"
-                                    : asset.status === "in_production"
-                                      ? "In Progress"
-                                      : asset.status === "revisions"
-                                        ? "Sent for Revision"
-                                        : asset.status}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="font-medium">
-                              {asset.product_name}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-mono text-sm">
-                              {asset.article_id}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${getPriorityClass(asset.priority)}`}
-                            >
-                              {getPriorityLabel(asset.priority)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {asset.price ? (
+            <Accordion type="multiple" className="space-y-2">
+              {allocationLists.map((allocationList) => {
+                const visibleAssets = allocationList.assets.filter((a) =>
+                  filteredAssets.some((f) => f.id === a.id)
+                );
+                if (visibleAssets.length === 0) return null;
+                return (
+                  <AccordionItem
+                    value={allocationList.id}
+                    key={allocationList.id}
+                  >
+                    <Card>
+                      <AccordionTrigger className="px-4">
+                        <div className="flex items-center justify-between w-full">
+                          <div>
+                            <CardTitle className="flex items-center gap-2">
+                              <Package className="h-5 w-5" />
+                              Allocation {allocationList.number} -{" "}
+                              {new Date(
+                                allocationList.deadline
+                              ).toLocaleDateString()}{" "}
+                              - {visibleAssets.length} assets
+                            </CardTitle>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
-                                <Euro className="h-3 w-3 text-success" />
-                                <span className="font-semibold">
-                                  €{asset.price.toFixed(2)}
+                                <Calendar className="h-4 w-4" />
+                                <span
+                                  className={
+                                    isOverdue(allocationList.deadline)
+                                      ? "text-red-600 font-medium"
+                                      : ""
+                                  }
+                                >
+                                  Deadline:{" "}
+                                  {new Date(
+                                    allocationList.deadline
+                                  ).toLocaleDateString()}
                                 </span>
                               </div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">
-                                -
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              {asset.category}
-                              {asset.subcategory && (
-                                <div className="text-xs text-muted-foreground">
-                                  {asset.subcategory}
-                                </div>
-                              )}
+                              <div className="flex items-center gap-1">
+                                <Euro className="h-4 w-4" />
+                                <span>Bonus: +{allocationList.bonus}%</span>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${
+                                  allocationList.status === "approved"
+                                    ? "bg-success-muted text-success border-success/20"
+                                    : "bg-warning-muted text-warning border-warning/20"
+                                }`}
+                              >
+                                {allocationList.status === "approved"
+                                  ? "Approved"
+                                  : allocationList.status}
+                              </Badge>
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => handleViewAsset(asset.id)}
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <CardContent>
+                          {allocationList.status === "approved" && (
+                            <div className="flex items-center justify-end mb-3">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleGenerateInvoice(allocationList.id)
+                                }
+                                className="gap-2"
+                              >
+                                <FileText className="h-4 w-4" />
+                                Generate Invoice
+                              </Button>
+                            </div>
+                          )}
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-12">Status</TableHead>
+                                <TableHead>Product Name</TableHead>
+                                <TableHead className="w-32">
+                                  Article ID
+                                </TableHead>
+                                <TableHead className="w-24">Priority</TableHead>
+                                <TableHead className="w-24">Price</TableHead>
+                                <TableHead className="w-32">Category</TableHead>
+                                <TableHead className="w-24">GLB</TableHead>
+                                <TableHead className="w-24">Asset</TableHead>
+                                <TableHead className="w-20">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {visibleAssets.map((asset) => (
+                                <TableRow
+                                  key={asset.id}
+                                  className={`${getStatusRowClass(asset.status)} hover:bg-muted/50`}
                                 >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Asset
-                                </DropdownMenuItem>
-
-                                {asset.product_link && (
-                                  <DropdownMenuItem asChild>
-                                    <a
-                                      href={asset.product_link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center"
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      {getStatusIcon(asset.status)}
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-xs ${getStatusColor(asset.status)}`}
+                                      >
+                                        {asset.status === "delivered_by_artist"
+                                          ? "Waiting for Approval"
+                                          : asset.status === "not_started"
+                                            ? "Not Started"
+                                            : asset.status === "in_production"
+                                              ? "In Progress"
+                                              : asset.status === "revisions"
+                                                ? "Sent for Revision"
+                                                : asset.status ===
+                                                    "approved_by_client"
+                                                  ? "Approved by Client"
+                                                  : asset.status === "approved"
+                                                    ? "Approved"
+                                                    : asset.status}
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="font-medium">
+                                      {highlightMatch(
+                                        asset.product_name,
+                                        searchTerm
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="font-mono text-sm">
+                                      {
+                                        highlightMatch(
+                                          asset.article_id,
+                                          searchTerm
+                                        ) as any
+                                      }
+                                    </span>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs ${getPriorityClass(asset.priority)}`}
                                     >
-                                      <ExternalLink className="h-4 w-4 mr-2" />
-                                      Product Link
-                                    </a>
-                                  </DropdownMenuItem>
-                                )}
+                                      {getPriorityLabel(asset.priority)}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    {asset.price ? (
+                                      <div className="flex items-center gap-1">
+                                        <Euro className="h-3 w-3 text-success" />
+                                        <span className="font-semibold">
+                                          €{asset.price.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground text-sm">
+                                        -
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="text-sm">
+                                      {highlightMatch(
+                                        asset.category,
+                                        searchTerm
+                                      )}
+                                      {asset.subcategory && (
+                                        <div className="text-xs text-muted-foreground">
+                                          {highlightMatch(
+                                            asset.subcategory,
+                                            searchTerm
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col gap-1">
+                                      {asset.glb_link ? (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() =>
+                                            handleFileDownload(
+                                              asset.glb_link!,
+                                              `${asset.product_name}-${asset.article_id}.glb`
+                                            )
+                                          }
+                                          className="text-xs h-7 px-2 w-full"
+                                        >
+                                          <Download className="h-3 w-3 mr-1" />
+                                          Download GLB
+                                        </Button>
+                                      ) : null}
+                                      <Button
+                                        variant={
+                                          asset.glb_link ? "outline" : "default"
+                                        }
+                                        size="sm"
+                                        onClick={() =>
+                                          handleOpenUploadDialog(asset, "glb")
+                                        }
+                                        disabled={uploadingGLB === asset.id}
+                                        className="text-xs h-7 px-2 w-full"
+                                      >
+                                        {uploadingGLB === asset.id ? (
+                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1" />
+                                        ) : (
+                                          <Upload className="h-3 w-3 mr-1" />
+                                        )}
+                                        {asset.glb_link ? "Update" : "Upload"}
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col gap-1">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleOpenUploadDialog(asset, "asset")
+                                        }
+                                        disabled={uploadingFile === asset.id}
+                                        className="text-xs h-7 px-2 w-full"
+                                      >
+                                        {uploadingFile === asset.id ? (
+                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600 mr-1" />
+                                        ) : (
+                                          <Image className="h-3 w-3 mr-1" />
+                                        )}
+                                        Upload Asset
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleOpenFilesManager(asset)
+                                        }
+                                        className="text-xs h-7 px-2 w-full"
+                                      >
+                                        <FolderOpen className="h-3 w-3 mr-1" />
+                                        View Files
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full h-7 px-2 text-xs"
+                                        onClick={() =>
+                                          handleViewAsset(asset.id)
+                                        }
+                                      >
+                                        <Eye className="h-3 w-3 mr-1" />
+                                        View Asset
+                                      </Button>
 
-                                {asset.reference && (
-                                  <DropdownMenuItem
-                                    onClick={() => handleOpenReferences(asset)}
-                                  >
-                                    <Download className="h-4 w-4 mr-2" />
-                                    View References (
-                                    {parseReferences(asset.reference).length})
-                                  </DropdownMenuItem>
-                                )}
-
-                                <DropdownMenuSeparator />
-
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleOpenUploadDialog(asset, "glb")
-                                  }
-                                >
-                                  {uploadingGLB === asset.id ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
-                                  ) : (
-                                    <Upload className="h-4 w-4 mr-2" />
-                                  )}
-                                  {asset.glb_link ? "Update GLB" : "Upload GLB"}
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleOpenUploadDialog(asset, "asset")
-                                  }
-                                >
-                                  {uploadingFile === asset.id ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2" />
-                                  ) : (
-                                    <Image className="h-4 w-4 mr-2" />
-                                  )}
-                                  Upload Asset
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem
-                                  onClick={() => handleOpenFilesManager(asset)}
-                                >
-                                  <FolderOpen className="h-4 w-4 mr-2" />
-                                  View Files
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            ))}
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full h-7 px-2 text-xs"
+                                        onClick={() =>
+                                          handleOpenProductLink(
+                                            asset.product_link || ""
+                                          )
+                                        }
+                                        disabled={!asset.product_link}
+                                      >
+                                        <Link2 className="h-3 w-3 mr-1" />
+                                        Product Link
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </AccordionContent>
+                    </Card>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
           </div>
         )}
       </div>
@@ -1530,7 +1794,11 @@ export default function BatchDetailPage() {
       </Dialog>
 
       {/* GLB Upload Dialog */}
-      <Dialog open={glbUploadDialogOpen} onOpenChange={setGlbUploadDialogOpen}>
+      <Dialog
+        open={glbUploadDialogOpen}
+        onOpenChange={setGlbUploadDialogOpen}
+        modal={false}
+      >
         <DialogContent className="max-w-md h-fit">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1599,6 +1867,7 @@ export default function BatchDetailPage() {
       <Dialog
         open={assetUploadDialogOpen}
         onOpenChange={setAssetUploadDialogOpen}
+        modal={false}
       >
         <DialogContent className="max-w-md h-fit">
           <DialogHeader>
@@ -1720,15 +1989,17 @@ export default function BatchDetailPage() {
 
       {/* Asset Files Manager */}
       {selectedAssetForFiles && (
-        <AssetFilesManager
-          assetId={selectedAssetForFiles.id}
-          isOpen={filesManagerOpen}
-          onClose={() => {
-            setFilesManagerOpen(false);
-            setSelectedAssetForFiles(null);
-          }}
-          onFilesChange={fetchBatchAssets}
-        />
+        <ErrorBoundary>
+          <AssetFilesManager
+            assetId={selectedAssetForFiles.id}
+            isOpen={filesManagerOpen}
+            onClose={() => {
+              setFilesManagerOpen(false);
+              setSelectedAssetForFiles(null);
+            }}
+            onFilesChange={safeFetchBatchAssets}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Invoice Generator Modal */}
