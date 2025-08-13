@@ -30,6 +30,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Checkbox,
 } from "@/components/ui/inputs";
 import {
   Eye,
@@ -80,10 +81,6 @@ const STATUS_LABELS = {
   approved_by_client: {
     label: "Approved by Client",
     color: "bg-blue-100 text-blue-700 border-blue-200",
-  },
-  not_started: {
-    label: "Not Started",
-    color: "bg-error-muted text-error border-error/20",
   },
 };
 
@@ -180,6 +177,34 @@ export default function QAReviewPage() {
     } catch (err) {
       console.error("Error updating status:", err);
       toast.error("Failed to update status");
+    } finally {
+      setUpdatingAssetId(null);
+    }
+  };
+
+  const handlePriorityChange = async (assetId: string, newPriority: number) => {
+    try {
+      setUpdatingAssetId(assetId);
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ priority: newPriority })
+        .eq("id", assetId);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Update local state
+      setAssets((prev) =>
+        prev.map((a) =>
+          a.id === assetId ? { ...a, priority: newPriority } : a
+        )
+      );
+
+      toast.success("Priority updated successfully");
+    } catch (err) {
+      console.error("Error updating priority:", err);
+      toast.error("Failed to update priority");
     } finally {
       setUpdatingAssetId(null);
     }
@@ -556,25 +581,17 @@ export default function QAReviewPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="status-progress">
-                  Sort by: Status Progression
+                  Status Progression
                 </SelectItem>
                 <SelectItem value="priority">
-                  Sort by: Priority (Highest First)
+                  Priority (Highest First)
                 </SelectItem>
                 <SelectItem value="priority-lowest">
-                  Sort by: Priority (Lowest First)
+                  Priority (Lowest First)
                 </SelectItem>
-                <SelectItem value="batch">
-                  Sort by: Batch (1, 2, 3...)
-                </SelectItem>
-                <SelectItem value="az">Sort by: Name (A-Z)</SelectItem>
-                <SelectItem value="za">Sort by: Name (Z-A)</SelectItem>
-                <SelectItem value="date">
-                  Sort by: Delivery Date (Newest)
-                </SelectItem>
-                <SelectItem value="date-oldest">
-                  Sort by: Delivery Date (Oldest)
-                </SelectItem>
+                <SelectItem value="batch">Batch (1, 2, 3...)</SelectItem>
+                <SelectItem value="az"> Name (A-Z)</SelectItem>
+                <SelectItem value="za"> Name (Z-A)</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -688,18 +705,15 @@ export default function QAReviewPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">
-                  <input
-                    type="checkbox"
-                    className="rounded"
-                    checked={areAllCurrentSelected}
-                    onChange={toggleSelectAllCurrent}
-                    aria-checked={
+                  <Checkbox
+                    checked={
                       areAllCurrentSelected
-                        ? "true"
+                        ? true
                         : someCurrentSelected
-                          ? "mixed"
-                          : "false"
+                          ? "indeterminate"
+                          : false
                     }
+                    onCheckedChange={toggleSelectAllCurrent}
                   />
                 </TableHead>
                 <TableHead>Product Name</TableHead>
@@ -709,11 +723,10 @@ export default function QAReviewPage() {
                 <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Modeler</TableHead>
-                <TableHead>Delivery Date</TableHead>
-                <TableHead className="w-16">View</TableHead>
                 <TableHead className="w-24">Product</TableHead>
                 <TableHead className="w-20">GLB</TableHead>
                 <TableHead className="w-20">Files</TableHead>
+                <TableHead className="w-16">View</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -721,41 +734,61 @@ export default function QAReviewPage() {
                 // Loading skeleton
                 Array.from({ length: 10 }).map((_, i) => (
                   <TableRow key={i}>
+                    {/* Checkbox */}
                     <TableCell>
                       <div className="h-4 w-4 bg-muted rounded animate-pulse" />
                     </TableCell>
+                    {/* Product Name */}
                     <TableCell>
                       <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                     </TableCell>
+                    {/* Article ID */}
                     <TableCell>
                       <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                     </TableCell>
+                    {/* Client */}
                     <TableCell>
                       <div className="h-4 w-16 bg-muted rounded animate-pulse" />
                     </TableCell>
+                    {/* Batch */}
                     <TableCell>
                       <div className="h-4 w-8 bg-muted rounded animate-pulse" />
                     </TableCell>
+                    {/* Priority */}
                     <TableCell>
-                      <div className="h-4 w-12 bg-muted rounded animate-pulse" />
+                      <div className="flex justify-center">
+                        <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+                      </div>
                     </TableCell>
+                    {/* Status */}
                     <TableCell>
-                      <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                      <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
                     </TableCell>
+                    {/* Modeler */}
                     <TableCell>
                       <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                     </TableCell>
+                    {/* Product */}
                     <TableCell>
-                      <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                      <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                     </TableCell>
+                    {/* GLB */}
                     <TableCell>
-                      <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+                      <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                    </TableCell>
+                    {/* Files */}
+                    <TableCell>
+                      <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                    </TableCell>
+                    {/* View */}
+                    <TableCell>
+                      <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                     </TableCell>
                   </TableRow>
                 ))
               ) : currentAssets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8">
+                  <TableCell colSpan={12} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2">
                       <Package className="h-8 w-8 text-muted-foreground" />
                       <p className="text-muted-foreground">
@@ -789,11 +822,9 @@ export default function QAReviewPage() {
                     }
                   >
                     <TableCell>
-                      <input
-                        type="checkbox"
-                        className="rounded"
+                      <Checkbox
                         checked={isAssetSelected(asset.id)}
-                        onChange={() => toggleSelectAsset(asset.id)}
+                        onCheckedChange={() => toggleSelectAsset(asset.id)}
                       />
                     </TableCell>
                     <TableCell>
@@ -803,19 +834,40 @@ export default function QAReviewPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                      <span className="text-xs text-muted-foreground">
                         {asset.article_id}
-                      </code>
+                      </span>
                     </TableCell>
                     <TableCell>{asset.client}</TableCell>
                     <TableCell>Batch {asset.batch}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${getPriorityClass(asset.priority)}`}
-                      >
-                        {getPriorityLabel(asset.priority)}
-                      </Badge>
+                      <div className="flex justify-center items-center">
+                        <Select
+                          value={asset.priority.toString()}
+                          onValueChange={(value) => {
+                            const newPriority = parseInt(value);
+                            handlePriorityChange(asset.id, newPriority);
+                          }}
+                          disabled={updatingAssetId === asset.id}
+                        >
+                          <SelectTrigger
+                            className={`border-0 shadow-none p-0 h-auto w-auto bg-transparent hover:opacity-80 transition-opacity cursor-pointer [&>svg]:hidden`}
+                          >
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                asset.priority
+                              )}`}
+                            >
+                              {getPriorityLabel(asset.priority)}
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">High Priority</SelectItem>
+                            <SelectItem value="2">Medium Priority</SelectItem>
+                            <SelectItem value="3">Low Priority</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -848,22 +900,6 @@ export default function QAReviewPage() {
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {dayjs(asset.delivery_date).format("YYYY-MM-DD")}
-                      </div>
-                    </TableCell>
-                    {/* View */}
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewAsset(asset.id)}
-                        title="View Asset"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
                     {/* Product */}
                     <TableCell>
                       {asset.product_link ? (
@@ -881,7 +917,6 @@ export default function QAReviewPage() {
                         <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    {/* References column removed */}
                     {/* GLB */}
                     <TableCell>
                       {asset.glb_link ? (
@@ -910,6 +945,17 @@ export default function QAReviewPage() {
                         </Button>
                         {/* Review actions removed */}
                       </div>
+                    </TableCell>
+                    {/* View */}
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewAsset(asset.id)}
+                        title="View Asset"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))

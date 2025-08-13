@@ -367,10 +367,10 @@ export default function ReviewPage() {
   // Fetch comments
   useEffect(() => {
     async function fetchComments() {
-      if (!assetId) return;
+      if (!assetId || !user) return;
 
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("asset_comments")
           .select(
             `
@@ -382,8 +382,18 @@ export default function ReviewPage() {
             )
           `
           )
-          .eq("asset_id", assetId)
-          .order("created_at", { ascending: false });
+          .eq("asset_id", assetId);
+
+        // Apply role-based filtering for comments
+        if (user.metadata?.role === "client") {
+          // Clients can only see their own comments
+          query = query.eq("created_by", user.id);
+        }
+        // QA, modelers, admin, and production can see all comments (no additional filter needed)
+
+        const { data, error } = await query.order("created_at", {
+          ascending: false,
+        });
 
         if (error) {
           console.error("Error fetching comments:", error);
@@ -396,7 +406,7 @@ export default function ReviewPage() {
     }
 
     fetchComments();
-  }, [assetId]);
+  }, [assetId, user]);
 
   // Fetch revision history
   const fetchRevisionHistory = async () => {
@@ -2381,7 +2391,7 @@ export default function ReviewPage() {
                     ) : (
                       <CheckCircle className="h-4 w-4 mr-2" />
                     )}
-                    Approve as Client
+                    Approve
                   </Button>
                 )}
 

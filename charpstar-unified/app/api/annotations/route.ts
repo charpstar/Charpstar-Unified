@@ -17,16 +17,50 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase
+    // Get current user session and profile
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get user profile to check role
+    const { data: userProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", session.user.id)
+      .single();
+
+    if (profileError) {
+      console.error("Error fetching user profile:", profileError);
+      return NextResponse.json(
+        { error: "Failed to fetch user profile" },
+        { status: 500 }
+      );
+    }
+
+    let query = supabase
       .from("asset_annotations")
       .select(
         `
         *,
-        profiles:created_by(title, email)
+        profiles:created_by(title, email, role)
       `
       )
-      .eq("asset_id", assetId)
-      .order("created_at", { ascending: false });
+      .eq("asset_id", assetId);
+
+    // Apply role-based filtering
+    if (userProfile.role === "client") {
+      // Clients can only see their own annotations and comments
+      query = query.eq("created_by", session.user.id);
+    }
+    // QA, modelers, admin, and production can see all annotations (no additional filter needed)
+
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
 
     if (error) {
       console.error("Error fetching annotations:", error);

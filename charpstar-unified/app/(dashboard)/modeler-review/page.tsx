@@ -71,10 +71,6 @@ const STATUS_LABELS = {
     label: "Waiting for Approval",
     color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
   },
-  not_started: {
-    label: "Not Started",
-    color: "bg-error-muted text-error border-error/20",
-  },
 };
 
 const PAGE_SIZE = 18;
@@ -416,12 +412,6 @@ export default function ModelerReviewPage() {
                 </SelectItem>
                 <SelectItem value="az">Sort by: Name (A-Z)</SelectItem>
                 <SelectItem value="za">Sort by: Name (Z-A)</SelectItem>
-                <SelectItem value="date">
-                  Sort by: Delivery Date (Newest)
-                </SelectItem>
-                <SelectItem value="date-oldest">
-                  Sort by: Delivery Date (Oldest)
-                </SelectItem>
               </SelectContent>
             </Select>
             <Button

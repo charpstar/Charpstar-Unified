@@ -14,6 +14,7 @@ import {
   UserPlus,
   Package,
   MessageSquare,
+  DollarSign,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -143,6 +144,11 @@ export default function AppSidebar({
             title: "Guidelines",
             url: "/guidelines",
             icon: FileText,
+          },
+          {
+            title: "Invoicing",
+            url: "/invoicing",
+            icon: DollarSign,
           },
         ]
       : [];

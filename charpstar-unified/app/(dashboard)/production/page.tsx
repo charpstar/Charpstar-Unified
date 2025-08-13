@@ -1974,31 +1974,6 @@ export default function ProductionDashboard() {
           />
         </div>
         <div className="flex items-center gap-2">
-          {viewMode === "batches" && (
-            <>
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select
-                value={clientFilter}
-                onValueChange={handleClientFilterChange}
-              >
-                <SelectTrigger className="w-48">
-                  <SelectValue>
-                    {clientFilter === "all" ? "All Clients" : clientFilter}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Clients</SelectItem>
-                  {Array.from(
-                    new Set(batches.map((batch) => batch.client))
-                  ).map((client) => (
-                    <SelectItem key={client} value={client}>
-                      {client}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
           <Select value={sortBy} onValueChange={handleSortChange}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Sort by..." />
@@ -2588,24 +2563,6 @@ export default function ProductionDashboard() {
                                 <span>
                                   {modeler.assignedBatches.length} batches
                                 </span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {modeler.completionStats.totalCompleted > 0 ? (
-                                  <>
-                                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                    <span className="text-green-600 dark:text-green-400">
-                                      {modeler.completionStats.totalCompleted}{" "}
-                                      completed
-                                    </span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                                    <span className="text-orange-600 dark:text-orange-400">
-                                      No completions
-                                    </span>
-                                  </>
-                                )}
                               </div>
                             </div>
 

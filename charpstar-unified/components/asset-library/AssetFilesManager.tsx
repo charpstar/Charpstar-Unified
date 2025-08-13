@@ -259,19 +259,6 @@ export function AssetFilesManager({
                 <Download className="h-4 w-4 mr-1" />
                 Download all files
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={fetchFiles}
-                disabled={loading}
-                className="h-8 px-3"
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Refresh"
-                )}
-              </Button>
             </div>
           </DialogHeader>
 

@@ -72,7 +72,6 @@ import {
   DialogTitle,
 } from "@/components/ui/containers";
 import { AssetFilesManager } from "@/components/asset-library/AssetFilesManager";
-import { InvoiceGenerator } from "@/components/invoice";
 import ErrorBoundary from "@/components/dashboard/error-boundary";
 import { notificationService } from "@/lib/notificationService";
 
@@ -141,6 +140,35 @@ const isOverdue = (deadline: string) => {
   return new Date(deadline) < new Date();
 };
 
+// Helper function to get status priority for sorting
+const getStatusPriority = (status: string): number => {
+  switch (status) {
+    case "revisions":
+      return 1; // Highest priority - needs immediate attention
+    case "not_started":
+      return 2; // Second priority - needs to be started
+    case "in_production":
+      return 3; // Third priority - currently working
+    case "delivered_by_artist":
+      return 4; // Fourth priority - waiting for approval
+    case "approved_by_client":
+      return 5; // Fifth priority - approved by client
+    case "approved":
+      return 6; // Lowest priority - completed
+    default:
+      return 7; // Unknown status goes last
+  }
+};
+
+// Helper function to sort assets by status priority
+const sortAssetsByStatus = (assets: BatchAsset[]): BatchAsset[] => {
+  return [...assets].sort((a, b) => {
+    const priorityA = getStatusPriority(a.status);
+    const priorityB = getStatusPriority(b.status);
+    return priorityA - priorityB;
+  });
+};
+
 export default function BatchDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -189,9 +217,6 @@ export default function BatchDetailPage() {
     useState<BatchAsset | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingMultiple, setUploadingMultiple] = useState(false);
-  const [showInvoice, setShowInvoice] = useState(false);
-  const [selectedAllocationListId, setSelectedAllocationListId] =
-    useState<string>("");
   const [assetFileHistory, setAssetFileHistory] = useState<AssetFileHistory[]>(
     []
   );
@@ -469,8 +494,9 @@ export default function BatchDetailPage() {
       // Calculate batch statistics from all assets across all lists
       const allAssets = processedLists.flatMap((list) => list.assets);
       const totalAssets = allAssets.length;
+      // Count assets that are approved by client (immediate earnings)
       const completedAssets = allAssets.filter(
-        (asset) => asset.status === "approved"
+        (asset) => asset.status === "approved_by_client"
       ).length;
       const inProgressAssets = allAssets.filter(
         (asset) => asset.status === "in_production"
@@ -496,15 +522,17 @@ export default function BatchDetailPage() {
       }, 0);
       const totalPotentialEarnings = totalBaseEarnings + totalBonusEarnings;
 
+      // Calculate earnings immediately for assets approved by client
       const completedEarnings = allAssets
-        .filter((asset) => asset.status === "approved")
+        .filter((asset) => asset.status === "approved_by_client")
         .reduce((sum, asset) => {
           const bonus = asset.bonus || 0;
           return sum + (asset.price || 0) * (1 + bonus / 100);
         }, 0);
 
+      // Pending earnings include everything that hasn't been approved by client yet
       const pendingEarnings = allAssets
-        .filter((asset) => asset.status !== "approved")
+        .filter((asset) => asset.status !== "approved_by_client")
         .reduce((sum, asset) => {
           const bonus = asset.bonus || 0;
           return sum + (asset.price || 0) * (1 + bonus / 100);
@@ -695,11 +723,6 @@ export default function BatchDetailPage() {
     if (productLink) {
       window.open(productLink, "_blank");
     }
-  };
-
-  const handleGenerateInvoice = (allocationListId: string) => {
-    setSelectedAllocationListId(allocationListId);
-    setShowInvoice(true);
   };
 
   const parseReferences = (
@@ -1054,7 +1077,7 @@ export default function BatchDetailPage() {
     return (
       <div className="container mx-auto p-6 space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <h1 className="text-2xl font-semibold">Access Denied</h1>
           <p className="text-muted-foreground">
             This page is only available for modelers.
           </p>
@@ -1066,58 +1089,75 @@ export default function BatchDetailPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/my-assignments")}
-            className="gap-2"
+            className="gap-2 text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Assignments
           </Button>
-        </div>
-        <div className="flex items-center gap-3 mb-2">
-          <Building className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">{client}</h1>
-          <Badge variant="outline" className="text-lg px-3 py-1">
-            Batch {batch}
+          <Badge variant="outline" className="gap-1">
+            <Building className="h-3 w-3" />
+            Modeler Dashboard
           </Badge>
         </div>
-        <div className="flex items-center gap-4 text-muted-foreground"></div>
+
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Building className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">
+                {client}
+              </h1>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <span className="text-sm">Batch {batch}</span>
+                <span>•</span>
+                <span className="text-sm">Active Assignment</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Batch Earnings Statistics */}
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {[...Array(4)].map((_, i) => (
-            <Card key={i} className="p-4 animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-200 rounded-lg">
-                  <div className="h-5 w-5 bg-gray-300 rounded" />
+            <div
+              key={i}
+              className="bg-card border border-border rounded-xl p-6 shadow-sm animate-pulse"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-muted rounded-xl">
+                  <div className="h-5 w-5 bg-muted-foreground/20 rounded" />
                 </div>
-                <div className="space-y-2">
-                  <div className="h-4 w-24 bg-gray-200 rounded" />
-                  <div className="h-6 w-20 bg-gray-200 rounded" />
-                  <div className="h-3 w-16 bg-gray-200 rounded" />
+                <div className="flex-1 space-y-3">
+                  <div className="h-4 w-24 bg-muted rounded" />
+                  <div className="h-7 w-20 bg-muted rounded" />
+                  <div className="h-3 w-16 bg-muted rounded" />
                 </div>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-info-muted rounded-lg">
-                <Euro className="h-5 w-5 text-info" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-blue-50 rounded-xl">
+                <Euro className="h-5 w-5 text-blue-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Total Potential Earnings
+              <div className="flex-1">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  Total Potential
                 </p>
-                <p className="text-2xl font-bold text-info">
+                <p className="text-2xl font-semibold text-foreground mb-1">
                   €{batchStats.totalPotentialEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1126,18 +1166,18 @@ export default function BatchDetailPage() {
                 </p>
               </div>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-success-muted rounded-lg">
-                <CheckCircle className="h-5 w-5 text-success" />
+          <div className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-green-50 rounded-xl">
+                <CheckCircle className="h-5 w-5 text-green-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
                   Completed Earnings
                 </p>
-                <p className="text-2xl font-medium text-success">
+                <p className="text-2xl font-semibold text-foreground mb-1">
                   €{batchStats.completedEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1145,38 +1185,38 @@ export default function BatchDetailPage() {
                 </p>
               </div>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-warning-muted rounded-lg">
-                <Clock className="h-5 w-5 text-warning" />
+          <div className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-amber-50 rounded-xl">
+                <Clock className="h-5 w-5 text-amber-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
                   Pending Earnings
                 </p>
-                <p className="text-2xl font-bold text-warning">
+                <p className="text-2xl font-semibold text-foreground mb-1">
                   €{batchStats.pendingEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {batchStats.totalAssets - batchStats.completedAssets} assets
+                  {batchStats.totalAssets - batchStats.completedAssets}{" "}
                   remaining
                 </p>
               </div>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-accent-purple/10 rounded-lg">
-                <Package className="h-5 w-5 text-accent-purple" />
+          <div className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-purple-50 rounded-xl">
+                <Package className="h-5 w-5 text-purple-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
                   Bonus Earnings
                 </p>
-                <p className="text-2xl font-bold text-accent-purple">
+                <p className="text-2xl font-semibold text-foreground mb-1">
                   €{batchStats.totalBonusEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1184,58 +1224,73 @@ export default function BatchDetailPage() {
                 </p>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
       {/* Filters and Search */}
       {loading ? (
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <div className="h-10 bg-gray-200 rounded animate-pulse" />
+        <div className="mb-8">
+          <div className="bg-card border border-border rounded-xl p-6 shadow-sm animate-pulse">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1 h-10 bg-muted rounded-lg" />
+              <div className="w-full lg:w-48 h-10 bg-muted rounded-lg" />
             </div>
-            <div className="w-full sm:w-48 h-10 bg-gray-200 rounded animate-pulse" />
-            <div className="w-full sm:w-48 h-10 bg-gray-200 rounded animate-pulse" />
           </div>
         </div>
       ) : (
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search assets..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+        <div className="mb-8">
+          <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search by name, article ID, or category..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-10"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full lg:w-48 h-10">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="in_production">In Progress</SelectItem>
+                  <SelectItem value="revisions">Sent for Revisions</SelectItem>
+                  <SelectItem value="delivered_by_artist">
+                    Waiting for Approval
+                  </SelectItem>
+                  <SelectItem value="approved_by_client">
+                    Approved by Client
+                  </SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-
-                <SelectItem value="in_production">In Progress</SelectItem>
-                <SelectItem value="revisions">Sent for Revisions</SelectItem>
-                <SelectItem value="delivered_by_artist">
-                  Waiting for Approval
-                </SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
       )}
 
       {/* Assets Table */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Batch Assets</h2>
-          <Badge variant="outline">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-muted rounded-lg">
+              <Package className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                Assets Overview
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Manage your allocated work assignments
+              </p>
+            </div>
+          </div>
+          <Badge variant="outline" className="text-xs px-3 py-1">
             {filteredAssets.length} of{" "}
             {allocationLists.flatMap((list) => list.assets).length} assets
           </Badge>
@@ -1267,7 +1322,7 @@ export default function BatchDetailPage() {
                 <CardContent>
                   <div className="space-y-4">
                     {/* Table header skeleton */}
-                    <div className="grid grid-cols-7 gap-4 pb-2 border-b">
+                    <div className="grid grid-cols-7 gap-4 pb-2 ">
                       {[...Array(7)].map((_, i) => (
                         <div key={i} className="h-4 bg-gray-200 rounded" />
                       ))}
@@ -1276,7 +1331,7 @@ export default function BatchDetailPage() {
                     {[...Array(3)].map((_, rowIndex) => (
                       <div
                         key={rowIndex}
-                        className="grid grid-cols-7 gap-4 py-3 border-b"
+                        className="grid grid-cols-7 gap-4 py-3 "
                       >
                         {[...Array(7)].map((_, colIndex) => (
                           <div
@@ -1313,10 +1368,12 @@ export default function BatchDetailPage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            <Accordion type="multiple" className="space-y-2">
+            <Accordion type="multiple" className="space-y-4">
               {allocationLists.map((allocationList) => {
-                const visibleAssets = allocationList.assets.filter((a) =>
-                  filteredAssets.some((f) => f.id === a.id)
+                const visibleAssets = sortAssetsByStatus(
+                  allocationList.assets.filter((a) =>
+                    filteredAssets.some((f) => f.id === a.id)
+                  )
                 );
                 if (visibleAssets.length === 0) return null;
                 return (
@@ -1324,71 +1381,140 @@ export default function BatchDetailPage() {
                     value={allocationList.id}
                     key={allocationList.id}
                   >
-                    <Card>
-                      <AccordionTrigger className="px-4">
+                    <div
+                      className={`bg-card border-2 rounded-xl shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md ${
+                        isOverdue(allocationList.deadline)
+                          ? "border-red-200 bg-red-50/30"
+                          : allocationList.status === "approved"
+                            ? "border-green-200 bg-green-50/30"
+                            : "border-border hover:border-primary/30"
+                      }`}
+                    >
+                      <AccordionTrigger className="px-6 py-5 hover:bg-muted/30 transition-all duration-200">
                         <div className="flex items-center justify-between w-full">
-                          <div>
-                            <CardTitle className="flex items-center gap-2">
+                          <div className="flex items-start gap-4">
+                            <div
+                              className={`p-3 rounded-xl shadow-sm ${
+                                isOverdue(allocationList.deadline)
+                                  ? "bg-red-100 text-red-600"
+                                  : allocationList.status === "approved"
+                                    ? "bg-green-100 text-green-600"
+                                    : "bg-primary/10 text-primary"
+                              }`}
+                            >
                               <Package className="h-5 w-5" />
-                              Allocation {allocationList.number} -{" "}
-                              {new Date(
-                                allocationList.deadline
-                              ).toLocaleDateString()}{" "}
-                              - {visibleAssets.length} assets
-                            </CardTitle>
-                            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                <span
-                                  className={
-                                    isOverdue(allocationList.deadline)
-                                      ? "text-red-600 font-medium"
-                                      : ""
-                                  }
-                                >
-                                  Deadline:{" "}
-                                  {new Date(
-                                    allocationList.deadline
-                                  ).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Euro className="h-4 w-4" />
-                                <span>Bonus: +{allocationList.bonus}%</span>
-                              </div>
-                              <Badge
-                                variant="outline"
-                                className={`text-xs ${
-                                  allocationList.status === "approved"
-                                    ? "bg-success-muted text-success border-success/20"
-                                    : "bg-warning-muted text-warning border-warning/20"
-                                }`}
-                              >
-                                {allocationList.status === "approved"
-                                  ? "Approved"
-                                  : allocationList.status}
-                              </Badge>
                             </div>
+                            <div className="text-left space-y-2">
+                              <div className="flex items-center gap-3">
+                                <h3 className="text-lg font-semibold text-foreground">
+                                  Allocation #{allocationList.number}
+                                </h3>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs font-medium ${
+                                    allocationList.status === "approved"
+                                      ? "bg-green-50 text-green-700 border-green-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  {allocationList.status === "approved"
+                                    ? "✓ Approved"
+                                    : allocationList.status}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className={`p-1 rounded ${
+                                      isOverdue(allocationList.deadline)
+                                        ? "bg-red-100"
+                                        : "bg-muted"
+                                    }`}
+                                  >
+                                    <Calendar className="h-3 w-3" />
+                                  </div>
+                                  <span
+                                    className={
+                                      isOverdue(allocationList.deadline)
+                                        ? "text-red-600 font-medium"
+                                        : "text-muted-foreground"
+                                    }
+                                  >
+                                    Due:{" "}
+                                    {new Date(
+                                      allocationList.deadline
+                                    ).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1 bg-green-100 rounded">
+                                    <Euro className="h-3 w-3 text-green-600" />
+                                  </div>
+                                  <span className="font-medium text-green-700">
+                                    +{allocationList.bonus}% bonus
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right space-y-1">
+                            <div className="flex items-center gap-2 justify-end">
+                              <div className="p-1 bg-muted rounded">
+                                <Package className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                              <span className="text-lg font-semibold text-foreground">
+                                {visibleAssets.length}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {visibleAssets.length === 1 ? "asset" : "assets"}
+                            </p>
+                            {visibleAssets.length > 0 && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <div className="flex gap-1">
+                                  {[
+                                    "revisions",
+                                    "not_started",
+                                    "in_production",
+                                    "delivered_by_artist",
+                                    "approved_by_client",
+                                    "approved",
+                                  ].map((status) => {
+                                    const count = visibleAssets.filter(
+                                      (a) => a.status === status
+                                    ).length;
+                                    if (count === 0) return null;
+                                    return (
+                                      <div
+                                        key={status}
+                                        className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                                          status === "revisions"
+                                            ? "bg-red-100 text-red-700"
+                                            : status === "not_started"
+                                              ? "bg-gray-100 text-gray-700"
+                                              : status === "in_production"
+                                                ? "bg-amber-100 text-amber-700"
+                                                : status ===
+                                                    "delivered_by_artist"
+                                                  ? "bg-purple-100 text-purple-700"
+                                                  : status ===
+                                                      "approved_by_client"
+                                                    ? "bg-blue-100 text-blue-700"
+                                                    : "bg-green-100 text-green-700"
+                                        }`}
+                                      >
+                                        {count}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
-                        <CardContent>
-                          {allocationList.status === "approved" && (
-                            <div className="flex items-center justify-end mb-3">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  handleGenerateInvoice(allocationList.id)
-                                }
-                                className="gap-2"
-                              >
-                                <FileText className="h-4 w-4" />
-                                Generate Invoice
-                              </Button>
-                            </div>
-                          )}
+                        <div className="px-6 pb-6">
                           <Table>
                             <TableHeader>
                               <TableRow>
@@ -1420,18 +1546,16 @@ export default function BatchDetailPage() {
                                       >
                                         {asset.status === "delivered_by_artist"
                                           ? "Waiting for Approval"
-                                          : asset.status === "not_started"
-                                            ? "Not Started"
-                                            : asset.status === "in_production"
-                                              ? "In Progress"
-                                              : asset.status === "revisions"
-                                                ? "Sent for Revision"
-                                                : asset.status ===
-                                                    "approved_by_client"
-                                                  ? "Approved by Client"
-                                                  : asset.status === "approved"
-                                                    ? "Approved"
-                                                    : asset.status}
+                                          : asset.status === "in_production"
+                                            ? "In Progress"
+                                            : asset.status === "revisions"
+                                              ? "Sent for Revision"
+                                              : asset.status ===
+                                                  "approved_by_client"
+                                                ? "Approved by Client"
+                                                : asset.status === "approved"
+                                                  ? "Approved"
+                                                  : asset.status}
                                       </Badge>
                                     </div>
                                   </TableCell>
@@ -1444,7 +1568,7 @@ export default function BatchDetailPage() {
                                     </div>
                                   </TableCell>
                                   <TableCell>
-                                    <span className="font-mono text-sm">
+                                    <span className="text-xs text-muted-foreground font-mono">
                                       {
                                         highlightMatch(
                                           asset.article_id,
@@ -1503,10 +1627,10 @@ export default function BatchDetailPage() {
                                               `${asset.product_name}-${asset.article_id}.glb`
                                             )
                                           }
-                                          className="text-xs h-7 px-2 w-full"
+                                          className="text-xs h-8 px-3 w-full border-blue-200 text-blue-700 hover:bg-blue-50"
                                         >
                                           <Download className="h-3 w-3 mr-1" />
-                                          Download GLB
+                                          Download
                                         </Button>
                                       ) : null}
                                       <Button
@@ -1518,10 +1642,14 @@ export default function BatchDetailPage() {
                                           handleOpenUploadDialog(asset, "glb")
                                         }
                                         disabled={uploadingGLB === asset.id}
-                                        className="text-xs h-7 px-2 w-full"
+                                        className={`text-xs h-8 px-3 w-full ${
+                                          asset.glb_link
+                                            ? "border-blue-200 text-blue-700 hover:bg-blue-50"
+                                            : "bg-blue-600 hover:bg-blue-700"
+                                        }`}
                                       >
                                         {uploadingGLB === asset.id ? (
-                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1" />
+                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1" />
                                         ) : (
                                           <Upload className="h-3 w-3 mr-1" />
                                         )}
@@ -1538,14 +1666,14 @@ export default function BatchDetailPage() {
                                           handleOpenUploadDialog(asset, "asset")
                                         }
                                         disabled={uploadingFile === asset.id}
-                                        className="text-xs h-7 px-2 w-full"
+                                        className="text-xs h-8 px-3 w-full border-green-200 text-green-700 hover:bg-green-50"
                                       >
                                         {uploadingFile === asset.id ? (
-                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600 mr-1" />
+                                          <div className="animate-spin rounded-full h-3 w-3  border-current mr-1" />
                                         ) : (
                                           <Image className="h-3 w-3 mr-1" />
                                         )}
-                                        Upload Asset
+                                        Upload
                                       </Button>
                                       <Button
                                         variant="outline"
@@ -1553,10 +1681,10 @@ export default function BatchDetailPage() {
                                         onClick={() =>
                                           handleOpenFilesManager(asset)
                                         }
-                                        className="text-xs h-7 px-2 w-full"
+                                        className="text-xs h-8 px-3 w-full border-gray-200 text-gray-700 hover:bg-gray-50"
                                       >
                                         <FolderOpen className="h-3 w-3 mr-1" />
-                                        View Files
+                                        Files
                                       </Button>
                                     </div>
                                   </TableCell>
@@ -1565,19 +1693,19 @@ export default function BatchDetailPage() {
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        className="w-full h-7 px-2 text-xs"
+                                        className="w-full h-8 px-3 text-xs border-purple-200 text-purple-700 hover:bg-purple-50"
                                         onClick={() =>
                                           handleViewAsset(asset.id)
                                         }
                                       >
                                         <Eye className="h-3 w-3 mr-1" />
-                                        View Asset
+                                        View
                                       </Button>
 
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        className="w-full h-7 px-2 text-xs"
+                                        className="w-full h-8 px-3 text-xs border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                         onClick={() =>
                                           handleOpenProductLink(
                                             asset.product_link || ""
@@ -1586,7 +1714,7 @@ export default function BatchDetailPage() {
                                         disabled={!asset.product_link}
                                       >
                                         <Link2 className="h-3 w-3 mr-1" />
-                                        Product Link
+                                        Product
                                       </Button>
                                     </div>
                                   </TableCell>
@@ -1594,9 +1722,9 @@ export default function BatchDetailPage() {
                               ))}
                             </TableBody>
                           </Table>
-                        </CardContent>
+                        </div>
                       </AccordionContent>
-                    </Card>
+                    </div>
                   </AccordionItem>
                 );
               })}
@@ -2000,17 +2128,6 @@ export default function BatchDetailPage() {
             onFilesChange={safeFetchBatchAssets}
           />
         </ErrorBoundary>
-      )}
-
-      {/* Invoice Generator Modal */}
-      {showInvoice && selectedAllocationListId && (
-        <InvoiceGenerator
-          allocationListId={selectedAllocationListId}
-          onClose={() => {
-            setShowInvoice(false);
-            setSelectedAllocationListId("");
-          }}
-        />
       )}
     </div>
   );

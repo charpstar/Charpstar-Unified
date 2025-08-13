@@ -297,127 +297,156 @@ export default function QAWidgets() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Projects
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 border rounded-lg"
-              >
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="h-4 w-4 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-48 bg-muted animate-pulse rounded" />
-                </div>
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="h-2 w-40 bg-muted animate-pulse rounded" />
-                  <div className="h-5 w-16 bg-muted animate-pulse rounded" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-3 w-8 bg-muted animate-pulse rounded" />
-                  <div className="h-3 w-8 bg-muted animate-pulse rounded" />
-                  <div className="h-3 w-8 bg-muted animate-pulse rounded" />
-                </div>
-                <div className="h-8 w-8 bg-muted animate-pulse rounded" />
-              </div>
-            ))}
+      <div className="h-full flex flex-col">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-gray-100 rounded-lg">
+            <Users className="h-5 w-5 text-gray-600" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Projects</h3>
+            <p className="text-sm text-gray-500">
+              Your allocated project teams
+            </p>
+          </div>
+        </div>
+        <div className="flex-1 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="bg-card border border-border rounded-xl p-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-32 bg-muted animate-pulse rounded" />
+                  <div className="h-5 w-16 bg-muted/50 animate-pulse rounded-full" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 w-full bg-muted animate-pulse rounded" />
+                <div className="h-4 w-2/3 bg-muted animate-pulse rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
   if (projects.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-semibold text-sm text-foreground">
-            <Users className="h-5 w-5" />
-            Projects
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent>
-          <div className="text-center py-8">
-            <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No projects found</p>
-            <p className="text-sm text-muted-foreground">
+      <div className="h-full flex flex-col">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-gray-100 rounded-lg">
+            <Users className="h-5 w-5 text-gray-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Projects</h3>
+            <p className="text-sm text-gray-500">
+              Your allocated project teams
+            </p>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center py-12">
+            <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
+              <Users className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h4 className="text-foreground font-medium mb-2">
+              No projects assigned
+            </h4>
+            <p className="text-muted-foreground text-sm max-w-xs">
               You will see your allocated projects here once production assigns
               modelers to you.
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-3">
-        <User className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">Projects</h3>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-gray-100 rounded-lg">
+          <Users className="h-5 w-5 text-gray-600" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Projects</h3>
+          <p className="text-sm text-gray-500">Your allocated project teams</p>
+        </div>
       </div>
-      <div className="flex-1 min-h-0 space-y-2">
-        <div className="max-h-[50vh] overflow-y-auto pr-1">
-          <Accordion type="single" collapsible className="space-y-1">
-            {projects.map((p) => {
-              const value = `${p.client}-${p.batch}`;
-              return (
-                <AccordionItem key={value} value={value}>
-                  <AccordionTrigger className="px-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">
-                        {p.client} - Batch {p.batch}
-                      </span>
-                      <Badge variant="outline" className="text-[10px]">
-                        {p.modelers.length} modelers
-                      </Badge>
+      <div className="flex-1 min-h-0">
+        <div className="max-h-[60vh] overflow-y-auto space-y-4">
+          {projects.map((p) => {
+            const value = `${p.client}-${p.batch}`;
+            return (
+              <div
+                key={value}
+                className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-muted rounded-lg">
+                      <Users className="h-4 w-4 text-muted-foreground" />
                     </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-2">
-                      {p.modelers.map((m) => (
-                        <div
-                          key={m.id}
-                          className="flex items-center justify-between p-2 border rounded-md"
-                        >
-                          <div className="flex items-center gap-2 text-sm">
-                            <User className="h-4 w-4 text-primary" />
-                            <span className="font-medium">
-                              {m.title || m.email.split("@")[0]}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {m.email}
-                            </span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="View QA review for this modeler"
-                            onClick={() =>
-                              router.push(
-                                `/qa-review?modeler=${m.id}&client=${encodeURIComponent(
-                                  p.client
-                                )}&batch=${p.batch}`
-                              )
-                            }
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                    <div>
+                      <h4 className="font-semibold text-foreground">
+                        {p.client}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        Batch {p.batch}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="bg-muted text-muted-foreground border-border text-xs font-medium px-2 py-1"
+                  >
+                    {p.modelers.length} modeler
+                    {p.modelers.length !== 1 ? "s" : ""}
+                  </Badge>
+                </div>
+
+                <div className="space-y-3">
+                  {p.modelers.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="p-1.5 bg-card rounded-md shadow-sm">
+                          <User className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
-                      ))}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-foreground text-sm truncate">
+                            {m.title || m.email.split("@")[0]}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {m.email}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-card"
+                        title="View QA review for this modeler"
+                        onClick={() =>
+                          router.push(
+                            `/qa-review?modeler=${m.id}&client=${encodeURIComponent(
+                              p.client
+                            )}&batch=${p.batch}`
+                          )
+                        }
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -682,42 +711,74 @@ export function PersonalMetricsWidget() {
 
   if (loading) {
     return (
-      <Card className="p-6">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Personal Metrics
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            <Skeleton className="h-20 rounded" />
-            <Skeleton className="h-20 rounded" />
+      <div className="h-full flex flex-col">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-gray-100 rounded-lg">
+            <BarChart3 className="h-5 w-5 text-gray-600" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Personal Metrics
+            </h3>
+            <p className="text-sm text-gray-500">
+              Your QA performance overview
+            </p>
+          </div>
+        </div>
+        <div className="flex-1 space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <Skeleton className="h-6 w-16 mb-2 rounded" />
+              <Skeleton className="h-4 w-20 rounded" />
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <Skeleton className="h-6 w-16 mb-2 rounded" />
+              <Skeleton className="h-4 w-20 rounded" />
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <Skeleton className="h-6 w-16 mb-2 rounded" />
+              <Skeleton className="h-4 w-20 rounded" />
+            </div>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+            <Skeleton className="h-32 w-full rounded" />
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (!metrics) {
     return (
-      <Card className="p-6">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Personal Metrics
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">No metrics available yet</p>
-            <p className="text-xs mt-1">
-              Start reviewing assets to see your metrics
+      <div className="h-full flex flex-col">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-gray-100 rounded-lg">
+            <BarChart3 className="h-5 w-5 text-gray-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Personal Metrics
+            </h3>
+            <p className="text-sm text-gray-500">
+              Your QA performance overview
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center py-12">
+            <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
+              <BarChart3 className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h4 className="text-foreground font-medium mb-2">
+              No metrics available yet
+            </h4>
+            <p className="text-muted-foreground text-sm max-w-xs">
+              Start reviewing assets to see your performance metrics and
+              progress tracking.
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -755,49 +816,109 @@ export function PersonalMetricsWidget() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-gray-100 rounded-lg">
+          <BarChart3 className="h-5 w-5 text-gray-600" />
+        </div>
         <div>
-          <h3 className="text-sm font-semibold text-foreground">
+          <h3 className="text-lg font-semibold text-gray-900">
             Personal Metrics
           </h3>
-          <p className="text-xs text-muted-foreground">Last 7 days</p>
-        </div>
-        <div className="text-right">
-          <div className="text-sm font-medium">
-            {totalReviewed} reviewed, {totalApproved} approved
-          </div>
-          <div className="text-xs text-foreground">
-            To review: <span className="font-semibold">{modelsToReview}</span>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {trendPercentage}% approval rate
-          </div>
+          <p className="text-sm text-gray-500">Your QA performance overview</p>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0">
-        <ChartContainer config={chartConfig}>
-          <BarChart accessibilityLayer data={chartData} height={40}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="day"
-              tickLine={false}
-              tickMargin={5}
-              axisLine={false}
-              fontSize={10}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="dashed" />}
-            />
-            <Bar dataKey="reviewed" fill="var(--status-reviewed)" radius={4} />
-            <Bar
-              dataKey="approved"
-              fill="var(--status-approved-alt)"
-              radius={4}
-            />
-          </BarChart>
-        </ChartContainer>
+      <div className="flex-1 space-y-6">
+        {/* Key Statistics */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Reviewed
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">
+              {totalReviewed}
+            </p>
+            <p className="text-xs text-muted-foreground">Last 7 days</p>
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="h-4 w-4 text-blue-600" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Approved
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">
+              {totalApproved}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {trendPercentage}% rate
+            </p>
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="h-4 w-4 text-amber-600" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                To Review
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">
+              {modelsToReview}
+            </p>
+            <p className="text-xs text-muted-foreground">Pending assets</p>
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+          <div className="mb-4">
+            <h4 className="font-semibold text-foreground mb-1">
+              Weekly Activity
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Daily review and approval trends
+            </p>
+          </div>
+          <div className="h-70">
+            <ChartContainer config={chartConfig} className="h-70 w-full">
+              <BarChart accessibilityLayer data={chartData} height={96}>
+                <CartesianGrid
+                  vertical={false}
+                  strokeDasharray="3 3"
+                  stroke="#e5e7eb"
+                />
+                <XAxis
+                  dataKey="day"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  fontSize={12}
+                  fill="#6b7280"
+                />
+                <ChartTooltip
+                  cursor={{ fill: "rgba(0, 0, 0, 0.05)" }}
+                  content={<ChartTooltipContent indicator="dashed" />}
+                />
+                <Bar
+                  dataKey="reviewed"
+                  fill="#3b82f6"
+                  radius={[2, 2, 0, 0]}
+                  name="Reviewed"
+                />
+                <Bar
+                  dataKey="approved"
+                  fill="#10b981"
+                  radius={[2, 2, 0, 0]}
+                  name="Approved"
+                />
+              </BarChart>
+            </ChartContainer>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -934,128 +1055,189 @@ export function WaitingForApprovalWidget() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Waiting for Approval
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 p-3 border rounded-lg"
-              >
-                <div className="w-4 h-4 bg-muted rounded animate-pulse" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-muted rounded animate-pulse" />
-                  <div className="h-3 bg-muted rounded w-1/2 animate-pulse" />
-                </div>
-                <div className="w-16 h-6 bg-muted rounded animate-pulse" />
-              </div>
-            ))}
+      <div className="h-full flex flex-col">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-gray-100 rounded-lg">
+            <Clock className="h-5 w-5 text-gray-600" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Waiting for Approval
+            </h3>
+            <p className="text-sm text-gray-500">
+              Assets ready for your review
+            </p>
+          </div>
+        </div>
+        <div className="flex-1 space-y-3">
+          {[...Array(4)].map((_, i) => (
+            <div
+              key={i}
+              className="bg-card border border-border rounded-xl p-4 shadow-sm"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                </div>
+                <div className="w-16 h-6 bg-muted rounded-full animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-3 w-full bg-muted rounded animate-pulse" />
+                <div className="h-3 w-2/3 bg-muted rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
   if (assets.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Waiting for Approval
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No assets waiting for approval</p>
+      <div className="h-full flex flex-col">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-gray-100 rounded-lg">
+            <Clock className="h-5 w-5 text-gray-600" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Waiting for Approval
+            </h3>
+            <p className="text-sm text-gray-500">
+              Assets ready for your review
+            </p>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center py-12">
+            <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
+              <CheckCircle className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h4 className="text-foreground font-medium mb-2">All caught up!</h4>
+            <p className="text-muted-foreground text-sm max-w-xs">
+              No assets are currently waiting for your approval. Great job
+              staying on top of your review queue.
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5" />
-          Waiting for Approval ({assets.length})
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-muted rounded-lg">
+            <Clock className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">
+              Waiting for Approval
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Assets ready for your review
+            </p>
+          </div>
+        </div>
+        <div className="bg-muted px-3 py-1 rounded-full">
+          <span className="text-sm font-semibold text-muted-foreground">
+            {assets.length}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0">
         <div
           className={
             expanded
-              ? "space-y-3 max-h-[50vh] overflow-y-auto pr-1"
+              ? "space-y-3 max-h-[60vh] overflow-y-auto pr-1"
               : "space-y-3"
           }
         >
           {(expanded ? assets : assets.slice(0, 5)).map((asset) => (
             <div
               key={asset.id}
-              className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+              className="bg-card border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 hover:border-muted-foreground/20"
             >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium text-sm truncate">
-                    {asset.product_name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {asset.article_id}
-                  </span>
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="font-semibold text-foreground text-sm truncate">
+                      {asset.product_name}
+                    </h4>
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                      {asset.article_id}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      <span>{asset.client}</span>
+                    </div>
+                    <span>•</span>
+                    <span>Batch {asset.batch}</span>
+                    {asset.modeler_email && (
+                      <>
+                        <span>•</span>
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          <span className="truncate">
+                            {asset.modeler_email.split("@")[0]}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{asset.client}</span>
-                  <span>•</span>
-                  <span>Batch {asset.batch}</span>
-                  {asset.modeler_email && (
-                    <>
-                      <span>•</span>
-                      <span className="truncate">{asset.modeler_email}</span>
-                    </>
-                  )}
+                <div className="flex items-center gap-3 ml-4">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityClass(
+                      asset.priority
+                    )}`}
+                  >
+                    {getPriorityLabel(asset.priority)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    onClick={() =>
+                      window.open(`/client-review/${asset.id}`, "_blank")
+                    }
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
-                    asset.priority
-                  )}`}
-                >
-                  {getPriorityLabel(asset.priority)}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    window.open(`/client-review/${asset.id}`, "_blank")
-                  }
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           ))}
+
           {assets.length > 5 && (
-            <div className="text-center pt-2">
+            <div className="text-center pt-4">
               <Button
                 variant="outline"
                 size="sm"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted"
                 onClick={() => setExpanded((v) => !v)}
               >
-                {expanded ? "Collapse" : `View All (${assets.length})`}
+                {expanded ? (
+                  <>
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    Show Less
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4 mr-2" />
+                    View All ({assets.length})
+                  </>
+                )}
               </Button>
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

@@ -202,7 +202,7 @@ export default function InvoiceGenerator({
         total,
         notes:
           bonusAmount > 0
-            ? `Bonus of ${allocationList.bonus}% applied for completing work before deadline (approved: ${new Date(allocationList.approved_at).toLocaleDateString()}, deadline: ${new Date(allocationList.deadline).toLocaleDateString()})`
+            ? `Bonus of ${allocationList.bonus}% applied for completing work before deadline (approved: ${new Date(allocationList.approved_at).toLocaleDateString()}, deadline: ${new Date(allocationList.deadline).toLocaleDateString()}). Note: This bonus applies to ALL assets in the allocation list, including any completed in previous periods.`
             : allocationList.bonus > 0
               ? `No bonus applied - work completed after deadline (approved: ${new Date(allocationList.approved_at).toLocaleDateString()}, deadline: ${new Date(allocationList.deadline).toLocaleDateString()})`
               : "No bonus configured for this allocation list",

@@ -111,10 +111,6 @@ const STATUS_LABELS = {
     label: "Waiting for Approval",
     color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
   },
-  not_started: {
-    label: "Not Started",
-    color: "bg-error-muted text-error border-error/20",
-  },
 };
 
 const PAGE_SIZE = 18;
@@ -2058,16 +2054,12 @@ export default function AdminReviewPage() {
                                     "delivered_by_artist"
                                       ? "Waiting for Approval"
                                       : assignment.onboarding_assets.status ===
-                                          "not_started"
-                                        ? "Not Started"
+                                          "in_production"
+                                        ? "In Progress"
                                         : assignment.onboarding_assets
-                                              .status === "in_production"
-                                          ? "In Progress"
-                                          : assignment.onboarding_assets
-                                                .status === "revisions"
-                                            ? "Sent for Revision"
-                                            : assignment.onboarding_assets
-                                                .status}
+                                              .status === "revisions"
+                                          ? "Sent for Revision"
+                                          : assignment.onboarding_assets.status}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
@@ -2196,16 +2188,15 @@ export default function AdminReviewPage() {
                 <TableRow>
                   <TableHead className="w-12">
                     <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={isAllSelected}
-                        ref={(el) => {
-                          if (el) {
-                            el.indeterminate = isSomeSelected && !isAllSelected;
-                          }
-                        }}
-                        onChange={handleSelectAll}
-                        className="h-4 w-4"
+                      <Checkbox
+                        checked={
+                          isAllSelected
+                            ? true
+                            : isSomeSelected
+                              ? "indeterminate"
+                              : false
+                        }
+                        onCheckedChange={handleSelectAll}
                       />
                     </div>
                   </TableHead>
@@ -2232,10 +2223,9 @@ export default function AdminReviewPage() {
                     >
                       <TableCell className="text-center">
                         <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={selected.has(asset.id)}
-                            onChange={() => toggleSelect(asset.id)}
+                            onCheckedChange={() => toggleSelect(asset.id)}
                           />
                           {assignedAssets.has(asset.id) && (
                             <div className="flex items-center gap-1">

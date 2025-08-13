@@ -19,6 +19,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Checkbox,
 } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
 import {
@@ -68,12 +69,6 @@ const STATUS_LABELS = {
     label: "Approved by Client",
     color: "bg-blue-100 text-blue-700 border-blue-200",
     rowColor: "table-row-status-approved-by-client",
-    hoverColor: "",
-  },
-  not_started: {
-    label: "Not Started",
-    color: "bg-error-muted text-error border-error/20",
-    rowColor: "table-row-status-not-started",
     hoverColor: "",
   },
 };
@@ -251,14 +246,23 @@ export default function ReviewDashboardPage() {
   // Fetch annotation counts for assets
   useEffect(() => {
     async function fetchAnnotationCounts() {
-      if (assets.length === 0) return;
+      if (assets.length === 0 || !user) return;
 
       try {
         const assetIds = assets.map((asset) => asset.id);
-        const { data, error } = await supabase
+        let query = supabase
           .from("asset_annotations")
           .select("asset_id")
           .in("asset_id", assetIds);
+
+        // Apply role-based filtering for annotation counts
+        if (user.metadata?.role === "client") {
+          // Clients can only see counts for their own annotations
+          query = query.eq("created_by", user.id);
+        }
+        // QA, modelers, admin, and production can see all annotation counts (no additional filter needed)
+
+        const { data, error } = await query;
 
         if (!error && data) {
           const counts: Record<string, number> = {};
@@ -274,7 +278,7 @@ export default function ReviewDashboardPage() {
     }
 
     fetchAnnotationCounts();
-  }, [assets]);
+  }, [assets, user]);
 
   // Filtering, sorting, searching
   useEffect(() => {
@@ -595,23 +599,22 @@ export default function ReviewDashboardPage() {
         {loading ? (
           <ReviewTableSkeleton />
         ) : (
-          <div className="overflow-auto rounded-lg border bg-background flex-1 max-h-[70vh]">
+          <div className="overflow-auto rounded-lg border bg-background flex-1 max-h-[70vh] min-h-[70vh]">
             <div className="min-w-[1200px]">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">
                       <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={isAllSelected}
-                          ref={(input) => {
-                            if (input) {
-                              input.indeterminate = isIndeterminate;
-                            }
-                          }}
-                          onChange={selectAll}
-                          className="rounded"
+                        <Checkbox
+                          checked={
+                            isAllSelected
+                              ? true
+                              : isIndeterminate
+                                ? "indeterminate"
+                                : false
+                          }
+                          onCheckedChange={selectAll}
                         />
                       </div>
                     </TableHead>
@@ -620,9 +623,9 @@ export default function ReviewDashboardPage() {
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Product Link</TableHead>
-                    <TableHead>Review</TableHead>
-                    <TableHead>References</TableHead>
+                    <TableHead className="text-center">References</TableHead>
                     <TableHead>GLB File</TableHead>
+                    <TableHead className="w-12 text-center">View</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -641,10 +644,9 @@ export default function ReviewDashboardPage() {
                           className={`${rowStyling.base} transition-all duration-200`}
                         >
                           <TableCell>
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={selected.has(asset.id)}
-                              onChange={() => toggleSelect(asset.id)}
+                              onCheckedChange={() => toggleSelect(asset.id)}
                             />
                           </TableCell>
                           <TableCell>
@@ -670,15 +672,7 @@ export default function ReviewDashboardPage() {
                           </TableCell>
                           <TableCell>{asset.article_id}</TableCell>
                           <TableCell>
-                            <div className="flex items-center justify-center gap-2">
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                  asset.priority || 2
-                                )}`}
-                              >
-                                {getPriorityLabel(asset.priority || 2)}
-                              </span>
-
+                            <div className="flex items-center justify-center">
                               <Select
                                 value={(asset.priority || 2).toString()}
                                 onValueChange={(value) => {
@@ -721,18 +715,28 @@ export default function ReviewDashboardPage() {
                                     });
                                 }}
                               >
-                                <SelectTrigger className="w-6 h-6 p-1 border-0 bg-transparent hover:bg-muted/50 rounded transition-colors"></SelectTrigger>
+                                <SelectTrigger
+                                  className={`border-0 shadow-none p-0 h-auto w-auto bg-transparent hover:opacity-80 transition-opacity cursor-pointer [&>svg]:hidden`}
+                                >
+                                  <span
+                                    className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                      asset.priority || 2
+                                    )}`}
+                                  >
+                                    {getPriorityLabel(asset.priority || 2)}
+                                  </span>
+                                </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="1">High </SelectItem>
+                                  <SelectItem value="1">High</SelectItem>
                                   <SelectItem value="2">Medium</SelectItem>
-                                  <SelectItem value="3">Low </SelectItem>
+                                  <SelectItem value="3">Low</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
                           </TableCell>
 
                           <TableCell>
-                            <div className="flex items-center gap-2 justify-center">
+                            <div className="flex items-center justify-center">
                               <span
                                 className={`px-2 py-1 rounded text-xs font-semibold ${
                                   asset.status in STATUS_LABELS
@@ -748,14 +752,6 @@ export default function ReviewDashboardPage() {
                                     ].label
                                   : asset.status}
                               </span>
-                              {(asset.revision_count || 0) > 0 && (
-                                <Badge
-                                  variant="secondary"
-                                  className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                                >
-                                  R{asset.revision_count}
-                                </Badge>
-                              )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -777,20 +773,8 @@ export default function ReviewDashboardPage() {
                               </span>
                             )}
                           </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full justify-start text-xs"
-                              onClick={() =>
-                                router.push(`/client-review/${asset.id}`)
-                              }
-                            >
-                              <Eye className="mr-2 h-3 w-3" />
-                              Review
-                            </Button>
-                          </TableCell>
-                          <TableCell>
+
+                          <TableCell className="text-center">
                             <div className="space-y-2 flex flex-row items-center justify-center">
                               {asset.reference &&
                               parseReferences(asset.reference).length > 0 ? (
@@ -850,6 +834,18 @@ export default function ReviewDashboardPage() {
                                 No GLB
                               </span>
                             )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() =>
+                                router.push(`/client-review/${asset.id}`)
+                              }
+                              className="h-8 w-8"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
