@@ -7,9 +7,10 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Separator,
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
-import { Badge } from "@/components/ui/feedback";
+import { Badge, Progress } from "@/components/ui/feedback";
 import {
   Tooltip,
   TooltipContent,
@@ -53,6 +54,7 @@ import {
   Building,
   Users,
   ShieldCheck,
+  Clock,
   CheckCircle,
   AlertCircle,
   Info,
@@ -88,7 +90,6 @@ interface BatchProgress {
     revisions: number;
     approved: number;
     approved_by_client: number;
-    delivered_by_artist: number;
   };
   assignedUsers: {
     modelers: Array<{ id: string; email: string; title?: string }>;
@@ -112,7 +113,6 @@ interface ModelerProgress {
     revisions: number;
     approved: number;
     approved_by_client: number;
-    delivered_by_artist: number;
   };
   completionStats: {
     averageHours: number;
@@ -126,6 +126,32 @@ interface ModelerProgress {
     revisionRate: number;
     totalRevisions: number;
   };
+}
+
+interface ClientSummary {
+  name: string;
+  totalBatches: number;
+  totalModels: number;
+  completedModels: number;
+  completionPercentage: number;
+  unassignedAssets: number;
+  statusCounts: {
+    in_production: number;
+    revisions: number;
+    approved: number;
+    approved_by_client: number;
+  };
+  assignedUsers: {
+    modelers: number;
+    qa: number;
+  };
+  averageProgress: number;
+  batches: Array<{
+    batch: number;
+    totalModels: number;
+    completionPercentage: number;
+    startDate: string;
+  }>;
 }
 
 interface QAProgress {
@@ -144,7 +170,6 @@ interface QAProgress {
     revisions: number;
     approved: number;
     approved_by_client: number;
-    delivered_by_artist: number;
   };
   reviewStats: {
     averageReviewTime: number;
@@ -186,6 +211,8 @@ interface QAProgress {
 export default function ProductionDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [clients, setClients] = useState<ClientSummary[]>([]);
+  const [filteredClients, setFilteredClients] = useState<ClientSummary[]>([]);
   const [batches, setBatches] = useState<BatchProgress[]>([]);
   const [filteredBatches, setFilteredBatches] = useState<BatchProgress[]>([]);
   const [modelers, setModelers] = useState<ModelerProgress[]>([]);
@@ -207,22 +234,42 @@ export default function ProductionDashboard() {
   // Get state from URL params with defaults
   const searchTerm = searchParams.get("search") || "";
   const clientFilter = searchParams.get("client") || "all";
-  const sortBy = searchParams.get("sort") || "client-batch-stable";
+  const sortBy = searchParams.get("sort") || "";
 
-  // Get view mode from URL params, default to "batches"
+  // Get view mode from URL params, default to "clients"
   const viewMode =
-    (searchParams.get("view") as
-      | "batches"
-      | "modelers"
-      | "qa"
-      | "pending-revisions") || "batches";
+    (searchParams.get("view") as "clients" | "batches" | "modelers" | "qa") ||
+    "clients";
+
+  // Get selected client from URL params
+  const selectedClient = searchParams.get("client") || null;
 
   // Function to handle view mode changes and update URL
   const handleViewModeChange = (
-    newViewMode: "batches" | "modelers" | "qa" | "pending-revisions"
+    newViewMode: "clients" | "batches" | "modelers" | "qa"
   ) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("view", newViewMode);
+    // Clear client selection when changing view modes
+    if (newViewMode !== "batches") {
+      params.delete("client");
+    }
+    router.push(`/production?${params.toString()}`);
+  };
+
+  // Function to handle client selection and show batches
+  const handleClientSelect = (clientName: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", "batches");
+    params.set("client", clientName);
+    router.push(`/production?${params.toString()}`);
+  };
+
+  // Function to go back to clients view
+  const handleBackToClients = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", "clients");
+    params.delete("client");
     router.push(`/production?${params.toString()}`);
   };
 
@@ -260,8 +307,12 @@ export default function ProductionDashboard() {
   }, []);
 
   useEffect(() => {
-    fetchBatchProgress();
-  }, []);
+    if (viewMode === "clients") {
+      fetchClientData();
+    } else {
+      fetchBatchProgress();
+    }
+  }, [viewMode]);
 
   const fetchBatchProgress = async () => {
     try {
@@ -299,7 +350,6 @@ export default function ProductionDashboard() {
               revisions: 0,
               approved: 0,
               approved_by_client: 0,
-              delivered_by_artist: 0,
             },
             assignedUsers: {
               modelers: [],
@@ -320,11 +370,10 @@ export default function ProductionDashboard() {
           }
         }
 
-        // Count completed models (approved + approved_by_client + delivered)
+        // Count completed models (approved + approved_by_client)
         if (
           asset.status === "approved" ||
-          asset.status === "approved_by_client" ||
-          asset.status === "delivered_by_artist"
+          asset.status === "approved_by_client"
         ) {
           batchProgress.completedModels++;
         }
@@ -506,6 +555,190 @@ export default function ProductionDashboard() {
     }
   };
 
+  // Function to fetch and process client summary data
+  const fetchClientData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch all asset data
+      const { data: assetData, error: assetError } = await supabase
+        .from("onboarding_assets")
+        .select("*");
+
+      if (assetError) {
+        console.error("Error fetching assets:", assetError);
+        return;
+      }
+
+      // Fetch asset assignments for team counting
+      const { data: assetAssignments, error: assignmentsError } =
+        await supabase.from("asset_assignments").select(`
+          user_id,
+          role,
+          onboarding_assets(client, batch)
+        `);
+
+      if (assignmentsError) {
+        console.error("Error fetching asset assignments:", assignmentsError);
+      }
+
+      // Group assets by client
+      const clientMap = new Map<string, ClientSummary>();
+
+      assetData?.forEach((asset) => {
+        const clientName = asset.client;
+
+        if (!clientMap.has(clientName)) {
+          clientMap.set(clientName, {
+            name: clientName,
+            totalBatches: 0,
+            totalModels: 0,
+            completedModels: 0,
+            completionPercentage: 0,
+            unassignedAssets: 0,
+            statusCounts: {
+              in_production: 0,
+              revisions: 0,
+              approved: 0,
+              approved_by_client: 0,
+            },
+            assignedUsers: {
+              modelers: 0,
+              qa: 0,
+            },
+            averageProgress: 0,
+            batches: [],
+          });
+        }
+
+        const client = clientMap.get(clientName)!;
+        client.totalModels++;
+
+        // Count status
+        const status = asset.status || "in_production";
+        if (status in client.statusCounts) {
+          client.statusCounts[status as keyof typeof client.statusCounts]++;
+        }
+
+        if (status === "approved" || status === "approved_by_client") {
+          client.completedModels++;
+        }
+      });
+
+      // Group batches by client and calculate batch-level stats
+      const batchMap = new Map<string, Map<number, any>>();
+      assetData?.forEach((asset) => {
+        const clientName = asset.client;
+        const batchNumber = asset.batch;
+
+        if (!batchMap.has(clientName)) {
+          batchMap.set(clientName, new Map());
+        }
+
+        const clientBatches = batchMap.get(clientName)!;
+        if (!clientBatches.has(batchNumber)) {
+          clientBatches.set(batchNumber, {
+            batch: batchNumber,
+            totalModels: 0,
+            completedModels: 0,
+            completionPercentage: 0,
+            startDate: asset.created_at
+              ? new Date(asset.created_at).toLocaleDateString()
+              : new Date().toLocaleDateString(),
+          });
+        }
+
+        const batch = clientBatches.get(batchNumber)!;
+        batch.totalModels++;
+
+        const status = asset.status || "in_production";
+        if (status === "approved" || status === "approved_by_client") {
+          batch.completedModels++;
+        }
+      });
+
+      // Calculate completion percentages and populate batch data
+      Array.from(clientMap.values()).forEach((client) => {
+        const clientBatches = batchMap.get(client.name);
+        if (clientBatches) {
+          client.totalBatches = clientBatches.size;
+          client.batches = Array.from(clientBatches.values()).map((batch) => ({
+            ...batch,
+            completionPercentage:
+              batch.totalModels > 0
+                ? Math.round((batch.completedModels / batch.totalModels) * 100)
+                : 0,
+          }));
+
+          // Calculate average progress across batches
+          client.averageProgress =
+            client.batches.length > 0
+              ? Math.round(
+                  client.batches.reduce(
+                    (sum, batch) => sum + batch.completionPercentage,
+                    0
+                  ) / client.batches.length
+                )
+              : 0;
+        }
+
+        client.completionPercentage =
+          client.totalModels > 0
+            ? Math.round((client.completedModels / client.totalModels) * 100)
+            : 0;
+      });
+
+      // Count assigned users per client
+      if (assetAssignments) {
+        const clientUserCounts = new Map<
+          string,
+          { modelers: Set<string>; qa: Set<string> }
+        >();
+
+        assetAssignments.forEach((assignment) => {
+          const asset = assignment.onboarding_assets as any;
+          if (asset && asset.client) {
+            const clientName = asset.client;
+
+            if (!clientUserCounts.has(clientName)) {
+              clientUserCounts.set(clientName, {
+                modelers: new Set(),
+                qa: new Set(),
+              });
+            }
+
+            const counts = clientUserCounts.get(clientName)!;
+            if (assignment.role === "modeler") {
+              counts.modelers.add(assignment.user_id);
+            } else if (assignment.role === "qa") {
+              counts.qa.add(assignment.user_id);
+            }
+          }
+        });
+
+        // Update client data with user counts
+        Array.from(clientMap.values()).forEach((client) => {
+          const userCounts = clientUserCounts.get(client.name);
+          if (userCounts) {
+            client.assignedUsers.modelers = userCounts.modelers.size;
+            client.assignedUsers.qa = userCounts.qa.size;
+          }
+        });
+      }
+
+      const clientsArray = Array.from(clientMap.values()).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+
+      setClients(clientsArray);
+      setFilteredClients(clientsArray);
+    } catch (error) {
+      console.error("Error fetching client data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchModelerProgress = async (assetData: any[]) => {
     try {
@@ -558,7 +791,6 @@ export default function ProductionDashboard() {
             revisions: 0,
             approved: 0,
             approved_by_client: 0,
-            delivered_by_artist: 0,
           },
           completionStats: {
             averageHours: 0,
@@ -617,9 +849,6 @@ export default function ProductionDashboard() {
           modeler.inProgressModels++;
         } else if (asset.status === "revisions") {
           modeler.revisionModels++;
-        } else if (asset.status === "delivered_by_artist") {
-          // delivered_by_artist is not counted as completed for modelers
-          // It's shown separately in the status breakdown
         } else if (!asset.status || asset.status === "not_started") {
           modeler.pendingModels++;
         }
@@ -769,7 +998,6 @@ export default function ProductionDashboard() {
             revisions: 0,
             approved: 0,
             approved_by_client: 0,
-            delivered_by_artist: 0,
           },
           reviewStats: {
             averageReviewTime: 0,
@@ -831,8 +1059,6 @@ export default function ProductionDashboard() {
           asset.status === "approved_by_client"
         ) {
           qaUser.completedReviews++;
-        } else if (asset.status === "delivered_by_artist") {
-          qaUser.inProgressReviews++;
         } else if (asset.status === "revisions") {
           qaUser.revisionReviews++;
         } else if (!asset.status || asset.status === "not_started") {
@@ -949,9 +1175,7 @@ export default function ProductionDashboard() {
             case "in_production":
               modeler.inProgressAssets++;
               break;
-            case "delivered_by_artist":
-              modeler.pendingAssets++;
-              break;
+
             case "revisions":
               modeler.revisionAssets++;
               break;
@@ -1090,36 +1314,27 @@ export default function ProductionDashboard() {
       );
     }
 
-    // Apply client filter
-    if (clientFilter !== "all") {
-      filtered = filtered.filter((batch) => batch.client === clientFilter);
+    // Apply client filter (either from old filter or selected client)
+    const activeClientFilter = selectedClient || clientFilter;
+    if (activeClientFilter && activeClientFilter !== "all") {
+      filtered = filtered.filter(
+        (batch) => batch.client === activeClientFilter
+      );
     }
 
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "client-batch-stable":
-          // Sort by client first, then by batch number
-          const clientComparison = a.client.localeCompare(b.client);
-          if (clientComparison !== 0) return clientComparison;
-          return a.batch - b.batch;
-        case "client-batch":
-          // Sort by client first, then by batch number
-          const clientComp = a.client.localeCompare(b.client);
-          if (clientComp !== 0) return clientComp;
-          return a.batch - b.batch;
-        case "completion":
-          return b.completionPercentage - a.completionPercentage;
-        case "deadline":
-          return (
-            new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
-          );
-        case "unassigned":
-          return b.unassignedAssets - a.unassignedAssets;
-        default:
-          return 0;
-      }
-    });
+    // Apply sorting only if a sort option is selected
+    if (sortBy) {
+      filtered.sort((a, b) => {
+        switch (sortBy) {
+          case "completion":
+            return b.completionPercentage - a.completionPercentage;
+          case "unassigned":
+            return b.unassignedAssets - a.unassignedAssets;
+          default:
+            return 0;
+        }
+      });
+    }
 
     setFilteredBatches(filtered);
   }, [batches, searchTerm, clientFilter, sortBy]);
@@ -1138,21 +1353,23 @@ export default function ProductionDashboard() {
       );
     }
 
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "completion":
-          return b.completionPercentage - a.completionPercentage;
-        case "total-assigned":
-          return b.totalAssigned - a.totalAssigned;
-        case "completed":
-          return b.completedModels - a.completedModels;
-        case "name":
-          return (a.name || a.email).localeCompare(b.name || b.email);
-        default:
-          return 0;
-      }
-    });
+    // Apply sorting only if a sort option is selected
+    if (sortBy) {
+      filtered.sort((a, b) => {
+        switch (sortBy) {
+          case "completion":
+            return b.completionPercentage - a.completionPercentage;
+          case "total-assigned":
+            return b.totalAssigned - a.totalAssigned;
+          case "completed":
+            return b.completedModels - a.completedModels;
+          case "name":
+            return (a.name || a.email).localeCompare(b.name || b.email);
+          default:
+            return 0;
+        }
+      });
+    }
 
     setFilteredModelers(filtered);
   }, [modelers, searchTerm, sortBy]);
@@ -1171,24 +1388,61 @@ export default function ProductionDashboard() {
       );
     }
 
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "completion":
-          return b.completionPercentage - a.completionPercentage;
-        case "total-assigned":
-          return b.totalAssigned - a.totalAssigned;
-        case "completed":
-          return b.completedReviews - a.completedReviews;
-        case "name":
-          return (a.name || a.email).localeCompare(b.name || b.email);
-        default:
-          return 0;
-      }
-    });
+    // Apply sorting only if a sort option is selected
+    if (sortBy) {
+      filtered.sort((a, b) => {
+        switch (sortBy) {
+          case "completion":
+            return b.completionPercentage - a.completionPercentage;
+          case "total-assigned":
+            return b.totalAssigned - a.totalAssigned;
+          case "completed":
+            return b.completedReviews - a.completedReviews;
+          case "name":
+            return (a.name || a.email).localeCompare(b.name || b.email);
+          default:
+            return 0;
+        }
+      });
+    }
 
     setFilteredQAUsers(filtered);
   }, [qaUsers, searchTerm, sortBy]);
+
+  // Filter and sort clients based on search term and sort criteria
+  useEffect(() => {
+    let filtered = [...clients];
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter((client) =>
+        client.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Sort the filtered clients only if a sort option is selected
+    if (sortBy) {
+      filtered.sort((a, b) => {
+        switch (sortBy) {
+          case "completion":
+            return b.completionPercentage - a.completionPercentage;
+          case "total-models":
+            return b.totalModels - a.totalModels;
+          case "batches":
+            return b.totalBatches - a.totalBatches;
+          case "name":
+            return a.name.localeCompare(b.name);
+          default:
+            return 0;
+        }
+      });
+    } else {
+      // Default sort by name when no option is selected
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    setFilteredClients(filtered);
+  }, [clients, searchTerm, sortBy]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1200,8 +1454,7 @@ export default function ProductionDashboard() {
         return "#22C55E"; // success color
       case "approved_by_client":
         return "#10B981"; // emerald color
-      case "delivered_by_artist":
-        return "#A855F7"; // accent-purple color
+
       case "not_started":
         return "#EF4444"; // error color
 
@@ -1220,8 +1473,6 @@ export default function ProductionDashboard() {
         return "Approved";
       case "approved_by_client":
         return "Approved by Client";
-      case "delivered_by_artist":
-        return "Delivered";
 
       default:
         return "In Production"; // Default to in_production label
@@ -1238,8 +1489,7 @@ export default function ProductionDashboard() {
         return "bg-warning-muted text-warning border-warning/20";
       case "revisions":
         return "bg-error-muted text-error border-error/20";
-      case "delivered_by_artist":
-        return "bg-accent-purple/10 text-accent-purple border-accent-purple/20";
+
       case "not_started":
         return "bg-error-muted text-error border-error/20";
       default:
@@ -1502,20 +1752,129 @@ export default function ProductionDashboard() {
   if (loading) {
     return (
       <div className="container mx-auto p-6 space-y-6">
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold">Production Dashboard</h1>
-            <div className="flex items-center gap-4">
-              <div className="h-10 w-32 bg-muted animate-pulse rounded" />
-              <div className="h-10 w-10 bg-muted animate-pulse rounded-full" />
-              <div className="h-10 w-40 bg-muted animate-pulse rounded" />
+        {/* Header Skeleton */}
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center gap-4">
+            {/* View Toggle Skeleton */}
+            <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
+              <div className="h-8 w-16 bg-muted-foreground/20 animate-pulse rounded" />
+              <div className="h-8 w-20 bg-muted-foreground/20 animate-pulse rounded" />
+              <div className="h-8 w-20 bg-muted-foreground/20 animate-pulse rounded" />
+              <div className="h-8 w-16 bg-muted-foreground/20 animate-pulse rounded" />
             </div>
+
+            {/* Back Button Skeleton (conditional) */}
+            {viewMode === "batches" && selectedClient && (
+              <div className="h-8 w-32 bg-muted animate-pulse rounded ml-4" />
+            )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-64 bg-muted animate-pulse rounded-lg" />
-            ))}
+
+          {/* Action Buttons Skeleton */}
+          <div className="flex items-center gap-2">
+            <div className="h-10 w-32 bg-muted animate-pulse rounded" />
+            <div className="h-10 w-10 bg-muted animate-pulse rounded-full" />
           </div>
+        </div>
+
+        {/* Search and Filter Controls Skeleton */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <div className="h-10 w-full bg-muted animate-pulse rounded" />
+          </div>
+          <div className="flex items-center gap-2">
+            {viewMode === "batches" && (
+              <>
+                <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+              </>
+            )}
+            <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+          </div>
+        </div>
+
+        {/* Results Count Skeleton */}
+        <div className="mb-4">
+          <div className="h-5 w-48 bg-muted animate-pulse rounded" />
+        </div>
+
+        {/* Cards Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="border rounded-lg p-0 bg-background shadow-sm"
+            >
+              {/* Card Header Skeleton */}
+              <div className="p-6 pb-3 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0 space-y-3">
+                    {/* Title */}
+                    <div className="h-6 w-3/4 bg-muted animate-pulse rounded" />
+
+                    {/* Key Metrics Row */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="flex items-center gap-1">
+                        <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                        <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                        <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                        <div className="h-4 w-18 bg-muted animate-pulse rounded" />
+                      </div>
+                    </div>
+
+                    {/* Progress Bar Section */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+                        <div className="h-5 w-10 bg-muted animate-pulse rounded" />
+                      </div>
+                      <div className="h-2 w-full bg-muted animate-pulse rounded-full" />
+                      <div className="flex justify-between">
+                        <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+                        <div className="h-3 w-16 bg-muted animate-pulse rounded" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Separator */}
+              <div className="mx-6 h-px bg-muted" />
+
+              {/* Card Content Skeleton */}
+              <div className="p-6 pt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column - Chart */}
+                  <div className="flex items-center justify-center">
+                    <div className="w-32 h-32 bg-muted animate-pulse rounded-full" />
+                  </div>
+
+                  {/* Right Column - Status/Batches */}
+                  <div className="space-y-3">
+                    <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                    <div className="space-y-2">
+                      {Array.from({ length: 3 }).map((_, j) => (
+                        <div
+                          key={j}
+                          className="h-8 w-full bg-muted animate-pulse rounded"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Button Skeleton */}
+                <div className="mt-6 pt-4 border-t">
+                  <div className="h-8 w-full bg-muted animate-pulse rounded" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -1528,6 +1887,15 @@ export default function ProductionDashboard() {
         <div className="flex items-center gap-4">
           {/* View Toggle */}
           <div className="flex items-center font-bold text-2xl gap-2 bg-muted rounded-lg p-1">
+            <Button
+              variant={viewMode === "clients" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => handleViewModeChange("clients")}
+              className="text-xs"
+            >
+              <Building className="h-4 w-4 mr-1" />
+              Clients
+            </Button>
             <Button
               variant={viewMode === "batches" ? "default" : "ghost"}
               size="sm"
@@ -1555,15 +1923,19 @@ export default function ProductionDashboard() {
               <Users className="h-4 w-4 mr-1" />
               QA
             </Button>
-            <Button
-              variant={viewMode === "pending-revisions" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => handleViewModeChange("pending-revisions")}
-              className="text-xs"
-            >
-              Pending Revisions
-            </Button>
           </div>
+
+          {/* Back to Clients Button */}
+          {viewMode === "batches" && selectedClient && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBackToClients}
+              className="text-xs ml-4"
+            >
+              ← Back to Clients
+            </Button>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -1586,13 +1958,15 @@ export default function ProductionDashboard() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={
-              viewMode === "batches"
+              viewMode === "clients"
                 ? "Search clients..."
-                : viewMode === "modelers"
-                  ? "Search modelers..."
-                  : viewMode === "qa"
-                    ? "Search QA users..."
-                    : "Search assets..."
+                : viewMode === "batches"
+                  ? "Search clients..."
+                  : viewMode === "modelers"
+                    ? "Search modelers..."
+                    : viewMode === "qa"
+                      ? "Search QA users..."
+                      : "Search assets..."
             }
             value={searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -1630,16 +2004,22 @@ export default function ProductionDashboard() {
               <SelectValue placeholder="Sort by..." />
             </SelectTrigger>
             <SelectContent>
-              {viewMode === "batches" ? (
+              {viewMode === "clients" ? (
                 <>
-                  <SelectItem value="client-batch-stable">
-                    Client → Batch (Stable)
-                  </SelectItem>
-                  <SelectItem value="client-batch">Client → Batch</SelectItem>
+                  <SelectItem value="name">Client Name (A-Z)</SelectItem>
                   <SelectItem value="completion">
                     Completion % (Highest)
                   </SelectItem>
-                  <SelectItem value="deadline">Deadline (Earliest)</SelectItem>
+                  <SelectItem value="total-models">
+                    Total Models (Most)
+                  </SelectItem>
+                  <SelectItem value="batches">Batches (Most)</SelectItem>
+                </>
+              ) : viewMode === "batches" ? (
+                <>
+                  <SelectItem value="completion">
+                    Completion % (Highest)
+                  </SelectItem>
                   <SelectItem value="unassigned">
                     Unassigned Assets (Most)
                   </SelectItem>
@@ -1677,9 +2057,15 @@ export default function ProductionDashboard() {
       {/* Results Count */}
       <div className="mb-4">
         <p className="text-sm text-muted-foreground">
+          {viewMode === "clients" && (
+            <>
+              Showing {filteredClients.length} of {clients.length} clients
+            </>
+          )}
           {viewMode === "batches" && (
             <>
               Showing {filteredBatches.length} of {batches.length} batches
+              {selectedClient && ` for ${selectedClient}`}
             </>
           )}
           {viewMode === "modelers" && (
@@ -1692,676 +2078,833 @@ export default function ProductionDashboard() {
               Showing {filteredQAUsers.length} of {qaUsers.length} QA users
             </>
           )}
-          {viewMode === "pending-revisions" && <>Pending revisions</>}
         </p>
       </div>
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {viewMode === "batches" ? (
-          // Batch Cards
-          filteredBatches.map((batch) => {
-            // Prepare chart data
-            const chartData = Object.entries(batch.statusCounts)
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              .filter(([_, count]) => count > 0)
-              .map(([status, count]) => ({
-                name: getStatusLabel(status),
-                value: count,
-                color: getStatusColor(status),
-              }));
+        {viewMode === "clients"
+          ? // Client Cards
+            filteredClients.map((client) => {
+              // Prepare chart data
+              const chartData = Object.entries(client.statusCounts)
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                .filter(([_, count]) => count > 0)
+                .map(([status, count]) => ({
+                  name: getStatusLabel(status),
+                  value: count,
+                  color: getStatusColor(status),
+                }));
 
-            const batchKey = `${batch.client}-${batch.batch}`;
-            const isDeleting = deletingBatch === batchKey;
+              return (
+                <Card
+                  key={client.name}
+                  className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+                  onClick={() => handleClientSelect(client.name)}
+                >
+                  <CardHeader className="pb-3 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-xl font-semibold text-foreground mb-2">
+                          {client.name}
+                        </CardTitle>
 
-            return (
-              <Card
-                key={batch.id}
-                className="hover:shadow-lg transition-shadow"
-              >
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg font-semibold">
-                        {batch.client} - Batch {batch.batch}
-                      </CardTitle>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          batch.completionPercentage >= 80
-                            ? "default"
-                            : batch.completionPercentage >= 50
-                              ? "secondary"
-                              : "destructive"
-                        }
-                        className="text-sm"
-                      >
-                        {batch.completionPercentage}%
-                      </Badge>
-
-                      {/* Delete Button */}
-                      <Dialog
-                        open={
-                          deleteDialogOpen?.client === batch.client &&
-                          deleteDialogOpen?.batch === batch.batch
-                        }
-                        onOpenChange={(open) => {
-                          if (!open) setDeleteDialogOpen(null);
-                        }}
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            disabled={isDeleting}
-                            onClick={() =>
-                              setDeleteDialogOpen({
-                                client: batch.client,
-                                batch: batch.batch,
-                              })
-                            }
-                          >
-                            {isDeleting ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="bg-background h-fit">
-                          <DialogHeader>
-                            <DialogTitle>Delete Batch</DialogTitle>
-                            <DialogDescription>
-                              Are you sure you want to delete all assets in{" "}
-                              <strong>
-                                {batch.client} - Batch {batch.batch}
-                              </strong>
-                              ?
-                              <br />
-                              <br />
-                              This will permanently delete:
-                              <ul className="list-disc list-inside mt-2 space-y-1">
-                                <li>{batch.totalModels} assets</li>
-                                <li>All asset assignments</li>
-                                <li>All comments and revision history</li>
-                                <li>All QA approvals</li>
-                                <li>
-                                  All allocation lists containing these assets
-                                </li>
-                              </ul>
-                              <br />
-                              This action cannot be undone.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <DialogFooter>
-                            <Button
-                              variant="outline"
-                              onClick={() => setDeleteDialogOpen(null)}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              onClick={() =>
-                                deleteBatchAssets(batch.client, batch.batch)
-                              }
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              {isDeleting ? "Deleting..." : "Delete Batch"}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  {/* Progress Chart */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Total Models:
-                        </span>
-                        <span className="font-semibold">
-                          {batch.totalModels}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-sm">
-                        <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Assets Left to Assign:
-                        </span>
-                        <span
-                          className={`font-semibold ${batch.unassignedAssets > 0 ? "text-warning" : "text-success"}`}
-                        >
-                          {batch.unassignedAssets}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Start Date:
-                        </span>
-                        <span className="font-medium">{batch.startDate}</span>
-                      </div>
-
-                      {/* Assigned Team Indicator */}
-                      {(batch.assignedUsers.modelers.length > 0 ||
-                        batch.assignedUsers.qa.length > 0) && (
-                        <TeamInfoTooltip
-                          modelers={batch.assignedUsers.modelers}
-                          qa={batch.assignedUsers.qa}
-                          clientName={batch.client}
-                          batchNumber={batch.batch}
-                        >
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                        {/* Key Metrics Row */}
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Package className="h-4 w-4" />
+                            <span>{client.totalModels} models</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <TrendingUp className="h-4 w-4" />
+                            <span>{client.totalBatches} batches</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-muted-foreground">
                             <Users className="h-4 w-4" />
                             <span>
-                              Team (
-                              {batch.assignedUsers.modelers.length +
-                                batch.assignedUsers.qa.length}
-                              )
+                              {client.assignedUsers.modelers +
+                                client.assignedUsers.qa}{" "}
+                              team
                             </span>
                           </div>
-                        </TeamInfoTooltip>
-                      )}
+                        </div>
 
-                      {/* Admin Review Button under Team */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-[150px] h-8 text-xs"
-                        onClick={() =>
-                          handleAdminReview(batch.client, batch.batch)
-                        }
-                      >
-                        <ShieldCheck className="h-4 w-4 mr-1" />
-                        Admin Review
-                      </Button>
-                    </div>
-
-                    {/* Pie Chart */}
-                    <div className="w-40 h-40 relative">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={chartData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={65}
-                            paddingAngle={2}
-                            dataKey="value"
-                          >
-                            {chartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <RechartsTooltip
-                            wrapperStyle={{ zIndex: 99999 }}
-                            contentStyle={{
-                              backgroundColor: "var(--background)",
-                              border: "1px solid var(--border)",
-                              borderRadius: "8px",
-                              fontSize: "12px",
-                              zIndex: 99999,
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      {/* Centered fraction label */}
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="text-center p-2 border-0 pointer-events-none">
-                          <div className="text-2xl text-primary drop-shadow-sm pointer-events-none">
-                            {batch.statusCounts.approved}/{batch.totalModels}
+                        {/* Progress Bar */}
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium text-muted-foreground">
+                              Overall Progress
+                            </span>
+                            <span className="font-bold text-lg">
+                              {client.completionPercentage}%
+                            </span>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1 font-medium tracking-wide">
-                            Approved
+                          <Progress
+                            value={client.completionPercentage}
+                            className="h-2"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{client.completedModels} completed</span>
+                            <span>
+                              {client.totalModels - client.completedModels}{" "}
+                              remaining
+                            </span>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </CardHeader>
 
-                  {/* Status Breakdown */}
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Model Statistics
-                    </p>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      {Object.entries(batch.statusCounts)
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        .filter(([_, count]) => count > 0)
-                        .map(([status, count]) => (
-                          <div
-                            key={status}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-1">
-                              <Badge
-                                variant="outline"
-                                className={`text-[10px] ${getStatusBadgeClass(status)}`}
+                  <CardContent className="pt-0">
+                    {/* Main Content Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Left Column - Chart */}
+                      <div className="flex items-center justify-center">
+                        <div className="w-32 h-32 relative">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={chartData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={35}
+                                outerRadius={55}
+                                paddingAngle={2}
+                                dataKey="value"
                               >
-                                {getStatusLabel(status)}
-                              </Badge>
+                                {chartData.map((entry, index) => (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={entry.color}
+                                  />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip
+                                wrapperStyle={{ zIndex: 99999 }}
+                                contentStyle={{
+                                  backgroundColor: "var(--background)",
+                                  border: "1px solid var(--border)",
+                                  borderRadius: "8px",
+                                  fontSize: "12px",
+                                  zIndex: 99999,
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          {/* Centered fraction label */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="text-center">
+                              <div className="text-lg font-bold text-primary">
+                                {client.completedModels}
+                              </div>
+                              <div className="text-xs text-muted-foreground font-medium">
+                                of {client.totalModels}
+                              </div>
                             </div>
-                            <span className="font-medium">{count}</span>
                           </div>
-                        ))}
-                    </div>
-                  </div>
+                        </div>
+                      </div>
 
-                  {/* Modelers Accordion within this project */}
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Modelers Working on this Project
-                    </p>
-                    <div className="max-h-64 overflow-y-auto">
-                      <Accordion
-                        type="single"
-                        collapsible
-                        className="space-y-1"
+                      {/* Right Column - Batches Summary */}
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm text-muted-foreground">
+                          Recent Batches
+                        </h4>
+                        <div className="space-y-2 max-h-24 overflow-y-auto">
+                          {client.batches.slice(0, 3).map((batch) => (
+                            <div
+                              key={batch.batch}
+                              className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs"
+                            >
+                              <span className="font-medium">
+                                Batch {batch.batch}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">
+                                  {batch.totalModels} models
+                                </span>
+                                <Badge variant="outline" className="text-xs">
+                                  {batch.completionPercentage}%
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                          {client.batches.length > 3 && (
+                            <div className="text-xs text-muted-foreground text-center">
+                              +{client.batches.length - 3} more batches
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Fixed Action Button */}
+                    <div className="mt-6 pt-4 border-t border-border">
+                      <Separator className="mb-4" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleClientSelect(client.name)}
                       >
-                        {modelers
-                          .filter((m) =>
-                            m.assignedBatches.some(
-                              (ab) =>
-                                ab.client === batch.client &&
-                                ab.batch === batch.batch
-                            )
-                          )
-                          .map((m) => (
-                            <AccordionItem key={m.id} value={m.id}>
-                              <AccordionTrigger className="px-3 text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">
-                                    {m.name || m.email.split("@")[0]}
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                        View Projects
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          : viewMode === "batches"
+            ? // Batch Cards
+              filteredBatches.map((batch) => {
+                // Prepare chart data
+                const chartData = Object.entries(batch.statusCounts)
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  .filter(([_, count]) => count > 0)
+                  .map(([status, count]) => ({
+                    name: getStatusLabel(status),
+                    value: count,
+                    color: getStatusColor(status),
+                  }));
+
+                const batchKey = `${batch.client}-${batch.batch}`;
+                const isDeleting = deletingBatch === batchKey;
+
+                return (
+                  <Card
+                    key={batch.id}
+                    className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+                  >
+                    <CardHeader className="pb-3 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-xl font-semibold text-foreground mb-2">
+                            {batch.client} - Batch {batch.batch}
+                          </CardTitle>
+
+                          {/* Key Metrics Row */}
+                          <div className="grid grid-cols-3 gap-2 text-sm">
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <Package className="h-4 w-4" />
+                              <span>{batch.totalModels} models</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <Calendar className="h-4 w-4" />
+                              <span>Started {batch.startDate}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {batch.unassignedAssets > 0 ? (
+                                <>
+                                  <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                  <span className="text-orange-600 dark:text-orange-400">
+                                    {batch.unassignedAssets} unassigned
                                   </span>
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[10px]"
-                                  >
-                                    {m.totalAssigned} assigned
-                                  </Badge>
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                  <span className="text-green-600 dark:text-green-400">
+                                    All assigned
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="mt-3 space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-medium text-muted-foreground">
+                                Progress
+                              </span>
+                              <span className="font-bold text-lg">
+                                {batch.completionPercentage}%
+                              </span>
+                            </div>
+                            <Progress
+                              value={batch.completionPercentage}
+                              className="h-2"
+                            />
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>
+                                {batch.statusCounts.approved} completed
+                              </span>
+                              <span>
+                                {batch.totalModels -
+                                  batch.statusCounts.approved}{" "}
+                                remaining
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-2 ml-4">
+                          {/* Delete Button */}
+                          <Dialog
+                            open={
+                              deleteDialogOpen?.client === batch.client &&
+                              deleteDialogOpen?.batch === batch.batch
+                            }
+                            onOpenChange={(open) => {
+                              if (!open) setDeleteDialogOpen(null);
+                            }}
+                          >
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                disabled={isDeleting}
+                                onClick={() =>
+                                  setDeleteDialogOpen({
+                                    client: batch.client,
+                                    batch: batch.batch,
+                                  })
+                                }
+                              >
+                                {isDeleting ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="bg-background h-fit">
+                              <DialogHeader>
+                                <DialogTitle>Delete Batch</DialogTitle>
+                                <DialogDescription>
+                                  Are you sure you want to delete all assets in{" "}
+                                  <strong>
+                                    {batch.client} - Batch {batch.batch}
+                                  </strong>
+                                  ?
+                                  <br />
+                                  <br />
+                                  This will permanently delete:
+                                  <ul className="list-disc list-inside mt-2 space-y-1">
+                                    <li>{batch.totalModels} assets</li>
+                                    <li>All asset assignments</li>
+                                    <li>All comments and revision history</li>
+                                    <li>All QA approvals</li>
+                                    <li>
+                                      All allocation lists containing these
+                                      assets
+                                    </li>
+                                  </ul>
+                                  <br />
+                                  This action cannot be undone.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setDeleteDialogOpen(null)}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  onClick={() =>
+                                    deleteBatchAssets(batch.client, batch.batch)
+                                  }
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  {isDeleting ? "Deleting..." : "Delete Batch"}
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="pt-0">
+                      {/* Main Content Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left Column - Chart */}
+                        <div className="flex items-center justify-center">
+                          <div className="w-40 h-40 relative">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={chartData}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={45}
+                                  outerRadius={65}
+                                  paddingAngle={2}
+                                  dataKey="value"
+                                >
+                                  {chartData.map((entry, index) => (
+                                    <Cell
+                                      key={`cell-${index}`}
+                                      fill={entry.color}
+                                    />
+                                  ))}
+                                </Pie>
+                                <RechartsTooltip
+                                  wrapperStyle={{ zIndex: 99999 }}
+                                  contentStyle={{
+                                    backgroundColor: "var(--background)",
+                                    border: "1px solid var(--border)",
+                                    borderRadius: "8px",
+                                    fontSize: "12px",
+                                    zIndex: 99999,
+                                  }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            {/* Centered fraction label */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <div className="text-center">
+                                <div className="text-2xl font-bold text-primary">
+                                  {batch.statusCounts.approved}
                                 </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <div className="text-xs text-muted-foreground space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <span>Completed:</span>
-                                    <span className="font-medium">
-                                      {m.statusCounts.approved}
+                                <div className="text-xs text-muted-foreground font-medium">
+                                  of {batch.totalModels}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Column - Compact Status & Team */}
+                        <div className="space-y-4">
+                          {/* Compact Status Grid */}
+                          <div>
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">
+                              Status Overview
+                            </h4>
+                            <div className="grid grid-cols-2 gap-1 text-xs">
+                              {Object.entries(batch.statusCounts)
+                                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                .filter(([_, count]) => count > 0)
+                                .map(([status, count]) => (
+                                  <div
+                                    key={status}
+                                    className="flex items-center justify-between p-1.5 rounded bg-muted/20"
+                                  >
+                                    <span
+                                      className={`text-xs font-medium ${
+                                        status === "approved"
+                                          ? "text-green-600 dark:text-green-400"
+                                          : status === "in_production"
+                                            ? "text-blue-600 dark:text-blue-400"
+                                            : status === "revisions"
+                                              ? "text-orange-600 dark:text-orange-400"
+                                              : "text-muted-foreground"
+                                      }`}
+                                    >
+                                      {getStatusLabel(status)}
                                     </span>
-                                    <span>• In Progress:</span>
-                                    <span className="font-medium">
-                                      {m.statusCounts.in_production}
-                                    </span>
-                                    <span>• Revisions:</span>
-                                    <span className="font-medium">
-                                      {m.statusCounts.revisions}
+                                    <span className="font-bold text-sm">
+                                      {count}
                                     </span>
                                   </div>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="cursor-pointer"
-                                    onClick={() =>
-                                      handleModelerAdminReview(m.id, m.email)
-                                    }
-                                  >
-                                    Admin Review
-                                  </Button>
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                      </Accordion>
-                    </div>
-                  </div>
-                  {/* Action Buttons */}
-                </CardContent>
-              </Card>
-            );
-          })
-        ) : viewMode === "modelers" ? (
-          // Modeler Cards
-          filteredModelers.map((modeler) => {
-            // Prepare chart data for modeler
-            const chartData = Object.entries(modeler.statusCounts)
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              .filter(([_, count]) => count > 0)
-              .map(([status, count]) => ({
-                name: getStatusLabel(status),
-                value: count,
-                color: getStatusColor(status),
-              }));
-
-            return (
-              <Card
-                key={modeler.id}
-                className="hover:shadow-lg transition-shadow"
-              >
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-2 cursor-help">
-                            <CardTitle className="text-lg font-semibold text-muted-foreground">
-                              {modeler.name || modeler.email.split("@")[0]}
-                            </CardTitle>
-                            <Info className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="right"
-                          className="max-w-sm bg-background border border-border text-muted-foreground"
-                        >
-                          <div className="space-y-2">
-                            <div className="font-semibold">
-                              Completion Statistics
+                                ))}
                             </div>
-                            {modeler.completionStats.totalCompleted > 0 ? (
-                              <>
-                                <div className="text-sm">
-                                  <span className="font-medium text-muted-foreground">
-                                    Average Time:
-                                  </span>{" "}
-                                  {modeler.completionStats.averageMinutes}m (
-                                  {modeler.completionStats.averageHours}h)
-                                </div>
-                                <div className="text-sm">
-                                  <span className="font-medium text-muted-foreground">
-                                    Fastest:
-                                  </span>{" "}
-                                  {
-                                    modeler.completionStats
-                                      .fastestCompletionMinutes
-                                  }
-                                  m ({modeler.completionStats.fastestCompletion}
-                                  h)
-                                </div>
-                                <div className="text-sm">
-                                  <span className="font-medium text-muted-foreground">
-                                    Slowest:
-                                  </span>{" "}
-                                  {
-                                    modeler.completionStats
-                                      .slowestCompletionMinutes
-                                  }
-                                  m ({modeler.completionStats.slowestCompletion}
-                                  h)
-                                </div>
-                                <div className="text-sm">
-                                  <span className="font-medium text-muted-foreground">
-                                    Total Completed:
-                                  </span>{" "}
-                                  {modeler.completionStats.totalCompleted}
-                                </div>
-                                <div className="text-sm">
-                                  <span className="font-medium text-muted-foreground">
-                                    Revision Rate:
-                                  </span>{" "}
-                                  {modeler.completionStats.revisionRate}% (
-                                  {modeler.completionStats.totalRevisions}{" "}
-                                  revisions)
-                                </div>
-                              </>
-                            ) : (
-                              <div className="text-sm text-muted-foreground">
-                                No completed assignments yet
-                              </div>
-                            )}
                           </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <Badge
-                      variant={
-                        modeler.completionPercentage >= 80
-                          ? "default"
-                          : modeler.completionPercentage >= 50
-                            ? "secondary"
-                            : "destructive"
-                      }
-                      className="text-sm"
-                    >
-                      {modeler.completionPercentage}%
-                    </Badge>
-                  </div>
-                </CardHeader>
 
-                <CardContent className="space-y-4">
-                  {/* Progress Chart */}
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Total Assigned:
-                        </span>
-                        <span className="font-semibold">
-                          {modeler.totalAssigned}
-                        </span>
+                          {/* Team Section */}
+                          {(batch.assignedUsers.modelers.length > 0 ||
+                            batch.assignedUsers.qa.length > 0) && (
+                            <div className="bg-muted/30 rounded-lg p-3">
+                              <TeamInfoTooltip
+                                modelers={batch.assignedUsers.modelers}
+                                qa={batch.assignedUsers.qa}
+                                clientName={batch.client}
+                                batchNumber={batch.batch}
+                              >
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                                  <Users className="h-4 w-4" />
+                                  <span className="font-medium">
+                                    Team (
+                                    {batch.assignedUsers.modelers.length +
+                                      batch.assignedUsers.qa.length}
+                                    )
+                                  </span>
+                                </div>
+                              </TeamInfoTooltip>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {batch.assignedUsers.modelers.length} modelers •{" "}
+                                {batch.assignedUsers.qa.length} QA
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2 text-sm">
-                        <Building className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Assigned Batches:
-                        </span>
-                        <span className="font-medium">
-                          {modeler.assignedBatches.length}
-                        </span>
-                      </div>
-
-                      <div className="">
+                      {/* Fixed Action Button */}
+                      <div className="mt-6 pt-4 border-t border-border">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full h-8 text-xs"
+                          className="w-full"
                           onClick={() =>
-                            handleModelerAdminReview(modeler.id, modeler.email)
+                            handleAdminReview(batch.client, batch.batch)
                           }
                         >
-                          <ShieldCheck className="h-4 w-4 mr-1" />
+                          <ShieldCheck className="h-4 w-4 mr-2" />
                           Admin Review
                         </Button>
                       </div>
-                    </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            : viewMode === "modelers"
+              ? // Modeler Cards
+                filteredModelers.map((modeler) => {
+                  // Prepare chart data for modeler
+                  const chartData = Object.entries(modeler.statusCounts)
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    .filter(([_, count]) => count > 0)
+                    .map(([status, count]) => ({
+                      name: getStatusLabel(status),
+                      value: count,
+                      color: getStatusColor(status),
+                    }));
 
-                    {/* Pie Chart */}
-                    <div className="w-40 h-40 relative">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={chartData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={65}
-                            paddingAngle={2}
-                            dataKey="value"
-                          >
-                            {chartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <RechartsTooltip
-                            wrapperStyle={{ zIndex: 99999 }}
-                            contentStyle={{
-                              backgroundColor: "var(--background)",
-                              border: "1px solid var(--border)",
-                              borderRadius: "8px",
-                              fontSize: "12px",
-                              zIndex: 99999,
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
+                  return (
+                    <Card
+                      key={modeler.id}
+                      className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+                    >
+                      <CardHeader className="pb-3 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-xl font-semibold text-foreground mb-2">
+                              {modeler.name || modeler.email.split("@")[0]}
+                            </CardTitle>
 
-                  {/* Status Breakdown */}
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Asset Statistics
-                    </p>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      {Object.entries(modeler.statusCounts)
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        .filter(([_, count]) => count > 0)
-                        .map(([status, count]) => (
-                          <div
-                            key={status}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-1">
-                              <Badge
-                                variant="outline"
-                                className={`text-[10px] ${getStatusBadgeClass(status)}`}
-                              >
-                                {getStatusLabel(status)}
-                              </Badge>
+                            {/* Key Metrics Row */}
+                            <div className="grid grid-cols-3 gap-2 text-sm">
+                              <div className="flex items-center gap-1 text-muted-foreground">
+                                <Package className="h-4 w-4" />
+                                <span>{modeler.totalAssigned} assigned</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-muted-foreground">
+                                <Building className="h-4 w-4" />
+                                <span>
+                                  {modeler.assignedBatches.length} batches
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {modeler.completionStats.totalCompleted > 0 ? (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                    <span className="text-green-600 dark:text-green-400">
+                                      {modeler.completionStats.totalCompleted}{" "}
+                                      completed
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                    <span className="text-orange-600 dark:text-orange-400">
+                                      No completions
+                                    </span>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            <span className="font-medium">{count}</span>
+
+                            {/* Progress Bar */}
+                            <div className="mt-3 space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="font-medium text-muted-foreground">
+                                  Progress
+                                </span>
+                                <span className="font-bold text-lg">
+                                  {modeler.completionPercentage}%
+                                </span>
+                              </div>
+                              <Progress
+                                value={modeler.completionPercentage}
+                                className="h-2"
+                              />
+                              <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>
+                                  {modeler.statusCounts.approved || 0} completed
+                                </span>
+                                <span>
+                                  {modeler.totalAssigned -
+                                    (modeler.statusCounts.approved || 0)}{" "}
+                                  remaining
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                        ))}
-                    </div>
-                  </div>
 
-                  {/* Assigned Batches */}
+                          <div className="flex items-start gap-2 ml-4">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Info className="h-4 w-4 text-muted-foreground" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="left"
+                                  className="max-w-sm bg-background border border-border text-muted-foreground"
+                                >
+                                  <div className="space-y-2">
+                                    <div className="font-semibold">
+                                      Completion Statistics
+                                    </div>
+                                    {modeler.completionStats.totalCompleted >
+                                    0 ? (
+                                      <>
+                                        <div className="text-sm">
+                                          <span className="font-medium text-muted-foreground">
+                                            Average Time:
+                                          </span>{" "}
+                                          {
+                                            modeler.completionStats
+                                              .averageMinutes
+                                          }
+                                          m
+                                        </div>
+                                        <div className="text-sm">
+                                          <span className="font-medium text-muted-foreground">
+                                            Fastest:
+                                          </span>{" "}
+                                          {
+                                            modeler.completionStats
+                                              .fastestCompletionMinutes
+                                          }
+                                          m
+                                        </div>
+                                        <div className="text-sm">
+                                          <span className="font-medium text-muted-foreground">
+                                            Revision Rate:
+                                          </span>{" "}
+                                          {modeler.completionStats.revisionRate}
+                                          %
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="text-sm text-muted-foreground">
+                                        No completed assignments yet
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </div>
+                      </CardHeader>
 
-                  {/* Admin Review Button */}
-                </CardContent>
-              </Card>
-            );
-          })
-        ) : viewMode === "qa" ? (
-          // QA Cards
-          filteredQAUsers.map((qaUser) => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const chartData = Object.entries(qaUser.statusCounts)
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              .filter(([_, count]) => count > 0)
-              .map(([status, count]) => ({
-                name: getStatusLabel(status),
-                value: count,
-                color: getStatusColor(status),
-              }));
+                      <CardContent className="space-y-4">
+                        {/* Status Distribution */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-muted-foreground">
+                              Asset Status Distribution
+                            </h4>
+                          </div>
 
-            return (
-              <Card
-                key={qaUser.id}
-                className="hover:shadow-lg transition-shadow"
-              >
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <CardTitle className="text-lg font-semibold text-muted-foreground">
-                            {qaUser.name || qaUser.email.split("@")[0]}
-                          </CardTitle>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="right"
-                          className="max-w-sm bg-background border border-border text-muted-foreground"
-                        >
+                          {/* Status bars similar to batch view */}
                           <div className="space-y-2">
-                            <div className="font-semibold">
-                              Completion Statistics
-                            </div>
-                            {qaUser.reviewStats.totalReviews > 0 ? (
-                              <>
-                                <div className="text-sm">
-                                  <span className="font-medium text-muted-foreground">
-                                    Average Time:
-                                  </span>{" "}
-                                  {qaUser.reviewStats.averageReviewTime}m
+                            {Object.entries(modeler.statusCounts)
+                              .filter(([, count]) => count > 0)
+                              .map(([status, count]) => (
+                                <div
+                                  key={status}
+                                  className="flex items-center justify-between"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="w-3 h-3 rounded-full"
+                                      style={{
+                                        backgroundColor: getStatusColor(status),
+                                      }}
+                                    ></span>
+                                    <span className="text-sm font-medium">
+                                      {getStatusLabel(status)}
+                                    </span>
+                                  </div>
+                                  <span className="font-bold text-sm">
+                                    {count}
+                                  </span>
                                 </div>
-                                <div className="text-sm">
-                                  <span className="font-medium text-muted-foreground">
-                                    Fastest:
-                                  </span>{" "}
-                                  {qaUser.reviewStats.fastestReview}m
-                                </div>
-                                <div className="text-sm">
-                                  <span className="font-medium text-muted-foreground">
-                                    Slowest:
-                                  </span>{" "}
-                                  {qaUser.reviewStats.slowestReview}m
-                                </div>
-                                <div className="text-sm">
-                                  <span className="font-medium text-muted-foreground">
-                                    Total Reviews:
-                                  </span>{" "}
-                                  {qaUser.reviewStats.totalReviews}
-                                </div>
-                                <div className="text-sm">
-                                  <span className="font-medium text-muted-foreground">
-                                    Revision Rate:
-                                  </span>{" "}
-                                  {qaUser.reviewStats.revisionRate}% (
-                                  {qaUser.reviewStats.totalRevisions} revisions)
-                                </div>
-                              </>
-                            ) : (
-                              <div className="text-sm text-muted-foreground">
-                                No completed reviews yet
-                              </div>
-                            )}
+                              ))}
                           </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </CardHeader>
+                        </div>
 
-                <CardContent className="space-y-4">
-                  {/* Connected Modelers Summary Stats */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-muted-foreground">
-                      Connected Modelers Summary
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-2 cursor-help">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-muted-foreground">
-                                Total Modelers:
-                              </span>
-                              <span className="font-semibold">
-                                {qaUser.totalModelers}
-                              </span>
+                        {/* Assigned Batches */}
+                        {modeler.assignedBatches.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-muted-foreground">
+                              Assigned Batches
+                            </h4>
+                            <div className="space-y-2 max-h-24 overflow-y-auto">
+                              {modeler.assignedBatches
+                                .slice(0, 3)
+                                .map((batch) => (
+                                  <div
+                                    key={`${batch.client}-${batch.batch}`}
+                                    className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs"
+                                  >
+                                    <span className="font-medium">
+                                      {batch.client} - Batch {batch.batch}
+                                    </span>
+                                  </div>
+                                ))}
+                              {modeler.assignedBatches.length > 3 && (
+                                <div className="text-xs text-muted-foreground text-center">
+                                  +{modeler.assignedBatches.length - 3} more
+                                  batches
+                                </div>
+                              )}
                             </div>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="right"
-                            className="max-w-sm bg-background border border-border text-muted-foreground"
+                          </div>
+                        )}
+
+                        {/* Action Button */}
+                        <div className="pt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() =>
+                              handleModelerAdminReview(
+                                modeler.id,
+                                modeler.email
+                              )
+                            }
                           >
+                            <ShieldCheck className="h-4 w-4 mr-2" />
+                            Admin Review
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              : viewMode === "qa"
+                ? // QA Cards
+                  filteredQAUsers.map((qaUser) => {
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    const chartData = Object.entries(qaUser.statusCounts)
+                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                      .filter(([_, count]) => count > 0)
+                      .map(([status, count]) => ({
+                        name: getStatusLabel(status),
+                        value: count,
+                        color: getStatusColor(status),
+                      }));
+
+                    return (
+                      <Card
+                        key={qaUser.id}
+                        className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+                      >
+                        <CardHeader className="pb-3 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-xl font-semibold text-foreground mb-2">
+                                {qaUser.name || qaUser.email.split("@")[0]}
+                              </CardTitle>
+
+                              {/* Key Metrics Row */}
+                              <div className="grid grid-cols-3 gap-2 text-sm">
+                                <div className="flex items-center gap-1 text-muted-foreground">
+                                  <Package className="h-4 w-4" />
+                                  <span>{qaUser.totalAssigned} assigned</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-muted-foreground">
+                                  <Users className="h-4 w-4" />
+                                  <span>{qaUser.totalModelers} modelers</span>
+                                </div>
+                              </div>
+
+                              {/* Progress Bar */}
+                              <div className="mt-3 space-y-2">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="font-medium text-muted-foreground">
+                                    Progress
+                                  </span>
+                                  <span className="font-bold text-lg">
+                                    {qaUser.completionPercentage}%
+                                  </span>
+                                </div>
+                                <Progress
+                                  value={qaUser.completionPercentage}
+                                  className="h-2"
+                                />
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                  <span>
+                                    {qaUser.statusCounts.approved || 0}{" "}
+                                    completed
+                                  </span>
+                                  <span>
+                                    {qaUser.totalAssigned -
+                                      (qaUser.statusCounts.approved || 0)}{" "}
+                                    remaining
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent className="space-y-4">
+                          {/* Status Distribution */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-semibold text-muted-foreground">
+                                Review Status Distribution
+                              </h4>
+                            </div>
+
+                            {/* Status bars similar to batch view */}
                             <div className="space-y-2">
-                              <div className="font-semibold">
-                                Connected Modelers (
-                                {qaUser.connectedModelers.length})
-                              </div>
-                              <div className="text-xs text-muted-foreground mb-2">
-                                Click on a modeler to view their allocations
-                              </div>
-                              {qaUser.connectedModelers.length > 0 ? (
-                                <div className="space-y-2 max-h-48 overflow-y-auto">
-                                  {qaUser.connectedModelers.map((modeler) => (
+                              {Object.entries(qaUser.statusCounts)
+                                .filter(([, count]) => count > 0)
+                                .map(([status, count]) => (
+                                  <div
+                                    key={status}
+                                    className="flex items-center justify-between"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="w-3 h-3 rounded-full"
+                                        style={{
+                                          backgroundColor:
+                                            getStatusColor(status),
+                                        }}
+                                      ></span>
+                                      <span className="text-sm font-medium">
+                                        {getStatusLabel(status)}
+                                      </span>
+                                    </div>
+                                    <span className="font-bold text-sm">
+                                      {count}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+
+                          {/* Connected Modelers */}
+                          {qaUser.connectedModelers.length > 0 && (
+                            <div className="space-y-3">
+                              <h4 className="text-sm font-semibold text-muted-foreground">
+                                Connected Modelers
+                              </h4>
+                              <div className="space-y-2 max-h-24 overflow-y-auto">
+                                {qaUser.connectedModelers
+                                  .slice(0, 3)
+                                  .map((modeler) => (
                                     <div
                                       key={modeler.id}
-                                      className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-xs cursor-pointer hover:bg-muted/50 transition-colors"
+                                      className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs cursor-pointer hover:bg-muted/30 transition-colors"
                                       onClick={() =>
                                         handleModelerAdminReview(
                                           modeler.id,
@@ -2369,167 +2912,66 @@ export default function ProductionDashboard() {
                                         )
                                       }
                                     >
-                                      <div className="flex-1 min-w-0">
-                                        <div className="font-medium truncate">
-                                          {modeler.name || modeler.email}
-                                        </div>
-                                        <div className="text-muted-foreground">
-                                          {modeler.totalAssets} assets •{" "}
-                                          {modeler.completedAssets} completed •{" "}
-                                          {modeler.completionPercentage}%
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        {modeler.clients
-                                          .slice(0, 2)
-                                          .map((client, idx) => (
-                                            <Badge
-                                              key={idx}
-                                              variant="outline"
-                                              className="text-xs"
-                                            >
-                                              {client}
-                                            </Badge>
-                                          ))}
-                                        {modeler.clients.length > 2 && (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs"
-                                          >
-                                            +{modeler.clients.length - 2}
-                                          </Badge>
-                                        )}
-                                      </div>
+                                      <span className="font-medium">
+                                        {modeler.name ||
+                                          modeler.email.split("@")[0]}
+                                      </span>
+                                      <span className="text-muted-foreground">
+                                        {modeler.completionPercentage}%
+                                      </span>
                                     </div>
                                   ))}
-                                </div>
-                              ) : (
-                                <div className="text-sm text-muted-foreground">
-                                  No modelers connected
-                                </div>
-                              )}
+                                {qaUser.connectedModelers.length > 3 && (
+                                  <div className="text-xs text-muted-foreground text-center">
+                                    +{qaUser.connectedModelers.length - 3} more
+                                    modelers
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Total Assets:
-                        </span>
-                        <span className="font-semibold">
-                          {qaUser.totalModelerAssets}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Completed:
-                        </span>
-                        <span className="font-medium text-success">
-                          {qaUser.totalModelerCompleted}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Completion Rate:
-                        </span>
-                        <span className="font-medium text-primary">
-                          {qaUser.modelerCompletionRate}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                          )}
 
-                  {/* 7-Day Activity Chart */}
-                  {qaUser.chartData.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold text-muted-foreground">
-                          Activity Chart
-                        </h4>
-                        <DateRangePicker
-                          value={qaUser.chartDateRange}
-                          onChange={(newRange) => {
-                            if (newRange?.from && newRange?.to) {
-                              // Refetch chart data for the new date range
-                              refetchQAChartData(qaUser.id, newRange);
-                            }
-                          }}
-                          className="w-auto"
-                        />
-                      </div>
-                      <div className="h-44">
-                        {chartLoadingStates[qaUser.id] ? (
-                          <div className="flex items-center justify-center h-full">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                          </div>
-                        ) : (
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                              data={qaUser.chartData}
-                              margin={{
-                                top: 5,
-                                right: 5,
-                                left: 5,
-                                bottom: 5,
-                              }}
+                          {/* Action Button */}
+                          <div className="pt-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={() =>
+                                handleModelerAdminReview(
+                                  qaUser.id,
+                                  qaUser.email
+                                )
+                              }
                             >
-                              <CartesianGrid
-                                strokeDasharray="3 3"
-                                stroke="hsl(var(--border))"
-                              />
-                              <XAxis
-                                dataKey="date"
-                                tick={{ fontSize: 10 }}
-                                tickFormatter={(value) =>
-                                  new Date(value).toLocaleDateString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                  })
-                                }
-                              />
-                              <YAxis tick={{ fontSize: 10 }} />
-                              <RechartsTooltip
-                                contentStyle={{
-                                  backgroundColor: "var(--background)",
-                                  border: "1px solid var(--border)",
-                                  borderRadius: "8px",
-                                  fontSize: "12px",
-                                }}
-                              />
-                              <Bar
-                                dataKey="reviewed"
-                                fill="hsl(var(--chart-1))"
-                                name="Reviewed"
-                                radius={[2, 2, 0, 0]}
-                              />
-                              <Bar
-                                dataKey="approved"
-                                fill="hsl(var(--chart-2))"
-                                name="Approved"
-                                radius={[2, 2, 0, 0]}
-                              />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Admin Review Button */}
-                </CardContent>
-              </Card>
-            );
-          })
-        ) : (
-          <PendingClientRevisionsPanel />
-        )}
+                              <ShieldCheck className="h-4 w-4 mr-2" />
+                              Admin Review
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                : null}
       </div>
 
-      {/* Empty State */}
-      {batches.length === 0 && (
+      {/* Empty State - Clients */}
+      {viewMode === "clients" && clients.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <Building className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No Clients Found</h3>
+          <p className="text-muted-foreground mb-4">
+            No client data found. Start by uploading client assets.
+          </p>
+          <Button className="flex items-center gap-2">
+            <CloudUpload className="h-4 w-4" />
+            Upload Client Data
+          </Button>
+        </div>
+      )}
+
+      {/* Empty State - Batches */}
+      {viewMode === "batches" && batches.length === 0 && !loading && (
         <div className="text-center py-12">
           <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">No Batch Projects</h3>
@@ -2543,119 +2985,41 @@ export default function ProductionDashboard() {
         </div>
       )}
 
-      {/* No Search Results */}
-      {batches.length > 0 && filteredBatches.length === 0 && (
-        <div className="text-center py-12">
-          <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Results Found</h3>
-          <p className="text-muted-foreground mb-4">
-            No clients match your search criteria. Try adjusting your search or
-            filters.
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => {
-              handleSearchChange("");
-              handleClientFilterChange("all");
-            }}
-          >
-            Clear Filters
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
+      {/* No Search Results - Clients */}
+      {viewMode === "clients" &&
+        clients.length > 0 &&
+        filteredClients.length === 0 && (
+          <div className="text-center py-12">
+            <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Clients Found</h3>
+            <p className="text-muted-foreground mb-4">
+              Try adjusting your search criteria.
+            </p>
+          </div>
+        )}
 
-function PendingClientRevisionsPanel() {
-  const [items, setItems] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  const refresh = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/revisions/pending");
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to load");
-      setItems(json.pending || []);
-    } catch (e: any) {
-      setError(e.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    refresh();
-  }, []);
-
-  return (
-    <div className="col-span-1 md:col-span-2 lg:col-span-3">
-      <Card className="hover:shadow-lg transition-shadow">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold">
-              Pending Client Revisions
-            </CardTitle>
+      {/* No Search Results - Batches */}
+      {viewMode === "batches" &&
+        batches.length > 0 &&
+        filteredBatches.length === 0 && (
+          <div className="text-center py-12">
+            <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Results Found</h3>
+            <p className="text-muted-foreground mb-4">
+              No clients match your search criteria. Try adjusting your search
+              or filters.
+            </p>
             <Button
               variant="outline"
-              size="sm"
-              onClick={refresh}
-              className="cursor-pointer"
+              onClick={() => {
+                handleSearchChange("");
+                handleClientFilterChange("all");
+              }}
             >
-              Refresh
+              Clear Filters
             </Button>
           </div>
-        </CardHeader>
-        <CardContent>
-          {loading && (
-            <div className="text-sm text-muted-foreground">Loading…</div>
-          )}
-          {error && <div className="text-sm text-destructive">{error}</div>}
-          {!loading && !error && items.length === 0 && (
-            <div className="text-sm text-muted-foreground">
-              No pending revisions
-            </div>
-          )}
-          {!loading && !error && items.length > 0 && (
-            <div className="space-y-2">
-              {items.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex items-center justify-between p-2 border rounded bg-background text-sm"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">
-                      {a.product_name} ({a.article_id})
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {a.client} • Latest Revision: R{a.latest_revision_number}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="cursor-pointer"
-                      onClick={async () => {
-                        const res = await fetch("/api/revisions/forward", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ assetId: a.id }),
-                        });
-                        if (res.ok) refresh();
-                      }}
-                    >
-                      Forward to Modeler
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
     </div>
   );
 }

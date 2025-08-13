@@ -19,6 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/inputs";
+import { Input } from "@/components/ui/inputs";
+import { Checkbox } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
 import {
   DropdownMenu,
@@ -40,6 +42,11 @@ import {
   AlertCircle,
   ArrowLeft,
   Trash2,
+  Search,
+  Filter,
+  X,
+  Settings,
+  Building,
 } from "lucide-react";
 
 import {
@@ -278,7 +285,9 @@ export default function AdminReviewPage() {
   const [clientFilters, setClientFilters] = useState<string[]>([]);
   const [batchFilters, setBatchFilters] = useState<number[]>([]);
   const [modelerFilters, setModelerFilters] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [annotationCounts, setAnnotationCounts] = useState<
@@ -409,11 +418,12 @@ export default function AdminReviewPage() {
     }
   }, [filtered, filteredLists, showAllocationLists]);
 
-  // Handle URL parameters for client, batch, and modeler filter
+  // Handle URL parameters for client, batch, modeler, and status filters
   useEffect(() => {
     const clientParam = searchParams.get("client");
     const batchParam = searchParams.get("batch");
     const modelerParam = searchParams.get("modeler");
+    const statusParam = searchParams.get("status");
     const emailParam = searchParams.get("email");
 
     if (clientParam) {
@@ -440,6 +450,15 @@ export default function AdminReviewPage() {
           .split(",")
           .map((m) => m.trim())
           .filter((m) => m.length > 0)
+      );
+    }
+
+    if (statusParam) {
+      setStatusFilters(
+        statusParam
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
       );
     }
 
@@ -471,12 +490,16 @@ export default function AdminReviewPage() {
       params.set("modeler", modelerFilters.join(","));
     }
 
+    if (statusFilters.length > 0) {
+      params.set("status", statusFilters.join(","));
+    }
+
     // Update URL without triggering a page reload
     const newUrl = params.toString()
       ? `?${params.toString()}`
       : window.location.pathname;
     window.history.replaceState({}, "", newUrl);
-  }, [clientFilters, batchFilters, modelerFilters]);
+  }, [clientFilters, batchFilters, modelerFilters, statusFilters]);
 
   // Check if user is admin
   useEffect(() => {
@@ -740,6 +763,13 @@ export default function AdminReviewPage() {
       });
     }
 
+    // Apply status filter
+    if (statusFilters.length > 0) {
+      filteredAssets = filteredAssets.filter((asset) =>
+        statusFilters.includes(asset.status)
+      );
+    }
+
     // Default sort: status progression like QA Review
     const statusPriority: Record<string, number> = {
       in_production: 1,
@@ -759,6 +789,7 @@ export default function AdminReviewPage() {
     clientFilters,
     batchFilters,
     modelerFilters,
+    statusFilters,
     showAllocationLists,
     assignedAssets,
   ]);
@@ -1472,76 +1503,178 @@ export default function AdminReviewPage() {
           </div>
         )}
 
-        {/* Filter Controls */}
+        {/* Compact Filters */}
         {!loading && (
-          <Card className="p-4 mb-6">
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-              <div className="flex-1">
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                  Filters
-                </h3>
-                <div className="flex flex-col md:flex-row gap-4">
-                  {/* Client Filter (multi) */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Client
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setClientFilters([]);
-                          setPage(1);
-                        }}
-                      >
-                        {clientFilters.length > 0
-                          ? `${clientFilters.length} selected`
-                          : "All Clients"}
-                      </Button>
-                      {clients.map((client) => (
-                        <Button
-                          key={client}
-                          variant={
-                            clientFilters.includes(client)
-                              ? "default"
-                              : "outline"
-                          }
-                          size="sm"
-                          onClick={() => {
-                            setClientFilters((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(client)) next.delete(client);
-                              else next.add(client);
-                              return Array.from(next);
-                            });
-                            setPage(1);
-                          }}
-                        >
-                          {client}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
+          <Card className="mb-4 p-3">
+            <div className="space-y-3">
+              {/* Filter Header Row */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Filters</span>
+                  {(clientFilters.length > 0 ||
+                    batchFilters.length > 0 ||
+                    modelerFilters.length > 0 ||
+                    statusFilters.length > 0) && (
+                    <Badge variant="secondary" className="text-xs h-5">
+                      {clientFilters.length +
+                        batchFilters.length +
+                        modelerFilters.length +
+                        statusFilters.length}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-start gap-1">
+                  {/* Quick Filters */}
 
-                  {/* Batch Filter (multi) */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Batch
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setBatchFilters([]);
-                          setPage(1);
-                        }}
-                      >
-                        {batchFilters.length > 0
-                          ? `${batchFilters.length} selected`
-                          : "All Batches"}
-                      </Button>
+                  {(clientFilters.length > 0 ||
+                    batchFilters.length > 0 ||
+                    modelerFilters.length > 0 ||
+                    statusFilters.length > 0) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setClientFilters([]);
+                        setBatchFilters([]);
+                        setModelerFilters([]);
+                        setStatusFilters([]);
+                        setPage(1);
+                      }}
+                      className="h-7 px-2 text-xs text-muted-foreground"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Compact Filter Controls */}
+              <div className="flex flex-wrap gap-3">
+                {/* Client Filter */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground flex items-start gap-1">
+                    <Building className="h-3 w-3" />
+                    Clients{" "}
+                    {clientFilters.length > 0 && `(${clientFilters.length})`}
+                  </label>
+                  <Select
+                    value={
+                      clientFilters.length === 1 ? clientFilters[0] : undefined
+                    }
+                    onValueChange={(value) => {
+                      if (value === "all") {
+                        setClientFilters([]);
+                      } else if (value) {
+                        setClientFilters([value]);
+                      }
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue
+                        placeholder={
+                          clientFilters.length === 0
+                            ? "All clients"
+                            : clientFilters.length === 1
+                              ? clientFilters[0]
+                              : `${clientFilters.length} selected`
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All clients</SelectItem>
+                      {clients.map((client) => (
+                        <SelectItem key={client} value={client}>
+                          {client}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Status Filter */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground flex items-start gap-1">
+                    <Settings className="h-3 w-3" />
+                    Status{" "}
+                    {statusFilters.length > 0 && `(${statusFilters.length})`}
+                  </label>
+                  <Select
+                    value={
+                      statusFilters.length === 1 ? statusFilters[0] : undefined
+                    }
+                    onValueChange={(value) => {
+                      if (value === "all") {
+                        setStatusFilters([]);
+                      } else if (value) {
+                        setStatusFilters([value]);
+                      }
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue
+                        placeholder={
+                          statusFilters.length === 0
+                            ? "All statuses"
+                            : statusFilters.length === 1
+                              ? STATUS_LABELS[
+                                  statusFilters[0] as keyof typeof STATUS_LABELS
+                                ]?.label
+                              : `${statusFilters.length} selected`
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      {Object.entries(STATUS_LABELS).map(([status, config]) => (
+                        <SelectItem key={status} value={status}>
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(status)}
+                            {config.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Batch Filter */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground flex items-start gap-1">
+                    <Package className="h-3 w-3" />
+                    Batches{" "}
+                    {batchFilters.length > 0 && `(${batchFilters.length})`}
+                  </label>
+                  <Select
+                    value={
+                      batchFilters.length === 1
+                        ? batchFilters[0].toString()
+                        : undefined
+                    }
+                    onValueChange={(value) => {
+                      if (value === "all") {
+                        setBatchFilters([]);
+                      } else if (value) {
+                        setBatchFilters([parseInt(value)]);
+                      }
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue
+                        placeholder={
+                          batchFilters.length === 0
+                            ? "All batches"
+                            : batchFilters.length === 1
+                              ? `Batch ${batchFilters[0]}`
+                              : `${batchFilters.length} selected`
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All batches</SelectItem>
                       {Array.from(
                         new Set(
                           assets.map((asset) => asset.batch).filter(Boolean)
@@ -1549,120 +1682,156 @@ export default function AdminReviewPage() {
                       )
                         .sort((a, b) => a - b)
                         .map((batch) => (
-                          <Button
-                            key={batch}
-                            variant={
-                              batchFilters.includes(batch)
-                                ? "default"
-                                : "outline"
-                            }
-                            size="sm"
-                            onClick={() => {
-                              setBatchFilters((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(batch)) next.delete(batch);
-                                else next.add(batch);
-                                return Array.from(next) as number[];
-                              });
-                              setPage(1);
-                            }}
-                          >
+                          <SelectItem key={batch} value={batch.toString()}>
                             Batch {batch}
-                          </Button>
+                          </SelectItem>
                         ))}
-                    </div>
-                  </div>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                  {/* Modeler Filter (multi) */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Modeler
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setModelerFilters([]);
-                          setPage(1);
-                        }}
-                      >
-                        {modelerFilters.length > 0
-                          ? `${modelerFilters.length} selected`
-                          : "All Modelers"}
-                      </Button>
+                {/* Modeler Filter */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground flex items-start gap-1">
+                    <Users className="h-3 w-3" />
+                    Modelers{" "}
+                    {modelerFilters.length > 0 && `(${modelerFilters.length})`}
+                  </label>
+                  <Select
+                    value={
+                      modelerFilters.length === 1
+                        ? modelerFilters[0]
+                        : undefined
+                    }
+                    onValueChange={(value) => {
+                      if (value === "all") {
+                        setModelerFilters([]);
+                      } else if (value) {
+                        setModelerFilters([value]);
+                      }
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue
+                        placeholder={
+                          modelerFilters.length === 0
+                            ? "All modelers"
+                            : modelerFilters.length === 1
+                              ? modelers.find((m) => m.id === modelerFilters[0])
+                                  ?.title ||
+                                modelers.find((m) => m.id === modelerFilters[0])
+                                  ?.email
+                              : `${modelerFilters.length} selected`
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All modelers</SelectItem>
                       {modelers.map((modeler) => (
-                        <Button
-                          key={modeler.id}
-                          variant={
-                            modelerFilters.includes(modeler.id)
-                              ? "default"
-                              : "outline"
-                          }
-                          size="sm"
-                          onClick={() => {
-                            setModelerFilters((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(modeler.id)) next.delete(modeler.id);
-                              else next.add(modeler.id);
-                              return Array.from(next);
-                            });
-                            setPage(1);
-                          }}
-                        >
+                        <SelectItem key={modeler.id} value={modeler.id}>
                           {modeler.title || modeler.email}
-                        </Button>
+                        </SelectItem>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* Clear Filters Button */}
-                  {(clientFilters.length > 0 ||
-                    batchFilters.length > 0 ||
-                    modelerFilters.length > 0) && (
-                    <div className="flex items-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setClientFilters([]);
-                          setBatchFilters([]);
-                          setModelerFilters([]);
-                          setPage(1);
-                        }}
-                        className="h-10"
-                      >
-                        Clear Filters
-                      </Button>
-                    </div>
-                  )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              {/* Active Filters Display */}
+              {/* Active Filters (compact badges) */}
               {(clientFilters.length > 0 ||
                 batchFilters.length > 0 ||
-                modelerFilters.length > 0) && (
-                <div className="flex flex-wrap gap-2">
-                  {clientFilters.length > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      Client: {clientFilters.join(", ")}
+                modelerFilters.length > 0 ||
+                statusFilters.length > 0) && (
+                <div className="flex flex-wrap gap-1 pt-2 border-t border-border">
+                  {clientFilters.map((client) => (
+                    <Badge
+                      key={client}
+                      variant="secondary"
+                      className="text-xs h-5 flex items-start gap-1 pr-1"
+                    >
+                      <Building className="h-2 w-2" />
+                      {client}
+                      <button
+                        onClick={() => {
+                          setClientFilters(
+                            clientFilters.filter((c) => c !== client)
+                          );
+                          setPage(1);
+                        }}
+                        className="hover:bg-muted-foreground/20 rounded-full p-0.5"
+                      >
+                        <X className="h-2 w-2" />
+                      </button>
                     </Badge>
-                  )}
-                  {batchFilters.length > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      Batch: {batchFilters.join(", ")}
+                  ))}
+                  {statusFilters.map((status) => (
+                    <Badge
+                      key={status}
+                      variant="secondary"
+                      className="text-xs h-5 flex items-start gap-1 pr-1"
+                    >
+                      {getStatusIcon(status)}
+                      {STATUS_LABELS[status as keyof typeof STATUS_LABELS]
+                        ?.label || status}
+                      <button
+                        onClick={() => {
+                          setStatusFilters(
+                            statusFilters.filter((s) => s !== status)
+                          );
+                          setPage(1);
+                        }}
+                        className="hover:bg-muted-foreground/20 rounded-full p-0.5"
+                      >
+                        <X className="h-2 w-2" />
+                      </button>
                     </Badge>
-                  )}
-                  {modelerFilters.length > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      Modeler:{" "}
-                      {modelers
-                        .filter((m) => modelerFilters.includes(m.id))
-                        .map((m) => m.title || m.email)
-                        .join(", ")}
+                  ))}
+                  {batchFilters.map((batch) => (
+                    <Badge
+                      key={batch}
+                      variant="secondary"
+                      className="text-xs h-5 flex items-start gap-1 pr-1"
+                    >
+                      <Package className="h-2 w-2" />
+                      Batch {batch}
+                      <button
+                        onClick={() => {
+                          setBatchFilters(
+                            batchFilters.filter((b) => b !== batch)
+                          );
+                          setPage(1);
+                        }}
+                        className="hover:bg-muted-foreground/20 rounded-full p-0.5"
+                      >
+                        <X className="h-2 w-2" />
+                      </button>
                     </Badge>
-                  )}
+                  ))}
+                  {modelerFilters.map((modelerId) => {
+                    const modeler = modelers.find((m) => m.id === modelerId);
+                    return (
+                      <Badge
+                        key={modelerId}
+                        variant="secondary"
+                        className="text-xs h-5 flex items-start gap-1 pr-1"
+                      >
+                        <Users className="h-2 w-2" />
+                        {modeler?.title || modeler?.email || modelerId}
+                        <button
+                          onClick={() => {
+                            setModelerFilters(
+                              modelerFilters.filter((m) => m !== modelerId)
+                            );
+                            setPage(1);
+                          }}
+                          className="hover:bg-muted-foreground/20 rounded-full p-0.5"
+                        >
+                          <X className="h-2 w-2" />
+                        </button>
+                      </Badge>
+                    );
+                  })}
                 </div>
               )}
             </div>
