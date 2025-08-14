@@ -33,7 +33,6 @@ import {
   Euro,
   User,
   Package,
-  ShieldCheck,
   AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -64,7 +63,6 @@ interface User {
 interface AllocationData {
   assetId: string;
   modelerId: string;
-  qaId: string;
   price: number;
   pricingOptionId: string;
 }
@@ -163,8 +161,7 @@ export default function AllocateAssetsPage() {
   const [assets, setAssets] = useState<UnallocatedAsset[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
   const [allocating, setAllocating] = useState(false);
-  const [fetchingDefaultQA, setFetchingDefaultQA] = useState(false);
-  const [noDefaultQA, setNoDefaultQA] = useState(false);
+
   const [allocationData, setAllocationData] = useState<AllocationData[]>([]);
   const [selectedForPricing, setSelectedForPricing] = useState<Set<string>>(
     new Set()
@@ -181,10 +178,8 @@ export default function AllocateAssetsPage() {
   );
   const [globalTeamAssignment, setGlobalTeamAssignment] = useState<{
     modelerId: string;
-    qaId: string;
   }>({
     modelerId: "",
-    qaId: "",
   });
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,7 +197,6 @@ export default function AllocateAssetsPage() {
       if (newAssetIds.length === 0) return;
 
       const modelers = users.filter((u) => u.role === "modeler");
-      const qas = users.filter((u) => u.role === "qa");
 
       // Get default pricing based on current pricing tier
       const defaultPricingOption =
@@ -215,7 +209,6 @@ export default function AllocateAssetsPage() {
           modelerId:
             globalTeamAssignment.modelerId ||
             (modelers.length > 0 ? modelers[0].id : ""),
-          qaId: globalTeamAssignment.qaId || (qas.length > 0 ? qas[0].id : ""),
           price: defaultPrice,
           pricingOptionId: defaultPricingOption,
         })
@@ -463,7 +456,7 @@ export default function AllocateAssetsPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, email, title, role")
-        .in("role", ["modeler", "qa"]);
+        .in("role", ["modeler"]);
 
       if (error) throw error;
 
@@ -482,7 +475,6 @@ export default function AllocateAssetsPage() {
   // Initialize allocation data for selected assets
   const initializeAllocationData = () => {
     const modelers = users.filter((u) => u.role === "modeler");
-    const qas = users.filter((u) => u.role === "qa");
 
     // Set global team assignment defaults
     if (modelers.length > 0 && !globalTeamAssignment.modelerId) {
@@ -493,12 +485,6 @@ export default function AllocateAssetsPage() {
       }));
       // Check pricing tier for the default modeler
       checkModelerPricingTier(defaultModelerId);
-    }
-    if (qas.length > 0 && !globalTeamAssignment.qaId) {
-      setGlobalTeamAssignment((prev) => ({
-        ...prev,
-        qaId: qas[0].id,
-      }));
     }
 
     // Get default pricing based on current pricing tier
@@ -532,7 +518,6 @@ export default function AllocateAssetsPage() {
         modelerId:
           globalTeamAssignment.modelerId ||
           (modelers.length > 0 ? modelers[0].id : ""),
-        qaId: globalTeamAssignment.qaId || (qas.length > 0 ? qas[0].id : ""),
         price: defaultPrice,
         pricingOptionId: defaultPricingOption,
       })
@@ -559,7 +544,7 @@ export default function AllocateAssetsPage() {
     ) {
       initializeAllocationData();
     }
-  }, [users, selectedAssets, allocationData.length, initializeAllocationData]);
+  }, [users, selectedAssets, allocationData.length]);
 
   // Check pricing tier for currently selected modeler when users are loaded
   useEffect(() => {
@@ -623,10 +608,7 @@ export default function AllocateAssetsPage() {
   };
 
   // Update global team assignment and check pricing tier
-  const updateGlobalTeamAssignment = (
-    field: "modelerId" | "qaId",
-    value: string
-  ) => {
+  const updateGlobalTeamAssignment = (field: "modelerId", value: string) => {
     setGlobalTeamAssignment((prev) => ({
       ...prev,
       [field]: value,
@@ -640,12 +622,8 @@ export default function AllocateAssetsPage() {
       setAssetFileHistory([]);
       // Clear existing assignments when modeler changes
       setExistingAssignments([]);
-      fetchDefaultQAForModeler(value);
       // Check if any assets were previously assigned to a different modeler
       checkForPreviousModelerFiles(value);
-    } else if (field === "qaId") {
-      // Apply QA change to all assets
-      applyGlobalTeamAssignmentToAllAssets();
     }
   };
 
@@ -810,55 +788,8 @@ export default function AllocateAssetsPage() {
       prev.map((item) => ({
         ...item,
         modelerId: globalTeamAssignment.modelerId,
-        qaId: globalTeamAssignment.qaId,
       }))
     );
-  };
-
-  const fetchDefaultQAForModeler = async (modelerId: string) => {
-    try {
-      setFetchingDefaultQA(true);
-      // Clear current QA selection first
-      setGlobalTeamAssignment((prev) => ({
-        ...prev,
-        qaId: "",
-      }));
-      setNoDefaultQA(false);
-
-      // Fetch QA allocations for this modeler
-      const { data: qaAllocations, error } = await supabase
-        .from("qa_allocations")
-        .select("qa_id")
-        .eq("modeler_id", modelerId);
-
-      if (error) {
-        console.error("Error fetching QA allocations:", error);
-        return;
-      }
-
-      // If the modeler has a QA assigned, set it as default
-      if (qaAllocations && qaAllocations.length > 0) {
-        const defaultQAId = qaAllocations[0].qa_id;
-        setGlobalTeamAssignment((prev) => ({
-          ...prev,
-          qaId: defaultQAId,
-        }));
-
-        // Update all allocation data to use the default QA
-        setAllocationData((prev) =>
-          prev.map((data) => ({
-            ...data,
-            qaId: defaultQAId,
-          }))
-        );
-      } else {
-        setNoDefaultQA(true);
-      }
-    } catch (error) {
-      console.error("Error fetching default QA for modeler:", error);
-    } finally {
-      setFetchingDefaultQA(false);
-    }
   };
 
   // Bulk pricing functions
@@ -912,10 +843,8 @@ export default function AllocateAssetsPage() {
       setAllocating(true);
 
       // Validate that a modeler is selected
-      if (!globalTeamAssignment.modelerId || !globalTeamAssignment.qaId) {
-        toast.error(
-          "Please select both a modeler and a QA for the asset group"
-        );
+      if (!globalTeamAssignment.modelerId) {
+        toast.error("Please select a modeler for the asset group");
         return;
       }
 
@@ -997,36 +926,8 @@ export default function AllocateAssetsPage() {
 
       const result = await response.json();
 
-      // Assign QA to the same assets
-      const qaResponse = await fetch("/api/assets/assign", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          assetIds: assetsToAllocate.map((data) => data.assetId),
-          userIds: [globalTeamAssignment.qaId],
-          role: "qa",
-          deadline: new Date(
-            groupSettings.deadline + "T00:00:00.000Z"
-          ).toISOString(),
-          bonus: 0, // QA doesn't get bonus
-          allocationName: `QA Allocation ${new Date().toISOString().split("T")[0]} - ${assetsToAllocate.length} assets`,
-          prices: {}, // QA doesn't have pricing
-        }),
-      });
-
-      if (!qaResponse.ok) {
-        const qaErrorData = await qaResponse.json();
-        console.error("QA assignment failed:", qaErrorData);
-        // Don't fail the entire process if QA assignment fails
-        toast.warning(
-          "Modeler assigned successfully, but QA assignment failed"
-        );
-      }
-
       // Note: Notifications are now handled by the API route to prevent duplicates
-      // The API route (/api/assets/assign) will send notifications to assigned modelers and QA
+      // The API route (/api/assets/assign) will send notifications to assigned modelers
       // This prevents the issue of receiving the same notification twice
 
       // Clear file history since allocation is successful
@@ -1131,15 +1032,11 @@ export default function AllocateAssetsPage() {
               <User className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-medium">Step 1: Assign Team</p>
+              <p className="text-sm font-medium">Step 1: Assign Modeler</p>
               <p className="text-xs text-muted-foreground">
-                {globalTeamAssignment.modelerId && globalTeamAssignment.qaId
-                  ? "Modeler and QA assigned"
-                  : globalTeamAssignment.modelerId
-                    ? "Modeler assigned, QA needed"
-                    : globalTeamAssignment.qaId
-                      ? "QA assigned, modeler needed"
-                      : "No assignments"}
+                {globalTeamAssignment.modelerId
+                  ? "Modeler assigned"
+                  : "No modeler assigned"}
               </p>
             </div>
           </div>
@@ -1168,10 +1065,9 @@ export default function AllocateAssetsPage() {
         /* Step 1: Team Assignment */
         <Card>
           <CardHeader>
-            <CardTitle>Assign Modeler and QA</CardTitle>
+            <CardTitle>Assign Modeler</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Select a modeler to auto-populate their default QA, or choose a
-              different QA if needed
+              Select a modeler to assign the selected assets to
             </p>
           </CardHeader>
           <CardContent>
@@ -1203,101 +1099,6 @@ export default function AllocateAssetsPage() {
                         ))}
                     </SelectContent>
                   </Select>
-                </div>
-                {/* QA Assignment */}
-                <div className="space-y-3">
-                  <label className="text-sm font-medium flex items-center">
-                    <ShieldCheck className="h-4 w-4 mr-2" />
-                    QA Reviewer
-                  </label>
-                  <Select
-                    value={globalTeamAssignment.qaId}
-                    onValueChange={(value) =>
-                      updateGlobalTeamAssignment("qaId", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose QA reviewer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users
-                        .filter((u) => u.role === "qa")
-                        .map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.title || user.email}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  {globalTeamAssignment.modelerId &&
-                    !globalTeamAssignment.qaId &&
-                    !fetchingDefaultQA &&
-                    !noDefaultQA && (
-                      <div className="text-xs text-muted-foreground">
-                        Fetching default QA for this modeler...
-                      </div>
-                    )}
-                  {globalTeamAssignment.modelerId &&
-                    !globalTeamAssignment.qaId &&
-                    !fetchingDefaultQA &&
-                    !noDefaultQA && (
-                      <div className="text-xs text-muted-foreground">
-                        Please wait while we find the default QA for this
-                        modeler...
-                      </div>
-                    )}
-                  {globalTeamAssignment.modelerId &&
-                    !globalTeamAssignment.qaId && (
-                      <div className="text-xs text-muted-foreground">
-                        Select a QA reviewer to continue
-                      </div>
-                    )}
-                  {globalTeamAssignment.modelerId &&
-                    globalTeamAssignment.qaId && (
-                      <div className="text-xs text-muted-foreground">
-                        Default QA for this modeler. You can change this if
-                        needed.
-                      </div>
-                    )}
-                  {globalTeamAssignment.modelerId &&
-                    globalTeamAssignment.qaId && (
-                      <div className="text-xs text-success">
-                        ✓ Default QA auto-populated for{" "}
-                        {users.find((u) => u.id === globalTeamAssignment.qaId)
-                          ?.title ||
-                          users.find((u) => u.id === globalTeamAssignment.qaId)
-                            ?.email}
-                      </div>
-                    )}
-                  {globalTeamAssignment.modelerId &&
-                    globalTeamAssignment.qaId && (
-                      <div className="text-xs text-muted-foreground">
-                        You can change the QA above if you want to assign a
-                        different reviewer
-                      </div>
-                    )}
-                  {fetchingDefaultQA && (
-                    <div className="text-xs text-muted-foreground">
-                      Fetching default QA for selected modeler...
-                    </div>
-                  )}
-                  {fetchingDefaultQA && (
-                    <div className="text-xs text-muted-foreground">
-                      Please wait while we retrieve the default QA assignment...
-                    </div>
-                  )}
-                  {noDefaultQA && (
-                    <div className="text-xs text-muted-foreground">
-                      No default QA found for this modeler. Please choose a
-                      different QA or assign one manually.
-                    </div>
-                  )}
-                  {noDefaultQA && (
-                    <div className="text-xs text-muted-foreground">
-                      You can select any QA from the dropdown above to assign to
-                      this modeler.
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -1495,22 +1296,18 @@ export default function AllocateAssetsPage() {
               {/* Step Navigation */}
               <div className="flex items-center justify-between pt-6 border-t mt-6">
                 <div className="text-sm text-muted-foreground">
-                  {globalTeamAssignment.modelerId &&
-                  globalTeamAssignment.qaId ? (
+                  {globalTeamAssignment.modelerId ? (
                     <span className="flex items-center gap-2">
                       <User className="h-4 w-4" />
-                      Modeler and QA assigned
+                      Modeler assigned
                     </span>
                   ) : (
-                    "Select both a modeler and a QA to continue"
+                    "Select a modeler to continue"
                   )}
                 </div>
                 <Button
                   onClick={handleNextStep}
-                  disabled={
-                    !globalTeamAssignment.modelerId ||
-                    !globalTeamAssignment.qaId
-                  }
+                  disabled={!globalTeamAssignment.modelerId}
                   className="flex items-center gap-2"
                 >
                   <ArrowRight className="h-4 w-4" />
@@ -1873,7 +1670,6 @@ export default function AllocateAssetsPage() {
                     loading ||
                     allocating ||
                     !globalTeamAssignment.modelerId ||
-                    !globalTeamAssignment.qaId ||
                     !groupSettings.deadline ||
                     allocationData.some((data) => data.price <= 0) ||
                     allocationData.some((data) => !data.pricingOptionId)

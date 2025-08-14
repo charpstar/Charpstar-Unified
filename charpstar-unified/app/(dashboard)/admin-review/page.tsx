@@ -1499,339 +1499,181 @@ export default function AdminReviewPage() {
           </div>
         )}
 
-        {/* Compact Filters */}
+        {/* Inline Filter Controls */}
         {!loading && (
-          <Card className="mb-4 p-3">
-            <div className="space-y-3">
-              {/* Filter Header Row */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Filters</span>
-                  {(clientFilters.length > 0 ||
-                    batchFilters.length > 0 ||
-                    modelerFilters.length > 0 ||
-                    statusFilters.length > 0) && (
-                    <Badge variant="secondary" className="text-xs h-5">
-                      {clientFilters.length +
-                        batchFilters.length +
-                        modelerFilters.length +
-                        statusFilters.length}
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-start gap-1">
-                  {/* Quick Filters */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            {/* Client Filter */}
+            <Select
+              value={clientFilters.length === 1 ? clientFilters[0] : undefined}
+              onValueChange={(value) => {
+                if (value === "all") {
+                  setClientFilters([]);
+                } else if (value) {
+                  setClientFilters([value]);
+                }
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-40 h-9">
+                <SelectValue
+                  placeholder={
+                    clientFilters.length === 0
+                      ? "All clients"
+                      : clientFilters.length === 1
+                        ? clientFilters[0]
+                        : `${clientFilters.length} selected`
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All clients</SelectItem>
+                {clients.map((client) => (
+                  <SelectItem key={client} value={client}>
+                    {client}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-                  {(clientFilters.length > 0 ||
-                    batchFilters.length > 0 ||
-                    modelerFilters.length > 0 ||
-                    statusFilters.length > 0) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setClientFilters([]);
-                        setBatchFilters([]);
-                        setModelerFilters([]);
-                        setStatusFilters([]);
-                        setPage(1);
-                      }}
-                      className="h-7 px-2 text-xs text-muted-foreground"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Compact Filter Controls */}
-              <div className="flex flex-wrap gap-3">
-                {/* Client Filter */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-start gap-1">
-                    <Building className="h-3 w-3" />
-                    Clients{" "}
-                    {clientFilters.length > 0 && `(${clientFilters.length})`}
-                  </label>
-                  <Select
-                    value={
-                      clientFilters.length === 1 ? clientFilters[0] : undefined
-                    }
-                    onValueChange={(value) => {
-                      if (value === "all") {
-                        setClientFilters([]);
-                      } else if (value) {
-                        setClientFilters([value]);
-                      }
-                      setPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue
-                        placeholder={
-                          clientFilters.length === 0
-                            ? "All clients"
-                            : clientFilters.length === 1
-                              ? clientFilters[0]
-                              : `${clientFilters.length} selected`
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All clients</SelectItem>
-                      {clients.map((client) => (
-                        <SelectItem key={client} value={client}>
-                          {client}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Status Filter */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-start gap-1">
-                    <Settings className="h-3 w-3" />
-                    Status{" "}
-                    {statusFilters.length > 0 && `(${statusFilters.length})`}
-                  </label>
-                  <Select
-                    value={
-                      statusFilters.length === 1 ? statusFilters[0] : undefined
-                    }
-                    onValueChange={(value) => {
-                      if (value === "all") {
-                        setStatusFilters([]);
-                      } else if (value) {
-                        setStatusFilters([value]);
-                      }
-                      setPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue
-                        placeholder={
-                          statusFilters.length === 0
-                            ? "All statuses"
-                            : statusFilters.length === 1
-                              ? STATUS_LABELS[
-                                  statusFilters[0] as keyof typeof STATUS_LABELS
-                                ]?.label
-                              : `${statusFilters.length} selected`
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All statuses</SelectItem>
-                      {Object.entries(STATUS_LABELS).map(([status, config]) => (
-                        <SelectItem key={status} value={status}>
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(status)}
-                            {config.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Batch Filter */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-start gap-1">
-                    <Package className="h-3 w-3" />
-                    Batches{" "}
-                    {batchFilters.length > 0 && `(${batchFilters.length})`}
-                  </label>
-                  <Select
-                    value={
-                      batchFilters.length === 1
-                        ? batchFilters[0].toString()
-                        : undefined
-                    }
-                    onValueChange={(value) => {
-                      if (value === "all") {
-                        setBatchFilters([]);
-                      } else if (value) {
-                        setBatchFilters([parseInt(value)]);
-                      }
-                      setPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue
-                        placeholder={
-                          batchFilters.length === 0
-                            ? "All batches"
-                            : batchFilters.length === 1
-                              ? `Batch ${batchFilters[0]}`
-                              : `${batchFilters.length} selected`
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All batches</SelectItem>
-                      {Array.from(
-                        new Set(
-                          assets.map((asset) => asset.batch).filter(Boolean)
-                        )
-                      )
-                        .sort((a, b) => a - b)
-                        .map((batch) => (
-                          <SelectItem key={batch} value={batch.toString()}>
-                            Batch {batch}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Modeler Filter */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-start gap-1">
-                    <Users className="h-3 w-3" />
-                    Modelers{" "}
-                    {modelerFilters.length > 0 && `(${modelerFilters.length})`}
-                  </label>
-                  <Select
-                    value={
-                      modelerFilters.length === 1
-                        ? modelerFilters[0]
-                        : undefined
-                    }
-                    onValueChange={(value) => {
-                      if (value === "all") {
-                        setModelerFilters([]);
-                      } else if (value) {
-                        setModelerFilters([value]);
-                      }
-                      setPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue
-                        placeholder={
-                          modelerFilters.length === 0
-                            ? "All modelers"
-                            : modelerFilters.length === 1
-                              ? modelers.find((m) => m.id === modelerFilters[0])
-                                  ?.title ||
-                                modelers.find((m) => m.id === modelerFilters[0])
-                                  ?.email
-                              : `${modelerFilters.length} selected`
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All modelers</SelectItem>
-                      {modelers.map((modeler) => (
-                        <SelectItem key={modeler.id} value={modeler.id}>
-                          {modeler.title || modeler.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Active Filters (compact badges) */}
-              {(clientFilters.length > 0 ||
-                batchFilters.length > 0 ||
-                modelerFilters.length > 0 ||
-                statusFilters.length > 0) && (
-                <div className="flex flex-wrap gap-1 pt-2 border-t border-border">
-                  {clientFilters.map((client) => (
-                    <Badge
-                      key={client}
-                      variant="secondary"
-                      className="text-xs h-5 flex items-start gap-1 pr-1"
-                    >
-                      <Building className="h-2 w-2" />
-                      {client}
-                      <button
-                        onClick={() => {
-                          setClientFilters(
-                            clientFilters.filter((c) => c !== client)
-                          );
-                          setPage(1);
-                        }}
-                        className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-                      >
-                        <X className="h-2 w-2" />
-                      </button>
-                    </Badge>
-                  ))}
-                  {statusFilters.map((status) => (
-                    <Badge
-                      key={status}
-                      variant="secondary"
-                      className="text-xs h-5 flex items-start gap-1 pr-1"
-                    >
+            {/* Status Filter */}
+            <Select
+              value={statusFilters.length === 1 ? statusFilters[0] : undefined}
+              onValueChange={(value) => {
+                if (value === "all") {
+                  setStatusFilters([]);
+                } else if (value) {
+                  setStatusFilters([value]);
+                }
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-40 h-9">
+                <SelectValue
+                  placeholder={
+                    statusFilters.length === 0
+                      ? "All statuses"
+                      : statusFilters.length === 1
+                        ? STATUS_LABELS[
+                            statusFilters[0] as keyof typeof STATUS_LABELS
+                          ]?.label
+                        : `${statusFilters.length} selected`
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {Object.entries(STATUS_LABELS).map(([status, config]) => (
+                  <SelectItem key={status} value={status}>
+                    <div className="flex items-center gap-2">
                       {getStatusIcon(status)}
-                      {STATUS_LABELS[status as keyof typeof STATUS_LABELS]
-                        ?.label || status}
-                      <button
-                        onClick={() => {
-                          setStatusFilters(
-                            statusFilters.filter((s) => s !== status)
-                          );
-                          setPage(1);
-                        }}
-                        className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-                      >
-                        <X className="h-2 w-2" />
-                      </button>
-                    </Badge>
-                  ))}
-                  {batchFilters.map((batch) => (
-                    <Badge
-                      key={batch}
-                      variant="secondary"
-                      className="text-xs h-5 flex items-start gap-1 pr-1"
-                    >
-                      <Package className="h-2 w-2" />
+                      {config.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Batch Filter */}
+            <Select
+              value={
+                batchFilters.length === 1
+                  ? batchFilters[0].toString()
+                  : undefined
+              }
+              onValueChange={(value) => {
+                if (value === "all") {
+                  setBatchFilters([]);
+                } else if (value) {
+                  setBatchFilters([parseInt(value)]);
+                }
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-32 h-9">
+                <SelectValue
+                  placeholder={
+                    batchFilters.length === 0
+                      ? "All batches"
+                      : batchFilters.length === 1
+                        ? `Batch ${batchFilters[0]}`
+                        : `${batchFilters.length} selected`
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All batches</SelectItem>
+                {Array.from(
+                  new Set(assets.map((asset) => asset.batch).filter(Boolean))
+                )
+                  .sort((a, b) => a - b)
+                  .map((batch) => (
+                    <SelectItem key={batch} value={batch.toString()}>
                       Batch {batch}
-                      <button
-                        onClick={() => {
-                          setBatchFilters(
-                            batchFilters.filter((b) => b !== batch)
-                          );
-                          setPage(1);
-                        }}
-                        className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-                      >
-                        <X className="h-2 w-2" />
-                      </button>
-                    </Badge>
+                    </SelectItem>
                   ))}
-                  {modelerFilters.map((modelerId) => {
-                    const modeler = modelers.find((m) => m.id === modelerId);
-                    return (
-                      <Badge
-                        key={modelerId}
-                        variant="secondary"
-                        className="text-xs h-5 flex items-start gap-1 pr-1"
-                      >
-                        <Users className="h-2 w-2" />
-                        {modeler?.title || modeler?.email || modelerId}
-                        <button
-                          onClick={() => {
-                            setModelerFilters(
-                              modelerFilters.filter((m) => m !== modelerId)
-                            );
-                            setPage(1);
-                          }}
-                          className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-                        >
-                          <X className="h-2 w-2" />
-                        </button>
-                      </Badge>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </Card>
+              </SelectContent>
+            </Select>
+
+            {/* Modeler Filter */}
+            <Select
+              value={
+                modelerFilters.length === 1 ? modelerFilters[0] : undefined
+              }
+              onValueChange={(value) => {
+                if (value === "all") {
+                  setModelerFilters([]);
+                } else if (value) {
+                  setModelerFilters([value]);
+                }
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-40 h-9">
+                <SelectValue
+                  placeholder={
+                    modelerFilters.length === 0
+                      ? "All modelers"
+                      : modelerFilters.length === 1
+                        ? modelers.find((m) => m.id === modelerFilters[0])
+                            ?.title ||
+                          modelers.find((m) => m.id === modelerFilters[0])
+                            ?.email
+                        : `${modelerFilters.length} selected`
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All modelers</SelectItem>
+                {modelers.map((modeler) => (
+                  <SelectItem key={modeler.id} value={modeler.id}>
+                    {modeler.title || modeler.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Clear Filters Button */}
+            {(clientFilters.length > 0 ||
+              batchFilters.length > 0 ||
+              modelerFilters.length > 0 ||
+              statusFilters.length > 0) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setClientFilters([]);
+                  setBatchFilters([]);
+                  setModelerFilters([]);
+                  setStatusFilters([]);
+                  setPage(1);
+                }}
+                className="h-9 px-3"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
         )}
 
         {loading ? (
@@ -2182,7 +2024,7 @@ export default function AdminReviewPage() {
           </div>
         ) : (
           // Assets View
-          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[70vh]">
+          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
             <Table>
               <TableHeader>
                 <TableRow>

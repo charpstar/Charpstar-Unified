@@ -414,54 +414,6 @@ export default function ReviewDashboardPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <Card className="p-6 flex-1 flex flex-col border-0 shadow-none ">
-        <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
-          <div className="flex gap-2">
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(STATUS_LABELS).map(([key, val]) => (
-                  <SelectItem key={key} value={key}>
-                    {val.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              className="w-full md:w-64"
-              placeholder="Search by name or article ID"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2">
-            <Select value={sort} onValueChange={(value) => setSort(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="status-progress">
-                  Sort by: Status Progression
-                </SelectItem>
-                <SelectItem value="batch">
-                  Sort by: Batch (1, 2, 3...)
-                </SelectItem>
-
-                <SelectItem value="priority">
-                  Sort by: Priority (Highest First)
-                </SelectItem>
-                <SelectItem value="priority-lowest">
-                  Sort by: Priority (Lowest First)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
         {/* Bulk Actions */}
         {selected.size > 0 && (
           <div className="mb-4 p-4 bg-muted/50 rounded-lg border">
@@ -595,11 +547,58 @@ export default function ReviewDashboardPage() {
             </Card>
           </div>
         )}
+        <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
+          <div className="flex gap-2">
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(STATUS_LABELS).map(([key, val]) => (
+                  <SelectItem key={key} value={key}>
+                    {val.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              className="w-full md:w-64"
+              placeholder="Search by name or article ID"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Select value={sort} onValueChange={(value) => setSort(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="status-progress">
+                  Sort by: Status Progression
+                </SelectItem>
+                <SelectItem value="batch">
+                  Sort by: Batch (1, 2, 3...)
+                </SelectItem>
+
+                <SelectItem value="priority">
+                  Sort by: Priority (Highest First)
+                </SelectItem>
+                <SelectItem value="priority-lowest">
+                  Sort by: Priority (Lowest First)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {loading ? (
           <ReviewTableSkeleton />
         ) : (
-          <div className="overflow-auto rounded-lg border bg-background flex-1 max-h-[70vh] min-h-[70vh]">
+          <div className="overflow-auto rounded-lg border bg-background flex-1 max-h-[67vh] min-h-[67vh]">
             <div className="min-w-[1200px]">
               <Table>
                 <TableHeader>
