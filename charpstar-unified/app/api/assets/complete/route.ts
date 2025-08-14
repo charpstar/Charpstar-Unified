@@ -65,39 +65,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Send notification immediately to modeler when revisions requested
+    if (status === "revisions") {
+      try {
+        const { data: assignments } = await supabase
+          .from("asset_assignments")
+          .select("user_id")
+          .eq("asset_id", assetId)
+          .eq("role", "modeler");
+        if (assignments && assignments.length > 0) {
+          const modelerId = assignments[0].user_id;
+          const { data: asset } = await supabase
+            .from("onboarding_assets")
+            .select("product_name, client")
+            .eq("id", assetId)
+            .single();
+          const { data: modelerProfile } = await supabase
+            .from("profiles")
+            .select("email")
+            .eq("id", modelerId)
+            .single();
+          await notificationService.sendRevisionNotification(
+            modelerId,
+            modelerProfile?.email,
+            asset?.product_name,
+            asset?.client
+          );
+        }
+      } catch (e) {
+        // swallow
+      }
+    }
+
     // Send notification when asset is approved (either by client or other means)
     if (status === "approved" || status === "approved_by_client") {
-      // Send notification immediately to modeler when revisions requested
-      if (status === "revisions") {
-        try {
-          const { data: assignments } = await supabase
-            .from("asset_assignments")
-            .select("user_id")
-            .eq("asset_id", assetId)
-            .eq("role", "modeler");
-          if (assignments && assignments.length > 0) {
-            const modelerId = assignments[0].user_id;
-            const { data: asset } = await supabase
-              .from("onboarding_assets")
-              .select("product_name, client")
-              .eq("id", assetId)
-              .single();
-            const { data: modelerProfile } = await supabase
-              .from("profiles")
-              .select("email")
-              .eq("id", modelerId)
-              .single();
-            await notificationService.sendRevisionNotification(
-              modelerId,
-              modelerProfile?.email,
-              asset?.product_name,
-              asset?.client
-            );
-          }
-        } catch (e) {
-          // swallow
-        }
-      }
       try {
         // Get asset details
         const { data: assetDetails, error: assetDetailsError } = await supabase

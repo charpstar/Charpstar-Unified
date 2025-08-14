@@ -222,6 +222,13 @@ export default function ProductionDashboard() {
   const [qaUsers, setQAUsers] = useState<QAProgress[]>([]);
   const [filteredQAUsers, setFilteredQAUsers] = useState<QAProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingStates, setLoadingStates] = useState({
+    clients: false,
+    batches: false,
+    modelers: false,
+    qa: false,
+    fetchingData: false,
+  });
   const [chartLoadingStates, setChartLoadingStates] = useState<
     Record<string, boolean>
   >({});
@@ -230,6 +237,22 @@ export default function ProductionDashboard() {
     client: string;
     batch: number;
   } | null>(null);
+
+  // Cache for data to avoid refetching
+  const [dataCache, setDataCache] = useState<{
+    assets: any[] | null;
+    assetAssignments: any[] | null;
+    profiles: any[] | null;
+    lastFetched: number | null;
+  }>({
+    assets: null,
+    assetAssignments: null,
+    profiles: null,
+    lastFetched: null,
+  });
+
+  // Cache duration (5 minutes)
+  const CACHE_DURATION = 5 * 60 * 1000;
 
   // Get state from URL params with defaults
   const searchTerm = searchParams.get("search") || "";
@@ -243,6 +266,16 @@ export default function ProductionDashboard() {
 
   // Get selected client from URL params
   const selectedClient = searchParams.get("client") || null;
+
+  // Function to invalidate cache when data changes
+  const invalidateCache = () => {
+    setDataCache({
+      assets: null,
+      assetAssignments: null,
+      profiles: null,
+      lastFetched: null,
+    });
+  };
 
   // Function to handle view mode changes and update URL
   const handleViewModeChange = (
@@ -306,13 +339,548 @@ export default function ProductionDashboard() {
     document.title = "CharpstAR Platform - Production Dashboard";
   }, []);
 
-  useEffect(() => {
-    if (viewMode === "clients") {
-      fetchClientData();
-    } else {
-      fetchBatchProgress();
+  // Check if cached data is still valid
+  const isCacheValid = () => {
+    return (
+      dataCache.lastFetched &&
+      Date.now() - dataCache.lastFetched < CACHE_DURATION &&
+      dataCache.assets &&
+      dataCache.assetAssignments &&
+      dataCache.profiles
+    );
+  };
+
+  // Fetch all data once and cache it
+  const fetchAllData = async () => {
+    try {
+      setLoadingStates((prev) => ({ ...prev, fetchingData: true }));
+
+      // Fetch all data in parallel for better performance
+      const [
+        { data: assetData, error: assetError },
+        { data: assetAssignments, error: assignmentsError },
+        { data: profiles, error: profilesError },
+      ] = await Promise.all([
+        supabase.from("onboarding_assets").select("*"),
+        supabase.from("asset_assignments").select(`
+            user_id,
+            role,
+            asset_id,
+            start_time,
+            end_time,
+            onboarding_assets!inner(client, batch, status, revision_count)
+          `),
+        supabase.from("profiles").select("id, email, title, role"),
+      ]);
+
+      if (assetError) throw assetError;
+      if (assignmentsError) throw assignmentsError;
+      if (profilesError) throw profilesError;
+
+      // Update cache
+      setDataCache({
+        assets: assetData || [],
+        assetAssignments: assetAssignments || [],
+        profiles: profiles || [],
+        lastFetched: Date.now(),
+      });
+
+      return {
+        assetData: assetData || [],
+        assetAssignments: assetAssignments || [],
+        profiles: profiles || [],
+      };
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      throw error;
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, fetchingData: false }));
     }
-  }, [viewMode]);
+  };
+
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        let data;
+
+        if (isCacheValid()) {
+          // Use cached data
+          data = {
+            assetData: dataCache.assets!,
+            assetAssignments: dataCache.assetAssignments!,
+            profiles: dataCache.profiles!,
+          };
+        } else {
+          // Fetch fresh data
+          data = await fetchAllData();
+        }
+
+        // Process data based on current view mode
+        await processDataForViewMode(data);
+      } catch (error) {
+        console.error("Error initializing data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeData();
+  }, [viewMode, dataCache.lastFetched]);
+
+  // Process cached data for different view modes
+  const processDataForViewMode = async (data: {
+    assetData: any[];
+    assetAssignments: any[];
+    profiles: any[];
+  }) => {
+    if (viewMode === "clients") {
+      await processClientData(data);
+    } else {
+      await processBatchData(data);
+    }
+  };
+
+  // Optimized client data processing using cached data
+  const processClientData = async (data: {
+    assetData: any[];
+    assetAssignments: any[];
+    profiles: any[];
+  }) => {
+    try {
+      setLoadingStates((prev) => ({ ...prev, clients: true }));
+      const { assetData, assetAssignments } = data;
+
+      // Group assets by client
+      const clientMap = new Map<string, ClientSummary>();
+
+      assetData.forEach((asset) => {
+        const clientName = asset.client;
+
+        if (!clientMap.has(clientName)) {
+          clientMap.set(clientName, {
+            name: clientName,
+            totalBatches: 0,
+            totalModels: 0,
+            completedModels: 0,
+            completionPercentage: 0,
+            unassignedAssets: 0,
+            statusCounts: {
+              in_production: 0,
+              revisions: 0,
+              approved: 0,
+              approved_by_client: 0,
+            },
+            assignedUsers: {
+              modelers: 0,
+              qa: 0,
+            },
+            averageProgress: 0,
+            batches: [],
+          });
+        }
+
+        const client = clientMap.get(clientName)!;
+        client.totalModels++;
+
+        // Count status
+        const status = asset.status || "in_production";
+        if (status in client.statusCounts) {
+          client.statusCounts[status as keyof typeof client.statusCounts]++;
+        }
+
+        if (status === "approved" || status === "approved_by_client") {
+          client.completedModels++;
+        }
+      });
+
+      // Calculate unassigned assets for each client
+      const modelerAssignments = assetAssignments.filter(
+        (a) => a.role === "modeler"
+      );
+      const assignedAssetIds = new Set(
+        modelerAssignments.map((assignment) => assignment.asset_id) || []
+      );
+
+      // Calculate completion percentages and other stats
+      const clientsArray = Array.from(clientMap.values()).map((client) => {
+        // Count unassigned assets for this client
+        const clientAssets = assetData.filter(
+          (asset) => asset.client === client.name
+        );
+
+        const unassignedCount = clientAssets.filter(
+          (asset) => !assignedAssetIds.has(asset.id)
+        ).length;
+
+        // Count assigned users for this client
+        const clientModelerAssignments = modelerAssignments.filter(
+          (assignment) => {
+            const asset = assignment.onboarding_assets as any;
+            return asset && asset.client === client.name;
+          }
+        );
+
+        const clientQAAssignments = assetAssignments.filter((assignment) => {
+          const asset = assignment.onboarding_assets as any;
+          return (
+            asset && asset.client === client.name && assignment.role === "qa"
+          );
+        });
+
+        const uniqueModelers = new Set(
+          clientModelerAssignments.map((a) => a.user_id)
+        ).size;
+        const uniqueQAUsers = new Set(clientQAAssignments.map((a) => a.user_id))
+          .size;
+
+        return {
+          ...client,
+          completionPercentage:
+            client.totalModels > 0
+              ? Math.round((client.completedModels / client.totalModels) * 100)
+              : 0,
+          unassignedAssets: unassignedCount,
+          assignedUsers: {
+            modelers: uniqueModelers,
+            qa: uniqueQAUsers,
+          },
+        };
+      });
+
+      setClients(clientsArray);
+      setFilteredClients(clientsArray);
+
+      // Also process modeler and QA data in parallel
+      await Promise.all([processModelerData(data), processQAData(data)]);
+    } catch (error) {
+      console.error("Error processing client data:", error);
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, clients: false }));
+    }
+  };
+
+  // Optimized batch data processing using cached data
+  const processBatchData = async (data: {
+    assetData: any[];
+    assetAssignments: any[];
+    profiles: any[];
+  }) => {
+    try {
+      setLoadingStates((prev) => ({ ...prev, batches: true }));
+      const { assetData, assetAssignments } = data;
+
+      // Group by client and batch
+      const batchMap = new Map<string, BatchProgress>();
+
+      assetData.forEach((asset) => {
+        const client = asset.client;
+        const batch = asset.batch || 1;
+        const batchKey = `${client}-${batch}`;
+
+        if (!batchMap.has(batchKey)) {
+          batchMap.set(batchKey, {
+            id: batchKey,
+            client,
+            batch,
+            totalModels: 0,
+            completedModels: 0,
+            startDate: asset.created_at || new Date().toISOString(),
+            deadline: asset.delivery_date || new Date().toISOString(),
+            completionPercentage: 0,
+            unassignedAssets: 0,
+            statusCounts: {
+              in_production: 0,
+              revisions: 0,
+              approved: 0,
+              approved_by_client: 0,
+            },
+            assignedUsers: {
+              modelers: [],
+              qa: [],
+            },
+          });
+        }
+
+        const batchProgress = batchMap.get(batchKey)!;
+        batchProgress.totalModels++;
+
+        // Count by status
+        if (asset.status) {
+          if (asset.status in batchProgress.statusCounts) {
+            batchProgress.statusCounts[
+              asset.status as keyof typeof batchProgress.statusCounts
+            ]++;
+          }
+        }
+
+        // Count completed models
+        if (
+          asset.status === "approved" ||
+          asset.status === "approved_by_client"
+        ) {
+          batchProgress.completedModels++;
+        }
+      });
+
+      // Calculate unassigned assets for each batch
+      const modelerAssignments = assetAssignments.filter(
+        (a) => a.role === "modeler"
+      );
+      const assignedAssetIds = new Set(
+        modelerAssignments.map((assignment) => assignment.asset_id) || []
+      );
+
+      // Calculate completion percentages and format dates
+      const batchesArray = Array.from(batchMap.values()).map((batch) => {
+        // Count unassigned assets for this batch
+        const batchAssets = assetData.filter(
+          (asset) =>
+            asset.client === batch.client && asset.batch === batch.batch
+        );
+
+        const unassignedCount = batchAssets.filter(
+          (asset) => !assignedAssetIds.has(asset.id)
+        ).length;
+
+        return {
+          ...batch,
+          completionPercentage:
+            batch.totalModels > 0
+              ? Math.round((batch.completedModels / batch.totalModels) * 100)
+              : 0,
+          startDate: new Date(batch.startDate).toLocaleDateString(),
+          deadline: new Date(batch.deadline).toLocaleDateString(),
+          unassignedAssets: unassignedCount,
+        };
+      });
+
+      setBatches(batchesArray);
+      setFilteredBatches(batchesArray);
+
+      // Also process modeler and QA data in parallel
+      await Promise.all([processModelerData(data), processQAData(data)]);
+    } catch (error) {
+      console.error("Error processing batch data:", error);
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, batches: false }));
+    }
+  };
+
+  // Optimized modeler data processing using cached data
+  const processModelerData = async (data: {
+    assetData: any[];
+    assetAssignments: any[];
+    profiles: any[];
+  }) => {
+    try {
+      setLoadingStates((prev) => ({ ...prev, modelers: true }));
+      const { assetAssignments, profiles } = data;
+
+      // Get modelers from profiles
+      const modelerDetails = profiles.filter((p) => p.role === "modeler");
+
+      // Filter modeler assignments
+      const modelerAssignments = assetAssignments.filter(
+        (a) => a.role === "modeler"
+      );
+
+      // Create modeler progress map
+      const modelerMap = new Map<string, ModelerProgress>();
+
+      // Initialize all modelers
+      modelerDetails.forEach((modeler) => {
+        modelerMap.set(modeler.id, {
+          id: modeler.id,
+          email: modeler.email,
+          name: modeler.title,
+          totalAssigned: 0,
+          completedModels: 0,
+          inProgressModels: 0,
+          pendingModels: 0,
+          revisionModels: 0,
+          completionPercentage: 0,
+          assignedBatches: [],
+          statusCounts: {
+            in_production: 0,
+            revisions: 0,
+            approved: 0,
+            approved_by_client: 0,
+          },
+          completionStats: {
+            averageHours: 0,
+            averageDays: 0,
+            averageMinutes: 0,
+            totalCompleted: 0,
+            fastestCompletion: 0,
+            slowestCompletion: 0,
+            fastestCompletionMinutes: 0,
+            slowestCompletionMinutes: 0,
+            revisionRate: 0,
+            totalRevisions: 0,
+          },
+        });
+      });
+
+      // Process assignments
+      modelerAssignments.forEach((assignment) => {
+        const modeler = modelerMap.get(assignment.user_id);
+        if (!modeler) return;
+
+        const asset = assignment.onboarding_assets as any;
+        if (!asset) return;
+
+        modeler.totalAssigned++;
+
+        // Count by status
+        if (asset.status) {
+          if (asset.status in modeler.statusCounts) {
+            modeler.statusCounts[
+              asset.status as keyof typeof modeler.statusCounts
+            ]++;
+          }
+        }
+
+        // Count by category
+        if (
+          asset.status === "approved" ||
+          asset.status === "approved_by_client"
+        ) {
+          modeler.completedModels++;
+        } else if (asset.status === "in_production") {
+          modeler.inProgressModels++;
+        } else if (asset.status === "revisions") {
+          modeler.revisionModels++;
+        } else if (!asset.status || asset.status === "not_started") {
+          modeler.pendingModels++;
+        }
+
+        // Calculate completion percentage
+        modeler.completionPercentage =
+          modeler.totalAssigned > 0
+            ? Math.round(
+                (modeler.completedModels / modeler.totalAssigned) * 100
+              )
+            : 0;
+      });
+
+      const modelersArray = Array.from(modelerMap.values());
+      setModelers(modelersArray);
+      setFilteredModelers(modelersArray);
+    } catch (error) {
+      console.error("Error processing modeler data:", error);
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, modelers: false }));
+    }
+  };
+
+  // Optimized QA data processing using cached data
+  const processQAData = async (data: {
+    assetData: any[];
+    assetAssignments: any[];
+    profiles: any[];
+  }) => {
+    try {
+      setLoadingStates((prev) => ({ ...prev, qa: true }));
+      const { assetAssignments, profiles } = data;
+
+      // Get QA users from profiles
+      const qaDetails = profiles.filter((p) => p.role === "qa");
+
+      // Filter QA assignments
+      const qaAssignments = assetAssignments.filter((a) => a.role === "qa");
+
+      // Create QA progress map
+      const qaMap = new Map<string, QAProgress>();
+
+      // Initialize all QA users
+      qaDetails.forEach((qa) => {
+        qaMap.set(qa.id, {
+          id: qa.id,
+          email: qa.email,
+          name: qa.title,
+          totalAssigned: 0,
+          completedReviews: 0,
+          inProgressReviews: 0,
+          pendingReviews: 0,
+          revisionReviews: 0,
+          completionPercentage: 0,
+          assignedBatches: [],
+          statusCounts: {
+            in_production: 0,
+            revisions: 0,
+            approved: 0,
+            approved_by_client: 0,
+          },
+          reviewStats: {
+            averageReviewTime: 0,
+            totalReviews: 0,
+            fastestReview: 0,
+            slowestReview: 0,
+            revisionRate: 0,
+            totalRevisions: 0,
+          },
+          connectedModelers: [],
+          totalModelers: 0,
+          totalModelerAssets: 0,
+          totalModelerCompleted: 0,
+          modelerCompletionRate: 0,
+          chartData: [],
+          chartDateRange: {
+            from: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
+            to: new Date(),
+          },
+        });
+      });
+
+      // Process assignments
+      qaAssignments.forEach((assignment) => {
+        const qaUser = qaMap.get(assignment.user_id);
+        if (!qaUser) return;
+
+        const asset = assignment.onboarding_assets as any;
+        if (!asset) return;
+
+        qaUser.totalAssigned++;
+
+        // Count by status
+        if (asset.status) {
+          if (asset.status in qaUser.statusCounts) {
+            qaUser.statusCounts[
+              asset.status as keyof typeof qaUser.statusCounts
+            ]++;
+          }
+        }
+
+        // Count by category
+        if (
+          asset.status === "approved" ||
+          asset.status === "approved_by_client"
+        ) {
+          qaUser.completedReviews++;
+        } else if (asset.status === "in_production") {
+          qaUser.inProgressReviews++;
+        } else if (asset.status === "revisions") {
+          qaUser.revisionReviews++;
+        } else if (!asset.status || asset.status === "not_started") {
+          qaUser.pendingReviews++;
+        }
+
+        // Calculate completion percentage
+        qaUser.completionPercentage =
+          qaUser.totalAssigned > 0
+            ? Math.round((qaUser.completedReviews / qaUser.totalAssigned) * 100)
+            : 0;
+      });
+
+      const qaArray = Array.from(qaMap.values());
+      setQAUsers(qaArray);
+      setFilteredQAUsers(qaArray);
+    } catch (error) {
+      console.error("Error processing QA data:", error);
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, qa: false }));
+    }
+  };
 
   const fetchBatchProgress = async () => {
     try {

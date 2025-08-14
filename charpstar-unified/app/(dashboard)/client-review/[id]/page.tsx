@@ -298,8 +298,33 @@ export default function ReviewPage() {
 
       setAsset(data);
 
-      // Set revision count
-      setRevisionCount(data.revision_count || 0);
+      // Set revision count - fallback to revision history if asset record is outdated
+      let finalRevisionCount = data.revision_count || 0;
+
+      // If revision count is 0 but there might be revision history, check the database
+      if (finalRevisionCount === 0) {
+        const { data: revisionHistory } = await supabase
+          .from("revision_history")
+          .select("revision_number")
+          .eq("asset_id", assetId)
+          .order("revision_number", { ascending: false })
+          .limit(1);
+
+        if (revisionHistory && revisionHistory.length > 0) {
+          finalRevisionCount = revisionHistory[0].revision_number;
+          console.log(
+            `Found revision history, updating count from 0 to ${finalRevisionCount}`
+          );
+
+          // Update the asset record to fix the mismatch
+          await supabase
+            .from("onboarding_assets")
+            .update({ revision_count: finalRevisionCount })
+            .eq("id", assetId);
+        }
+      }
+
+      setRevisionCount(finalRevisionCount);
 
       // Parse reference images
       if (data.reference) {
@@ -702,7 +727,7 @@ export default function ReviewPage() {
       ];
 
       function setVisibility(visible: boolean) {
-        dimElements.forEach((element) => {
+        dimElements.forEach((element, index) => {
           if (element) {
             if (visible) {
               element.classList.remove("hide");
@@ -1194,24 +1219,94 @@ export default function ReviewPage() {
     }
   };
 
-  const updateAssetStatus = async (newStatus: string) => {
+  // Helper function to update asset status with a specific revision count
+  const updateAssetStatusWithRevision = async (
+    newStatus: string,
+    revisionNumber: number
+  ) => {
     if (!assetId) return;
 
+    console.log(
+      `updateAssetStatusWithRevision called with status: ${newStatus}, revisionNumber: ${revisionNumber}`
+    );
+    setStatusUpdating(true);
+
+    try {
+      // Use the complete API endpoint for proper allocation list handling
+      const response = await fetch("/api/assets/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          status: newStatus,
+          revisionCount: revisionNumber,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update status");
+      }
+
+      const result = await response.json();
+      console.log("API response:", result);
+
+      // Update local state
+      setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
+      setRevisionCount(revisionNumber);
+
+      // Dispatch custom event to notify other components to refresh
+      window.dispatchEvent(
+        new CustomEvent("assetStatusUpdated", {
+          detail: { assetId, status: newStatus },
+        })
+      );
+
+      toast.success(
+        `Asset ${newStatus === "approved_by_client" ? "approved by client" : newStatus === "approved" ? "approved" : "updated"} successfully`
+      );
+    } catch (error) {
+      console.error("Error updating asset status:", error);
+      toast.error("Failed to update asset status");
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
+  const updateAssetStatus = async (newStatus: string, skipDialog = false) => {
+    if (!assetId) return;
+
+    console.log(
+      `updateAssetStatus called with: ${newStatus}, skipDialog: ${skipDialog}`
+    );
+    console.log(
+      `Current revisionCount: ${revisionCount}, user role: ${user?.metadata?.role}`
+    );
+
     // Handle revision workflow
-    if (newStatus === "revisions") {
+    if (newStatus === "revisions" && !skipDialog) {
       const currentRevisionCount = revisionCount + 1;
       const isClient = user?.metadata?.role === "client";
+      console.log(
+        `Revision workflow - currentRevisionCount: ${currentRevisionCount}, isClient: ${isClient}`
+      );
+
       if (isClient) {
         if (currentRevisionCount === 1 || currentRevisionCount === 2) {
+          console.log("Showing first/second revision dialog");
           setShowRevisionDialog(true);
           return;
         } else if (currentRevisionCount >= 3) {
+          console.log("Showing additional revision dialog");
           setShowSecondRevisionDialog(true);
           return;
         }
       }
     }
 
+    console.log("Proceeding with direct status update (no dialog)");
     setStatusUpdating(true);
 
     try {
@@ -1310,16 +1405,29 @@ export default function ReviewPage() {
     }
   };
 
-  // Handle revision confirmation (client submits revision -> do NOT change status or notify)
+  // Handle revision confirmation (client submits revision -> update status and notify)
   const handleRevisionConfirm = async () => {
     setShowRevisionDialog(false);
     setStatusUpdating(true);
 
     try {
+      // Get the next available revision number to avoid duplicates
+      const { data: existingRevisions } = await supabase
+        .from("revision_history")
+        .select("revision_number")
+        .eq("asset_id", assetId)
+        .order("revision_number", { ascending: false })
+        .limit(1);
+
+      const nextRevisionNumber =
+        existingRevisions && existingRevisions.length > 0
+          ? existingRevisions[0].revision_number + 1
+          : 1;
+
       // Save current annotations and comments to history
       const historyData = {
         asset_id: assetId,
-        revision_number: revisionCount + 1,
+        revision_number: nextRevisionNumber,
         annotations: annotations,
         comments: comments,
         created_at: new Date().toISOString(),
@@ -1331,12 +1439,47 @@ export default function ReviewPage() {
         .insert(historyData);
 
       if (historyError) {
-        console.error("Error saving revision history:", historyError);
-        toast.error("Failed to save revision");
-        return;
+        // If it's a duplicate key error, check if this revision already exists
+        if (historyError.code === "23505") {
+          console.log("Revision history already exists, continuing...");
+          // This is fine, the revision was already saved
+        } else {
+          console.error("Error saving revision history:", historyError);
+          toast.error("Failed to save revision");
+          return;
+        }
       }
-      // Do NOT change asset status or notify here. Production will forward.
-      toast.success("Revision submitted. Awaiting production review.");
+
+      // Update the asset's revision_count in the database immediately
+      const { error: assetUpdateError } = await supabase
+        .from("onboarding_assets")
+        .update({ revision_count: nextRevisionNumber })
+        .eq("id", assetId);
+
+      if (assetUpdateError) {
+        console.error("Error updating asset revision count:", assetUpdateError);
+      }
+
+      // Update local state immediately
+      setRevisionCount(nextRevisionNumber);
+      setAsset((prev) =>
+        prev
+          ? { ...prev, revision_count: nextRevisionNumber, status: "revisions" }
+          : null
+      );
+
+      // Now update the asset status to revisions with the correct revision number
+      console.log(
+        `Updating asset status to revisions with revision number: ${nextRevisionNumber}`
+      );
+      try {
+        await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
+        console.log("Status update completed successfully");
+        toast.success("Revision submitted. Awaiting production review.");
+      } catch (statusError) {
+        console.error("Error updating status:", statusError);
+        toast.error("Revision saved but failed to update status");
+      }
       await fetchRevisionHistory();
     } catch (error) {
       console.error("Error updating asset status:", error);
@@ -1352,10 +1495,23 @@ export default function ReviewPage() {
     setStatusUpdating(true);
 
     try {
+      // Get the next available revision number to avoid duplicates
+      const { data: existingRevisions } = await supabase
+        .from("revision_history")
+        .select("revision_number")
+        .eq("asset_id", assetId)
+        .order("revision_number", { ascending: false })
+        .limit(1);
+
+      const nextRevisionNumber =
+        existingRevisions && existingRevisions.length > 0
+          ? existingRevisions[0].revision_number + 1
+          : 1;
+
       // Save current annotations and comments to history
       const historyData = {
         asset_id: assetId,
-        revision_number: revisionCount + 1,
+        revision_number: nextRevisionNumber,
         annotations: annotations,
         comments: comments,
         created_at: new Date().toISOString(),
@@ -1367,12 +1523,47 @@ export default function ReviewPage() {
         .insert(historyData);
 
       if (historyError) {
-        console.error("Error saving revision history:", historyError);
-        toast.error("Failed to save revision");
-        return;
+        // If it's a duplicate key error, check if this revision already exists
+        if (historyError.code === "23505") {
+          console.log("Revision history already exists, continuing...");
+          // This is fine, the revision was already saved
+        } else {
+          console.error("Error saving revision history:", historyError);
+          toast.error("Failed to save revision");
+          return;
+        }
       }
-      // Do NOT update asset status or revision_count here
-      toast.success("Revision submitted. Awaiting production review.");
+
+      // Update the asset's revision_count in the database immediately
+      const { error: assetUpdateError } = await supabase
+        .from("onboarding_assets")
+        .update({ revision_count: nextRevisionNumber })
+        .eq("id", assetId);
+
+      if (assetUpdateError) {
+        console.error("Error updating asset revision count:", assetUpdateError);
+      }
+
+      // Update local state immediately
+      setRevisionCount(nextRevisionNumber);
+      setAsset((prev) =>
+        prev
+          ? { ...prev, revision_count: nextRevisionNumber, status: "revisions" }
+          : null
+      );
+
+      // Now update the asset status to revisions with the correct revision number
+      console.log(
+        `Updating asset status to revisions with revision number: ${nextRevisionNumber}`
+      );
+      try {
+        await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
+        console.log("Status update completed successfully");
+        toast.success("Revision submitted. Awaiting production review.");
+      } catch (statusError) {
+        console.error("Error updating status:", statusError);
+        toast.error("Revision saved but failed to update status");
+      }
       await fetchRevisionHistory();
     } catch (error) {
       console.error("Error updating asset status:", error);
@@ -1388,10 +1579,23 @@ export default function ReviewPage() {
     setStatusUpdating(true);
 
     try {
+      // Get the next available revision number to avoid duplicates
+      const { data: existingRevisions } = await supabase
+        .from("revision_history")
+        .select("revision_number")
+        .eq("asset_id", assetId)
+        .order("revision_number", { ascending: false })
+        .limit(1);
+
+      const nextRevisionNumber =
+        existingRevisions && existingRevisions.length > 0
+          ? existingRevisions[0].revision_number + 1
+          : 1;
+
       // Save current annotations and comments to history
       const historyData = {
         asset_id: assetId,
-        revision_number: revisionCount + 1,
+        revision_number: nextRevisionNumber,
         annotations: annotations,
         comments: comments,
         created_at: new Date().toISOString(),
@@ -1403,12 +1607,47 @@ export default function ReviewPage() {
         .insert(historyData);
 
       if (historyError) {
-        console.error("Error saving revision history:", historyError);
-        toast.error("Failed to save revision");
-        return;
+        // If it's a duplicate key error, check if this revision already exists
+        if (historyError.code === "23505") {
+          console.log("Revision history already exists, continuing...");
+          // This is fine, the revision was already saved
+        } else {
+          console.error("Error saving revision history:", historyError);
+          toast.error("Failed to save revision");
+          return;
+        }
       }
-      // No status change; production will forward to modeler later
-      toast.success("Revision submitted. Awaiting production review.");
+
+      // Update the asset's revision_count in the database immediately
+      const { error: assetUpdateError } = await supabase
+        .from("onboarding_assets")
+        .update({ revision_count: nextRevisionNumber })
+        .eq("id", assetId);
+
+      if (assetUpdateError) {
+        console.error("Error updating asset revision count:", assetUpdateError);
+      }
+
+      // Update local state immediately
+      setRevisionCount(nextRevisionNumber);
+      setAsset((prev) =>
+        prev
+          ? { ...prev, revision_count: nextRevisionNumber, status: "revisions" }
+          : null
+      );
+
+      // Now update the asset status to revisions with the correct revision number
+      console.log(
+        `Updating asset status to revisions with revision number: ${nextRevisionNumber}`
+      );
+      try {
+        await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
+        console.log("Status update completed successfully");
+        toast.success("Revision submitted. Awaiting production review.");
+      } catch (statusError) {
+        console.error("Error updating status:", statusError);
+        toast.error("Revision saved but failed to update status");
+      }
       await fetchRevisionHistory();
     } catch (error) {
       console.error("Error updating asset status:", error);
