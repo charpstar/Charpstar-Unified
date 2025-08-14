@@ -171,7 +171,7 @@ export function OnboardingDashboard() {
       case "modeler":
         return <Building className="h-8 w-8 text-purple-500" />;
       case "qa":
-        return <Shield className="h-8 w-8 text-green-500" />;
+        return <Shield className="h-8 w-8 text-muted-foreground" />;
       default:
         return <UserPlus className="h-8 w-8 text-muted-foreground" />;
     }
@@ -324,11 +324,11 @@ export function OnboardingDashboard() {
   };
 
   return (
-    <div className="h-full bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="h-full">
       {/* Confetti Overlay */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-50">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80" />
+          <div className="absolute inset-0 bg-background/80" />
         </div>
       )}
 
@@ -347,7 +347,7 @@ export function OnboardingDashboard() {
               <div className="space-y-4">
                 <div className="flex items-center justify-center gap-3 mb-4">
                   {getRoleIcon(user?.metadata?.role || "")}
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  <h1 className="text-4xl font-bold text-foreground">
                     Welcome to CharpstAR!
                   </h1>
                 </div>
@@ -374,66 +374,49 @@ export function OnboardingDashboard() {
           </CardContent>
         </Card>
 
-        {/* Enhanced Progress Overview */}
-        <Card className="bg-gradient-to-r from-background to-muted/20 border-primary/10">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3">
+        {/* Progress Overview */}
+        <Card className="border">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <div className="relative">
-                <CheckCircle className="h-6 w-6 text-primary" />
-                {progressPercentage === 100 && (
-                  <Sparkles className="h-4 w-4 text-yellow-500 absolute -top-1 -right-1 animate-pulse" />
-                )}
+                <CheckCircle className="h-5 w-5 text-primary" />
               </div>
               Onboarding Progress
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
+          <CardContent className="pt-0">
+            <div className="space-y-4">
               {/* Progress Bar */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Overall Progress</span>
                   <span className="text-sm text-muted-foreground">
                     {completedSteps} of {totalSteps} steps completed
                   </span>
                 </div>
-                <div className="relative">
-                  <Progress value={progressPercentage} className="h-3" />
-                </div>
+                <Progress value={progressPercentage} className="h-2" />
               </div>
 
-              {/* Progress Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="text-center">
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-primary">
-                      {completedSteps}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Completed
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="text-center">
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-muted-foreground">
-                      {totalSteps - completedSteps}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Remaining
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="text-center">
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-medium text-success">
-                      {Math.round(progressPercentage)}%
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Complete
-                    </div>
-                  </CardContent>
-                </Card>
+              {/* Progress Stats - Inline */}
+              <div className="flex items-center justify-center gap-6 pt-2">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-primary">
+                    {completedSteps}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Completed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-muted-foreground">
+                    {totalSteps - completedSteps}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Remaining</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-medium text-primary">
+                    {Math.round(progressPercentage)}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">Complete</div>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -468,7 +451,7 @@ export function OnboardingDashboard() {
                             h-16 w-16 rounded-full flex items-center justify-center transition-all duration-300
                             ${
                               step.completed
-                                ? "bg-green-500 text-white"
+                                ? "bg-primary text-primary-foreground"
                                 : status === "available"
                                   ? "bg-primary text-primary-foreground"
                                   : status === "locked"
@@ -502,7 +485,7 @@ export function OnboardingDashboard() {
                               <h3
                                 className={`text-xl lg:text-2xl font-bold ${
                                   step.completed
-                                    ? "text-success"
+                                    ? "text-primary"
                                     : "text-foreground"
                                 }`}
                               >
@@ -526,7 +509,7 @@ export function OnboardingDashboard() {
                               <div className="flex items-center gap-2">
                                 <Badge
                                   variant="default"
-                                  className="gap-2 px-4 py-2 bg-green-500 text-white"
+                                  className="gap-2 px-4 py-2 bg-primary text-primary-foreground"
                                 >
                                   <CheckCircle className="h-4 w-4" />
                                   Completed
@@ -651,64 +634,49 @@ export function OnboardingDashboard() {
           </div>
         </div>
 
-        {/* Enhanced Completion Card */}
+        {/* Completion Card */}
         {completedSteps === totalSteps && totalSteps > 0 && (
-          <Card className="relative overflow-hidden border-green-500/20">
-            <CardContent className="relative pt-8 pb-8">
-              <div className="text-center space-y-6">
+          <Card className="border">
+            <CardContent className="py-6">
+              <div className="text-center space-y-4">
                 {/* Celebration Icon */}
-                <div className="relative">
-                  <div className="h-20 w-20 mx-auto rounded-full bg-green-500 flex items-center justify-center">
-                    <Trophy className="h-10 w-10 text-white" />
-                  </div>
+                <div className="h-12 w-12 mx-auto rounded-full bg-primary flex items-center justify-center">
+                  <Trophy className="h-6 w-6 text-white" />
                 </div>
 
                 {/* Completion Message */}
-                <div className="space-y-3 ">
-                  <h3 className="text-2xl font-bold text-foreground">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-foreground">
                     All Steps Complete!
                   </h3>
-                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                    Fantastic! You&apos;ve successfully completed all onboarding
-                    steps. You&apos;re now ready to access the full CharpstAR
-                    platform
+                  <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+                    You&apos;ve successfully completed all onboarding steps.
+                    You&apos;re now ready to access the full CharpstAR platform
                   </p>
                 </div>
 
-                {/* Next Steps */}
-                <div className="bg-background/50 rounded-lg p-4 border border-green-500/20 w-fit mx-auto">
-                  <h4 className="font-semibold text-foreground mb-2">
-                    Ready to get started?
-                  </h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Explore your personalized dashboard</li>
-                    <li>• Keep track of the whole process of your project</li>
-                  </ul>
-                </div>
-
                 {/* Complete Button */}
-                <div className="space-y-3">
+                <div className="space-y-2 pt-2">
                   <Button
-                    size="lg"
-                    className="gap-3 px-8 py-4 text-lg font-semibold"
+                    className="gap-2 px-6 py-2"
                     onClick={handleCompleteOnboarding}
                     disabled={completingOnboarding}
                   >
                     {completingOnboarding ? (
                       <>
-                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        Completing Onboarding...
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Completing...
                       </>
                     ) : (
                       <>
-                        <CheckCircle className="h-5 w-5" />
+                        <CheckCircle className="h-4 w-4" />
                         Complete Onboarding & Go to Dashboard
-                        <ArrowRight className="h-5 w-5" />
+                        <ArrowRight className="h-4 w-4" />
                       </>
                     )}
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    This will finalize your onboarding and take you to your main
+                    This will finalize your onboarding and take you to your
                     dashboard
                   </p>
                 </div>

@@ -9,7 +9,11 @@ const nextConfig = {
     return config;
   },
   images: {
-    domains: ["drive.charpstar.net", "tpamckewerybqzhhhqqp.supabase.co"],
+    domains: [
+      "drive.charpstar.net",
+      "tpamckewerybqzhhhqqp.supabase.co",
+      "localhost",
+    ],
   },
 };
 

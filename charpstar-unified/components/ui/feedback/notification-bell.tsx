@@ -12,6 +12,8 @@ import {
   AlertCircle,
   X,
   ArrowRight,
+  AlertTriangle,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
@@ -47,8 +49,12 @@ export function NotificationBell({ className }: NotificationBellProps) {
       setLoading(true);
       const unreadNotifications =
         await notificationService.getUnreadNotifications(user.id);
-      setNotifications(unreadNotifications);
-      setUnreadCount(unreadNotifications.length);
+
+      // Filter out any notifications that might have been marked as read
+      const trulyUnread = unreadNotifications.filter((n) => !n.read);
+
+      setNotifications(trulyUnread);
+      setUnreadCount(trulyUnread.length);
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
     } finally {
@@ -62,7 +68,12 @@ export function NotificationBell({ className }: NotificationBellProps) {
     // Refresh notifications every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
     // Listen for global notification updates to refresh immediately
-    const handler = () => fetchNotifications();
+    const handler = () => {
+      console.log(
+        "🔔 Global notification update event received, refreshing notifications"
+      );
+      fetchNotifications();
+    };
     window.addEventListener("notificationsUpdated", handler as EventListener);
     return () => {
       clearInterval(interval);
@@ -76,9 +87,17 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const markAsRead = async (notificationId: string) => {
     if (!notificationId) return;
     try {
+      console.log("📝 Marking notification as read:", notificationId);
       await notificationService.markNotificationAsRead(notificationId);
+      console.log("✅ Notification marked as read successfully");
+
+      // Remove the notification from the local state immediately
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
       setUnreadCount((prev) => Math.max(0, prev - 1));
+
+      // Refresh notifications to ensure we have the latest state
+      console.log("🔄 Refreshing notifications after mark as read");
+      await fetchNotifications();
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
@@ -92,6 +111,9 @@ export function NotificationBell({ className }: NotificationBellProps) {
       await Promise.all(promises);
       setNotifications([]);
       setUnreadCount(0);
+
+      // Refresh notifications to ensure we have the latest state
+      await fetchNotifications();
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
     }
@@ -112,6 +134,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
     // - qa_review: Go to specific asset review page if available
     // - status_change: Go to my-assignments (view status updates)
     // - deadline_reminder: Go to pending assignments (view deadlines)
+    // - budget_alert: Go to cost tracking page
     try {
       switch (notification.type) {
         case "asset_allocation":
@@ -136,6 +159,14 @@ export function NotificationBell({ className }: NotificationBellProps) {
           break;
         case "deadline_reminder":
           // Navigate to pending assignments page to see upcoming deadlines
+          router.push("/pending-assignments");
+          break;
+        case "budget_alert":
+          // Navigate to cost tracking page for budget alerts
+          router.push("/production/cost-tracking");
+          break;
+        case "product_submission":
+          // Navigate to pending assignments page to see new products
           router.push("/pending-assignments");
           break;
         default:
@@ -163,6 +194,10 @@ export function NotificationBell({ className }: NotificationBellProps) {
         return <Search className={iconClass} />;
       case "status_change":
         return <RefreshCw className={iconClass} />;
+      case "budget_alert":
+        return <AlertTriangle className={iconClass} />;
+      case "product_submission":
+        return <Package className={iconClass} />;
       default:
         return <AlertCircle className={iconClass} />;
     }
@@ -171,17 +206,21 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const getNotificationColor = (type: string) => {
     switch (type) {
       case "asset_allocation":
-        return "bg-blue-50 border-l-blue-500 text-blue-900";
+        return "bg-blue-100 text-blue-800 border-blue-200";
       case "asset_completed":
-        return "bg-green-50 border-l-green-500 text-green-900";
+        return "bg-green-100 text-green-800 border-green-200";
       case "deadline_reminder":
-        return "bg-amber-50 border-l-amber-500 text-amber-900";
+        return "bg-amber-100 text-amber-800 border-amber-200";
       case "qa_review":
-        return "bg-purple-50 border-l-purple-500 text-purple-900";
+        return "bg-purple-100 text-purple-800 border-purple-200";
       case "status_change":
-        return "bg-orange-50 border-l-orange-500 text-orange-900";
+        return "bg-indigo-100 text-indigo-800 border-indigo-200";
+      case "budget_alert":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "product_submission":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
       default:
-        return "bg-gray-50 border-l-gray-500 text-gray-900";
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
@@ -197,6 +236,8 @@ export function NotificationBell({ className }: NotificationBellProps) {
         return "text-purple-600";
       case "status_change":
         return "text-orange-600";
+      case "product_submission":
+        return "text-emerald-600";
       default:
         return "text-gray-600";
     }
@@ -223,7 +264,10 @@ export function NotificationBell({ className }: NotificationBellProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-0 shadow-lg border-0" align="end">
+      <PopoverContent
+        className="w-96 p-0 shadow-lg border-0 rounded-lg"
+        align="end"
+      >
         <div className="p-4 border-b bg-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -259,11 +303,6 @@ export function NotificationBell({ className }: NotificationBellProps) {
           </div>
         </div>
 
-        <div className="px-4 py-2 bg-blue-50 border-b border-blue-200">
-          <p className="text-xs text-blue-700 text-center">
-            💡 Click any notification to navigate to the relevant page
-          </p>
-        </div>
         <div className="max-h-96 overflow-y-auto bg-gray-50">
           {loading ? (
             <div className="p-8 text-center">

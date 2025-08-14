@@ -789,16 +789,16 @@ export default function SignupPage() {
         </div>
 
         {/* Invitation Details */}
-        <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 mb-6">
+        <div className="bg-muted rounded-lg p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
             <Mail className="h-4 w-4 text-info" />
-            <span className="font-medium text-blue-900 dark:text-blue-100">
+            <span className="font-medium text-foreground">
               {invitationData.email}
             </span>
           </div>
           <div className="flex items-center gap-2 mb-2">
             <Building className="h-4 w-4 text-info" />
-            <span className="text-sm text-blue-700 dark:text-blue-300">
+            <span className="text-sm text-foreground">
               {invitationData.client_name}
             </span>
           </div>
@@ -843,7 +843,7 @@ export default function SignupPage() {
               type="email"
               value={formData.email}
               disabled
-              className="bg-gray-50"
+              className="bg-muted"
             />
             <p className="text-xs text-muted-foreground mt-1">
               Email is pre-filled from your invitation

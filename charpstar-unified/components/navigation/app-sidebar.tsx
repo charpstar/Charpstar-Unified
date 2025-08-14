@@ -125,6 +125,30 @@ export default function AppSidebar({
         ]
       : [];
 
+  // Production-only navigation items (only for admin users)
+  const productionNavItems =
+    user?.metadata?.role === "admin"
+      ? [
+          {
+            title: "Production",
+            url: "/production",
+            icon: Factory,
+          },
+        ]
+      : [];
+
+  // Financial navigation items (admin only)
+  const financialNavItems =
+    user?.metadata?.role === "admin"
+      ? [
+          {
+            title: "Cost Tracking",
+            url: "/production/cost-tracking",
+            icon: DollarSign,
+          },
+        ]
+      : [];
+
   // Modeler-only navigation items
   const modelerNavItems =
     user?.metadata?.role === "modeler"
@@ -177,6 +201,8 @@ export default function AppSidebar({
       ? [
           ...baseNavItems,
           ...adminNavItems,
+          ...productionNavItems,
+          ...financialNavItems,
           ...modelerNavItems,
           ...qaNavItems,
           {
@@ -185,7 +211,14 @@ export default function AppSidebar({
             icon: Box,
           },
         ]
-      : [...baseNavItems, ...adminNavItems, ...modelerNavItems, ...qaNavItems];
+      : [
+          ...baseNavItems,
+          ...adminNavItems,
+          ...productionNavItems,
+          ...financialNavItems,
+          ...modelerNavItems,
+          ...qaNavItems,
+        ];
 
   const data = {
     user: {

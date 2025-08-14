@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
+import { notificationService } from "@/lib/notificationService";
 import {
   Card,
   CardContent,
@@ -220,6 +221,24 @@ export default function AddProductsPage() {
         console.error("Error inserting products:", error);
         toast.error("Failed to add products. Please try again.");
         return;
+      }
+
+      // Send notification to admin users about new product submission
+      try {
+        await notificationService.sendProductSubmissionNotification({
+          client: user.metadata.client,
+          batch: currentBatch,
+          productCount: validProducts.length,
+          productNames: validProducts.map((p) => p.product_name),
+          submittedAt: new Date().toISOString(),
+        });
+        console.log("📦 Product submission notification sent successfully");
+      } catch (notificationError) {
+        console.error(
+          "Failed to send product submission notification:",
+          notificationError
+        );
+        // Don't fail the product submission if notification fails
       }
 
       toast.success(

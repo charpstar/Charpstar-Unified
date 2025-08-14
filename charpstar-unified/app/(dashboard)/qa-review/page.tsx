@@ -33,6 +33,13 @@ import {
   Checkbox,
 } from "@/components/ui/inputs";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/containers";
+import {
   Eye,
   ChevronLeft,
   ChevronRight,
@@ -44,13 +51,12 @@ import {
   X,
   MoreHorizontal,
   Download,
-  FolderOpen,
   ExternalLink,
+  FileText,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
-// Removed local Dialog wrapper; AssetFilesManager provides its own dialog
-import { AssetFilesManager } from "@/components/asset-library/AssetFilesManager";
 import { getPriorityLabel } from "@/lib/constants";
 import dayjs from "@/utils/dayjs";
 
@@ -118,20 +124,36 @@ export default function QAReviewPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+
   const [modelerFilter, setModelerFilter] = useState("all");
   const [sort, setSort] = useState("status-progress");
   const [availableModelers, setAvailableModelers] = useState<
     Array<{ id: string; email: string; title?: string }>
   >([]);
-  const [filesManagerOpen, setFilesManagerOpen] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<AssignedAsset | null>(
-    null
-  );
   const [updatingAssetId, setUpdatingAssetId] = useState<string | null>(null);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(
     new Set()
   );
+
+  // Add new filter states for multi-select capability
+  const [clientFilters, setClientFilters] = useState<string[]>([]);
+  const [batchFilters, setBatchFilters] = useState<number[]>([]);
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [clients, setClients] = useState<string[]>([]);
+
+  // Add Ref dialog state
+  const [showAddRefDialog, setShowAddRefDialog] = useState(false);
+  const [selectedAssetForRef, setSelectedAssetForRef] = useState<string | null>(
+    null
+  );
+  const [referenceUrl, setReferenceUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
+  const [uploading, setUploading] = useState(false);
+
+  // View Ref dialog state
+  const [showViewRefDialog, setShowViewRefDialog] = useState(false);
+  const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
 
   useEffect(() => {
     document.title = "CharpstAR Platform - QA Review";
@@ -145,6 +167,44 @@ export default function QAReviewPage() {
     }
   }, [searchParams]);
 
+  // Handle URL parameters for new filters
+  useEffect(() => {
+    const clientParam = searchParams.get("client");
+    const batchParam = searchParams.get("batch");
+    const statusParam = searchParams.get("status");
+
+    if (clientParam) {
+      setClientFilters(clientParam.split(","));
+    }
+    if (batchParam) {
+      setBatchFilters(batchParam.split(",").map(Number));
+    }
+    if (statusParam) {
+      setStatusFilters(statusParam.split(","));
+    }
+  }, [searchParams]);
+
+  // Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (clientFilters.length > 0) {
+      params.set("client", clientFilters.join(","));
+    }
+    if (batchFilters.length > 0) {
+      params.set("batch", batchFilters.join(","));
+    }
+    if (statusFilters.length > 0) {
+      params.set("status", statusFilters.join(","));
+    }
+
+    // Update URL without triggering a page reload
+    const newUrl = params.toString()
+      ? `?${params.toString()}`
+      : window.location.pathname;
+    window.history.replaceState({}, "", newUrl);
+  }, [clientFilters, batchFilters, statusFilters]);
+
   useEffect(() => {
     if (user?.id) {
       fetchAssignedAssets();
@@ -153,7 +213,15 @@ export default function QAReviewPage() {
 
   useEffect(() => {
     filterAndSortAssets();
-  }, [assets, search, statusFilter, modelerFilter, sort]);
+  }, [
+    assets,
+    search,
+    modelerFilter,
+    sort,
+    clientFilters,
+    batchFilters,
+    statusFilters,
+  ]);
 
   const updateAssetStatus = async (assetId: string, newStatus: string) => {
     try {
@@ -315,6 +383,12 @@ export default function QAReviewPage() {
         }) || [];
 
       setAssets(transformedAssets);
+
+      // Populate clients array for filter dropdown
+      const uniqueClients = Array.from(
+        new Set(transformedAssets.map((asset) => asset.client).filter(Boolean))
+      ).sort();
+      setClients(uniqueClients);
     } catch (error) {
       console.error("Error fetching assigned assets:", error);
       toast.error("Failed to fetch assigned assets");
@@ -337,9 +411,25 @@ export default function QAReviewPage() {
       );
     }
 
-    // Apply status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((asset) => asset.status === statusFilter);
+    // Apply multi client filter
+    if (clientFilters.length > 0) {
+      filtered = filtered.filter((asset) =>
+        clientFilters.includes(asset.client)
+      );
+    }
+
+    // Apply multi batch filter
+    if (batchFilters.length > 0) {
+      filtered = filtered.filter((asset) =>
+        batchFilters.includes(Number(asset.batch))
+      );
+    }
+
+    // Apply multi status filter
+    if (statusFilters.length > 0) {
+      filtered = filtered.filter((asset) =>
+        statusFilters.includes(asset.status)
+      );
     }
 
     // Apply modeler filter
@@ -398,11 +488,6 @@ export default function QAReviewPage() {
     router.push(`/client-review/${assetId}?from=qa-review`);
   };
 
-  const handleOpenFilesManager = (asset: AssignedAsset) => {
-    setSelectedAsset(asset);
-    setFilesManagerOpen(true);
-  };
-
   // References column removed
 
   const handleDownloadGLB = (asset: AssignedAsset) => {
@@ -421,10 +506,12 @@ export default function QAReviewPage() {
 
   const clearFilters = () => {
     setSearch("");
-    setStatusFilter("all");
     setModelerFilter("all");
     setSort("status-progress");
     setCurrentPage(1);
+    setClientFilters([]);
+    setBatchFilters([]);
+    setStatusFilters([]);
   };
 
   const totalPages = Math.ceil(filteredAssets.length / PAGE_SIZE);
@@ -486,6 +573,174 @@ export default function QAReviewPage() {
     toast.success(`Started downloading ${withGlb.length} GLB file(s)`);
   };
 
+  // Helper function to parse references
+  const parseReferences = (
+    referenceImages: string[] | string | null
+  ): string[] => {
+    if (!referenceImages) return [];
+    if (Array.isArray(referenceImages)) return referenceImages;
+    try {
+      return JSON.parse(referenceImages);
+    } catch {
+      return [referenceImages];
+    }
+  };
+
+  // Helper function to separate GLB files from reference images
+  const separateReferences = (referenceImages: string[] | string | null) => {
+    const allReferences = parseReferences(referenceImages);
+    const glbFiles = allReferences.filter((ref) =>
+      ref.toLowerCase().endsWith(".glb")
+    );
+    const imageReferences = allReferences.filter(
+      (ref) => !ref.toLowerCase().endsWith(".glb")
+    );
+    return { glbFiles, imageReferences };
+  };
+
+  // Handle adding reference URL
+  const handleAddReferenceUrl = async () => {
+    if (!referenceUrl.trim() || !selectedAssetForRef) return;
+
+    try {
+      // Validate URL format
+      const url = new URL(referenceUrl.trim());
+      if (!url.protocol.startsWith("http")) {
+        toast.error("Please enter a valid HTTP/HTTPS URL");
+        return;
+      }
+
+      // Find the current asset
+      const currentAsset = assets.find(
+        (asset) => asset.id === selectedAssetForRef
+      );
+      if (!currentAsset) {
+        toast.error("Asset not found");
+        return;
+      }
+
+      // Get existing references and add new one
+      const existingReferences = parseReferences(
+        currentAsset.reference || null
+      );
+      const newReferences = [...existingReferences, referenceUrl.trim()];
+
+      // Update the asset in the database
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ reference: newReferences })
+        .eq("id", selectedAssetForRef);
+
+      if (error) {
+        console.error("Error updating reference images:", error);
+        toast.error("Failed to save reference image URL");
+        return;
+      }
+
+      // Update local state
+      setAssets((prev) =>
+        prev.map((asset) =>
+          asset.id === selectedAssetForRef
+            ? { ...asset, reference: newReferences }
+            : asset
+        )
+      );
+
+      // Reset dialog state
+      setReferenceUrl("");
+      setSelectedAssetForRef(null);
+      setShowAddRefDialog(false);
+
+      toast.success("Reference image URL added successfully!");
+    } catch (error) {
+      console.error("Error adding reference image URL:", error);
+      toast.error("Please enter a valid image URL");
+    }
+  };
+
+  // Handle file upload
+  const handleFileUpload = async () => {
+    if (!selectedFile || !selectedAssetForRef) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("asset_id", selectedAssetForRef);
+
+      // Determine file type based on extension
+      const fileExtension = selectedFile.name.toLowerCase().split(".").pop();
+      const fileType = fileExtension === "glb" ? "glb" : "reference";
+      formData.append("file_type", fileType);
+
+      const response = await fetch("/api/assets/upload-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const result = await response.json();
+
+      // For all file types, refresh the asset data since everything goes to references now
+      const { data: updatedAsset } = await supabase
+        .from("onboarding_assets")
+        .select("reference, status, glb_link")
+        .eq("id", selectedAssetForRef)
+        .single();
+
+      console.log("Upload result:", result);
+      console.log("Updated asset from DB:", updatedAsset);
+
+      setAssets((prev) =>
+        prev.map((asset) =>
+          asset.id === selectedAssetForRef
+            ? {
+                ...asset,
+                reference: updatedAsset?.reference || asset.reference,
+                status: updatedAsset?.status || asset.status,
+                glb_link: updatedAsset?.glb_link || asset.glb_link,
+              }
+            : asset
+        )
+      );
+
+      // Also update the selected asset for view dialog if it's the same asset
+      if (selectedAssetForView?.id === selectedAssetForRef) {
+        setSelectedAssetForView((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                reference: updatedAsset?.reference || prev.reference,
+                status: updatedAsset?.status || prev.status,
+                glb_link: updatedAsset?.glb_link || prev.glb_link,
+              }
+            : prev
+        );
+      }
+
+      toast.success(
+        fileType === "glb"
+          ? "GLB file uploaded successfully!"
+          : "Reference file uploaded successfully!"
+      );
+
+      // Reset dialog state
+      setSelectedFile(null);
+      setSelectedAssetForRef(null);
+      setReferenceUrl("");
+      setShowAddRefDialog(false);
+      setUploadMode("url");
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast.error("Failed to upload file");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const statusTotals = {
     total: assets.length,
     in_production: assets.filter((a) => a.status === "in_production").length,
@@ -494,6 +749,8 @@ export default function QAReviewPage() {
     ).length,
     revisions: assets.filter((a) => a.status === "revisions").length,
     approved: assets.filter((a) => a.status === "approved").length,
+    approved_by_client: assets.filter((a) => a.status === "approved_by_client")
+      .length,
   };
 
   if (!user || user.metadata?.role !== "qa") {
@@ -533,24 +790,224 @@ export default function QAReviewPage() {
       </div>
 
       <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
+        {/* Status Summary Cards */}
+        {!loading && (
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+            {/* Total Assigned (no filtering on this card itself) */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters([]);
+                setCurrentPage(1);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-info-muted rounded-lg">
+                  <Package className="h-5 w-5 text-info" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total Assigned
+                  </p>
+                  <p className="text-2xl font-bold text-info">
+                    {statusTotals.total}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* In Production */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["in_production"]);
+                setCurrentPage(1);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-warning-muted rounded-lg">
+                  <Clock className="h-5 w-5 text-warning" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    In Production
+                  </p>
+                  <p className="text-2xl font-bold text-warning">
+                    {statusTotals.in_production}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Waiting for Review */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["delivered_by_artist"]);
+                setCurrentPage(1);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-accent-purple/10 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-accent-purple" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Waiting for Approval
+                  </p>
+                  <p className="text-2xl font-bold text-accent-purple">
+                    {statusTotals.delivered_by_artist}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Revision */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["revisions"]);
+                setCurrentPage(1);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-info-muted rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-info" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Revision
+                  </p>
+                  <p className="text-2xl font-bold text-info">
+                    {statusTotals.revisions}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Approved */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["approved"]);
+                setCurrentPage(1);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-success-muted rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Approved
+                  </p>
+                  <p className="text-2xl font-bold text-success">
+                    {statusTotals.approved}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Delivered by Client */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["approved_by_client"]);
+                setCurrentPage(1);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-blue-700" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Delivered by Client
+                  </p>
+                  <p className="text-2xl font-bold text-blue-700">
+                    {statusTotals.approved_by_client || 0}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
           <div className="flex gap-2">
+            {/* Client Filter */}
             <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value)}
+              value={clientFilters.length === 1 ? clientFilters[0] : undefined}
+              onValueChange={(value) => {
+                if (value === "all") {
+                  setClientFilters([]);
+                } else if (value) {
+                  setClientFilters([value]);
+                }
+                setCurrentPage(1);
+              }}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
+              <SelectTrigger className="w-40 h-9">
+                <SelectValue
+                  placeholder={
+                    clientFilters.length === 0
+                      ? "All clients"
+                      : clientFilters.length === 1
+                        ? clientFilters[0]
+                        : `${clientFilters.length} selected`
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {Object.entries(STATUS_LABELS).map(([key, val]) => (
-                  <SelectItem key={key} value={key}>
-                    {val.label}
+                <SelectItem value="all">All clients</SelectItem>
+                {clients.map((client) => (
+                  <SelectItem key={client} value={client}>
+                    {client}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Batch Filter */}
+            <Select
+              value={
+                batchFilters.length === 1
+                  ? batchFilters[0].toString()
+                  : undefined
+              }
+              onValueChange={(value) => {
+                if (value === "all") {
+                  setBatchFilters([]);
+                } else if (value) {
+                  setBatchFilters([parseInt(value)]);
+                }
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-32 h-9">
+                <SelectValue
+                  placeholder={
+                    batchFilters.length === 0
+                      ? "All batches"
+                      : batchFilters.length === 1
+                        ? `Batch ${batchFilters[0]}`
+                        : `${batchFilters.length} selected`
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All batches</SelectItem>
+                {Array.from(
+                  new Set(assets.map((asset) => asset.batch).filter(Boolean))
+                )
+                  .sort((a, b) => a - b)
+                  .map((batch) => (
+                    <SelectItem key={batch} value={batch.toString()}>
+                      Batch {batch}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+
             <Select
               value={modelerFilter}
               onValueChange={(value) => setModelerFilter(value)}
@@ -613,91 +1070,6 @@ export default function QAReviewPage() {
             </Button>
           </div>
         </div>
-
-        {/* Status Summary Cards */}
-        {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-info-muted rounded-lg">
-                  <Package className="h-5 w-5 text-info" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Assigned
-                  </p>
-                  <p className="text-2xl font-bold text-info">
-                    {statusTotals.total}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning-muted rounded-lg">
-                  <Clock className="h-5 w-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    In Production
-                  </p>
-                  <p className="text-2xl font-bold text-warning">
-                    {statusTotals.in_production}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-accent-purple/10 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-accent-purple" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Waiting for Review
-                  </p>
-                  <p className="text-2xl font-bold text-accent-purple">
-                    {statusTotals.delivered_by_artist}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-info-muted rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-info" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Revision
-                  </p>
-                  <p className="text-2xl font-bold text-info">
-                    {statusTotals.revisions}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-success-muted rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Approved
-                  </p>
-                  <p className="text-2xl font-bold text-success">
-                    {statusTotals.approved}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
 
         {/* Assets Table */}
         <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[64vh]">
@@ -933,17 +1305,25 @@ export default function QAReviewPage() {
                       )}
                     </TableCell>
                     {/* Files */}
-                    <TableCell>
-                      <div className="flex items-center gap-1">
+                    <TableCell className="text-center">
+                      <div className="flex flex-col items-center gap-1">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          onClick={() => handleOpenFilesManager(asset)}
-                          title="View Files"
+                          className="text-xs px-3 py-1 h-7"
+                          onClick={() => {
+                            setSelectedAssetForView(asset);
+                            setShowViewRefDialog(true);
+                          }}
                         >
-                          <FolderOpen className="h-4 w-4" />
+                          <FileText className="mr-1 h-3 w-3" />
+                          Ref (
+                          {separateReferences(asset.reference || null)
+                            .imageReferences.length +
+                            separateReferences(asset.reference || null).glbFiles
+                              .length}
+                          )
                         </Button>
-                        {/* Review actions removed */}
                       </div>
                     </TableCell>
                     {/* View */}
@@ -999,14 +1379,253 @@ export default function QAReviewPage() {
         )}
       </Card>
 
-      {/* Files Manager (single dialog instance provided internally) */}
-      {selectedAsset && (
-        <AssetFilesManager
-          assetId={selectedAsset.id}
-          isOpen={filesManagerOpen}
-          onClose={() => setFilesManagerOpen(false)}
-        />
-      )}
+      {/* Add Reference Dialog */}
+      <Dialog open={showAddRefDialog} onOpenChange={setShowAddRefDialog}>
+        <DialogContent className="sm:max-w-[500px] h-fit">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">
+              Add Reference or GLB File
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Add a reference image URL or upload a reference/GLB file.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Mode Toggle */}
+          <div className="flex gap-2 p-1 bg-muted rounded-lg">
+            <Button
+              variant={uploadMode === "url" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setUploadMode("url")}
+              className="flex-1"
+            >
+              URL
+            </Button>
+            <Button
+              variant={uploadMode === "file" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setUploadMode("file")}
+              className="flex-1"
+            >
+              File Upload
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {uploadMode === "url" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">
+                  Image URL *
+                </label>
+                <Input
+                  type="url"
+                  placeholder="https://example.com/image.jpg"
+                  value={referenceUrl}
+                  onChange={(e) => setReferenceUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAddReferenceUrl();
+                    }
+                  }}
+                  className="border-border focus:border-primary"
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">
+                  Upload File *
+                </label>
+                <Input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.glb"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="border-border focus:border-primary"
+                  key={`file-input-${selectedAssetForRef || "none"}`}
+                />
+                {selectedFile && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {selectedFile.name} (
+                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <Button
+              onClick={() => {
+                setReferenceUrl("");
+                setSelectedFile(null);
+                setSelectedAssetForRef(null);
+                setShowAddRefDialog(false);
+                setUploadMode("url");
+              }}
+              variant="outline"
+              className="cursor-pointer"
+              disabled={uploading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={
+                uploadMode === "url" ? handleAddReferenceUrl : handleFileUpload
+              }
+              disabled={
+                uploading ||
+                (uploadMode === "url" ? !referenceUrl.trim() : !selectedFile)
+              }
+              className="cursor-pointer"
+            >
+              {uploading ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                  Uploading...
+                </>
+              ) : (
+                `Add ${uploadMode === "url" ? "URL" : "File"}`
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View References Dialog */}
+      <Dialog open={showViewRefDialog} onOpenChange={setShowViewRefDialog}>
+        <DialogContent className="sm:max-w-[600px] h-fit max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">
+              References - {selectedAssetForView?.product_name || "Asset"}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              View and manage all reference images for this asset.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {(() => {
+              // Get all files (GLB + references)
+              const allReferences = selectedAssetForView
+                ? parseReferences(selectedAssetForView.reference)
+                : [];
+              const hasDirectGlb = selectedAssetForView?.glb_link;
+
+              // Combine all files into one list
+              const allFiles = [];
+
+              // Add direct GLB if exists
+              if (hasDirectGlb) {
+                allFiles.push({
+                  url: selectedAssetForView.glb_link,
+                  type: "glb",
+                  name: "GLB Model",
+                });
+              }
+
+              // Add references (filter out duplicates of direct GLB)
+              allReferences.forEach((ref, index) => {
+                if (!hasDirectGlb || ref !== selectedAssetForView.glb_link) {
+                  const isGlb = ref.toLowerCase().endsWith(".glb");
+                  allFiles.push({
+                    url: ref,
+                    type: isGlb ? "glb" : "reference",
+                    name: isGlb
+                      ? `GLB File ${index + 1}`
+                      : `Reference ${index + 1}`,
+                  });
+                }
+              });
+
+              return allFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {allFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {file.type === "glb" ? (
+                          <Package className="h-4 w-4 text-primary flex-shrink-0" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {file.url}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (file.type === "glb") {
+                            // Download GLB files
+                            const link = document.createElement("a");
+                            link.href = file.url;
+                            link.download = `${selectedAssetForView?.product_name || "model"}.glb`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } else {
+                            // Open reference files in new tab
+                            window.open(file.url, "_blank");
+                          }
+                        }}
+                        className="text-xs flex-shrink-0"
+                      >
+                        {file.type === "glb" ? (
+                          <>
+                            <Download className="h-3 w-3 mr-1" />
+                            Download
+                          </>
+                        ) : (
+                          <>
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Open
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">No files found</p>
+                  <p className="text-xs text-muted-foreground">
+                    Click "Add Reference" to upload files
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <Button
+              onClick={() => {
+                setSelectedAssetForRef(selectedAssetForView?.id);
+                setShowViewRefDialog(false);
+                setShowAddRefDialog(true);
+              }}
+              variant="outline"
+              className="cursor-pointer"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Add Reference
+            </Button>
+            <Button
+              onClick={() => setShowViewRefDialog(false)}
+              className="cursor-pointer"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

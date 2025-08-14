@@ -23,6 +23,13 @@ import {
 } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/containers";
+import {
   Eye,
   ChevronLeft,
   ChevronRight,
@@ -33,9 +40,10 @@ import {
   FileText,
   Download,
   Clock,
+  X,
 } from "lucide-react";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import { getPriorityLabel } from "@/lib/constants";
@@ -164,9 +172,10 @@ export default function ReviewDashboardPage() {
   const user = useUser();
   const { startLoading, stopLoading } = useLoading();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [assets, setAssets] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>("");
+
   const [sort, setSort] = useState<string>("status-progress");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -176,6 +185,26 @@ export default function ReviewDashboardPage() {
     Record<string, number>
   >({});
   const [bulkPriority, setBulkPriority] = useState<number>(2);
+
+  // Add new filter states for multi-select capability
+  const [clientFilters, setClientFilters] = useState<string[]>([]);
+  const [batchFilters, setBatchFilters] = useState<number[]>([]);
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [clients, setClients] = useState<string[]>([]);
+
+  // Add Ref dialog state
+  const [showAddRefDialog, setShowAddRefDialog] = useState(false);
+  const [selectedAssetForRef, setSelectedAssetForRef] = useState<string | null>(
+    null
+  );
+  const [referenceUrl, setReferenceUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
+  const [uploading, setUploading] = useState(false);
+
+  // View Ref dialog state
+  const [showViewRefDialog, setShowViewRefDialog] = useState(false);
+  const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
 
   // Calculate status totals
   const statusTotals = useMemo(() => {
@@ -208,11 +237,17 @@ export default function ReviewDashboardPage() {
     const { data, error } = await supabase
       .from("onboarding_assets")
       .select(
-        "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference"
+        "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client"
       )
       .eq("client", user.metadata.client);
     if (!error && data) {
       setAssets(data);
+
+      // Populate clients array for filter dropdown
+      const uniqueClients = Array.from(
+        new Set(data.map((asset) => asset.client).filter(Boolean))
+      ).sort();
+      setClients(uniqueClients);
     } else if (error) {
       console.error("Error fetching assets:", error);
     }
@@ -223,6 +258,44 @@ export default function ReviewDashboardPage() {
   useEffect(() => {
     fetchAssets();
   }, [user?.metadata?.client]);
+
+  // Handle URL parameters for new filters
+  useEffect(() => {
+    const clientParam = searchParams.get("client");
+    const batchParam = searchParams.get("batch");
+    const statusParam = searchParams.get("status");
+
+    if (clientParam) {
+      setClientFilters(clientParam.split(","));
+    }
+    if (batchParam) {
+      setBatchFilters(batchParam.split(",").map(Number));
+    }
+    if (statusParam) {
+      setStatusFilters(statusParam.split(","));
+    }
+  }, [searchParams]);
+
+  // Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (clientFilters.length > 0) {
+      params.set("client", clientFilters.join(","));
+    }
+    if (batchFilters.length > 0) {
+      params.set("batch", batchFilters.join(","));
+    }
+    if (statusFilters.length > 0) {
+      params.set("status", statusFilters.join(","));
+    }
+
+    // Update URL without triggering a page reload
+    const newUrl = params.toString()
+      ? `?${params.toString()}`
+      : window.location.pathname;
+    window.history.replaceState({}, "", newUrl);
+  }, [clientFilters, batchFilters, statusFilters]);
 
   // Listen for asset status updates from individual review pages
   useEffect(() => {
@@ -283,7 +356,22 @@ export default function ReviewDashboardPage() {
   // Filtering, sorting, searching
   useEffect(() => {
     let data = [...assets];
-    if (statusFilter) data = data.filter((a) => a.status === statusFilter);
+
+    // Apply multi client filter
+    if (clientFilters.length > 0) {
+      data = data.filter((asset) => clientFilters.includes(asset.client));
+    }
+
+    // Apply multi batch filter
+    if (batchFilters.length > 0) {
+      data = data.filter((asset) => batchFilters.includes(Number(asset.batch)));
+    }
+
+    // Apply multi status filter
+    if (statusFilters.length > 0) {
+      data = data.filter((asset) => statusFilters.includes(asset.status));
+    }
+
     if (search) {
       const s = search.toLowerCase();
       data = data.filter(
@@ -323,12 +411,12 @@ export default function ReviewDashboardPage() {
       );
     }
     setFiltered(data);
-  }, [assets, statusFilter, sort, search]);
+  }, [assets, sort, search, clientFilters, batchFilters, statusFilters]);
 
   // Reset page when filters change (but not when assets are updated)
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, sort, search]);
+  }, [sort, search, clientFilters, batchFilters, statusFilters]);
 
   // Pagination
   const paged = useMemo(() => {
@@ -411,60 +499,173 @@ export default function ReviewDashboardPage() {
     }
   };
 
+  // Helper function to separate GLB files from reference images
+  const separateReferences = (referenceImages: string[] | string | null) => {
+    const allReferences = parseReferences(referenceImages);
+    const glbFiles = allReferences.filter((ref) =>
+      ref.toLowerCase().endsWith(".glb")
+    );
+    const imageReferences = allReferences.filter(
+      (ref) => !ref.toLowerCase().endsWith(".glb")
+    );
+    return { glbFiles, imageReferences };
+  };
+
+  // Handle adding reference URL
+  const handleAddReferenceUrl = async () => {
+    if (!referenceUrl.trim() || !selectedAssetForRef) return;
+
+    try {
+      // Validate URL format
+      const url = new URL(referenceUrl.trim());
+      if (!url.protocol.startsWith("http")) {
+        toast.error("Please enter a valid HTTP/HTTPS URL");
+        return;
+      }
+
+      // Find the current asset
+      const currentAsset = assets.find(
+        (asset) => asset.id === selectedAssetForRef
+      );
+      if (!currentAsset) {
+        toast.error("Asset not found");
+        return;
+      }
+
+      // Get existing references and add new one
+      const existingReferences = parseReferences(currentAsset.reference);
+      const newReferences = [...existingReferences, referenceUrl.trim()];
+
+      // Update the asset in the database
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ reference: newReferences })
+        .eq("id", selectedAssetForRef);
+
+      if (error) {
+        console.error("Error updating reference images:", error);
+        toast.error("Failed to save reference image URL");
+        return;
+      }
+
+      // Update local state
+      setAssets((prev) =>
+        prev.map((asset) =>
+          asset.id === selectedAssetForRef
+            ? { ...asset, reference: newReferences }
+            : asset
+        )
+      );
+
+      // Reset dialog state
+      setReferenceUrl("");
+      setSelectedAssetForRef(null);
+      setShowAddRefDialog(false);
+
+      toast.success("Reference image URL added successfully!");
+    } catch (error) {
+      console.error("Error adding reference image URL:", error);
+      toast.error("Please enter a valid image URL");
+    }
+  };
+
+  // Handle file upload
+  const handleFileUpload = async () => {
+    if (!selectedFile || !selectedAssetForRef) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("asset_id", selectedAssetForRef);
+
+      // Determine file type based on extension
+      const fileExtension = selectedFile.name.toLowerCase().split(".").pop();
+      const fileType = fileExtension === "glb" ? "glb" : "reference";
+      formData.append("file_type", fileType);
+
+      const response = await fetch("/api/assets/upload-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const result = await response.json();
+
+      // For all file types, refresh the asset data since everything goes to references now
+      const { data: updatedAsset } = await supabase
+        .from("onboarding_assets")
+        .select("reference, status, glb_link")
+        .eq("id", selectedAssetForRef)
+        .single();
+
+      console.log("Upload result:", result);
+      console.log("Updated asset from DB:", updatedAsset);
+
+      setAssets((prev) =>
+        prev.map((asset) =>
+          asset.id === selectedAssetForRef
+            ? {
+                ...asset,
+                reference: updatedAsset?.reference || asset.reference,
+                status: updatedAsset?.status || asset.status,
+                glb_link: updatedAsset?.glb_link || asset.glb_link,
+              }
+            : asset
+        )
+      );
+
+      // Also update the selected asset for view dialog if it's the same asset
+      if (selectedAssetForView?.id === selectedAssetForRef) {
+        setSelectedAssetForView((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                reference: updatedAsset?.reference || prev.reference,
+                status: updatedAsset?.status || prev.status,
+                glb_link: updatedAsset?.glb_link || prev.glb_link,
+              }
+            : prev
+        );
+      }
+
+      toast.success(
+        fileType === "glb"
+          ? "GLB file uploaded successfully!"
+          : "Reference file uploaded successfully!"
+      );
+
+      // Reset dialog state
+      setSelectedFile(null);
+      setSelectedAssetForRef(null);
+      setReferenceUrl("");
+      setShowAddRefDialog(false);
+      setUploadMode("url");
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast.error("Failed to upload file");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <Card className="p-6 flex-1 flex flex-col border-0 shadow-none ">
-        {/* Bulk Actions */}
-        {selected.size > 0 && (
-          <div className="mb-4 p-4 bg-muted/50 rounded-lg border">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-muted-foreground">
-                  {selected.size} product(s) selected
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelected(new Set())}
-                  className="h-6 px-2 text-xs"
-                >
-                  Clear
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Set priority:
-                </span>
-                <Select
-                  value={bulkPriority.toString()}
-                  onValueChange={(value) => setBulkPriority(parseInt(value))}
-                >
-                  <SelectTrigger className="w-24 h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">High</SelectItem>
-                    <SelectItem value="2">Medium</SelectItem>
-                    <SelectItem value="3">Low</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  onClick={handleBulkPriorityChange}
-                  className="h-8"
-                >
-                  Apply to {selected.size} product(s)
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Status Summary Cards */}
         {!loading && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <Card className="p-4 ">
+            {/* Total Models (no filtering on this card itself) */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters([]);
+                setPage(1);
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-info-muted rounded-lg">
                   <Package className="h-5 w-5 text-info" />
@@ -480,7 +681,18 @@ export default function ReviewDashboardPage() {
               </div>
             </Card>
 
-            <Card className="p-4 ">
+            {/* In Production */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters([
+                  "in_production",
+                  "revisions",
+                  "delivered_by_artist",
+                ]);
+                setPage(1);
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-warning-muted rounded-lg">
                   <Send className="h-5 w-5 text-warning" />
@@ -498,7 +710,14 @@ export default function ReviewDashboardPage() {
               </div>
             </Card>
 
-            <Card className="p-4 ">
+            {/* Approved */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["approved", "approved_by_client"]);
+                setPage(1);
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-success-muted rounded-lg">
                   <CheckCircle className="h-5 w-5 text-success" />
@@ -514,7 +733,14 @@ export default function ReviewDashboardPage() {
               </div>
             </Card>
 
-            <Card className="p-4 ">
+            {/* Ready for Revision */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["revisions"]);
+                setPage(1);
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-error-muted rounded-lg">
                   <Eye className="h-5 w-5 text-error" />
@@ -530,7 +756,14 @@ export default function ReviewDashboardPage() {
               </div>
             </Card>
 
-            <Card className="p-4 ">
+            {/* Approved by Client */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["approved_by_client"]);
+                setPage(1);
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-emerald-muted rounded-lg">
                   <CheckCircle className="h-5 w-5 text-emerald" />
@@ -547,58 +780,152 @@ export default function ReviewDashboardPage() {
             </Card>
           </div>
         )}
-        <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
-          <div className="flex gap-2">
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(STATUS_LABELS).map(([key, val]) => (
-                  <SelectItem key={key} value={key}>
-                    {val.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              className="w-full md:w-64"
-              placeholder="Search by name or article ID"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2">
-            <Select value={sort} onValueChange={(value) => setSort(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="status-progress">
-                  Sort by: Status Progression
-                </SelectItem>
-                <SelectItem value="batch">
-                  Sort by: Batch (1, 2, 3...)
-                </SelectItem>
+        <div className="flex flex-col gap-4 mb-4">
+          {/* Filters Row */}
+          <div className="flex flex-col md:flex-row md:items-center gap-2 justify-between">
+            <div className="flex gap-2">
+              {/* Client Filter */}
 
-                <SelectItem value="priority">
-                  Sort by: Priority (Highest First)
-                </SelectItem>
-                <SelectItem value="priority-lowest">
-                  Sort by: Priority (Lowest First)
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              {/* Batch Filter */}
+              <Select
+                value={
+                  batchFilters.length === 1
+                    ? batchFilters[0].toString()
+                    : undefined
+                }
+                onValueChange={(value) => {
+                  if (value === "all") {
+                    setBatchFilters([]);
+                  } else if (value) {
+                    setBatchFilters([parseInt(value)]);
+                  }
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-32 h-9">
+                  <SelectValue
+                    placeholder={
+                      batchFilters.length === 0
+                        ? "All batches"
+                        : batchFilters.length === 1
+                          ? `Batch ${batchFilters[0]}`
+                          : `${batchFilters.length} selected`
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All batches</SelectItem>
+                  {Array.from(
+                    new Set(assets.map((asset) => asset.batch).filter(Boolean))
+                  )
+                    .sort((a, b) => a - b)
+                    .map((batch) => (
+                      <SelectItem key={batch} value={batch.toString()}>
+                        Batch {batch}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+
+              <Input
+                className="w-full md:w-64"
+                placeholder="Search by name or article ID"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={sort} onValueChange={(value) => setSort(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="status-progress">
+                    Sort by: Status Progression
+                  </SelectItem>
+                  <SelectItem value="batch">
+                    Sort by: Batch (1, 2, 3...)
+                  </SelectItem>
+
+                  <SelectItem value="priority">
+                    Sort by: Priority (Highest First)
+                  </SelectItem>
+                  <SelectItem value="priority-lowest">
+                    Sort by: Priority (Lowest First)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearch("");
+                  setSort("status-progress");
+                  setPage(1);
+                  setClientFilters([]);
+                  setBatchFilters([]);
+                  setStatusFilters([]);
+                }}
+                className="gap-2"
+              >
+                <X className="h-4 w-4" />
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+
+          {/* Bulk Actions Row - Fixed height to prevent layout shifts */}
+          <div className="min-h-[60px]">
+            {selected.size > 0 && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3 bg-muted/50 rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {selected.size} product(s) selected
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelected(new Set())}
+                    className="h-6 px-2 text-xs"
+                  >
+                    Clear
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    Set priority:
+                  </span>
+                  <Select
+                    value={bulkPriority.toString()}
+                    onValueChange={(value) => setBulkPriority(parseInt(value))}
+                  >
+                    <SelectTrigger className="w-24 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">High</SelectItem>
+                      <SelectItem value="2">Medium</SelectItem>
+                      <SelectItem value="3">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={handleBulkPriorityChange}
+                    className="h-8"
+                  >
+                    Apply to {selected.size} product(s)
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {loading ? (
-          <ReviewTableSkeleton />
-        ) : (
-          <div className="overflow-auto rounded-lg border bg-background flex-1 max-h-[67vh] min-h-[67vh]">
+        <div className="overflow-auto rounded-lg border bg-background flex-1 max-h-[67vh] min-h-[67vh]">
+          {loading ? (
+            <ReviewTableSkeleton />
+          ) : (
             <div className="min-w-[1200px]">
               <Table>
                 <TableHeader>
@@ -646,6 +973,7 @@ export default function ReviewDashboardPage() {
                             <Checkbox
                               checked={selected.has(asset.id)}
                               onCheckedChange={() => toggleSelect(asset.id)}
+                              className="bg-background"
                             />
                           </TableCell>
                           <TableCell>
@@ -753,7 +1081,7 @@ export default function ReviewDashboardPage() {
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-center w-12">
                             {asset.product_link ? (
                               <Button
                                 variant="ghost"
@@ -774,48 +1102,27 @@ export default function ReviewDashboardPage() {
                           </TableCell>
 
                           <TableCell className="text-center">
-                            <div className="space-y-2 flex flex-row items-center justify-center">
-                              {asset.reference &&
-                              parseReferences(asset.reference).length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {parseReferences(asset.reference).map(
-                                    (ref, index) => (
-                                      <Button
-                                        key={index}
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs px-2 py-1 h-6"
-                                        onClick={() =>
-                                          window.open(ref, "_blank")
-                                        }
-                                      >
-                                        <FileText className="mr-1 h-3 w-3" />
-                                        Ref {index + 1}
-                                      </Button>
-                                    )
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">
-                                  No refs
-                                </span>
-                              )}
+                            <div className="flex flex-col items-center gap-1">
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                className="w-full justify-start text-xs text-blue-600 hover:text-blue-700"
+                                className="text-xs px-3 py-1 h-7"
                                 onClick={() => {
-                                  // TODO: Implement add reference functionality
-                                  toast.info(
-                                    "Add reference functionality coming soon"
-                                  );
+                                  setSelectedAssetForView(asset);
+                                  setShowViewRefDialog(true);
                                 }}
                               >
-                                <FileText className="mr-2 h-3 w-3" />+ Add Ref
+                                <FileText className="mr-1 h-3 w-3" />
+                                Ref (
+                                {separateReferences(asset.reference)
+                                  .imageReferences.length +
+                                  separateReferences(asset.reference).glbFiles
+                                    .length}
+                                )
                               </Button>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-center w-12">
                             {asset.glb_link ? (
                               <Button
                                 variant="ghost"
@@ -834,7 +1141,7 @@ export default function ReviewDashboardPage() {
                               </span>
                             )}
                           </TableCell>
-                          <TableCell className="text-center">
+                          <TableCell className="text-center w-12">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -843,7 +1150,7 @@ export default function ReviewDashboardPage() {
                               }
                               className="h-8 w-8"
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-5 w-5" />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -853,8 +1160,8 @@ export default function ReviewDashboardPage() {
                 </TableBody>
               </Table>
             </div>
-          </div>
-        )}
+          )}
+        </div>
         {/* Pagination - Always at bottom */}
         <div className="flex items-center justify-center gap-2">
           {selected.size > 0 && (
@@ -896,6 +1203,254 @@ export default function ReviewDashboardPage() {
           </div>
         </div>
       </Card>
+
+      {/* Add Reference Dialog */}
+      <Dialog open={showAddRefDialog} onOpenChange={setShowAddRefDialog}>
+        <DialogContent className="sm:max-w-[500px] h-fit">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">
+              Add Reference or GLB File
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Add a reference image URL or upload a reference/GLB file.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Mode Toggle */}
+          <div className="flex gap-2 p-1 bg-muted rounded-lg">
+            <Button
+              variant={uploadMode === "url" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setUploadMode("url")}
+              className="flex-1"
+            >
+              URL
+            </Button>
+            <Button
+              variant={uploadMode === "file" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setUploadMode("file")}
+              className="flex-1"
+            >
+              File Upload
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {uploadMode === "url" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">
+                  Image URL *
+                </label>
+                <Input
+                  type="url"
+                  placeholder="https://example.com/image.jpg"
+                  value={referenceUrl}
+                  onChange={(e) => setReferenceUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAddReferenceUrl();
+                    }
+                  }}
+                  className="border-border focus:border-primary"
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">
+                  Upload File *
+                </label>
+                <Input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.glb"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="border-border focus:border-primary"
+                  key={`file-input-${selectedAssetForRef || "none"}`}
+                />
+                {selectedFile && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {selectedFile.name} (
+                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <Button
+              onClick={() => {
+                setReferenceUrl("");
+                setSelectedFile(null);
+                setSelectedAssetForRef(null);
+                setShowAddRefDialog(false);
+                setUploadMode("url");
+              }}
+              variant="outline"
+              className="cursor-pointer"
+              disabled={uploading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={
+                uploadMode === "url" ? handleAddReferenceUrl : handleFileUpload
+              }
+              disabled={
+                uploading ||
+                (uploadMode === "url" ? !referenceUrl.trim() : !selectedFile)
+              }
+              className="cursor-pointer"
+            >
+              {uploading ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                  Uploading...
+                </>
+              ) : (
+                `Add ${uploadMode === "url" ? "URL" : "File"}`
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View References Dialog */}
+      <Dialog open={showViewRefDialog} onOpenChange={setShowViewRefDialog}>
+        <DialogContent className="sm:max-w-[600px] h-fit max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">
+              References - {selectedAssetForView?.product_name || "Asset"}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              View and manage all reference images for this asset.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {(() => {
+              // Get all files (GLB + references)
+              const allReferences = selectedAssetForView
+                ? parseReferences(selectedAssetForView.reference)
+                : [];
+              const hasDirectGlb = selectedAssetForView?.glb_link;
+
+              // Combine all files into one list
+              const allFiles = [];
+
+              // Add direct GLB if exists
+              if (hasDirectGlb) {
+                allFiles.push({
+                  url: selectedAssetForView.glb_link,
+                  type: "glb",
+                  name: "GLB Model",
+                });
+              }
+
+              // Add references (filter out duplicates of direct GLB)
+              allReferences.forEach((ref, index) => {
+                if (!hasDirectGlb || ref !== selectedAssetForView.glb_link) {
+                  const isGlb = ref.toLowerCase().endsWith(".glb");
+                  allFiles.push({
+                    url: ref,
+                    type: isGlb ? "glb" : "reference",
+                    name: isGlb
+                      ? `GLB File ${index + 1}`
+                      : `Reference ${index + 1}`,
+                  });
+                }
+              });
+
+              return allFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {allFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {file.type === "glb" ? (
+                          <Package className="h-4 w-4 text-primary flex-shrink-0" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {file.url}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (file.type === "glb") {
+                            // Download GLB files
+                            const link = document.createElement("a");
+                            link.href = file.url;
+                            link.download = `${selectedAssetForView?.product_name || "model"}.glb`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } else {
+                            // Open reference files in new tab
+                            window.open(file.url, "_blank");
+                          }
+                        }}
+                        className="text-xs flex-shrink-0"
+                      >
+                        {file.type === "glb" ? (
+                          <>
+                            <Download className="h-3 w-3 mr-1" />
+                            Download
+                          </>
+                        ) : (
+                          <>
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Open
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">No files found</p>
+                  <p className="text-xs text-muted-foreground">
+                    Click "Add Reference" to upload files
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <Button
+              onClick={() => {
+                setSelectedAssetForRef(selectedAssetForView?.id);
+                setShowViewRefDialog(false);
+                setShowAddRefDialog(true);
+              }}
+              variant="outline"
+              className="cursor-pointer"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Add Reference
+            </Button>
+            <Button
+              onClick={() => setShowViewRefDialog(false)}
+              className="cursor-pointer"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

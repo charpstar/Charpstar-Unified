@@ -2635,7 +2635,6 @@ export default function ReviewPage() {
                 )}
 
                 {(user?.metadata?.role === "admin" ||
-                  user?.metadata?.role === "production" ||
                   user?.metadata?.role === "qa") && (
                   <Button
                     onClick={() => updateAssetStatus("approved")}

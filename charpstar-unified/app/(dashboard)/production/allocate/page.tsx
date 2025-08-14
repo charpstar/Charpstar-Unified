@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/inputs";
+import { Checkbox } from "@/components/ui/inputs/checkbox";
 import {
   Select,
   SelectContent,
@@ -1102,37 +1103,54 @@ export default function AllocateAssetsPage() {
                 </div>
               </div>
 
-              {/* Assets Summary */}
               <div className="border-t pt-6">
                 <h3 className="text-lg font-medium mb-4">
                   Assets to be assigned ({selectedAssets.size})
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {allocationData.map((data) => {
-                    const asset = getAssetById(data.assetId);
-                    if (!asset) return null;
 
-                    return (
-                      <Card key={data.assetId} className="p-3">
-                        <div className="space-y-2">
-                          <h4 className="font-medium text-sm">
-                            {asset.product_name}
-                          </h4>
-                          <p className="text-xs text-muted-foreground">
-                            {asset.article_id}
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {asset.category}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              {asset.client}
-                            </Badge>
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
+                <div className="overflow-y-auto max-h-[400px] border rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Product Name
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          Article ID
+                        </th>
+                        <th className="px-3 py-2 font-medium">Category</th>
+                        <th className="px-3 py-2 font-medium">Client</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allocationData.map((data) => {
+                        const asset = getAssetById(data.assetId);
+                        if (!asset) return null;
+
+                        return (
+                          <tr
+                            key={data.assetId}
+                            className="border-t hover:bg-muted/50 transition-colors"
+                          >
+                            <td className="px-3 py-2">{asset.product_name}</td>
+                            <td className="px-3 py-2 text-muted-foreground font-mono">
+                              {asset.article_id}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <Badge variant="outline" className="text-xs">
+                                {asset.category}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <Badge variant="secondary" className="text-xs">
+                                {asset.client}
+                              </Badge>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -1348,15 +1366,6 @@ export default function AllocateAssetsPage() {
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  {pricingTier === "first_list"
-                    ? "Standard pricing for the first list of models"
-                    : "Pricing for all future models after completing the first list"}
-                </p>
-                <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                  💡 The system automatically detects if a modeler has completed
-                  their first list and sets the appropriate pricing tier.
-                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1417,9 +1426,9 @@ export default function AllocateAssetsPage() {
               <div className="border-t pt-6">
                 <h3 className="text-lg font-medium mb-4">Asset Pricing</h3>
 
-                {/* Bulk Pricing Options */}
-                <div className="mb-6 p-4 bg-muted/50 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
+                {/* Bulk Pricing Controls */}
+                <div className="mb-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <h4 className="font-medium">Bulk Pricing Options</h4>
                     <div className="flex gap-2">
                       <Button
@@ -1438,12 +1447,16 @@ export default function AllocateAssetsPage() {
                       </Button>
                     </div>
                   </div>
-                  <div className="mb-3 text-sm text-muted-foreground">
+
+                  <div className="text-sm text-muted-foreground mb-3">
                     {selectedForPricing.size > 0
-                      ? `${selectedForPricing.size} product${selectedForPricing.size > 1 ? "s" : ""} selected for pricing`
-                      : "Select products above to apply bulk pricing"}
+                      ? `${selectedForPricing.size} product${
+                          selectedForPricing.size > 1 ? "s" : ""
+                        } selected for pricing`
+                      : "Select products below to apply bulk pricing"}
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+
+                  <div className="flex flex-wrap gap-2">
                     {getCurrentPricingOptions().map((option) => (
                       <Button
                         key={option.id}
@@ -1461,13 +1474,14 @@ export default function AllocateAssetsPage() {
                       <Input
                         type="number"
                         placeholder="Custom price"
-                        className="flex-1"
+                        className="w-28"
                         disabled={selectedForPricing.size === 0}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             const price = parseFloat(e.currentTarget.value);
                             if (price > 0) {
                               applyBulkCustomPrice(price);
+                              e.currentTarget.value = "";
                             }
                           }
                         }}
@@ -1493,56 +1507,68 @@ export default function AllocateAssetsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {allocationData.map((data) => {
-                    const asset = getAssetById(data.assetId);
-                    if (!asset) return null;
+                {/* Assets Table */}
+                <div className="overflow-y-auto border rounded-lg max-h-[500px]">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/70">
+                      <tr>
+                        <th className="p-2 w-8">
+                          <Checkbox
+                            checked={
+                              selectedForPricing.size ===
+                                allocationData.length &&
+                              allocationData.length > 0
+                            }
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                selectAllForPricing();
+                              } else {
+                                clearPricingSelections();
+                              }
+                            }}
+                          />
+                        </th>
+                        <th className="p-2 text-left">Product Name</th>
+                        <th className="p-2 text-left">Article ID</th>
+                        <th className="p-2">Category</th>
+                        <th className="p-2">Pricing Option</th>
+                        <th className="p-2">Price (€)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allocationData.map((data) => {
+                        const asset = getAssetById(data.assetId);
+                        if (!asset) return null;
 
-                    const isSelectedForPricing = selectedForPricing.has(
-                      data.assetId
-                    );
+                        const isSelectedForPricing = selectedForPricing.has(
+                          data.assetId
+                        );
 
-                    return (
-                      <Card
-                        key={data.assetId}
-                        className={`p-4 transition-all duration-200 cursor-pointer ${
-                          isSelectedForPricing
-                            ? "ring-2 ring-primary/20 bg-primary/5"
-                            : "hover:bg-muted/50"
-                        }`}
-                        onClick={() => togglePricingSelection(data.assetId)}
-                      >
-                        <div className="space-y-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-sm">
-                                {asset.product_name}
-                              </h4>
-                              <p className="text-xs text-muted-foreground">
-                                {asset.article_id}
-                              </p>
-                              <Badge variant="outline" className="text-xs mt-1">
-                                {asset.category}
-                              </Badge>
-                            </div>
-                            <div className="ml-2">
-                              <input
-                                type="checkbox"
+                        return (
+                          <tr
+                            key={data.assetId}
+                            className={`border-t hover:bg-muted/50 transition-colors ${
+                              isSelectedForPricing ? "bg-primary/5" : ""
+                            }`}
+                          >
+                            <td className="p-2 text-center">
+                              <Checkbox
                                 checked={isSelectedForPricing}
-                                onChange={() =>
+                                onCheckedChange={() =>
                                   togglePricingSelection(data.assetId)
                                 }
-                                onClick={(e) => e.stopPropagation()}
-                                className="h-4 w-4"
                               />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium flex items-center">
-                              <Euro className="h-4 w-4 mr-2" />
-                              Pricing Option
-                            </label>
-                            <div onClick={(e) => e.stopPropagation()}>
+                            </td>
+                            <td className="p-2">{asset.product_name}</td>
+                            <td className="p-2 text-muted-foreground font-mono text-center items-center justify-center ">
+                              {asset.article_id}
+                            </td>
+                            <td className="p-2 text-center">
+                              <Badge variant="outline" className="text-xs">
+                                {asset.category}
+                              </Badge>
+                            </td>
+                            <td className="p-2 text-center items-center justify-center flex">
                               <Select
                                 value={data.pricingOptionId}
                                 onValueChange={(value) => {
@@ -1573,17 +1599,13 @@ export default function AllocateAssetsPage() {
                                   ))}
                                 </SelectContent>
                               </Select>
-                            </div>
-                            {data.pricingOptionId === "hard_3d_model" ||
-                            data.pricingOptionId === "hard_3d_model_future" ? (
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium flex items-center">
-                                  <Euro className="h-4 w-4 mr-2" />
-                                  Custom Price (€)
-                                </label>
+                            </td>
+                            <td className="p-2 text-center items-center justify-center ">
+                              {data.pricingOptionId === "hard_3d_model" ||
+                              data.pricingOptionId ===
+                                "hard_3d_model_future" ? (
                                 <Input
                                   type="number"
-                                  placeholder="Enter custom price"
                                   value={data.price}
                                   onChange={(e) =>
                                     updateAllocationData(
@@ -1592,19 +1614,16 @@ export default function AllocateAssetsPage() {
                                       parseFloat(e.target.value) || 0
                                     )
                                   }
-                                  onClick={(e) => e.stopPropagation()}
                                 />
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">
-                                Price: €{data.price}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
+                              ) : (
+                                <span>€{data.price}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 

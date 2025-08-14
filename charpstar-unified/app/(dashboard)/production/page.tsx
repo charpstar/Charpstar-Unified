@@ -438,6 +438,9 @@ export default function ProductionDashboard() {
     } else {
       await processBatchData(data);
     }
+
+    // Always fetch QA progress data since it's needed for QA view mode
+    await fetchQAProgress();
   };
 
   // Optimized client data processing using cached data
@@ -1113,9 +1116,6 @@ export default function ProductionDashboard() {
 
       // Fetch modeler data
       await fetchModelerProgress(assetData || []);
-
-      // Fetch QA data
-      await fetchQAProgress();
     } catch {
       console.error("Error fetching client progress");
     } finally {
@@ -3126,12 +3126,6 @@ export default function ProductionDashboard() {
                                 <Package className="h-4 w-4" />
                                 <span>{modeler.totalAssigned} assigned</span>
                               </div>
-                              <div className="flex items-center gap-1 text-muted-foreground">
-                                <Building className="h-4 w-4" />
-                                <span>
-                                  {modeler.assignedBatches.length} batches
-                                </span>
-                              </div>
                             </div>
 
                             {/* Progress Bar */}
@@ -3225,7 +3219,7 @@ export default function ProductionDashboard() {
                         </div>
                       </CardHeader>
 
-                      <CardContent className="space-y-4">
+                      <CardContent className="space-y-6">
                         {/* Status Distribution */}
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
@@ -3241,7 +3235,7 @@ export default function ProductionDashboard() {
                               .map(([status, count]) => (
                                 <div
                                   key={status}
-                                  className="flex items-center justify-between"
+                                  className="flex items-center justify-between p-2 rounded bg-muted/20"
                                 >
                                   <div className="flex items-center gap-2">
                                     <span
@@ -3262,34 +3256,7 @@ export default function ProductionDashboard() {
                           </div>
                         </div>
 
-                        {/* Assigned Batches */}
-                        {modeler.assignedBatches.length > 0 && (
-                          <div className="space-y-3">
-                            <h4 className="text-sm font-semibold text-muted-foreground">
-                              Assigned Batches
-                            </h4>
-                            <div className="space-y-2 max-h-24 overflow-y-auto">
-                              {modeler.assignedBatches
-                                .slice(0, 3)
-                                .map((batch) => (
-                                  <div
-                                    key={`${batch.client}-${batch.batch}`}
-                                    className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs"
-                                  >
-                                    <span className="font-medium">
-                                      {batch.client} - Batch {batch.batch}
-                                    </span>
-                                  </div>
-                                ))}
-                              {modeler.assignedBatches.length > 3 && (
-                                <div className="text-xs text-muted-foreground text-center">
-                                  +{modeler.assignedBatches.length - 3} more
-                                  batches
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        {/* Assigned Batches - More Prominent */}
 
                         {/* Action Button */}
                         <div className="pt-2">
@@ -3315,15 +3282,33 @@ export default function ProductionDashboard() {
               : viewMode === "qa"
                 ? // QA Cards
                   filteredQAUsers.map((qaUser) => {
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    const chartData = Object.entries(qaUser.statusCounts)
-                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                      .filter(([_, count]) => count > 0)
-                      .map(([status, count]) => ({
-                        name: getStatusLabel(status),
-                        value: count,
-                        color: getStatusColor(status),
-                      }));
+                    // Calculate combined chart data from connected modelers
+                    const chartData = (() => {
+                      const combinedStatusCounts = {
+                        in_production: 0,
+                        revisions: 0,
+                        approved: 0,
+                        approved_by_client: 0,
+                      };
+
+                      qaUser.connectedModelers.forEach((modeler) => {
+                        combinedStatusCounts.in_production +=
+                          modeler.inProgressAssets || 0;
+                        combinedStatusCounts.revisions +=
+                          modeler.revisionAssets || 0;
+                        combinedStatusCounts.approved +=
+                          modeler.completedAssets || 0;
+                        combinedStatusCounts.approved_by_client += 0; // This would need to be tracked separately if needed
+                      });
+
+                      return Object.entries(combinedStatusCounts)
+                        .filter(([, count]) => count > 0)
+                        .map(([status, count]) => ({
+                          name: getStatusLabel(status),
+                          value: count,
+                          color: getStatusColor(status),
+                        }));
+                    })();
 
                     return (
                       <Card
@@ -3341,11 +3326,22 @@ export default function ProductionDashboard() {
                               <div className="grid grid-cols-3 gap-2 text-sm">
                                 <div className="flex items-center gap-1 text-muted-foreground">
                                   <Package className="h-4 w-4" />
-                                  <span>{qaUser.totalAssigned} assigned</span>
+                                  <span>
+                                    {qaUser.totalModelerAssets} total assets
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-1 text-muted-foreground">
                                   <Users className="h-4 w-4" />
-                                  <span>{qaUser.totalModelers} modelers</span>
+                                  <span>
+                                    {qaUser.connectedModelers?.length || 0}{" "}
+                                    modelers
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 text-muted-foreground">
+                                  <CheckCircle className="h-4 w-4" />
+                                  <span>
+                                    {qaUser.modelerCompletionRate}% completion
+                                  </span>
                                 </div>
                               </div>
 
@@ -3353,24 +3349,23 @@ export default function ProductionDashboard() {
                               <div className="mt-3 space-y-2">
                                 <div className="flex items-center justify-between text-sm">
                                   <span className="font-medium text-muted-foreground">
-                                    Progress
+                                    Modeler Progress
                                   </span>
                                   <span className="font-bold text-lg">
-                                    {qaUser.completionPercentage}%
+                                    {qaUser.modelerCompletionRate}%
                                   </span>
                                 </div>
                                 <Progress
-                                  value={qaUser.completionPercentage}
+                                  value={qaUser.modelerCompletionRate}
                                   className="h-2"
                                 />
                                 <div className="flex justify-between text-xs text-muted-foreground">
                                   <span>
-                                    {qaUser.statusCounts.approved || 0}{" "}
-                                    completed
+                                    {qaUser.totalModelerCompleted} completed
                                   </span>
                                   <span>
-                                    {qaUser.totalAssigned -
-                                      (qaUser.statusCounts.approved || 0)}{" "}
+                                    {qaUser.totalModelerAssets -
+                                      qaUser.totalModelerCompleted}{" "}
                                     remaining
                                   </span>
                                 </div>
@@ -3380,40 +3375,59 @@ export default function ProductionDashboard() {
                         </CardHeader>
 
                         <CardContent className="space-y-4">
-                          {/* Status Distribution */}
+                          {/* Modeler Asset Status Distribution */}
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
                               <h4 className="text-sm font-semibold text-muted-foreground">
-                                Review Status Distribution
+                                Modeler Asset Status Distribution
                               </h4>
                             </div>
 
-                            {/* Status bars similar to batch view */}
+                            {/* Calculate combined status counts from connected modelers */}
                             <div className="space-y-2">
-                              {Object.entries(qaUser.statusCounts)
-                                .filter(([, count]) => count > 0)
-                                .map(([status, count]) => (
-                                  <div
-                                    key={status}
-                                    className="flex items-center justify-between"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className="w-3 h-3 rounded-full"
-                                        style={{
-                                          backgroundColor:
-                                            getStatusColor(status),
-                                        }}
-                                      ></span>
-                                      <span className="text-sm font-medium">
-                                        {getStatusLabel(status)}
+                              {(() => {
+                                const combinedStatusCounts = {
+                                  in_production: 0,
+                                  revisions: 0,
+                                  approved: 0,
+                                  approved_by_client: 0,
+                                };
+
+                                qaUser.connectedModelers.forEach((modeler) => {
+                                  combinedStatusCounts.in_production +=
+                                    modeler.inProgressAssets || 0;
+                                  combinedStatusCounts.revisions +=
+                                    modeler.revisionAssets || 0;
+                                  combinedStatusCounts.approved +=
+                                    modeler.completedAssets || 0;
+                                  combinedStatusCounts.approved_by_client += 0; // This would need to be tracked separately if needed
+                                });
+
+                                return Object.entries(combinedStatusCounts)
+                                  .filter(([, count]) => count > 0)
+                                  .map(([status, count]) => (
+                                    <div
+                                      key={status}
+                                      className="flex items-center justify-between"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className="w-3 h-3 rounded-full"
+                                          style={{
+                                            backgroundColor:
+                                              getStatusColor(status),
+                                          }}
+                                        ></span>
+                                        <span className="text-sm font-medium">
+                                          {getStatusLabel(status)}
+                                        </span>
+                                      </div>
+                                      <span className="font-bold text-sm">
+                                        {count}
                                       </span>
                                     </div>
-                                    <span className="font-bold text-sm">
-                                      {count}
-                                    </span>
-                                  </div>
-                                ))}
+                                  ));
+                              })()}
                             </div>
                           </div>
 

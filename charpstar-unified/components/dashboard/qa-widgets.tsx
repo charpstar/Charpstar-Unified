@@ -726,19 +726,10 @@ export function PersonalMetricsWidget() {
           </div>
         </div>
         <div className="flex-1 space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <Skeleton className="h-6 w-16 mb-2 rounded" />
-              <Skeleton className="h-4 w-20 rounded" />
-            </div>
-            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <Skeleton className="h-6 w-16 mb-2 rounded" />
-              <Skeleton className="h-4 w-20 rounded" />
-            </div>
-            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <Skeleton className="h-6 w-16 mb-2 rounded" />
-              <Skeleton className="h-4 w-20 rounded" />
-            </div>
+          <div className="grid grid-cols-3 gap-4 h-50">
+            <div className="bg-card h-20 border border-border rounded-xl p-4 shadow-sm"></div>
+            <div className="bg-card h-20 border border-border rounded-xl p-4 shadow-sm"></div>
+            <div className="bg-card h-20 border border-border rounded-xl p-4 shadow-sm"></div>
           </div>
           <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
             <Skeleton className="h-32 w-full rounded" />

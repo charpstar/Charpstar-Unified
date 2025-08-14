@@ -1273,7 +1273,7 @@ export default function ModelerReviewPage() {
                       <div className="flex flex-col gap-4">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="text-muted-foreground font-semibold">
-                            Reference Images
+                            References
                           </h4>
                         </div>
 

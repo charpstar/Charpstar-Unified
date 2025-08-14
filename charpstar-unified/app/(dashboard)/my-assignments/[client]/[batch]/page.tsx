@@ -63,6 +63,7 @@ import {
   X,
   FileText,
   Link2,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -70,8 +71,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/containers";
-import { AssetFilesManager } from "@/components/asset-library/AssetFilesManager";
 import ErrorBoundary from "@/components/dashboard/error-boundary";
 import { notificationService } from "@/lib/notificationService";
 
@@ -212,14 +213,25 @@ export default function BatchDetailPage() {
     useState<BatchAsset | null>(null);
   const [uploadType, setUploadType] = useState<"glb" | "asset">("glb");
   const [dragActive, setDragActive] = useState(false);
-  const [filesManagerOpen, setFilesManagerOpen] = useState(false);
-  const [selectedAssetForFiles, setSelectedAssetForFiles] =
-    useState<BatchAsset | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingMultiple, setUploadingMultiple] = useState(false);
   const [assetFileHistory, setAssetFileHistory] = useState<AssetFileHistory[]>(
     []
   );
+
+  // Add Ref dialog state
+  const [showAddRefDialog, setShowAddRefDialog] = useState(false);
+  const [selectedAssetForRef, setSelectedAssetForRef] = useState<string | null>(
+    null
+  );
+  const [referenceUrl, setReferenceUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
+  const [uploading, setUploading] = useState(false);
+
+  // View Ref dialog state
+  const [showViewRefDialog, setShowViewRefDialog] = useState(false);
+  const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
 
   useEffect(() => {
     document.title = `CharpstAR Platform - ${client} Batch ${batch}`;
@@ -713,12 +725,6 @@ export default function BatchDetailPage() {
     }
   };
 
-  const handleViewAsset = (assetId: string) => {
-    router.push(
-      `/modeler-review/${assetId}?from=my-assignments&client=${encodeURIComponent(params.client as string)}&batch=${params.batch}`
-    );
-  };
-
   const handleOpenProductLink = (productLink: string) => {
     if (productLink) {
       window.open(productLink, "_blank");
@@ -939,11 +945,6 @@ export default function BatchDetailPage() {
     }
   };
 
-  const handleOpenFilesManager = (asset: BatchAsset) => {
-    setSelectedAssetForFiles(asset);
-    setFilesManagerOpen(true);
-  };
-
   const handleMultipleFileUpload = async () => {
     if (!currentUploadAsset || selectedFiles.length === 0) return;
 
@@ -995,6 +996,167 @@ export default function BatchDetailPage() {
 
   const removeSelectedFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Helper function to separate GLB files from reference images
+  const separateReferences = (referenceImages: string[] | string | null) => {
+    const allReferences = parseReferences(referenceImages);
+    const glbFiles = allReferences.filter((ref) =>
+      ref.toLowerCase().endsWith(".glb")
+    );
+    const imageReferences = allReferences.filter(
+      (ref) => !ref.toLowerCase().endsWith(".glb")
+    );
+    return { glbFiles, imageReferences };
+  };
+
+  // Handle adding reference URL
+  const handleAddReferenceUrl = async () => {
+    if (!referenceUrl.trim() || !selectedAssetForRef) return;
+
+    try {
+      // Validate URL format
+      const url = new URL(referenceUrl.trim());
+      if (!url.protocol.startsWith("http")) {
+        toast.error("Please enter a valid HTTP/HTTPS URL");
+        return;
+      }
+
+      // Find the current asset
+      const currentAsset = allocationLists
+        .flatMap((list) => list.assets)
+        .find((asset) => asset.id === selectedAssetForRef);
+      if (!currentAsset) {
+        toast.error("Asset not found");
+        return;
+      }
+
+      // Get existing references and add new one
+      const existingReferences = parseReferences(
+        currentAsset.reference || null
+      );
+      const newReferences = [...existingReferences, referenceUrl.trim()];
+
+      // Update the asset in the database
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ reference: newReferences })
+        .eq("id", selectedAssetForRef);
+
+      if (error) {
+        console.error("Error updating reference images:", error);
+        toast.error("Failed to save reference image URL");
+        return;
+      }
+
+      // Update local state
+      setAllocationLists((prev) =>
+        prev.map((list) => ({
+          ...list,
+          assets: list.assets.map((asset) =>
+            asset.id === selectedAssetForRef
+              ? { ...asset, reference: newReferences }
+              : asset
+          ),
+        }))
+      );
+
+      // Reset dialog state
+      setReferenceUrl("");
+      setSelectedAssetForRef(null);
+      setShowAddRefDialog(false);
+
+      toast.success("Reference image URL added successfully!");
+    } catch (error) {
+      console.error("Error adding reference image URL:", error);
+      toast.error("Please enter a valid image URL");
+    }
+  };
+
+  // Handle reference file upload
+  const handleReferenceFileUpload = async () => {
+    if (!selectedFile || !selectedAssetForRef) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("asset_id", selectedAssetForRef);
+
+      // Determine file type based on extension
+      const fileExtension = selectedFile.name.toLowerCase().split(".").pop();
+      const fileType = fileExtension === "glb" ? "glb" : "reference";
+      formData.append("file_type", fileType);
+
+      const response = await fetch("/api/assets/upload-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const result = await response.json();
+
+      // For all file types, refresh the asset data since everything goes to references now
+      const { data: updatedAsset } = await supabase
+        .from("onboarding_assets")
+        .select("reference, status, glb_link")
+        .eq("id", selectedAssetForRef)
+        .single();
+
+      console.log("Upload result:", result);
+      console.log("Updated asset from DB:", updatedAsset);
+
+      setAllocationLists((prev) =>
+        prev.map((list) => ({
+          ...list,
+          assets: list.assets.map((asset) =>
+            asset.id === selectedAssetForRef
+              ? {
+                  ...asset,
+                  reference: updatedAsset?.reference || asset.reference,
+                  status: updatedAsset?.status || asset.status,
+                  glb_link: updatedAsset?.glb_link || asset.glb_link,
+                }
+              : asset
+          ),
+        }))
+      );
+
+      // Also update the selected asset for view dialog if it's the same asset
+      if (selectedAssetForView?.id === selectedAssetForRef) {
+        setSelectedAssetForView((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                reference: updatedAsset?.reference || prev.reference,
+                status: updatedAsset?.status || prev.status,
+                glb_link: updatedAsset?.glb_link || prev.glb_link,
+              }
+            : prev
+        );
+      }
+
+      toast.success(
+        fileType === "glb"
+          ? "GLB file uploaded successfully!"
+          : "Reference file uploaded successfully!"
+      );
+
+      // Reset dialog state
+      setSelectedFile(null);
+      setSelectedAssetForRef(null);
+      setReferenceUrl("");
+      setShowAddRefDialog(false);
+      setUploadMode("url");
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast.error("Failed to upload file");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -1240,36 +1402,34 @@ export default function BatchDetailPage() {
         </div>
       ) : (
         <div className="mb-8">
-          <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search by name, article ID, or category..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10"
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full lg:w-48 h-10">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="in_production">In Progress</SelectItem>
-                  <SelectItem value="revisions">Sent for Revisions</SelectItem>
-                  <SelectItem value="delivered_by_artist">
-                    Waiting for Approval
-                  </SelectItem>
-                  <SelectItem value="approved_by_client">
-                    Approved by Client
-                  </SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search by name, article ID, or category..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10"
+              />
             </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full lg:w-48 h-10">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="in_production">In Progress</SelectItem>
+                <SelectItem value="revisions">Sent for Revisions</SelectItem>
+                <SelectItem value="delivered_by_artist">
+                  Waiting for Approval
+                </SelectItem>
+                <SelectItem value="approved_by_client">
+                  Approved by Client
+                </SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       )}
@@ -1515,213 +1675,226 @@ export default function BatchDetailPage() {
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="px-6 pb-6">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-12">Status</TableHead>
-                                <TableHead>Product Name</TableHead>
-                                <TableHead className="w-32">
-                                  Article ID
-                                </TableHead>
-                                <TableHead className="w-24">Priority</TableHead>
-                                <TableHead className="w-24">Price</TableHead>
-                                <TableHead className="w-32">Category</TableHead>
-                                <TableHead className="w-24">GLB</TableHead>
-                                <TableHead className="w-24">Asset</TableHead>
-                                <TableHead className="w-20">Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {visibleAssets.map((asset) => (
-                                <TableRow
-                                  key={asset.id}
-                                  className={`${getStatusRowClass(asset.status)} hover:bg-muted/50`}
-                                >
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      {getStatusIcon(asset.status)}
+                          <div className="max-h-96 overflow-y-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-12 py-2">
+                                    Status
+                                  </TableHead>
+                                  <TableHead className="py-2">
+                                    Product Name
+                                  </TableHead>
+                                  <TableHead className="w-32 py-2">
+                                    Article ID
+                                  </TableHead>
+                                  <TableHead className="w-24 py-2">
+                                    Priority
+                                  </TableHead>
+                                  <TableHead className="w-24 py-2">
+                                    Price
+                                  </TableHead>
+                                  <TableHead className="w-32 py-2">
+                                    Category
+                                  </TableHead>
+                                  <TableHead className="w-24 py-2">
+                                    GLB
+                                  </TableHead>
+                                  <TableHead className="w-24 py-2">
+                                    Asset
+                                  </TableHead>
+                                  <TableHead className="w-20 py-2">
+                                    Actions
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {visibleAssets.map((asset) => (
+                                  <TableRow
+                                    key={asset.id}
+                                    className={`${getStatusRowClass(asset.status)} hover:bg-muted/50`}
+                                  >
+                                    <TableCell className="py-2">
+                                      <div className="flex items-center gap-2">
+                                        {getStatusIcon(asset.status)}
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-xs ${getStatusColor(asset.status)}`}
+                                        >
+                                          {asset.status ===
+                                          "delivered_by_artist"
+                                            ? "Waiting for Approval"
+                                            : asset.status === "in_production"
+                                              ? "In Progress"
+                                              : asset.status === "revisions"
+                                                ? "Sent for Revision"
+                                                : asset.status ===
+                                                    "approved_by_client"
+                                                  ? "Approved by Client"
+                                                  : asset.status === "approved"
+                                                    ? "Approved"
+                                                    : asset.status}
+                                        </Badge>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <div className="font-medium">
+                                        {highlightMatch(
+                                          asset.product_name,
+                                          searchTerm
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <span className="text-xs text-muted-foreground font-mono">
+                                        {
+                                          highlightMatch(
+                                            asset.article_id,
+                                            searchTerm
+                                          ) as any
+                                        }
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="py-2">
                                       <Badge
                                         variant="outline"
-                                        className={`text-xs ${getStatusColor(asset.status)}`}
+                                        className={`text-xs ${getPriorityClass(asset.priority)}`}
                                       >
-                                        {asset.status === "delivered_by_artist"
-                                          ? "Waiting for Approval"
-                                          : asset.status === "in_production"
-                                            ? "In Progress"
-                                            : asset.status === "revisions"
-                                              ? "Sent for Revision"
-                                              : asset.status ===
-                                                  "approved_by_client"
-                                                ? "Approved by Client"
-                                                : asset.status === "approved"
-                                                  ? "Approved"
-                                                  : asset.status}
+                                        {getPriorityLabel(asset.priority)}
                                       </Badge>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="font-medium">
-                                      {highlightMatch(
-                                        asset.product_name,
-                                        searchTerm
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <span className="text-xs text-muted-foreground font-mono">
-                                      {
-                                        highlightMatch(
-                                          asset.article_id,
-                                          searchTerm
-                                        ) as any
-                                      }
-                                    </span>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge
-                                      variant="outline"
-                                      className={`text-xs ${getPriorityClass(asset.priority)}`}
-                                    >
-                                      {getPriorityLabel(asset.priority)}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    {asset.price ? (
-                                      <div className="flex items-center gap-1">
-                                        <Euro className="h-3 w-3 text-success" />
-                                        <span className="font-semibold">
-                                          €{asset.price.toFixed(2)}
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <span className="text-muted-foreground text-sm">
-                                        -
-                                      </span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="text-sm">
-                                      {highlightMatch(
-                                        asset.category,
-                                        searchTerm
-                                      )}
-                                      {asset.subcategory && (
-                                        <div className="text-xs text-muted-foreground">
-                                          {highlightMatch(
-                                            asset.subcategory,
-                                            searchTerm
-                                          )}
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      {asset.price ? (
+                                        <div className="flex items-center gap-1 align-middle justify-center text-center text-sm ">
+                                          <Euro className="h-3 w-3 text-success" />
+                                          <span className="font-semibold">
+                                            {asset.price.toFixed(2)}
+                                          </span>
                                         </div>
+                                      ) : (
+                                        <span className="text-muted-foreground text-sm">
+                                          -
+                                        </span>
                                       )}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex flex-col gap-1">
-                                      {asset.glb_link ? (
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <div className="text-sm">
+                                        {highlightMatch(
+                                          asset.category,
+                                          searchTerm
+                                        )}
+                                        {asset.subcategory && (
+                                          <div className="text-xs text-muted-foreground">
+                                            {highlightMatch(
+                                              asset.subcategory,
+                                              searchTerm
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <div className="flex flex-col gap-1">
+                                        {asset.glb_link ? (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                              handleFileDownload(
+                                                asset.glb_link!,
+                                                `${asset.product_name}-${asset.article_id}.glb`
+                                              )
+                                            }
+                                            className="text-xs h-6 px-2 w-full hover:text-blue-700 hover:underline"
+                                          >
+                                            <Download className="h-3 w-3 mr-1" />
+                                            Download
+                                          </Button>
+                                        ) : null}
+                                        <Button
+                                          variant={
+                                            asset.glb_link ? "ghost" : "default"
+                                          }
+                                          size="sm"
+                                          onClick={() =>
+                                            handleOpenUploadDialog(asset, "glb")
+                                          }
+                                          disabled={uploadingGLB === asset.id}
+                                          className={`text-xs h-6 px-2 w-full ${
+                                            asset.glb_link
+                                              ? "hover:text-blue-700 hover:underline"
+                                              : " text-white"
+                                          }`}
+                                        >
+                                          {uploadingGLB === asset.id ? (
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1" />
+                                          ) : (
+                                            <Upload className="h-3 w-3 mr-1" />
+                                          )}
+                                          {asset.glb_link
+                                            ? "Update GLB"
+                                            : "Upload GLB"}
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <div className="flex flex-col gap-1">
                                         <Button
                                           variant="outline"
                                           size="sm"
+                                          onClick={() => {
+                                            setSelectedAssetForView(asset);
+                                            setShowViewRefDialog(true);
+                                          }}
+                                          className="text-xs h-6 px-2 w-full border-gray-200 text-gray-700 hover:bg-gray-50"
+                                        >
+                                          <FileText className="h-3 w-3 mr-1" />
+                                          Ref (
+                                          {separateReferences(
+                                            asset.reference || null
+                                          ).imageReferences.length +
+                                            separateReferences(
+                                              asset.reference || null
+                                            ).glbFiles.length}
+                                          )
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <div className="flex flex-col items-center gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="w-full h-6 px-2 text-xs hover:text-purple-700 hover:underline"
                                           onClick={() =>
-                                            handleFileDownload(
-                                              asset.glb_link!,
-                                              `${asset.product_name}-${asset.article_id}.glb`
+                                            router.push(
+                                              `/modeler-review/${asset.id}`
                                             )
                                           }
-                                          className="text-xs h-8 px-3 w-full border-blue-200 text-blue-700 hover:bg-blue-50"
                                         >
-                                          <Download className="h-3 w-3 mr-1" />
-                                          Download
+                                          <Eye className="h-4 w-4 mr-1" />
                                         </Button>
-                                      ) : null}
-                                      <Button
-                                        variant={
-                                          asset.glb_link ? "outline" : "default"
-                                        }
-                                        size="sm"
-                                        onClick={() =>
-                                          handleOpenUploadDialog(asset, "glb")
-                                        }
-                                        disabled={uploadingGLB === asset.id}
-                                        className={`text-xs h-8 px-3 w-full ${
-                                          asset.glb_link
-                                            ? "border-blue-200 text-blue-700 hover:bg-blue-50"
-                                            : "bg-blue-600 hover:bg-blue-700"
-                                        }`}
-                                      >
-                                        {uploadingGLB === asset.id ? (
-                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1" />
-                                        ) : (
-                                          <Upload className="h-3 w-3 mr-1" />
-                                        )}
-                                        {asset.glb_link ? "Update" : "Upload"}
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex flex-col gap-1">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleOpenUploadDialog(asset, "asset")
-                                        }
-                                        disabled={uploadingFile === asset.id}
-                                        className="text-xs h-8 px-3 w-full border-green-200 text-green-700 hover:bg-green-50"
-                                      >
-                                        {uploadingFile === asset.id ? (
-                                          <div className="animate-spin rounded-full h-3 w-3  border-current mr-1" />
-                                        ) : (
-                                          <Image className="h-3 w-3 mr-1" />
-                                        )}
-                                        Upload
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleOpenFilesManager(asset)
-                                        }
-                                        className="text-xs h-8 px-3 w-full border-gray-200 text-gray-700 hover:bg-gray-50"
-                                      >
-                                        <FolderOpen className="h-3 w-3 mr-1" />
-                                        Files
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex flex-col items-center gap-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full h-8 px-3 text-xs border-purple-200 text-purple-700 hover:bg-purple-50"
-                                        onClick={() =>
-                                          handleViewAsset(asset.id)
-                                        }
-                                      >
-                                        <Eye className="h-3 w-3 mr-1" />
-                                        View
-                                      </Button>
 
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full h-8 px-3 text-xs border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        onClick={() =>
-                                          handleOpenProductLink(
-                                            asset.product_link || ""
-                                          )
-                                        }
-                                        disabled={!asset.product_link}
-                                      >
-                                        <Link2 className="h-3 w-3 mr-1" />
-                                        Product
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="w-full h-6 px-2 text-xs hover:text-blue-700 hover:underline"
+                                          onClick={() =>
+                                            handleOpenProductLink(
+                                              asset.product_link || ""
+                                            )
+                                          }
+                                          disabled={!asset.product_link}
+                                        >
+                                          <Link2 className="h-4 w-4 mr-1" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
                         </div>
                       </AccordionContent>
                     </div>
@@ -2115,20 +2288,255 @@ export default function BatchDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Asset Files Manager */}
-      {selectedAssetForFiles && (
-        <ErrorBoundary>
-          <AssetFilesManager
-            assetId={selectedAssetForFiles.id}
-            isOpen={filesManagerOpen}
-            onClose={() => {
-              setFilesManagerOpen(false);
-              setSelectedAssetForFiles(null);
-            }}
-            onFilesChange={safeFetchBatchAssets}
-          />
-        </ErrorBoundary>
-      )}
+      {/* Add Reference Dialog */}
+      <Dialog open={showAddRefDialog} onOpenChange={setShowAddRefDialog}>
+        <DialogContent className="sm:max-w-[500px] h-fit">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">
+              Add Reference or GLB File
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Add a reference image URL or upload a reference/GLB file.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Mode Toggle */}
+          <div className="flex gap-2 p-1 bg-muted rounded-lg">
+            <Button
+              variant={uploadMode === "url" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setUploadMode("url")}
+              className="flex-1"
+            >
+              URL
+            </Button>
+            <Button
+              variant={uploadMode === "file" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setUploadMode("file")}
+              className="flex-1"
+            >
+              File Upload
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {uploadMode === "url" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">
+                  Image URL *
+                </label>
+                <Input
+                  type="url"
+                  placeholder="https://example.com/image.jpg"
+                  value={referenceUrl}
+                  onChange={(e) => setReferenceUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAddReferenceUrl();
+                    }
+                  }}
+                  className="border-border focus:border-primary"
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">
+                  Upload File *
+                </label>
+                <Input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.glb"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="border-border focus:border-primary"
+                  key={`file-input-${selectedAssetForRef || "none"}`}
+                />
+                {selectedFile && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {selectedFile.name} (
+                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <Button
+              onClick={() => {
+                setReferenceUrl("");
+                setSelectedFile(null);
+                setSelectedAssetForRef(null);
+                setShowAddRefDialog(false);
+                setUploadMode("url");
+              }}
+              variant="outline"
+              className="cursor-pointer"
+              disabled={uploading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={
+                uploadMode === "url"
+                  ? handleAddReferenceUrl
+                  : handleReferenceFileUpload
+              }
+              disabled={
+                uploading ||
+                (uploadMode === "url" ? !referenceUrl.trim() : !selectedFile)
+              }
+              className="cursor-pointer"
+            >
+              {uploading ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                  Uploading...
+                </>
+              ) : (
+                `Add ${uploadMode === "url" ? "URL" : "File"}`
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View References Dialog */}
+      <Dialog open={showViewRefDialog} onOpenChange={setShowViewRefDialog}>
+        <DialogContent className="sm:max-w-[600px] h-fit max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">
+              References - {selectedAssetForView?.product_name || "Asset"}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              View and manage all reference images for this asset.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {(() => {
+              // Get all files (GLB + references)
+              const allReferences = selectedAssetForView
+                ? parseReferences(selectedAssetForView.reference)
+                : [];
+              const hasDirectGlb = selectedAssetForView?.glb_link;
+
+              // Combine all files into one list
+              const allFiles = [];
+
+              // Add direct GLB if exists
+              if (hasDirectGlb) {
+                allFiles.push({
+                  url: selectedAssetForView.glb_link,
+                  type: "glb",
+                  name: "GLB Model",
+                });
+              }
+
+              // Add references (filter out duplicates of direct GLB)
+              allReferences.forEach((ref, index) => {
+                if (!hasDirectGlb || ref !== selectedAssetForView.glb_link) {
+                  const isGlb = ref.toLowerCase().endsWith(".glb");
+                  allFiles.push({
+                    url: ref,
+                    type: isGlb ? "glb" : "reference",
+                    name: isGlb
+                      ? `GLB File ${index + 1}`
+                      : `Reference ${index + 1}`,
+                  });
+                }
+              });
+
+              return allFiles.length > 0 ? (
+                <div className="space-y-2">
+                  {allFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {file.type === "glb" ? (
+                          <Package className="h-4 w-4 text-primary flex-shrink-0" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {file.url}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (file.type === "glb") {
+                            // Download GLB files
+                            const link = document.createElement("a");
+                            link.href = file.url;
+                            link.download = `${selectedAssetForView?.product_name || "model"}.glb`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } else {
+                            // Open reference files in new tab
+                            window.open(file.url, "_blank");
+                          }
+                        }}
+                        className="text-xs flex-shrink-0"
+                      >
+                        {file.type === "glb" ? (
+                          <>
+                            <Download className="h-3 w-3 mr-1" />
+                            Download
+                          </>
+                        ) : (
+                          <>
+                            <Link2 className="h-3 w-3 mr-1" />
+                            Open
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">No files found</p>
+                  <p className="text-xs text-muted-foreground">
+                    Click "Add Reference" to upload files
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <Button
+              onClick={() => {
+                setSelectedAssetForRef(selectedAssetForView?.id);
+                setShowViewRefDialog(false);
+                setShowAddRefDialog(true);
+              }}
+              variant="outline"
+              className="cursor-pointer"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Add Reference
+            </Button>
+            <Button
+              onClick={() => setShowViewRefDialog(false)}
+              className="cursor-pointer"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

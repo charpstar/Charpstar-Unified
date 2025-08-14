@@ -10,6 +10,14 @@ import {
 } from "@/components/ui/containers";
 import { Card } from "@/components/ui/containers";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/display";
+import {
   CheckCircle,
   FileDown,
   FileText,
@@ -29,6 +37,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/utilities";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/feedback";
+import { notificationService } from "@/lib/notificationService";
 
 const steps = [
   {
@@ -220,6 +229,25 @@ export default function CsvUploadPage() {
         title: "🎉 Upload Success!",
         description: `${successCount} assets successfully uploaded!`,
       });
+
+      // Send notification to admin users about new product submission
+      try {
+        await notificationService.sendProductSubmissionNotification({
+          client: user?.metadata?.client || "Unknown Client",
+          batch: 1, // CSV uploads typically go to batch 1
+          productCount: successCount,
+          productNames: [], // CSV uploads don't have individual product names easily accessible
+          submittedAt: new Date().toISOString(),
+        });
+        console.log("📦 CSV product submission notification sent successfully");
+      } catch (notificationError) {
+        console.error(
+          "Failed to send CSV product submission notification:",
+          notificationError
+        );
+        // Don't fail the CSV upload if notification fails
+      }
+
       // Update user metadata
       const { error: userError } = await supabase
         .from("profiles")
@@ -275,7 +303,7 @@ export default function CsvUploadPage() {
         : -1;
 
   return (
-    <div className="h-full bg-gradient-to-br from-background via-background to-muted/20 flex flex-col items-center justify-center p-8">
+    <div className="h-full flex flex-col items-center justify-center p-8">
       {/* Enhanced Header with Welcome Message */}
       <div className="w-full max-w-4xl mb-8">
         <div className="text-center mb-6">
@@ -284,7 +312,7 @@ export default function CsvUploadPage() {
               <FileSpreadsheet className="h-12 w-12 text-primary animate-pulse" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             CSV Data Upload
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -297,12 +325,12 @@ export default function CsvUploadPage() {
 
       {/* Enhanced Progress Stepper */}
       <div className="w-full max-w-4xl mb-8">
-        <Card className="p-6 bg-background/80 backdrop-blur-sm border-primary/20">
+        <Card className="p-6 border">
           <div className="relative">
             {/* Progress Line */}
             <div className="absolute top-6 left-0 w-full h-1 bg-muted rounded-full">
               <div
-                className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full transition-all duration-700 ease-out"
+                className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
                 style={{
                   width: `${((currentStep + 1) / steps.length) * 100}%`,
                 }}
@@ -351,7 +379,7 @@ export default function CsvUploadPage() {
 
       {/* Main Upload Area */}
       <div className="w-full max-w-4xl">
-        <Card className="relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5 border-primary/20">
+        <Card className="border">
           {/* Download Template Section */}
           <div className="p-8 border-b border-border/50">
             <div className="flex items-center justify-between">
@@ -444,7 +472,7 @@ export default function CsvUploadPage() {
                       <p className="text-lg font-semibold mb-2">Uploading...</p>
                       <div className="w-48 h-2 bg-muted rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full transition-all duration-300"
+                          className="h-full bg-primary rounded-full transition-all duration-300"
                           style={{ width: `${uploadProgress}%` }}
                         />
                       </div>
@@ -537,40 +565,37 @@ export default function CsvUploadPage() {
                 className={`overflow-auto ${csvPreview && csvPreview.length > 11 ? "max-h-120" : "h-fit"}`}
               >
                 {csvPreview ? (
-                  <table className="min-w-full text-sm">
-                    <thead className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                       {csvPreview[0] && (
-                        <tr>
+                        <TableRow className="p-4">
                           {csvPreview[0].map((cell, j) => (
-                            <th
+                            <TableHead
                               key={j}
-                              className="px-4 py-3 text-left font-semibold text-primary bg-primary/5"
+                              className="font-semibold text-primary bg-primary/5"
                             >
                               {cell}
-                            </th>
+                            </TableHead>
                           ))}
-                        </tr>
+                        </TableRow>
                       )}
-                    </thead>
-                    <tbody className="divide-y divide-border">
+                    </TableHeader>
+                    <TableBody>
                       {csvPreview.slice(1).map((row, i) => (
-                        <tr
-                          key={i}
-                          className="hover:bg-muted/30 transition-colors"
-                        >
+                        <TableRow key={i} className="p-2">
                           {row.map((cell, j) => (
-                            <td key={j} className="px-4 py-3 text-sm">
+                            <TableCell key={j} className="text-sm p-4">
                               {cell || (
                                 <span className="text-muted-foreground italic">
                                   empty
                                 </span>
                               )}
-                            </td>
+                            </TableCell>
                           ))}
-                        </tr>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 ) : (
                   <div className="p-8 text-center text-muted-foreground">
                     No preview available.

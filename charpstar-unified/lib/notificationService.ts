@@ -1,5 +1,4 @@
 import { supabase } from "./supabaseClient";
-import { emailService } from "./emailService";
 
 export interface NotificationData {
   id?: string;
@@ -10,7 +9,9 @@ export interface NotificationData {
     | "asset_completed"
     | "deadline_reminder"
     | "qa_review"
-    | "status_change";
+    | "status_change"
+    | "budget_alert"
+    | "product_submission";
   title: string;
   message: string;
   metadata?: Record<string, any>;
@@ -27,6 +28,20 @@ export interface AssetAllocationNotification {
   price: number;
   bonus: number;
   client: string;
+}
+
+export interface BudgetAlertNotification {
+  totalSpent: number;
+  threshold: number;
+  alertLevel: "warning" | "critical" | "alert";
+}
+
+export interface ProductSubmissionNotification {
+  client: string;
+  batch: number;
+  productCount: number;
+  productNames: string[];
+  submittedAt: string;
 }
 
 class NotificationService {
@@ -138,87 +153,15 @@ class NotificationService {
     // Create notification in database
     await this.createNotification(notification);
 
-    // Send email notification
-    try {
-      await emailService.sendAssetAllocationEmail(
-        modelerEmail,
-        assetNames,
-        client,
-        deadline,
-        price,
-        bonus
-      );
-    } catch (emailError) {
-      console.error("Failed to send email notification:", emailError);
-      // Don't throw - email failure shouldn't break the notification process
-    }
-  }
-
-  private generateAssetAllocationEmailHTML(
-    data: AssetAllocationNotification
-  ): string {
-    const { assetNames, deadline, price, bonus, client } = data;
-    const totalAssets = assetNames.length;
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>New Assets Assigned</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-          .content { background: white; padding: 20px; border-radius: 8px; }
-          .asset-list { background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0; }
-          .asset-item { padding: 8px 0; border-bottom: 1px solid #e9ecef; }
-          .asset-item:last-child { border-bottom: none; }
-          .highlight { background: #e3f2fd; padding: 10px; border-radius: 4px; margin: 15px 0; }
-          .button { display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 6px; margin-top: 15px; }
-          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef; font-size: 14px; color: #6c757d; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0; color: #007bff;">🎯 New Assets Assigned</h1>
-            <p style="margin: 10px 0 0 0; color: #6c757d;">You have new assets to work on!</p>
-          </div>
-          
-          <div class="content">
-            <h2>Hello!</h2>
-            <p>You have been assigned <strong>${totalAssets} new asset(s)</strong> for <strong>${client}</strong>.</p>
-            
-            <div class="highlight">
-              <h3 style="margin: 0 0 10px 0;">📋 Assignment Details</h3>
-              <p><strong>Client:</strong> ${client}</p>
-              <p><strong>Deadline:</strong> ${new Date(deadline).toLocaleDateString()}</p>
-              <p><strong>Price per Asset:</strong> $${price}</p>
-              ${bonus > 0 ? `<p><strong>Bonus:</strong> ${bonus}%</p>` : ""}
-            </div>
-            
-            <h3>📦 Assigned Assets:</h3>
-            <div class="asset-list">
-              ${assetNames.map((name) => `<div class="asset-item">• ${name}</div>`).join("")}
-            </div>
-            
-            <p>Please review the assets and begin work as soon as possible to meet the deadline.</p>
-            
-            <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/my-assignments" class="button">
-              View My Assignments
-            </a>
-          </div>
-          
-          <div class="footer">
-            <p>This is an automated notification from Charpstar Unified.</p>
-            <p>If you have any questions, please contact your project manager.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    // TODO: Email notification removed - will implement in later stage
+    console.log("📧 Email notification would be sent for asset allocation:", {
+      to: modelerEmail,
+      assetNames,
+      client,
+      deadline,
+      price,
+      bonus,
+    });
   }
 
   async sendAssetCompletedNotification(
@@ -242,17 +185,12 @@ class NotificationService {
 
     await this.createNotification(notification);
 
-    // Send email notification
-    try {
-      await emailService.sendAssetCompletedEmail(
-        modelerEmail,
-        assetName,
-        client
-      );
-    } catch (emailError) {
-      console.error("Failed to send email notification:", emailError);
-      // Don't throw - email failure shouldn't break the notification process
-    }
+    // TODO: Email notification removed - will implement in later stage
+    console.log("📧 Email notification would be sent for asset completion:", {
+      to: modelerEmail,
+      assetName,
+      client,
+    });
   }
 
   async sendRevisionNotification(
@@ -277,13 +215,12 @@ class NotificationService {
 
     await this.createNotification(notification);
 
-    // Send email notification
-    try {
-      await emailService.sendRevisionEmail(modelerEmail, assetName, client);
-    } catch (emailError) {
-      console.error("Failed to send email notification:", emailError);
-      // Don't throw - email failure shouldn't break the notification process
-    }
+    // TODO: Email notification removed - will implement in later stage
+    console.log("📧 Email notification would be sent for revision request:", {
+      to: modelerEmail,
+      assetName,
+      client,
+    });
   }
 
   async sendDeadlineReminderNotification(
@@ -308,6 +245,255 @@ class NotificationService {
     };
 
     await this.createNotification(notification);
+  }
+
+  async sendBudgetAlertNotification(
+    productionUserIds: string[],
+    data: BudgetAlertNotification
+  ): Promise<void> {
+    const { totalSpent, threshold, alertLevel } = data;
+
+    // Get production/admin user profiles
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, email")
+      .in("id", productionUserIds);
+
+    if (profilesError) {
+      console.error("Error fetching production user profiles:", profilesError);
+      return;
+    }
+
+    if (!profiles || profiles.length === 0) {
+      console.log("No production users found for budget notifications");
+      return;
+    }
+
+    // Create notifications for each production/admin user
+    for (const profile of profiles) {
+      // Check if a budget alert for this threshold already exists for this user
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: existingBudgetAlerts, error: checkError } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("recipient_id", profile.id)
+        .eq("type", "budget_alert")
+        .eq("metadata->>threshold", threshold.toString())
+        .gte("created_at", fiveMinutesAgo)
+        .limit(1);
+
+      if (checkError) {
+        console.error("Error checking for existing budget alerts:", checkError);
+        // Continue with creation even if check fails
+      } else if (existingBudgetAlerts && existingBudgetAlerts.length > 0) {
+        console.log(
+          "Budget alert for threshold €" +
+            threshold +
+            " already exists for user " +
+            profile.email +
+            ", skipping creation"
+        );
+        continue; // Skip creating duplicate budget alert
+      }
+
+      const notification: Omit<NotificationData, "created_at"> = {
+        recipient_id: profile.id,
+        recipient_email: profile.email,
+        type: "budget_alert",
+        title: this.getBudgetAlertTitle(alertLevel, threshold),
+        message: this.getBudgetAlertMessage(alertLevel, totalSpent, threshold),
+        metadata: {
+          totalSpent,
+          threshold,
+          alertLevel,
+          timestamp: new Date().toISOString(),
+        },
+        read: false,
+      };
+
+      // Create notification in database
+      await this.createNotification(notification);
+
+      // TODO: Email notification removed - will implement in later stage
+      console.log("📧 Budget alert email would be sent:", {
+        to: profile.email,
+        alertLevel,
+        totalSpent,
+        threshold,
+      });
+    }
+  }
+
+  /**
+   * Send notification to admin users when a client submits new products
+   */
+  async sendProductSubmissionNotification(
+    data: ProductSubmissionNotification
+  ): Promise<void> {
+    const { client, batch, productCount, productNames, submittedAt } = data;
+
+    try {
+      // Get all admin users to send notifications to
+      const adminUserIds = await this.getProductionAdminUsers();
+
+      if (adminUserIds.length === 0) {
+        console.log(
+          "❌ No admin users found for product submission notifications"
+        );
+        return;
+      }
+
+      console.log(
+        `📦 Sending product submission notifications to ${adminUserIds.length} admin users`
+      );
+
+      // Create notifications for each admin user
+      for (const adminId of adminUserIds) {
+        // Check if a notification for this batch already exists for this user
+        const fiveMinutesAgo = new Date(
+          Date.now() - 5 * 60 * 1000
+        ).toISOString();
+        const { data: existingNotifications, error: checkError } =
+          await supabase
+            .from("notifications")
+            .select("id")
+            .eq("recipient_id", adminId)
+            .eq("type", "product_submission")
+            .eq("metadata->>client", client)
+            .eq("metadata->>batch", batch.toString())
+            .gte("created_at", fiveMinutesAgo)
+            .limit(1);
+
+        if (checkError) {
+          console.error(
+            "Error checking for existing product submission notifications:",
+            checkError
+          );
+          // Continue with creation even if check fails
+        } else if (existingNotifications && existingNotifications.length > 0) {
+          console.log(
+            `Product submission notification for ${client} batch ${batch} already exists for admin user, skipping creation`
+          );
+          continue; // Skip creating duplicate notification
+        }
+
+        const notification: Omit<NotificationData, "created_at"> = {
+          recipient_id: adminId,
+          recipient_email: "", // Will be filled by createNotification
+          type: "product_submission",
+          title: `📦 New Products Submitted - ${client}`,
+          message: `${client} has submitted ${productCount} new product(s) for batch ${batch}.`,
+          metadata: {
+            client,
+            batch,
+            productCount,
+            productNames: productNames.slice(0, 5), // Limit to first 5 names to avoid metadata bloat
+            submittedAt,
+            timestamp: new Date().toISOString(),
+          },
+          read: false,
+        };
+
+        // Create notification in database
+        await this.createNotification(notification);
+
+        console.log(
+          `✅ Product submission notification sent to admin user ${adminId}`
+        );
+      }
+
+      // Trigger global notification update event
+      window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+    } catch (error) {
+      console.error(
+        "❌ Error sending product submission notifications:",
+        error
+      );
+    }
+  }
+
+  /**
+   * Get all users with admin role for budget notifications
+   * @returns Array of user IDs
+   */
+  async getProductionAdminUsers(): Promise<string[]> {
+    try {
+      console.log("🔍 Fetching admin users...");
+
+      // Query for users with admin role (this is the only valid role available)
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("id, email, role")
+        .eq("role", "admin");
+
+      if (error) {
+        console.error("❌ Error fetching admin users:", error);
+        return [];
+      }
+
+      console.log("👥 Raw profiles query result:", profiles);
+
+      if (!profiles || profiles.length === 0) {
+        console.log("⚠️ No profiles found with admin role");
+
+        // Fallback: Let's see what roles actually exist in the database
+        const { data: allProfiles, error: allError } = await supabase
+          .from("profiles")
+          .select("id, email, role")
+          .limit(10);
+
+        if (!allError && allProfiles) {
+          console.log(
+            "🔍 Sample profiles to check available roles:",
+            allProfiles
+          );
+          const availableRoles = [...new Set(allProfiles.map((p) => p.role))];
+          console.log("📋 Available roles in database:", availableRoles);
+        }
+
+        return [];
+      }
+
+      const userIds = profiles.map((profile) => profile.id);
+      console.log("✅ Admin user IDs found:", userIds);
+
+      return userIds;
+    } catch (error) {
+      console.error("❌ Error in getProductionAdminUsers:", error);
+      return [];
+    }
+  }
+
+  private getBudgetAlertTitle(alertLevel: string, threshold: number): string {
+    switch (alertLevel) {
+      case "critical":
+        return `🚨 CRITICAL: Budget Exceeded €${threshold}`;
+      case "warning":
+        return `⚠️ WARNING: Budget Exceeded €${threshold}`;
+      case "alert":
+        return `🔶 ALERT: Budget Exceeded €${threshold}`;
+      default:
+        return `Budget Alert - €${threshold}`;
+    }
+  }
+
+  private getBudgetAlertMessage(
+    alertLevel: string,
+    totalSpent: number,
+    threshold: number
+  ): string {
+    const remaining = 4500 - totalSpent;
+
+    switch (alertLevel) {
+      case "critical":
+        return `Budget has exceeded €${threshold}! Current spending: €${totalSpent.toFixed(2)}. Remaining budget: €${remaining.toFixed(2)}. Immediate action required.`;
+      case "warning":
+        return `Budget has exceeded €${threshold}! Current spending: €${totalSpent.toFixed(2)}. Remaining budget: €${remaining.toFixed(2)}. Approaching critical limit.`;
+      case "alert":
+        return `Budget has exceeded €${threshold}! Current spending: €${totalSpent.toFixed(2)}. Remaining budget: €${remaining.toFixed(2)}. Monitor spending closely.`;
+      default:
+        return `Budget alert triggered at €${threshold}. Current spending: €${totalSpent.toFixed(2)}.`;
+    }
   }
 
   async markNotificationAsRead(notificationId: string): Promise<void> {

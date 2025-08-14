@@ -17,6 +17,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/containers";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/display";
 import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
 import { toast } from "@/components/ui/utilities";
 import {
@@ -45,7 +53,7 @@ import {
 
 import { Loader2 } from "lucide-react";
 
-import { Input } from "@/components/ui";
+import { Input } from "@/components/ui/inputs";
 import { useRouter } from "next/navigation";
 
 interface UploadedFile {
@@ -526,13 +534,13 @@ export default function ReferenceImagesPage() {
     totalAssets > 0 ? (assetsWithReferences / totalAssets) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="">
       {/* Completion Animation Overlay */}
       {showCompletionAnimation && (
-        <div className="fixed inset-0 bg-gradient-to-b from-transparent to-background/80 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-background/80 z-50 flex items-center justify-center">
           <div className="text-center space-y-6">
             <div className="relative">
-              <div className="h-24 w-24 mx-auto rounded-full bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+              <div className="h-24 w-24 mx-auto rounded-full bg-green-500 flex items-center justify-center shadow-lg">
                 <Trophy className="h-12 w-12 text-white" />
               </div>
               <Sparkles className="h-8 w-8 text-yellow-500 absolute -top-3 -right-3 animate-pulse" />
@@ -551,21 +559,20 @@ export default function ReferenceImagesPage() {
       )}
 
       <div className="container mx-auto p-6 space-y-6">
-        {/* Enhanced Header */}
-        <Card className="relative overflow-hidden bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-primary/20">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent" />
-          <CardContent className="relative pt-8 pb-8">
+        {/* Header */}
+        <Card className="border">
+          <CardContent className="pt-8 pb-8">
             <div className="text-center space-y-6">
               <div className="flex items-center justify-center gap-3 mb-4">
-                <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-full bg-gray-500 flex items-center justify-center">
                   <Image className="h-6 w-6 text-white" />
                 </div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                <h1 className="text-3xl font-bold text-foreground">
                   Reference Files Upload
                 </h1>
               </div>
 
-              <p className="max-w-7xl text-lg text-muted-foreground mx-auto leading-relaxed">
+              <p className="max-w-7xl text-sm text-muted-foreground mx-auto leading-relaxed">
                 <strong>
                   Reference files are optional but highly recommended!
                 </strong>{" "}
@@ -595,7 +602,7 @@ export default function ReferenceImagesPage() {
               <div className="w-full max-w-md mx-auto">
                 <div className="w-full bg-muted rounded-full h-2">
                   <div
-                    className="bg-gradient-to-r from-primary to-primary/60 h-2 rounded-full transition-all duration-500"
+                    className="bg-primary h-2 rounded-full transition-all duration-500"
                     style={{ width: `${progressPercentage}%` }}
                   />
                 </div>
@@ -647,11 +654,11 @@ export default function ReferenceImagesPage() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left p-3">
+              <div className="overflow-x-auto rounded-lg border bg-background flex-1 max-h-[50vh] min-h-[50vh]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
                         <Input
                           type="checkbox"
                           checked={selected.size === assets.length}
@@ -661,24 +668,21 @@ export default function ReferenceImagesPage() {
                           className="rounded h-4 w-4"
                           aria-invalid="false"
                         />
-                      </th>
-                      <th className="text-left p-3 font-medium">Product</th>
-                      <th className="text-left p-3 font-medium">Article ID</th>
-                      <th className="text-left p-3 font-medium">References</th>
-                      <th className="text-left p-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                      </TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Article ID</TableHead>
+                      <TableHead>References</TableHead>
+                      <TableHead className="w-16">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {assets.map((asset) => {
                       const refs = getReferenceArray(asset.reference);
                       const hasReferences = refs.length > 0;
 
                       return (
-                        <tr
-                          key={asset.id}
-                          className="border-b border-border hover:bg-muted/30 transition-colors"
-                        >
-                          <td className="p-3">
+                        <TableRow key={asset.id}>
+                          <TableCell>
                             <Input
                               type="checkbox"
                               checked={selected.has(asset.id)}
@@ -686,8 +690,8 @@ export default function ReferenceImagesPage() {
                               className="rounded h-4 w-4"
                               aria-invalid="false"
                             />
-                          </td>
-                          <td className="p-3">
+                          </TableCell>
+                          <TableCell>
                             <div>
                               <p className="font-medium">
                                 {asset.product_name}
@@ -697,15 +701,15 @@ export default function ReferenceImagesPage() {
                                 {asset.subcategory && `• ${asset.subcategory}`}
                               </p>
                             </div>
-                          </td>
-                          <td className="p-3">
+                          </TableCell>
+                          <TableCell>
                             <code className="text-sm bg-muted px-2 py-1 rounded">
                               {asset.article_id}
                             </code>
-                          </td>
-                          <td className="p-3">
+                          </TableCell>
+                          <TableCell>
                             {hasReferences ? (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2  p-2 align-middle text-center justify-center">
                                 <Badge variant="default" className="gap-1">
                                   <CheckCircle className="h-3 w-3" />
                                   {refs.length} file
@@ -726,9 +730,9 @@ export default function ReferenceImagesPage() {
                                 No files
                               </Badge>
                             )}
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-1">
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1  align-middle text-center justify-center">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -742,12 +746,12 @@ export default function ReferenceImagesPage() {
                                 <Plus className="h-4 w-4" />
                               </Button>
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
@@ -769,7 +773,6 @@ export default function ReferenceImagesPage() {
                 </>
               ) : (
                 <>
-                  <CheckCircle className="h-4 w-4" />
                   Complete Reference Files
                   <ArrowRight className="h-4 w-4" />
                 </>
@@ -780,7 +783,7 @@ export default function ReferenceImagesPage() {
 
         {/* Upload Dialog */}
         <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className=" h-fit overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl">
                 <Image className="h-5 w-5 text-primary" />

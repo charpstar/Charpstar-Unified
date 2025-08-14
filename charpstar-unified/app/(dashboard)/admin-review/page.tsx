@@ -108,12 +108,16 @@ const STATUS_LABELS = {
     color: "bg-blue-100 text-blue-700 border-blue-200",
   },
   delivered_by_artist: {
+    label: "Delivered by Artist",
+    color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
+  },
+  waiting_for_approval: {
     label: "Waiting for Approval",
     color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
   },
 };
 
-const PAGE_SIZE = 18;
+const PAGE_SIZE = 100;
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -147,6 +151,15 @@ const getStatusColor = (status: string) => {
     default:
       return "bg-muted text-muted-foreground border-border";
   }
+};
+
+// Helper function to check if status filters match specific combinations
+const isStatusFilterActive = (
+  currentFilters: string[],
+  targetFilters: string[]
+): boolean => {
+  if (currentFilters.length !== targetFilters.length) return false;
+  return targetFilters.every((filter) => currentFilters.includes(filter));
 };
 
 const calculateListStats = (list: any) => {
@@ -318,10 +331,10 @@ export default function AdminReviewPage() {
   const [cleanupResult, setCleanupResult] = useState<any>(null);
   const [showCleanupDialog, setShowCleanupDialog] = useState(false);
 
-  // Calculate status totals based on filtered data
+  // Calculate status totals based on unfiltered data (always show overall totals)
   const statusTotals = useMemo(() => {
     if (showAllocationLists) {
-      // Aggregate asset statuses from all assets within filtered allocation lists
+      // Aggregate asset statuses from all assets across all allocation lists (unfiltered)
       const totals = {
         total: 0, // Total assets across all lists
         in_production: 0,
@@ -329,14 +342,18 @@ export default function AdminReviewPage() {
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0,
+        waiting_for_approval: 0,
       };
 
-      filteredLists.forEach((list) => {
+      allocationLists.forEach((list) => {
         list.asset_assignments.forEach((assignment: any) => {
           const assetStatus = assignment.onboarding_assets.status;
           totals.total++;
           if (totals.hasOwnProperty(assetStatus)) {
             totals[assetStatus as keyof typeof totals]++;
+          }
+          if (assetStatus === "delivered_by_artist") {
+            totals.waiting_for_approval++;
           }
         });
       });
@@ -369,19 +386,23 @@ export default function AdminReviewPage() {
       return { totals, percentages } as const;
     } else {
       const totals = {
-        total: filtered.length,
+        total: assets.length,
         in_production: 0,
         revisions: 0,
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0, // Include not_started for consistency
+        waiting_for_approval: 0,
       };
 
-      filtered.forEach((asset) => {
+      assets.forEach((asset) => {
         const displayStatus = asset.status;
 
         if (displayStatus && totals.hasOwnProperty(displayStatus)) {
           totals[displayStatus as keyof typeof totals]++;
+        }
+        if (displayStatus === "delivered_by_artist") {
+          totals.waiting_for_approval++;
         }
       });
 
@@ -389,30 +410,30 @@ export default function AdminReviewPage() {
       const percentages = {
         total: 100,
         in_production:
-          filtered.length > 0
-            ? Math.round((totals.in_production / filtered.length) * 100)
+          assets.length > 0
+            ? Math.round((totals.in_production / assets.length) * 100)
             : 0,
         revisions:
-          filtered.length > 0
-            ? Math.round((totals.revisions / filtered.length) * 100)
+          assets.length > 0
+            ? Math.round((totals.revisions / assets.length) * 100)
             : 0,
         approved:
-          filtered.length > 0
-            ? Math.round((totals.approved / filtered.length) * 100)
+          assets.length > 0
+            ? Math.round((totals.approved / assets.length) * 100)
             : 0,
         delivered_by_artist:
-          filtered.length > 0
-            ? Math.round((totals.delivered_by_artist / filtered.length) * 100)
+          assets.length > 0
+            ? Math.round((totals.delivered_by_artist / assets.length) * 100)
             : 0,
         not_started:
-          filtered.length > 0
-            ? Math.round((totals.not_started / filtered.length) * 100)
+          assets.length > 0
+            ? Math.round((totals.not_started / assets.length) * 100)
             : 0,
       };
 
       return { totals, percentages } as const;
     }
-  }, [filtered, filteredLists, showAllocationLists]);
+  }, [assets, allocationLists, showAllocationLists]);
 
   // Handle URL parameters for client, batch, modeler, and status filters
   useEffect(() => {
@@ -1404,34 +1425,17 @@ export default function AdminReviewPage() {
           {/* Cleanup Controls */}
         </div>
 
-        {selected.size > 0 && (
-          <div className="flex justify-end mb-4">
-            <Button
-              onClick={() => {
-                // Navigate to the allocate page with selected assets
-                const selectedAssetIds = Array.from(selected);
-
-                // Create URL with selected asset IDs as query parameters
-                const params = new URLSearchParams();
-                selectedAssetIds.forEach((id) =>
-                  params.append("selectedAssets", id)
-                );
-
-                // Navigate to allocate page with selected assets
-                router.push(`/production/allocate?${params.toString()}`);
-              }}
-              className="flex items-center gap-2"
-            >
-              <Users className="h-4 w-4" />
-              Assign ({selected.size})
-            </Button>
-          </div>
-        )}
-
         {/* Status Summary Cards */}
         {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <Card className="p-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            {/* Total Models (no filtering on this card itself) */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters([]);
+                setPage(1);
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-info-muted rounded-lg">
                   <Package className="h-5 w-5 text-info" />
@@ -1447,7 +1451,18 @@ export default function AdminReviewPage() {
               </div>
             </Card>
 
-            <Card className="p-4">
+            {/* In Production */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters([
+                  "in_production",
+                  "delivered_by_artist",
+                  "not_started",
+                ]);
+                setPage(1);
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-warning-muted rounded-lg">
                   <Package className="h-5 w-5 text-warning" />
@@ -1465,7 +1480,14 @@ export default function AdminReviewPage() {
               </div>
             </Card>
 
-            <Card className="p-4">
+            {/* Approved */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["approved"]);
+                setPage(1);
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-success-muted rounded-lg">
                   <CheckCircle className="h-5 w-5 text-success" />
@@ -1481,7 +1503,14 @@ export default function AdminReviewPage() {
               </div>
             </Card>
 
-            <Card className="p-4">
+            {/* Sent for Revision */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["revisions"]);
+                setPage(1);
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-50 rounded-lg">
                   <Eye className="h-5 w-5 text-blue-600" />
@@ -1492,6 +1521,29 @@ export default function AdminReviewPage() {
                   </p>
                   <p className="text-2xl font-bold text-blue-600">
                     {statusTotals.totals.revisions}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Sent for Revision */}
+            <Card
+              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["waiting_for_approval"]);
+                setPage(1);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Eye className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Waiting for Approval
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {statusTotals.totals.waiting_for_approval}
                   </p>
                 </div>
               </div>
@@ -1672,6 +1724,32 @@ export default function AdminReviewPage() {
                 <X className="h-4 w-4 mr-1" />
                 Clear
               </Button>
+            )}
+
+            {selected.size > 0 && (
+              <div className="">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Navigate to the allocate page with selected assets
+                    const selectedAssetIds = Array.from(selected);
+
+                    // Create URL with selected asset IDs as query parameters
+                    const params = new URLSearchParams();
+                    selectedAssetIds.forEach((id) =>
+                      params.append("selectedAssets", id)
+                    );
+
+                    // Navigate to allocate page with selected assets
+                    router.push(`/production/allocate?${params.toString()}`);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Assign ({selected.size})
+                </Button>
+              </div>
             )}
           </div>
         )}
@@ -2254,54 +2332,6 @@ export default function AdminReviewPage() {
           </div>
         )}
         {/* Pagination - Always at bottom */}
-        <div className="flex items-center justify-center  gap-2  ">
-          <div className="text-sm text-muted-foreground">
-            {showAllocationLists
-              ? filteredLists.length === 0
-                ? "No items"
-                : `
-                    ${1 + (page - 1) * PAGE_SIZE}
-                    -
-                    ${Math.min(page * PAGE_SIZE, filteredLists.length)}
-                    of
-                    ${filteredLists.length}
-                    Items
-                  `
-              : filtered.length === 0
-                ? "No items"
-                : `
-                    ${1 + (page - 1) * PAGE_SIZE}
-                    -
-                    ${Math.min(page * PAGE_SIZE, filtered.length)}
-                    of
-                    ${filtered.length}
-                    Items
-                  `}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              disabled={page === 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="cursor-pointer"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              disabled={
-                page * PAGE_SIZE >=
-                (showAllocationLists ? filteredLists.length : filtered.length)
-              }
-              onClick={() => setPage((p) => p + 1)}
-              className="cursor-pointer"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
       </Card>
 
       {/* Cleanup Results Dialog */}

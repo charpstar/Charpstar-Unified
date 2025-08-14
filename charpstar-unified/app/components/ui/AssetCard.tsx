@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/display";
 import { motion } from "framer-motion";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface Asset {
@@ -44,6 +44,7 @@ export default function AssetCard({
   onSelect,
   viewMode = "grid",
 }: AssetCardProps) {
+  const router = useRouter();
   const [imgLoaded, setImgLoaded] = useState(false);
 
   const isCompactMode = viewMode === "compactGrid";
@@ -56,6 +57,10 @@ export default function AssetCard({
       setImgLoaded(false); // Reset for new image
     }
   }, [asset.preview_image]);
+
+  const handleViewAsset = () => {
+    router.push(`/asset-library/${asset.id}`);
+  };
 
   return (
     <motion.div
@@ -107,9 +112,9 @@ export default function AssetCard({
           <>
             {/* Image section */}
             <div className="flex-shrink-0 w-50 h-60 p-3">
-              <Link
-                href={`/asset-library/${asset.id}`}
-                className="block w-full h-full"
+              <div
+                onClick={handleViewAsset}
+                className="block w-full h-full cursor-pointer"
               >
                 <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
                   {asset.preview_image && asset.preview_image !== "" ? (
@@ -130,7 +135,7 @@ export default function AssetCard({
                     </div>
                   )}
                 </div>
-              </Link>
+              </div>
             </div>
 
             {/* Content section */}
@@ -244,14 +249,9 @@ export default function AssetCard({
                         variant="outline"
                         size="default"
                         className="group/btn dark:bg-muted dark:text-white  w-24"
+                        onClick={handleViewAsset}
                       >
-                        <Link
-                          href={`/asset-library/${asset.id}`}
-                          className="flex items-center justify-center gap-2"
-                          prefetch={true}
-                        >
-                          View
-                        </Link>
+                        View
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>View product details</TooltipContent>
@@ -290,9 +290,9 @@ export default function AssetCard({
             <CardHeader
               className={`flex-shrink-0 ${isCompactMode ? "p-1" : "p-2"}`}
             >
-              <Link
-                href={`/asset-library/${asset.id}`}
-                className="block w-full h-full"
+              <div
+                onClick={handleViewAsset}
+                className="block w-full h-full cursor-pointer"
               >
                 <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
                   {/* Image skeleton loader */}
@@ -324,7 +324,7 @@ export default function AssetCard({
                     transition={{ duration: 0.3 }}
                   />
                 </div>
-              </Link>
+              </div>
             </CardHeader>
 
             <CardContent
@@ -363,14 +363,9 @@ export default function AssetCard({
                       variant="outline"
                       size={isCompactMode ? "sm" : "sm"}
                       className="flex-1 group/btn dark:bg-muted dark:text-white transition-all "
+                      onClick={handleViewAsset}
                     >
-                      <Link
-                        href={`/asset-library/${asset.id}`}
-                        className="flex items-center justify-center gap-1"
-                        prefetch={true}
-                      >
-                        {isCompactMode ? "View" : "View"}
-                      </Link>
+                      {isCompactMode ? "View" : "View"}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>View product details</TooltipContent>

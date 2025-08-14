@@ -145,11 +145,8 @@ export async function POST(request: NextRequest) {
     // Update asset record based on file type
     const updateData: any = {};
 
-    if (fileType === "glb") {
-      updateData.glb_link = urlData.publicUrl;
-      updateData.status = "in_production";
-    } else if (fileType === "reference") {
-      // Get existing references and add new one
+    if (fileType === "glb" || fileType === "reference") {
+      // Get existing references and add new one (for both GLB and reference files)
       const { data: currentAsset } = await supabase
         .from("onboarding_assets")
         .select("reference")
@@ -157,11 +154,30 @@ export async function POST(request: NextRequest) {
         .single();
 
       const existingReferences = currentAsset?.reference || [];
-      const newReferences = Array.isArray(existingReferences)
-        ? [...existingReferences, urlData.publicUrl]
-        : [urlData.publicUrl];
+      let newReferences;
+
+      if (Array.isArray(existingReferences)) {
+        newReferences = [...existingReferences, urlData.publicUrl];
+      } else if (typeof existingReferences === "string") {
+        // Handle case where reference might be a JSON string
+        try {
+          const parsed = JSON.parse(existingReferences);
+          newReferences = Array.isArray(parsed)
+            ? [...parsed, urlData.publicUrl]
+            : [urlData.publicUrl];
+        } catch {
+          newReferences = [urlData.publicUrl];
+        }
+      } else {
+        newReferences = [urlData.publicUrl];
+      }
 
       updateData.reference = newReferences;
+
+      // For GLB files, also update status
+      if (fileType === "glb") {
+        updateData.status = "in_production";
+      }
     }
 
     if (Object.keys(updateData).length > 0) {
