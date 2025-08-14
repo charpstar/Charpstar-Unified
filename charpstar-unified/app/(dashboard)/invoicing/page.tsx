@@ -36,6 +36,7 @@ import {
   Download,
   Eye,
   X,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -57,11 +58,14 @@ interface ApprovedAsset {
   subcategory: string;
   priority: number;
   price: number;
-  bonus: number;
   approved_at: string;
   allocation_list_id: string;
   allocation_list_number: number;
   allocation_list_created_at: string;
+  allocation_lists?: {
+    bonus: number;
+    approved_at: string;
+  };
 }
 
 interface MonthlyPeriod {
@@ -263,11 +267,11 @@ export default function InvoicingPage() {
           subcategory: item.onboarding_assets.subcategory,
           priority: item.onboarding_assets.priority,
           price: item.price || 0,
-          bonus: item.allocation_lists.bonus || 0,
           approved_at: item.allocation_lists.approved_at,
           allocation_list_id: item.allocation_list_id,
           allocation_list_number: item.allocation_lists.number,
           allocation_list_created_at: item.allocation_lists.created_at,
+          allocation_lists: item.allocation_lists,
         })
       );
 
@@ -367,7 +371,10 @@ export default function InvoicingPage() {
 
         // Calculate total bonus for this allocation list
         const totalListBonusAmount = listAssets.reduce((listSum, listAsset) => {
-          return listSum + listAsset.price * (listAsset.bonus / 100);
+          return (
+            listSum +
+            listAsset.price * ((listAsset.allocation_lists?.bonus || 0) / 100)
+          );
         }, 0);
 
         // Store retroactive bonus info for UI display ONLY when the allocation list
@@ -398,7 +405,7 @@ export default function InvoicingPage() {
                 assetCount: listAssets.length,
                 listCompletedDate: listCompletedDate,
                 listCreatedDate: listCreatedDate,
-                bonusPercentage: asset.bonus,
+                bonusPercentage: asset.allocation_lists?.bonus || 0,
               },
             ]);
           }
@@ -407,7 +414,10 @@ export default function InvoicingPage() {
         return (
           sum +
           listAssets.reduce((listSum, listAsset) => {
-            return listSum + listAsset.price * (listAsset.bonus / 100);
+            return (
+              listSum +
+              listAsset.price * ((listAsset.allocation_lists?.bonus || 0) / 100)
+            );
           }, 0)
         );
       }
@@ -435,7 +445,10 @@ export default function InvoicingPage() {
 
         // Calculate potential bonus for this incomplete list
         const potentialBonusAmount = listAssets.reduce((listSum, listAsset) => {
-          return listSum + listAsset.price * (listAsset.bonus / 100);
+          return (
+            listSum +
+            listAsset.price * ((listAsset.allocation_lists?.bonus || 0) / 100)
+          );
         }, 0);
 
         if (potentialBonusAmount > 0) {
@@ -450,7 +463,7 @@ export default function InvoicingPage() {
             amount: potentialBonusAmount,
             assetCount: listAssets.length,
             listCreatedDate: listCreatedDate,
-            bonusPercentage: asset.bonus,
+            bonusPercentage: asset.allocation_lists?.bonus || 0,
             estimatedCompletion: estimatedCompletion.toLocaleDateString(
               "en-US",
               {
@@ -810,8 +823,9 @@ export default function InvoicingPage() {
             <th>Category</th>
             <th>Priority</th>
             <th>Base Price</th>
-            <th>Bonus</th>
+            <th>Bonus Status</th>
             <th>Total</th>
+            <th>Approved</th>
           </tr>
         </thead>
         <tbody>
@@ -849,8 +863,17 @@ export default function InvoicingPage() {
                 </span>
               </td>
               <td>€${asset.price.toFixed(2)}</td>
-              <td>+${asset.bonus}%</td>
-              <td>€${(asset.price * (1 + asset.bonus / 100)).toFixed(2)}</td>
+                              <td>
+                  ${asset.approved_at ? `+${asset.allocation_lists?.bonus || 0}%` : "Pending"}
+                </td>
+                <td>€${(asset.approved_at ? asset.price * (1 + (asset.allocation_lists?.bonus || 0) / 100) : asset.price).toFixed(2)}</td>
+                              <td>
+                  ${
+                    asset.approved_at
+                      ? '<span style="color: #166534; font-size: 0.85em;">✓ Complete</span>'
+                      : '<span style="color: #92400e; font-size: 0.85em;">List pending</span>'
+                  }
+                </td>
             </tr>
           `
             )
@@ -1233,10 +1256,13 @@ export default function InvoicingPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Bonuses are calculated based on allocation list completion dates.
-              Assets from incomplete lists will have their bonuses credited when
-              the entire list is completed in a future month. Base earnings only
-              include assets that were approved in the selected period.
+              <strong>Bonus Calculation:</strong> Bonuses are calculated
+              globally on the entire allocation list's completed subtotal when
+              the list is completed before its deadline. Individual assets don't
+              receive individual bonuses - they contribute to the list's total
+              bonus calculation. Assets from incomplete lists will have their
+              bonuses credited when the entire list is completed in a future
+              month.
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -1246,9 +1272,10 @@ export default function InvoicingPage() {
                 </span>
               </div>
               <p className="text-xs text-amber-700">
-                This includes bonuses for ALL assets in allocation lists that
-                were completed this month, regardless of when individual assets
-                were approved by clients.
+                This includes bonuses calculated on the completed subtotal of
+                allocation lists that were completed this month, not individual
+                asset bonuses. The bonus is applied globally to the entire
+                list's completed work when the list meets deadline requirements.
               </p>
             </div>
           </CardContent>
@@ -1273,6 +1300,22 @@ export default function InvoicingPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="h-4 w-4 text-blue-600" />
+              <span className="font-medium text-blue-800">
+                How Bonuses Work
+              </span>
+            </div>
+            <p className="text-sm text-blue-700">
+              <strong>Important:</strong> Bonuses are calculated globally on the
+              entire allocation list when it's completed, not per individual
+              asset. Individual assets show their base price until their
+              allocation list is fully completed. The "Total" column shows what
+              you'll receive for each asset (base price + bonus if eligible).
+            </p>
+          </div>
+
           {loading ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
@@ -1303,10 +1346,10 @@ export default function InvoicingPage() {
                   <TableHead>Product</TableHead>
                   <TableHead>Client</TableHead>
                   <TableHead>Category</TableHead>
-
+                  <TableHead>Priority</TableHead>
                   <TableHead>Base Price</TableHead>
-                  <TableHead>Bonus Rate</TableHead>
-                  <TableHead>This Month</TableHead>
+                  <TableHead>Bonus Status</TableHead>
+                  <TableHead>Total</TableHead>
                   <TableHead>Approved</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1339,7 +1382,24 @@ export default function InvoicingPage() {
                         )}
                       </div>
                     </TableCell>
-
+                    <TableCell>
+                      <Badge
+                        variant={
+                          asset.priority === 1
+                            ? "destructive"
+                            : asset.priority === 2
+                              ? "secondary"
+                              : "default"
+                        }
+                        className="text-xs"
+                      >
+                        {asset.priority === 1
+                          ? "High"
+                          : asset.priority === 2
+                            ? "Medium"
+                            : "Low"}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Euro className="h-3 w-3 text-muted-foreground" />
@@ -1349,15 +1409,25 @@ export default function InvoicingPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm text-muted-foreground">
-                        <span>+{asset.bonus}%</span>
-                        <div className="text-xs">
+                      <div className="text-sm">
+                        {asset.approved_at ? (
+                          <Badge variant="outline" className="text-xs">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Eligible
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pending
+                          </Badge>
+                        )}
+                        <div className="text-xs text-muted-foreground mt-1">
                           {asset.approved_at ? (
                             <span className="text-green-600">
                               ✓ List completed
                             </span>
                           ) : (
-                            <span>(Credited when list completes)</span>
+                            <span>(Bonus when list completes)</span>
                           )}
                         </div>
                       </div>
@@ -1368,7 +1438,8 @@ export default function InvoicingPage() {
                         <span className="font-medium">
                           €
                           {(asset.approved_at
-                            ? asset.price * (1 + asset.bonus / 100)
+                            ? asset.price *
+                              (1 + (asset.allocation_lists?.bonus || 0) / 100)
                             : asset.price
                           ).toFixed(2)}
                         </span>
@@ -1376,7 +1447,7 @@ export default function InvoicingPage() {
                           {asset.approved_at ? (
                             <span>(Base + Bonus)</span>
                           ) : (
-                            <span>(Base only - pending bonus)</span>
+                            <span>(Base only)</span>
                           )}
                         </div>
                       </div>

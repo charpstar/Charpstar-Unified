@@ -470,9 +470,11 @@ export function ModelerEarningsWidget() {
       // Filter allocation lists to only include those where ALL assets are approved
       const fullyApprovedLists = allocationLists.filter((list: any) => {
         // Check if all assets in this list are approved
+        // Both "approved" and "approved_by_client" count as approved for earnings
         return list.asset_assignments.every(
           (assignment: any) =>
-            assignment.onboarding_assets?.status === "approved"
+            assignment.onboarding_assets?.status === "approved" ||
+            assignment.onboarding_assets?.status === "approved_by_client"
         );
       });
 

@@ -139,28 +139,50 @@ export default function InvoiceGenerator({
         return;
       }
 
-      // Calculate totals
-      const subtotal =
-        assetAssignments?.reduce((sum, asset) => sum + (asset.price || 0), 0) ||
+      // Separate completed and incomplete assets
+      const completedAssets =
+        assetAssignments?.filter(
+          (asset: any) =>
+            asset.onboarding_assets?.status === "approved" ||
+            asset.onboarding_assets?.status === "approved_by_client"
+        ) || [];
+
+      const incompleteAssets =
+        assetAssignments?.filter(
+          (asset: any) =>
+            asset.onboarding_assets?.status !== "approved" &&
+            asset.onboarding_assets?.status !== "approved_by_client"
+        ) || [];
+
+      // Calculate totals - only completed assets count for bonus calculation
+      const completedSubtotal =
+        completedAssets?.reduce((sum, asset) => sum + (asset.price || 0), 0) ||
         0;
 
-      // Calculate bonus - only apply if approved before deadline
+      const incompleteSubtotal =
+        incompleteAssets?.reduce((sum, asset) => sum + (asset.price || 0), 0) ||
+        0;
+
+      const totalSubtotal = completedSubtotal + incompleteSubtotal;
+
+      // Calculate bonus - only apply to completed assets if approved before deadline
       let bonusAmount = 0;
       if (
         allocationList.approved_at &&
         allocationList.deadline &&
-        allocationList.bonus
+        allocationList.bonus &&
+        completedAssets.length > 0
       ) {
         const approvedDate = new Date(allocationList.approved_at);
         const deadlineDate = new Date(allocationList.deadline);
 
         // Only apply bonus if work was completed before or on the deadline
         if (approvedDate <= deadlineDate) {
-          bonusAmount = subtotal * (allocationList.bonus / 100);
+          bonusAmount = completedSubtotal * (allocationList.bonus / 100);
         }
       }
 
-      const total = subtotal + bonusAmount;
+      const total = totalSubtotal + bonusAmount;
 
       // Generate invoice number
       const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
@@ -196,13 +218,13 @@ export default function InvoiceGenerator({
             bonus: assignment.bonus || 0,
             status: assignment.onboarding_assets.status,
           })) || [],
-        subtotal,
+        subtotal: totalSubtotal,
         bonusPercentage: allocationList.bonus || 0,
         bonusAmount: bonusAmount,
         total,
         notes:
           bonusAmount > 0
-            ? `Bonus of ${allocationList.bonus}% applied for completing work before deadline (approved: ${new Date(allocationList.approved_at).toLocaleDateString()}, deadline: ${new Date(allocationList.deadline).toLocaleDateString()}). Note: This bonus applies to ALL assets in the allocation list, including any completed in previous periods.`
+            ? `Bonus of ${allocationList.bonus}% applied to completed assets only (${completedAssets.length} completed, ${incompleteAssets.length} incomplete). Bonus calculated on €${completedSubtotal.toFixed(2)} of completed work. Approved: ${new Date(allocationList.approved_at).toLocaleDateString()}, deadline: ${new Date(allocationList.deadline).toLocaleDateString()}.`
             : allocationList.bonus > 0
               ? `No bonus applied - work completed after deadline (approved: ${new Date(allocationList.approved_at).toLocaleDateString()}, deadline: ${new Date(allocationList.deadline).toLocaleDateString()})`
               : "No bonus configured for this allocation list",
@@ -746,7 +768,35 @@ export default function InvoiceGenerator({
                       <strong>Total Assets:</strong> {invoiceData.assets.length}
                     </div>
                     <div>
-                      <strong>Subtotal:</strong> €
+                      <strong>Completed Assets:</strong>{" "}
+                      {
+                        invoiceData.assets.filter(
+                          (a) =>
+                            a.status === "approved" ||
+                            a.status === "approved_by_client"
+                        ).length
+                      }{" "}
+                      (eligible for bonus)
+                    </div>
+                    <div>
+                      <strong>Incomplete Assets:</strong>{" "}
+                      {
+                        invoiceData.assets.filter(
+                          (a) =>
+                            a.status !== "approved" &&
+                            a.status !== "approved_by_client"
+                        ).length
+                      }{" "}
+                      (base price only)
+                    </div>
+                    <div>
+                      <strong>Base Price (All Assets):</strong> €
+                      {invoiceData.assets
+                        .reduce((sum, asset) => sum + asset.price, 0)
+                        .toFixed(2)}
+                    </div>
+                    <div>
+                      <strong>Subtotal (Completed Only):</strong> €
                       {invoiceData.subtotal.toFixed(2)}
                     </div>
                     <div>
@@ -764,6 +814,11 @@ export default function InvoiceGenerator({
             {/* Assets Table */}
             <div>
               <h3 className="font-semibold mb-4">All Assets in List</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Only assets with status "Approved" or "Approved by Client" are
+                eligible for bonus payments. Assets with other statuses receive
+                base price only.
+              </p>
               <div className="border rounded-lg overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-muted">
@@ -775,7 +830,10 @@ export default function InvoiceGenerator({
                         Article ID
                       </th>
                       <th className="px-4 py-3 text-left text-sm font-medium">
-                        Price
+                        Base Price
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        Bonus Eligible
                       </th>
                       <th className="px-4 py-3 text-left text-sm font-medium">
                         Status
@@ -799,12 +857,35 @@ export default function InvoiceGenerator({
                         <td className="px-4 py-3 text-sm">
                           €{asset.price.toFixed(2)}
                         </td>
+                        <td className="px-4 py-3 text-sm">
+                          {asset.status === "approved" ||
+                          asset.status === "approved_by_client" ? (
+                            <Badge variant="default" className="text-xs">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Yes
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              <Clock className="h-3 w-3 mr-1" />
+                              No
+                            </Badge>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
-                          <Badge variant="outline" className="text-xs">
-                            {asset.status === "approved" ? (
+                          <Badge
+                            variant={
+                              asset.status === "approved" ||
+                              asset.status === "approved_by_client"
+                                ? "default"
+                                : "outline"
+                            }
+                            className="text-xs"
+                          >
+                            {asset.status === "approved" ||
+                            asset.status === "approved_by_client" ? (
                               <>
                                 <CheckCircle className="h-3 w-3 mr-1" />
-                                Approved
+                                Approved (Bonus Eligible)
                               </>
                             ) : asset.status === "delivered_by_artist" ? (
                               <>
@@ -812,7 +893,10 @@ export default function InvoiceGenerator({
                                 Waiting for Approval
                               </>
                             ) : (
-                              asset.status
+                              <>
+                                <Clock className="h-3 w-3 mr-1" />
+                                {asset.status} (Base Price Only)
+                              </>
                             )}
                           </Badge>
                         </td>
@@ -820,6 +904,36 @@ export default function InvoiceGenerator({
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            {/* Bonus Calculation Explanation */}
+            <div>
+              <h3 className="font-semibold mb-2">Bonus Calculation Details</h3>
+              <div className="bg-muted/50 p-4 rounded-lg space-y-2 text-sm">
+                <div>
+                  <strong>Bonus Calculation Logic:</strong>
+                </div>
+                <ul className="list-disc list-inside space-y-1 ml-4">
+                  <li>
+                    Only assets with status "Approved" or "Approved by Client"
+                    are eligible for bonus payments
+                  </li>
+                  <li>
+                    Assets with status "delivered_by_artist", "revisions", or
+                    other incomplete statuses receive base price only
+                  </li>
+                  <li>Bonus percentage: {invoiceData.bonusPercentage}%</li>
+                  <li>
+                    Bonus amount: €{invoiceData.bonusAmount.toFixed(2)}{" "}
+                    (calculated on €{invoiceData.subtotal.toFixed(2)} of
+                    completed work)
+                  </li>
+                  <li>
+                    Total invoice includes base price for all assets plus bonus
+                    for completed assets only
+                  </li>
+                </ul>
               </div>
             </div>
 

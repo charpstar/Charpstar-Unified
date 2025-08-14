@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/containers";
 import {
   Card,
@@ -49,6 +50,7 @@ import {
   Download,
   FileVideo,
   Package,
+  ExternalLink,
 } from "lucide-react";
 
 import { Loader2 } from "lucide-react";
@@ -84,7 +86,30 @@ export default function ReferenceImagesPage() {
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
-  const [viewingFiles, setViewingFiles] = useState<UploadedFile[]>([]);
+
+  // Add new dialog states for reference management
+  const [showAddRefDialog, setShowAddRefDialog] = useState(false);
+  const [selectedAssetForRef, setSelectedAssetForRef] = useState<string | null>(
+    null
+  );
+  const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
+  const [referenceUrl, setReferenceUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
+  const [uploading, setUploading] = useState(false);
+
+  // Add progress tracking for bulk operations
+  const [bulkProgress, setBulkProgress] = useState<{
+    current: number;
+    total: number;
+    isActive: boolean;
+    message: string;
+  }>({
+    current: 0,
+    total: 0,
+    isActive: false,
+    message: "",
+  });
 
   // Fetch assets for this client
   useEffect(() => {
@@ -115,6 +140,89 @@ export default function ReferenceImagesPage() {
     fetchAssets();
   }, [user]);
 
+  // Function to manually refresh assets data
+  const refreshAssetsData = async () => {
+    if (!user?.metadata?.client) return;
+
+    const { data, error } = await supabase
+      .from("onboarding_assets")
+      .select("*")
+      .eq("client", user.metadata.client);
+
+    if (error) {
+      console.error("Error refreshing assets:", error);
+      return;
+    }
+
+    // Sort assets by article_id
+    const sortedData = (data || []).sort((a, b) => {
+      const articleIdA = a.article_id || "";
+      const articleIdB = b.article_id || "";
+      return articleIdA.localeCompare(articleIdB);
+    });
+
+    setAssets(sortedData);
+    console.log("Assets refreshed:", sortedData);
+  };
+
+  // Function to debug a specific asset's reference field
+  const debugAssetReference = async (assetId: string) => {
+    const { data, error } = await supabase
+      .from("onboarding_assets")
+      .select("id, product_name, reference, status, glb_link")
+      .eq("id", assetId)
+      .single();
+
+    if (error) {
+      console.error("Error debugging asset:", error);
+      return;
+    }
+
+    console.log("Asset debug info:", {
+      id: data.id,
+      product_name: data.product_name,
+      rawReference: data.reference,
+      referenceType: typeof data.reference,
+      referenceLength: Array.isArray(data.reference)
+        ? data.reference.length
+        : "N/A",
+      status: data.status,
+      glb_link: data.glb_link,
+    });
+
+    if (data.reference) {
+      console.log("Parsed references:", getReferenceArray(data.reference));
+    }
+  };
+
+  // Function to test directly updating the reference field
+  const testUpdateReference = async (assetId: string) => {
+    const testUrl = `https://example.com/test-${Date.now()}.jpg`;
+
+    try {
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .update({
+          reference: [testUrl],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", assetId)
+        .select();
+
+      if (error) {
+        console.error("Error testing update:", error);
+        return;
+      }
+
+      console.log("Test update result:", data);
+
+      // Refresh the data to see if it shows up
+      await refreshAssetsData();
+    } catch (err) {
+      console.error("Error in test update:", err);
+    }
+  };
+
   // Helper to always get references as an array
   function getReferenceArray(ref: string | string[] | undefined): string[] {
     if (Array.isArray(ref)) return ref;
@@ -127,6 +235,31 @@ export default function ReferenceImagesPage() {
     }
     return ref ? [ref] : [];
   }
+
+  // Helper function to parse references
+  const parseReferences = (
+    referenceImages: string[] | string | null
+  ): string[] => {
+    if (!referenceImages) return [];
+    if (Array.isArray(referenceImages)) return referenceImages;
+    try {
+      return JSON.parse(referenceImages);
+    } catch {
+      return [referenceImages];
+    }
+  };
+
+  // Helper function to separate GLB files from reference images
+  const separateReferences = (referenceImages: string[] | string | null) => {
+    const allReferences = parseReferences(referenceImages);
+    const glbFiles = allReferences.filter((ref) =>
+      ref.toLowerCase().endsWith(".glb")
+    );
+    const imageReferences = allReferences.filter(
+      (ref) => !ref.toLowerCase().endsWith(".glb")
+    );
+    return { glbFiles, imageReferences };
+  };
 
   // Handle file upload
   const handleFileUpload = async (file: File) => {
@@ -208,26 +341,355 @@ export default function ReferenceImagesPage() {
     setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
   };
 
-  const removeViewingFile = (fileId: string) => {
-    setViewingFiles((prev) => prev.filter((file) => file.id !== fileId));
+  // Handle adding reference URL
+  const handleAddReferenceUrl = async () => {
+    if (!referenceUrl.trim() || !selectedAssetForRef) return;
+
+    try {
+      // Validate URL format
+      const url = new URL(referenceUrl.trim());
+      if (!url.protocol.startsWith("http")) {
+        toast({
+          title: "Error",
+          description: "Please enter a valid HTTP/HTTPS URL",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Find the current asset
+      const currentAsset = assets.find(
+        (asset) => asset.id === selectedAssetForRef
+      );
+      if (!currentAsset) {
+        toast({
+          title: "Error",
+          description: "Asset not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get existing references and add new one
+      const existingReferences = parseReferences(currentAsset.reference);
+      const newReferences = [...existingReferences, referenceUrl.trim()];
+
+      // Update the asset in the database
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ reference: newReferences })
+        .eq("id", selectedAssetForRef);
+
+      if (error) {
+        console.error("Error updating reference images:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save reference image URL",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update local state
+      setAssets((prev) =>
+        prev.map((asset) =>
+          asset.id === selectedAssetForRef
+            ? { ...asset, reference: newReferences }
+            : asset
+        )
+      );
+
+      // Reset dialog state
+      setReferenceUrl("");
+      setSelectedAssetForRef(null);
+      setShowAddRefDialog(false);
+
+      toast({
+        title: "Success",
+        description: "Reference image URL added successfully!",
+      });
+    } catch (error) {
+      console.error("Error adding reference image URL:", error);
+      toast({
+        title: "Error",
+        description: "Please enter a valid image URL",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleViewReferences = (assetId: string) => {
-    const asset = assets.find((a) => a.id === assetId);
-    const refs = getReferenceArray(asset?.reference);
+  // Handle file upload for reference management
+  const handleFileUploadForRef = async () => {
+    if (!selectedFile || !selectedAssetForRef) return;
 
-    const files: UploadedFile[] = refs.map((url, index) => ({
-      id: `existing_${index}`,
-      name: url.split("/").pop() || `File ${index + 1}`,
-      url,
-      type: "unknown",
-      size: 0,
-      uploadedAt: new Date(),
-    }));
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("asset_id", selectedAssetForRef);
 
-    setViewingFiles(files);
-    setSelectedAsset(assetId);
-    setShowViewDialog(true);
+      // Determine file type based on extension
+      const fileExtension = selectedFile.name.toLowerCase().split(".").pop();
+      const fileType = fileExtension === "glb" ? "glb" : "reference";
+      formData.append("file_type", fileType);
+
+      const response = await fetch("/api/assets/upload-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const result = await response.json();
+      console.log("Upload result:", result);
+
+      // Wait a moment for the database to update, then refresh the asset data
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // For all file types, refresh the asset data since everything goes to references now
+      const { data: updatedAsset, error: fetchError } = await supabase
+        .from("onboarding_assets")
+        .select("reference, status, glb_link")
+        .eq("id", selectedAssetForRef)
+        .single();
+
+      if (fetchError) {
+        console.error("Error fetching updated asset:", fetchError);
+      }
+
+      console.log("Updated asset from DB:", updatedAsset);
+
+      // Refresh the entire assets list to ensure UI is updated
+      await refreshAssetsData();
+
+      toast({
+        title: "Success",
+        description:
+          fileType === "glb"
+            ? "GLB file uploaded successfully!"
+            : "Reference file uploaded successfully!",
+      });
+
+      // Reset dialog state
+      setSelectedFile(null);
+      setSelectedAssetForRef(null);
+      setReferenceUrl("");
+      setShowAddRefDialog(false);
+      setUploadMode("url");
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload file",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Handle adding reference URL to multiple assets (bulk)
+  const handleAddBulkReferenceUrl = async () => {
+    if (!referenceUrl.trim() || selected.size === 0) return;
+
+    setLoading(true);
+    const selectedAssetIds = Array.from(selected);
+
+    // Initialize progress tracking
+    setBulkProgress({
+      current: 0,
+      total: selectedAssetIds.length,
+      isActive: true,
+      message: "Adding reference URL to assets...",
+    });
+
+    try {
+      // Validate URL format
+      const url = new URL(referenceUrl.trim());
+      if (!url.protocol.startsWith("http")) {
+        toast({
+          title: "Error",
+          description: "Please enter a valid HTTP/HTTPS URL",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update all selected assets with the new reference URL
+      for (let i = 0; i < selectedAssetIds.length; i++) {
+        const assetId = selectedAssetIds[i];
+        const currentAsset = assets.find((asset) => asset.id === assetId);
+
+        if (currentAsset) {
+          const existingReferences = parseReferences(currentAsset.reference);
+          const newReferences = [...existingReferences, referenceUrl.trim()];
+
+          const { error } = await supabase
+            .from("onboarding_assets")
+            .update({ reference: newReferences })
+            .eq("id", assetId);
+
+          if (error) {
+            console.error(`Error updating asset ${assetId}:`, error);
+            throw error;
+          }
+
+          // Update progress
+          setBulkProgress((prev) => ({
+            ...prev,
+            current: i + 1,
+            message: `Updated asset ${i + 1} of ${selectedAssetIds.length}`,
+          }));
+        }
+      }
+
+      // Update local state
+      setAssets((prev) =>
+        prev.map((asset) => {
+          if (selected.has(asset.id)) {
+            const existingReferences = parseReferences(asset.reference);
+            const newReferences = [...existingReferences, referenceUrl.trim()];
+            return { ...asset, reference: newReferences };
+          }
+          return asset;
+        })
+      );
+
+      toast({
+        title: "Success",
+        description: `Reference URL added to ${selectedAssetIds.length} assets successfully!`,
+      });
+
+      // Reset dialog state
+      setReferenceUrl("");
+      setSelected(new Set());
+      setShowUploadDialog(false);
+      setUploadMode("url");
+    } catch (error) {
+      console.error("Error adding bulk reference URL:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add reference URL to selected assets",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      // Reset progress tracking
+      setBulkProgress({
+        current: 0,
+        total: 0,
+        isActive: false,
+        message: "",
+      });
+    }
+  };
+
+  // Handle file upload to multiple assets (bulk)
+  const handleBulkFileUpload = async () => {
+    if (!selectedFile || selected.size === 0) return;
+
+    setLoading(true);
+    const selectedAssetIds = Array.from(selected);
+
+    // Initialize progress tracking
+    setBulkProgress({
+      current: 0,
+      total: selectedAssetIds.length,
+      isActive: true,
+      message: "Uploading file to assets...",
+    });
+
+    try {
+      // Upload file to each selected asset
+      for (let i = 0; i < selectedAssetIds.length; i++) {
+        const assetId = selectedAssetIds[i];
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("asset_id", assetId);
+
+        // Determine file type based on extension
+        const fileExtension = selectedFile.name.toLowerCase().split(".").pop();
+        const fileType = fileExtension === "glb" ? "glb" : "reference";
+        formData.append("file_type", fileType);
+
+        // Update progress message
+        setBulkProgress((prev) => ({
+          ...prev,
+          message: `Uploading to asset ${i + 1} of ${selectedAssetIds.length}...`,
+        }));
+
+        const response = await fetch("/api/assets/upload-file", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Upload failed for asset ${assetId}`);
+        }
+
+        // Update progress
+        setBulkProgress((prev) => ({
+          ...prev,
+          current: i + 1,
+          message: `Uploaded to asset ${i + 1} of ${selectedAssetIds.length}`,
+        }));
+      }
+
+      // Refresh all affected assets
+      setBulkProgress((prev) => ({
+        ...prev,
+        message: "Refreshing asset data...",
+      }));
+
+      // Wait a moment for the database to update, then refresh the asset data
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const { data: updatedAssets, error: fetchError } = await supabase
+        .from("onboarding_assets")
+        .select("id, reference, status, glb_link")
+        .in("id", selectedAssetIds);
+
+      if (fetchError) {
+        console.error("Error fetching updated assets:", fetchError);
+      }
+
+      console.log("Updated assets from DB:", updatedAssets);
+
+      // Refresh the entire assets list to ensure UI is updated
+      await refreshAssetsData();
+
+      const fileType = selectedFile.name.toLowerCase().endsWith(".glb")
+        ? "GLB"
+        : "reference";
+      toast({
+        title: "Success",
+        description: `${fileType} file uploaded to ${selectedAssetIds.length} assets successfully!`,
+      });
+
+      // Reset dialog state
+      setSelectedFile(null);
+      setSelected(new Set());
+      setShowUploadDialog(false);
+      setUploadMode("url");
+    } catch (error) {
+      console.error("Error in bulk file upload:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload file to selected assets",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      // Reset progress tracking
+      setBulkProgress({
+        current: 0,
+        total: 0,
+        isActive: false,
+        message: "",
+      });
+    }
   };
 
   const getFileIcon = (fileName: string, fileType: string) => {
@@ -403,58 +865,6 @@ export default function ReferenceImagesPage() {
     }
   };
 
-  // Save changes from view dialog
-  const saveViewChanges = async () => {
-    if (!selectedAsset) return;
-
-    setLoading(true);
-    try {
-      const fileUrls = viewingFiles.map((file) => file.url);
-
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({ reference: fileUrls })
-        .eq("id", selectedAsset);
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "Changes saved",
-        description: "Reference files have been updated.",
-      });
-
-      // Refresh assets
-      const { data } = await supabase
-        .from("onboarding_assets")
-        .select("*")
-        .eq("client", user?.metadata.client);
-
-      // Sort assets by article_id
-      const sortedData = (data || []).sort((a, b) => {
-        const articleIdA = a.article_id || "";
-        const articleIdB = b.article_id || "";
-        return articleIdA.localeCompare(articleIdB);
-      });
-      setAssets(sortedData);
-
-      // Reset state
-      setViewingFiles([]);
-      setSelectedAsset(null);
-      setShowViewDialog(false);
-    } catch (error) {
-      console.error("Error saving changes:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save changes. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Toggle selection
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -598,6 +1008,36 @@ export default function ReferenceImagesPage() {
                 </div>
               </div>
 
+              {/* Refresh Button */}
+              <div className="flex justify-center mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshAssetsData}
+                  className="gap-2"
+                  disabled={fetching}
+                >
+                  <ArrowRight
+                    className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`}
+                  />
+                  Refresh Data
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (assets.length > 0) {
+                      testUpdateReference(assets[0].id);
+                    }
+                  }}
+                  className="gap-2 ml-2"
+                  title="Test Update Reference Field"
+                >
+                  🧪 Test Update
+                </Button>
+              </div>
+
               {/* Progress Bar */}
               <div className="w-full max-w-md mx-auto">
                 <div className="w-full bg-muted rounded-full h-2">
@@ -672,13 +1112,22 @@ export default function ReferenceImagesPage() {
                       <TableHead>Product</TableHead>
                       <TableHead>Article ID</TableHead>
                       <TableHead>References</TableHead>
-                      <TableHead className="w-16">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {assets.map((asset) => {
                       const refs = getReferenceArray(asset.reference);
                       const hasReferences = refs.length > 0;
+
+                      // Debug logging
+                      console.log(
+                        `Asset ${asset.id} (${asset.product_name}):`,
+                        {
+                          rawReference: asset.reference,
+                          parsedRefs: refs,
+                          hasReferences,
+                        }
+                      );
 
                       return (
                         <TableRow key={asset.id}>
@@ -708,42 +1157,23 @@ export default function ReferenceImagesPage() {
                             </code>
                           </TableCell>
                           <TableCell>
-                            {hasReferences ? (
-                              <div className="flex items-center gap-2  p-2 align-middle text-center justify-center">
-                                <Badge variant="default" className="gap-1">
-                                  <CheckCircle className="h-3 w-3" />
-                                  {refs.length} file
-                                  {refs.length !== 1 ? "s" : ""}
-                                </Badge>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleViewReferences(asset.id)}
-                                  className="h-6 w-6 p-0"
-                                >
-                                  <Eye className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <Badge variant="outline" className="gap-1">
-                                <Paperclip className="h-3 w-3" />
-                                No files
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1  align-middle text-center justify-center">
+                            <div className="flex flex-col items-center gap-1">
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
+                                className="text-xs px-3 py-1 h-7"
                                 onClick={() => {
-                                  setSelectedAsset(asset.id);
-                                  setUploadedFiles([]);
-                                  setShowUploadDialog(true);
+                                  setSelectedAssetForView(asset);
+                                  setShowViewDialog(true);
                                 }}
-                                className="h-8 w-8 p-0 hover:bg-primary/10 cursor-pointer"
                               >
-                                <Plus className="h-4 w-4" />
+                                <FileText className="mr-1 h-3 w-3" />
+                                Ref (
+                                {separateReferences(asset.reference)
+                                  .imageReferences.length +
+                                  separateReferences(asset.reference).glbFiles
+                                    .length}
+                                )
                               </Button>
                             </div>
                           </TableCell>
@@ -810,60 +1240,163 @@ export default function ReferenceImagesPage() {
                 </AlertDescription>
               </Alert>
 
-              {/* Upload Area */}
-              <div
-                className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
-                  dragOver
-                    ? "border-primary bg-primary/10 scale-105"
-                    : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
-                }`}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-              >
-                <Input
-                  type="file"
-                  id="file-input"
-                  className="hidden"
-                  accept="*/*"
-                  multiple
-                  onChange={handleFileSelect}
-                  disabled={loading}
-                />
+              {/* Mode Toggle for Bulk Upload */}
+              {!selectedAsset && selected.size > 0 && (
+                <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                  <Button
+                    variant={uploadMode === "url" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setUploadMode("url")}
+                    className="flex-1"
+                  >
+                    URL
+                  </Button>
+                  <Button
+                    variant={uploadMode === "file" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setUploadMode("file")}
+                    className="flex-1"
+                  >
+                    File Upload
+                  </Button>
+                </div>
+              )}
 
-                {Object.values(uploadingFiles).some(Boolean) ? (
-                  <div className="space-y-4">
-                    <div className="h-12 w-12 mx-auto border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                    <p className="text-lg font-semibold">Uploading files...</p>
-                    <p className="text-sm text-muted-foreground">
-                      Please wait while your files are being uploaded
-                    </p>
+              {/* URL Input for Bulk Upload */}
+              {!selectedAsset && selected.size > 0 && uploadMode === "url" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-foreground">
+                    Reference Image URL *
+                  </label>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/image.jpg"
+                    value={referenceUrl}
+                    onChange={(e) => setReferenceUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleAddBulkReferenceUrl();
+                      }
+                    }}
+                    className="border-border focus:border-primary"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This URL will be added to all {selected.size} selected
+                    assets.
+                  </p>
+                </div>
+              )}
+
+              {/* Progress Bar for Bulk Operations */}
+              {bulkProgress.isActive && (
+                <div className="space-y-3 p-4 bg-muted/50 rounded-lg border">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-foreground">
+                      {bulkProgress.message}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {bulkProgress.current} / {bulkProgress.total}
+                    </span>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
-                    <div>
-                      <p className="text-lg font-semibold">Drop files here</p>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${bulkProgress.total > 0 ? (bulkProgress.current / bulkProgress.total) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground text-center">
+                    {bulkProgress.total > 0
+                      ? `${Math.round((bulkProgress.current / bulkProgress.total) * 100)}% complete`
+                      : "0% complete"}
+                  </div>
+                </div>
+              )}
+
+              {/* File Upload for Bulk Upload */}
+              {!selectedAsset && selected.size > 0 && uploadMode === "file" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-foreground">
+                    Upload Reference File *
+                  </label>
+                  <Input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.gif,.webp,.glb"
+                    onChange={(e) =>
+                      setSelectedFile(e.target.files?.[0] || null)
+                    }
+                    className="border-border focus:border-primary"
+                  />
+                  {selectedFile && (
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {selectedFile.name} (
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB) - This
+                      file will be uploaded to all {selected.size} selected
+                      assets.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Upload Area - Only show for single asset or when not in bulk mode */}
+              {selectedAsset || selected.size === 0 ? (
+                <div
+                  className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
+                    dragOver
+                      ? "border-primary bg-primary/10 scale-105"
+                      : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
+                  }`}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                >
+                  <Input
+                    type="file"
+                    id="file-input"
+                    className="hidden"
+                    accept="*/*"
+                    multiple
+                    onChange={handleFileSelect}
+                    disabled={loading}
+                  />
+
+                  {Object.values(uploadingFiles).some(Boolean) ? (
+                    <div className="space-y-4">
+                      <div className="h-12 w-12 mx-auto border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                      <p className="text-lg font-semibold">
+                        Uploading files...
+                      </p>
                       <p className="text-sm text-muted-foreground">
-                        or click to browse files
+                        Please wait while your files are being uploaded
                       </p>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={() =>
-                        document.getElementById("file-input")?.click()
-                      }
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Browse Files
-                    </Button>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <div>
+                        <p className="text-lg font-semibold">Drop files here</p>
+                        <p className="text-sm text-muted-foreground">
+                          or click to browse files
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() =>
+                          document.getElementById("file-input")?.click()
+                        }
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Browse Files
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : null}
 
-              {/* Uploaded Files List */}
-              {uploadedFiles.length > 0 && (
+              {/* Uploaded Files List - Only show for single asset */}
+              {selectedAsset && uploadedFiles.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Uploaded Files</h3>
                   <div className="grid gap-3 max-h-60 overflow-y-auto">
@@ -915,6 +1448,16 @@ export default function ReferenceImagesPage() {
                     setShowUploadDialog(false);
                     setUploadedFiles([]);
                     setSelectedAsset(null);
+                    setReferenceUrl("");
+                    setSelectedFile(null);
+                    setUploadMode("url");
+                    // Reset progress tracking
+                    setBulkProgress({
+                      current: 0,
+                      total: 0,
+                      isActive: false,
+                      message: "",
+                    });
                   }}
                   disabled={loading}
                 >
@@ -922,112 +1465,287 @@ export default function ReferenceImagesPage() {
                 </Button>
                 <Button
                   variant="default"
-                  onClick={selectedAsset ? saveReferences : saveBulkReferences}
+                  onClick={() => {
+                    if (selectedAsset) {
+                      saveReferences();
+                    } else if (uploadMode === "url") {
+                      handleAddBulkReferenceUrl();
+                    } else {
+                      handleBulkFileUpload();
+                    }
+                  }}
                   loading={loading}
-                  disabled={uploadedFiles.length === 0}
+                  disabled={
+                    selectedAsset
+                      ? uploadedFiles.length === 0
+                      : uploadMode === "url"
+                        ? !referenceUrl.trim()
+                        : !selectedFile
+                  }
                 >
                   <Save className="h-4 w-4 mr-2" />
                   {selectedAsset
                     ? "Save Files"
-                    : `Save to ${selected.size} Assets`}
+                    : uploadMode === "url"
+                      ? `Add URL to ${selected.size} Assets`
+                      : `Upload to ${selected.size} Assets`}
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
 
-        {/* View Reference Dialog */}
+        {/* View References Dialog */}
         <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[600px] h-fit max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-xl">
-                <Eye className="h-5 w-5 text-primary" />
-                View Reference Files
+              <DialogTitle className="text-xl font-bold text-foreground">
+                References - {selectedAssetForView?.product_name || "Asset"}
               </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                View and manage all reference images for this asset.
+              </DialogDescription>
             </DialogHeader>
-            <div className="space-y-6">
-              <Alert>
-                <Camera className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Manage your reference files:</strong> You can view,
-                  download, and remove files. Click &quot;Save Changes&quot; to
-                  apply your modifications.
-                </AlertDescription>
-              </Alert>
 
-              {/* Files List */}
-              {viewingFiles.length > 0 ? (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Reference Files</h3>
-                  <div className="grid gap-3 max-h-60 overflow-y-auto">
-                    {viewingFiles.map((file) => (
+            <div className="space-y-4">
+              {(() => {
+                // Get all files (GLB + references)
+                const allReferences = selectedAssetForView
+                  ? parseReferences(selectedAssetForView.reference)
+                  : [];
+                const hasDirectGlb = selectedAssetForView?.glb_link;
+
+                // Combine all files into one list
+                const allFiles = [];
+
+                // Add direct GLB if exists
+                if (hasDirectGlb) {
+                  allFiles.push({
+                    url: selectedAssetForView.glb_link,
+                    type: "glb",
+                    name: "GLB Model",
+                  });
+                }
+
+                // Add references (filter out duplicates of direct GLB)
+                allReferences.forEach((ref, index) => {
+                  if (!hasDirectGlb || ref !== selectedAssetForView.glb_link) {
+                    const isGlb = ref.toLowerCase().endsWith(".glb");
+                    allFiles.push({
+                      url: ref,
+                      type: isGlb ? "glb" : "reference",
+                      name: isGlb
+                        ? `GLB File ${index + 1}`
+                        : `Reference ${index + 1}`,
+                    });
+                  }
+                });
+
+                return allFiles.length > 0 ? (
+                  <div className="space-y-2">
+                    {allFiles.map((file, index) => (
                       <div
-                        key={file.id}
-                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border"
+                        key={index}
+                        className="flex items-center justify-between p-3 border rounded-lg"
                       >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          {getFileIcon(file.name, file.type)}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {file.type === "glb" ? (
+                            <Package className="h-4 w-4 text-primary flex-shrink-0" />
+                          ) : (
+                            <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">
                               {file.name}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {file.uploadedAt.toLocaleDateString()}
+                            <p className="text-xs text-muted-foreground truncate">
+                              {file.url}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(file.url, "_blank")}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeViewingFile(file.id)}
-                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (file.type === "glb") {
+                              // Download GLB files
+                              const link = document.createElement("a");
+                              link.href = file.url;
+                              link.download = `${selectedAssetForView?.product_name || "model"}.glb`;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            } else {
+                              // Open reference files in new tab
+                              window.open(file.url, "_blank");
+                            }
+                          }}
+                          className="text-xs flex-shrink-0"
+                        >
+                          {file.type === "glb" ? (
+                            <>
+                              <Download className="h-3 w-3 mr-1" />
+                              Download
+                            </>
+                          ) : (
+                            <>
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              Open
+                            </>
+                          )}
+                        </Button>
                       </div>
                     ))}
                   </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground">No files found</p>
+                    <p className="text-xs text-muted-foreground">
+                      Click "Add Reference" to upload files
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t border-border">
+              <Button
+                onClick={() => {
+                  setSelectedAssetForRef(selectedAssetForView?.id);
+                  setShowViewDialog(false);
+                  setShowAddRefDialog(true);
+                }}
+                variant="outline"
+                className="cursor-pointer"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Add Reference
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowViewDialog(false);
+                  setSelectedAssetForView(null);
+                }}
+                className="cursor-pointer"
+              >
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Reference Dialog */}
+        <Dialog open={showAddRefDialog} onOpenChange={setShowAddRefDialog}>
+          <DialogContent className="sm:max-w-[500px] h-fit">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-foreground">
+                Add Reference or GLB File
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Add a reference image URL or upload a reference/GLB file.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Mode Toggle */}
+            <div className="flex gap-2 p-1 bg-muted rounded-lg">
+              <Button
+                variant={uploadMode === "url" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setUploadMode("url")}
+                className="flex-1"
+              >
+                URL
+              </Button>
+              <Button
+                variant={uploadMode === "file" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setUploadMode("file")}
+                className="flex-1"
+              >
+                File Upload
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {uploadMode === "url" ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-foreground">
+                    Image URL *
+                  </label>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/image.jpg"
+                    value={referenceUrl}
+                    onChange={(e) => setReferenceUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleAddReferenceUrl();
+                      }
+                    }}
+                    className="border-border focus:border-primary"
+                  />
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    No reference files found
-                  </p>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-foreground">
+                    Upload File *
+                  </label>
+                  <Input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.gif,.webp,.glb"
+                    onChange={(e) =>
+                      setSelectedFile(e.target.files?.[0] || null)
+                    }
+                    className="border-border focus:border-primary"
+                    key={`file-input-${selectedAssetForRef || "none"}`}
+                  />
+                  {selectedFile && (
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {selectedFile.name} (
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </p>
+                  )}
                 </div>
               )}
+            </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowViewDialog(false);
-                    setViewingFiles([]);
-                    setSelectedAsset(null);
-                  }}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={saveViewChanges}
-                  loading={loading}
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Changes
-                </Button>
-              </div>
+            <div className="flex gap-3 pt-4 border-t border-border">
+              <Button
+                onClick={() => {
+                  setReferenceUrl("");
+                  setSelectedFile(null);
+                  setSelectedAssetForRef(null);
+                  setShowAddRefDialog(false);
+                  setUploadMode("url");
+                }}
+                variant="outline"
+                className="cursor-pointer"
+                disabled={uploading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={
+                  uploadMode === "url"
+                    ? handleAddReferenceUrl
+                    : handleFileUploadForRef
+                }
+                disabled={
+                  uploading ||
+                  (uploadMode === "url" ? !referenceUrl.trim() : !selectedFile)
+                }
+                className="cursor-pointer"
+              >
+                {uploading ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                    Uploading...
+                  </>
+                ) : (
+                  `Add ${uploadMode === "url" ? "URL" : "File"}`
+                )}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

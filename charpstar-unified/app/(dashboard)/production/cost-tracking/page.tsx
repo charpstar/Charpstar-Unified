@@ -1003,7 +1003,7 @@ export default function CostTrackingPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Total Budget
                 </p>
-                <p className="text-2xl font-semibold text-foreground">
+                <p className="text-xl font-semibold text-foreground">
                   €{costSummary.totalBudget.toFixed(2)}
                 </p>
               </div>
@@ -1021,7 +1021,7 @@ export default function CostTrackingPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Total Spent
                 </p>
-                <p className="text-2xl font-semibold text-foreground">
+                <p className="text-xl font-semibold text-foreground">
                   €{costSummary.totalSpent.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1042,7 +1042,7 @@ export default function CostTrackingPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Remaining Budget
                 </p>
-                <p className="text-2xl font-semibold text-foreground">
+                <p className="text-xl font-semibold text-foreground">
                   €{costSummary.remainingBudget.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1063,7 +1063,7 @@ export default function CostTrackingPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Active Modelers
                 </p>
-                <p className="text-2xl font-semibold text-foreground">
+                <p className="text-xl font-semibold text-foreground">
                   {modelerCosts.length}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1084,7 +1084,7 @@ export default function CostTrackingPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Completed Cost
                 </p>
-                <p className="text-2xl font-semibold text-foreground">
+                <p className="text-xl font-semibold text-foreground">
                   €
                   {modelerCosts
                     .reduce((sum, m) => sum + m.completedCost, 0)
@@ -1106,7 +1106,7 @@ export default function CostTrackingPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Pending Cost
                 </p>
-                <p className="text-2xl font-semibold text-foreground">
+                <p className="text-xl font-semibold text-foreground">
                   €
                   {modelerCosts
                     .reduce((sum, m) => sum + m.pendingCost, 0)
@@ -1130,7 +1130,7 @@ export default function CostTrackingPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   This Month
                 </p>
-                <p className="text-2xl font-semibold text-foreground">
+                <p className="text-xl font-semibold text-foreground">
                   €
                   {(() => {
                     const currentMonth = new Date().toLocaleString("default", {

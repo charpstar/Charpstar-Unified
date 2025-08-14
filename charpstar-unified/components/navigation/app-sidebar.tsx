@@ -126,16 +126,6 @@ export default function AppSidebar({
       : [];
 
   // Production-only navigation items (only for admin users)
-  const productionNavItems =
-    user?.metadata?.role === "admin"
-      ? [
-          {
-            title: "Production",
-            url: "/production",
-            icon: Factory,
-          },
-        ]
-      : [];
 
   // Financial navigation items (admin only)
   const financialNavItems =
@@ -201,7 +191,7 @@ export default function AppSidebar({
       ? [
           ...baseNavItems,
           ...adminNavItems,
-          ...productionNavItems,
+
           ...financialNavItems,
           ...modelerNavItems,
           ...qaNavItems,
@@ -214,7 +204,7 @@ export default function AppSidebar({
       : [
           ...baseNavItems,
           ...adminNavItems,
-          ...productionNavItems,
+
           ...financialNavItems,
           ...modelerNavItems,
           ...qaNavItems,

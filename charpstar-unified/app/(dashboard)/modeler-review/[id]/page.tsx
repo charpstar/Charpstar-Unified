@@ -758,8 +758,14 @@ export default function ModelerReviewPage() {
         window.dispatchEvent(new CustomEvent("allocationListApproved"));
       } else if (result.allocationListId) {
         // Check if this was an unapproval (status changed from approved to something else)
-        const wasApproved = asset?.status === "approved";
-        if (wasApproved && newStatus !== "approved") {
+        const wasApproved =
+          asset?.status === "approved" ||
+          asset?.status === "approved_by_client";
+        if (
+          wasApproved &&
+          newStatus !== "approved" &&
+          newStatus !== "approved_by_client"
+        ) {
           toast.success("Asset unapproved and allocation list updated!");
           // Trigger earnings widget refresh for unapproval
           window.dispatchEvent(new CustomEvent("allocationListUnapproved"));

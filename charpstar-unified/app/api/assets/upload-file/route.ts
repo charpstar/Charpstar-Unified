@@ -147,11 +147,19 @@ export async function POST(request: NextRequest) {
 
     if (fileType === "glb" || fileType === "reference") {
       // Get existing references and add new one (for both GLB and reference files)
-      const { data: currentAsset } = await supabase
+      const { data: currentAsset, error: fetchError } = await supabase
         .from("onboarding_assets")
         .select("reference")
         .eq("id", assetId)
         .single();
+
+      if (fetchError) {
+        console.error("Error fetching current asset:", fetchError);
+      }
+
+      console.log("Current asset before update:", currentAsset);
+      console.log("File type:", fileType);
+      console.log("File URL:", urlData.publicUrl);
 
       const existingReferences = currentAsset?.reference || [];
       let newReferences;
@@ -173,6 +181,8 @@ export async function POST(request: NextRequest) {
       }
 
       updateData.reference = newReferences;
+      console.log("New references array:", newReferences);
+      console.log("Update data:", updateData);
 
       // For GLB files, also update status
       if (fileType === "glb") {
@@ -181,13 +191,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (Object.keys(updateData).length > 0) {
-      const { error: updateError } = await supabase
+      console.log("Updating asset with data:", updateData);
+
+      const { data: updateResult, error: updateError } = await supabase
         .from("onboarding_assets")
         .update(updateData)
-        .eq("id", assetId);
+        .eq("id", assetId)
+        .select();
 
       if (updateError) {
         console.error("Error updating asset:", updateError);
+      } else {
+        console.log("Asset update result:", updateResult);
       }
     }
 

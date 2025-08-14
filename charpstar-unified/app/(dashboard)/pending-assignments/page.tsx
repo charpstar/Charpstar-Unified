@@ -46,9 +46,23 @@ import {
   X,
   File,
   Info,
+  Link,
+  Eye,
+  Image,
+  FileText,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { notificationService } from "@/lib/notificationService";
+import { Badge } from "@/components/ui/feedback";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/containers";
 
 interface PendingAssignment {
   asset_id: string;
@@ -59,7 +73,7 @@ interface PendingAssignment {
     product_name: string;
     product_link: string;
     glb_link: string;
-    reference: string[] | null;
+    reference: string[] | string | null;
     client: string;
     batch: number;
   } | null;
@@ -81,6 +95,48 @@ interface AllocationList {
 // Helper function to check if deadline is overdue
 const isOverdue = (deadline: string) => {
   return new Date(deadline) < new Date();
+};
+
+// Helper functions for reference management
+const getReferenceArray = (reference: string[] | null): string[] => {
+  if (!reference) return [];
+  if (Array.isArray(reference)) {
+    return reference.filter(
+      (ref) => ref && typeof ref === "string" && ref.trim() !== ""
+    );
+  }
+  return [];
+};
+
+const parseReferences = (reference: string[] | string | null): string[] => {
+  if (!reference) return [];
+  if (Array.isArray(reference)) return reference;
+  try {
+    return JSON.parse(reference);
+  } catch {
+    return [reference];
+  }
+};
+
+const getFileIcon = (fileName: string) => {
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext || "")) return "🖼️";
+  if (["pdf"].includes(ext || "")) return "📄";
+  if (["zip", "rar", "7z"].includes(ext || "")) return "📦";
+  if (["doc", "docx"].includes(ext || "")) return "📝";
+  return "📎";
+};
+
+// Helper function to separate GLB files from reference images
+const separateReferences = (referenceImages: string[] | string | null) => {
+  const allReferences = parseReferences(referenceImages);
+  const glbFiles = allReferences.filter((ref) =>
+    ref.toLowerCase().endsWith(".glb")
+  );
+  const imageReferences = allReferences.filter(
+    (ref) => !ref.toLowerCase().endsWith(".glb")
+  );
+  return { glbFiles, imageReferences };
 };
 
 export default function PendingAssignmentsPage() {
@@ -429,6 +485,22 @@ export default function PendingAssignmentsPage() {
   const [checkingFiles, setCheckingFiles] = useState<Record<string, boolean>>(
     {}
   );
+  const [showReferencesDialog, setShowReferencesDialog] = useState(false);
+  const [selectedReferences, setSelectedReferences] = useState<string[]>([]);
+  const [showFilesDialog, setShowFilesDialog] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<any[]>([]);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
+
+  const handleViewReferences = (references: string[]) => {
+    setSelectedReferences(references);
+    setShowReferencesDialog(true);
+  };
+
+  const handleViewFiles = (files: any[]) => {
+    setSelectedFiles(files);
+    setShowFilesDialog(true);
+  };
 
   const checkAssetFiles = async (assetId: string) => {
     if (assetFilesMap[assetId] !== undefined) {
@@ -731,23 +803,29 @@ export default function PendingAssignmentsPage() {
                       {/* List Header */}
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <h3 className="text-lg font-semibold">
-                            Allocation {list.number} -{" "}
-                            {list.deadline ? (
-                              <span
-                                className={
-                                  isOverdue(list.deadline)
-                                    ? "text-red-600 font-medium"
-                                    : ""
-                                }
-                              >
-                                {new Date(list.deadline).toLocaleDateString()}
-                              </span>
-                            ) : (
-                              "No deadline"
-                            )}{" "}
-                            - {list.totalAssets} assets
-                          </h3>
+                          <div>
+                            <h3 className="text-lg font-semibold">
+                              Allocation {list.number} -{" "}
+                              {list.deadline ? (
+                                <span
+                                  className={
+                                    isOverdue(list.deadline)
+                                      ? "text-red-600 font-medium"
+                                      : ""
+                                  }
+                                >
+                                  {new Date(list.deadline).toLocaleDateString()}
+                                </span>
+                              ) : (
+                                "No deadline"
+                              )}{" "}
+                              - {list.totalAssets} assets
+                            </h3>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Review assets and references below before
+                              accepting
+                            </p>
+                          </div>
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
@@ -781,6 +859,76 @@ export default function PendingAssignmentsPage() {
                         </div>
                       </div>
 
+                      {/* Assets Summary */}
+                      <div className="mb-4 p-4 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">
+                              Assets Overview:
+                            </span>
+                          </div>
+                          {(() => {
+                            const totalRefs = list.asset_assignments.reduce(
+                              (sum, assignment) => {
+                                const refs = Array.isArray(
+                                  assignment.onboarding_assets?.reference
+                                )
+                                  ? assignment.onboarding_assets.reference
+                                  : [];
+                                return sum + refs.length;
+                              },
+                              0
+                            );
+                            const totalFiles = list.asset_assignments.reduce(
+                              (sum, assignment) => {
+                                const files =
+                                  assetFilesMap[
+                                    assignment.onboarding_assets?.id || ""
+                                  ] || [];
+                                return sum + files.length;
+                              },
+                              0
+                            );
+                            const hasGLB = list.asset_assignments.some(
+                              (assignment) =>
+                                assignment.onboarding_assets?.glb_link
+                            );
+
+                            return (
+                              <div className="flex items-center gap-4 text-muted-foreground">
+                                {hasGLB && (
+                                  <span className="flex items-center gap-1">
+                                    <File className="h-3 w-3" />
+                                    GLB files available
+                                  </span>
+                                )}
+                                {totalRefs > 0 && (
+                                  <span className="flex items-center gap-1">
+                                    <Image className="h-3 w-3" />
+                                    {totalRefs} reference images
+                                  </span>
+                                )}
+                                {totalFiles > 0 && (
+                                  <span className="flex items-center gap-1">
+                                    <FileText className="h-3 w-3" />
+                                    {totalFiles} asset files
+                                  </span>
+                                )}
+                                {!hasGLB &&
+                                  totalRefs === 0 &&
+                                  totalFiles === 0 && (
+                                    <span className="flex items-center gap-1 text-amber-600">
+                                      <AlertCircle className="h-3 w-3" />
+                                      No assets available
+                                    </span>
+                                  )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
                       {/* Assets Table */}
                       <Table>
                         <TableHeader>
@@ -789,6 +937,21 @@ export default function PendingAssignmentsPage() {
                             <TableHead>Product Name</TableHead>
                             <TableHead className="w-24 text-center">
                               Price
+                            </TableHead>
+                            <TableHead className="w-32 text-center">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1 justify-center cursor-help">
+                                    References
+                                    <Info className="h-3 w-3" />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>
+                                    View reference images and 3D model files
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
                             </TableHead>
                             <TableHead className="w-24 text-center">
                               Links
@@ -816,6 +979,41 @@ export default function PendingAssignmentsPage() {
                                     </span>
                                   </div>
                                 </TableCell>
+                                <TableCell className="text-center w-32">
+                                  <div className="flex flex-col items-center gap-1">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs px-3 py-1 h-7"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedAssetForView(asset);
+                                        setShowViewDialog(true);
+                                      }}
+                                    >
+                                      <FileText className="mr-1 h-3 w-3" />
+                                      Ref (
+                                      {(() => {
+                                        console.log(
+                                          "Asset reference:",
+                                          asset.reference
+                                        );
+                                        const separated = separateReferences(
+                                          asset.reference
+                                        );
+                                        console.log(
+                                          "Separated references:",
+                                          separated
+                                        );
+                                        return (
+                                          separated.imageReferences.length +
+                                          separated.glbFiles.length
+                                        );
+                                      })()}
+                                      )
+                                    </Button>
+                                  </div>
+                                </TableCell>
                                 <TableCell className="text-center w-24">
                                   <div className="flex items-center justify-center space-x-1">
                                     {asset.product_link && (
@@ -836,63 +1034,22 @@ export default function PendingAssignmentsPage() {
                                       </Tooltip>
                                     )}
 
-                                    {asset.reference &&
-                                      Array.isArray(asset.reference) &&
-                                      asset.reference.length > 0 &&
-                                      asset.reference.some(
-                                        (ref: any) =>
-                                          ref &&
-                                          typeof ref === "string" &&
-                                          ref.trim() !== ""
-                                      ) && (
-                                        <button
-                                          onClick={() =>
-                                            handleDownloadReferences(
-                                              asset.reference as string[]
-                                            )
-                                          }
-                                          className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
-                                          title="Download reference images"
-                                        >
-                                          <Download className="h-4 w-4" />
-                                        </button>
-                                      )}
-                                    {(() => {
-                                      const files =
-                                        assetFilesMap[asset.id] || [];
-                                      const isChecking =
-                                        checkingFiles[asset.id];
-
-                                      if (isChecking) {
-                                        return (
-                                          <div className="inline-flex items-center justify-center h-8 w-8">
-                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-muted-foreground" />
-                                          </div>
-                                        );
-                                      }
-
-                                      if (files.length > 0) {
-                                        return (
-                                          <button
-                                            onClick={() =>
-                                              handleDownloadAssetFiles(asset.id)
-                                            }
-                                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
-                                            title={`Download ${files.length} asset files`}
-                                          >
-                                            <File className="h-4 w-4" />
-                                          </button>
-                                        );
-                                      }
-
-                                      return null;
-                                    })()}
-
                                     {/* Show info icon if no references or files are available */}
                                     {(() => {
-                                      // Show info icon if no other links/buttons are shown
-                                      // Temporarily always show for testing
-                                      if (true) {
+                                      const refs = Array.isArray(
+                                        asset.reference
+                                      )
+                                        ? asset.reference
+                                        : [];
+                                      const hasReferences = refs.length > 0;
+                                      const files =
+                                        assetFilesMap[asset.id] || [];
+
+                                      if (
+                                        !asset.product_link &&
+                                        !hasReferences &&
+                                        files.length === 0
+                                      ) {
                                         return (
                                           <Tooltip>
                                             <TooltipTrigger asChild>
@@ -902,8 +1059,7 @@ export default function PendingAssignmentsPage() {
                                             </TooltipTrigger>
                                             <TooltipContent>
                                               <p>
-                                                No reference images or asset
-                                                files available
+                                                No additional links available
                                               </p>
                                             </TooltipContent>
                                           </Tooltip>
@@ -927,6 +1083,384 @@ export default function PendingAssignmentsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* References Preview Dialog */}
+      <Dialog
+        open={showReferencesDialog}
+        onOpenChange={setShowReferencesDialog}
+      >
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Reference Images</DialogTitle>
+            <DialogDescription>
+              Review the reference images for this asset before accepting the
+              assignment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {selectedReferences.map((ref, index) => (
+              <div key={index} className="space-y-2">
+                <div className="aspect-square overflow-hidden rounded-lg border">
+                  <img
+                    src={ref}
+                    alt={`Reference ${index + 1}`}
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = "/images/4.png";
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Reference {index + 1}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(ref, "_blank")}
+                    className="h-6 px-2 text-xs"
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Open
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  selectedReferences.forEach((ref) => {
+                    window.open(ref, "_blank");
+                  });
+                  toast.success(
+                    `Opening ${selectedReferences.length} reference images`
+                  );
+                }}
+                className="flex items-center gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open All
+              </Button>
+              <Button onClick={() => setShowReferencesDialog(false)}>
+                Close
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Files Preview Dialog */}
+      <Dialog open={showFilesDialog} onOpenChange={setShowFilesDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Asset Files</DialogTitle>
+            <DialogDescription>
+              Review the asset files for this assignment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {selectedFiles.map((file, index) => (
+              <div key={index} className="space-y-2">
+                <div className="aspect-square overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
+                  {file.file_type === "glb" ? (
+                    <div className="text-center p-4">
+                      <File className="h-12 w-12 text-muted-foreground mb-2" />
+                      <p className="text-sm font-medium">3D Model</p>
+                      <p className="text-xs text-muted-foreground">
+                        {file.file_name}
+                      </p>
+                    </div>
+                  ) : file.file_type === "reference" ? (
+                    <img
+                      src={file.file_url}
+                      alt={file.file_name}
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = "/images/4.png";
+                      }}
+                    />
+                  ) : file.file_type === "asset" ? (
+                    <div className="text-center p-4">
+                      <FileText className="h-12 w-12 text-muted-foreground mb-2" />
+                      <p className="text-sm font-medium">Asset File</p>
+                      <p className="text-xs text-muted-foreground">
+                        {file.file_name}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center p-4">
+                      <File className="h-12 w-12 text-muted-foreground mb-2" />
+                      <p className="text-sm font-medium">File</p>
+                      <p className="text-xs text-muted-foreground">
+                        {file.file_name}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p
+                    className="text-sm font-medium truncate"
+                    title={file.file_name}
+                  >
+                    {file.file_name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {file.file_type} • {file.uploaded_by}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(file.file_url, "_blank")}
+                      className="h-6 px-2 text-xs flex-1"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Open
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const link = document.createElement("a");
+                        link.href = file.file_url;
+                        link.download = file.file_name;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      className="h-6 px-2 text-xs"
+                    >
+                      <Download className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  selectedFiles.forEach((file) => {
+                    const link = document.createElement("a");
+                    link.href = file.file_url;
+                    link.download = file.file_name;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  });
+                  toast.success(`Downloading ${selectedFiles.length} files`);
+                }}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download All
+              </Button>
+              <Button onClick={() => setShowFilesDialog(false)}>Close</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Dialog for Asset References */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedAssetForView?.product_name} - References
+            </DialogTitle>
+            <DialogDescription>
+              View all references and assets for this assignment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Asset Info */}
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Article ID:</span>{" "}
+                  {selectedAssetForView?.article_id}
+                </div>
+                <div>
+                  <span className="font-medium">Client:</span>{" "}
+                  {selectedAssetForView?.client}
+                </div>
+                <div>
+                  <span className="font-medium">Batch:</span>{" "}
+                  {selectedAssetForView?.batch}
+                </div>
+                {selectedAssetForView?.glb_link && (
+                  <div>
+                    <span className="font-medium">GLB File:</span>{" "}
+                    <a
+                      href={selectedAssetForView.glb_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      Available
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* References Grid */}
+            {selectedAssetForView?.reference && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Reference Images</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {separateReferences(
+                    selectedAssetForView.reference
+                  ).imageReferences.map((ref, index) => (
+                    <div key={index} className="space-y-2">
+                      <div className="aspect-square overflow-hidden rounded-lg border">
+                        <img
+                          src={ref}
+                          alt={`Reference ${index + 1}`}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = "/images/4.png";
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Reference {index + 1}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(ref, "_blank")}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          Open
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* GLB Files */}
+            {selectedAssetForView?.reference &&
+              separateReferences(selectedAssetForView.reference).glbFiles
+                .length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">3D Model Files</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {separateReferences(
+                      selectedAssetForView.reference
+                    ).glbFiles.map((ref, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="aspect-square overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
+                          <div className="text-center p-4">
+                            <File className="h-12 w-12 text-muted-foreground mb-2" />
+                            <p className="text-sm font-medium">3D Model</p>
+                            <p className="text-xs text-muted-foreground">
+                              {ref.split("/").pop()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">
+                            GLB File {index + 1}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(ref, "_blank")}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Open
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Asset Files */}
+            {selectedAssetForView?.id &&
+              assetFilesMap[selectedAssetForView.id] &&
+              assetFilesMap[selectedAssetForView.id].length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Asset Files</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {assetFilesMap[selectedAssetForView.id].map(
+                      (file, index) => (
+                        <div key={index} className="space-y-2">
+                          <div className="aspect-square overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
+                            <div className="text-center p-4">
+                              <FileText className="h-12 w-12 text-muted-foreground mb-2" />
+                              <p className="text-sm font-medium">Asset File</p>
+                              <p className="text-xs text-muted-foreground">
+                                {file.file_name}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p
+                              className="text-sm font-medium truncate"
+                              title={file.file_name}
+                            >
+                              {file.file_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {file.file_type} • {file.uploaded_by}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  window.open(file.file_url, "_blank")
+                                }
+                                className="h-6 px-2 text-xs flex-1"
+                              >
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                Open
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const link = document.createElement("a");
+                                  link.href = file.file_url;
+                                  link.download = file.file_name;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                }}
+                                className="h-6 px-2 text-xs"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowViewDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 }

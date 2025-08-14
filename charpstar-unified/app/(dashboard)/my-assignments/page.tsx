@@ -161,7 +161,11 @@ export default function MyAssignmentsPage() {
 
         // For completed earnings, only include bonus if actually completed on time
         let actualEarnings = baseEarnings;
-        if (asset.status === "approved" && asset.delivery_date) {
+        if (
+          (asset.status === "approved" ||
+            asset.status === "approved_by_client") &&
+          asset.delivery_date
+        ) {
           // Check if completed before deadline
           const deliveryDate = new Date(asset.delivery_date);
           const createdDate = new Date(asset.created_at);
@@ -173,6 +177,7 @@ export default function MyAssignmentsPage() {
         // Count assets by status
         switch (asset.status) {
           case "approved":
+          case "approved_by_client":
             batch.completedAssets++;
             batch.completedEarnings += actualEarnings;
             break;
