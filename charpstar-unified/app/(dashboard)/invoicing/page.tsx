@@ -34,8 +34,6 @@ import {
   Package,
   CheckCircle,
   Download,
-  Eye,
-  X,
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -46,7 +44,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/containers";
-import { Input, Textarea } from "@/components/ui/inputs";
+import { Input } from "@/components/ui/inputs";
 
 interface ApprovedAsset {
   id: string;
@@ -319,7 +317,7 @@ export default function InvoicingPage() {
       }
 
       // If no allocation list completion date, we need to check when the asset was individually approved
-      // For now, we'll use the allocation list creation date as a proxy for when the asset was assigned
+      // For now, we&apos;ll use the allocation list creation date as a proxy for when the asset was assigned
       // This is not perfect but gives us a reasonable approximation
       const listCreatedDate = new Date(asset.allocation_list_created_at);
       return (
@@ -1133,7 +1131,7 @@ export default function InvoicingPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {retroactiveBonuses.map((bonus, index) => (
+              {retroactiveBonuses.map((bonus) => (
                 <div
                   key={bonus.allocationListId}
                   className="flex items-center justify-between p-3 bg-white rounded-lg border border-amber-200"
@@ -1192,7 +1190,7 @@ export default function InvoicingPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {futureBonuses.map((bonus, index) => (
+              {futureBonuses.map((bonus) => (
                 <div
                   key={bonus.allocationListId}
                   className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200"
@@ -1250,12 +1248,12 @@ export default function InvoicingPage() {
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
               <strong>Bonus Calculation:</strong> Bonuses are calculated
-              globally on the entire allocation list's completed subtotal when
-              the list is completed before its deadline. Individual assets don't
-              receive individual bonuses - they contribute to the list's total
-              bonus calculation. Assets from incomplete lists will have their
-              bonuses credited when the entire list is completed in a future
-              month.
+              globally on the entire allocation list&apos;s completed subtotal
+              when the list is completed before its deadline. Individual assets
+              don&apos;t receive individual bonuses - they contribute to the
+              list&apos;s total bonus calculation. Assets from incomplete lists
+              will have their bonuses credited when the entire list is completed
+              in a future month.
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -1268,7 +1266,8 @@ export default function InvoicingPage() {
                 This includes bonuses calculated on the completed subtotal of
                 allocation lists that were completed this month, not individual
                 asset bonuses. The bonus is applied globally to the entire
-                list's completed work when the list meets deadline requirements.
+                list&apos;s completed work when the list meets deadline
+                requirements.
               </p>
             </div>
           </CardContent>
@@ -1302,10 +1301,11 @@ export default function InvoicingPage() {
             </div>
             <p className="text-sm text-blue-700">
               <strong>Important:</strong> Bonuses are calculated globally on the
-              entire allocation list when it's completed, not per individual
-              asset. Individual assets show their base price until their
-              allocation list is fully completed. The "Total" column shows what
-              you'll receive for each asset (base price + bonus if eligible).
+              entire allocation list when it&apos;s completed, not per
+              individual asset. Individual assets show their base price until
+              their allocation list is fully completed. The &quot;Total&quot;
+              column shows what you&apos;ll receive for each asset (base price +
+              bonus if eligible).
             </p>
           </div>
 

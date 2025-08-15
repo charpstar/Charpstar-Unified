@@ -106,6 +106,7 @@ export default function ModelerReviewPage() {
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(
     null
   );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedAnnotation, setSelectedAnnotation] =
     useState<Annotation | null>(null);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
@@ -153,6 +154,7 @@ export default function ModelerReviewPage() {
   const [restoringVersion, setRestoringVersion] = useState(false);
   // Components panel state
   const [dependencies, setDependencies] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [checkingUpdates, setCheckingUpdates] = useState(false);
 
   const modelViewerRef = useRef<any>(null);
@@ -628,6 +630,7 @@ export default function ModelerReviewPage() {
   }, [asset?.glb_link]); // Don't include modelLoaded to prevent infinite re-renders
 
   // Check if newer versions exist for each dependency
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const checkForUpdates = async () => {
     setCheckingUpdates(true);
     try {
@@ -1175,6 +1178,7 @@ export default function ModelerReviewPage() {
       line: Element,
       startHotspot: any,
       endHotspot: any,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       dimHotspot: any = null
     ) => {
       if (!line || !startHotspot || !endHotspot) return;

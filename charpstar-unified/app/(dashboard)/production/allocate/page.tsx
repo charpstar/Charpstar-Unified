@@ -37,7 +37,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { notificationService } from "@/lib/notificationService";
 import { toast } from "sonner";
 
 interface UnallocatedAsset {
@@ -193,32 +192,6 @@ export default function AllocateAssetsPage() {
   const isUpdatingPricing = useRef(false);
 
   // Add new assets to allocation data with correct pricing
-  const addAssetsToAllocation = useCallback(
-    (newAssetIds: string[]) => {
-      if (newAssetIds.length === 0) return;
-
-      const modelers = users.filter((u) => u.role === "modeler");
-
-      // Get default pricing based on current pricing tier
-      const defaultPricingOption =
-        pricingTier === "future" ? "pbr_3d_model_future" : "pbr_3d_model";
-      const defaultPrice = pricingTier === "future" ? 15 : 18;
-
-      const newAllocationData: AllocationData[] = newAssetIds.map(
-        (assetId) => ({
-          assetId,
-          modelerId:
-            globalTeamAssignment.modelerId ||
-            (modelers.length > 0 ? modelers[0].id : ""),
-          price: defaultPrice,
-          pricingOptionId: defaultPricingOption,
-        })
-      );
-
-      setAllocationData((prev) => [...prev, ...newAllocationData]);
-    },
-    [users, globalTeamAssignment, pricingTier]
-  );
 
   // Update pricing when pricing tier changes
   const updatePricingForTierChange = useCallback(
@@ -697,7 +670,7 @@ export default function AllocateAssetsPage() {
         if (!filesError && filesData) {
           assetFiles = filesData;
         }
-      } catch (error) {
+      } catch {
         // asset_files table might not exist, ignore
         console.log("asset_files table not available");
       }
@@ -782,15 +755,6 @@ export default function AllocateAssetsPage() {
       // Fallback to opening in new tab
       window.open(url, "_blank");
     }
-  };
-
-  const applyGlobalTeamAssignmentToAllAssets = () => {
-    setAllocationData((prev) =>
-      prev.map((item) => ({
-        ...item,
-        modelerId: globalTeamAssignment.modelerId,
-      }))
-    );
   };
 
   // Bulk pricing functions
@@ -924,8 +888,6 @@ export default function AllocateAssetsPage() {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to create allocation");
       }
-
-      const result = await response.json();
 
       // Note: Notifications are now handled by the API route to prevent duplicates
       // The API route (/api/assets/assign) will send notifications to assigned modelers

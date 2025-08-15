@@ -9,14 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/display";
+
 import {
   Select,
   SelectContent,
@@ -24,22 +17,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/inputs";
-import { MultiSelect } from "@/components/ui/inputs";
-import { Checkbox } from "@/components/ui/inputs";
+
 import {
   ArrowLeft,
   User,
   ShieldCheck,
   Users,
   CheckCircle,
-  Package,
   Settings,
   BarChart3,
   UserCheck,
-  AlertCircle,
-  Plus,
   Trash2,
-  Eye,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
@@ -317,42 +305,6 @@ export default function QAAllocationPage() {
       toast.error("Failed to update QA allocations");
     } finally {
       setAllocating(false);
-    }
-  };
-
-  const handleRemoveAllocation = async (allocationId: string) => {
-    try {
-      const { error } = await supabase
-        .from("qa_allocations")
-        .delete()
-        .eq("id", allocationId);
-
-      if (error) {
-        console.error("Error removing QA allocation:", error);
-        toast.error("Failed to remove QA allocation");
-        return;
-      }
-
-      // Update local state instead of refetching
-      setAllocations((prev) =>
-        prev.filter((allocation) => allocation.id !== allocationId)
-      );
-
-      // If this allocation affects the currently selected QA, update the current modelers
-      const removedAllocation = allocations.find((a) => a.id === allocationId);
-      if (removedAllocation && removedAllocation.qa_id === selectedQA) {
-        setCurrentQAModelers((prev) =>
-          prev.filter((id) => id !== removedAllocation.modeler_id)
-        );
-        setSelectedModelers((prev) =>
-          prev.filter((id) => id !== removedAllocation.modeler_id)
-        );
-      }
-
-      toast.success("QA allocation removed successfully");
-    } catch (error) {
-      console.error("Error removing QA allocation:", error);
-      toast.error("Failed to remove QA allocation");
     }
   };
 

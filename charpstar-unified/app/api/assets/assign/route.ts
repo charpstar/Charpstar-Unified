@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { notificationService } from "@/lib/notificationService";
-import { createClient } from "@supabase/supabase-js";
+
 import { cleanupEmptyAllocationLists } from "@/lib/allocationListCleanup";
 
 export async function POST(request: NextRequest) {

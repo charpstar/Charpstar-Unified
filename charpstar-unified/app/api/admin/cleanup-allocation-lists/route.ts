@@ -5,8 +5,8 @@ import {
   cleanupEmptyAllocationLists,
   checkOrphanedAllocationLists,
 } from "@/lib/allocationListCleanup";
-
-export async function POST(request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function POST(_request: NextRequest) {
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -79,7 +79,8 @@ export async function POST(request: NextRequest) {
 }
 
 // GET endpoint to check for orphaned allocation lists without deleting them
-export async function GET(request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function GET(_request: NextRequest) {
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });

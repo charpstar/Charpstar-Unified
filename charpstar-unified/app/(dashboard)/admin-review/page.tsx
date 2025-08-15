@@ -22,15 +22,8 @@ import {
 import { Input } from "@/components/ui/inputs";
 import { Checkbox } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
+
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/interactive";
-import {
-  ChevronLeft,
-  ChevronRight,
   Users,
   Eye,
   Package,
@@ -42,30 +35,10 @@ import {
   AlertCircle,
   ArrowLeft,
   Trash2,
-  Search,
-  Filter,
   X,
-  Settings,
-  Building,
-  Plus,
-  Paperclip,
-  FileText,
-  FileImage,
-  FileVideo,
-  FileArchive,
-  File,
   Download,
-  Trash2 as TrashIcon,
-  Camera,
-  Save,
-  Upload,
-  ArrowRight,
-  Sparkles,
-  Target,
-  Image,
-  Trophy,
-  Star,
   ExternalLink,
+  FileText,
 } from "lucide-react";
 
 import {
@@ -173,13 +146,6 @@ const getStatusColor = (status: string) => {
 };
 
 // Helper function to check if status filters match specific combinations
-const isStatusFilterActive = (
-  currentFilters: string[],
-  targetFilters: string[]
-): boolean => {
-  if (currentFilters.length !== targetFilters.length) return false;
-  return targetFilters.every((filter) => currentFilters.includes(filter));
-};
 
 const calculateListStats = (list: any) => {
   const totalAssets = list.asset_assignments.length;
@@ -361,6 +327,7 @@ export default function AdminReviewPage() {
   const [showAllocationLists, setShowAllocationLists] = useState(false);
   const [showQAAssets, setShowQAAssets] = useState(false);
   const [modelerEmail, setModelerEmail] = useState<string>("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [viewedUserRole, setViewedUserRole] = useState<string>("");
   const [refreshTrigger] = useState(0);
   const [updatingPriorities, setUpdatingPriorities] = useState<Set<string>>(
@@ -370,6 +337,7 @@ export default function AdminReviewPage() {
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
 
   // Allocation list cleanup state
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<any>(null);
   const [showCleanupDialog, setShowCleanupDialog] = useState(false);
@@ -1598,6 +1566,7 @@ export default function AdminReviewPage() {
   };
 
   // Clean up empty allocation lists
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const cleanupEmptyAllocationLists = async () => {
     setCleanupLoading(true);
     try {
@@ -1636,34 +1605,6 @@ export default function AdminReviewPage() {
   };
 
   // Check for orphaned allocation lists
-  const checkOrphanedAllocationLists = async () => {
-    setCleanupLoading(true);
-    try {
-      const response = await fetch("/api/admin/cleanup-allocation-lists", {
-        method: "GET",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to check allocation lists");
-      }
-
-      const result = await response.json();
-      setCleanupResult(result);
-      setShowCleanupDialog(true);
-
-      toast.success(result.message);
-    } catch (error) {
-      console.error("Error checking allocation lists:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to check allocation lists"
-      );
-    } finally {
-      setCleanupLoading(false);
-    }
-  };
 
   if (
     user &&
@@ -1877,7 +1818,7 @@ export default function AdminReviewPage() {
       setUploading(false);
     }
   };
-
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleViewReferences = (assetId: string) => {
     const asset = showAllocationLists
       ? allocationLists
@@ -1904,10 +1845,12 @@ export default function AdminReviewPage() {
     setShowViewDialog(true);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const removeViewingFile = (fileId: string) => {
     setViewingFiles((prev) => prev.filter((file) => file.id !== fileId));
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const saveViewChanges = async () => {
     if (!selectedAsset) return;
 
@@ -3452,7 +3395,7 @@ export default function AdminReviewPage() {
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                   <p className="text-muted-foreground">No files found</p>
                   <p className="text-xs text-muted-foreground">
-                    Click "Add Reference" to upload files
+                    Click &quot;Add Reference&quot; to upload files
                   </p>
                 </div>
               );

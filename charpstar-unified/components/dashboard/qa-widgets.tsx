@@ -4,22 +4,12 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
+
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
-import { Progress } from "@/components/ui/feedback";
+
 import { Skeleton } from "@/components/ui/skeletons";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/interactive";
+
 import {
   Users,
   CheckCircle,
@@ -93,9 +83,9 @@ interface WaitingForApprovalAsset {
 export default function QAWidgets() {
   const user = useUser();
   const router = useRouter();
-  const [modelers, setModelers] = useState<ModelerProgress[]>([]);
+  const [, setModelers] = useState<ModelerProgress[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false);
+
   const [projects, setProjects] = useState<
     Array<{
       client: string;
@@ -292,8 +282,6 @@ export default function QAWidgets() {
       setLoading(false);
     }
   };
-
-  const displayedModelers = showAll ? modelers : modelers.slice(0, 4);
 
   if (loading) {
     return (
@@ -670,7 +658,8 @@ export function PersonalMetricsWidget() {
           }
         } else {
           // For other roles, count all assets waiting for approval
-          const { data: allAssets, error: assetsError } = await supabase
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { data: _, error: assetsError } = await supabase
             .from("onboarding_assets")
             .select("id", { count: "exact", head: true })
             .eq("status", "delivered_by_artist");

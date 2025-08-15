@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notificationService } from "@/lib/notificationService";
-
-export async function POST(request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function POST(_request: NextRequest) {
   try {
     // Simple authentication check - you might want to add proper API key authentication
-    const authHeader = request.headers.get("authorization");
 
     // For now, allow calls without auth for testing. In production, add proper auth:
     // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {

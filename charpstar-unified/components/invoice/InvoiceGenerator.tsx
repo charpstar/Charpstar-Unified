@@ -815,9 +815,9 @@ export default function InvoiceGenerator({
             <div>
               <h3 className="font-semibold mb-4">All Assets in List</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Only assets with status "Approved" or "Approved by Client" are
-                eligible for bonus payments. Assets with other statuses receive
-                base price only.
+                Only assets with status &quot;Approved&quot; or &quot;Approved
+                by Client&quot; are eligible for bonus payments. Assets with
+                other statuses receive base price only.
               </p>
               <div className="border rounded-lg overflow-hidden">
                 <table className="w-full">
@@ -916,12 +916,14 @@ export default function InvoiceGenerator({
                 </div>
                 <ul className="list-disc list-inside space-y-1 ml-4">
                   <li>
-                    Only assets with status "Approved" or "Approved by Client"
-                    are eligible for bonus payments
+                    Only assets with status &quot;Approved&quot; or
+                    &quot;Approved by Client&quot; are eligible for bonus
+                    payments
                   </li>
                   <li>
-                    Assets with status "delivered_by_artist", "revisions", or
-                    other incomplete statuses receive base price only
+                    Assets with status &quot;delivered_by_artist&quot;,
+                    &quot;revisions&quot;, or other incomplete statuses receive
+                    base price only
                   </li>
                   <li>Bonus percentage: {invoiceData.bonusPercentage}%</li>
                   <li>

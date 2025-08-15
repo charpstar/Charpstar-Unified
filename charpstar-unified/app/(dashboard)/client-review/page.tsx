@@ -39,7 +39,6 @@ import {
   ExternalLink,
   FileText,
   Download,
-  Clock,
   X,
 } from "lucide-react";
 
@@ -190,6 +189,7 @@ export default function ReviewDashboardPage() {
   const [clientFilters, setClientFilters] = useState<string[]>([]);
   const [batchFilters, setBatchFilters] = useState<number[]>([]);
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [clients, setClients] = useState<string[]>([]);
 
   // Add Ref dialog state
@@ -299,7 +299,7 @@ export default function ReviewDashboardPage() {
 
   // Listen for asset status updates from individual review pages
   useEffect(() => {
-    const handleAssetStatusUpdate = (event: CustomEvent) => {
+    const handleAssetStatusUpdate = () => {
       fetchAssets();
     };
 
@@ -1422,7 +1422,7 @@ export default function ReviewDashboardPage() {
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                   <p className="text-muted-foreground">No files found</p>
                   <p className="text-xs text-muted-foreground">
-                    Click "Add Reference" to upload files
+                    Click &quot;Add Reference&quot; to upload files
                   </p>
                 </div>
               );

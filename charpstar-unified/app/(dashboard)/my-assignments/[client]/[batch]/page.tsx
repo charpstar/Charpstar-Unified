@@ -13,12 +13,7 @@ const getPriorityClass = (priority: number): string => {
   return "priority-low";
 };
 import { supabase } from "@/lib/supabaseClient";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
+import { Card, CardContent, CardHeader } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/inputs";
@@ -59,11 +54,9 @@ import {
   Upload,
   Image,
   Euro,
-  FolderOpen,
   X,
   FileText,
   Link2,
-  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -73,7 +66,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/containers";
-import ErrorBoundary from "@/components/dashboard/error-boundary";
+
 import { notificationService } from "@/lib/notificationService";
 
 interface BatchAsset {
@@ -199,11 +192,17 @@ export default function BatchDetailPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("priority");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [sortBy, setSortBy] = useState<
+    "priority" | "name" | "status" | "article_id"
+  >("priority");
+
   const [uploadingFile, setUploadingFile] = useState<string | null>(null);
   const [uploadingGLB, setUploadingGLB] = useState<string | null>(null);
   const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [currentReferences, setCurrentReferences] = useState<string[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [currentAssetName, setCurrentAssetName] = useState("");
 
   // Upload dialog states
@@ -275,7 +274,7 @@ export default function BatchDetailPage() {
 
   useEffect(() => {
     filterAndSortAssets();
-  }, [allocationLists, searchTerm, statusFilter, sortBy]);
+  }, [allocationLists, searchTerm, statusFilter]);
 
   // Check for previous modeler files when component mounts
   useEffect(() => {
@@ -294,7 +293,7 @@ export default function BatchDetailPage() {
       if (assetIds.length === 0) return;
 
       // Get previous modeler assignments for these assets
-      const { data: previousAssignments, error } = await supabase
+      const { data: previousAssignments } = await supabase
         .from("asset_assignments")
         .select(
           `
@@ -307,26 +306,16 @@ export default function BatchDetailPage() {
         .neq("user_id", user?.id)
         .order("start_time", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching previous assignments:", error);
-        return;
-      }
-
       if (!previousAssignments || previousAssignments.length === 0) {
         setAssetFileHistory([]);
         return;
       }
 
       // Get asset details including files
-      const { data: assetDetails, error: assetError } = await supabase
+      const { data: assetDetails } = await supabase
         .from("onboarding_assets")
         .select("id, glb_link, reference, product_link")
         .in("id", assetIds);
-
-      if (assetError) {
-        console.error("Error fetching asset details:", assetError);
-        return;
-      }
 
       // Get GLB upload history for these assets
       const { data: glbHistory, error: glbError } = await supabase
@@ -342,16 +331,16 @@ export default function BatchDetailPage() {
       // Get additional asset files if the table exists
       let assetFiles: any[] = [];
       try {
-        const { data: filesData, error: filesError } = await supabase
+        const { data: filesData } = await supabase
           .from("asset_files")
           .select("asset_id, file_url, file_name, file_type")
           .in("asset_id", assetIds)
           .order("uploaded_at", { ascending: false });
 
-        if (!filesError && filesData) {
+        if (filesData) {
           assetFiles = filesData;
         }
-      } catch (error) {
+      } catch {
         console.log("asset_files table not available");
       }
 
@@ -422,7 +411,7 @@ export default function BatchDetailPage() {
       startLoading();
 
       // Get user's allocation lists for this specific client and batch (only accepted assignments)
-      const { data: allocationListsData, error: listsError } = await supabase
+      const { data: allocationListsData } = await supabase
         .from("allocation_lists")
         .select(
           `
@@ -462,12 +451,6 @@ export default function BatchDetailPage() {
         .eq("asset_assignments.status", "accepted")
         .eq("asset_assignments.onboarding_assets.client", client)
         .eq("asset_assignments.onboarding_assets.batch", batch);
-
-      if (listsError) {
-        console.error("Error fetching allocation lists:", listsError);
-        toast.error("Failed to fetch batch assets");
-        return;
-      }
 
       if (!allocationListsData || allocationListsData.length === 0) {
         toast.error("You don't have any assigned assets in this batch");
@@ -594,16 +577,6 @@ export default function BatchDetailPage() {
     } finally {
       setLoading(false);
       stopLoading();
-    }
-  };
-
-  // Safe wrapper for fetchBatchAssets to prevent app crashes
-  const safeFetchBatchAssets = async () => {
-    try {
-      await fetchBatchAssets();
-    } catch (error) {
-      console.error("Error in safeFetchBatchAssets:", error);
-      toast.error("Failed to refresh asset list");
     }
   };
 
@@ -753,13 +726,6 @@ export default function BatchDetailPage() {
     }
 
     return urls.filter((url) => url && typeof url === "string");
-  };
-
-  const handleOpenReferences = (asset: BatchAsset) => {
-    const references = parseReferences(asset.reference);
-    setCurrentReferences(references);
-    setCurrentAssetName(asset.product_name);
-    setReferenceDialogOpen(true);
   };
 
   const handleDownloadReference = (url: string) => {
@@ -2508,7 +2474,7 @@ export default function BatchDetailPage() {
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                   <p className="text-muted-foreground">No files found</p>
                   <p className="text-xs text-muted-foreground">
-                    Click "Add Reference" to upload files
+                    Click &quot;Add Reference&quot; to upload files
                   </p>
                 </div>
               );

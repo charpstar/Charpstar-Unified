@@ -26,17 +26,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/display";
-import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
+import { Alert, AlertDescription } from "@/components/ui/feedback";
 import { toast } from "@/components/ui/utilities";
 import {
-  Paperclip,
-  Eye,
   CheckCircle,
   ArrowRight,
   Sparkles,
   Target,
   Image,
-  Plus,
   Trophy,
   Star,
   Camera,
@@ -163,36 +160,6 @@ export default function ReferenceImagesPage() {
 
     setAssets(sortedData);
     console.log("Assets refreshed:", sortedData);
-  };
-
-  // Function to debug a specific asset's reference field
-  const debugAssetReference = async (assetId: string) => {
-    const { data, error } = await supabase
-      .from("onboarding_assets")
-      .select("id, product_name, reference, status, glb_link")
-      .eq("id", assetId)
-      .single();
-
-    if (error) {
-      console.error("Error debugging asset:", error);
-      return;
-    }
-
-    console.log("Asset debug info:", {
-      id: data.id,
-      product_name: data.product_name,
-      rawReference: data.reference,
-      referenceType: typeof data.reference,
-      referenceLength: Array.isArray(data.reference)
-        ? data.reference.length
-        : "N/A",
-      status: data.status,
-      glb_link: data.glb_link,
-    });
-
-    if (data.reference) {
-      console.log("Parsed references:", getReferenceArray(data.reference));
-    }
   };
 
   // Function to test directly updating the reference field
@@ -802,62 +769,6 @@ export default function ReferenceImagesPage() {
       toast({
         title: "Error",
         description: "Failed to save references. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Save references to multiple assets (bulk upload)
-  const saveBulkReferences = async () => {
-    if (selected.size === 0 || uploadedFiles.length === 0) return;
-
-    setLoading(true);
-    try {
-      const fileUrls = uploadedFiles.map((file) => file.url);
-      const selectedAssetIds = Array.from(selected);
-
-      // Update all selected assets with the same reference files
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({ reference: fileUrls })
-        .in("id", selectedAssetIds);
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "Bulk upload successful",
-        description: `Reference files have been saved to ${selectedAssetIds.length} assets.`,
-      });
-
-      // Refresh assets
-      const { data } = await supabase
-        .from("onboarding_assets")
-        .select("*")
-        .eq("client", user?.metadata.client);
-
-      // Sort assets by article_id
-      const sortedData = (data || []).sort((a, b) => {
-        const articleIdA = a.article_id || "";
-        const articleIdB = b.article_id || "";
-        return articleIdA.localeCompare(articleIdB);
-      });
-      setAssets(sortedData);
-
-      // Reset state
-      setUploadedFiles([]);
-      setSelectedAsset(null);
-      setShowUploadDialog(false);
-      setSelected(new Set()); // Clear selection after bulk upload
-    } catch (error) {
-      console.error("Error saving bulk references:", error);
-      toast({
-        title: "Error",
-        description:
-          "Failed to save references to selected assets. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -1602,7 +1513,7 @@ export default function ReferenceImagesPage() {
                     <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                     <p className="text-muted-foreground">No files found</p>
                     <p className="text-xs text-muted-foreground">
-                      Click "Add Reference" to upload files
+                      Click &quot;Add Reference&quot; to upload files
                     </p>
                   </div>
                 );

@@ -3,11 +3,9 @@
 import React, { useState, useEffect } from "react";
 import {
   Bell,
-  Check,
   CheckCircle,
   Clock,
   ClipboardCheck,
-  AlertCircle,
   X,
   ArrowRight,
   AlertTriangle,

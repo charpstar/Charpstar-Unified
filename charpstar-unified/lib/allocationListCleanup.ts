@@ -44,7 +44,7 @@ export async function cleanupEmptyAllocationLists(
         // If no assets remain in this list, delete the allocation list
         if (!remainingAssets || remainingAssets.length === 0) {
           // Get the list name before deletion for logging
-          const { data: listInfo, error: listInfoError } = await supabase
+          const { data: listInfo } = await supabase
             .from("allocation_lists")
             .select("name")
             .eq("id", listId)

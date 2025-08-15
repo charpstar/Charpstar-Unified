@@ -48,8 +48,6 @@ import {
   Filter,
   Download,
 } from "lucide-react";
-import { DateRangePicker } from "@/components/ui/utilities";
-import type { DateRange } from "react-day-picker";
 
 interface CostSummary {
   totalBudget: number;
@@ -118,9 +116,7 @@ export default function CostTrackingPage() {
   const [modelerCosts, setModelerCosts] = useState<ModelerCosts[]>([]);
   const [assetCosts, setAssetCosts] = useState<AssetCost[]>([]);
   const [monthlyCosts, setMonthlyCosts] = useState<MonthlyCosts[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedModeler, setSelectedModeler] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<string>("totalCost");
@@ -257,7 +253,7 @@ export default function CostTrackingPage() {
           );
           audio.volume = 0.3;
           audio.play().catch(() => {}); // Ignore errors if audio fails
-        } catch (e) {
+        } catch {
           // Ignore audio errors
         }
       }

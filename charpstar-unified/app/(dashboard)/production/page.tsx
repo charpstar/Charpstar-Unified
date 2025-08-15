@@ -34,12 +34,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/containers";
-import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-} from "@/components/ui/interactive";
 
 import { TeamInfoTooltip } from "@/components/production/TeamInfoTooltip";
 
@@ -50,17 +44,14 @@ import {
   Calendar,
   Package,
   Search,
-  Filter,
   Building,
   Users,
   ShieldCheck,
-  Clock,
   CheckCircle,
   AlertCircle,
   Info,
   Trash2,
 } from "lucide-react";
-import { DateRangePicker } from "@/components/ui/utilities";
 import type { DateRange } from "react-day-picker";
 import {
   PieChart,
@@ -68,11 +59,6 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
-  BarChart,
-  Bar,
-  CartesianGrid,
-  XAxis,
-  YAxis,
 } from "recharts";
 
 interface BatchProgress {
@@ -222,6 +208,7 @@ export default function ProductionDashboard() {
   const [qaUsers, setQAUsers] = useState<QAProgress[]>([]);
   const [filteredQAUsers, setFilteredQAUsers] = useState<QAProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loadingStates, setLoadingStates] = useState({
     clients: false,
     batches: false,
@@ -229,9 +216,11 @@ export default function ProductionDashboard() {
     qa: false,
     fetchingData: false,
   });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [chartLoadingStates, setChartLoadingStates] = useState<
     Record<string, boolean>
   >({});
+
   const [deletingBatch, setDeletingBatch] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<{
     client: string;
@@ -268,14 +257,6 @@ export default function ProductionDashboard() {
   const selectedClient = searchParams.get("client") || null;
 
   // Function to invalidate cache when data changes
-  const invalidateCache = () => {
-    setDataCache({
-      assets: null,
-      assetAssignments: null,
-      profiles: null,
-      lastFetched: null,
-    });
-  };
 
   // Function to handle view mode changes and update URL
   const handleViewModeChange = (
@@ -1123,190 +1104,6 @@ export default function ProductionDashboard() {
     }
   };
 
-  // Function to fetch and process client summary data
-  const fetchClientData = async () => {
-    try {
-      setLoading(true);
-
-      // Fetch all asset data
-      const { data: assetData, error: assetError } = await supabase
-        .from("onboarding_assets")
-        .select("*");
-
-      if (assetError) {
-        console.error("Error fetching assets:", assetError);
-        return;
-      }
-
-      // Fetch asset assignments for team counting
-      const { data: assetAssignments, error: assignmentsError } =
-        await supabase.from("asset_assignments").select(`
-          user_id,
-          role,
-          onboarding_assets(client, batch)
-        `);
-
-      if (assignmentsError) {
-        console.error("Error fetching asset assignments:", assignmentsError);
-      }
-
-      // Group assets by client
-      const clientMap = new Map<string, ClientSummary>();
-
-      assetData?.forEach((asset) => {
-        const clientName = asset.client;
-
-        if (!clientMap.has(clientName)) {
-          clientMap.set(clientName, {
-            name: clientName,
-            totalBatches: 0,
-            totalModels: 0,
-            completedModels: 0,
-            completionPercentage: 0,
-            unassignedAssets: 0,
-            statusCounts: {
-              in_production: 0,
-              revisions: 0,
-              approved: 0,
-              approved_by_client: 0,
-            },
-            assignedUsers: {
-              modelers: 0,
-              qa: 0,
-            },
-            averageProgress: 0,
-            batches: [],
-          });
-        }
-
-        const client = clientMap.get(clientName)!;
-        client.totalModels++;
-
-        // Count status
-        const status = asset.status || "in_production";
-        if (status in client.statusCounts) {
-          client.statusCounts[status as keyof typeof client.statusCounts]++;
-        }
-
-        if (status === "approved" || status === "approved_by_client") {
-          client.completedModels++;
-        }
-      });
-
-      // Group batches by client and calculate batch-level stats
-      const batchMap = new Map<string, Map<number, any>>();
-      assetData?.forEach((asset) => {
-        const clientName = asset.client;
-        const batchNumber = asset.batch;
-
-        if (!batchMap.has(clientName)) {
-          batchMap.set(clientName, new Map());
-        }
-
-        const clientBatches = batchMap.get(clientName)!;
-        if (!clientBatches.has(batchNumber)) {
-          clientBatches.set(batchNumber, {
-            batch: batchNumber,
-            totalModels: 0,
-            completedModels: 0,
-            completionPercentage: 0,
-            startDate: asset.created_at
-              ? new Date(asset.created_at).toLocaleDateString()
-              : new Date().toLocaleDateString(),
-          });
-        }
-
-        const batch = clientBatches.get(batchNumber)!;
-        batch.totalModels++;
-
-        const status = asset.status || "in_production";
-        if (status === "approved" || status === "approved_by_client") {
-          batch.completedModels++;
-        }
-      });
-
-      // Calculate completion percentages and populate batch data
-      Array.from(clientMap.values()).forEach((client) => {
-        const clientBatches = batchMap.get(client.name);
-        if (clientBatches) {
-          client.totalBatches = clientBatches.size;
-          client.batches = Array.from(clientBatches.values()).map((batch) => ({
-            ...batch,
-            completionPercentage:
-              batch.totalModels > 0
-                ? Math.round((batch.completedModels / batch.totalModels) * 100)
-                : 0,
-          }));
-
-          // Calculate average progress across batches
-          client.averageProgress =
-            client.batches.length > 0
-              ? Math.round(
-                  client.batches.reduce(
-                    (sum, batch) => sum + batch.completionPercentage,
-                    0
-                  ) / client.batches.length
-                )
-              : 0;
-        }
-
-        client.completionPercentage =
-          client.totalModels > 0
-            ? Math.round((client.completedModels / client.totalModels) * 100)
-            : 0;
-      });
-
-      // Count assigned users per client
-      if (assetAssignments) {
-        const clientUserCounts = new Map<
-          string,
-          { modelers: Set<string>; qa: Set<string> }
-        >();
-
-        assetAssignments.forEach((assignment) => {
-          const asset = assignment.onboarding_assets as any;
-          if (asset && asset.client) {
-            const clientName = asset.client;
-
-            if (!clientUserCounts.has(clientName)) {
-              clientUserCounts.set(clientName, {
-                modelers: new Set(),
-                qa: new Set(),
-              });
-            }
-
-            const counts = clientUserCounts.get(clientName)!;
-            if (assignment.role === "modeler") {
-              counts.modelers.add(assignment.user_id);
-            } else if (assignment.role === "qa") {
-              counts.qa.add(assignment.user_id);
-            }
-          }
-        });
-
-        // Update client data with user counts
-        Array.from(clientMap.values()).forEach((client) => {
-          const userCounts = clientUserCounts.get(client.name);
-          if (userCounts) {
-            client.assignedUsers.modelers = userCounts.modelers.size;
-            client.assignedUsers.qa = userCounts.qa.size;
-          }
-        });
-      }
-
-      const clientsArray = Array.from(clientMap.values()).sort((a, b) =>
-        a.name.localeCompare(b.name)
-      );
-
-      setClients(clientsArray);
-      setFilteredClients(clientsArray);
-    } catch (error) {
-      console.error("Error fetching client data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchModelerProgress = async (assetData: any[]) => {
     try {
@@ -2047,24 +1844,6 @@ export default function ProductionDashboard() {
     }
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "approved_by_client":
-        return "bg-emerald-100 text-emerald-700 border-emerald-200";
-      case "in_production":
-        return "bg-warning-muted text-warning border-warning/20";
-      case "revisions":
-        return "bg-error-muted text-error border-error/20";
-
-      case "not_started":
-        return "bg-error-muted text-error border-error/20";
-      default:
-        return "bg-muted text-muted-foreground border-border";
-    }
-  };
-
   const handleAdminReview = (clientName: string, batchNumber: number) => {
     router.push(
       `/admin-review?client=${encodeURIComponent(clientName)}&batch=${batchNumber}`
@@ -2081,99 +1860,6 @@ export default function ProductionDashboard() {
   };
 
   // Function to refetch chart data for a specific QA user
-  const refetchQAChartData = async (qaUserId: string, dateRange: DateRange) => {
-    if (!dateRange.from || !dateRange.to) return;
-
-    // Set loading state for this specific QA user
-    setChartLoadingStates((prev) => ({ ...prev, [qaUserId]: true }));
-
-    // Optimized: Fetch all data in single queries and process on client side
-    const fromDateStr = dateRange.from.toISOString().split("T")[0];
-    const toDateStr = dateRange.to.toISOString().split("T")[0];
-
-    // Fetch all QA approvals for the date range
-    const { data: approvals } = await supabase
-      .from("qa_approvals")
-      .select("approved_at")
-      .eq("qa_id", qaUserId)
-      .gte("approved_at", fromDateStr + "T00:00:00")
-      .lte("approved_at", toDateStr + "T23:59:59");
-
-    // Fetch all QA comments for the date range
-    const { data: comments } = await supabase
-      .from("asset_comments")
-      .select("created_at")
-      .eq("created_by", qaUserId)
-      .gte("created_at", fromDateStr + "T00:00:00")
-      .lte("created_at", toDateStr + "T23:59:59");
-
-    // Fetch all QA revisions for the date range
-    const { data: revisions } = await supabase
-      .from("revision_history")
-      .select("created_at")
-      .eq("created_by", qaUserId)
-      .gte("created_at", fromDateStr + "T00:00:00")
-      .lte("created_at", toDateStr + "T23:59:59");
-
-    // Process data on client side
-    const chartData: Array<{
-      date: string;
-      reviewed: number;
-      approved: number;
-    }> = [];
-    const currentDate = new Date(dateRange.from);
-
-    while (currentDate <= dateRange.to) {
-      const dateStr = currentDate.toISOString().split("T")[0];
-
-      // Count approvals for this date
-      const dayApprovals =
-        approvals?.filter((approval) =>
-          approval.approved_at.startsWith(dateStr)
-        ).length || 0;
-
-      // Count comments for this date
-      const dayComments =
-        comments?.filter((comment) => comment.created_at.startsWith(dateStr))
-          .length || 0;
-
-      // Count revisions for this date
-      const dayRevisions =
-        revisions?.filter((revision) => revision.created_at.startsWith(dateStr))
-          .length || 0;
-
-      const approved = dayApprovals;
-      // Approved products should always be counted as reviewed since QA reviews before approving
-      const reviewed = dayComments + dayRevisions + dayApprovals;
-
-      chartData.push({
-        date: dateStr,
-        reviewed,
-        approved,
-      });
-
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    // Update both QA users arrays
-    setQAUsers((prev) =>
-      prev.map((qa) =>
-        qa.id === qaUserId
-          ? { ...qa, chartData, chartDateRange: dateRange }
-          : qa
-      )
-    );
-    setFilteredQAUsers((prev) =>
-      prev.map((qa) =>
-        qa.id === qaUserId
-          ? { ...qa, chartData, chartDateRange: dateRange }
-          : qa
-      )
-    );
-
-    // Clear loading state
-    setChartLoadingStates((prev) => ({ ...prev, [qaUserId]: false }));
-  };
 
   // Function to delete all assets in a batch
   const deleteBatchAssets = async (clientName: string, batchNumber: number) => {
@@ -3099,14 +2785,6 @@ export default function ProductionDashboard() {
               ? // Modeler Cards
                 filteredModelers.map((modeler) => {
                   // Prepare chart data for modeler
-                  const chartData = Object.entries(modeler.statusCounts)
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    .filter(([_, count]) => count > 0)
-                    .map(([status, count]) => ({
-                      name: getStatusLabel(status),
-                      value: count,
-                      color: getStatusColor(status),
-                    }));
 
                   return (
                     <Card
@@ -3283,6 +2961,7 @@ export default function ProductionDashboard() {
                 ? // QA Cards
                   filteredQAUsers.map((qaUser) => {
                     // Calculate combined chart data from connected modelers
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     const chartData = (() => {
                       const combinedStatusCounts = {
                         in_production: 0,

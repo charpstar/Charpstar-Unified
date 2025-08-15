@@ -27,7 +27,6 @@ import {
   Building,
   Shield,
   Clock,
-  Sparkles,
   HelpCircle,
   ChevronRight,
   Play,

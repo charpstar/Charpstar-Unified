@@ -296,7 +296,7 @@ export default function MyAssignmentsPage() {
         if (!filesError && filesData) {
           assetFiles = filesData;
         }
-      } catch (error) {
+      } catch {
         console.log("asset_files table not available");
       }
 

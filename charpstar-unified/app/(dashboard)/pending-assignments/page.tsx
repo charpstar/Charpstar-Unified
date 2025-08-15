@@ -46,15 +46,12 @@ import {
   X,
   File,
   Info,
-  Link,
-  Eye,
   Image,
   FileText,
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { notificationService } from "@/lib/notificationService";
-import { Badge } from "@/components/ui/feedback";
 import {
   Dialog,
   DialogContent,
@@ -98,15 +95,6 @@ const isOverdue = (deadline: string) => {
 };
 
 // Helper functions for reference management
-const getReferenceArray = (reference: string[] | null): string[] => {
-  if (!reference) return [];
-  if (Array.isArray(reference)) {
-    return reference.filter(
-      (ref) => ref && typeof ref === "string" && ref.trim() !== ""
-    );
-  }
-  return [];
-};
 
 const parseReferences = (reference: string[] | string | null): string[] => {
   if (!reference) return [];
@@ -116,15 +104,6 @@ const parseReferences = (reference: string[] | string | null): string[] => {
   } catch {
     return [reference];
   }
-};
-
-const getFileIcon = (fileName: string) => {
-  const ext = fileName.split(".").pop()?.toLowerCase();
-  if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext || "")) return "🖼️";
-  if (["pdf"].includes(ext || "")) return "📄";
-  if (["zip", "rar", "7z"].includes(ext || "")) return "📦";
-  if (["doc", "docx"].includes(ext || "")) return "📝";
-  return "📎";
 };
 
 // Helper function to separate GLB files from reference images
@@ -523,48 +502,15 @@ export default function PendingAssignmentsPage() {
     }
   };
 
-  const handleDownloadReferences = (referenceImages: string[]) => {
-    // Filter out invalid URLs
-    const validUrls = referenceImages.filter(
-      (url) =>
-        url &&
-        typeof url === "string" &&
-        url.trim() !== "" &&
-        url.startsWith("http")
-    );
-
-    if (validUrls.length === 0) {
-      toast.error("No valid reference images found");
-      return;
-    }
-
-    validUrls.forEach((url) => {
-      window.open(url, "_blank");
-    });
-
-    toast.success(`Opening ${validUrls.length} reference images`);
-  };
-
   const [assetFilesMap, setAssetFilesMap] = useState<Record<string, any[]>>({});
-  const [checkingFiles, setCheckingFiles] = useState<Record<string, boolean>>(
-    {}
-  );
+  const [, setCheckingFiles] = useState<Record<string, boolean>>({});
+
   const [showReferencesDialog, setShowReferencesDialog] = useState(false);
-  const [selectedReferences, setSelectedReferences] = useState<string[]>([]);
+  const [selectedReferences] = useState<string[]>([]);
   const [showFilesDialog, setShowFilesDialog] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<any[]>([]);
+  const [selectedFiles] = useState<any[]>([]);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
-
-  const handleViewReferences = (references: string[]) => {
-    setSelectedReferences(references);
-    setShowReferencesDialog(true);
-  };
-
-  const handleViewFiles = (files: any[]) => {
-    setSelectedFiles(files);
-    setShowFilesDialog(true);
-  };
 
   const checkAssetFiles = async (assetId: string) => {
     if (assetFilesMap[assetId] !== undefined) {
@@ -590,29 +536,6 @@ export default function PendingAssignmentsPage() {
       return [];
     } finally {
       setCheckingFiles((prev) => ({ ...prev, [assetId]: false }));
-    }
-  };
-
-  const handleDownloadAssetFiles = async (assetId: string) => {
-    try {
-      const files = assetFilesMap[assetId] || [];
-      if (files.length > 0) {
-        // Download each file
-        files.forEach((file: any) => {
-          const link = document.createElement("a");
-          link.href = file.file_url;
-          link.download = file.file_name;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        });
-        toast.success(`Downloading ${files.length} asset files`);
-      } else {
-        toast.info("No asset files found for this asset");
-      }
-    } catch (error) {
-      console.error("Error downloading asset files:", error);
-      toast.error("Failed to download asset files");
     }
   };
 
@@ -1165,6 +1088,7 @@ export default function PendingAssignmentsPage() {
             {selectedReferences.map((ref, index) => (
               <div key={index} className="space-y-2">
                 <div className="aspect-square overflow-hidden rounded-lg border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={ref}
                     alt={`Reference ${index + 1}`}
@@ -1239,6 +1163,7 @@ export default function PendingAssignmentsPage() {
                       </p>
                     </div>
                   ) : file.file_type === "reference" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={file.file_url}
                       alt={file.file_name}
@@ -1385,6 +1310,7 @@ export default function PendingAssignmentsPage() {
                   ).imageReferences.map((ref, index) => (
                     <div key={index} className="space-y-2">
                       <div className="aspect-square overflow-hidden rounded-lg border">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={ref}
                           alt={`Reference ${index + 1}`}

@@ -16,13 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/display";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/interactive";
+
 import {
   Input,
   Select,
@@ -49,11 +43,9 @@ import {
   Clock,
   ShieldCheck,
   X,
-  MoreHorizontal,
   Download,
   ExternalLink,
   FileText,
-  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
@@ -222,33 +214,6 @@ export default function QAReviewPage() {
     batchFilters,
     statusFilters,
   ]);
-
-  const updateAssetStatus = async (assetId: string, newStatus: string) => {
-    try {
-      setUpdatingAssetId(assetId);
-      const response = await fetch("/api/assets/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assetId, status: newStatus }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update status");
-      }
-      // Update local state
-      setAssets((prev) =>
-        prev.map((a) => (a.id === assetId ? { ...a, status: newStatus } : a))
-      );
-      toast.success(
-        newStatus === "approved" ? "Approved" : "Sent for revision"
-      );
-    } catch (err) {
-      console.error("Error updating status:", err);
-      toast.error("Failed to update status");
-    } finally {
-      setUpdatingAssetId(null);
-    }
-  };
 
   const handlePriorityChange = async (assetId: string, newPriority: number) => {
     try {
@@ -682,17 +647,12 @@ export default function QAReviewPage() {
         throw new Error("Upload failed");
       }
 
-      const result = await response.json();
-
       // For all file types, refresh the asset data since everything goes to references now
       const { data: updatedAsset } = await supabase
         .from("onboarding_assets")
         .select("reference, status, glb_link")
         .eq("id", selectedAssetForRef)
         .single();
-
-      console.log("Upload result:", result);
-      console.log("Updated asset from DB:", updatedAsset);
 
       setAssets((prev) =>
         prev.map((asset) =>
@@ -1597,7 +1557,7 @@ export default function QAReviewPage() {
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                   <p className="text-muted-foreground">No files found</p>
                   <p className="text-xs text-muted-foreground">
-                    Click "Add Reference" to upload files
+                    Click &quot;Add Reference&quot; to upload files
                   </p>
                 </div>
               );
