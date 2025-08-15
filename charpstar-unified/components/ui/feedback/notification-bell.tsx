@@ -4,16 +4,18 @@ import React, { useState, useEffect } from "react";
 import {
   Bell,
   Check,
-  Target,
   CheckCircle,
   Clock,
-  Search,
-  RefreshCw,
+  ClipboardCheck,
   AlertCircle,
   X,
   ArrowRight,
   AlertTriangle,
-  Package,
+  Eye,
+  UserPlus,
+  FileText,
+  RotateCcw,
+  ThumbsUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
@@ -142,15 +144,53 @@ export function NotificationBell({ className }: NotificationBellProps) {
           router.push("/pending-assignments");
           break;
         case "asset_completed":
-          // Navigate to my-assignments page to see completed assets
-          router.push("/my-assignments");
-          break;
-        case "qa_review":
-          // Navigate to QA review page if we have asset ID
+          // Navigate to specific asset if we have asset ID, otherwise to my-assignments
           if (notification.metadata?.assetIds?.[0]) {
-            router.push(`/modeler-review/${notification.metadata.assetIds[0]}`);
+            router.push(
+              `/modeler-review/${notification.metadata.assetIds[0]}?from=completion-notification`
+            );
           } else {
             router.push("/my-assignments");
+          }
+          break;
+        case "qa_review":
+          // Navigate to client-review page (which QA users can access) if we have asset ID
+          if (notification.metadata?.assetIds?.[0]) {
+            router.push(
+              `/client-review/${notification.metadata.assetIds[0]}?from=qa-notification`
+            );
+          } else {
+            router.push("/qa-review");
+          }
+          break;
+        case "revision_required":
+          // Navigate to modeler review page for revision
+          if (notification.metadata?.assetIds?.[0]) {
+            router.push(
+              `/modeler-review/${notification.metadata.assetIds[0]}?from=revision-notification`
+            );
+          } else {
+            router.push("/my-assignments");
+          }
+          break;
+        case "asset_approved":
+          // Navigate to modeler review page or my-assignments
+          if (notification.metadata?.assetIds?.[0]) {
+            router.push(
+              `/modeler-review/${notification.metadata.assetIds[0]}?from=approval-notification`
+            );
+          } else {
+            router.push("/my-assignments");
+          }
+          break;
+        case "client_review_ready":
+          // Navigate to client review page
+          if (notification.metadata?.assetIds?.[0]) {
+            router.push(
+              `/client-review/${notification.metadata.assetIds[0]}?from=client-notification`
+            );
+          } else {
+            router.push("/client-review");
           }
           break;
         case "status_change":
@@ -166,8 +206,27 @@ export function NotificationBell({ className }: NotificationBellProps) {
           router.push("/production/cost-tracking");
           break;
         case "product_submission":
-          // Navigate to pending assignments page to see new products
-          router.push("/pending-assignments");
+          // Navigate to admin-review page with client and batch filters
+          if (notification.metadata?.client && notification.metadata?.batch) {
+            router.push(
+              `/admin-review?client=${encodeURIComponent(notification.metadata.client)}&batch=${notification.metadata.batch}`
+            );
+          } else {
+            // Fallback to admin-review page without filters
+            router.push("/admin-review");
+          }
+          break;
+        case "allocation_list_accepted":
+        case "allocation_list_declined":
+          // Navigate to admin-review page with client and batch filters
+          if (notification.metadata?.client && notification.metadata?.batch) {
+            router.push(
+              `/admin-review?client=${encodeURIComponent(notification.metadata.client)}&batch=${notification.metadata.batch}`
+            );
+          } else {
+            // Fallback to admin-review page without filters
+            router.push("/admin-review");
+          }
           break;
         default:
           // Default to my-assignments page
@@ -185,59 +244,89 @@ export function NotificationBell({ className }: NotificationBellProps) {
     const iconClass = "h-4 w-4";
     switch (type) {
       case "asset_allocation":
-        return <Target className={iconClass} />;
+        return <UserPlus className={iconClass} />;
       case "asset_completed":
         return <CheckCircle className={iconClass} />;
       case "deadline_reminder":
         return <Clock className={iconClass} />;
       case "qa_review":
-        return <Search className={iconClass} />;
+        return <ClipboardCheck className={iconClass} />;
       case "status_change":
-        return <RefreshCw className={iconClass} />;
+        return <ArrowRight className={iconClass} />;
       case "budget_alert":
         return <AlertTriangle className={iconClass} />;
       case "product_submission":
-        return <Package className={iconClass} />;
+        return <FileText className={iconClass} />;
+      case "revision_required":
+        return <RotateCcw className={iconClass} />;
+      case "asset_approved":
+        return <ThumbsUp className={iconClass} />;
+      case "client_review_ready":
+        return <Eye className={iconClass} />;
+      case "allocation_list_accepted":
+        return <CheckCircle className={iconClass} />;
+      case "allocation_list_declined":
+        return <X className={iconClass} />;
       default:
-        return <AlertCircle className={iconClass} />;
+        return <Bell className={iconClass} />;
     }
   };
 
   const getNotificationColor = (type: string) => {
     switch (type) {
       case "asset_allocation":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-slate-50 text-slate-700 border-slate-200";
       case "asset_completed":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-slate-50 text-slate-700 border-slate-200";
       case "deadline_reminder":
-        return "bg-amber-100 text-amber-800 border-amber-200";
+        return "bg-yellow-50 text-yellow-700 border-yellow-200";
       case "qa_review":
-        return "bg-purple-100 text-purple-800 border-purple-200";
+        return "bg-slate-50 text-slate-700 border-slate-200";
       case "status_change":
-        return "bg-indigo-100 text-indigo-800 border-indigo-200";
+        return "bg-slate-50 text-slate-700 border-slate-200";
       case "budget_alert":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-red-50 text-red-700 border-red-200";
       case "product_submission":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "revision_required":
+        return "bg-orange-50 text-orange-700 border-orange-200";
+      case "asset_approved":
+        return "bg-green-50 text-green-700 border-green-200";
+      case "client_review_ready":
+        return "bg-slate-50 text-slate-700 border-slate-200";
+      case "allocation_list_accepted":
+        return "bg-green-50 text-green-700 border-green-200";
+      case "allocation_list_declined":
+        return "bg-red-50 text-red-700 border-red-200";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-50 text-gray-700 border-gray-200";
     }
   };
 
   const getNotificationIconColor = (type: string) => {
     switch (type) {
       case "asset_allocation":
-        return "text-blue-600";
+        return "text-slate-600";
       case "asset_completed":
-        return "text-green-600";
+        return "text-slate-600";
       case "deadline_reminder":
-        return "text-amber-600";
+        return "text-yellow-600";
       case "qa_review":
-        return "text-purple-600";
+        return "text-slate-600";
       case "status_change":
-        return "text-orange-600";
+        return "text-slate-600";
       case "product_submission":
-        return "text-emerald-600";
+        return "text-blue-600";
+      case "revision_required":
+        return "text-orange-600";
+      case "asset_approved":
+        return "text-green-600";
+      case "client_review_ready":
+        return "text-slate-600";
+      case "allocation_list_accepted":
+        return "text-green-600";
+      case "allocation_list_declined":
+        return "text-red-600";
       default:
         return "text-gray-600";
     }

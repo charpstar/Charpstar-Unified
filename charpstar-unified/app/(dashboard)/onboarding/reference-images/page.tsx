@@ -958,7 +958,7 @@ export default function ReferenceImagesPage() {
             </div>
             <div>
               <h3 className="text-2xl font-bold text-foreground mb-2">
-                Reference Images Complete! 🎉
+                Reference Images Complete!
               </h3>
               <p className="text-muted-foreground">
                 Redirecting to onboarding dashboard...

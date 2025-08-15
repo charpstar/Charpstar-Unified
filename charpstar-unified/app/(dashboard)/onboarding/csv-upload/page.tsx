@@ -226,7 +226,7 @@ export default function CsvUploadPage() {
 
     if (successCount > 0) {
       toast({
-        title: "🎉 Upload Success!",
+        title: " Upload Success!",
         description: `${successCount} assets successfully uploaded!`,
       });
 
@@ -268,7 +268,7 @@ export default function CsvUploadPage() {
           });
         } else if (updatedProfile?.csv_uploaded === true) {
           toast({
-            title: "🚀 Onboarding Complete!",
+            title: " Onboarding Complete!",
             description: "CSV upload complete. Redirecting to dashboard...",
           });
           setTimeout(() => {
@@ -286,7 +286,7 @@ export default function CsvUploadPage() {
     }
     if (failCount > 0) {
       toast({
-        title: "⚠️ Upload Error",
+        title: " Upload Error",
         description: `${failCount} rows failed to save.`,
         variant: "destructive",
       });

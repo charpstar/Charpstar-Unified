@@ -673,6 +673,11 @@ model-viewer::part(default-ar-button):focus-visible {
   .table-row-status-unknown:hover {
     background-color: rgb(156 163 175 / 0.2) !important;
   }
+
+  /* Scrollbar gutter utility to prevent layout shift */
+  .scrollbar-gutter-stable {
+    scrollbar-gutter: stable;
+  }
 }
 
 /* Admin Dashboard Grid Areas */

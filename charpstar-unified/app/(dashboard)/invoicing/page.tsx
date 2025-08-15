@@ -962,10 +962,18 @@ export default function InvoicingPage() {
       {/* Period Selection */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Select Invoicing Period
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Select Invoicing Period
+            </CardTitle>
+            {selectedPeriod && filteredAssets.length > 0 && (
+              <Button onClick={handleGenerateInvoice} className="gap-2">
+                <FileText className="h-4 w-4" />
+                Generate Invoice
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
@@ -1224,21 +1232,6 @@ export default function InvoicingPage() {
               </div>
             </div>
           </CardContent>
-        </Card>
-      )}
-
-      {/* Invoice Generation */}
-      {selectedPeriod && filteredAssets.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Generate Invoice</CardTitle>
-              <Button onClick={handleGenerateInvoice} className="gap-2">
-                <FileText className="h-4 w-4" />
-                Generate Invoice
-              </Button>
-            </div>
-          </CardHeader>
         </Card>
       )}
 

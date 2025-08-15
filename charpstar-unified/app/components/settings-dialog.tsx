@@ -728,8 +728,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         <DialogContent
           className="w-full max-w-[98vw] h-[85vh] sm:max-w-6xl max-w-6xl sm:h-[58vh] flex flex-col p-2 sm:p-6"
           style={{ minWidth: 0 }}
-          onPointerDownOutside={(e) => {
-            e.preventDefault();
+          onPointerDownOutside={() => {
+            onOpenChange(false);
+          }}
+          onEscapeKeyDown={() => {
             onOpenChange(false);
           }}
         >

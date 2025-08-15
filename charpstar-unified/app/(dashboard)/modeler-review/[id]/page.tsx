@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
+import { notificationService } from "@/lib/notificationService";
 import { Card } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Textarea } from "@/components/ui/inputs";
@@ -27,6 +28,7 @@ import {
   CheckCircle,
   Loader2,
   Download,
+  Maximize2,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -157,6 +159,18 @@ export default function ModelerReviewPage() {
   const [modelLoaded, setModelLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Dimensions state
+  const [showDimensions, setShowDimensions] = useState(false);
+
+  // Reference image selection and zoom state
+  const [selectedReferenceIndex, setSelectedReferenceIndex] = useState<
+    number | null
+  >(0);
+  const [imageZoom, setImageZoom] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isZooming, setIsZooming] = useState(false);
+
   const handleBackNavigation = () => {
     const from = searchParams.get("from");
     const client = searchParams.get("client");
@@ -167,6 +181,46 @@ export default function ModelerReviewPage() {
     } else {
       router.push("/modeler-review");
     }
+  };
+
+  // Image zoom handlers
+  const handleImageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isZooming) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    setMousePosition({ x, y });
+  };
+
+  const handleImageMouseEnter = () => {
+    setImageZoom(true);
+  };
+
+  const handleImageMouseLeave = () => {
+    setImageZoom(false);
+    setZoomLevel(1);
+    setIsZooming(false);
+  };
+
+  const handleImageWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+
+    if (!imageZoom) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    setMousePosition({ x, y });
+    setIsZooming(true);
+
+    // Zoom in/out based on scroll direction
+    const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1;
+    const newZoomLevel = Math.max(1, Math.min(3, zoomLevel + zoomDelta));
+
+    setZoomLevel(newZoomLevel);
   };
 
   // Function to get a title-specific badge color
@@ -464,6 +518,115 @@ export default function ModelerReviewPage() {
     fetchDependencies();
   }, [assetId]);
 
+  // Dimensions setup effect
+  useEffect(() => {
+    if (!asset?.glb_link || !modelViewerRef.current) {
+      console.log("⏳ Waiting for asset GLB link or model viewer ref");
+      return;
+    }
+
+    const setupDimensions = () => {
+      console.log("🔧 Setting up dimensions...");
+
+      if (!modelViewerRef.current) {
+        console.warn("❌ Model viewer ref not available yet");
+        return;
+      }
+
+      // Add a small delay to ensure model-viewer is fully mounted
+      setTimeout(() => {
+        if (!modelViewerRef.current) {
+          console.warn("❌ Model viewer ref still not available after timeout");
+          return;
+        }
+
+        const modelViewer = modelViewerRef.current;
+
+        console.log("🎯 Model viewer ref available, checking model state...");
+        console.log("🔍 Model loaded state:", modelLoaded);
+        console.log("🔍 Model viewer model:", modelViewer.model);
+        console.log("🔍 Model viewer loaded:", modelViewer.loaded);
+
+        // Check if model is already loaded
+        if (modelViewer.model || modelViewer.loaded) {
+          console.log("🚀 Model already loaded, initializing immediately");
+          if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
+            initializeDimensions(modelViewer);
+          }
+        } else if (typeof modelViewer.addEventListener === "function") {
+          console.log("📡 Model not loaded yet, adding event listeners");
+
+          // Listen for model load events
+          const handleLoad = () => {
+            console.log("🔧 Model loaded via useEffect event listener");
+            setModelLoaded(true);
+            if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
+              initializeDimensions(modelViewer);
+            }
+          };
+
+          const handleError = (event: any) => {
+            console.error("❌ Model loading error:", event);
+          };
+
+          const handleProgress = (event: any) => {
+            console.log(
+              "📈 Model loading progress:",
+              event.detail?.totalProgress || "unknown"
+            );
+          };
+
+          modelViewer.addEventListener("load", handleLoad);
+          modelViewer.addEventListener("error", handleError);
+          modelViewer.addEventListener("progress", handleProgress);
+
+          // Cleanup function
+          return () => {
+            if (
+              modelViewer &&
+              typeof modelViewer.removeEventListener === "function"
+            ) {
+              modelViewer.removeEventListener("load", handleLoad);
+              modelViewer.removeEventListener("error", handleError);
+              modelViewer.removeEventListener("progress", handleProgress);
+            }
+          };
+        } else {
+          console.warn("❌ Model viewer methods not available yet");
+        }
+
+        // Fallback: Force model loaded state after 3 seconds if events are missed
+        const fallbackCheck = setInterval(() => {
+          if (modelViewer && (modelViewer.model || modelViewer.loaded)) {
+            console.log(
+              "⚡ Fallback: Model detected as loaded, clearing interval"
+            );
+            setModelLoaded(true);
+            if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
+              initializeDimensions(modelViewer);
+            }
+            clearInterval(fallbackCheck);
+          }
+        }, 500);
+
+        // Clear fallback after 3 seconds max
+        setTimeout(() => {
+          console.log(
+            "⏰ Fallback timeout reached, forcing model loaded state"
+          );
+          setModelLoaded(true);
+          clearInterval(fallbackCheck);
+        }, 3000);
+
+        return () => {
+          clearInterval(fallbackCheck);
+        };
+      }, 100); // Small delay to ensure model-viewer is mounted
+    };
+
+    setupDimensions();
+  }, [asset?.glb_link]); // Don't include modelLoaded to prevent infinite re-renders
+
   // Check if newer versions exist for each dependency
   const checkForUpdates = async () => {
     setCheckingUpdates(true);
@@ -747,6 +910,22 @@ export default function ModelerReviewPage() {
       // If status is delivered_by_artist (completed), update the modeler's end time
       if (newStatus === "delivered_by_artist") {
         await updateModelerEndTime(asset.id);
+
+        // Send notification to QA users about the delivered asset
+        try {
+          const modelerName =
+            user?.user_metadata?.name || user?.email || "Unknown Modeler";
+          await notificationService.sendQAReviewNotification(
+            asset.id,
+            asset.product_name,
+            modelerName,
+            asset.client
+          );
+          console.log("✅ QA notification sent successfully");
+        } catch (error) {
+          console.error("❌ Failed to send QA notification:", error);
+          // Don't throw error to avoid blocking status update
+        }
       }
 
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
@@ -829,6 +1008,292 @@ export default function ModelerReviewPage() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       addComment();
+    }
+  };
+
+  // Initialize dimensions (like client-review page)
+  const initializeDimensions = (modelViewer: any) => {
+    if (
+      !modelViewer ||
+      !modelViewer.getBoundingBoxCenter ||
+      !modelViewer.getDimensions ||
+      !modelViewer.updateHotspot ||
+      !modelViewer.querySelector
+    ) {
+      console.warn("Model viewer not ready for dimension initialization");
+      return;
+    }
+
+    try {
+      const center = modelViewer.getBoundingBoxCenter();
+      const size = modelViewer.getDimensions();
+      const x2 = size.x / 2;
+      const y2 = size.y / 2;
+      const z2 = size.z / 2;
+
+      // Update dimension dot positions
+      modelViewer.updateHotspot({
+        name: "hotspot-dot+X-Y+Z",
+        position: `${center.x + x2} ${center.y - y2} ${center.z + z2}`,
+      });
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dim+X-Y",
+        position: `${center.x + x2 * 1.2} ${center.y - y2 * 1.1} ${center.z}`,
+      });
+      const dimXYElement = modelViewer.querySelector(
+        'button[slot="hotspot-dim+X-Y"]'
+      );
+      if (dimXYElement) {
+        dimXYElement.textContent = `${(size.z * 100).toFixed(0)} cm`;
+      }
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot+X-Y-Z",
+        position: `${center.x + x2} ${center.y - y2} ${center.z - z2}`,
+      });
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dim+X-Z",
+        position: `${center.x + x2 * 1.2} ${center.y} ${center.z - z2 * 1.2}`,
+      });
+      const dimXZElement = modelViewer.querySelector(
+        'button[slot="hotspot-dim+X-Z"]'
+      );
+      if (dimXZElement) {
+        dimXZElement.textContent = `${(size.y * 100).toFixed(0)} cm`;
+      }
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot+X+Y-Z",
+        position: `${center.x + x2} ${center.y + y2} ${center.z - z2}`,
+      });
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dim+Y-Z",
+        position: `${center.x} ${center.y + y2 * 1.1} ${center.z - z2 * 1.1}`,
+      });
+      const dimYZElement = modelViewer.querySelector(
+        'button[slot="hotspot-dim+Y-Z"]'
+      );
+      if (dimYZElement) {
+        dimYZElement.textContent = `${(size.x * 100).toFixed(0)} cm`;
+      }
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot-X+Y-Z",
+        position: `${center.x - x2} ${center.y + y2} ${center.z - z2}`,
+      });
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dim-X-Z",
+        position: `${center.x - x2 * 1.2} ${center.y} ${center.z - z2 * 1.2}`,
+      });
+      const dimNegXZElement = modelViewer.querySelector(
+        'button[slot="hotspot-dim-X-Z"]'
+      );
+      if (dimNegXZElement) {
+        dimNegXZElement.textContent = `${(size.y * 100).toFixed(0)} cm`;
+      }
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot-X-Y-Z",
+        position: `${center.x - x2} ${center.y - y2} ${center.z - z2}`,
+      });
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dim-X-Y",
+        position: `${center.x - x2 * 1.2} ${center.y - y2 * 1.1} ${center.z}`,
+      });
+      const dimNegXYElement = modelViewer.querySelector(
+        'button[slot="hotspot-dim-X-Y"]'
+      );
+      if (dimNegXYElement) {
+        dimNegXYElement.textContent = `${(size.z * 100).toFixed(0)} cm`;
+      }
+
+      modelViewer.updateHotspot({
+        name: "hotspot-dot-X-Y+Z",
+        position: `${center.x - x2} ${center.y - y2} ${center.z + z2}`,
+      });
+
+      // Set initial visibility based on showDimensions state
+      const dimElements = [
+        ...modelViewer.querySelectorAll('button[slot^="hotspot-dim"]'),
+        ...modelViewer.querySelectorAll('button[slot^="hotspot-dot"]'),
+        modelViewer.querySelector("#dimLines"),
+      ];
+
+      dimElements.forEach((element: any) => {
+        if (element) {
+          element.style.display = showDimensions ? "block" : "none";
+        }
+      });
+
+      // Remove the hide class from SVG lines to make them visible
+      const svg = modelViewer.querySelector("#dimLines");
+      if (svg) {
+        svg.classList.remove("hide");
+      }
+
+      console.log("✅ Dimensions initialized successfully");
+
+      // Initial render of dimension lines
+      if (showDimensions) {
+        renderDimensionLines();
+      }
+    } catch (error) {
+      console.error("❌ Error initializing dimensions:", error);
+    }
+  };
+
+  // Render dimension lines (like client-review page)
+  const renderDimensionLines = () => {
+    console.log("📏 Rendering dimension lines...");
+
+    const modelViewer = modelViewerRef.current;
+    if (!modelViewer || !modelViewer.model) {
+      console.warn("❌ Model viewer not ready for dimension line rendering");
+      return;
+    }
+
+    const svg = modelViewer.querySelector("#dimLines");
+    if (!svg) {
+      console.warn("❌ Dimension lines SVG not found");
+      return;
+    }
+
+    const dimLines = svg.querySelectorAll(".dimensionLine");
+    if (!dimLines || dimLines.length === 0) {
+      console.warn("❌ Dimension lines not found or incomplete");
+      return;
+    }
+
+    console.log("📊 Found", dimLines.length, "dimension lines to update");
+
+    const drawLine = (
+      line: Element,
+      startHotspot: any,
+      endHotspot: any,
+      dimHotspot: any = null
+    ) => {
+      if (!line || !startHotspot || !endHotspot) return;
+
+      try {
+        const startPos = startHotspot.position3D;
+        const endPos = endHotspot.position3D;
+
+        if (startPos && endPos) {
+          const startScreen = modelViewer.positionToCanvas(startPos);
+          const endScreen = modelViewer.positionToCanvas(endPos);
+
+          if (startScreen && endScreen) {
+            line.setAttribute("x1", startScreen.x.toString());
+            line.setAttribute("y1", startScreen.y.toString());
+            line.setAttribute("x2", endScreen.x.toString());
+            line.setAttribute("y2", endScreen.y.toString());
+          }
+        }
+      } catch (error) {
+        console.warn("⚠️ Error drawing line:", error);
+      }
+    };
+
+    try {
+      // Draw dimension lines using queryHotspot method
+      drawLine(
+        dimLines[0],
+        modelViewer.queryHotspot("hotspot-dot+X-Y+Z"),
+        modelViewer.queryHotspot("hotspot-dot+X-Y-Z"),
+        modelViewer.queryHotspot("hotspot-dim+X-Y")
+      );
+      drawLine(
+        dimLines[1],
+        modelViewer.queryHotspot("hotspot-dot+X-Y-Z"),
+        modelViewer.queryHotspot("hotspot-dot+X+Y-Z"),
+        modelViewer.queryHotspot("hotspot-dim+X-Z")
+      );
+      drawLine(
+        dimLines[2],
+        modelViewer.queryHotspot("hotspot-dot+X+Y-Z"),
+        modelViewer.queryHotspot("hotspot-dot-X+Y-Z"),
+        null // always visible
+      );
+      drawLine(
+        dimLines[3],
+        modelViewer.queryHotspot("hotspot-dot-X+Y-Z"),
+        modelViewer.queryHotspot("hotspot-dot-X-Y-Z"),
+        modelViewer.queryHotspot("hotspot-dim-X-Z")
+      );
+      drawLine(
+        dimLines[4],
+        modelViewer.queryHotspot("hotspot-dot-X-Y-Z"),
+        modelViewer.queryHotspot("hotspot-dot-X-Y+Z"),
+        modelViewer.queryHotspot("hotspot-dim-X-Y")
+      );
+
+      console.log("✅ Dimension lines rendered successfully");
+    } catch (error) {
+      console.error("❌ Error rendering dimension lines:", error);
+    }
+  };
+
+  // Handle dimensions toggle (like client-review page)
+  const handleDimensionsToggle = () => {
+    console.log("🎛️ Dimensions toggle clicked, current state:", showDimensions);
+
+    const newShowDimensions = !showDimensions;
+    setShowDimensions(newShowDimensions);
+
+    console.log("🔄 Setting showDimensions to:", newShowDimensions);
+
+    const modelViewer = modelViewerRef.current;
+    if (!modelViewer) {
+      console.warn("❌ No model viewer ref available for dimension toggle");
+      return;
+    }
+
+    // Toggle dimension elements visibility
+    const dimElements = [
+      ...modelViewer.querySelectorAll('button[slot^="hotspot-dim"]'),
+      ...modelViewer.querySelectorAll('button[slot^="hotspot-dot"]'),
+      modelViewer.querySelector("#dimLines"),
+    ];
+
+    console.log("📊 Found", dimElements.length, "dimension elements to toggle");
+
+    dimElements.forEach((element: any, index: number) => {
+      if (element) {
+        element.style.display = newShowDimensions ? "block" : "none";
+        console.log(
+          "🔄 Element",
+          index,
+          "visibility set to:",
+          newShowDimensions ? "visible" : "hidden"
+        );
+      } else {
+        console.warn("⚠️ Dimension element", index, "is null");
+      }
+    });
+
+    // Toggle SVG visibility
+    const svg = modelViewer.querySelector("#dimLines");
+    if (svg instanceof HTMLElement) {
+      if (newShowDimensions) {
+        svg.classList.remove("hide");
+        console.log("📏 SVG lines shown");
+      } else {
+        svg.classList.add("hide");
+        console.log("📏 SVG lines hidden");
+      }
+    }
+
+    console.log("✅ Set dimensions visibility to:", newShowDimensions);
+
+    // Re-render dimension lines if showing
+    if (newShowDimensions) {
+      console.log("🔄 Re-rendering dimension lines");
+      renderDimensionLines();
     }
   };
 
@@ -1032,6 +1497,12 @@ export default function ModelerReviewPage() {
             <Script
               type="module"
               src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+              onLoad={() => {
+                console.log("📦 Model-viewer script loaded successfully");
+              }}
+              onError={() => {
+                console.error("❌ Failed to load model-viewer script");
+              }}
             />
 
             {asset.glb_link ? (
@@ -1050,7 +1521,10 @@ export default function ModelerReviewPage() {
                   min-field-of-view="5deg"
                   max-field-of-view="35deg"
                   style={{ width: "100%", height: "100%" }}
-                  onLoad={() => setModelLoaded(true)}
+                  onLoad={() => {
+                    console.log("🎯 Model loaded via onLoad event");
+                    setModelLoaded(true);
+                  }}
                 >
                   {hotspots.map(
                     (hotspot) =>
@@ -1124,6 +1598,134 @@ export default function ModelerReviewPage() {
                         </div>
                       )
                   )}
+                  {/* Dimension hotspots and lines */}
+                  <button
+                    slot="hotspot-dot+X-Y+Z"
+                    className="dot"
+                    data-position="1 -1 1"
+                    data-normal="1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dim+X-Y"
+                    className="dim"
+                    data-position="1.2 -1.1 0"
+                    data-normal="1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dot+X-Y-Z"
+                    className="dot"
+                    data-position="1 -1 -1"
+                    data-normal="1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dim+X-Z"
+                    className="dim"
+                    data-position="1.2 0 -1.2"
+                    data-normal="1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dot+X+Y-Z"
+                    className="dot"
+                    data-position="1 1 -1"
+                    data-normal="0 1 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dim+Y-Z"
+                    className="dim"
+                    data-position="0 1.1 -1.1"
+                    data-normal="0 1 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dot-X+Y-Z"
+                    className="dot"
+                    data-position="-1 1 -1"
+                    data-normal="0 1 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dim-X-Z"
+                    className="dim"
+                    data-position="-1.2 0 -1.2"
+                    data-normal="-1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dot-X-Y-Z"
+                    className="dot"
+                    data-position="-1 -1 -1"
+                    data-normal="-1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dim-X-Y"
+                    className="dim"
+                    data-position="-1.2 -1.1 0"
+                    data-normal="-1 0 0"
+                  ></button>
+                  <button
+                    slot="hotspot-dot-X-Y+Z"
+                    className="dot"
+                    data-position="-1 -1 1"
+                    data-normal="-1 0 0"
+                  ></button>
+                  <svg
+                    id="dimLines"
+                    width="100%"
+                    height="100%"
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      pointerEvents: "none",
+                      zIndex: 1000,
+                    }}
+                    className="hide"
+                  >
+                    <defs>
+                      <marker
+                        id="arrowhead"
+                        markerWidth="10"
+                        markerHeight="7"
+                        refX="9"
+                        refY="3.5"
+                        orient="auto"
+                      >
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#007bff" />
+                      </marker>
+                    </defs>
+                    <line
+                      className="dimensionLine"
+                      stroke="#007bff"
+                      strokeWidth="2"
+                      markerEnd="url(#arrowhead)"
+                      markerStart="url(#arrowhead)"
+                    />
+                    <line
+                      className="dimensionLine"
+                      stroke="#007bff"
+                      strokeWidth="2"
+                      markerEnd="url(#arrowhead)"
+                      markerStart="url(#arrowhead)"
+                    />
+                    <line
+                      className="dimensionLine"
+                      stroke="#007bff"
+                      strokeWidth="2"
+                      markerEnd="url(#arrowhead)"
+                      markerStart="url(#arrowhead)"
+                    />
+                    <line
+                      className="dimensionLine"
+                      stroke="#007bff"
+                      strokeWidth="2"
+                      markerEnd="url(#arrowhead)"
+                      markerStart="url(#arrowhead)"
+                    />
+                    <line
+                      className="dimensionLine"
+                      stroke="#007bff"
+                      strokeWidth="2"
+                      markerEnd="url(#arrowhead)"
+                      markerStart="url(#arrowhead)"
+                    />
+                  </svg>
                   {/* @ts-expect-error -- model-viewer is a custom element */}
                 </model-viewer>
               </div>
@@ -1141,8 +1743,28 @@ export default function ModelerReviewPage() {
               </div>
             )}
 
-            {/* GLB Upload Button */}
+            {/* GLB Upload Button and Dimensions Toggle */}
             <div className="absolute top-4 right-4 z-20 flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  console.log(
+                    "🎛️ Show Dimensions button clicked, current modelLoaded:",
+                    modelLoaded
+                  );
+                  handleDimensionsToggle();
+                }}
+                disabled={!modelLoaded}
+                className="cursor-pointer"
+                title={
+                  modelLoaded
+                    ? "Toggle dimension display"
+                    : "Waiting for model to load..."
+                }
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                {showDimensions ? "Hide" : "Show"} Dimensions
+              </Button>
               {glbHistory.length > 0 && (
                 <Button
                   variant="outline"
@@ -1248,14 +1870,28 @@ export default function ModelerReviewPage() {
                 {(() => {
                   const imageFiles = referenceImages.filter((url) => {
                     const fileName = url.split("/").pop() || "";
-
                     const lowerFileName = fileName.toLowerCase();
-                    return (
-                      !lowerFileName.endsWith(".glb") &&
-                      !lowerFileName.endsWith(".pdf") &&
-                      !lowerFileName.endsWith(".doc") &&
-                      !lowerFileName.endsWith(".docx")
+
+                    // Check if it's actually an image file
+                    const imageExtensions = [
+                      ".jpg",
+                      ".jpeg",
+                      ".png",
+                      ".gif",
+                      ".bmp",
+                      ".webp",
+                      ".svg",
+                      ".tiff",
+                      ".tif",
+                    ];
+                    const isImageFile = imageExtensions.some((ext) =>
+                      lowerFileName.endsWith(ext)
                     );
+
+                    // Also check if it's not a directory/path-only URL
+                    const hasFileExtension = lowerFileName.includes(".");
+
+                    return isImageFile && hasFileExtension;
                   });
 
                   const glbFiles = referenceImages.filter((url) => {
@@ -1273,6 +1909,54 @@ export default function ModelerReviewPage() {
                     );
                   });
 
+                  const linkFiles = referenceImages.filter((url) => {
+                    const fileName = url.split("/").pop() || "";
+                    const lowerFileName = fileName.toLowerCase();
+
+                    // Check if it's actually an image file
+                    const imageExtensions = [
+                      ".jpg",
+                      ".jpeg",
+                      ".png",
+                      ".gif",
+                      ".bmp",
+                      ".webp",
+                      ".svg",
+                      ".tiff",
+                      ".tif",
+                    ];
+                    const isImageFile = imageExtensions.some((ext) =>
+                      lowerFileName.endsWith(ext)
+                    );
+
+                    // Check if it's a GLB file
+                    const isGlbFile = lowerFileName.endsWith(".glb");
+
+                    // Check if it's a document file
+                    const isDocumentFile =
+                      lowerFileName.endsWith(".pdf") ||
+                      lowerFileName.endsWith(".doc") ||
+                      lowerFileName.endsWith(".docx");
+
+                    // Check if it starts with http/https (likely a link)
+                    const isHttpLink =
+                      url.toLowerCase().startsWith("http://") ||
+                      url.toLowerCase().startsWith("https://");
+
+                    // Check if it's not a file extension but looks like a URL/path
+                    const hasNoFileExtension =
+                      !lowerFileName.includes(".") ||
+                      lowerFileName.endsWith("/");
+
+                    // It's a link if it's not an image, GLB, or document, and either has no extension or is an HTTP link
+                    return (
+                      !isImageFile &&
+                      !isGlbFile &&
+                      !isDocumentFile &&
+                      (hasNoFileExtension || isHttpLink)
+                    );
+                  });
+
                   return (
                     <div className="space-y-6">
                       {/* Reference Images Section */}
@@ -1285,70 +1969,120 @@ export default function ModelerReviewPage() {
 
                         {imageFiles.length > 0 ? (
                           <div className="space-y-4">
-                            {imageFiles.map((imageUrl, index) => {
-                              // Test if image is accessible
-                              fetch(imageUrl, { method: "HEAD" })
-                                .then(() => {})
-                                .catch((error) => {
-                                  console.error(
-                                    `Image ${imageUrl.split("/").pop()} fetch error:`,
-                                    error
-                                  );
-                                });
+                            {/* Large Selected Image - Show selected image */}
+                            <div className="relative">
+                              <div
+                                className="aspect-video bg-muted rounded-lg overflow-hidden border border-border relative cursor-pointer"
+                                onMouseMove={handleImageMouseMove}
+                                onMouseEnter={handleImageMouseEnter}
+                                onMouseLeave={handleImageMouseLeave}
+                                onWheel={handleImageWheel}
+                              >
+                                <Image
+                                  width={640}
+                                  height={360}
+                                  unoptimized
+                                  src={imageFiles[selectedReferenceIndex || 0]}
+                                  alt={`Reference ${(selectedReferenceIndex || 0) + 1}`}
+                                  className="w-full h-full object-contain transition-transform duration-200"
+                                  style={{
+                                    transform: `scale(${zoomLevel})`,
+                                    transformOrigin: isZooming
+                                      ? `${mousePosition.x}% ${mousePosition.y}%`
+                                      : "center",
+                                  }}
+                                  onError={(e) => {
+                                    (
+                                      e.currentTarget as HTMLElement
+                                    ).style.display = "none";
+                                    (e.currentTarget
+                                      .nextElementSibling as HTMLElement)!.style.display =
+                                      "flex";
+                                  }}
+                                />
+                                <div
+                                  className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground"
+                                  style={{ display: "none" }}
+                                >
+                                  <div className="text-center">
+                                    <LucideImage className="h-8 w-8 mx-auto mb-2" />
+                                    Invalid image URL
+                                  </div>
+                                </div>
+                                <div className="absolute top-2 right-2 flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      window.open(
+                                        imageFiles[selectedReferenceIndex || 0],
+                                        "_blank"
+                                      )
+                                    }
+                                    className="h-10 w-10 p-0 bg-black/50 text-white hover:bg-black/70 cursor-pointer"
+                                  >
+                                    <Maximize2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="mt-2 text-xs text-muted-foreground text-center">
+                                Reference {(selectedReferenceIndex || 0) + 1} •
+                                Scroll to zoom (1x-3x)
+                              </div>
+                            </div>
 
-                              return (
-                                <div key={index} className="relative group">
-                                  {imageUrl.startsWith("file://") ? (
-                                    <div className="w-full h-20 bg-muted rounded border flex items-center justify-center">
-                                      <div className="text-center">
-                                        <LucideImage className="h-6 w-6 text-muted-foreground mx-auto mb-1" />
-                                        <p className="text-xs text-muted-foreground">
-                                          Local file:{" "}
-                                          {imageUrl.split("/").pop()}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                          (Cannot display in browser)
-                                        </p>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="relative flex items-center justify-center w-full ">
-                                      <div className="relative">
+                            {/* Thumbnails Grid */}
+                            <div className="relative">
+                              <div className="flex gap-3 overflow-x-auto p-1 scrollbar-hide relative">
+                                {imageFiles.map((imageUrl, index) => (
+                                  <div
+                                    key={index}
+                                    className={`relative flex-shrink-0 cursor-pointer transition-all duration-300 ${
+                                      selectedReferenceIndex === index
+                                        ? "ring-2 ring-primary/80 ring-offset-2 rounded-lg"
+                                        : "hover:ring-2 hover:ring-primary/50 ring-offset-2 rounded-lg"
+                                    }`}
+                                    onClick={() =>
+                                      setSelectedReferenceIndex(index)
+                                    }
+                                  >
+                                    <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-border/50 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md">
+                                      {imageUrl.startsWith("file://") ? (
+                                        <div className="w-full h-full bg-muted flex items-center justify-center">
+                                          <LucideImage className="h-6 w-6 text-muted-foreground" />
+                                        </div>
+                                      ) : (
                                         <Image
-                                          height={228}
-                                          width={228}
+                                          width={80}
+                                          height={80}
+                                          unoptimized
                                           src={imageUrl}
                                           alt={`Reference ${index + 1}`}
-                                          className="w-full  rounded border cursor-pointer hover:opacity-80 transition-opacity object-cover"
-                                          style={{ backgroundColor: "white" }}
-                                          onClick={() =>
-                                            window.open(imageUrl, "_blank")
-                                          }
-                                          onLoad={() => {}}
-                                          onError={() => {
-                                            console.error(
-                                              "Failed to load image:",
-                                              imageUrl
-                                            );
-                                            // Don't hide the image, just log the error for now
-                                            // e.currentTarget.style.display = "none";
-                                            // const errorPlaceholder =
-                                            //   e.currentTarget.parentElement?.querySelector(
-                                            //     ".image-error-placeholder"
-                                            //   ) as HTMLElement;
-                                            // if (errorPlaceholder) {
-                                            //   errorPlaceholder.style.display =
-                                            //     "flex";
-                                            // }
+                                          className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+                                          onError={(e) => {
+                                            (
+                                              e.currentTarget as HTMLElement
+                                            ).style.display = "none";
                                           }}
                                         />
-                                        {/* Debug overlay to show if image is actually there */}
-                                      </div>
+                                      )}
                                     </div>
-                                  )}
+                                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-primary text-white text-xs font-medium rounded-full flex items-center justify-center shadow-sm border-2 border-background">
+                                      {index + 1}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Scroll Hint */}
+                              {imageFiles.length > 4 && (
+                                <div className="flex justify-center mt-3">
+                                  <p className="text-xs text-muted-foreground">
+                                    Scroll to see more images
+                                  </p>
                                 </div>
-                              );
-                            })}
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <div className="text-center py-8">
@@ -1533,6 +2267,89 @@ export default function ModelerReviewPage() {
                             </div>
                             <p className="text-sm text-muted-foreground">
                               No documents yet
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Links Section */}
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-muted-foreground font-semibold">
+                            Reference Links
+                          </h4>
+                        </div>
+
+                        {linkFiles.length > 0 ? (
+                          <div className="space-y-3">
+                            {linkFiles.map((linkUrl, index) => {
+                              // Extract a display name from the URL
+                              const getDisplayName = (url: string) => {
+                                try {
+                                  const urlObj = new URL(url);
+                                  return (
+                                    urlObj.hostname +
+                                    (urlObj.pathname !== "/"
+                                      ? urlObj.pathname
+                                      : "")
+                                  );
+                                } catch {
+                                  // If URL parsing fails, use the last part of the path
+                                  const parts = url
+                                    .split("/")
+                                    .filter((part) => part.length > 0);
+                                  return parts[parts.length - 1] || url;
+                                }
+                              };
+
+                              return (
+                                <div
+                                  key={index}
+                                  className="w-full h-16 bg-muted rounded border flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => {
+                                    window.open(
+                                      linkUrl,
+                                      "_blank",
+                                      "noopener,noreferrer"
+                                    );
+                                  }}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 flex items-center justify-center">
+                                      <svg
+                                        className="w-6 h-6 text-blue-500"
+                                        fill="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                                      </svg>
+                                    </div>
+                                    <div className="text-left">
+                                      <p className="text-sm font-medium text-foreground">
+                                        {getDisplayName(linkUrl)}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        Click to open link
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <div className="w-8 h-8 mx-auto mb-2 flex items-center justify-center">
+                              <svg
+                                className="w-6 h-6 text-muted-foreground"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                              </svg>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              No reference links yet
                             </p>
                           </div>
                         )}

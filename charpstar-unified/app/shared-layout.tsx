@@ -46,7 +46,7 @@ export function SharedLayout({ children }: { children: React.ReactNode }) {
 
         {/* Main content container with scrolling and proper sizing */}
 
-        <div className="flex-1 overflow-y-auto rounded-b-lg justify-center items-center bg-background h-full max-h-[calc(100vh-80px)]">
+        <div className="flex-1 overflow-y-auto rounded-b-lg justify-center items-center bg-background h-full max-h-[calc(100vh-80px)] scrollbar-gutter-stable">
           {children}
         </div>
       </div>

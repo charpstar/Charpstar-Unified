@@ -11,7 +11,12 @@ export interface NotificationData {
     | "qa_review"
     | "status_change"
     | "budget_alert"
-    | "product_submission";
+    | "product_submission"
+    | "revision_required"
+    | "asset_approved"
+    | "client_review_ready"
+    | "allocation_list_accepted"
+    | "allocation_list_declined";
   title: string;
   message: string;
   metadata?: Record<string, any>;
@@ -42,6 +47,18 @@ export interface ProductSubmissionNotification {
   productCount: number;
   productNames: string[];
   submittedAt: string;
+}
+
+export interface AllocationListStatusNotification {
+  modelerName: string;
+  modelerEmail: string;
+  allocationListName: string;
+  allocationListNumber: number;
+  assetCount: number;
+  totalPrice: number;
+  client: string;
+  batch: number;
+  status: "accepted" | "declined";
 }
 
 class NotificationService {
@@ -154,7 +171,7 @@ class NotificationService {
     await this.createNotification(notification);
 
     // TODO: Email notification removed - will implement in later stage
-    console.log("📧 Email notification would be sent for asset allocation:", {
+    console.log("Email notification would be sent for asset allocation:", {
       to: modelerEmail,
       assetNames,
       client,
@@ -165,6 +182,7 @@ class NotificationService {
   }
 
   async sendAssetCompletedNotification(
+    assetId: string,
     modelerId: string,
     modelerEmail: string,
     assetName: string,
@@ -177,8 +195,11 @@ class NotificationService {
       title: `Asset Completed - ${assetName}`,
       message: `Your asset "${assetName}" for ${client} has been marked as completed.`,
       metadata: {
+        assetId,
         assetName,
         client,
+        assetIds: [assetId], // For navigation compatibility
+        timestamp: new Date().toISOString(),
       },
       read: false,
     };
@@ -186,7 +207,7 @@ class NotificationService {
     await this.createNotification(notification);
 
     // TODO: Email notification removed - will implement in later stage
-    console.log("📧 Email notification would be sent for asset completion:", {
+    console.log("Email notification would be sent for asset completion:", {
       to: modelerEmail,
       assetName,
       client,
@@ -194,32 +215,37 @@ class NotificationService {
   }
 
   async sendRevisionNotification(
+    assetId: string,
     modelerId: string,
     modelerEmail: string,
     assetName: string,
-    client: string
+    client: string,
+    reviewerName: string
   ): Promise<void> {
     const notification: Omit<NotificationData, "created_at"> = {
       recipient_id: modelerId,
       recipient_email: modelerEmail,
-      type: "status_change",
+      type: "revision_required",
       title: `Revision Required - ${assetName}`,
-      message: `Your asset "${assetName}" for ${client} requires revisions. Please review the feedback and update your work.`,
+      message: `${reviewerName} has requested revisions for "${assetName}" (${client}). Please review the feedback and update your work.`,
       metadata: {
+        assetId,
         assetName,
         client,
-        revisionType: "required",
+        reviewerName,
+        assetIds: [assetId], // For navigation compatibility
+        timestamp: new Date().toISOString(),
       },
       read: false,
     };
 
     await this.createNotification(notification);
 
-    // TODO: Email notification removed - will implement in later stage
-    console.log("📧 Email notification would be sent for revision request:", {
+    console.log("Revision notification sent:", {
       to: modelerEmail,
       assetName,
       client,
+      reviewer: reviewerName,
     });
   }
 
@@ -227,24 +253,298 @@ class NotificationService {
     modelerId: string,
     modelerEmail: string,
     assetNames: string[],
+    assetIds: string[],
     deadline: string,
-    client: string
+    client: string,
+    daysRemaining: number
   ): Promise<void> {
+    const urgencyLevel =
+      daysRemaining <= 1 ? "🚨" : daysRemaining <= 3 ? "⚠️" : "⏰";
+    const urgencyText =
+      daysRemaining <= 1 ? "URGENT" : daysRemaining <= 3 ? "SOON" : "";
+
     const notification: Omit<NotificationData, "created_at"> = {
       recipient_id: modelerId,
       recipient_email: modelerEmail,
       type: "deadline_reminder",
-      title: `Deadline Reminder - ${client}`,
-      message: `Reminder: ${assetNames.length} asset(s) are due on ${new Date(deadline).toLocaleDateString()}.`,
+      title: `${urgencyLevel} Deadline ${urgencyText} - ${client}`,
+      message: `${assetNames.length} asset(s) are due ${daysRemaining === 0 ? "TODAY" : daysRemaining === 1 ? "TOMORROW" : `in ${daysRemaining} days`} (${new Date(deadline).toLocaleDateString()}).`,
       metadata: {
         assetNames,
+        assetIds,
         deadline,
         client,
+        daysRemaining,
+        urgencyLevel:
+          daysRemaining <= 1
+            ? "critical"
+            : daysRemaining <= 3
+              ? "high"
+              : "medium",
+        timestamp: new Date().toISOString(),
       },
       read: false,
     };
 
     await this.createNotification(notification);
+
+    console.log("Deadline reminder sent:", {
+      to: modelerEmail,
+      assetCount: assetNames.length,
+      client,
+      daysRemaining,
+    });
+  }
+
+  /**
+   * Send notification to modelers when their assets are approved
+   */
+  async sendAssetApprovedNotification(
+    assetId: string,
+    modelerId: string,
+    modelerEmail: string,
+    assetName: string,
+    client: string,
+    approverName: string,
+    approvalType: "qa" | "client"
+  ): Promise<void> {
+    const typeText = approvalType === "qa" ? "QA" : "Client";
+    const emoji = approvalType === "qa" ? "" : "";
+
+    const notification: Omit<NotificationData, "created_at"> = {
+      recipient_id: modelerId,
+      recipient_email: modelerEmail,
+      type: "asset_approved",
+      title: `${emoji} Asset Approved by ${typeText} - ${assetName}`,
+      message: `${approverName} has approved "${assetName}" for ${client}. Great work!`,
+      metadata: {
+        assetId,
+        assetName,
+        client,
+        approverName,
+        approvalType,
+        assetIds: [assetId], // For navigation compatibility
+        timestamp: new Date().toISOString(),
+      },
+      read: false,
+    };
+
+    await this.createNotification(notification);
+
+    console.log("Asset approval notification sent:", {
+      to: modelerEmail,
+      assetName,
+      client,
+      approver: approverName,
+      type: typeText,
+    });
+  }
+
+  /**
+   * Send notification to clients when assets are ready for their review
+   */
+  async sendClientReviewReadyNotification(
+    assetId: string,
+    clientId: string,
+    clientEmail: string,
+    assetName: string,
+    client: string,
+    modelerName: string
+  ): Promise<void> {
+    const notification: Omit<NotificationData, "created_at"> = {
+      recipient_id: clientId,
+      recipient_email: clientEmail,
+      type: "client_review_ready",
+      title: `Asset Approved - ${assetName}`,
+      message: `"${assetName}" has been completed by ${modelerName} and approved by our QA team. It's now ready for your review!`,
+      metadata: {
+        assetId,
+        assetName,
+        client,
+        modelerName,
+        assetIds: [assetId], // For navigation compatibility
+        timestamp: new Date().toISOString(),
+      },
+      read: false,
+    };
+
+    await this.createNotification(notification);
+
+    console.log("Client review ready notification sent:", {
+      to: clientEmail,
+      assetName,
+      client,
+      modeler: modelerName,
+    });
+  }
+
+  /**
+   * Check for upcoming deadlines and send reminder notifications
+   * This function should be called by a scheduled job (cron, etc.)
+   */
+  async sendDeadlineReminders(): Promise<void> {
+    try {
+      console.log("Checking for upcoming deadlines...");
+
+      const today = new Date();
+      const threeDaysFromNow = new Date(today);
+      threeDaysFromNow.setDate(today.getDate() + 3);
+
+      // Get assets with deadlines approaching in the next 3 days
+      const { data: assets, error: assetsError } = await supabase
+        .from("onboarding_assets")
+        .select(
+          `
+          id,
+          product_name,
+          client,
+          delivery_date,
+          status
+        `
+        )
+        .in("status", ["in_production", "revisions"]) // Only active assets
+        .lte("delivery_date", threeDaysFromNow.toISOString())
+        .gte("delivery_date", today.toISOString());
+
+      if (assetsError) {
+        console.error(
+          "Error fetching assets with upcoming deadlines:",
+          assetsError
+        );
+        return;
+      }
+
+      if (!assets || assets.length === 0) {
+        console.log("No assets with upcoming deadlines found");
+        return;
+      }
+
+      console.log(`Found ${assets.length} assets with upcoming deadlines`);
+
+      // Get asset assignments for these assets
+      const assetIds = assets.map((asset) => asset.id);
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from("asset_assignments")
+        .select("asset_id, user_id")
+        .in("asset_id", assetIds)
+        .eq("role", "modeler");
+
+      if (assignmentsError) {
+        console.error("Error fetching asset assignments:", assignmentsError);
+        return;
+      }
+
+      // Get unique modeler IDs and fetch their profiles
+      const modelerIds = [...new Set(assignments?.map((a) => a.user_id) || [])];
+      const { data: modelerProfiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .in("id", modelerIds);
+
+      if (profilesError) {
+        console.error("Error fetching modeler profiles:", profilesError);
+        return;
+      }
+
+      // Create a map for quick profile lookup
+      const profileMap = new Map(modelerProfiles?.map((p) => [p.id, p]) || []);
+
+      // Group assets by modeler
+      const modelerAssets = new Map<
+        string,
+        {
+          modelerId: string;
+          modelerEmail: string;
+          assets: Array<{
+            id: string;
+            name: string;
+            client: string;
+            deadline: string;
+            daysRemaining: number;
+          }>;
+        }
+      >();
+
+      assignments?.forEach((assignment) => {
+        const asset = assets.find((a) => a.id === assignment.asset_id);
+        const profile = profileMap.get(assignment.user_id);
+        if (!asset || !profile?.email) return;
+
+        const deadline = new Date(asset.delivery_date);
+        const daysRemaining = Math.ceil(
+          (deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        if (!modelerAssets.has(assignment.user_id)) {
+          modelerAssets.set(assignment.user_id, {
+            modelerId: assignment.user_id,
+            modelerEmail: profile.email || "",
+            assets: [],
+          });
+        }
+
+        modelerAssets.get(assignment.user_id)?.assets.push({
+          id: asset.id,
+          name: asset.product_name,
+          client: asset.client,
+          deadline: asset.delivery_date,
+          daysRemaining,
+        });
+      });
+
+      // Send notifications to each modeler
+      for (const [modelerId, data] of modelerAssets) {
+        try {
+          // Group assets by client for cleaner notifications
+          const clientGroups = data.assets.reduce(
+            (groups, asset) => {
+              if (!groups[asset.client]) {
+                groups[asset.client] = [];
+              }
+              groups[asset.client].push(asset);
+              return groups;
+            },
+            {} as Record<string, typeof data.assets>
+          );
+
+          // Send one notification per client
+          for (const [client, clientAssets] of Object.entries(clientGroups)) {
+            const assetNames = clientAssets.map((a) => a.name);
+            const assetIds = clientAssets.map((a) => a.id);
+            const deadline = clientAssets[0].deadline; // Assuming same deadline for grouped assets
+            const daysRemaining = clientAssets[0].daysRemaining;
+
+            await this.sendDeadlineReminderNotification(
+              modelerId,
+              data.modelerEmail,
+              assetNames,
+              assetIds,
+              deadline,
+              client,
+              daysRemaining
+            );
+          }
+
+          console.log(
+            `✅ Deadline reminders sent to ${data.modelerEmail} for ${data.assets.length} assets`
+          );
+        } catch (error) {
+          console.error(
+            `❌ Failed to send deadline reminder to modeler ${modelerId}:`,
+            error
+          );
+        }
+      }
+
+      // Trigger global notification update
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      }
+
+      console.log("Deadline reminder check completed");
+    } catch (error) {
+      console.error("Error in deadline reminder process:", error);
+    }
   }
 
   async sendBudgetAlertNotification(
@@ -315,7 +615,7 @@ class NotificationService {
       await this.createNotification(notification);
 
       // TODO: Email notification removed - will implement in later stage
-      console.log("📧 Budget alert email would be sent:", {
+      console.log("Budget alert email would be sent:", {
         to: profile.email,
         alertLevel,
         totalSpent,
@@ -381,7 +681,7 @@ class NotificationService {
           recipient_id: adminId,
           recipient_email: "", // Will be filled by createNotification
           type: "product_submission",
-          title: `📦 New Products Submitted - ${client}`,
+          title: `New Products Submitted - ${client}`,
           message: `${client} has submitted ${productCount} new product(s) for batch ${batch}.`,
           metadata: {
             client,
@@ -413,12 +713,84 @@ class NotificationService {
   }
 
   /**
+   * Send notification to QA users when a modeler marks an asset as delivered
+   */
+  async sendQAReviewNotification(
+    assetId: string,
+    assetName: string,
+    modelerName: string,
+    client: string
+  ): Promise<void> {
+    try {
+      // Get all QA users
+      const { data: qaUsers, error: qaError } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .eq("role", "qa");
+
+      if (qaError) {
+        console.error("Error fetching QA users:", qaError);
+        throw qaError;
+      }
+
+      if (!qaUsers || qaUsers.length === 0) {
+        console.log("No QA users found to send notification");
+        return;
+      }
+
+      console.log(
+        `Sending QA review notifications to ${qaUsers.length} QA users`
+      );
+
+      // Create notifications for all QA users
+      const notificationPromises = qaUsers.map(async (qaUser) => {
+        const notification: Omit<NotificationData, "created_at"> = {
+          recipient_id: qaUser.id,
+          recipient_email: qaUser.email,
+          type: "qa_review",
+          title: `Asset Ready for QA Review - ${assetName}`,
+          message: `${modelerName} has delivered "${assetName}" for ${client}. Ready for QA review.`,
+          metadata: {
+            assetId,
+            assetName,
+            modelerName,
+            client,
+            assetIds: [assetId], // For compatibility with existing navigation logic
+            timestamp: new Date().toISOString(),
+          },
+          read: false,
+        };
+
+        await this.createNotification(notification);
+      });
+
+      await Promise.all(notificationPromises);
+
+      // Dispatch global event to refresh notification bells
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      }
+
+      console.log("QA review notifications sent:", {
+        assetId,
+        assetName,
+        modelerName,
+        client,
+        recipients: qaUsers.length,
+      });
+    } catch (error) {
+      console.error("Failed to send QA review notification:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all users with admin role for budget notifications
    * @returns Array of user IDs
    */
   async getProductionAdminUsers(): Promise<string[]> {
     try {
-      console.log("🔍 Fetching admin users...");
+      console.log("Fetching admin users...");
 
       // Query for users with admin role (this is the only valid role available)
       const { data: profiles, error } = await supabase
@@ -427,14 +799,14 @@ class NotificationService {
         .eq("role", "admin");
 
       if (error) {
-        console.error("❌ Error fetching admin users:", error);
+        console.error("Error fetching admin users:", error);
         return [];
       }
 
-      console.log("👥 Raw profiles query result:", profiles);
+      console.log("Raw profiles query result:", profiles);
 
       if (!profiles || profiles.length === 0) {
-        console.log("⚠️ No profiles found with admin role");
+        console.log("No profiles found with admin role");
 
         // Fallback: Let's see what roles actually exist in the database
         const { data: allProfiles, error: allError } = await supabase
@@ -443,24 +815,132 @@ class NotificationService {
           .limit(10);
 
         if (!allError && allProfiles) {
-          console.log(
-            "🔍 Sample profiles to check available roles:",
-            allProfiles
-          );
+          console.log("Sample profiles to check available roles:", allProfiles);
           const availableRoles = [...new Set(allProfiles.map((p) => p.role))];
-          console.log("📋 Available roles in database:", availableRoles);
+          console.log("Available roles in database:", availableRoles);
         }
 
         return [];
       }
 
       const userIds = profiles.map((profile) => profile.id);
-      console.log("✅ Admin user IDs found:", userIds);
+      console.log("Admin user IDs found:", userIds);
 
       return userIds;
     } catch (error) {
-      console.error("❌ Error in getProductionAdminUsers:", error);
+      console.error("Error in getProductionAdminUsers:", error);
       return [];
+    }
+  }
+
+  /**
+   * Send notification to admin users when a modeler accepts or declines an allocation list
+   */
+  async sendAllocationListStatusNotification(
+    data: AllocationListStatusNotification
+  ): Promise<void> {
+    const {
+      modelerName,
+      modelerEmail,
+      allocationListName,
+      allocationListNumber,
+      assetCount,
+      totalPrice,
+      client,
+      batch,
+      status,
+    } = data;
+
+    try {
+      console.log("🔔 Starting allocation list status notification process...");
+      console.log("📋 Notification data:", {
+        modelerName,
+        allocationListName,
+        allocationListNumber,
+        assetCount,
+        totalPrice,
+        client,
+        batch,
+        status,
+      });
+
+      // Get all admin users to send notifications to
+      const adminUserIds = await this.getProductionAdminUsers();
+
+      if (adminUserIds.length === 0) {
+        console.log(
+          "❌ No admin users found for allocation list status notifications"
+        );
+        console.log(
+          "💡 Make sure you have users with role='admin' in your profiles table"
+        );
+        return;
+      }
+
+      console.log(
+        `✅ Found ${adminUserIds.length} admin users, sending allocation list ${status} notifications...`
+      );
+      console.log("👥 Admin user IDs:", adminUserIds);
+
+      const statusText = status === "accepted" ? "accepted" : "declined";
+      const actionText = status === "accepted" ? "Accepted" : "Declined";
+
+      // Create notifications for each admin user
+      for (const adminId of adminUserIds) {
+        const notification: Omit<NotificationData, "created_at"> = {
+          recipient_id: adminId,
+          recipient_email: "", // Will be filled by createNotification
+          type:
+            status === "accepted"
+              ? "allocation_list_accepted"
+              : "allocation_list_declined",
+          title: `Allocation List ${actionText} - ${modelerName}`,
+          message: `${modelerName} has ${statusText} allocation list "${allocationListName}" (#${allocationListNumber}) containing ${assetCount} assets (€${totalPrice.toFixed(2)}) for ${client} batch ${batch}.`,
+          metadata: {
+            modelerName,
+            modelerEmail,
+            allocationListName,
+            allocationListNumber,
+            assetCount,
+            totalPrice,
+            client,
+            batch,
+            status,
+            timestamp: new Date().toISOString(),
+          },
+          read: false,
+        };
+
+        // Create notification in database
+        console.log(`📤 Creating notification for admin ${adminId}:`, {
+          type: notification.type,
+          title: notification.title,
+          recipient_id: adminId,
+        });
+
+        try {
+          await this.createNotification(notification);
+          console.log(
+            `✅ Allocation list ${status} notification sent to admin user ${adminId}`
+          );
+        } catch (notificationError) {
+          console.error(
+            `❌ Failed to create notification for admin ${adminId}:`,
+            notificationError
+          );
+          // Continue with other admins even if one fails
+        }
+      }
+
+      // Trigger global notification update event
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      }
+    } catch (error) {
+      console.error(
+        `Error sending allocation list ${status} notifications:`,
+        error
+      );
     }
   }
 

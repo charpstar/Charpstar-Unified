@@ -373,6 +373,39 @@ export default function PendingAssignmentsPage() {
 
       toast.success("Allocation list accepted successfully!");
 
+      // Send notification to admin users about allocation list acceptance
+      try {
+        const firstAsset = list.asset_assignments[0]?.onboarding_assets;
+        if (firstAsset && user?.email) {
+          console.log("📤 Sending allocation list acceptance notification...");
+          console.log("👤 User data:", {
+            name: user?.user_metadata?.name,
+            email: user?.email,
+            hasFirstAsset: !!firstAsset,
+          });
+          await notificationService.sendAllocationListStatusNotification({
+            modelerName: user.user_metadata.name || user.email,
+            modelerEmail: user.email,
+            allocationListName: list.name,
+            allocationListNumber: list.number,
+            assetCount: list.totalAssets,
+            totalPrice: list.totalPrice,
+            client: firstAsset.client,
+            batch: firstAsset.batch,
+            status: "accepted",
+          });
+          console.log(
+            "Allocation list acceptance notification sent successfully"
+          );
+        }
+      } catch (notificationError) {
+        console.error(
+          "Failed to send allocation list acceptance notification:",
+          notificationError
+        );
+        // Don't fail the acceptance if notification fails
+      }
+
       // Remove from accepted lists after a delay to show success animation
       setTimeout(() => {
         setAcceptedLists((prev) => {
@@ -432,6 +465,37 @@ export default function PendingAssignmentsPage() {
       }
 
       toast.success("Allocation list declined successfully!");
+
+      // Send notification to admin users about allocation list decline
+      try {
+        const firstAsset = list.asset_assignments[0]?.onboarding_assets;
+        if (firstAsset && user?.email) {
+          console.log("📤 Sending allocation list decline notification...");
+          console.log("👤 User data:", {
+            name: user?.user_metadata?.name,
+            email: user?.email,
+            hasFirstAsset: !!firstAsset,
+          });
+          await notificationService.sendAllocationListStatusNotification({
+            modelerName: user.user_metadata.name || user.email,
+            modelerEmail: user.email,
+            allocationListName: list.name,
+            allocationListNumber: list.number,
+            assetCount: list.totalAssets,
+            totalPrice: list.totalPrice,
+            client: firstAsset.client,
+            batch: firstAsset.batch,
+            status: "declined",
+          });
+          console.log("Allocation list decline notification sent successfully");
+        }
+      } catch (notificationError) {
+        console.error(
+          "Failed to send allocation list decline notification:",
+          notificationError
+        );
+        // Don't fail the decline if notification fails
+      }
 
       // Remove from declined lists after a delay to show success animation
       setTimeout(() => {

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
+import { notificationService } from "@/lib/notificationService";
 import { Card } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Textarea, Input } from "@/components/ui/inputs";
@@ -458,50 +459,129 @@ export default function ReviewPage() {
 
   // Handle model load
   const handleModelLoaded = () => {
+    console.log("🎯 Model loaded via onLoad event");
     setModelLoaded(true);
   };
 
   // Set up dimension system (like asset library)
   useEffect(() => {
-    if (!modelViewerRef.current) return;
-
-    const modelViewer = modelViewerRef.current as any;
-
-    // Check if modelViewer has the required methods
-    if (!modelViewer.querySelectorAll || !modelViewer.querySelector) {
-      console.warn("Model viewer not fully initialized");
-      return;
-    }
-
-    const handleLoad = () => {
-      setModelLoaded(true);
-      if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
-        initializeDimensions(modelViewer);
+    // Add a small delay to ensure the model-viewer element is properly mounted
+    const setupTimeout = setTimeout(() => {
+      if (!modelViewerRef.current) {
+        console.log("❌ No modelViewerRef.current available after timeout");
+        return;
       }
-    };
 
-    const handleCameraChange = () => {
-      if (modelViewer.querySelectorAll) {
-        renderDimensionLines(modelViewer);
+      const modelViewer = modelViewerRef.current as any;
+      console.log("🔍 Setting up model viewer with GLB:", asset?.glb_link);
+      console.log("🔍 Model viewer element:", modelViewer);
+
+      const handleLoad = () => {
+        console.log("🔧 Model loaded via useEffect event listener");
+        setModelLoaded(true);
+        // Wait a bit for all methods to be available
+        setTimeout(() => {
+          if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
+            console.log("✅ Initializing dimensions from useEffect");
+            initializeDimensions(modelViewer);
+          } else {
+            console.warn("❌ Model viewer methods not available yet");
+          }
+        }, 100);
+      };
+
+      const handleCameraChange = () => {
+        if (modelViewer.querySelectorAll) {
+          renderDimensionLines(modelViewer);
+        }
+      };
+
+      // Check if model is already loaded
+      console.log(
+        "🔍 Checking if model is already loaded. modelViewer.model:",
+        modelViewer.model
+      );
+      if (modelViewer.model) {
+        console.log("🚀 Model already loaded, initializing immediately");
+        setModelLoaded(true);
+        setTimeout(() => {
+          if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
+            console.log("✅ Initializing dimensions from already loaded model");
+            initializeDimensions(modelViewer);
+          } else {
+            console.warn(
+              "❌ Model viewer methods not available for already loaded model"
+            );
+          }
+        }, 100);
+      } else {
+        console.log("⏳ Model not yet loaded, setting up event listeners");
       }
-    };
 
-    // Check if model is already loaded
-    if (modelViewer.model) {
-      setModelLoaded(true);
-      if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
-        initializeDimensions(modelViewer);
-      }
-    }
+      // Fallback: Check periodically if model has loaded but event wasn't caught
+      let fallbackCheckCount = 0;
+      const fallbackCheck = setInterval(() => {
+        fallbackCheckCount++;
+        console.log(
+          `🔄 Fallback check ${fallbackCheckCount}: modelViewer.model=${!!modelViewer.model}, modelLoaded=${modelLoaded}`
+        );
 
-    modelViewer.addEventListener("load", handleLoad);
-    modelViewer.addEventListener("camera-change", handleCameraChange);
+        if (modelViewer.model && !modelLoaded) {
+          console.log("🔄 Fallback: Model detected as loaded");
+          setModelLoaded(true);
+          if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
+            console.log("✅ Initializing dimensions from fallback check");
+            initializeDimensions(modelViewer);
+          }
+          clearInterval(fallbackCheck);
+        }
+
+        // Also check if we need to enable the button anyway after some time
+        if (fallbackCheckCount >= 6 && !modelLoaded) {
+          console.log("⚠️ Fallback: Force enabling button after 3 seconds");
+          setModelLoaded(true);
+          clearInterval(fallbackCheck);
+        }
+      }, 500);
+
+      // Clear fallback after 10 seconds
+      const fallbackTimeout = setTimeout(() => {
+        clearInterval(fallbackCheck);
+      }, 10000);
+
+      // Add more event listeners for debugging
+      const handleError = (e: any) => {
+        console.error("❌ Model-viewer error event:", e);
+      };
+
+      const handleProgress = (e: any) => {
+        console.log(
+          "📊 Model loading progress:",
+          e.detail?.totalProgress || "unknown"
+        );
+      };
+
+      modelViewer.addEventListener("load", handleLoad);
+      modelViewer.addEventListener("error", handleError);
+      modelViewer.addEventListener("progress", handleProgress);
+      modelViewer.addEventListener("camera-change", handleCameraChange);
+
+      console.log("📝 Event listeners attached to model viewer");
+
+      return () => {
+        clearInterval(fallbackCheck);
+        clearTimeout(fallbackTimeout);
+        if (modelViewer.removeEventListener) {
+          modelViewer.removeEventListener("camera-change", handleCameraChange);
+          modelViewer.removeEventListener("load", handleLoad);
+          modelViewer.removeEventListener("error", handleError);
+          modelViewer.removeEventListener("progress", handleProgress);
+        }
+      };
+    }, 100); // Give the model-viewer element time to mount
 
     return () => {
-      if (modelViewer.removeEventListener) {
-        modelViewer.removeEventListener("camera-change", handleCameraChange);
-        modelViewer.removeEventListener("load", handleLoad);
-      }
+      clearTimeout(setupTimeout);
     };
   }, [asset?.glb_link]);
 
@@ -612,13 +692,13 @@ export default function ReviewPage() {
 
       renderDimensionLines(modelViewer);
 
-      // Keep dimensions hidden by default (showDimensions state is false)
+      // Important: Unhide the SVG lines now that everything is ready
       const dimLines = modelViewer.querySelector("#dimLines");
       if (dimLines) {
-        dimLines.classList.add("hide");
+        dimLines.classList.remove("hide");
       }
 
-      // Also hide all dimension hotspots by default
+      // Set initial visibility based on showDimensions state
       const dimElements = [
         ...modelViewer.querySelectorAll('button[slot^="hotspot-dim"]'),
         ...modelViewer.querySelectorAll('button[slot^="hotspot-dot"]'),
@@ -627,7 +707,11 @@ export default function ReviewPage() {
 
       dimElements.forEach((element) => {
         if (element) {
-          element.classList.add("hide");
+          if (showDimensions) {
+            element.classList.remove("hide");
+          } else {
+            element.classList.add("hide");
+          }
         }
       });
     } catch (error) {
@@ -642,6 +726,7 @@ export default function ReviewPage() {
       !modelViewer.querySelectorAll ||
       !modelViewer.queryHotspot
     ) {
+      console.warn("Model viewer not ready for dimension line rendering");
       return;
     }
 
@@ -651,6 +736,8 @@ export default function ReviewPage() {
       dotHotspot2: any,
       dimensionHotspot: any
     ) {
+      if (!svgLine) return;
+
       if (
         dotHotspot1 &&
         dotHotspot2 &&
@@ -671,44 +758,56 @@ export default function ReviewPage() {
     }
 
     const dimLines = modelViewer.querySelectorAll("line");
-    if (!dimLines || dimLines.length === 0) {
+    if (!dimLines || dimLines.length < 5) {
+      console.warn(
+        "Dimension lines not found or incomplete:",
+        dimLines?.length
+      );
       return;
     }
 
-    drawLine(
-      dimLines[0],
-      modelViewer.queryHotspot("hotspot-dot+X-Y+Z"),
-      modelViewer.queryHotspot("hotspot-dot+X-Y-Z"),
-      modelViewer.queryHotspot("hotspot-dim+X-Y")
-    );
-    drawLine(
-      dimLines[1],
-      modelViewer.queryHotspot("hotspot-dot+X-Y-Z"),
-      modelViewer.queryHotspot("hotspot-dot+X+Y-Z"),
-      modelViewer.queryHotspot("hotspot-dim+X-Z")
-    );
-    drawLine(
-      dimLines[2],
-      modelViewer.queryHotspot("hotspot-dot+X+Y-Z"),
-      modelViewer.queryHotspot("hotspot-dot-X+Y-Z"),
-      null
-    );
-    drawLine(
-      dimLines[3],
-      modelViewer.queryHotspot("hotspot-dot-X+Y-Z"),
-      modelViewer.queryHotspot("hotspot-dot-X-Y-Z"),
-      modelViewer.queryHotspot("hotspot-dim-X-Z")
-    );
-    drawLine(
-      dimLines[4],
-      modelViewer.queryHotspot("hotspot-dot-X-Y-Z"),
-      modelViewer.queryHotspot("hotspot-dot-X-Y+Z"),
-      modelViewer.queryHotspot("hotspot-dim-X-Y")
-    );
+    try {
+      drawLine(
+        dimLines[0],
+        modelViewer.queryHotspot("hotspot-dot+X-Y+Z"),
+        modelViewer.queryHotspot("hotspot-dot+X-Y-Z"),
+        modelViewer.queryHotspot("hotspot-dim+X-Y")
+      );
+      drawLine(
+        dimLines[1],
+        modelViewer.queryHotspot("hotspot-dot+X-Y-Z"),
+        modelViewer.queryHotspot("hotspot-dot+X+Y-Z"),
+        modelViewer.queryHotspot("hotspot-dim+X-Z")
+      );
+      drawLine(
+        dimLines[2],
+        modelViewer.queryHotspot("hotspot-dot+X+Y-Z"),
+        modelViewer.queryHotspot("hotspot-dot-X+Y-Z"),
+        null // always visible
+      );
+      drawLine(
+        dimLines[3],
+        modelViewer.queryHotspot("hotspot-dot-X+Y-Z"),
+        modelViewer.queryHotspot("hotspot-dot-X-Y-Z"),
+        modelViewer.queryHotspot("hotspot-dim-X-Z")
+      );
+      drawLine(
+        dimLines[4],
+        modelViewer.queryHotspot("hotspot-dot-X-Y-Z"),
+        modelViewer.queryHotspot("hotspot-dot-X-Y+Z"),
+        modelViewer.queryHotspot("hotspot-dim-X-Y")
+      );
+    } catch (error) {
+      console.error("Error rendering dimension lines:", error);
+    }
   };
 
   // Handle dimensions toggle (like asset library)
   const handleDimensionsToggle = () => {
+    console.log(
+      `🎛️ Dimensions toggle clicked. Current state: ${showDimensions}, modelLoaded: ${modelLoaded}`
+    );
+
     const newShowDimensions = !showDimensions;
     setShowDimensions(newShowDimensions);
 
@@ -716,7 +815,7 @@ export default function ReviewPage() {
       const modelViewer = modelViewerRef.current as any;
 
       if (!modelViewer.querySelectorAll || !modelViewer.querySelector) {
-        console.warn("Model viewer not ready for dimension toggle");
+        console.warn("❌ Model viewer not ready for dimension toggle");
         return;
       }
 
@@ -726,6 +825,10 @@ export default function ReviewPage() {
         modelViewer.querySelector("#dimLines"),
       ];
 
+      console.log(
+        `📊 Found ${dimElements.length} dimension elements to toggle`
+      );
+
       function setVisibility(visible: boolean) {
         dimElements.forEach((element, index) => {
           if (element) {
@@ -734,15 +837,22 @@ export default function ReviewPage() {
             } else {
               element.classList.add("hide");
             }
+          } else {
+            console.warn(`❌ Dimension element ${index} is null`);
           }
         });
       }
 
       setVisibility(newShowDimensions);
+      console.log(`✅ Set dimensions visibility to: ${newShowDimensions}`);
 
       if (newShowDimensions) {
+        // Re-render dimension lines when showing
+        console.log("🔄 Re-rendering dimension lines");
         renderDimensionLines(modelViewer);
       }
+    } else {
+      console.warn("❌ No model viewer ref available for dimension toggle");
     }
   };
 
@@ -1267,6 +1377,64 @@ export default function ReviewPage() {
       toast.success(
         `Asset ${newStatus === "approved_by_client" ? "approved by client" : newStatus === "approved" ? "approved" : "updated"} successfully`
       );
+
+      // Handle notification sending based on status changes
+      if (newStatus === "revisions") {
+        // Send revision notification to modeler
+        try {
+          // Get modeler assignment info
+          const { data: assignment, error: assignmentError } = await supabase
+            .from("asset_assignments")
+            .select("user_id")
+            .eq("asset_id", assetId)
+            .eq("role", "modeler")
+            .single();
+
+          if (!assignmentError && assignment && asset) {
+            // Fetch modeler profile separately
+            const { data: modelerProfile, error: profileError } = await supabase
+              .from("profiles")
+              .select("email, title")
+              .eq("id", assignment.user_id)
+              .single();
+
+            if (!profileError && modelerProfile?.email) {
+              // Determine reviewer name based on user role
+              let reviewerName;
+              if (user?.metadata?.role === "client") {
+                reviewerName = "Client";
+              } else if (user?.metadata?.role === "qa") {
+                reviewerName = "QA Team";
+              } else if (user?.metadata?.role === "admin") {
+                reviewerName = "Admin Team";
+              } else {
+                reviewerName =
+                  user?.user_metadata?.name || user?.email || "Reviewer";
+              }
+
+              await notificationService.sendRevisionNotification(
+                assetId,
+                assignment.user_id,
+                modelerProfile.email,
+                asset.product_name,
+                (asset as any).client,
+                reviewerName
+              );
+              console.log(
+                "✅ Revision notification sent successfully from updateAssetStatusWithRevision"
+              );
+            } else {
+              console.error(
+                "❌ Failed to fetch modeler profile:",
+                profileError
+              );
+            }
+          }
+        } catch (error) {
+          console.error("❌ Failed to send revision notification:", error);
+          // Don't throw - notifications shouldn't block status updates
+        }
+      }
     } catch (error) {
       console.error("Error updating asset status:", error);
       toast.error("Failed to update asset status");
@@ -1330,9 +1498,110 @@ export default function ReviewPage() {
 
       const result = await response.json();
 
+      // Handle notification sending based on status changes
+      if (newStatus === "revisions") {
+        // Send revision notification to modeler
+        try {
+          // Get modeler assignment info
+          const { data: assignment, error: assignmentError } = await supabase
+            .from("asset_assignments")
+            .select("user_id")
+            .eq("asset_id", assetId)
+            .eq("role", "modeler")
+            .single();
+
+          if (!assignmentError && assignment && asset) {
+            // Fetch modeler profile separately
+            const { data: modelerProfile, error: profileError } = await supabase
+              .from("profiles")
+              .select("email, title")
+              .eq("id", assignment.user_id)
+              .single();
+
+            if (!profileError && modelerProfile?.email) {
+              // Determine reviewer name based on user role
+              let reviewerName;
+              if (user?.metadata?.role === "client") {
+                reviewerName = "Client";
+              } else if (user?.metadata?.role === "qa") {
+                reviewerName = "QA Team";
+              } else if (user?.metadata?.role === "admin") {
+                reviewerName = "Admin Team";
+              } else {
+                reviewerName =
+                  user?.user_metadata?.name || user?.email || "Reviewer";
+              }
+
+              await notificationService.sendRevisionNotification(
+                assetId,
+                assignment.user_id,
+                modelerProfile.email,
+                asset.product_name,
+                (asset as any).client,
+                reviewerName
+              );
+              console.log("✅ Revision notification sent successfully");
+            } else {
+              console.error(
+                "❌ Failed to fetch modeler profile:",
+                profileError
+              );
+            }
+          }
+        } catch (error) {
+          console.error("❌ Failed to send revision notification:", error);
+          // Don't throw - notifications shouldn't block status updates
+        }
+      }
+
       // If status is approved_by_client, update the modeler's end time
       if (newStatus === "approved_by_client") {
         await updateModelerEndTime(assetId);
+
+        // Send client approval notification to modeler
+        try {
+          const { data: assignment, error: assignmentError } = await supabase
+            .from("asset_assignments")
+            .select("user_id")
+            .eq("asset_id", assetId)
+            .eq("role", "modeler")
+            .single();
+
+          if (!assignmentError && assignment && asset) {
+            // Fetch modeler profile separately
+            const { data: modelerProfile, error: profileError } = await supabase
+              .from("profiles")
+              .select("email, title")
+              .eq("id", assignment.user_id)
+              .single();
+
+            if (!profileError && modelerProfile?.email) {
+              const approverName =
+                user?.user_metadata?.name || user?.email || "Client";
+
+              await notificationService.sendAssetApprovedNotification(
+                assetId,
+                assignment.user_id,
+                modelerProfile.email,
+                asset.product_name,
+                (asset as any).client,
+                approverName,
+                "client"
+              );
+              console.log("✅ Client approval notification sent successfully");
+            } else {
+              console.error(
+                "❌ Failed to fetch modeler profile for client approval:",
+                profileError
+              );
+            }
+          }
+        } catch (error) {
+          console.error(
+            "❌ Failed to send client approval notification:",
+            error
+          );
+        }
 
         // Dispatch custom event for QA metrics tracking if user is QA
         if (user?.metadata?.role === "qa") {
@@ -1357,6 +1626,78 @@ export default function ReviewPage() {
               },
             })
           );
+        }
+      }
+
+      // If status is approved (QA approval), send notifications
+      if (newStatus === "approved") {
+        try {
+          // Send QA approval notification to modeler
+          const { data: assignment, error: assignmentError } = await supabase
+            .from("asset_assignments")
+            .select("user_id")
+            .eq("asset_id", assetId)
+            .eq("role", "modeler")
+            .single();
+
+          // Fetch modeler profile separately for both notifications
+          let modelerProfile = null;
+
+          if (!assignmentError && assignment && asset) {
+            const { data: modelerProfileData, error: profileError } =
+              await supabase
+                .from("profiles")
+                .select("email, title")
+                .eq("id", assignment.user_id)
+                .single();
+
+            modelerProfile = modelerProfileData;
+
+            if (!profileError && modelerProfile?.email) {
+              const approverName =
+                user?.user_metadata?.name || user?.email || "QA Team";
+
+              await notificationService.sendAssetApprovedNotification(
+                assetId,
+                assignment.user_id,
+                modelerProfile.email,
+                asset.product_name,
+                (asset as any).client,
+                approverName,
+                "qa"
+              );
+              console.log("✅ QA approval notification sent to modeler");
+            } else {
+              console.error(
+                "❌ Failed to fetch modeler profile for QA approval:",
+                profileError
+              );
+            }
+          }
+
+          // Send client review ready notification to client
+          const { data: clientProfile, error: clientError } = await supabase
+            .from("profiles")
+            .select("id, email")
+            .eq("role", "client")
+            .eq("client", (asset as any)?.client)
+            .single();
+
+          if (!clientError && clientProfile && asset) {
+            const modelerName = modelerProfile?.title || "Modeler Team";
+
+            await notificationService.sendClientReviewReadyNotification(
+              assetId,
+              clientProfile.id,
+              clientProfile.email,
+              asset.product_name,
+              (asset as any).client,
+              modelerName
+            );
+            console.log("✅ Client review ready notification sent");
+          }
+        } catch (error) {
+          console.error("❌ Failed to send approval notifications:", error);
         }
       }
 
@@ -2243,6 +2584,12 @@ export default function ReviewPage() {
             <Script
               type="module"
               src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+              onLoad={() =>
+                console.log("📦 Model-viewer script loaded successfully")
+              }
+              onError={(e) =>
+                console.error("❌ Model-viewer script failed to load:", e)
+              }
             />
 
             {asset.glb_link ? (
@@ -2535,9 +2882,19 @@ export default function ReviewPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleDimensionsToggle}
+                  onClick={() => {
+                    console.log(
+                      `🔘 Button clicked! modelLoaded: ${modelLoaded}, disabled: ${!modelLoaded}`
+                    );
+                    handleDimensionsToggle();
+                  }}
                   disabled={!modelLoaded}
                   className="bg-background/95 backdrop-blur-sm border-border/50 shadow-md cursor-pointer "
+                  title={
+                    !modelLoaded
+                      ? "Waiting for model to load..."
+                      : "Toggle dimension display"
+                  }
                 >
                   <Ruler className="h-4 w-4 mr-2" />
                   {showDimensions ? "Hide" : "Show"} Dimensions

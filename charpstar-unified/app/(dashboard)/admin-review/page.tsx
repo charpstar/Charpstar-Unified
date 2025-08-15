@@ -204,10 +204,12 @@ const calculateListStats = (list: any) => {
     )
     .reduce((sum: number, assignment: any) => sum + (assignment.price || 0), 0);
 
-  // Calculate bonus only if work was completed before deadline AND only on completed assets
+  // Calculate potential bonus (what could be earned if everything is completed on time)
   let bonusAmount = 0;
   let totalEarnings = totalPrice;
+  let potentialEarnings = totalPrice;
 
+  // Calculate actual earnings (for completed work only)
   if (list.approved_at && list.deadline && completedPrice > 0) {
     const approvedDate = new Date(list.approved_at);
     const deadlineDate = new Date(list.deadline);
@@ -219,6 +221,12 @@ const calculateListStats = (list: any) => {
     }
   }
 
+  // Calculate potential earnings (full bonus on all assets if completed on time)
+  if (list.bonus > 0) {
+    const potentialBonus = totalPrice * (list.bonus / 100);
+    potentialEarnings = totalPrice + potentialBonus;
+  }
+
   const completionPercentage =
     totalAssets > 0 ? Math.round((approvedAssets / totalAssets) * 100) : 0;
 
@@ -228,6 +236,7 @@ const calculateListStats = (list: any) => {
     totalPrice,
     bonusAmount,
     totalEarnings,
+    potentialEarnings,
     completionPercentage,
   };
 };
@@ -350,7 +359,9 @@ export default function AdminReviewPage() {
   const [allocationLists, setAllocationLists] = useState<any[]>([]);
   const [filteredLists, setFilteredLists] = useState<any[]>([]);
   const [showAllocationLists, setShowAllocationLists] = useState(false);
+  const [showQAAssets, setShowQAAssets] = useState(false);
   const [modelerEmail, setModelerEmail] = useState<string>("");
+  const [viewedUserRole, setViewedUserRole] = useState<string>("");
   const [refreshTrigger] = useState(0);
   const [updatingPriorities, setUpdatingPriorities] = useState<Set<string>>(
     new Set()
@@ -430,6 +441,54 @@ export default function AdminReviewPage() {
       };
 
       return { totals, percentages } as const;
+    } else if (showQAAssets) {
+      // For QA assets view, calculate totals from filtered QA assets
+      const totals = {
+        total: filtered.length,
+        in_production: 0,
+        revisions: 0,
+        approved: 0,
+        delivered_by_artist: 0,
+        not_started: 0,
+        waiting_for_approval: 0,
+      };
+
+      filtered.forEach((asset) => {
+        const status = asset.status;
+        if (totals.hasOwnProperty(status)) {
+          totals[status as keyof typeof totals]++;
+        }
+        if (status === "delivered_by_artist") {
+          totals.waiting_for_approval++;
+        }
+      });
+
+      // Calculate percentages
+      const percentages = {
+        total: 100,
+        in_production:
+          totals.total > 0
+            ? Math.round((totals.in_production / totals.total) * 100)
+            : 0,
+        revisions:
+          totals.total > 0
+            ? Math.round((totals.revisions / totals.total) * 100)
+            : 0,
+        approved:
+          totals.total > 0
+            ? Math.round((totals.approved / totals.total) * 100)
+            : 0,
+        delivered_by_artist:
+          totals.total > 0
+            ? Math.round((totals.delivered_by_artist / totals.total) * 100)
+            : 0,
+        not_started:
+          totals.total > 0
+            ? Math.round((totals.not_started / totals.total) * 100)
+            : 0,
+      };
+
+      return { totals, percentages } as const;
     } else {
       const totals = {
         total: assets.length,
@@ -479,7 +538,7 @@ export default function AdminReviewPage() {
 
       return { totals, percentages } as const;
     }
-  }, [assets, allocationLists, showAllocationLists]);
+  }, [assets, allocationLists, showAllocationLists, showQAAssets, filtered]);
 
   // Handle URL parameters for client, batch, modeler, and status filters
   useEffect(() => {
@@ -529,40 +588,53 @@ export default function AdminReviewPage() {
       setModelerEmail(emailParam);
     }
 
-    // Show allocation lists if both modeler and email are provided
+    // Fetch user role and decide what to show when both modeler and email are provided
     if (modelerParam && emailParam) {
-      setShowAllocationLists(true);
+      // Fetch the viewed user's role to determine what to show
+      supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", modelerParam)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setViewedUserRole(data.role);
+            if (data.role === "qa") {
+              setShowQAAssets(true);
+              setShowAllocationLists(false);
+            } else {
+              setShowAllocationLists(true);
+              setShowQAAssets(false);
+            }
+          } else {
+            // Default to modeler view if role fetch fails
+            setShowAllocationLists(true);
+            setShowQAAssets(false);
+            setViewedUserRole("modeler");
+          }
+        });
     } else {
       setShowAllocationLists(false);
+      setShowQAAssets(false);
+      setViewedUserRole("");
     }
   }, [searchParams]);
 
-  // Update URL when filters change
-  useEffect(() => {
-    const params = new URLSearchParams();
-
-    if (clientFilters.length > 0) {
-      params.set("client", clientFilters.join(","));
-    }
-
-    if (batchFilters.length > 0) {
-      params.set("batch", batchFilters.join(","));
-    }
-
-    if (modelerFilters.length > 0) {
-      params.set("modeler", modelerFilters.join(","));
-    }
-
-    if (statusFilters.length > 0) {
-      params.set("status", statusFilters.join(","));
-    }
-
-    // Update URL without triggering a page reload
-    const newUrl = params.toString()
-      ? `?${params.toString()}`
-      : window.location.pathname;
-    window.history.replaceState({}, "", newUrl);
-  }, [clientFilters, batchFilters, modelerFilters, statusFilters]);
+  // Update URL when filters change (temporarily disabled to prevent page reloads)
+  // TODO: Implement proper URL state management without causing page reloads
+  // useEffect(() => {
+  //   const params = new URLSearchParams();
+  //   if (clientFilters.length > 0) params.set("client", clientFilters.join(","));
+  //   if (batchFilters.length > 0) params.set("batch", batchFilters.join(","));
+  //   if (modelerFilters.length > 0) params.set("modeler", modelerFilters.join(","));
+  //   if (statusFilters.length > 0) params.set("status", statusFilters.join(","));
+  //   const queryString = params.toString();
+  //   const currentPath = window.location.pathname;
+  //   const newUrl = queryString ? `${currentPath}?${queryString}` : currentPath;
+  //   if (window.location.href !== new URL(newUrl, window.location.origin).href) {
+  //     router.replace(newUrl, { scroll: false });
+  //   }
+  // }, [clientFilters, batchFilters, modelerFilters, statusFilters, router]);
 
   // Check if user is admin
   useEffect(() => {
@@ -800,7 +872,7 @@ export default function AdminReviewPage() {
 
   // Apply filters to assets
   useEffect(() => {
-    if (showAllocationLists) return;
+    if (showAllocationLists || showQAAssets) return;
 
     let filteredAssets = [...assets];
 
@@ -858,10 +930,164 @@ export default function AdminReviewPage() {
     assignedAssets,
   ]);
 
+  // Fetch and filter QA assets (when viewing a QA user)
+  useEffect(() => {
+    if (!showQAAssets || !modelerFilters.length) return;
+
+    const fetchQAAssets = async () => {
+      try {
+        setLoading(true);
+        const qaUserId = modelerFilters[0]; // The QA user ID from URL params
+
+        // Get modelers connected to this QA user via qa_allocations
+        const { data: qaAllocations, error: allocationError } = await supabase
+          .from("qa_allocations")
+          .select("modeler_id")
+          .eq("qa_id", qaUserId);
+
+        if (allocationError) {
+          console.error("Error fetching QA allocations:", allocationError);
+          setLoading(false);
+          return;
+        }
+
+        if (!qaAllocations || qaAllocations.length === 0) {
+          setFiltered([]);
+          setLoading(false);
+          return;
+        }
+
+        const modelerIds = qaAllocations.map(
+          (allocation) => allocation.modeler_id
+        );
+
+        // Get modeler details
+        const { data: modelerDetails, error: modelerError } = await supabase
+          .from("profiles")
+          .select("id, email, title")
+          .in("id", modelerIds);
+
+        if (modelerError) {
+          console.error("Error fetching modeler details:", modelerError);
+          setLoading(false);
+          return;
+        }
+
+        // Create a map of modeler IDs to modeler details
+        const modelerMap = new Map();
+        modelerDetails?.forEach((modeler) => {
+          modelerMap.set(modeler.id, modeler);
+        });
+
+        // Get assets assigned to these connected modelers
+        const { data: qaAssets, error: assetsError } = await supabase
+          .from("asset_assignments")
+          .select(
+            `
+            asset_id,
+            user_id,
+            onboarding_assets!inner(
+              id,
+              product_name,
+              article_id,
+              client,
+              batch,
+              status,
+              priority,
+              reference,
+              created_at
+            )
+          `
+          )
+          .in("user_id", modelerIds)
+          .eq("role", "modeler");
+
+        if (assetsError) {
+          console.error("Error fetching QA connected assets:", assetsError);
+          setLoading(false);
+          return;
+        }
+
+        // Transform the data to match the expected asset format
+        const transformedAssets =
+          qaAssets?.map((assignment: any) => {
+            const modeler = modelerMap.get(assignment.user_id);
+            const asset = assignment.onboarding_assets;
+            return {
+              id: asset.id,
+              product_name: asset.product_name,
+              article_id: asset.article_id,
+              client: asset.client,
+              batch: asset.batch,
+              status: asset.status,
+              priority: asset.priority,
+              reference: asset.reference,
+              created_at: asset.created_at,
+              modeler_id: assignment.user_id, // Track which modeler this asset belongs to
+              modeler_email: modeler?.email || "Unknown",
+              modeler_title: modeler?.title || "Unknown",
+            };
+          }) || [];
+
+        let filteredAssets = [...transformedAssets];
+
+        // Apply multi client filter
+        if (clientFilters.length > 0) {
+          filteredAssets = filteredAssets.filter((asset) =>
+            clientFilters.includes(asset.client)
+          );
+        }
+
+        // Apply multi batch filter
+        if (batchFilters.length > 0) {
+          filteredAssets = filteredAssets.filter((asset) =>
+            batchFilters.includes(Number(asset.batch))
+          );
+        }
+
+        // Apply multi status filter
+        if (statusFilters.length > 0) {
+          filteredAssets = filteredAssets.filter((asset) =>
+            statusFilters.includes(asset.status)
+          );
+        }
+
+        // Sort by status priority (most critical first)
+        const statusPriority: Record<string, number> = {
+          delivered_by_artist: 1, // Waiting for QA review
+          revisions: 2, // Sent back for revisions
+          in_production: 3, // In progress
+          approved: 4, // Approved by QA
+          approved_by_client: 5, // Final approval
+          not_started: 6, // Not started yet
+        };
+
+        filteredAssets.sort(
+          (a, b) =>
+            (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
+        );
+
+        setFiltered(filteredAssets);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching QA assets:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchQAAssets();
+  }, [
+    showQAAssets,
+    modelerFilters,
+    clientFilters,
+    batchFilters,
+    statusFilters,
+  ]);
+
   // Reset page when view changes
   useEffect(() => {
     setPage(1);
-  }, [showAllocationLists]);
+  }, [showAllocationLists, showQAAssets]);
 
   // Pagination
   const paged = useMemo(() => {
@@ -869,7 +1095,7 @@ export default function AdminReviewPage() {
     return showAllocationLists
       ? filteredLists.slice(start, start + PAGE_SIZE)
       : filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, filteredLists, page, showAllocationLists]);
+  }, [filtered, filteredLists, page, showAllocationLists, showQAAssets]);
 
   // Fetch pending assets
   const fetchPendingAssets = async (assetIds: string[]) => {
@@ -1901,37 +2127,6 @@ export default function AdminReviewPage() {
         {!loading && (
           <div className="flex flex-wrap items-center gap-3 mb-4">
             {/* Client Filter */}
-            <Select
-              value={clientFilters.length === 1 ? clientFilters[0] : undefined}
-              onValueChange={(value) => {
-                if (value === "all") {
-                  setClientFilters([]);
-                } else if (value) {
-                  setClientFilters([value]);
-                }
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-40 h-9">
-                <SelectValue
-                  placeholder={
-                    clientFilters.length === 0
-                      ? "All clients"
-                      : clientFilters.length === 1
-                        ? clientFilters[0]
-                        : `${clientFilters.length} selected`
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All clients</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client} value={client}>
-                    {client}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
 
             {/* Status Filter */}
             <Select
@@ -2200,14 +2395,14 @@ export default function AdminReviewPage() {
                         </div>
                         <div className="text-center">
                           <p className="text-sm font-medium text-muted-foreground">
-                            Total Earnings
+                            Potential Earnings
                           </p>
                           <p className="text-2xl font-medium text-success">
-                            €{stats.totalEarnings.toFixed(2)}
+                            €{stats.potentialEarnings.toFixed(2)}
                           </p>
                           {list.bonus > 0 && (
                             <p className="text-xs text-muted-foreground">
-                              +{list.bonus}% bonus
+                              +{list.bonus}% bonus (if completed on time)
                             </p>
                           )}
                         </div>
@@ -2474,8 +2669,172 @@ export default function AdminReviewPage() {
               })
             )}
           </div>
+        ) : showQAAssets ? (
+          // QA Assets View (showing assets reviewed by this QA user)
+          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Model Name</TableHead>
+                  <TableHead>Article ID</TableHead>
+                  <TableHead>Modeler</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Batch</TableHead>
+                  <TableHead className="text-center">Priority</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>References</TableHead>
+                  <TableHead>Review</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paged.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center">
+                      No assets found for this QA reviewer.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paged.map((asset) => (
+                    <TableRow
+                      key={asset.id}
+                      className={getStatusRowClass(asset.status)}
+                    >
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">
+                            {asset.product_name}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{asset.article_id}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-muted-foreground">
+                            {asset.modeler_email?.split("@")[0] || "Unknown"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">
+                          {asset.client}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">
+                          Batch {asset.batch}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={(asset.priority || 2).toString()}
+                          onValueChange={(value) =>
+                            handlePriorityUpdate(asset.id, parseInt(value))
+                          }
+                          disabled={updatingPriorities.has(asset.id)}
+                        >
+                          <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit  cursor-pointer">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                asset.priority || 2
+                              )}`}
+                            >
+                              {getPriorityLabel(asset.priority || 2)}
+                            </span>
+                            {updatingPriorities.has(asset.id) ? (
+                              <div className="ml-2 animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 cursor-pointer" />
+                            ) : null}
+                          </SelectTrigger>
+                          <SelectContent className="cursor-pointer">
+                            <SelectItem className="cursor-pointer" value="1">
+                              High
+                            </SelectItem>
+                            <SelectItem className="cursor-pointer" value="2">
+                              Medium
+                            </SelectItem>
+                            <SelectItem className="cursor-pointer" value="3">
+                              Low
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 justify-center">
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-medium ${
+                              asset.status in STATUS_LABELS
+                                ? STATUS_LABELS[
+                                    asset.status as keyof typeof STATUS_LABELS
+                                  ].color
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {asset.status in STATUS_LABELS
+                              ? STATUS_LABELS[
+                                  asset.status as keyof typeof STATUS_LABELS
+                                ].label
+                              : asset.status}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs px-3 py-1 h-7"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedAssetForView(asset);
+                              setShowViewDialog(true);
+                            }}
+                          >
+                            <FileText className="mr-1 h-3 w-3" />
+                            Ref (
+                            {separateReferences(asset.reference).imageReferences
+                              .length +
+                              separateReferences(asset.reference).glbFiles
+                                .length}
+                            )
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="cursor-pointer"
+                          onClick={() => {
+                            // Navigate to asset detail for QA assets
+                            const params = new URLSearchParams();
+                            params.set("from", "admin-review");
+                            if (clientFilters.length > 0) {
+                              params.set("client", clientFilters.join(","));
+                            }
+                            if (batchFilters.length > 0) {
+                              params.set("batch", batchFilters.join(","));
+                            }
+                            if (modelerFilters.length > 0) {
+                              params.set("modeler", modelerFilters.join(","));
+                            }
+                            if (modelerEmail) {
+                              params.set("email", modelerEmail);
+                            }
+                            router.push(
+                              `/client-review/${asset.id}?${params.toString()}`
+                            );
+                          }}
+                        >
+                          <Eye className="h-5 w-5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         ) : (
-          // Assets View
+          // Regular Assets View
           <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
             <Table>
               <TableHeader>

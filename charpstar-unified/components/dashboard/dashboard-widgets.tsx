@@ -28,7 +28,7 @@ import {
   Folder,
   Cog,
 } from "lucide-react";
-import { SettingsDialog } from "@/app/components/settings-dialog";
+
 import { BarChart, XAxis, YAxis, Bar } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { ChartTooltip } from "@/components/ui/display";
@@ -132,7 +132,6 @@ export function StatsWidget({
 
 // Profile Widget
 export function ProfileWidget({ user }: { user?: any }) {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const router = useRouter();
 
   // Helper function to get role-specific metadata
@@ -237,7 +236,14 @@ export function ProfileWidget({ user }: { user?: any }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setIsSettingsOpen(true)}
+          onClick={() => {
+            const userMenu = document.querySelector(
+              '[data-tour="user-profile"]'
+            );
+            if (userMenu) {
+              (userMenu as HTMLElement).click();
+            }
+          }}
           className="h-9 w-9 p-0 hover:bg-primary/10 rounded-lg transition-all duration-200 hover:scale-105 group"
         >
           <div className="relative">
@@ -447,7 +453,14 @@ export function ProfileWidget({ user }: { user?: any }) {
             variant="outline"
             size="sm"
             className="flex-1 text-xs group hover:bg-primary/5 transition-all duration-200"
-            onClick={() => setIsSettingsOpen(true)}
+            onClick={() => {
+              const userMenu = document.querySelector(
+                '[data-tour="user-profile"]'
+              );
+              if (userMenu) {
+                (userMenu as HTMLElement).click();
+              }
+            }}
           >
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -470,16 +483,12 @@ export function ProfileWidget({ user }: { user?: any }) {
           </Button>
         </div>
       </div>
-
-      {/* Settings Dialog */}
-      <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </WidgetContainer>
   );
 }
 
 // Quick Actions Widget
 export function QuickActionsWidget() {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const user = useUser();
   const router = useRouter();
 
@@ -536,7 +545,10 @@ export function QuickActionsWidget() {
       icon: Settings,
       description: "Manage your account and preferences",
       action: () => {
-        setIsSettingsOpen(true);
+        const userMenu = document.querySelector('[data-tour="user-profile"]');
+        if (userMenu) {
+          (userMenu as HTMLElement).click();
+        }
       },
     },
   ];
@@ -566,8 +578,6 @@ export function QuickActionsWidget() {
           </Card>
         ))}
       </div>
-      {/* Settings Dialog */}
-      <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </WidgetContainer>
   );
 }

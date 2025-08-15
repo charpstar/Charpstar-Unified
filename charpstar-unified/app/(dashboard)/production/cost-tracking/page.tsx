@@ -724,40 +724,6 @@ export default function CostTrackingPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button onClick={fetchCostData} variant="outline" className="gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Refresh Data
-          </Button>
-          <Button
-            onClick={() => checkBudgetThresholds(costSummary.totalSpent)}
-            variant="outline"
-            className="gap-2"
-          >
-            <AlertTriangle className="h-4 w-4" />
-            Test Notifications
-          </Button>
-          <Button
-            onClick={async () => {
-              console.log("🔍 Debug: Testing admin user query directly...");
-              const users = await notificationService.getProductionAdminUsers();
-              console.log("👥 Debug: Admin users found:", users);
-
-              // Also test the raw Supabase query
-              const { data, error } = await supabase
-                .from("profiles")
-                .select("id, email, metadata")
-                .limit(5);
-              console.log("🔍 Debug: Raw profiles query result:", {
-                data,
-                error,
-              });
-            }}
-            variant="outline"
-            className="gap-2"
-          >
-            <AlertTriangle className="h-4 w-4" />
-            Debug Users
-          </Button>
           <Badge variant="outline" className="gap-1">
             <DollarSign className="h-3 w-3" />
             Admin Only

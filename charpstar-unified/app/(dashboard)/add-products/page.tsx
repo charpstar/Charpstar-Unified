@@ -552,6 +552,31 @@ export default function AddProductsPage() {
     resetFileInput();
 
     if (successCount > 0) {
+      // Send notification to admin users about new product submission via CSV
+      try {
+        const dataToUpload = editedCsvData || csvPreview;
+        const rows = dataToUpload.slice(1); // skip header
+        const productNames = rows
+          .filter((row) => row[1]?.trim()) // filter rows with product names
+          .map((row) => row[1].trim())
+          .slice(0, successCount); // only include successful uploads
+
+        await notificationService.sendProductSubmissionNotification({
+          client: user.metadata.client,
+          batch: currentBatch,
+          productCount: successCount,
+          productNames: productNames,
+          submittedAt: new Date().toISOString(),
+        });
+        console.log("📦 CSV Product submission notification sent successfully");
+      } catch (notificationError) {
+        console.error(
+          "Failed to send CSV product submission notification:",
+          notificationError
+        );
+        // Don't fail the product submission if notification fails
+      }
+
       toast.success(`Successfully uploaded ${successCount} products!`);
       // Increment batch number for next use
       setCurrentBatch((prev) => prev + 1);
