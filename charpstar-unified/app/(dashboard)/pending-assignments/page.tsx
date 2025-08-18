@@ -41,7 +41,6 @@ import {
   Euro,
   Package,
   ExternalLink,
-  Download,
   Check,
   X,
   File,
@@ -52,14 +51,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { notificationService } from "@/lib/notificationService";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/containers";
+import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
+import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 
 interface PendingAssignment {
   asset_id: string;
@@ -505,12 +498,46 @@ export default function PendingAssignmentsPage() {
   const [assetFilesMap, setAssetFilesMap] = useState<Record<string, any[]>>({});
   const [, setCheckingFiles] = useState<Record<string, boolean>>({});
 
-  const [showReferencesDialog, setShowReferencesDialog] = useState(false);
-  const [selectedReferences] = useState<string[]>([]);
-  const [showFilesDialog, setShowFilesDialog] = useState(false);
-  const [selectedFiles] = useState<any[]>([]);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
+  const [showAddRefDialog, setShowAddRefDialog] = useState(false);
+  const [selectedAssetForRef, setSelectedAssetForRef] = useState<string | null>(
+    null
+  );
+
+  // Refresh a specific asset's reference/glb data
+  const refreshAssetReferenceData = async (assetId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("reference, glb_link")
+        .eq("id", assetId)
+        .single();
+
+      if (!error && data) {
+        // Update the asset in allocation lists
+        setAllocationLists((prev) =>
+          prev.map((list) => ({
+            ...list,
+            asset_assignments: list.asset_assignments.map((assignment) =>
+              assignment.onboarding_assets?.id === assetId
+                ? {
+                    ...assignment,
+                    onboarding_assets: {
+                      ...assignment.onboarding_assets,
+                      reference: data.reference,
+                      glb_link: data.glb_link,
+                    },
+                  }
+                : assignment
+            ),
+          }))
+        );
+      }
+    } catch (error) {
+      console.error("Error refreshing asset reference data:", error);
+    }
+  };
 
   const checkAssetFiles = async (assetId: string) => {
     if (assetFilesMap[assetId] !== undefined) {
@@ -1071,386 +1098,39 @@ export default function PendingAssignmentsPage() {
         </Card>
       </div>
 
-      {/* References Preview Dialog */}
-      <Dialog
-        open={showReferencesDialog}
-        onOpenChange={setShowReferencesDialog}
-      >
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Reference Images</DialogTitle>
-            <DialogDescription>
-              Review the reference images for this asset before accepting the
-              assignment.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {selectedReferences.map((ref, index) => (
-              <div key={index} className="space-y-2">
-                <div className="aspect-square overflow-hidden rounded-lg border">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={ref}
-                    alt={`Reference ${index + 1}`}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = "/images/4.png";
-                    }}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Reference {index + 1}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(ref, "_blank")}
-                    className="h-6 px-2 text-xs"
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Open
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  selectedReferences.forEach((ref) => {
-                    window.open(ref, "_blank");
-                  });
-                  toast.success(
-                    `Opening ${selectedReferences.length} reference images`
-                  );
-                }}
-                className="flex items-center gap-2"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open All
-              </Button>
-              <Button onClick={() => setShowReferencesDialog(false)}>
-                Close
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* View References Dialog (Reusable) */}
+      <ViewReferencesDialog
+        open={showViewDialog}
+        onOpenChange={(open) => {
+          setShowViewDialog(open);
+          if (!open && selectedAssetForView?.id) {
+            refreshAssetReferenceData(selectedAssetForView.id);
+          }
+        }}
+        asset={selectedAssetForView}
+        onAddReference={() => {
+          setSelectedAssetForRef(selectedAssetForView?.id);
+          setShowViewDialog(false);
+          setShowAddRefDialog(true);
+        }}
+      />
 
-      {/* Files Preview Dialog */}
-      <Dialog open={showFilesDialog} onOpenChange={setShowFilesDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Asset Files</DialogTitle>
-            <DialogDescription>
-              Review the asset files for this assignment.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {selectedFiles.map((file, index) => (
-              <div key={index} className="space-y-2">
-                <div className="aspect-square overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
-                  {file.file_type === "glb" ? (
-                    <div className="text-center p-4">
-                      <File className="h-12 w-12 text-muted-foreground mb-2" />
-                      <p className="text-sm font-medium">3D Model</p>
-                      <p className="text-xs text-muted-foreground">
-                        {file.file_name}
-                      </p>
-                    </div>
-                  ) : file.file_type === "reference" ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={file.file_url}
-                      alt={file.file_name}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = "/images/4.png";
-                      }}
-                    />
-                  ) : file.file_type === "asset" ? (
-                    <div className="text-center p-4">
-                      <FileText className="h-12 w-12 text-muted-foreground mb-2" />
-                      <p className="text-sm font-medium">Asset File</p>
-                      <p className="text-xs text-muted-foreground">
-                        {file.file_name}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="text-center p-4">
-                      <File className="h-12 w-12 text-muted-foreground mb-2" />
-                      <p className="text-sm font-medium">File</p>
-                      <p className="text-xs text-muted-foreground">
-                        {file.file_name}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p
-                    className="text-sm font-medium truncate"
-                    title={file.file_name}
-                  >
-                    {file.file_name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {file.file_type} • {file.uploaded_by}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(file.file_url, "_blank")}
-                      className="h-6 px-2 text-xs flex-1"
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Open
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const link = document.createElement("a");
-                        link.href = file.file_url;
-                        link.download = file.file_name;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                      }}
-                      className="h-6 px-2 text-xs"
-                    >
-                      <Download className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  selectedFiles.forEach((file) => {
-                    const link = document.createElement("a");
-                    link.href = file.file_url;
-                    link.download = file.file_name;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  });
-                  toast.success(`Downloading ${selectedFiles.length} files`);
-                }}
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Download All
-              </Button>
-              <Button onClick={() => setShowFilesDialog(false)}>Close</Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Dialog for Asset References */}
-      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedAssetForView?.product_name} - References
-            </DialogTitle>
-            <DialogDescription>
-              View all references and assets for this assignment.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6">
-            {/* Asset Info */}
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium">Article ID:</span>{" "}
-                  {selectedAssetForView?.article_id}
-                </div>
-                <div>
-                  <span className="font-medium">Client:</span>{" "}
-                  {selectedAssetForView?.client}
-                </div>
-                <div>
-                  <span className="font-medium">Batch:</span>{" "}
-                  {selectedAssetForView?.batch}
-                </div>
-                {selectedAssetForView?.glb_link && (
-                  <div>
-                    <span className="font-medium">GLB File:</span>{" "}
-                    <a
-                      href={selectedAssetForView.glb_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      Available
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* References Grid */}
-            {selectedAssetForView?.reference && (
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Reference Images</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {separateReferences(
-                    selectedAssetForView.reference
-                  ).imageReferences.map((ref, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="aspect-square overflow-hidden rounded-lg border">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={ref}
-                          alt={`Reference ${index + 1}`}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = "/images/4.png";
-                          }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">
-                          Reference {index + 1}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(ref, "_blank")}
-                          className="h-6 px-2 text-xs"
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          Open
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* GLB Files */}
-            {selectedAssetForView?.reference &&
-              separateReferences(selectedAssetForView.reference).glbFiles
-                .length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">3D Model Files</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {separateReferences(
-                      selectedAssetForView.reference
-                    ).glbFiles.map((ref, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="aspect-square overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
-                          <div className="text-center p-4">
-                            <File className="h-12 w-12 text-muted-foreground mb-2" />
-                            <p className="text-sm font-medium">3D Model</p>
-                            <p className="text-xs text-muted-foreground">
-                              {ref.split("/").pop()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">
-                            GLB File {index + 1}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(ref, "_blank")}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Open
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            {/* Asset Files */}
-            {selectedAssetForView?.id &&
-              assetFilesMap[selectedAssetForView.id] &&
-              assetFilesMap[selectedAssetForView.id].length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Asset Files</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {assetFilesMap[selectedAssetForView.id].map(
-                      (file, index) => (
-                        <div key={index} className="space-y-2">
-                          <div className="aspect-square overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
-                            <div className="text-center p-4">
-                              <FileText className="h-12 w-12 text-muted-foreground mb-2" />
-                              <p className="text-sm font-medium">Asset File</p>
-                              <p className="text-xs text-muted-foreground">
-                                {file.file_name}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <p
-                              className="text-sm font-medium truncate"
-                              title={file.file_name}
-                            >
-                              {file.file_name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {file.file_type} • {file.uploaded_by}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  window.open(file.file_url, "_blank")
-                                }
-                                className="h-6 px-2 text-xs flex-1"
-                              >
-                                <ExternalLink className="h-3 w-3 mr-1" />
-                                Open
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  const link = document.createElement("a");
-                                  link.href = file.file_url;
-                                  link.download = file.file_name;
-                                  document.body.appendChild(link);
-                                  link.click();
-                                  document.body.removeChild(link);
-                                }}
-                                className="h-6 px-2 text-xs"
-                              >
-                                <Download className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              )}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setShowViewDialog(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Add Reference Dialog (Reusable) */}
+      <AddReferenceDialog
+        open={showAddRefDialog}
+        onOpenChange={(open) => {
+          setShowAddRefDialog(open);
+          if (!open && selectedAssetForRef) {
+            refreshAssetReferenceData(selectedAssetForRef);
+          }
+        }}
+        assetId={selectedAssetForRef}
+        onUploadComplete={() => {
+          if (selectedAssetForRef) {
+            refreshAssetReferenceData(selectedAssetForRef);
+          }
+        }}
+      />
     </TooltipProvider>
   );
 }

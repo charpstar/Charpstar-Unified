@@ -38,3 +38,4 @@ export {
   useFormField,
 } from "./form";
 export { Separator } from "./separator";
+export { ViewReferencesDialog } from "./ViewReferencesDialog";

@@ -273,60 +273,60 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const getNotificationColor = (type: string) => {
     switch (type) {
       case "asset_allocation":
-        return "bg-slate-50 text-slate-700 border-slate-200";
+        return "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700";
       case "asset_completed":
-        return "bg-slate-50 text-slate-700 border-slate-200";
+        return "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700";
       case "deadline_reminder":
-        return "bg-yellow-50 text-yellow-700 border-yellow-200";
+        return "bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700";
       case "qa_review":
-        return "bg-slate-50 text-slate-700 border-slate-200";
+        return "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700";
       case "status_change":
-        return "bg-slate-50 text-slate-700 border-slate-200";
+        return "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700";
       case "budget_alert":
-        return "bg-red-50 text-red-700 border-red-200";
+        return "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700";
       case "product_submission":
-        return "bg-blue-50 text-blue-700 border-blue-200";
+        return "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700";
       case "revision_required":
-        return "bg-orange-50 text-orange-700 border-orange-200";
+        return "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700";
       case "asset_approved":
-        return "bg-green-50 text-green-700 border-green-200";
+        return "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700";
       case "client_review_ready":
-        return "bg-slate-50 text-slate-700 border-slate-200";
+        return "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700";
       case "allocation_list_accepted":
-        return "bg-green-50 text-green-700 border-green-200";
+        return "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700";
       case "allocation_list_declined":
-        return "bg-red-50 text-red-700 border-red-200";
+        return "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700";
       default:
-        return "bg-gray-50 text-gray-700 border-gray-200";
+        return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700";
     }
   };
 
   const getNotificationIconColor = (type: string) => {
     switch (type) {
       case "asset_allocation":
-        return "text-slate-600";
+        return "text-slate-600 dark:text-slate-400";
       case "asset_completed":
-        return "text-slate-600";
+        return "text-slate-600 dark:text-slate-400";
       case "deadline_reminder":
-        return "text-yellow-600";
+        return "text-yellow-600 dark:text-yellow-400";
       case "qa_review":
-        return "text-slate-600";
+        return "text-slate-600 dark:text-slate-400";
       case "status_change":
-        return "text-slate-600";
+        return "text-slate-600 dark:text-slate-400";
       case "product_submission":
-        return "text-blue-600";
+        return "text-blue-600 dark:text-blue-400";
       case "revision_required":
-        return "text-orange-600";
+        return "text-orange-600 dark:text-orange-400";
       case "asset_approved":
-        return "text-green-600";
+        return "text-green-600 dark:text-green-400";
       case "client_review_ready":
-        return "text-slate-600";
+        return "text-slate-600 dark:text-slate-400";
       case "allocation_list_accepted":
-        return "text-green-600";
+        return "text-green-600 dark:text-green-400";
       case "allocation_list_declined":
-        return "text-red-600";
+        return "text-red-600 dark:text-red-400";
       default:
-        return "text-gray-600";
+        return "text-gray-600 dark:text-gray-400";
     }
   };
 
@@ -338,7 +338,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
         <Button
           variant="ghost"
           size="sm"
-          className={`relative p-2 hover:bg-gray-100 transition-colors ${className}`}
+          className={`relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${className}`}
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
@@ -355,11 +355,13 @@ export function NotificationBell({ className }: NotificationBellProps) {
         className="w-96 p-0 shadow-lg border-0 rounded-lg"
         align="end"
       >
-        <div className="p-4 border-b bg-white">
+        <div className="p-4 border-b bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-gray-600" />
-              <h3 className="font-semibold text-gray-900">Notifications</h3>
+              <Bell className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                Notifications
+              </h3>
               {unreadCount > 0 && (
                 <Badge variant="secondary" className="ml-2 text-xs">
                   {unreadCount} new
@@ -373,7 +375,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                   variant="ghost"
                   size="sm"
                   onClick={markAllAsRead}
-                  className="text-xs h-8 px-2 text-gray-600 hover:text-gray-900"
+                  className="text-xs h-8 px-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                 >
                   Mark all read
                 </Button>
@@ -382,7 +384,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setOpen(false)}
-                className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900"
+                className="h-8 w-8 p-0 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -390,28 +392,30 @@ export function NotificationBell({ className }: NotificationBellProps) {
           </div>
         </div>
 
-        <div className="max-h-96 overflow-y-auto bg-gray-50">
+        <div className="max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-800">
           {loading ? (
             <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p className="text-sm text-gray-600">Loading notifications...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Loading notifications...
+              </p>
             </div>
           ) : notifications.length === 0 ? (
             <div className="p-8 text-center">
-              <Bell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm text-gray-600 font-medium">
+              <Bell className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
                 No unread notifications
               </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                 You&apos;re all caught up!
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 border-l-4 ${getNotificationColor(notification.type)} hover:bg-white transition-colors cursor-pointer group`}
+                  className={`p-4 border-l-4 ${getNotificationColor(notification.type)} hover:bg-white dark:hover:bg-gray-800 transition-colors cursor-pointer group`}
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start gap-3">
@@ -426,21 +430,21 @@ export function NotificationBell({ className }: NotificationBellProps) {
                           <h4 className="font-medium text-sm leading-5 mb-1">
                             {notification.title}
                           </h4>
-                          <p className="text-sm text-gray-700 leading-relaxed mb-2">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-2">
                             {notification.message}
                           </p>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500 font-medium">
+                            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                               {format(
                                 new Date(notification.created_at),
                                 "MMM d, h:mm a"
                               )}
                             </span>
                             <div className="flex items-center gap-1">
-                              <span className="text-xs text-gray-400 group-hover:text-gray-600 transition-colors">
+                              <span className="text-xs text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors">
                                 Click to navigate
                               </span>
-                              <ArrowRight className="h-3 w-3 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                              <ArrowRight className="h-3 w-3 text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors" />
                             </div>
                           </div>
                         </div>

@@ -7,14 +7,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
+import { Card } from "@/components/ui/containers";
 import {
   Clock,
   CheckCircle,
@@ -122,9 +115,12 @@ export function ModelerStatsWidget() {
 
   if (!user) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 min-h-[283px]">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-6 min-h-[320px]">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
+          <div
+            key={i}
+            className="h-32 bg-gradient-to-br from-muted/50 to-muted animate-pulse rounded-2xl"
+          />
         ))}
       </div>
     );
@@ -133,56 +129,211 @@ export function ModelerStatsWidget() {
   const statCards = [
     {
       title: "Total Assigned",
-      value: loading ? "..." : stats.totalAssigned.toString(),
+      value: stats.totalAssigned,
       icon: Package,
-      color: "text-info",
-      bgColor: "bg-blue-50",
-    },
-    {
-      title: "Completed",
-      value: loading ? "..." : stats.completed.toString(),
-      icon: CheckCircle,
-      color: "text-success",
-      bgColor: "bg-green-50",
-    },
-    {
-      title: "Waiting for Approval",
-      value: loading ? "..." : stats.waitingForApproval.toString(),
-      icon: Clock,
-      color: "text-warning",
-      bgColor: "bg-orange-50",
+      color: "text-blue-600 dark:text-blue-400",
+      bgColor:
+        "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50",
+      borderColor: "border-blue-200 dark:border-blue-800",
+      iconBg: "bg-blue-500 dark:bg-blue-600",
+      description: "Assets assigned to you",
+      trend: "positive" as const,
     },
     {
       title: "In Progress",
-      value: loading ? "..." : stats.inProgress.toString(),
+      value: stats.inProgress,
       icon: Clock,
-      color: "text-warning",
-      bgColor: "bg-orange-50",
+      color: "text-indigo-600 dark:text-indigo-400",
+      bgColor:
+        "bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50",
+      borderColor: "border-indigo-200 dark:border-indigo-800",
+      iconBg: "bg-indigo-500 dark:bg-indigo-600",
+      description: "Currently working on",
+      trend: "attention" as const,
+    },
+    {
+      title: "Waiting for Approval",
+      value: stats.waitingForApproval,
+      icon: AlertCircle,
+      color: "text-amber-600 dark:text-amber-400",
+      bgColor:
+        "bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/50",
+      borderColor: "border-amber-200 dark:border-amber-800",
+      iconBg: "bg-amber-500 dark:bg-amber-600",
+      description: "Awaiting feedback",
+      trend: "attention" as const,
+    },
+    {
+      title: "Completed",
+      value: stats.completed,
+      icon: CheckCircle,
+      color: "text-emerald-600 dark:text-emerald-400",
+      bgColor:
+        "bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50",
+      borderColor: "border-emerald-200 dark:border-emerald-800",
+      iconBg: "bg-emerald-500 dark:bg-emerald-600",
+      description: "Successfully finished",
+      trend: "positive" as const,
     },
     {
       title: "Pending",
-      value: loading ? "..." : stats.pending.toString(),
-      icon: AlertCircle,
-      color: "text-error",
-      bgColor: "bg-red-50",
+      value: stats.pending,
+      icon: RotateCcw,
+      color: "text-red-600 dark:text-red-400",
+      bgColor:
+        "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
+      borderColor: "border-red-200 dark:border-red-800",
+      iconBg: "bg-red-500 dark:bg-red-600",
+      description: "Not started yet",
+      trend: "attention" as const,
     },
   ];
 
   return (
-    <div className="h-full flex flex-col min-h-[283px]">
-      <h3 className="text-lg font-semibold mb-4">Assignment Overview</h3>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 flex-1 h-full">
+    <div className="h-full flex flex-col min-h-[320px]">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-xl font-bold text-foreground mb-1">
+            Assignment Overview
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Track your current workload and progress
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1">
         {statCards.map((stat, index) => (
-          <Card key={index} className="p-4 flex flex-col justify-center">
-            <div className="text-center">
-              <p className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </p>
-              <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+          <div
+            key={index}
+            className={`
+              group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ease-out
+              hover:scale-105 hover:shadow-xl hover:shadow-black/5
+              ${stat.bgColor} ${stat.borderColor}
+              ${loading ? "animate-pulse" : ""}
+            `}
+          >
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-5">
+              <div className="absolute top-0 right-0 w-20 h-20 transform rotate-45 translate-x-8 -translate-y-8 bg-current rounded-full"></div>
+              <div className="absolute bottom-0 left-0 w-16 h-16 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
             </div>
-          </Card>
+
+            {/* Content */}
+            <div className="relative p-6 h-full flex flex-col justify-between">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-4">
+                <div
+                  className={`p-3 rounded-xl ${stat.iconBg} shadow-lg shadow-black/10`}
+                >
+                  <stat.icon className="h-5 w-5 text-white" />
+                </div>
+                {!loading && stat.trend === "positive" && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-emerald-100 rounded-full">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                    <span className="text-xs font-medium text-emerald-700">
+                      +
+                    </span>
+                  </div>
+                )}
+                {!loading && stat.trend === "attention" && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-rose-100 rounded-full">
+                    <div className="w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
+                    <span className="text-xs font-medium text-rose-700">!</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats */}
+              <div className="space-y-2">
+                <p
+                  className={`text-3xl font-bold ${stat.color} transition-all duration-300 group-hover:scale-110`}
+                >
+                  {stat.value}
+                </p>
+                <div>
+                  <p className="text-sm font-semibold text-foreground/80 mb-1">
+                    {stat.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {stat.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress Bar for In Progress */}
+              {!loading &&
+                stat.title === "In Progress" &&
+                stats.inProgress > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                      <span>Progress</span>
+                      <span>
+                        {Math.round(
+                          (stats.inProgress / stats.totalAssigned) * 100
+                        )}
+                        %
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted/30 dark:bg-muted/20 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-400 dark:to-indigo-500 rounded-full transition-all duration-1000 ease-out"
+                        style={{
+                          width: `${(stats.inProgress / stats.totalAssigned) * 100}%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+              {/* Hover Effect Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            </div>
+
+            {/* Bottom Accent */}
+            <div
+              className={`absolute bottom-0 left-0 right-0 h-1 ${stat.iconBg} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
+            ></div>
+          </div>
         ))}
       </div>
+
+      {/* Summary Footer */}
+      {!loading && (
+        <div className="mt-6 p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-500 dark:bg-emerald-400 rounded-full"></div>
+                <span className="text-sm text-muted-foreground">Completed</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-indigo-500 dark:bg-indigo-400 rounded-full"></div>
+                <span className="text-sm text-muted-foreground">
+                  In Progress
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-amber-500 dark:bg-amber-400 rounded-full"></div>
+                <span className="text-sm text-muted-foreground">
+                  Pending Review
+                </span>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-medium text-foreground">
+                {stats.totalAssigned > 0
+                  ? Math.round((stats.completed / stats.totalAssigned) * 100)
+                  : 0}
+                % Complete
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {stats.completed} of {stats.totalAssigned} assets
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -340,14 +491,16 @@ export function AssignedModelsWidget() {
   );
 }
 
-import { TrendingUp } from "lucide-react";
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
 import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/display/chart";
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+  ReferenceLine,
+  Tooltip,
+} from "recharts";
+import { ChartConfig, ChartContainer } from "@/components/ui/display/chart";
 
 // Modeler Earnings Widget with Chart
 export function ModelerEarningsWidget() {
@@ -570,6 +723,12 @@ export function ModelerEarningsWidget() {
             day: "numeric",
           }),
           earnings: Math.round(earnings * 100) / 100, // Round to 2 decimal places
+          date: dayKey,
+          fullDate: date.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          }),
         });
       }
 
@@ -607,17 +766,26 @@ export function ModelerEarningsWidget() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Earnings & Performance</CardTitle>
-          <CardDescription>Loading your earnings data...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-48">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="h-full flex flex-col min-h-[400px]">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <div className="h-6 bg-muted rounded-lg w-48 mb-2 animate-pulse"></div>
+            <div className="h-4 bg-muted rounded-lg w-64 animate-pulse"></div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="h-8 bg-muted rounded-full w-24 animate-pulse"></div>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-full h-48 bg-gradient-to-br from-muted/50 to-muted animate-pulse rounded-2xl"></div>
+        </div>
+
+        <div className="mt-6 p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
+          <div className="space-y-3">
+            <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
+            <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -634,61 +802,188 @@ export function ModelerEarningsWidget() {
   const isTrendingUp = earningsData.thisMonth > earningsData.lastMonth;
 
   return (
-    <Card className="">
-      <CardHeader>
-        <CardTitle>Earnings & Performance</CardTitle>
-        <CardDescription>Your earnings over the last 15 days</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer className="h-62" config={chartConfig}>
-          <LineChart
-            accessibilityLayer
-            data={earningsData.chartData}
-            margin={{
-              left: 12,
-              right: 12,
-            }}
-          >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="day"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-            />
-            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-            <Line
-              dataKey="earnings"
-              type="monotone"
-              stroke="#0891b2"
-              strokeWidth={3}
-              dot={{ fill: "#0891b2", strokeWidth: 2, r: 4 }}
-              activeDot={{
-                r: 6,
-                stroke: "#0891b2",
-                strokeWidth: 2,
-              }}
-            />
-          </LineChart>
-        </ChartContainer>
-      </CardContent>
-      <CardFooter>
-        <div className="flex w-full items-start gap-2 text-sm">
-          <div className="grid gap-2">
-            <div className="flex items-center gap-2 leading-none text-muted-foreground font-sm">
-              {isTrendingUp ? "Trending up" : "Trending down"} by{" "}
-              {trendPercentage}% this month
-              <TrendingUp
-                className={`h-4 w-4 ${isTrendingUp ? "" : "rotate-180"}`}
-              />
+    <div className="h-full flex flex-col min-h-[400px]">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-xl font-bold text-foreground mb-1">
+            Earnings & Performance
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Your earnings over the last 15 days
+          </p>
+        </div>
+      </div>
+
+      {/* Chart Container */}
+      <div className="flex-1 mb-6">
+        <div className="group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 p-6 transition-all duration-300 ease-out hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-white/5">
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+          <div className="relative">
+            {earningsData.chartData.length > 0 ? (
+              <ChartContainer className="h-48" config={chartConfig}>
+                <LineChart
+                  accessibilityLayer
+                  data={earningsData.chartData}
+                  margin={{
+                    left: 12,
+                    right: 12,
+                  }}
+                >
+                  <CartesianGrid
+                    vertical={false}
+                    strokeDasharray="3 3"
+                    stroke="hsl(var(--muted-foreground) / 0.2)"
+                  />
+                  <XAxis
+                    dataKey="day"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tick={{
+                      fontSize: 12,
+                      fill: "hsl(var(--muted-foreground))",
+                    }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tick={{
+                      fontSize: 12,
+                      fill: "hsl(var(--muted-foreground))",
+                    }}
+                    tickFormatter={(value) => `€${value}`}
+                  />
+                  <Tooltip
+                    cursor={{
+                      stroke: "hsl(var(--chart-1))",
+                      strokeWidth: 2,
+                      strokeDasharray: "5 5",
+                    }}
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--background))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      color: "hsl(var(--foreground))",
+                    }}
+                    labelStyle={{
+                      color: "hsl(var(--muted-foreground))",
+                      fontWeight: "600",
+                    }}
+                    formatter={(value: any) => [`€${value}`, "Earnings"]}
+                  />
+                  {/* Reference line for average earnings */}
+                  {earningsData.chartData.length > 0 && (
+                    <ReferenceLine
+                      y={
+                        earningsData.chartData.reduce(
+                          (sum, item) => sum + item.earnings,
+                          0
+                        ) / earningsData.chartData.length
+                      }
+                      stroke="hsl(var(--muted-foreground) / 0.4)"
+                      strokeDasharray="3 3"
+                      strokeWidth={1}
+                    />
+                  )}
+                  <Line
+                    dataKey="earnings"
+                    type="monotone"
+                    stroke="hsl(var(--chart-1))"
+                    strokeWidth={3}
+                    dot={false}
+                    activeDot={false}
+                    connectNulls={false}
+                  />
+                </LineChart>
+              </ChartContainer>
+            ) : (
+              <div className="h-48 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">€</span>
+                  </div>
+                  <h4 className="text-lg font-semibold text-foreground mb-2">
+                    No Earnings Data
+                  </h4>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    Complete and get approved assignments to see your earnings
+                    chart
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Hover Effect Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        </div>
+      </div>
+
+      {/* Summary Footer */}
+      <div className="mt-auto">
+        <div className="p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-500 dark:bg-emerald-400 rounded-full"></div>
+                <span className="text-sm text-muted-foreground">
+                  This Month
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
+                <span className="text-sm text-muted-foreground">
+                  Last Month
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-amber-500 dark:bg-amber-400 rounded-full"></div>
+                <span className="text-sm text-muted-foreground">Total</span>
+              </div>
             </div>
-            <div className=" flex items-center gap-2 leading-none font-medium">
-              Total earnings: €{earningsData.totalEarnings.toLocaleString()}
+            <div className="text-right">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-medium text-foreground">
+                  {isTrendingUp ? "↗ Trending up" : "↘ Trending down"} by{" "}
+                  {trendPercentage}%
+                </span>
+                <div
+                  className={`w-2 h-2 rounded-full ${isTrendingUp ? "bg-emerald-500 dark:bg-emerald-400" : "bg-red-500 dark:bg-red-400"} animate-pulse`}
+                ></div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                €{earningsData.totalEarnings.toLocaleString()} total earnings
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border/30 dark:border-border/20">
+            <div className="text-center">
+              <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                €{earningsData.thisMonth.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">This Month</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                €{earningsData.lastMonth.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">Last Month</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                {earningsData.approvedThisMonth}
+              </p>
+              <p className="text-xs text-muted-foreground">Approved Lists</p>
             </div>
           </div>
         </div>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -702,49 +997,100 @@ export function ModelerQuickActionsWidget() {
       description: "View your assigned assets and batches",
       icon: Package,
       action: () => router.push("/my-assignments"),
+      color: "from-blue-500 to-blue-600",
+      hoverColor: "from-blue-600 to-blue-700",
+      iconBg: "bg-blue-100 dark:bg-blue-900/50",
+      iconColor: "text-blue-600 dark:text-blue-400",
     },
     {
       title: "Modeler Review",
       description: "Upload GLB files and communicate with QA",
       icon: MessageSquare,
       action: () => router.push("/modeler-review"),
+      color: "from-emerald-500 to-emerald-600",
+      hoverColor: "from-emerald-600 to-emerald-700",
+      iconBg: "bg-emerald-100 dark:bg-emerald-900/50",
+      iconColor: "text-emerald-600 dark:text-emerald-400",
     },
     {
       title: "View Guidelines",
       description: "Quality standards & requirements",
       icon: FileText,
       action: () => router.push("/guidelines"),
+      color: "from-amber-500 to-amber-600",
+      hoverColor: "from-amber-600 to-amber-700",
+      iconBg: "bg-amber-100 dark:bg-amber-900/50",
+      iconColor: "text-amber-600 dark:text-amber-400",
     },
     {
       title: "Model Viewer",
       description: "View 3D models in the Charpstar viewer",
       icon: Eye,
       action: () => window.open("https://viewer.charpstar.co/", "_blank"),
+      color: "from-purple-500 to-purple-600",
+      hoverColor: "from-purple-600 to-purple-700",
+      iconBg: "bg-purple-100 dark:bg-purple-900/50",
+      iconColor: "text-purple-600 dark:text-purple-400",
     },
   ];
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Quick Actions</h3>
-      <div className="grid grid-cols-2 gap-4 min-h-[238px]">
+    <div className="h-full flex flex-col min-h-[320px]">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-xl font-bold text-foreground mb-1">
+            Quick Actions
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Access your most important tools and workflows
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 flex-1">
         {actions.map((action, index) => (
-          <Card
+          <div
             key={index}
-            className="p-4 hover:shadow-md transition-shadow cursor-pointer h-full flex flex-col justify-center"
+            className="group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer"
             onClick={action.action}
           >
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <action.icon className="h-5 w-5 text-primary" />
+            <div className="absolute inset-0 bg-gradient-to-r from-current/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+            <div className="relative flex flex-col justify-center h-full">
+              <div className="flex items-center gap-4 mb-4">
+                <div
+                  className={`p-3 rounded-xl ${action.iconBg} shadow-lg shadow-black/10 dark:shadow-black/20`}
+                >
+                  <action.icon className={`h-6 w-6 ${action.iconColor}`} />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-lg font-semibold text-foreground mb-1">
+                    {action.title}
+                  </h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {action.description}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">{action.title}</p>
-                <p className="text-sm text-muted-foreground">
-                  {action.description}
-                </p>
+
+              <div className="mt-auto">
+                <div
+                  className={`inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r ${action.color} hover:${action.hoverColor} text-white rounded-lg transition-all duration-300 ease-out group-hover:scale-105 shadow-lg shadow-black/20 dark:shadow-black/40`}
+                >
+                  <span className="text-sm font-medium">Open</span>
+                  <div className="w-1 h-1 bg-white rounded-full"></div>
+                </div>
               </div>
             </div>
-          </Card>
+
+            {/* Hover Effect Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-current/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+            {/* Bottom Accent */}
+            <div
+              className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${action.color} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
+            ></div>
+          </div>
         ))}
       </div>
     </div>

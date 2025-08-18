@@ -172,60 +172,61 @@ export default function CostTrackingPage() {
       let alertSent = false;
       let thresholdHit = "";
 
-      // TEMPORARY: Lower thresholds for testing - change these back to original values after testing
-      const TEST_THRESHOLDS = {
-        critical: 100, // Original: 4500
-        warning: 50, // Original: 4000
-        alert: 10, // Original: 3500
+      // Budget threshold configuration
+      // These thresholds trigger notifications when spending reaches certain levels
+      const BUDGET_THRESHOLDS = {
+        critical: 4500, // Critical: 100% of budget (€4500)
+        warning: 4000, // Warning: 88.9% of budget (€4000)
+        alert: 3500, // Alert: 77.8% of budget (€3500)
       };
 
       // Check thresholds and send notifications
-      if (totalSpent >= TEST_THRESHOLDS.critical) {
+      if (totalSpent >= BUDGET_THRESHOLDS.critical) {
         console.log(
           "🚨 CRITICAL threshold hit: €",
           totalSpent.toFixed(2),
           ">= €",
-          TEST_THRESHOLDS.critical
+          BUDGET_THRESHOLDS.critical
         );
         await notificationService.sendBudgetAlertNotification(
           productionUserIds,
           {
             totalSpent,
-            threshold: TEST_THRESHOLDS.critical,
+            threshold: BUDGET_THRESHOLDS.critical,
             alertLevel: "critical",
           }
         );
         alertSent = true;
         thresholdHit = "critical";
-      } else if (totalSpent >= TEST_THRESHOLDS.warning) {
+      } else if (totalSpent >= BUDGET_THRESHOLDS.warning) {
         console.log(
           "⚠️ WARNING threshold hit: €",
           totalSpent.toFixed(2),
           ">= €",
-          TEST_THRESHOLDS.warning
+          BUDGET_THRESHOLDS.warning
         );
         await notificationService.sendBudgetAlertNotification(
           productionUserIds,
           {
             totalSpent,
-            threshold: TEST_THRESHOLDS.warning,
+            threshold: BUDGET_THRESHOLDS.warning,
             alertLevel: "warning",
           }
         );
         alertSent = true;
         thresholdHit = "warning";
-      } else if (totalSpent >= TEST_THRESHOLDS.alert) {
+      } else if (totalSpent >= BUDGET_THRESHOLDS.alert) {
         console.log(
           "🔶 ALERT threshold hit: €",
           totalSpent.toFixed(2),
           ">= €",
-          TEST_THRESHOLDS.alert
+          BUDGET_THRESHOLDS.alert
         );
         await notificationService.sendBudgetAlertNotification(
           productionUserIds,
           {
             totalSpent,
-            threshold: TEST_THRESHOLDS.alert,
+            threshold: BUDGET_THRESHOLDS.alert,
             alertLevel: "alert",
           }
         );
@@ -236,7 +237,7 @@ export default function CostTrackingPage() {
           "✅ No thresholds hit - spending €",
           totalSpent.toFixed(2),
           "is below €",
-          TEST_THRESHOLDS.alert
+          BUDGET_THRESHOLDS.alert
         );
       }
 
@@ -954,176 +955,139 @@ export default function CostTrackingPage() {
       </Card>
 
       {/* Budget Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-        <Card>
-          <CardContent className="">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-50 rounded-xl">
-                <Euro className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Total Budget
-                </p>
-                <p className="text-xl font-semibold text-foreground">
-                  €{costSummary.totalBudget.toFixed(2)}
-                </p>
-              </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Total Budget */}
+        <Card className="hover:shadow-md transition">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="p-3 rounded-full bg-blue-100">
+              <Euro className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Budget</p>
+              <p className="text-2xl font-bold">
+                €{costSummary.totalBudget.toFixed(2)}
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-50 rounded-xl">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Total Spent
-                </p>
-                <p className="text-xl font-semibold text-foreground">
-                  €{costSummary.totalSpent.toFixed(2)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {costSummary.spentPercentage.toFixed(1)}% of budget
-                </p>
-              </div>
+        {/* Total Spent */}
+        <Card className="hover:shadow-md transition">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="p-3 rounded-full bg-green-100">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Spent</p>
+              <p className="text-2xl font-bold">
+                €{costSummary.totalSpent.toFixed(2)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {costSummary.spentPercentage.toFixed(1)}% of budget
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-amber-50 rounded-xl">
-                <Clock className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Remaining Budget
-                </p>
-                <p className="text-xl font-semibold text-foreground">
-                  €{costSummary.remainingBudget.toFixed(2)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Available for new projects
-                </p>
-              </div>
+        {/* Remaining Budget */}
+        <Card className="hover:shadow-md transition">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="p-3 rounded-full bg-amber-100">
+              <Clock className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Remaining Budget</p>
+              <p className="text-2xl font-bold">
+                €{costSummary.remainingBudget.toFixed(2)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Available for projects
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-purple-50 rounded-xl">
-                <Users className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Active Modelers
-                </p>
-                <p className="text-xl font-semibold text-foreground">
-                  {modelerCosts.length}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  With active assignments
-                </p>
-              </div>
+        {/* Active Modelers */}
+
+        {/* Completed Cost */}
+        <Card className="hover:shadow-md transition">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="p-3 rounded-full bg-green-100">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Completed Cost</p>
+              <p className="text-2xl font-bold">
+                €
+                {modelerCosts
+                  .reduce((sum, m) => sum + m.completedCost, 0)
+                  .toFixed(2)}
+              </p>
+              <p className="text-xs text-muted-foreground">Already spent</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-50 rounded-xl">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Completed Cost
-                </p>
-                <p className="text-xl font-semibold text-foreground">
-                  €
-                  {modelerCosts
-                    .reduce((sum, m) => sum + m.completedCost, 0)
-                    .toFixed(2)}
-                </p>
-                <p className="text-xs text-muted-foreground">Already spent</p>
-              </div>
+        {/* Pending Cost */}
+        <Card className="hover:shadow-md transition">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="p-3 rounded-full bg-amber-100">
+              <Clock className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Pending Cost</p>
+              <p className="text-2xl font-bold">
+                €
+                {modelerCosts
+                  .reduce((sum, m) => sum + m.pendingCost, 0)
+                  .toFixed(2)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Committed, not spent
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-amber-50 rounded-xl">
-                <Clock className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Pending Cost
-                </p>
-                <p className="text-xl font-semibold text-foreground">
-                  €
-                  {modelerCosts
-                    .reduce((sum, m) => sum + m.pendingCost, 0)
-                    .toFixed(2)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Committed but not spent
-                </p>
-              </div>
+        {/* This Month */}
+        <Card className="hover:shadow-md transition">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="p-3 rounded-full bg-indigo-100">
+              <Calendar className="h-5 w-5 text-indigo-600" />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-indigo-50 rounded-xl">
-                <Calendar className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  This Month
-                </p>
-                <p className="text-xl font-semibold text-foreground">
-                  €
-                  {(() => {
-                    const currentMonth = new Date().toLocaleString("default", {
-                      month: "long",
-                    });
-                    const currentYear = new Date().getFullYear();
-                    const currentMonthKey = `${currentMonth} ${currentYear}`;
-                    const currentMonthData = monthlyCosts.find(
-                      (m) => m.monthYear === currentMonthKey
-                    );
-                    return currentMonthData
-                      ? currentMonthData.totalSpent.toFixed(2)
-                      : "0.00";
-                  })()}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {(() => {
-                    const currentMonth = new Date().toLocaleString("default", {
-                      month: "long",
-                    });
-                    const currentYear = new Date().getFullYear();
-                    const currentMonthKey = `${currentMonth} ${currentYear}`;
-                    const currentMonthData = monthlyCosts.find(
-                      (m) => m.monthYear === currentMonthKey
-                    );
-                    return currentMonthData
-                      ? `${currentMonthData.assetCount} assets`
-                      : "0 assets";
-                  })()}
-                </p>
-              </div>
+            <div>
+              <p className="text-sm text-muted-foreground">This Month</p>
+              <p className="text-2xl font-bold">
+                €
+                {(() => {
+                  const currentMonth = new Date().toLocaleString("default", {
+                    month: "long",
+                  });
+                  const currentYear = new Date().getFullYear();
+                  const currentMonthKey = `${currentMonth} ${currentYear}`;
+                  const currentMonthData = monthlyCosts.find(
+                    (m) => m.monthYear === currentMonthKey
+                  );
+                  return currentMonthData
+                    ? currentMonthData.totalSpent.toFixed(2)
+                    : "0.00";
+                })()}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {(() => {
+                  const currentMonth = new Date().toLocaleString("default", {
+                    month: "long",
+                  });
+                  const currentYear = new Date().getFullYear();
+                  const currentMonthKey = `${currentMonth} ${currentYear}`;
+                  const currentMonthData = monthlyCosts.find(
+                    (m) => m.monthYear === currentMonthKey
+                  );
+                  return currentMonthData
+                    ? `${currentMonthData.assetCount} assets`
+                    : "0 assets";
+                })()}
+              </p>
             </div>
           </CardContent>
         </Card>

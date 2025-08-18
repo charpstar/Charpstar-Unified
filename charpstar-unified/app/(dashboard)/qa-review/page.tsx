@@ -26,13 +26,7 @@ import {
   SelectValue,
   Checkbox,
 } from "@/components/ui/inputs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/containers";
+
 import {
   Eye,
   ChevronLeft,
@@ -51,6 +45,8 @@ import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { getPriorityLabel } from "@/lib/constants";
 import dayjs from "@/utils/dayjs";
+import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
+import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
 
 // Helper function to get priority CSS class
 const getPriorityClass = (priority: number): string => {
@@ -138,10 +134,6 @@ export default function QAReviewPage() {
   const [selectedAssetForRef, setSelectedAssetForRef] = useState<string | null>(
     null
   );
-  const [referenceUrl, setReferenceUrl] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
-  const [uploading, setUploading] = useState(false);
 
   // View Ref dialog state
   const [showViewRefDialog, setShowViewRefDialog] = useState(false);
@@ -240,6 +232,29 @@ export default function QAReviewPage() {
       toast.error("Failed to update priority");
     } finally {
       setUpdatingAssetId(null);
+    }
+  };
+
+  // Refresh a specific asset's reference/glb data
+  const refreshAssetReferenceData = async (assetId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("reference, glb_link")
+        .eq("id", assetId)
+        .single();
+
+      if (!error && data) {
+        setAssets((prev) =>
+          prev.map((asset) =>
+            asset.id === assetId
+              ? { ...asset, reference: data.reference, glb_link: data.glb_link }
+              : asset
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Error refreshing asset reference data:", error);
     }
   };
 
@@ -561,144 +576,6 @@ export default function QAReviewPage() {
       (ref) => !ref.toLowerCase().endsWith(".glb")
     );
     return { glbFiles, imageReferences };
-  };
-
-  // Handle adding reference URL
-  const handleAddReferenceUrl = async () => {
-    if (!referenceUrl.trim() || !selectedAssetForRef) return;
-
-    try {
-      // Validate URL format
-      const url = new URL(referenceUrl.trim());
-      if (!url.protocol.startsWith("http")) {
-        toast.error("Please enter a valid HTTP/HTTPS URL");
-        return;
-      }
-
-      // Find the current asset
-      const currentAsset = assets.find(
-        (asset) => asset.id === selectedAssetForRef
-      );
-      if (!currentAsset) {
-        toast.error("Asset not found");
-        return;
-      }
-
-      // Get existing references and add new one
-      const existingReferences = parseReferences(
-        currentAsset.reference || null
-      );
-      const newReferences = [...existingReferences, referenceUrl.trim()];
-
-      // Update the asset in the database
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({ reference: newReferences })
-        .eq("id", selectedAssetForRef);
-
-      if (error) {
-        console.error("Error updating reference images:", error);
-        toast.error("Failed to save reference image URL");
-        return;
-      }
-
-      // Update local state
-      setAssets((prev) =>
-        prev.map((asset) =>
-          asset.id === selectedAssetForRef
-            ? { ...asset, reference: newReferences }
-            : asset
-        )
-      );
-
-      // Reset dialog state
-      setReferenceUrl("");
-      setSelectedAssetForRef(null);
-      setShowAddRefDialog(false);
-
-      toast.success("Reference image URL added successfully!");
-    } catch (error) {
-      console.error("Error adding reference image URL:", error);
-      toast.error("Please enter a valid image URL");
-    }
-  };
-
-  // Handle file upload
-  const handleFileUpload = async () => {
-    if (!selectedFile || !selectedAssetForRef) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("asset_id", selectedAssetForRef);
-
-      // Determine file type based on extension
-      const fileExtension = selectedFile.name.toLowerCase().split(".").pop();
-      const fileType = fileExtension === "glb" ? "glb" : "reference";
-      formData.append("file_type", fileType);
-
-      const response = await fetch("/api/assets/upload-file", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      // For all file types, refresh the asset data since everything goes to references now
-      const { data: updatedAsset } = await supabase
-        .from("onboarding_assets")
-        .select("reference, status, glb_link")
-        .eq("id", selectedAssetForRef)
-        .single();
-
-      setAssets((prev) =>
-        prev.map((asset) =>
-          asset.id === selectedAssetForRef
-            ? {
-                ...asset,
-                reference: updatedAsset?.reference || asset.reference,
-                status: updatedAsset?.status || asset.status,
-                glb_link: updatedAsset?.glb_link || asset.glb_link,
-              }
-            : asset
-        )
-      );
-
-      // Also update the selected asset for view dialog if it's the same asset
-      if (selectedAssetForView?.id === selectedAssetForRef) {
-        setSelectedAssetForView((prev: any) =>
-          prev
-            ? {
-                ...prev,
-                reference: updatedAsset?.reference || prev.reference,
-                status: updatedAsset?.status || prev.status,
-                glb_link: updatedAsset?.glb_link || prev.glb_link,
-              }
-            : prev
-        );
-      }
-
-      toast.success(
-        fileType === "glb"
-          ? "GLB file uploaded successfully!"
-          : "Reference file uploaded successfully!"
-      );
-
-      // Reset dialog state
-      setSelectedFile(null);
-      setSelectedAssetForRef(null);
-      setReferenceUrl("");
-      setShowAddRefDialog(false);
-      setUploadMode("url");
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      toast.error("Failed to upload file");
-    } finally {
-      setUploading(false);
-    }
   };
 
   const statusTotals = {
@@ -1194,9 +1071,9 @@ export default function QAReviewPage() {
                             </span>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="1">High Priority</SelectItem>
-                            <SelectItem value="2">Medium Priority</SelectItem>
-                            <SelectItem value="3">Low Priority</SelectItem>
+                            <SelectItem value="1">High</SelectItem>
+                            <SelectItem value="2">Medium</SelectItem>
+                            <SelectItem value="3">Low</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1339,253 +1216,39 @@ export default function QAReviewPage() {
         )}
       </Card>
 
-      {/* Add Reference Dialog */}
-      <Dialog open={showAddRefDialog} onOpenChange={setShowAddRefDialog}>
-        <DialogContent className="sm:max-w-[500px] h-fit">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              Add Reference or GLB File
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Add a reference image URL or upload a reference/GLB file.
-            </DialogDescription>
-          </DialogHeader>
+      {/* Add Reference Dialog (Reusable) */}
+      <AddReferenceDialog
+        open={showAddRefDialog}
+        onOpenChange={(open) => {
+          setShowAddRefDialog(open);
+          if (!open && selectedAssetForRef) {
+            refreshAssetReferenceData(selectedAssetForRef);
+          }
+        }}
+        assetId={selectedAssetForRef}
+        onUploadComplete={() => {
+          if (selectedAssetForRef) {
+            refreshAssetReferenceData(selectedAssetForRef);
+          }
+        }}
+      />
 
-          {/* Mode Toggle */}
-          <div className="flex gap-2 p-1 bg-muted rounded-lg">
-            <Button
-              variant={uploadMode === "url" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setUploadMode("url")}
-              className="flex-1"
-            >
-              URL
-            </Button>
-            <Button
-              variant={uploadMode === "file" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setUploadMode("file")}
-              className="flex-1"
-            >
-              File Upload
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {uploadMode === "url" ? (
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">
-                  Image URL *
-                </label>
-                <Input
-                  type="url"
-                  placeholder="https://example.com/image.jpg"
-                  value={referenceUrl}
-                  onChange={(e) => setReferenceUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleAddReferenceUrl();
-                    }
-                  }}
-                  className="border-border focus:border-primary"
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">
-                  Upload File *
-                </label>
-                <Input
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.gif,.webp,.glb"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="border-border focus:border-primary"
-                  key={`file-input-${selectedAssetForRef || "none"}`}
-                />
-                {selectedFile && (
-                  <p className="text-xs text-muted-foreground">
-                    Selected: {selectedFile.name} (
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3 pt-4 border-t border-border">
-            <Button
-              onClick={() => {
-                setReferenceUrl("");
-                setSelectedFile(null);
-                setSelectedAssetForRef(null);
-                setShowAddRefDialog(false);
-                setUploadMode("url");
-              }}
-              variant="outline"
-              className="cursor-pointer"
-              disabled={uploading}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={
-                uploadMode === "url" ? handleAddReferenceUrl : handleFileUpload
-              }
-              disabled={
-                uploading ||
-                (uploadMode === "url" ? !referenceUrl.trim() : !selectedFile)
-              }
-              className="cursor-pointer"
-            >
-              {uploading ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                  Uploading...
-                </>
-              ) : (
-                `Add ${uploadMode === "url" ? "URL" : "File"}`
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* View References Dialog */}
-      <Dialog open={showViewRefDialog} onOpenChange={setShowViewRefDialog}>
-        <DialogContent className="sm:max-w-[600px] h-fit max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              References - {selectedAssetForView?.product_name || "Asset"}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              View and manage all reference images for this asset.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {(() => {
-              // Get all files (GLB + references)
-              const allReferences = selectedAssetForView
-                ? parseReferences(selectedAssetForView.reference)
-                : [];
-              const hasDirectGlb = selectedAssetForView?.glb_link;
-
-              // Combine all files into one list
-              const allFiles = [];
-
-              // Add direct GLB if exists
-              if (hasDirectGlb) {
-                allFiles.push({
-                  url: selectedAssetForView.glb_link,
-                  type: "glb",
-                  name: "GLB Model",
-                });
-              }
-
-              // Add references (filter out duplicates of direct GLB)
-              allReferences.forEach((ref, index) => {
-                if (!hasDirectGlb || ref !== selectedAssetForView.glb_link) {
-                  const isGlb = ref.toLowerCase().endsWith(".glb");
-                  allFiles.push({
-                    url: ref,
-                    type: isGlb ? "glb" : "reference",
-                    name: isGlb
-                      ? `GLB File ${index + 1}`
-                      : `Reference ${index + 1}`,
-                  });
-                }
-              });
-
-              return allFiles.length > 0 ? (
-                <div className="space-y-2">
-                  {allFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {file.type === "glb" ? (
-                          <Package className="h-4 w-4 text-primary flex-shrink-0" />
-                        ) : (
-                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {file.url}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (file.type === "glb") {
-                            // Download GLB files
-                            const link = document.createElement("a");
-                            link.href = file.url;
-                            link.download = `${selectedAssetForView?.product_name || "model"}.glb`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          } else {
-                            // Open reference files in new tab
-                            window.open(file.url, "_blank");
-                          }
-                        }}
-                        className="text-xs flex-shrink-0"
-                      >
-                        {file.type === "glb" ? (
-                          <>
-                            <Download className="h-3 w-3 mr-1" />
-                            Download
-                          </>
-                        ) : (
-                          <>
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Open
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">No files found</p>
-                  <p className="text-xs text-muted-foreground">
-                    Click &quot;Add Reference&quot; to upload files
-                  </p>
-                </div>
-              );
-            })()}
-          </div>
-
-          <div className="flex gap-3 pt-4 border-t border-border">
-            <Button
-              onClick={() => {
-                setSelectedAssetForRef(selectedAssetForView?.id);
-                setShowViewRefDialog(false);
-                setShowAddRefDialog(true);
-              }}
-              variant="outline"
-              className="cursor-pointer"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Add Reference
-            </Button>
-            <Button
-              onClick={() => setShowViewRefDialog(false)}
-              className="cursor-pointer"
-            >
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* View References Dialog (Reusable) */}
+      <ViewReferencesDialog
+        open={showViewRefDialog}
+        onOpenChange={(open) => {
+          setShowViewRefDialog(open);
+          if (!open && selectedAssetForView?.id) {
+            refreshAssetReferenceData(selectedAssetForView.id);
+          }
+        }}
+        asset={selectedAssetForView}
+        onAddReference={() => {
+          setSelectedAssetForRef(selectedAssetForView?.id);
+          setShowViewRefDialog(false);
+          setShowAddRefDialog(true);
+        }}
+      />
     </div>
   );
 }

@@ -88,7 +88,10 @@ export async function POST(request: NextRequest) {
 
     // Generate unique filename
     const timestamp = Date.now();
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const sanitizedName = (file?.name || "upload.bin").replace(
+      /[^a-zA-Z0-9.-]/g,
+      "_"
+    );
     const fileName = `${timestamp}_${sanitizedName}`;
     const fullPath = `${storagePath}${fileName}`;
 
@@ -104,7 +107,11 @@ export async function POST(request: NextRequest) {
     if (uploadError) {
       console.error("Error uploading file:", uploadError);
       return NextResponse.json(
-        { error: "Failed to upload file" },
+        {
+          error: "Failed to upload file",
+          details: uploadError.message || String(uploadError),
+          path: fullPath,
+        },
         { status: 500 }
       );
     }
@@ -216,7 +223,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error in asset file upload API:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Internal server error",
+        details: (error as Error)?.message || String(error),
+      },
       { status: 500 }
     );
   }

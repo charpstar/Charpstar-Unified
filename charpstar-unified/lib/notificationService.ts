@@ -947,11 +947,11 @@ class NotificationService {
   private getBudgetAlertTitle(alertLevel: string, threshold: number): string {
     switch (alertLevel) {
       case "critical":
-        return `🚨 CRITICAL: Budget Exceeded €${threshold}`;
+        return `🚨 CRITICAL: Budget Threshold €${threshold}`;
       case "warning":
-        return `⚠️ WARNING: Budget Exceeded €${threshold}`;
+        return `⚠️ WARNING: Budget Threshold €${threshold}`;
       case "alert":
-        return `🔶 ALERT: Budget Exceeded €${threshold}`;
+        return `🔶 ALERT: Budget Threshold €${threshold}`;
       default:
         return `Budget Alert - €${threshold}`;
     }
@@ -966,11 +966,11 @@ class NotificationService {
 
     switch (alertLevel) {
       case "critical":
-        return `Budget has exceeded €${threshold}! Current spending: €${totalSpent.toFixed(2)}. Remaining budget: €${remaining.toFixed(2)}. Immediate action required.`;
+        return `Budget threshold of €${threshold} reached! Current spending: €${totalSpent.toFixed(2)}. Remaining budget: €${remaining.toFixed(2)}. Immediate action required.`;
       case "warning":
-        return `Budget has exceeded €${threshold}! Current spending: €${totalSpent.toFixed(2)}. Remaining budget: €${remaining.toFixed(2)}. Approaching critical limit.`;
+        return `Budget threshold of €${threshold} reached! Current spending: €${totalSpent.toFixed(2)}. Remaining budget: €${remaining.toFixed(2)}. Approaching critical limit.`;
       case "alert":
-        return `Budget has exceeded €${threshold}! Current spending: €${totalSpent.toFixed(2)}. Remaining budget: €${remaining.toFixed(2)}. Monitor spending closely.`;
+        return `Budget threshold of €${threshold} reached! Current spending: €${totalSpent.toFixed(2)}. Remaining budget: €${remaining.toFixed(2)}. Monitor spending closely.`;
       default:
         return `Budget alert triggered at €${threshold}. Current spending: €${totalSpent.toFixed(2)}.`;
     }

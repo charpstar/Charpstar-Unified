@@ -19,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/inputs";
-import { Input } from "@/components/ui/inputs";
 import { Checkbox } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
 
@@ -36,8 +35,6 @@ import {
   ArrowLeft,
   Trash2,
   X,
-  Download,
-  ExternalLink,
   FileText,
 } from "lucide-react";
 
@@ -50,6 +47,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/containers";
+import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
+import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
@@ -347,14 +346,72 @@ export default function AdminReviewPage() {
   const [selectedAssetForRef, setSelectedAssetForRef] = useState<string | null>(
     null
   );
-  const [referenceUrl, setReferenceUrl] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
-  const [uploading, setUploading] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
-  const [viewingFiles, setViewingFiles] = useState<any[]>([]);
-  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
   const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
+
+  // Refresh a specific asset's reference/glb data across all relevant views
+  const refreshAssetReferenceData = async (assetId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("reference, glb_link, status")
+        .eq("id", assetId)
+        .single();
+
+      if (!error && data) {
+        // Update assets table view
+        setAssets((prev) =>
+          prev.map((asset) =>
+            asset.id === assetId
+              ? {
+                  ...asset,
+                  reference: data.reference,
+                  glb_link: data.glb_link,
+                  status: data.status || asset.status,
+                }
+              : asset
+          )
+        );
+
+        // Update allocation lists view
+        setAllocationLists((prevLists) =>
+          prevLists.map((list) => ({
+            ...list,
+            asset_assignments: list.asset_assignments.map((assignment: any) =>
+              assignment.onboarding_assets.id === assetId
+                ? {
+                    ...assignment,
+                    onboarding_assets: {
+                      ...assignment.onboarding_assets,
+                      reference: data.reference,
+                      glb_link: data.glb_link,
+                      status:
+                        data.status || assignment.onboarding_assets.status,
+                    },
+                  }
+                : assignment
+            ),
+          }))
+        );
+
+        // Update QA/filtered view if present
+        setFiltered((prev) =>
+          prev.map((asset: any) =>
+            asset.id === assetId
+              ? {
+                  ...asset,
+                  reference: data.reference,
+                  glb_link: data.glb_link,
+                  status: data.status || asset.status,
+                }
+              : asset
+          )
+        );
+      }
+    } catch (e) {
+      console.error("Error refreshing asset reference data:", e);
+    }
+  };
 
   // Calculate status totals based on unfiltered data (always show overall totals)
   const statusTotals = useMemo(() => {
@@ -652,7 +709,8 @@ export default function AdminReviewPage() {
                 category,
                 client,
                 batch,
-                reference
+                reference,
+                glb_link
               )
             )
           `
@@ -718,7 +776,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link"
         );
 
       // If modeler filters are applied, only fetch assets assigned to those modelers
@@ -963,6 +1021,7 @@ export default function AdminReviewPage() {
               status,
               priority,
               reference,
+              glb_link,
               created_at
             )
           `
@@ -1631,281 +1690,7 @@ export default function AdminReviewPage() {
     );
   }
 
-  // Reference management functions
-  const handleAddReferenceUrl = async () => {
-    if (!referenceUrl.trim() || !selectedAssetForRef) return;
-
-    try {
-      // Validate URL format
-      const url = new URL(referenceUrl.trim());
-      if (!url.protocol.startsWith("http")) {
-        toast.error("Please enter a valid HTTP/HTTPS URL");
-        return;
-      }
-
-      // Find the current asset
-      const currentAsset = showAllocationLists
-        ? allocationLists
-            .flatMap((list) => list.asset_assignments)
-            .find(
-              (assignment) =>
-                assignment.onboarding_assets.id === selectedAssetForRef
-            )?.onboarding_assets
-        : assets.find((asset) => asset.id === selectedAssetForRef);
-
-      if (!currentAsset) {
-        toast.error("Asset not found");
-        return;
-      }
-
-      // Get existing references and add new one
-      const existingReferences = currentAsset.reference || [];
-      const newReferences = Array.isArray(existingReferences)
-        ? [...existingReferences, referenceUrl.trim()]
-        : [referenceUrl.trim()];
-
-      // Update the asset in the database
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({ reference: newReferences })
-        .eq("id", selectedAssetForRef);
-
-      if (error) {
-        console.error("Error updating reference images:", error);
-        toast.error("Failed to save reference image URL");
-        return;
-      }
-
-      // Update local state
-      if (showAllocationLists) {
-        setAllocationLists((prevLists) =>
-          prevLists.map((list) => ({
-            ...list,
-            asset_assignments: list.asset_assignments.map((assignment: any) =>
-              assignment.onboarding_assets.id === selectedAssetForRef
-                ? {
-                    ...assignment,
-                    onboarding_assets: {
-                      ...assignment.onboarding_assets,
-                      reference: newReferences,
-                    },
-                  }
-                : assignment
-            ),
-          }))
-        );
-      } else {
-        setAssets((prev) =>
-          prev.map((asset) =>
-            asset.id === selectedAssetForRef
-              ? { ...asset, reference: newReferences }
-              : asset
-          )
-        );
-      }
-
-      // Reset dialog state
-      setReferenceUrl("");
-      setSelectedAssetForRef(null);
-      setShowAddRefDialog(false);
-
-      toast.success("Reference image URL added successfully!");
-    } catch (error) {
-      console.error("Error adding reference image URL:", error);
-      toast.error("Please enter a valid image URL");
-    }
-  };
-
-  const handleFileUploadForRef = async () => {
-    if (!selectedFile || !selectedAssetForRef) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("asset_id", selectedAssetForRef);
-
-      // Determine file type based on extension
-      const fileExtension = selectedFile.name.toLowerCase().split(".").pop();
-      const fileType = fileExtension === "glb" ? "glb" : "reference";
-      formData.append("file_type", fileType);
-
-      const response = await fetch("/api/assets/upload-file", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const result = await response.json();
-      console.log("Upload result:", result);
-
-      // Wait a moment for the database to update, then refresh the asset data
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Refresh the asset data
-      const { data: updatedAsset, error: fetchError } = await supabase
-        .from("onboarding_assets")
-        .select("reference, status, glb_link")
-        .eq("id", selectedAssetForRef)
-        .single();
-
-      if (fetchError) {
-        console.error("Error fetching updated asset:", fetchError);
-      }
-
-      console.log("Updated asset from DB:", updatedAsset);
-
-      // Update local state
-      if (showAllocationLists) {
-        setAllocationLists((prevLists) =>
-          prevLists.map((list) => ({
-            ...list,
-            asset_assignments: list.asset_assignments.map((assignment: any) =>
-              assignment.onboarding_assets.id === selectedAssetForRef
-                ? {
-                    ...assignment,
-                    onboarding_assets: {
-                      ...assignment.onboarding_assets,
-                      reference:
-                        updatedAsset?.reference ||
-                        assignment.onboarding_assets.reference,
-                      status:
-                        updatedAsset?.status ||
-                        assignment.onboarding_assets.status,
-                      glb_link:
-                        updatedAsset?.glb_link ||
-                        assignment.onboarding_assets.glb_link,
-                    },
-                  }
-                : assignment
-            ),
-          }))
-        );
-      } else {
-        setAssets((prev) =>
-          prev.map((asset) =>
-            asset.id === selectedAssetForRef
-              ? {
-                  ...asset,
-                  reference: updatedAsset?.reference || asset.reference,
-                  status: updatedAsset?.status || asset.status,
-                  glb_link: updatedAsset?.glb_link || asset.glb_link,
-                }
-              : asset
-          )
-        );
-      }
-
-      toast.success(
-        fileType === "glb"
-          ? "GLB file uploaded successfully!"
-          : "Reference file uploaded successfully!"
-      );
-
-      // Reset dialog state
-      setSelectedFile(null);
-      setSelectedAssetForRef(null);
-      setReferenceUrl("");
-      setShowAddRefDialog(false);
-      setUploadMode("url");
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      toast.error("Failed to upload file");
-    } finally {
-      setUploading(false);
-    }
-  };
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleViewReferences = (assetId: string) => {
-    const asset = showAllocationLists
-      ? allocationLists
-          .flatMap((list) => list.asset_assignments)
-          .find((assignment) => assignment.onboarding_assets.id === assetId)
-          ?.onboarding_assets
-      : assets.find((a) => a.id === assetId);
-
-    if (!asset) return;
-
-    const refs = Array.isArray(asset.reference) ? asset.reference : [];
-    const files = refs.map((url: string, index: number) => ({
-      id: `existing_${index}`,
-      name: url.split("/").pop() || `File ${index + 1}`,
-      url,
-      type: "unknown",
-      size: 0,
-      uploadedAt: new Date(),
-    }));
-
-    setViewingFiles(files);
-    setSelectedAsset(assetId);
-    setSelectedAssetForView(asset);
-    setShowViewDialog(true);
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const removeViewingFile = (fileId: string) => {
-    setViewingFiles((prev) => prev.filter((file) => file.id !== fileId));
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const saveViewChanges = async () => {
-    if (!selectedAsset) return;
-
-    try {
-      const fileUrls = viewingFiles.map((file) => file.url);
-
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({ reference: fileUrls })
-        .eq("id", selectedAsset);
-
-      if (error) {
-        throw error;
-      }
-
-      toast.success("Reference files have been updated.");
-
-      // Update local state
-      if (showAllocationLists) {
-        setAllocationLists((prevLists) =>
-          prevLists.map((list) => ({
-            ...list,
-            asset_assignments: list.asset_assignments.map((assignment: any) =>
-              assignment.onboarding_assets.id === selectedAsset
-                ? {
-                    ...assignment,
-                    onboarding_assets: {
-                      ...assignment.onboarding_assets,
-                      reference: fileUrls,
-                    },
-                  }
-                : assignment
-            ),
-          }))
-        );
-      } else {
-        setAssets((prev) =>
-          prev.map((asset) =>
-            asset.id === selectedAsset
-              ? { ...asset, reference: fileUrls }
-              : asset
-          )
-        );
-      }
-
-      // Reset state
-      setViewingFiles([]);
-      setSelectedAsset(null);
-      setSelectedAssetForView(null);
-      setShowViewDialog(false);
-    } catch (error) {
-      console.error("Error saving changes:", error);
-      toast.error("Failed to save changes");
-    }
-  };
+  // Reference management functions are handled by reusable dialogs below
 
   // Helper function to parse references
   const parseReferences = (
@@ -2483,12 +2268,17 @@ export default function AdminReviewPage() {
                                     >
                                       <FileText className="mr-1 h-3 w-3" />
                                       Ref (
-                                      {separateReferences(
-                                        assignment.onboarding_assets.reference
-                                      ).imageReferences.length +
-                                        separateReferences(
+                                      {(() => {
+                                        const allRefs = parseReferences(
                                           assignment.onboarding_assets.reference
-                                        ).glbFiles.length}
+                                        );
+                                        return (
+                                          allRefs.length +
+                                          (assignment.onboarding_assets.glb_link
+                                            ? 1
+                                            : 0)
+                                        );
+                                      })()}
                                       )
                                     </Button>
                                   </div>
@@ -2733,10 +2523,10 @@ export default function AdminReviewPage() {
                           >
                             <FileText className="mr-1 h-3 w-3" />
                             Ref (
-                            {separateReferences(asset.reference).imageReferences
-                              .length +
-                              separateReferences(asset.reference).glbFiles
-                                .length}
+                            {(() => {
+                              const allRefs = parseReferences(asset.reference);
+                              return allRefs.length + (asset.glb_link ? 1 : 0);
+                            })()}
                             )
                           </Button>
                         </div>
@@ -2937,10 +2727,10 @@ export default function AdminReviewPage() {
                           >
                             <FileText className="mr-1 h-3 w-3" />
                             Ref (
-                            {separateReferences(asset.reference).imageReferences
-                              .length +
-                              separateReferences(asset.reference).glbFiles
-                                .length}
+                            {(() => {
+                              const allRefs = parseReferences(asset.reference);
+                              return allRefs.length + (asset.glb_link ? 1 : 0);
+                            })()}
                             )
                           </Button>
                         </div>
@@ -3175,258 +2965,39 @@ export default function AdminReviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Reference Dialog */}
-      <Dialog open={showAddRefDialog} onOpenChange={setShowAddRefDialog}>
-        <DialogContent className="sm:max-w-[500px] h-fit">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              Add Reference or GLB File
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Add a reference image URL or upload a reference/GLB file.
-            </DialogDescription>
-          </DialogHeader>
+      {/* Add Reference Dialog (Reusable) */}
+      <AddReferenceDialog
+        open={showAddRefDialog}
+        onOpenChange={(open) => {
+          setShowAddRefDialog(open);
+          if (!open && selectedAssetForRef) {
+            refreshAssetReferenceData(selectedAssetForRef);
+          }
+        }}
+        assetId={selectedAssetForRef}
+        onUploadComplete={() => {
+          if (selectedAssetForRef) {
+            refreshAssetReferenceData(selectedAssetForRef);
+          }
+        }}
+      />
 
-          {/* Mode Toggle */}
-          <div className="flex gap-2 p-1 bg-muted rounded-lg">
-            <Button
-              variant={uploadMode === "url" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setUploadMode("url")}
-              className="flex-1"
-            >
-              URL
-            </Button>
-            <Button
-              variant={uploadMode === "file" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setUploadMode("file")}
-              className="flex-1"
-            >
-              File Upload
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {uploadMode === "url" ? (
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">
-                  Image URL *
-                </label>
-                <Input
-                  type="url"
-                  placeholder="https://example.com/image.jpg"
-                  value={referenceUrl}
-                  onChange={(e) => setReferenceUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleAddReferenceUrl();
-                    }
-                  }}
-                  className="border-border focus:border-primary"
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">
-                  Upload File *
-                </label>
-                <Input
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.gif,.webp,.glb"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="border-border focus:border-primary"
-                  key={`file-input-${selectedAssetForRef || "none"}`}
-                />
-                {selectedFile && (
-                  <p className="text-xs text-muted-foreground">
-                    Selected: {selectedFile.name} (
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3 pt-4 border-t border-border">
-            <Button
-              onClick={() => {
-                setReferenceUrl("");
-                setSelectedFile(null);
-                setSelectedAssetForRef(null);
-                setShowAddRefDialog(false);
-                setUploadMode("url");
-              }}
-              variant="outline"
-              className="cursor-pointer"
-              disabled={uploading}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={
-                uploadMode === "url"
-                  ? handleAddReferenceUrl
-                  : handleFileUploadForRef
-              }
-              disabled={
-                uploading ||
-                (uploadMode === "url" ? !referenceUrl.trim() : !selectedFile)
-              }
-              className="cursor-pointer"
-            >
-              {uploading ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                  Uploading...
-                </>
-              ) : (
-                `Add ${uploadMode === "url" ? "URL" : "File"}`
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* View References Dialog */}
-      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="sm:max-w-[600px] h-fit max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              References - {selectedAssetForView?.product_name || "Asset"}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              View and manage all reference images for this asset.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {(() => {
-              // Get all files (GLB + references)
-              const allReferences = selectedAssetForView
-                ? parseReferences(selectedAssetForView.reference)
-                : [];
-              const hasDirectGlb = selectedAssetForView?.glb_link;
-
-              // Combine all files into one list
-              const allFiles = [];
-
-              // Add direct GLB if exists
-              if (hasDirectGlb) {
-                allFiles.push({
-                  url: selectedAssetForView.glb_link,
-                  type: "glb",
-                  name: "GLB Model",
-                });
-              }
-
-              // Add references (filter out duplicates of direct GLB)
-              allReferences.forEach((ref, index) => {
-                if (!hasDirectGlb || ref !== selectedAssetForView.glb_link) {
-                  const isGlb = ref.toLowerCase().endsWith(".glb");
-                  allFiles.push({
-                    url: ref,
-                    type: isGlb ? "glb" : "reference",
-                    name: isGlb
-                      ? `GLB File ${index + 1}`
-                      : `Reference ${index + 1}`,
-                  });
-                }
-              });
-
-              return allFiles.length > 0 ? (
-                <div className="space-y-2">
-                  {allFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {file.type === "glb" ? (
-                          <Package className="h-4 w-4 text-primary flex-shrink-0" />
-                        ) : (
-                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {file.url}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (file.type === "glb") {
-                            // Download GLB files
-                            const link = document.createElement("a");
-                            link.href = file.url;
-                            link.download = `${selectedAssetForView?.product_name || "model"}.glb`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          } else {
-                            // Open reference files in new tab
-                            window.open(file.url, "_blank");
-                          }
-                        }}
-                        className="text-xs flex-shrink-0"
-                      >
-                        {file.type === "glb" ? (
-                          <>
-                            <Download className="h-3 w-3 mr-1" />
-                            Download
-                          </>
-                        ) : (
-                          <>
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Open
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">No files found</p>
-                  <p className="text-xs text-muted-foreground">
-                    Click &quot;Add Reference&quot; to upload files
-                  </p>
-                </div>
-              );
-            })()}
-          </div>
-
-          <div className="flex gap-3 pt-4 border-t border-border">
-            <Button
-              onClick={() => {
-                setSelectedAssetForRef(selectedAssetForView?.id);
-                setShowViewDialog(false);
-                setShowAddRefDialog(true);
-              }}
-              variant="outline"
-              className="cursor-pointer"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Add Reference
-            </Button>
-            <Button
-              onClick={() => {
-                setShowViewDialog(false);
-                setSelectedAssetForView(null);
-              }}
-              className="cursor-pointer"
-            >
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* View References Dialog (Reusable) */}
+      <ViewReferencesDialog
+        open={showViewDialog}
+        onOpenChange={(open) => {
+          setShowViewDialog(open);
+          if (!open && selectedAssetForView?.id) {
+            refreshAssetReferenceData(selectedAssetForView.id);
+          }
+        }}
+        asset={selectedAssetForView}
+        onAddReference={() => {
+          setSelectedAssetForRef(selectedAssetForView?.id);
+          setShowViewDialog(false);
+          setShowAddRefDialog(true);
+        }}
+      />
     </div>
   );
 }

@@ -22,13 +22,8 @@ import {
   Checkbox,
 } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/containers";
+import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
+import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 import {
   Eye,
   ChevronLeft,
@@ -106,59 +101,59 @@ const getRowStyling = (status: string): { base: string; hover: string } => {
 const PAGE_SIZE = 18;
 
 const ReviewTableSkeleton = () => (
-  <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[78vh]">
+  <div className="overflow-y-auto rounded-lg border dark:border-border bg-background dark:bg-background flex-1 max-h-[78vh]">
     <Table>
       <TableHeader>
-        <TableRow>
+        <TableRow className="dark:border-border">
           <TableHead className="w-12">
-            <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-4 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
           <TableHead>
-            <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-24 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
           <TableHead>
-            <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-20 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
           <TableHead>
-            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-16 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
           <TableHead>
-            <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-20 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
           <TableHead>
-            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-16 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {Array.from({ length: 8 }).map((_, i) => (
-          <TableRow key={i}>
+          <TableRow key={i} className="dark:border-border">
             <TableCell>
-              <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+              <div className="h-4 w-4 bg-muted dark:bg-muted/50 rounded animate-pulse" />
             </TableCell>
             <TableCell>
               <div className="space-y-2">
-                <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                <div className="h-4 w-32 bg-muted dark:bg-muted/50 rounded animate-pulse" />
                 <div className="flex items-center gap-2">
-                  <div className="h-3 w-16 bg-muted rounded animate-pulse" />
-                  <div className="h-3 w-12 bg-muted rounded animate-pulse" />
+                  <div className="h-3 w-16 bg-muted dark:bg-muted/50 rounded animate-pulse" />
+                  <div className="h-3 w-12 bg-muted dark:bg-muted/50 rounded animate-pulse" />
                 </div>
               </div>
             </TableCell>
             <TableCell>
-              <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+              <div className="h-4 w-20 bg-muted dark:bg-muted/50 rounded animate-pulse" />
             </TableCell>
             <TableCell>
               <div className="flex items-center gap-2">
-                <div className="h-6 w-16 bg-muted rounded animate-pulse" />
-                <div className="h-3 w-8 bg-muted rounded animate-pulse" />
+                <div className="h-6 w-16 bg-muted dark:bg-muted/50 rounded animate-pulse" />
+                <div className="h-3 w-8 bg-muted dark:bg-muted/50 rounded animate-pulse" />
               </div>
             </TableCell>
             <TableCell>
-              <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+              <div className="h-4 w-24 bg-muted dark:bg-muted/50 rounded animate-pulse" />
             </TableCell>
             <TableCell>
-              <div className="h-6 w-20 bg-muted rounded animate-pulse" />
+              <div className="h-6 w-20 bg-muted dark:bg-muted/50 rounded animate-pulse" />
             </TableCell>
           </TableRow>
         ))}
@@ -197,14 +192,33 @@ export default function ReviewDashboardPage() {
   const [selectedAssetForRef, setSelectedAssetForRef] = useState<string | null>(
     null
   );
-  const [referenceUrl, setReferenceUrl] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
-  const [uploading, setUploading] = useState(false);
 
   // View Ref dialog state
   const [showViewRefDialog, setShowViewRefDialog] = useState(false);
   const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
+
+  // Function to refresh a specific asset's reference data
+  const refreshAssetReferenceData = async (assetId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("reference, glb_link")
+        .eq("id", assetId)
+        .single();
+
+      if (!error && data) {
+        setAssets((prev) =>
+          prev.map((asset) =>
+            asset.id === assetId
+              ? { ...asset, reference: data.reference, glb_link: data.glb_link }
+              : asset
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Error refreshing asset reference data:", error);
+    }
+  };
 
   // Calculate status totals
   const statusTotals = useMemo(() => {
@@ -231,28 +245,67 @@ export default function ReviewDashboardPage() {
 
   // Fetch assets for this client
   const fetchAssets = async () => {
-    if (!user?.metadata?.client) return;
+    if (!user?.metadata?.client) {
+      console.log("No user or client metadata, skipping fetch");
+      return;
+    }
+
+    console.log("Fetching assets for client:", user.metadata.client);
     startLoading();
     setLoading(true);
-    const { data, error } = await supabase
-      .from("onboarding_assets")
-      .select(
-        "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client"
-      )
-      .eq("client", user.metadata.client);
-    if (!error && data) {
-      setAssets(data);
 
-      // Populate clients array for filter dropdown
-      const uniqueClients = Array.from(
-        new Set(data.map((asset) => asset.client).filter(Boolean))
-      ).sort();
-      setClients(uniqueClients);
-    } else if (error) {
-      console.error("Error fetching assets:", error);
+    try {
+      // First, let's check what's in the database directly
+      console.log("Checking database directly...");
+      const { data: directCheck, error: directError } = await supabase
+        .from("onboarding_assets")
+        .select("id, client")
+        .eq("client", user.metadata.client);
+
+      if (directError) {
+        console.error("Direct database check failed:", directError);
+      } else {
+        console.log(
+          "Direct database check found:",
+          directCheck?.length || 0,
+          "assets for client"
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select(
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client"
+        )
+        .eq("client", user.metadata.client);
+
+      if (error) {
+        console.error("Error fetching assets:", error);
+        toast.error("Failed to fetch assets");
+        return;
+      }
+
+      if (data) {
+        console.log("Fetched assets:", data.length, "assets");
+        console.log("Sample asset:", data[0]);
+        setAssets(data);
+
+        // Populate clients array for filter dropdown
+        const uniqueClients = Array.from(
+          new Set(data.map((asset) => asset.client).filter(Boolean))
+        ).sort();
+        setClients(uniqueClients);
+      } else {
+        console.log("No data returned from fetch");
+        setAssets([]);
+      }
+    } catch (err) {
+      console.error("Exception in fetchAssets:", err);
+      toast.error("Failed to fetch assets");
+    } finally {
+      setLoading(false);
+      stopLoading();
     }
-    setLoading(false);
-    stopLoading();
   };
 
   useEffect(() => {
@@ -499,159 +552,6 @@ export default function ReviewDashboardPage() {
     }
   };
 
-  // Helper function to separate GLB files from reference images
-  const separateReferences = (referenceImages: string[] | string | null) => {
-    const allReferences = parseReferences(referenceImages);
-    const glbFiles = allReferences.filter((ref) =>
-      ref.toLowerCase().endsWith(".glb")
-    );
-    const imageReferences = allReferences.filter(
-      (ref) => !ref.toLowerCase().endsWith(".glb")
-    );
-    return { glbFiles, imageReferences };
-  };
-
-  // Handle adding reference URL
-  const handleAddReferenceUrl = async () => {
-    if (!referenceUrl.trim() || !selectedAssetForRef) return;
-
-    try {
-      // Validate URL format
-      const url = new URL(referenceUrl.trim());
-      if (!url.protocol.startsWith("http")) {
-        toast.error("Please enter a valid HTTP/HTTPS URL");
-        return;
-      }
-
-      // Find the current asset
-      const currentAsset = assets.find(
-        (asset) => asset.id === selectedAssetForRef
-      );
-      if (!currentAsset) {
-        toast.error("Asset not found");
-        return;
-      }
-
-      // Get existing references and add new one
-      const existingReferences = parseReferences(currentAsset.reference);
-      const newReferences = [...existingReferences, referenceUrl.trim()];
-
-      // Update the asset in the database
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .update({ reference: newReferences })
-        .eq("id", selectedAssetForRef);
-
-      if (error) {
-        console.error("Error updating reference images:", error);
-        toast.error("Failed to save reference image URL");
-        return;
-      }
-
-      // Update local state
-      setAssets((prev) =>
-        prev.map((asset) =>
-          asset.id === selectedAssetForRef
-            ? { ...asset, reference: newReferences }
-            : asset
-        )
-      );
-
-      // Reset dialog state
-      setReferenceUrl("");
-      setSelectedAssetForRef(null);
-      setShowAddRefDialog(false);
-
-      toast.success("Reference image URL added successfully!");
-    } catch (error) {
-      console.error("Error adding reference image URL:", error);
-      toast.error("Please enter a valid image URL");
-    }
-  };
-
-  // Handle file upload
-  const handleFileUpload = async () => {
-    if (!selectedFile || !selectedAssetForRef) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("asset_id", selectedAssetForRef);
-
-      // Determine file type based on extension
-      const fileExtension = selectedFile.name.toLowerCase().split(".").pop();
-      const fileType = fileExtension === "glb" ? "glb" : "reference";
-      formData.append("file_type", fileType);
-
-      const response = await fetch("/api/assets/upload-file", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const result = await response.json();
-
-      // For all file types, refresh the asset data since everything goes to references now
-      const { data: updatedAsset } = await supabase
-        .from("onboarding_assets")
-        .select("reference, status, glb_link")
-        .eq("id", selectedAssetForRef)
-        .single();
-
-      console.log("Upload result:", result);
-      console.log("Updated asset from DB:", updatedAsset);
-
-      setAssets((prev) =>
-        prev.map((asset) =>
-          asset.id === selectedAssetForRef
-            ? {
-                ...asset,
-                reference: updatedAsset?.reference || asset.reference,
-                status: updatedAsset?.status || asset.status,
-                glb_link: updatedAsset?.glb_link || asset.glb_link,
-              }
-            : asset
-        )
-      );
-
-      // Also update the selected asset for view dialog if it's the same asset
-      if (selectedAssetForView?.id === selectedAssetForRef) {
-        setSelectedAssetForView((prev: any) =>
-          prev
-            ? {
-                ...prev,
-                reference: updatedAsset?.reference || prev.reference,
-                status: updatedAsset?.status || prev.status,
-                glb_link: updatedAsset?.glb_link || prev.glb_link,
-              }
-            : prev
-        );
-      }
-
-      toast.success(
-        fileType === "glb"
-          ? "GLB file uploaded successfully!"
-          : "Reference file uploaded successfully!"
-      );
-
-      // Reset dialog state
-      setSelectedFile(null);
-      setSelectedAssetForRef(null);
-      setReferenceUrl("");
-      setShowAddRefDialog(false);
-      setUploadMode("url");
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      toast.error("Failed to upload file");
-    } finally {
-      setUploading(false);
-    }
-  };
-
   return (
     <div className="container mx-auto p-6 space-y-6">
       <Card className="p-6 flex-1 flex flex-col border-0 shadow-none ">
@@ -660,18 +560,18 @@ export default function ReviewDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             {/* Total Models (no filtering on this card itself) */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
               onClick={() => {
                 setStatusFilters([]);
                 setPage(1);
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-info-muted rounded-lg">
+                <div className="p-2 bg-info-muted dark:bg-info-muted/20 rounded-lg">
                   <Package className="h-5 w-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     Total Models
                   </p>
                   <p className="text-2xl font-bold text-info">
@@ -683,7 +583,7 @@ export default function ReviewDashboardPage() {
 
             {/* In Production */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
               onClick={() => {
                 setStatusFilters([
                   "in_production",
@@ -694,11 +594,11 @@ export default function ReviewDashboardPage() {
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning-muted rounded-lg">
+                <div className="p-2 bg-warning-muted dark:bg-warning-muted/20 rounded-lg">
                   <Send className="h-5 w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     In Production
                   </p>
                   <p className="text-2xl font-bold text-warning">
@@ -712,18 +612,18 @@ export default function ReviewDashboardPage() {
 
             {/* Approved */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
               onClick={() => {
                 setStatusFilters(["approved", "approved_by_client"]);
                 setPage(1);
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-success-muted rounded-lg">
+                <div className="p-2 bg-success-muted dark:bg-success-muted/20 rounded-lg">
                   <CheckCircle className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     Approved
                   </p>
                   <p className="text-2xl font-medium text-success">
@@ -735,18 +635,18 @@ export default function ReviewDashboardPage() {
 
             {/* Ready for Revision */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
               onClick={() => {
                 setStatusFilters(["revisions"]);
                 setPage(1);
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-error-muted rounded-lg">
+                <div className="p-2 bg-error-muted dark:bg-error-muted/20 rounded-lg">
                   <Eye className="h-5 w-5 text-error" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     Ready for Revision
                   </p>
                   <p className="text-2xl font-bold text-error">
@@ -758,18 +658,18 @@ export default function ReviewDashboardPage() {
 
             {/* Approved by Client */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
               onClick={() => {
                 setStatusFilters(["approved_by_client"]);
                 setPage(1);
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-muted rounded-lg">
+                <div className="p-2 bg-emerald-muted dark:bg-emerald-muted/20 rounded-lg">
                   <CheckCircle className="h-5 w-5 text-emerald" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     Approved by Client
                   </p>
                   <p className="text-2xl font-bold text-emerald">
@@ -877,30 +777,30 @@ export default function ReviewDashboardPage() {
           {/* Bulk Actions Row - Fixed height to prevent layout shifts */}
           <div className="min-h-[60px]">
             {selected.size > 0 && (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3 bg-muted/50 rounded-lg border">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3 bg-muted/50 dark:bg-muted/20 rounded-lg border dark:border-border">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-muted-foreground">
+                  <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     {selected.size} product(s) selected
                   </span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setSelected(new Set())}
-                    className="h-6 px-2 text-xs"
+                    className="h-6 px-2 text-xs dark:hover:bg-muted/50"
                   >
                     Clear
                   </Button>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground dark:text-muted-foreground">
                     Set priority:
                   </span>
                   <Select
                     value={bulkPriority.toString()}
                     onValueChange={(value) => setBulkPriority(parseInt(value))}
                   >
-                    <SelectTrigger className="w-24 h-8">
+                    <SelectTrigger className="w-24 h-8 dark:bg-background dark:border-border">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -922,15 +822,15 @@ export default function ReviewDashboardPage() {
           </div>
         </div>
 
-        <div className="overflow-auto rounded-lg border bg-background flex-1 max-h-[67vh] min-h-[67vh]">
+        <div className="overflow-auto rounded-lg border dark:border-border bg-background dark:bg-background flex-1 max-h-[62vh] min-h-[62vh]">
           {loading ? (
             <ReviewTableSkeleton />
           ) : (
             <div className="min-w-[1200px]">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
+                  <TableRow className="dark:border-border">
+                    <TableHead className="w-12 dark:text-foreground">
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={
@@ -941,23 +841,43 @@ export default function ReviewDashboardPage() {
                                 : false
                           }
                           onCheckedChange={selectAll}
+                          className="dark:border-border"
                         />
                       </div>
                     </TableHead>
-                    <TableHead>Model Name</TableHead>
-                    <TableHead>Article ID</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Product Link</TableHead>
-                    <TableHead className="text-center">References</TableHead>
-                    <TableHead>GLB File</TableHead>
-                    <TableHead className="w-12 text-center">View</TableHead>
+                    <TableHead className="dark:text-foreground">
+                      Model Name
+                    </TableHead>
+                    <TableHead className="dark:text-foreground">
+                      Article ID
+                    </TableHead>
+                    <TableHead className="dark:text-foreground">
+                      Priority
+                    </TableHead>
+                    <TableHead className="dark:text-foreground">
+                      Status
+                    </TableHead>
+                    <TableHead className="dark:text-foreground">
+                      Product Link
+                    </TableHead>
+                    <TableHead className="text-center dark:text-foreground">
+                      References
+                    </TableHead>
+                    <TableHead className="dark:text-foreground">
+                      GLB File
+                    </TableHead>
+                    <TableHead className="w-12 text-center dark:text-foreground">
+                      View
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paged.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center">
+                    <TableRow className="dark:border-border">
+                      <TableCell
+                        colSpan={9}
+                        className="text-center dark:text-muted-foreground"
+                      >
                         No products found.
                       </TableCell>
                     </TableRow>
@@ -967,37 +887,42 @@ export default function ReviewDashboardPage() {
                       return (
                         <TableRow
                           key={asset.id}
-                          className={`${rowStyling.base} transition-all duration-200`}
+                          className={`${rowStyling.base} transition-all duration-200 dark:border-border dark:hover:bg-muted/20`}
                         >
                           <TableCell>
                             <Checkbox
                               checked={selected.has(asset.id)}
                               onCheckedChange={() => toggleSelect(asset.id)}
-                              className="bg-background"
+                              className="bg-background dark:bg-background dark:border-border"
                             />
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1">
-                              <span className="font-medium">
+                              <span className="font-medium dark:text-foreground">
                                 {asset.product_name}
                               </span>
                               <div className="flex items-center justify-center gap-2">
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                                   {annotationCounts[asset.id] || 0} annotation
                                   {(annotationCounts[asset.id] || 0) !== 1
                                     ? "s"
                                     : ""}
                                 </span>
-                                <span className="text-xs text-slate-500">
+                                <span className="text-xs text-slate-500 dark:text-slate-400">
                                   •
                                 </span>
-                                <Badge variant="outline" className="text-xs">
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs dark:border-border dark:bg-muted/20"
+                                >
                                   Batch {asset.batch || 1}
                                 </Badge>
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>{asset.article_id}</TableCell>
+                          <TableCell className="dark:text-foreground">
+                            {asset.article_id}
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center justify-center">
                               <Select
@@ -1053,10 +978,25 @@ export default function ReviewDashboardPage() {
                                     {getPriorityLabel(asset.priority || 2)}
                                   </span>
                                 </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1">High</SelectItem>
-                                  <SelectItem value="2">Medium</SelectItem>
-                                  <SelectItem value="3">Low</SelectItem>
+                                <SelectContent className="dark:bg-background dark:border-border">
+                                  <SelectItem
+                                    value="1"
+                                    className="dark:text-foreground"
+                                  >
+                                    High
+                                  </SelectItem>
+                                  <SelectItem
+                                    value="2"
+                                    className="dark:text-foreground"
+                                  >
+                                    Medium
+                                  </SelectItem>
+                                  <SelectItem
+                                    value="3"
+                                    className="dark:text-foreground"
+                                  >
+                                    Low
+                                  </SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -1070,7 +1010,7 @@ export default function ReviewDashboardPage() {
                                     ? STATUS_LABELS[
                                         asset.status as keyof typeof STATUS_LABELS
                                       ].color
-                                    : "bg-gray-100 text-gray-600"
+                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
                                 }`}
                               >
                                 {asset.status in STATUS_LABELS
@@ -1086,7 +1026,7 @@ export default function ReviewDashboardPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="w-full justify-start text-xs hover:text-blue-700 hover:underline"
+                                className="w-full justify-start text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
                                 onClick={() =>
                                   window.open(asset.product_link, "_blank")
                                 }
@@ -1095,7 +1035,7 @@ export default function ReviewDashboardPage() {
                                 Open Link
                               </Button>
                             ) : (
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                                 No link
                               </span>
                             )}
@@ -1106,7 +1046,7 @@ export default function ReviewDashboardPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs px-3 py-1 h-7"
+                                className="text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50"
                                 onClick={() => {
                                   setSelectedAssetForView(asset);
                                   setShowViewRefDialog(true);
@@ -1114,10 +1054,14 @@ export default function ReviewDashboardPage() {
                               >
                                 <FileText className="mr-1 h-3 w-3" />
                                 Ref (
-                                {separateReferences(asset.reference)
-                                  .imageReferences.length +
-                                  separateReferences(asset.reference).glbFiles
-                                    .length}
+                                {(() => {
+                                  const allRefs = parseReferences(
+                                    asset.reference
+                                  );
+                                  return (
+                                    allRefs.length + (asset.glb_link ? 1 : 0)
+                                  );
+                                })()}
                                 )
                               </Button>
                             </div>
@@ -1127,7 +1071,7 @@ export default function ReviewDashboardPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="w-full justify-start text-xs hover:text-blue-700 hover:underline"
+                                className="w-full justify-start text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
                                 onClick={() =>
                                   window.open(asset.glb_link, "_blank")
                                 }
@@ -1136,7 +1080,7 @@ export default function ReviewDashboardPage() {
                                 Download
                               </Button>
                             ) : (
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                                 No GLB
                               </span>
                             )}
@@ -1148,7 +1092,7 @@ export default function ReviewDashboardPage() {
                               onClick={() =>
                                 router.push(`/client-review/${asset.id}`)
                               }
-                              className="h-8 w-8"
+                              className="h-8 w-8 dark:hover:bg-muted/50"
                             >
                               <Eye className="h-5 w-5" />
                             </Button>
@@ -1165,11 +1109,11 @@ export default function ReviewDashboardPage() {
         {/* Pagination - Always at bottom */}
         <div className="flex items-center justify-center gap-2">
           {selected.size > 0 && (
-            <div className="text-sm text-muted-foreground mr-4">
+            <div className="text-sm text-muted-foreground dark:text-muted-foreground mr-4">
               {selected.size} of {paged.length} on this page selected
             </div>
           )}
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground dark:text-muted-foreground">
             {filtered.length === 0
               ? "No items"
               : `
@@ -1187,7 +1131,7 @@ export default function ReviewDashboardPage() {
               size="icon"
               disabled={page === 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="cursor-pointer"
+              className="cursor-pointer dark:border-border dark:hover:bg-muted/50"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -1196,7 +1140,7 @@ export default function ReviewDashboardPage() {
               size="icon"
               disabled={page * PAGE_SIZE >= filtered.length}
               onClick={() => setPage((p) => p + 1)}
-              className="cursor-pointer"
+              className="cursor-pointer dark:border-border dark:hover:bg-muted/50"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -1205,252 +1149,40 @@ export default function ReviewDashboardPage() {
       </Card>
 
       {/* Add Reference Dialog */}
-      <Dialog open={showAddRefDialog} onOpenChange={setShowAddRefDialog}>
-        <DialogContent className="sm:max-w-[500px] h-fit">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              Add Reference or GLB File
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Add a reference image URL or upload a reference/GLB file.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Mode Toggle */}
-          <div className="flex gap-2 p-1 bg-muted rounded-lg">
-            <Button
-              variant={uploadMode === "url" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setUploadMode("url")}
-              className="flex-1"
-            >
-              URL
-            </Button>
-            <Button
-              variant={uploadMode === "file" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setUploadMode("file")}
-              className="flex-1"
-            >
-              File Upload
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {uploadMode === "url" ? (
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">
-                  Image URL *
-                </label>
-                <Input
-                  type="url"
-                  placeholder="https://example.com/image.jpg"
-                  value={referenceUrl}
-                  onChange={(e) => setReferenceUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleAddReferenceUrl();
-                    }
-                  }}
-                  className="border-border focus:border-primary"
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">
-                  Upload File *
-                </label>
-                <Input
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.gif,.webp,.glb"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="border-border focus:border-primary"
-                  key={`file-input-${selectedAssetForRef || "none"}`}
-                />
-                {selectedFile && (
-                  <p className="text-xs text-muted-foreground">
-                    Selected: {selectedFile.name} (
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3 pt-4 border-t border-border">
-            <Button
-              onClick={() => {
-                setReferenceUrl("");
-                setSelectedFile(null);
-                setSelectedAssetForRef(null);
-                setShowAddRefDialog(false);
-                setUploadMode("url");
-              }}
-              variant="outline"
-              className="cursor-pointer"
-              disabled={uploading}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={
-                uploadMode === "url" ? handleAddReferenceUrl : handleFileUpload
-              }
-              disabled={
-                uploading ||
-                (uploadMode === "url" ? !referenceUrl.trim() : !selectedFile)
-              }
-              className="cursor-pointer"
-            >
-              {uploading ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                  Uploading...
-                </>
-              ) : (
-                `Add ${uploadMode === "url" ? "URL" : "File"}`
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AddReferenceDialog
+        open={showAddRefDialog}
+        onOpenChange={(open) => {
+          setShowAddRefDialog(open);
+          // Refresh reference data when dialog closes
+          if (!open && selectedAssetForRef) {
+            refreshAssetReferenceData(selectedAssetForRef);
+          }
+        }}
+        assetId={selectedAssetForRef}
+        onUploadComplete={() => {
+          if (selectedAssetForRef) {
+            refreshAssetReferenceData(selectedAssetForRef);
+          }
+        }}
+      />
 
       {/* View References Dialog */}
-      <Dialog open={showViewRefDialog} onOpenChange={setShowViewRefDialog}>
-        <DialogContent className="sm:max-w-[600px] h-fit max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              References - {selectedAssetForView?.product_name || "Asset"}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              View and manage all reference images for this asset.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {(() => {
-              // Get all files (GLB + references)
-              const allReferences = selectedAssetForView
-                ? parseReferences(selectedAssetForView.reference)
-                : [];
-              const hasDirectGlb = selectedAssetForView?.glb_link;
-
-              // Combine all files into one list
-              const allFiles = [];
-
-              // Add direct GLB if exists
-              if (hasDirectGlb) {
-                allFiles.push({
-                  url: selectedAssetForView.glb_link,
-                  type: "glb",
-                  name: "GLB Model",
-                });
-              }
-
-              // Add references (filter out duplicates of direct GLB)
-              allReferences.forEach((ref, index) => {
-                if (!hasDirectGlb || ref !== selectedAssetForView.glb_link) {
-                  const isGlb = ref.toLowerCase().endsWith(".glb");
-                  allFiles.push({
-                    url: ref,
-                    type: isGlb ? "glb" : "reference",
-                    name: isGlb
-                      ? `GLB File ${index + 1}`
-                      : `Reference ${index + 1}`,
-                  });
-                }
-              });
-
-              return allFiles.length > 0 ? (
-                <div className="space-y-2">
-                  {allFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {file.type === "glb" ? (
-                          <Package className="h-4 w-4 text-primary flex-shrink-0" />
-                        ) : (
-                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {file.url}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (file.type === "glb") {
-                            // Download GLB files
-                            const link = document.createElement("a");
-                            link.href = file.url;
-                            link.download = `${selectedAssetForView?.product_name || "model"}.glb`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          } else {
-                            // Open reference files in new tab
-                            window.open(file.url, "_blank");
-                          }
-                        }}
-                        className="text-xs flex-shrink-0"
-                      >
-                        {file.type === "glb" ? (
-                          <>
-                            <Download className="h-3 w-3 mr-1" />
-                            Download
-                          </>
-                        ) : (
-                          <>
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Open
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">No files found</p>
-                  <p className="text-xs text-muted-foreground">
-                    Click &quot;Add Reference&quot; to upload files
-                  </p>
-                </div>
-              );
-            })()}
-          </div>
-
-          <div className="flex gap-3 pt-4 border-t border-border">
-            <Button
-              onClick={() => {
-                setSelectedAssetForRef(selectedAssetForView?.id);
-                setShowViewRefDialog(false);
-                setShowAddRefDialog(true);
-              }}
-              variant="outline"
-              className="cursor-pointer"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Add Reference
-            </Button>
-            <Button
-              onClick={() => setShowViewRefDialog(false)}
-              className="cursor-pointer"
-            >
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ViewReferencesDialog
+        open={showViewRefDialog}
+        onOpenChange={(open) => {
+          setShowViewRefDialog(open);
+          // Refresh reference data when dialog closes
+          if (!open && selectedAssetForView?.id) {
+            refreshAssetReferenceData(selectedAssetForView.id);
+          }
+        }}
+        asset={selectedAssetForView}
+        onAddReference={() => {
+          setSelectedAssetForRef(selectedAssetForView?.id);
+          setShowViewRefDialog(false);
+          setShowAddRefDialog(true);
+        }}
+      />
     </div>
   );
 }
