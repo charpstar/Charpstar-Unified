@@ -862,14 +862,14 @@ export function ModelerEarningsWidget() {
                       strokeDasharray: "5 5",
                     }}
                     contentStyle={{
-                      backgroundColor: "hsl(var(--background))",
-                      border: "1px solid hsl(var(--border))",
+                      backgroundColor: "white",
+                      border: "1px solid #e2e8f0",
                       borderRadius: "8px",
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                      color: "hsl(var(--foreground))",
+                      color: "#1f2937",
                     }}
                     labelStyle={{
-                      color: "hsl(var(--muted-foreground))",
+                      color: "#6b7280",
                       fontWeight: "600",
                     }}
                     formatter={(value: any) => [`€${value}`, "Earnings"]}
@@ -918,7 +918,6 @@ export function ModelerEarningsWidget() {
           </div>
 
           {/* Hover Effect Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         </div>
       </div>
 
