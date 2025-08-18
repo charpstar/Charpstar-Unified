@@ -10,7 +10,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/containers";
 import {
   Card,
@@ -47,7 +46,6 @@ import {
   Download,
   FileVideo,
   Package,
-  ExternalLink,
 } from "lucide-react";
 
 import { Loader2 } from "lucide-react";
@@ -184,32 +182,6 @@ export default function ReferenceImagesPage() {
   };
 
   // Function to test directly updating the reference field
-  const testUpdateReference = async (assetId: string) => {
-    const testUrl = `https://example.com/test-${Date.now()}.jpg`;
-
-    try {
-      const { data, error } = await supabase
-        .from("onboarding_assets")
-        .update({
-          reference: [testUrl],
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", assetId)
-        .select();
-
-      if (error) {
-        console.error("Error testing update:", error);
-        return;
-      }
-
-      console.log("Test update result:", data);
-
-      // Refresh the data to see if it shows up
-      await refreshAssetsData();
-    } catch (err) {
-      console.error("Error in test update:", err);
-    }
-  };
 
   // Helper to always get references as an array
   function getReferenceArray(ref: string | string[] | undefined): string[] {

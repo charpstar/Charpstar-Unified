@@ -1706,6 +1706,7 @@ export default function AdminReviewPage() {
   };
 
   // Helper function to separate GLB files from reference images
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const separateReferences = (referenceImages: string[] | string | null) => {
     const allReferences = parseReferences(referenceImages);
     const glbFiles = allReferences.filter((ref) =>
