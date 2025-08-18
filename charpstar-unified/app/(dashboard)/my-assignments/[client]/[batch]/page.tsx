@@ -1699,7 +1699,8 @@ export default function BatchDetailPage() {
                                           ).imageReferences.length +
                                             separateReferences(
                                               asset.reference || null
-                                            ).glbFiles.length}
+                                            ).glbFiles.length +
+                                            (asset.glb_link ? 1 : 0)}
                                           )
                                         </Button>
                                       </div>

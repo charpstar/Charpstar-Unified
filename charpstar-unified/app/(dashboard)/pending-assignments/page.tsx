@@ -1021,7 +1021,8 @@ export default function PendingAssignmentsPage() {
                                         );
                                         return (
                                           separated.imageReferences.length +
-                                          separated.glbFiles.length
+                                          separated.glbFiles.length +
+                                          (asset.glb_link ? 1 : 0)
                                         );
                                       })()}
                                       )
