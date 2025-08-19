@@ -35,6 +35,7 @@ import {
   User,
   Package,
   AlertTriangle,
+  Clock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
@@ -58,6 +59,10 @@ interface User {
   email: string;
   title?: string;
   role: string;
+  exclusive_work?: boolean;
+  daily_hours?: number;
+  model_types?: string[];
+  software_experience?: string[];
 }
 
 interface AllocationData {
@@ -429,7 +434,9 @@ export default function AllocateAssetsPage() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, title, role")
+        .select(
+          "id, email, title, role, exclusive_work, daily_hours, model_types, software_experience"
+        )
         .in("role", ["modeler"]);
 
       if (error) throw error;
@@ -1036,8 +1043,8 @@ export default function AllocateAssetsPage() {
           <CardContent>
             <div className="space-y-6">
               {/* Global Team Assignment */}
-              <div className="grid grid-cols-1 gap-6">
-                {/* Modeler Assignment */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column: Modeler Assignment */}
                 <div className="space-y-3">
                   <label className="text-sm font-medium flex items-center">
                     <User className="h-4 w-4 mr-2" />
@@ -1062,6 +1069,113 @@ export default function AllocateAssetsPage() {
                         ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Right Column: Selected Modeler Profile Information */}
+                <div className="space-y-3">
+                  <label className="text-sm font-medium flex items-center">
+                    <User className="h-4 w-4 mr-2" />
+                    Modeler Profile
+                  </label>
+                  {globalTeamAssignment.modelerId ? (
+                    (() => {
+                      const selectedModeler = users.find(
+                        (u) => u.id === globalTeamAssignment.modelerId
+                      );
+                      if (!selectedModeler) return null;
+
+                      return (
+                        <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                          {/* Basic Info */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">
+                              {selectedModeler.email}
+                            </span>
+                            {selectedModeler.exclusive_work && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs bg-green-50 text-green-700 border-green-200"
+                              >
+                                Exclusive Work
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Daily Hours */}
+                          {selectedModeler.daily_hours && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium">
+                                {selectedModeler.daily_hours}h/day
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Software Experience */}
+                          {selectedModeler.software_experience &&
+                            selectedModeler.software_experience.length > 0 && (
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-2">
+                                  Software Experience:
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {selectedModeler.software_experience
+                                    .slice(0, 4)
+                                    .map((software, index) => (
+                                      <Badge
+                                        key={index}
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
+                                        {software}
+                                      </Badge>
+                                    ))}
+                                  {selectedModeler.software_experience.length >
+                                    4 && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      +
+                                      {selectedModeler.software_experience
+                                        .length - 4}{" "}
+                                      more
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                          {/* Model Types */}
+                          {selectedModeler.model_types &&
+                            selectedModeler.model_types.length > 0 && (
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-2">
+                                  Model Types:
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {selectedModeler.model_types.map(
+                                    (type, index) => (
+                                      <Badge
+                                        key={index}
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        {type}
+                                      </Badge>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="p-4 border rounded-lg bg-muted/30 text-sm text-muted-foreground">
+                      Select a modeler to view their profile information
+                    </div>
+                  )}
                 </div>
               </div>
 

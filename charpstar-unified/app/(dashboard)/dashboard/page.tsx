@@ -179,8 +179,11 @@ export default function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  // Show onboarding dashboard if user is still in onboarding
-  if (user?.metadata?.onboarding === true) {
+  // Show onboarding dashboard if user is still in onboarding (but skip for QA and modeler users)
+  if (
+    user?.metadata?.onboarding === true &&
+    user?.metadata?.role === "client"
+  ) {
     return (
       <Suspense fallback={<DashboardSkeleton />}>
         <div className="container mx-auto p-6 space-y-6">

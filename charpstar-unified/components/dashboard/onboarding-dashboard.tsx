@@ -233,77 +233,9 @@ export function OnboardingDashboard() {
           },
         ];
       case "modeler":
-        return [
-          {
-            id: "profile-setup",
-            title: "Complete Profile Setup",
-            description: "Add your experience, portfolio, and availability",
-            icon: UserPlus,
-            completed: !!(
-              user?.metadata?.title &&
-              user?.metadata?.phone_number &&
-              user?.metadata?.country &&
-              user?.metadata?.portfolio_links?.length
-            ),
-            helpText:
-              "Tell us about your experience and showcase your best work.",
-            estimatedTime: "10-15 minutes",
-          },
-          {
-            id: "portfolio",
-            title: "Upload Portfolio",
-            description: "Add your best work samples",
-            icon: Package,
-            completed: false,
-            helpText:
-              "Upload examples of your 3D modeling work to showcase your skills.",
-            estimatedTime: "15-20 minutes",
-          },
-          {
-            id: "guidelines",
-            title: "Review Guidelines",
-            description: "Read quality standards and requirements",
-            icon: CheckCircle,
-            completed: false,
-            helpText:
-              "Familiarize yourself with our quality standards and project requirements.",
-            estimatedTime: "5-10 minutes",
-          },
-        ];
       case "qa":
-        return [
-          {
-            id: "profile-setup",
-            title: "Complete Profile Setup",
-            description: "Add your contact information and Discord",
-            icon: UserPlus,
-            completed: !!(
-              user?.metadata?.phone_number && user?.metadata?.discord_name
-            ),
-            helpText:
-              "Provide your contact details and Discord username for team communication.",
-            estimatedTime: "5 minutes",
-          },
-          {
-            id: "quality-standards",
-            title: "Review Quality Standards",
-            description: "Understand testing requirements",
-            icon: Shield,
-            completed: false,
-            helpText:
-              "Learn about our quality assurance processes and testing criteria.",
-            estimatedTime: "10-15 minutes",
-          },
-          {
-            id: "test-environment",
-            title: "Access Test Environment",
-            description: "Get familiar with testing tools",
-            icon: CheckCircle,
-            completed: false,
-            helpText: "Set up and explore our testing environment and tools.",
-            estimatedTime: "15-20 minutes",
-          },
-        ];
+        // Modelers and QA users don't need onboarding - they go straight to dashboard
+        return [];
       default:
         return [];
     }

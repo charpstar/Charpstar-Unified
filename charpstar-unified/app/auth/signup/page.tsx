@@ -822,6 +822,10 @@ export default function SignupPage() {
                   }))
                 }
                 required
+                autoComplete="given-name"
+                placeholder="Enter your first name"
+                name="firstName"
+                id="firstName"
               />
             </div>
             <div>
@@ -833,6 +837,10 @@ export default function SignupPage() {
                   setFormData((prev) => ({ ...prev, lastName: e.target.value }))
                 }
                 required
+                autoComplete="family-name"
+                placeholder="Enter your last name"
+                name="lastName"
+                id="lastName"
               />
             </div>
           </div>
@@ -860,6 +868,10 @@ export default function SignupPage() {
               }
               required
               minLength={6}
+              autoComplete="new-password"
+              placeholder="Create a password"
+              name="password"
+              id="password"
             />
           </div>
 
@@ -875,6 +887,10 @@ export default function SignupPage() {
                 }))
               }
               required
+              autoComplete="new-password"
+              placeholder="Confirm your password"
+              name="confirmPassword"
+              id="confirmPassword"
             />
           </div>
 

@@ -1338,8 +1338,7 @@ export default function InvoicingPage() {
                 <TableRow>
                   <TableHead>Product</TableHead>
                   <TableHead>Client</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Priority</TableHead>
+
                   <TableHead>Base Price</TableHead>
                   <TableHead>Bonus Status</TableHead>
                   <TableHead>Total</TableHead>
@@ -1365,36 +1364,9 @@ export default function InvoicingPage() {
                         </div>
                       </div>
                     </TableCell>
+
                     <TableCell>
-                      <div>
-                        <div className="text-sm">{asset.category}</div>
-                        {asset.subcategory && (
-                          <div className="text-xs text-muted-foreground">
-                            {asset.subcategory}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          asset.priority === 1
-                            ? "destructive"
-                            : asset.priority === 2
-                              ? "secondary"
-                              : "default"
-                        }
-                        className="text-xs"
-                      >
-                        {asset.priority === 1
-                          ? "High"
-                          : asset.priority === 2
-                            ? "Medium"
-                            : "Low"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-right justify-center">
                         <Euro className="h-3 w-3 text-muted-foreground" />
                         <span className="font-medium">
                           €{asset.price.toFixed(2)}
@@ -1426,7 +1398,7 @@ export default function InvoicingPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-right justify-center">
                         <Euro className="h-3 w-3 text-muted-foreground" />
                         <span className="font-medium">
                           €
@@ -1545,45 +1517,121 @@ export default function InvoicingPage() {
                 </div>
               </div>
 
-              {/* Bonus Calculation Note */}
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-blue-600 mt-0.5" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium mb-1">Bonus Calculation Note:</p>
-                    <p>
-                      Base earnings include assets approved in this period.
-                      Bonuses are only calculated for assets from completed
-                      allocation lists. Assets from incomplete lists will have
-                      their bonuses credited when their list completes in a
-                      future month.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              {/* Bonus Breakdown Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Bonus Breakdown</h3>
 
-              {/* Future Bonuses Note */}
-              {futureBonuses.length > 0 && (
+                {/* Current Period Bonuses */}
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-start gap-2">
-                    <Calendar className="h-4 w-4 text-green-600 mt-0.5" />
-                    <div className="text-sm text-green-800">
-                      <p className="font-medium mb-1">
-                        Future Bonuses Available:
+                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-green-800 mb-2">
+                        Bonuses Included in This Invoice (€
+                        {invoicePreview.bonusEarnings.toFixed(2)})
                       </p>
+                      <div className="space-y-2">
+                        {retroactiveBonuses.length > 0 && (
+                          <div className="bg-white p-3 rounded border border-green-300">
+                            <p className="text-sm font-medium text-green-700 mb-1">
+                              Retroactive Bonuses: +€
+                              {retroactiveBonuses
+                                .reduce((sum, bonus) => sum + bonus.amount, 0)
+                                .toFixed(2)}
+                            </p>
+                            <p className="text-xs text-green-600">
+                              From {retroactiveBonuses.length} allocation
+                              list(s) created in previous months but completed
+                              this month
+                            </p>
+                          </div>
+                        )}
+                        {monthlyStats.completedLists > 0 && (
+                          <div className="bg-white p-3 rounded border border-green-300">
+                            <p className="text-sm font-medium text-green-700 mb-1">
+                              Current Month Bonuses: +€
+                              {(
+                                invoicePreview.bonusEarnings -
+                                retroactiveBonuses.reduce(
+                                  (sum, bonus) => sum + bonus.amount,
+                                  0
+                                )
+                              ).toFixed(2)}
+                            </p>
+                            <p className="text-xs text-green-600">
+                              From {monthlyStats.completedLists} allocation
+                              list(s) created and completed this month
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Future Bonuses */}
+                {futureBonuses.length > 0 && (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <Calendar className="h-4 w-4 text-blue-600 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-medium text-blue-800 mb-2">
+                          Future Bonuses NOT Included (€
+                          {futureBonuses
+                            .reduce((sum, bonus) => sum + bonus.amount, 0)
+                            .toFixed(2)}
+                          )
+                        </p>
+                        <p className="text-sm text-blue-700 mb-3">
+                          These bonuses will be credited in future invoices when
+                          the allocation lists are completed:
+                        </p>
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                          {futureBonuses.map((bonus) => (
+                            <div
+                              key={bonus.allocationListId}
+                              className="bg-white p-2 rounded border border-blue-300 text-xs"
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium text-blue-700">
+                                  List #{bonus.allocationListId.slice(-8)}: €
+                                  {bonus.amount.toFixed(2)}
+                                </span>
+                                <span className="text-blue-600">
+                                  Est: {bonus.estimatedCompletion}
+                                </span>
+                              </div>
+                              <span className="text-blue-600">
+                                {bonus.assetCount} assets •{" "}
+                                {bonus.bonusPercentage}% bonus
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bonus Calculation Note */}
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+                    <div className="text-sm text-amber-800">
+                      <p className="font-medium mb-1">How Bonuses Work:</p>
                       <p>
-                        You have €
-                        {futureBonuses
-                          .reduce((sum, bonus) => sum + bonus.amount, 0)
-                          .toFixed(2)}{" "}
-                        in potential bonuses from {futureBonuses.length}{" "}
-                        incomplete allocation lists. These will be credited when
-                        the lists are completed in future months.
+                        <strong>Included Now:</strong> Bonuses from allocation
+                        lists that were completed this month (whether created
+                        this month or in previous months).
+                        <br />
+                        <strong>Coming Later:</strong> Bonuses from incomplete
+                        allocation lists will be credited when those lists are
+                        completed in future months.
                       </p>
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Bank Details Form */}
               <div className="space-y-4">

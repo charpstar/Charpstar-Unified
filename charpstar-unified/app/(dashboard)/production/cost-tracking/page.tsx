@@ -923,7 +923,7 @@ export default function CostTrackingPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 text-right justify-center">
                           <Euro className="h-3 w-3 text-muted-foreground" />
                           <span className="font-bold">
                             €{month.totalSpent.toFixed(2)}
@@ -931,7 +931,7 @@ export default function CostTrackingPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 text-right justify-center">
                           <Euro className="h-3 w-3 text-green-600" />
                           <span className="font-medium text-green-700">
                             €{month.completedCost.toFixed(2)}
@@ -939,7 +939,7 @@ export default function CostTrackingPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 text-right justify-center">
                           <Euro className="h-3 w-3 text-amber-600" />
                           <span className="font-medium text-amber-700">
                             €{month.pendingCost.toFixed(2)}
@@ -1294,7 +1294,7 @@ export default function CostTrackingPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-right justify-center">
                         <Euro className="h-3 w-3 text-muted-foreground" />
                         <span className="font-medium">
                           €{modeler.baseCost.toFixed(2)}
@@ -1302,7 +1302,7 @@ export default function CostTrackingPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-right justify-center">
                         <Euro className="h-3 w-3 text-muted-foreground" />
                         <span className="font-medium">
                           €{modeler.bonusCost.toFixed(2)}
@@ -1310,7 +1310,7 @@ export default function CostTrackingPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-right justify-center">
                         <Euro className="h-3 w-3 text-muted-foreground" />
                         <span className="font-bold text-lg">
                           €{modeler.totalCost.toFixed(2)}
@@ -1318,7 +1318,7 @@ export default function CostTrackingPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-right justify-center">
                         <Euro className="h-3 w-3 text-green-600" />
                         <span className="font-medium text-green-700">
                           €{modeler.completedCost.toFixed(2)}
@@ -1326,7 +1326,7 @@ export default function CostTrackingPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-right justify-center">
                         <Euro className="h-3 w-3 text-amber-600" />
                         <span className="font-medium text-amber-700">
                           €{modeler.pendingCost.toFixed(2)}
@@ -1434,7 +1434,7 @@ export default function CostTrackingPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-right justify-center">
                         <Euro className="h-3 w-3 text-muted-foreground" />
                         <span className="font-medium">
                           €{asset.price.toFixed(2)}
@@ -1450,7 +1450,7 @@ export default function CostTrackingPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-right justify-center">
                         <Euro className="h-3 w-3 text-muted-foreground" />
                         <span className="font-bold">
                           €{asset.total_cost.toFixed(2)}

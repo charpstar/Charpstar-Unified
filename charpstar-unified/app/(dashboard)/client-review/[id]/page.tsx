@@ -1220,6 +1220,7 @@ export default function ReviewPage() {
   };
 
   // Handle reference image uploads
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleUploadReferenceImages = async (files: FileList) => {
     try {
       const uploadPromises = Array.from(files).map(async (file) => {

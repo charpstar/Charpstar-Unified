@@ -162,7 +162,7 @@ export default function ModelerReviewPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dimensions state
-  const [showDimensions, setShowDimensions] = useState(false);
+  const [showDimensions, setShowDimensions] = useState(true);
 
   // Reference image selection and zoom state
   const [selectedReferenceIndex, setSelectedReferenceIndex] = useState<
@@ -535,7 +535,7 @@ export default function ModelerReviewPage() {
         return;
       }
 
-      // Add a small delay to ensure model-viewer is fully mounted
+      // Add a small delay to ensure model-viewer is fully mounted and hotspots are created
       setTimeout(() => {
         if (!modelViewerRef.current) {
           console.warn("❌ Model viewer ref still not available after timeout");
@@ -562,9 +562,15 @@ export default function ModelerReviewPage() {
           const handleLoad = () => {
             console.log("🔧 Model loaded via useEffect event listener");
             setModelLoaded(true);
-            if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
-              initializeDimensions(modelViewer);
-            }
+            // Add a small delay to ensure hotspots are created
+            setTimeout(() => {
+              if (
+                modelViewer.getBoundingBoxCenter &&
+                modelViewer.getDimensions
+              ) {
+                initializeDimensions(modelViewer);
+              }
+            }, 500);
           };
 
           const handleError = (event: any) => {
@@ -623,7 +629,7 @@ export default function ModelerReviewPage() {
         return () => {
           clearInterval(fallbackCheck);
         };
-      }, 100); // Small delay to ensure model-viewer is mounted
+      }, 200); // Increased delay to ensure hotspots are created
     };
 
     setupDimensions();
@@ -1137,6 +1143,8 @@ export default function ModelerReviewPage() {
       const svg = modelViewer.querySelector("#dimLines");
       if (svg) {
         svg.classList.remove("hide");
+        // Also ensure SVG is visible
+        svg.style.display = showDimensions ? "block" : "none";
       }
 
       console.log("✅ Dimensions initialized successfully");
@@ -1285,9 +1293,11 @@ export default function ModelerReviewPage() {
     if (svg instanceof HTMLElement) {
       if (newShowDimensions) {
         svg.classList.remove("hide");
+        svg.style.display = "block";
         console.log("📏 SVG lines shown");
       } else {
         svg.classList.add("hide");
+        svg.style.display = "none";
         console.log("📏 SVG lines hidden");
       }
     }
@@ -1528,6 +1538,16 @@ export default function ModelerReviewPage() {
                   onLoad={() => {
                     console.log("🎯 Model loaded via onLoad event");
                     setModelLoaded(true);
+                    // Add a delay to ensure hotspots are created before initializing dimensions
+                    setTimeout(() => {
+                      if (
+                        modelViewerRef.current &&
+                        modelViewerRef.current.getBoundingBoxCenter &&
+                        modelViewerRef.current.getDimensions
+                      ) {
+                        initializeDimensions(modelViewerRef.current);
+                      }
+                    }, 1000);
                   }}
                 >
                   {hotspots.map(
@@ -1680,7 +1700,6 @@ export default function ModelerReviewPage() {
                       pointerEvents: "none",
                       zIndex: 1000,
                     }}
-                    className="hide"
                   >
                     <defs>
                       <marker
