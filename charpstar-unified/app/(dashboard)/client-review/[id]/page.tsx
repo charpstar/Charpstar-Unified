@@ -31,7 +31,6 @@ import {
   Edit3,
   Upload,
   Image as LucideImage,
-  FileImage,
   Eye,
   Camera,
   MoreVertical,
@@ -3218,43 +3217,6 @@ export default function ReviewPage() {
                   >
                     Reference Images
                   </h4>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const input = document.createElement("input");
-                        input.type = "file";
-                        input.accept = "image/*";
-                        input.multiple = true;
-                        input.onchange = async (e) => {
-                          const files = (e.target as HTMLInputElement).files;
-                          if (files && files.length > 0) {
-                            await handleUploadReferenceImages(files);
-                          }
-                        };
-                        input.click();
-                      }}
-                      className="h-7 px-2 text-xs cursor-pointer"
-                    >
-                      <span className="text-xs text-muted-foreground pr-6">
-                        Upload Image
-                      </span>
-                      <Upload className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowUrlDialog(true)}
-                      className="h-7 px-2 text-xs cursor-pointer"
-                    >
-                      <span className="text-xs text-muted-foreground pr-6">
-                        Add URL
-                      </span>
-                      <FileImage className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
 
                 {/* Carousel of Thumbnails */}
