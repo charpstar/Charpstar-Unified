@@ -91,11 +91,11 @@ export default function CsvUploadPage() {
         .map((row) => row.split(","));
 
       // Validate CSV structure matches template
-      if (rows.length > 0 && rows[0].length < 6) {
+      if (rows.length > 0 && rows[0].length < 1) {
         toast({
           title: "Invalid CSV Format",
           description:
-            "CSV must have at least 6 columns: Article ID, Product Name, product_link, glb_link, Category, Subcategory",
+            "CSV must have at least 1 column. All fields are optional and can be empty.",
           variant: "destructive",
         });
         return;
@@ -183,8 +183,8 @@ export default function CsvUploadPage() {
     let failCount = 0;
 
     for (const row of rows) {
-      // Skip empty rows (check first 3 required fields)
-      if (!row[0]?.trim() && !row[1]?.trim() && !row[2]?.trim()) continue;
+      // Skip completely empty rows (all fields empty)
+      if (row.every((cell) => !cell?.trim())) continue;
 
       const [
         article_id,
@@ -195,23 +195,15 @@ export default function CsvUploadPage() {
         subcategory,
       ] = row;
 
-      // Validate required fields
-      if (
-        !article_id?.trim() ||
-        !product_name?.trim() ||
-        !product_link?.trim() ||
-        !glb_link?.trim()
-      ) {
-        failCount++;
-        continue;
-      }
+      // All fields are optional - no validation needed
+      // Proceed with insert even if fields are empty
 
       const { error } = await supabase.from("onboarding_assets").insert({
         client,
-        article_id: article_id.trim(),
-        product_name: product_name.trim(),
-        product_link: product_link.trim(),
-        glb_link: glb_link.trim(), // Use the actual glb_link from CSV
+        article_id: article_id?.trim() || null,
+        product_name: product_name?.trim() || null,
+        product_link: product_link?.trim() || null,
+        glb_link: glb_link?.trim() || null,
         category: category?.trim() || null,
         subcategory: subcategory?.trim() || null,
         reference: null, // No reference column in template
@@ -318,7 +310,8 @@ export default function CsvUploadPage() {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Upload your product data to get started with your 3D asset library.
             The template includes: Article ID, Product Name, product_link,
-            glb_link, Category, and Subcategory.
+            glb_link, Category, and Subcategory. All fields are optional and can
+            be empty.
           </p>
         </div>
       </div>
@@ -395,7 +388,7 @@ export default function CsvUploadPage() {
                   <p className="text-muted-foreground">
                     Get the CSV template with the correct column structure:
                     Article ID, Product Name, product_link, glb_link, Category,
-                    Subcategory
+                    Subcategory. All fields are optional and can be empty.
                   </p>
                 </div>
               </div>
