@@ -778,8 +778,8 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="h-full flex items-center justify-center bg-background dark:from-gray-900 dark:to-gray-800 p-4 overflow-y-hidden">
-      <Card className="p-8 max-w-2xl w-full">
+    <div className="min-h-screen flex items-center justify-center bg-background dark:from-gray-900 dark:to-gray-800 p-4">
+      <Card className="p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="text-center mb-6">
           <UserPlus className="h-12 w-12 text-info mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Welcome to CharpstAR</h1>
