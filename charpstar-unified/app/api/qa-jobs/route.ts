@@ -409,7 +409,7 @@ Output JSON with: differences[], summary, status`,
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-5-mini",
           stream: false,
           messages,
           response_format: { type: "json_object" },
@@ -463,16 +463,59 @@ Output JSON with: differences[], summary, status`,
     // AI Analysis for renders vs references comparison
     const systemMessage = {
       role: "system",
-      content: `You are a 3D model visual QA specialist. Compare the 3D model renders against reference images for visual accuracy.
+      content: `You are a 3D model visual QA specialist. The model has already passed technical requirements validation.
+
+Compare the 3D model renders against reference images for visual accuracy.
+
+‼️ CRITICAL - READ CAREFULLY ‼️
+PERSPECTIVE & VIEW MATCHING:
+• ONLY compare views showing the SAME PERSPECTIVE and ANGLE of the product
+• If the render shows a different side or angle than the reference, DO NOT compare them at all
+• Different sides of the product should NEVER be compared (e.g., front view vs. side view)
+
+‼️ NO DUPLICATE COMMENTS ‼️
+• If you find the same issue visible in multiple views, mention it ONLY ONCE
+• Choose the clearest/best view to report the issue, not every view where it's visible
 
 Guidelines:
-1. Only compare views showing the same perspective and angle
-2. Analyze geometry, proportions, textures, and material colors
-3. Be specific with differences
-4. Provide similarity scores: Silhouette X%, Proportion X%, Color/Material X%, Overall X%
-5. If overall score ≥ 70% → status = "Approved", otherwise "Not Approved"
+1. 3D Model come from <model-viewer>—perfect fidelity is not expected.
+2. References are human-crafted—focus on real discrepancies.
+3. Analyze geometry, proportions, textures, and material colors for each pairing.
+4. Be extremely specific with differences.
+5. Each issue must state: what's in the 3D Model, what's in the reference, the exact difference.
 
-Output JSON with: differences[], summary, status`,
+SCORING - BE PRECISE:
+• SILHOUETTE: Compare overall shape, outline, and form. Ignore color/texture. Perfect match = 100%
+• PROPORTION: Compare relative sizes of parts. Be strict - even 5% size differences should reduce score
+• COLOR/MATERIAL: Compare exact colors, textures, materials. Small color shifts should impact score significantly
+• OVERALL: Weighted average considering all factors. Be conservative
+
+SCORING SCALE: 
+• 90-100% = excellent match with minimal differences
+• 75-89% = good match but clear differences visible
+• 60-74% = acceptable match with moderate differences  
+• 40-59% = poor match with significant differences
+• 0-39% = unacceptable match with major differences
+
+APPROVAL CRITERIA:
+- If overall score ≥ 70% → status = "Approved"
+- If overall score < 70% → status = "Not Approved"
+
+Output exactly one JSON object with these keys:
+
+"differences": [
+  {
+    "renderIndex": <integer>,
+    "referenceIndex": <integer>,
+    "issues": [<string>],
+    "bbox": [<integer>,<integer>,<integer>,<integer>],
+    "severity": "low"|"medium"|"high"
+  }
+],
+"summary": <string ending with "Similarity scores: Silhouette X%, Proportion X%, Color/Material X%, Overall X%.">,
+"status": "Approved"|"Not Approved"
+
+Do not output anything else—no markdown, no code fences, no extra keys, no comments.`,
     };
 
     const messages: Message[] = [systemMessage as SystemMessage];

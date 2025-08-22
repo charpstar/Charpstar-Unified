@@ -70,7 +70,6 @@ import {
 import { notificationService } from "@/lib/notificationService";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
-import HiddenModelViewer from "@/components/automated-qa/HiddenModelViewer";
 
 interface BatchAsset {
   id: string;
@@ -985,91 +984,8 @@ export default function BatchDetailPage() {
 
       toast.success("GLB file uploaded successfully!");
 
-      // Trigger automated QA after successful upload
-      try {
-        console.log("🎯 Triggering automated QA for asset:", assetId);
-        setQaRunningForAsset(assetId);
-        setQaStatus((prev) => ({
-          ...prev,
-          [assetId]: "Starting automated QA...",
-        }));
-
-        // Get reference images for this asset
-        const asset = allocationLists
-          .flatMap((list) => list.assets)
-          .find((a) => a.id === assetId);
-
-        if (asset?.reference && asset.reference.length > 0) {
-          // Update the asset with the new GLB link
-          const updatedAsset = {
-            ...asset,
-            glb_link: urlData.publicUrl,
-          };
-
-          // Start automated QA process with screenshot capture
-          console.log(
-            "🎯 Setting currentQAAsset with GLB link:",
-            urlData.publicUrl
-          );
-          setCurrentQAAsset(updatedAsset);
-          setQaStatus((prev) => ({
-            ...prev,
-            [assetId]: "Capturing screenshots...",
-          }));
-
-          // Trigger screenshot capture
-          if (
-            hiddenModelViewerRef &&
-            hiddenModelViewerRef.startCaptureProcess
-          ) {
-            try {
-              await hiddenModelViewerRef.startCaptureProcess();
-            } catch (error) {
-              console.error("Screenshot capture failed:", error);
-              setQaError((prev) => ({
-                ...prev,
-                [assetId]: "Screenshot capture failed",
-              }));
-            }
-          } else {
-            console.error("Hidden model viewer not ready");
-            setQaError((prev) => ({
-              ...prev,
-              [assetId]: "Screenshot capture not available",
-            }));
-          }
-        }
-
-        // If no references, show upload dialog
-        if (!asset?.reference || asset.reference.length === 0) {
-          console.log("⚠️ No reference images available for automated QA");
-          setQaStatus((prev) => ({
-            ...prev,
-            [assetId]: "No reference images for QA",
-          }));
-
-          // Show reference upload dialog
-          if (asset) {
-            console.log(
-              "🎯 Opening reference upload dialog for asset:",
-              asset.id
-            );
-            setAssetForReferenceUpload(asset);
-            setShowReferenceUploadDialog(true);
-            toast.info(
-              "No reference images found. Please upload reference images to enable QA."
-            );
-          } else {
-            console.log("❌ Asset not found for reference upload dialog");
-          }
-        }
-      } catch (qaError) {
-        console.error("❌ Error starting automated QA:", qaError);
-        setQaError((prev) => ({ ...prev, [assetId]: "QA error occurred" }));
-        // Don't fail the upload if QA fails
-      } finally {
-        setQaRunningForAsset(null);
-      }
+      // Automatically redirect to the modeler-review page
+      router.push(`/modeler-review/${assetId}`);
 
       // Refresh the assets list
       fetchBatchAssets();
@@ -1942,7 +1858,7 @@ export default function BatchDetailPage() {
                                   <TableHead className="w-24 py-2">
                                     Asset
                                   </TableHead>
-                                  <TableHead className="w-20 py-2">
+                                  <TableHead className="w-24 py-2">
                                     Actions
                                   </TableHead>
                                 </TableRow>
@@ -1978,6 +1894,12 @@ export default function BatchDetailPage() {
                                             ? "Approved"
                                             : asset.status}
                                         </Badge>
+                                        {asset.glb_link && (
+                                          <div
+                                            className="w-2 h-2 bg-green-500 rounded-full"
+                                            title="3D Model Available"
+                                          />
+                                        )}
                                       </div>
                                     </TableCell>
                                     <TableCell className="py-2">
@@ -2142,18 +2064,25 @@ export default function BatchDetailPage() {
                                     </TableCell>
                                     <TableCell className="py-2">
                                       <div className="flex flex-col items-center gap-1">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="w-full h-6 px-2 text-xs hover:text-purple-700 hover:underline"
-                                          onClick={() =>
-                                            router.push(
-                                              `/modeler-review/${asset.id}`
-                                            )
-                                          }
-                                        >
-                                          <Eye className="h-4 w-4 mr-1" />
-                                        </Button>
+                                        {asset.glb_link ? (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="w-full h-6 px-2 text-xs hover:text-purple-700 hover:underline"
+                                            onClick={() =>
+                                              router.push(
+                                                `/modeler-review/${asset.id}`
+                                              )
+                                            }
+                                          >
+                                            <Eye className="h-4 w-4 mr-1" />
+                                            View
+                                          </Button>
+                                        ) : (
+                                          <div className="text-xs text-muted-foreground px-2 py-1">
+                                            No 3D Model
+                                          </div>
+                                        )}
 
                                         <Button
                                           variant="ghost"
@@ -2168,26 +2097,6 @@ export default function BatchDetailPage() {
                                         >
                                           <Link2 className="h-4 w-4 mr-1" />
                                         </Button>
-
-                                        {/* Run QA Button for assets with GLB files */}
-                                        {asset.glb_link && (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="w-full h-6 px-2 text-xs hover:text-green-700 hover:underline"
-                                            onClick={() => handleRunQA(asset)}
-                                            disabled={
-                                              qaRunningForAsset === asset.id
-                                            }
-                                          >
-                                            {qaRunningForAsset === asset.id ? (
-                                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                            ) : (
-                                              <BarChart3 className="h-3 w-3 mr-1" />
-                                            )}
-                                            QA
-                                          </Button>
-                                        )}
 
                                         {/* Upload References Button for assets without reference images */}
                                         {(!asset.reference ||
@@ -2770,17 +2679,6 @@ export default function BatchDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Hidden Model Viewer for Screenshot Capture */}
-      {currentQAAsset?.glb_link && (
-        <HiddenModelViewer
-          ref={hiddenModelViewerRef}
-          glbUrl={currentQAAsset.glb_link}
-          onScreenshotsCaptured={handleScreenshotsCaptured}
-          onError={handleQAError}
-          onStatusUpdate={handleQAStatusUpdate}
-        />
-      )}
     </div>
   );
 }

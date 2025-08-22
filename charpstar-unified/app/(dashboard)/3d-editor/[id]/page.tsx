@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/containers";
 import { Layers, Box, Palette } from "lucide-react";
 import React from "react";
+import { log } from "node:console";
 
 export default function ClientPage() {
   const params = useParams();
@@ -105,7 +106,7 @@ export default function ClientPage() {
     ) {
       try {
         const structure = modelViewerRef.current.getModelStructure();
-
+        console.log("structure", structure);
         if (structure) {
           setModelStructure(structure);
           return true;

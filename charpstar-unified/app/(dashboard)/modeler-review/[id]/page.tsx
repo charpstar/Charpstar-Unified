@@ -35,7 +35,6 @@ import Script from "next/script";
 import { toast } from "sonner";
 import Image from "next/image";
 import ModelStatisticsCard from "@/components/ModelStatisticsCard";
-import HiddenModelViewer from "@/components/automated-qa/HiddenModelViewer";
 
 import "./annotation-styles.css";
 
@@ -279,7 +278,6 @@ export default function ModelerReviewPage() {
           .single();
 
         if (error) {
-          console.error("Error fetching asset:", error);
           toast.error("Failed to load asset");
           return;
         }
@@ -308,7 +306,6 @@ export default function ModelerReviewPage() {
 
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching asset:", error);
         toast.error("Failed to load asset");
         setLoading(false);
       }
@@ -316,6 +313,74 @@ export default function ModelerReviewPage() {
 
     fetchAsset();
   }, [assetId]);
+
+  // Function to fetch the model structure (like in working code)
+  const fetchModelStructure = () => {
+    setModelLoaded(true);
+
+    if (
+      modelViewerRef.current &&
+      typeof modelViewerRef.current.getModelStructure === "function"
+    ) {
+      try {
+        const structure = modelViewerRef.current.getModelStructure();
+        setModelStructure(structure);
+
+        // Add a delay to ensure hotspots are created before initializing dimensions
+        setTimeout(() => {
+          if (
+            modelViewerRef.current &&
+            modelViewerRef.current.getBoundingBoxCenter &&
+            modelViewerRef.current.getDimensions
+          ) {
+            initializeDimensions(modelViewerRef.current);
+          }
+        }, 1000);
+      } catch (error) {
+        // Error fetching model structure
+      }
+    } else {
+      // modelViewer or getModelStructure method not available
+    }
+  };
+
+  // Set up a MutationObserver to detect when model-viewer element is loaded (like in working code)
+  useEffect(() => {
+    const setupModelViewer = () => {
+      const modelViewer = document.querySelector("model-viewer");
+      if (modelViewer) {
+        modelViewerRef.current = modelViewer;
+
+        if (modelViewer.getAttribute("src")) {
+          fetchModelStructure();
+        }
+
+        modelViewer.addEventListener("load", fetchModelStructure);
+      }
+    };
+
+    setupModelViewer();
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.addedNodes.length) {
+          const modelViewer = document.querySelector("model-viewer");
+          if (modelViewer && !modelViewerRef.current) {
+            setupModelViewer();
+          }
+        }
+      });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      if (modelViewerRef.current) {
+        modelViewerRef.current.removeEventListener("load", fetchModelStructure);
+      }
+    };
+  }, []);
 
   // Fetch annotations
   useEffect(() => {
@@ -328,11 +393,9 @@ export default function ModelerReviewPage() {
 
         if (response.ok) {
           setAnnotations(data.annotations || []);
-        } else {
-          console.error("Error fetching annotations:", data.error);
         }
       } catch (error) {
-        console.error("Error fetching annotations:", error);
+        // Error fetching annotations
       }
     }
 
@@ -371,12 +434,12 @@ export default function ModelerReviewPage() {
         });
 
         if (error) {
-          console.error("Error fetching comments:", error);
+          // Error fetching comments
         } else {
           setComments(data || []);
         }
       } catch (error) {
-        console.error("Error fetching comments:", error);
+        // Error fetching comments
       }
     }
 
@@ -395,7 +458,6 @@ export default function ModelerReviewPage() {
         .order("uploaded_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching GLB history:", error);
         if (error.code === "42P01") {
           setGlbHistory([]);
           return;
@@ -404,23 +466,7 @@ export default function ModelerReviewPage() {
       }
 
       setGlbHistory(data || []);
-
-      // Debug logging to help understand the data
-      if (data && data.length > 0) {
-        console.log("GLB History loaded:", data.length, "items");
-        console.log("Current asset GLB link:", asset?.glb_link);
-        data.forEach((item, index) => {
-          console.log(`Item ${index}:`, {
-            id: item.id,
-            file_name: item.file_name,
-            glb_url: item.glb_url,
-            isCurrent: asset?.glb_link === item.glb_url,
-            uploaded_at: item.uploaded_at,
-          });
-        });
-      }
     } catch (error) {
-      console.error("Error fetching GLB history:", error);
       setGlbHistory([]);
     }
   };
@@ -441,9 +487,7 @@ export default function ModelerReviewPage() {
         .like("file_name", "Current_%");
 
       if (cleanupError) {
-        console.error("Error cleaning up GLB history:", cleanupError);
-      } else {
-        console.log("Cleaned up old GLB history entries");
+        // Error cleaning up GLB history
       }
 
       // Now handle potential duplicate URLs - keep only the most recent entry for each unique URL
@@ -454,10 +498,6 @@ export default function ModelerReviewPage() {
         .order("uploaded_at", { ascending: false });
 
       if (fetchError) {
-        console.error(
-          "Error fetching current history for cleanup:",
-          fetchError
-        );
         return;
       }
 
@@ -485,14 +525,7 @@ export default function ModelerReviewPage() {
                 .in("id", idsToDelete);
 
               if (deleteError) {
-                console.error(
-                  "Error deleting duplicate GLB history entries:",
-                  deleteError
-                );
-              } else {
-                console.log(
-                  `Cleaned up ${idsToDelete.length} duplicate entries for URL: ${url}`
-                );
+                // Error deleting duplicate GLB history entries
               }
             }
           }
@@ -502,7 +535,7 @@ export default function ModelerReviewPage() {
       // Refresh the history after cleanup
       await fetchGlbHistory();
     } catch (error) {
-      console.error("Error during GLB history cleanup:", error);
+      // Error during GLB history cleanup
     }
   };
 
@@ -521,7 +554,7 @@ export default function ModelerReviewPage() {
       const deps = json.dependencies || [];
       setDependencies(deps);
     } catch (e) {
-      console.error("Failed to fetch dependencies", e);
+      // Failed to fetch dependencies
     }
   };
 
@@ -532,44 +565,30 @@ export default function ModelerReviewPage() {
   // Dimensions setup effect
   useEffect(() => {
     if (!asset?.glb_link || !modelViewerRef.current) {
-      console.log("⏳ Waiting for asset GLB link or model viewer ref");
       return;
     }
 
     const setupDimensions = () => {
-      console.log("🔧 Setting up dimensions...");
-
       if (!modelViewerRef.current) {
-        console.warn("❌ Model viewer ref not available yet");
         return;
       }
 
       // Add a small delay to ensure model-viewer is fully mounted and hotspots are created
       setTimeout(() => {
         if (!modelViewerRef.current) {
-          console.warn("❌ Model viewer ref still not available after timeout");
           return;
         }
 
         const modelViewer = modelViewerRef.current;
 
-        console.log("🎯 Model viewer ref available, checking model state...");
-        console.log("🔍 Model loaded state:", modelLoaded);
-        console.log("🔍 Model viewer model:", modelViewer.model);
-        console.log("🔍 Model viewer loaded:", modelViewer.loaded);
-
         // Check if model is already loaded
         if (modelViewer.model || modelViewer.loaded) {
-          console.log("🚀 Model already loaded, initializing immediately");
           if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
             initializeDimensions(modelViewer);
           }
         } else if (typeof modelViewer.addEventListener === "function") {
-          console.log("📡 Model not loaded yet, adding event listeners");
-
           // Listen for model load events
           const handleLoad = () => {
-            console.log("🔧 Model loaded via useEffect event listener");
             setModelLoaded(true);
             // Add a small delay to ensure hotspots are created
             setTimeout(() => {
@@ -583,14 +602,11 @@ export default function ModelerReviewPage() {
           };
 
           const handleError = (event: any) => {
-            console.error("❌ Model loading error:", event);
+            // Model loading error
           };
 
           const handleProgress = (event: any) => {
-            console.log(
-              "📈 Model loading progress:",
-              event.detail?.totalProgress || "unknown"
-            );
+            // Model loading progress
           };
 
           modelViewer.addEventListener("load", handleLoad);
@@ -608,16 +624,11 @@ export default function ModelerReviewPage() {
               modelViewer.removeEventListener("progress", handleProgress);
             }
           };
-        } else {
-          console.warn("❌ Model viewer methods not available yet");
         }
 
         // Fallback: Force model loaded state after 3 seconds if events are missed
         const fallbackCheck = setInterval(() => {
           if (modelViewer && (modelViewer.model || modelViewer.loaded)) {
-            console.log(
-              "⚡ Fallback: Model detected as loaded, clearing interval"
-            );
             setModelLoaded(true);
             if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
               initializeDimensions(modelViewer);
@@ -628,9 +639,6 @@ export default function ModelerReviewPage() {
 
         // Clear fallback after 3 seconds max
         setTimeout(() => {
-          console.log(
-            "⏰ Fallback timeout reached, forcing model loaded state"
-          );
           setModelLoaded(true);
           clearInterval(fallbackCheck);
         }, 3000);
@@ -699,7 +707,7 @@ export default function ModelerReviewPage() {
       mv.cameraOrbit = `45deg 60deg ${distance}m`;
       mv.play?.();
     } catch (err) {
-      console.warn("Failed to move camera to hotspot:", err);
+      // Failed to move camera to hotspot
     }
   };
 
@@ -935,12 +943,41 @@ export default function ModelerReviewPage() {
       setQaJobId(data.qaJobId);
       setQaStatus("QA job created. Starting screenshot capture...");
 
-      // Trigger screenshot capture using hidden model viewer
-      if (hiddenViewerRef.current?.startCaptureProcess) {
-        await hiddenViewerRef.current.startCaptureProcess();
-      } else {
-        throw new Error("Hidden model viewer not ready");
+      // Capture screenshots using existing model viewer
+      const screenshots = await captureScreenshots();
+
+      // Process screenshots (convert to files and upload)
+      const screenshotFiles: File[] = [];
+      for (let i = 0; i < screenshots.length; i++) {
+        const response = await fetch(screenshots[i]);
+        const blob = await response.blob();
+        const file = new File([blob], `screenshot_${i + 1}.png`, {
+          type: "image/png",
+        });
+        screenshotFiles.push(file);
       }
+
+      // Upload screenshots
+      const uploadedUrls: string[] = [];
+      for (const file of screenshotFiles) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to upload screenshot");
+        }
+
+        const uploadData = await uploadResponse.json();
+        uploadedUrls.push(uploadData.url);
+      }
+
+      // Call the screenshots captured handler
+      await handleScreenshotsCaptured(uploadedUrls);
     } catch (error: any) {
       console.error("Automated QA error:", error);
       setQaError(error.message);
@@ -1114,6 +1151,59 @@ export default function ModelerReviewPage() {
 
   const handleQAStatusUpdate = (status: string) => {
     setQaStatus(status);
+  };
+
+  // Function to capture screenshots using the existing model viewer
+  const captureScreenshots = async (): Promise<string[]> => {
+    if (!modelViewerRef.current) {
+      throw new Error("Model viewer not ready");
+    }
+
+    const viewer = modelViewerRef.current;
+    const screenshots: string[] = [];
+
+    // Define camera angles for screenshots
+    const angles = [
+      "0deg 75deg 150%", // Front view
+      "90deg 75deg 150%", // Right view
+      "180deg 75deg 150%", // Back view
+      "270deg 75deg 150%", // Left view
+    ];
+
+    for (let i = 0; i < angles.length; i++) {
+      const angle = angles[i];
+      setQaStatus(`Capturing screenshot ${i + 1}/4...`);
+
+      // Set camera position
+      viewer.setAttribute("camera-orbit", angle);
+
+      // Wait for camera change and render
+      await new Promise<void>((resolve) => {
+        const handleCameraChange = () => {
+          viewer.removeEventListener("camera-change", handleCameraChange);
+          resolve();
+        };
+        viewer.addEventListener("camera-change", handleCameraChange);
+        setTimeout(resolve, 2000); // Fallback timeout
+      });
+
+      // Wait for render to complete
+      await new Promise((r) =>
+        requestAnimationFrame(() => requestAnimationFrame(r))
+      );
+      await new Promise((r) => setTimeout(r, 500));
+
+      try {
+        // Capture screenshot
+        await viewer.updateComplete;
+        const dataUrl = viewer.toDataURL("image/png", 1.0);
+        screenshots.push(dataUrl);
+      } catch (err) {
+        throw new Error(`Failed to capture screenshot ${i + 1}: ${err}`);
+      }
+    }
+
+    return screenshots;
   };
 
   const updateAssetStatus = async (newStatus: string) => {
@@ -1734,7 +1824,7 @@ export default function ModelerReviewPage() {
           <div className="flex-1 relative bg-background m-6 rounded-lg shadow-lg border border-border/50">
             <Script
               type="module"
-              src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+              src="/model-viewer.js"
               onLoad={() => {
                 console.log("📦 Model-viewer script loaded successfully");
               }}
@@ -1759,238 +1849,15 @@ export default function ModelerReviewPage() {
                   min-field-of-view="5deg"
                   max-field-of-view="35deg"
                   style={{ width: "100%", height: "100%" }}
-                  onLoad={() => {
-                    console.log("🎯 Model loaded via onLoad event");
-                    setModelLoaded(true);
-
-                    // Get model structure for statistics
-                    if (
-                      modelViewerRef.current &&
-                      modelViewerRef.current.getModelStructure
-                    ) {
-                      try {
-                        const structure =
-                          modelViewerRef.current.getModelStructure();
-                        setModelStructure(structure);
-                        console.log("📊 Model structure loaded for statistics");
-                      } catch (error) {
-                        console.error("Error getting model structure:", error);
-                      }
-                    }
-
-                    // Add a delay to ensure hotspots are created before initializing dimensions
-                    setTimeout(() => {
-                      if (
-                        modelViewerRef.current &&
-                        modelViewerRef.current.getBoundingBoxCenter &&
-                        modelViewerRef.current.getDimensions
-                      ) {
-                        initializeDimensions(modelViewerRef.current);
-                      }
-                    }, 1000);
-                  }}
-                >
-                  {hotspots.map(
-                    (hotspot) =>
-                      hotspot.visible && (
-                        <div
-                          key={hotspot.id}
-                          slot={`hotspot-${hotspot.id}`}
-                          data-position={`${hotspot.position.x} ${hotspot.position.y} ${hotspot.position.z}`}
-                          data-normal="0 1 0"
-                          className={`hotspot-annotation ${
-                            selectedHotspotId === hotspot.id ? "selected" : ""
-                          }`}
-                          style={
-                            {
-                              "--hotspot-color":
-                                selectedHotspotId === hotspot.id
-                                  ? "hsl(220, 100%, 60%)"
-                                  : "hsl(220, 100%, 50%)",
-                            } as React.CSSProperties
-                          }
-                        >
-                          <div
-                            className={`hotspot-marker ${
-                              selectedHotspotId === hotspot.id ? "selected" : ""
-                            }`}
-                            data-annotation={
-                              annotations
-                                .sort(
-                                  (a, b) =>
-                                    new Date(a.created_at).getTime() -
-                                    new Date(b.created_at).getTime()
-                                )
-                                .findIndex((a) => a.id === hotspot.id) + 1
-                            }
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleHotspotSelect(
-                                selectedHotspotId === hotspot.id
-                                  ? null
-                                  : hotspot.id
-                              );
-                            }}
-                          >
-                            {hotspot.image_url ? (
-                              <div className="hotspot-icon">
-                                <Camera className="h-4 w-4 text-white" />
-                              </div>
-                            ) : (
-                              <div className="hotspot-dot"></div>
-                            )}
-                            <div className="hotspot-number">
-                              {annotations
-                                .sort(
-                                  (a, b) =>
-                                    new Date(a.created_at).getTime() -
-                                    new Date(b.created_at).getTime()
-                                )
-                                .findIndex((a) => a.id === hotspot.id) + 1}
-                            </div>
-                          </div>
-
-                          {hotspot.comment && hotspot.comment.trim() && (
-                            <div className="hotspot-comment">
-                              <div className="comment-bubble">
-                                <div className="comment-text">
-                                  {hotspot.comment}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                  )}
-                  {/* Dimension hotspots and lines */}
-                  <button
-                    slot="hotspot-dot+X-Y+Z"
-                    className="dot"
-                    data-position="1 -1 1"
-                    data-normal="1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dim+X-Y"
-                    className="dim"
-                    data-position="1.2 -1.1 0"
-                    data-normal="1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dot+X-Y-Z"
-                    className="dot"
-                    data-position="1 -1 -1"
-                    data-normal="1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dim+X-Z"
-                    className="dim"
-                    data-position="1.2 0 -1.2"
-                    data-normal="1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dot+X+Y-Z"
-                    className="dot"
-                    data-position="1 1 -1"
-                    data-normal="0 1 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dim+Y-Z"
-                    className="dim"
-                    data-position="0 1.1 -1.1"
-                    data-normal="0 1 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dot-X+Y-Z"
-                    className="dot"
-                    data-position="-1 1 -1"
-                    data-normal="0 1 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dim-X-Z"
-                    className="dim"
-                    data-position="-1.2 0 -1.2"
-                    data-normal="-1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dot-X-Y-Z"
-                    className="dot"
-                    data-position="-1 -1 -1"
-                    data-normal="-1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dim-X-Y"
-                    className="dim"
-                    data-position="-1.2 -1.1 0"
-                    data-normal="-1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dot-X-Y+Z"
-                    className="dot"
-                    data-position="-1 -1 1"
-                    data-normal="-1 0 0"
-                  ></button>
-                  <svg
-                    id="dimLines"
-                    width="100%"
-                    height="100%"
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      pointerEvents: "none",
-                      zIndex: 1000,
-                    }}
-                  >
-                    <defs>
-                      <marker
-                        id="arrowhead"
-                        markerWidth="10"
-                        markerHeight="7"
-                        refX="9"
-                        refY="3.5"
-                        orient="auto"
-                      >
-                        <polygon points="0 0, 10 3.5, 0 7" fill="#007bff" />
-                      </marker>
-                    </defs>
-                    <line
-                      className="dimensionLine"
-                      stroke="#007bff"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowhead)"
-                      markerStart="url(#arrowhead)"
-                    />
-                    <line
-                      className="dimensionLine"
-                      stroke="#007bff"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowhead)"
-                      markerStart="url(#arrowhead)"
-                    />
-                    <line
-                      className="dimensionLine"
-                      stroke="#007bff"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowhead)"
-                      markerStart="url(#arrowhead)"
-                    />
-                    <line
-                      className="dimensionLine"
-                      stroke="#007bff"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowhead)"
-                      markerStart="url(#arrowhead)"
-                    />
-                    <line
-                      className="dimensionLine"
-                      stroke="#007bff"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowhead)"
-                      markerStart="url(#arrowhead)"
-                    />
-                  </svg>
-                  {/* @ts-expect-error -- model-viewer is a custom element */}
-                </model-viewer>
+                  onError={(e) => console.error("🚨 Model viewer error:", e)}
+                  onProgress={(e) =>
+                    console.log(
+                      "📈 Model loading progress:",
+                      e.detail.totalProgress
+                    )
+                  }
+                  onLoad={fetchModelStructure}
+                ></model-viewer>
 
                 {/* Model Statistics Card */}
                 <ModelStatisticsCard
@@ -2135,7 +2002,9 @@ export default function ModelerReviewPage() {
                   disabled={
                     asset?.status === "delivered_by_artist" ||
                     statusUpdating ||
-                    automatedQARunning
+                    automatedQARunning ||
+                    !qaResults ||
+                    qaResults.status !== "Approved"
                   }
                   variant={
                     asset?.status === "delivered_by_artist"
@@ -3174,15 +3043,8 @@ export default function ModelerReviewPage() {
 
                     // Debug logging to help identify any issues
                     if (sortedHistory.length > 0) {
-                      console.log("Sorted GLB History for display:");
-                      console.log("Current asset GLB link:", asset?.glb_link);
                       sortedHistory.forEach((item, index) => {
                         const isCurrent = asset?.glb_link === item.glb_url;
-                        console.log(`[${index}] ${item.file_name}:`, {
-                          glb_url: item.glb_url,
-                          isCurrent,
-                          uploaded_at: item.uploaded_at,
-                        });
                       });
                     }
 
@@ -3349,17 +3211,6 @@ export default function ModelerReviewPage() {
           </DialogContent>
         </Dialog>
       </div>
-
-      {/* Hidden Model Viewer for Automated QA */}
-      {asset?.glb_link && (
-        <HiddenModelViewer
-          ref={hiddenViewerRef}
-          glbUrl={asset.glb_link}
-          onScreenshotsCaptured={handleScreenshotsCaptured}
-          onError={handleQAError}
-          onStatusUpdate={handleQAStatusUpdate}
-        />
-      )}
     </>
   );
 }

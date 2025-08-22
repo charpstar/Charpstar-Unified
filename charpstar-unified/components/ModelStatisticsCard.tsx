@@ -67,27 +67,29 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
     let doubleSidedCount = 0;
 
     try {
-      // The model.traverse method doesn't work with model-viewer's model object
-      // Use the UUID-based method directly since it's more reliable
-      return extractGeometryFromUUIDs();
+      // Use the structure-based method first (like in working code)
+      const viaStructure = extractGeometryFromStructure();
+      if (viaStructure.triangles > 0 || viaStructure.vertices > 0)
+        return viaStructure;
+      // Fallback: traverse three.js scene exposed on the element
+      const viaScene = extractGeometryFromThreeScene();
+      return viaScene;
     } catch (error) {
-      console.error("Error extracting geometry stats:", error);
-      // Fallback to UUID-based extraction
-      return extractGeometryFromUUIDs();
+      // Fallback to structure-based extraction
+      const viaStructure = extractGeometryFromStructure();
+      if (viaStructure.triangles > 0 || viaStructure.vertices > 0)
+        return viaStructure;
+      return extractGeometryFromThreeScene();
     }
   };
 
-  // Alternative method: use the getObjectByUuid method with model structure
-  const extractGeometryFromUUIDs = (): {
+  // Alternative method: use the model structure directly (like in working code)
+  const extractGeometryFromStructure = (): {
     triangles: number;
     vertices: number;
     doubleSided: number;
   } => {
-    if (
-      !modelStructure ||
-      !modelViewerRef?.current ||
-      typeof modelViewerRef.current.getObjectByUuid !== "function"
-    ) {
+    if (!modelStructure) {
       return { triangles: 0, vertices: 0, doubleSided: 0 };
     }
 
@@ -96,42 +98,39 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
     let doubleSidedCount = 0;
 
     const traverseStructure = (node: any) => {
-      if (node.type === "Mesh" && node.uuid) {
-        try {
-          const object = modelViewerRef.current.getObjectByUuid(node.uuid);
-          if (object && object.geometry) {
-            const geometry = object.geometry;
-
-            // Count vertices
-            if (geometry.attributes && geometry.attributes.position) {
-              const positionCount = geometry.attributes.position.count;
-              totalVertices += positionCount;
-            }
-
-            // Count triangles
-            if (geometry.index) {
-              // Indexed geometry
-              const triangleCount = geometry.index.count / 3;
-              totalTriangles += triangleCount;
-            } else if (geometry.attributes && geometry.attributes.position) {
-              // Non-indexed geometry
-              const triangleCount = geometry.attributes.position.count / 3;
-              totalTriangles += triangleCount;
-            }
-
-            // Check if material is double-sided
-            if (object.material) {
-              if (Array.isArray(object.material)) {
-                object.material.forEach((mat: any) => {
-                  if (mat.side === 2) doubleSidedCount++;
-                });
-              } else {
-                if (object.material.side === 2) doubleSidedCount++;
-              }
-            }
+      if (node.type === "Mesh") {
+        // Extract geometry info from the structure node
+        if (node.geometry) {
+          // Count vertices
+          if (node.geometry.attributes && node.geometry.attributes.position) {
+            const positionCount = node.geometry.attributes.position.count;
+            totalVertices += positionCount;
           }
-        } catch (error) {
-          console.error(`Error getting object with UUID ${node.uuid}:`, error);
+
+          // Count triangles
+          if (node.geometry.index) {
+            // Indexed geometry
+            const triangleCount = node.geometry.index.count / 3;
+            totalTriangles += triangleCount;
+          } else if (
+            node.geometry.attributes &&
+            node.geometry.attributes.position
+          ) {
+            // Non-indexed geometry
+            const triangleCount = node.geometry.attributes.position.count / 3;
+            totalTriangles += triangleCount;
+          }
+        }
+
+        // Check if material is double-sided
+        if (node.material) {
+          if (Array.isArray(node.material)) {
+            node.material.forEach((mat: any) => {
+              if (mat && mat.side === 2) doubleSidedCount++;
+            });
+          } else {
+            if (node.material && node.material.side === 2) doubleSidedCount++;
+          }
         }
       }
 
@@ -144,8 +143,55 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
 
     traverseStructure(modelStructure);
 
-    return {
+    const result = {
       triangles: Math.floor(totalTriangles),
+      vertices: totalVertices,
+      doubleSided: doubleSidedCount,
+    };
+
+    return result;
+  };
+
+  // Fallback: traverse three.js scene graph for stats
+  const extractGeometryFromThreeScene = (): {
+    triangles: number;
+    vertices: number;
+    doubleSided: number;
+  } => {
+    const viewer: any = modelViewerRef?.current;
+    const root: any = viewer?.scene || viewer?.model?.scene || null;
+    if (!root) return { triangles: 0, vertices: 0, doubleSided: 0 };
+
+    let totalTriangles = 0;
+    let totalVertices = 0;
+    let doubleSidedCount = 0;
+
+    const traverse = (node: any) => {
+      if (!node) return;
+      if (node.isMesh && node.geometry) {
+        const geometry = node.geometry;
+        if (geometry.attributes && geometry.attributes.position) {
+          const count = geometry.attributes.position.count;
+          totalVertices += count;
+          totalTriangles += Math.floor(count / 3);
+        }
+        const material = node.material;
+        if (Array.isArray(material)) {
+          material.forEach((m: any) => {
+            if (m && m.side === 2) doubleSidedCount++;
+          });
+        } else if (material && material.side === 2) {
+          doubleSidedCount++;
+        }
+      }
+      if (node.children && node.children.length) {
+        node.children.forEach((c: any) => traverse(c));
+      }
+    };
+
+    traverse(root);
+    return {
+      triangles: totalTriangles,
       vertices: totalVertices,
       doubleSided: doubleSidedCount,
     };
@@ -168,7 +214,7 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
         return 1;
       }
     } catch (error) {
-      console.error("Error extracting variants count:", error);
+      // Error extracting variants count
     }
 
     return 0;
@@ -176,11 +222,7 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
 
   // Analyze texture quality across all materials
   const analyzeTextureQuality = (): string => {
-    if (
-      !modelStructure ||
-      !modelViewerRef?.current ||
-      typeof modelViewerRef.current.getObjectByUuid !== "function"
-    ) {
+    if (!modelStructure) {
       return "N/A";
     }
 
@@ -188,40 +230,35 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
     let hasTextures = false;
 
     const traverseForTextures = (node: any) => {
-      if (node.type === "Mesh" && node.uuid) {
-        try {
-          const object = modelViewerRef.current.getObjectByUuid(node.uuid);
-          if (object && object.material) {
-            const materials = Array.isArray(object.material)
-              ? object.material
-              : [object.material];
+      if (node.type === "Mesh") {
+        if (node.material) {
+          const materials = Array.isArray(node.material)
+            ? node.material
+            : [node.material];
 
-            materials.forEach((material: any) => {
-              // Check various texture maps
-              const textureMaps = [
-                "map",
-                "normalMap",
-                "roughnessMap",
-                "metalnessMap",
-                "aoMap",
-                "alphaMap",
-              ];
+          materials.forEach((material: any) => {
+            // Check various texture maps
+            const textureMaps = [
+              "map",
+              "normalMap",
+              "roughnessMap",
+              "metalnessMap",
+              "aoMap",
+              "alphaMap",
+            ];
 
-              textureMaps.forEach((mapType) => {
-                const texture = material[mapType];
-                if (texture && texture.image) {
-                  hasTextures = true;
-                  const maxSize = Math.max(
-                    texture.image.width || 0,
-                    texture.image.height || 0
-                  );
-                  textureSizes.add(maxSize);
-                }
-              });
+            textureMaps.forEach((mapType) => {
+              const texture = material[mapType];
+              if (texture && texture.image) {
+                hasTextures = true;
+                const maxSize = Math.max(
+                  texture.image.width || 0,
+                  texture.image.height || 0
+                );
+                textureSizes.add(maxSize);
+              }
             });
-          }
-        } catch (error) {
-          // Continue with other nodes
+          });
         }
       }
 
@@ -249,11 +286,7 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
 
   // Check AO status across all materials
   const analyzeAOStatus = (): string => {
-    if (
-      !modelStructure ||
-      !modelViewerRef?.current ||
-      typeof modelViewerRef.current.getObjectByUuid !== "function"
-    ) {
+    if (!modelStructure) {
       return "Unknown";
     }
 
@@ -261,23 +294,18 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
     let materialsWithAO = 0;
 
     const traverseForAO = (node: any) => {
-      if (node.type === "Mesh" && node.uuid) {
-        try {
-          const object = modelViewerRef.current.getObjectByUuid(node.uuid);
-          if (object && object.material) {
-            const materials = Array.isArray(object.material)
-              ? object.material
-              : [object.material];
+      if (node.type === "Mesh") {
+        if (node.material) {
+          const materials = Array.isArray(node.material)
+            ? node.material
+            : [node.material];
 
-            materials.forEach((material: any) => {
-              totalMaterials++;
-              if (material.aoMap) {
-                materialsWithAO++;
-              }
-            });
-          }
-        } catch (error) {
-          // Continue with other nodes
+          materials.forEach((material: any) => {
+            totalMaterials++;
+            if (material.aoMap) {
+              materialsWithAO++;
+            }
+          });
         }
       }
 
@@ -298,11 +326,7 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
 
   // Check for transformations applied to objects
   const analyzeTransformations = (): string => {
-    if (
-      !modelStructure ||
-      !modelViewerRef?.current ||
-      typeof modelViewerRef.current.getObjectByUuid !== "function"
-    ) {
+    if (!modelStructure) {
       return "Unknown";
     }
 
@@ -312,45 +336,42 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
     let objectCount = 0;
 
     const traverseForTransforms = (node: any) => {
-      if (node.uuid) {
-        try {
-          const object = modelViewerRef.current.getObjectByUuid(node.uuid);
-          if (object) {
-            objectCount++;
+      if (
+        node.type === "Mesh" ||
+        node.type === "Group" ||
+        node.type === "Object3D"
+      ) {
+        objectCount++;
 
-            // Check rotation (quaternion)
-            if (
-              object.quaternion &&
-              (Math.abs(object.quaternion.x) > 0.001 ||
-                Math.abs(object.quaternion.y) > 0.001 ||
-                Math.abs(object.quaternion.z) > 0.001 ||
-                Math.abs(object.quaternion.w - 1) > 0.001)
-            ) {
-              hasRotation = true;
-            }
+        // Check rotation (quaternion)
+        if (
+          node.quaternion &&
+          (Math.abs(node.quaternion.x) > 0.001 ||
+            Math.abs(node.quaternion.y) > 0.001 ||
+            Math.abs(node.quaternion.z) > 0.001 ||
+            Math.abs(node.quaternion.w - 1) > 0.001)
+        ) {
+          hasRotation = true;
+        }
 
-            // Check scale
-            if (
-              object.scale &&
-              (Math.abs(object.scale.x - 1) > 0.001 ||
-                Math.abs(object.scale.y - 1) > 0.001 ||
-                Math.abs(object.scale.z - 1) > 0.001)
-            ) {
-              hasScale = true;
-            }
+        // Check scale
+        if (
+          node.scale &&
+          (Math.abs(node.scale.x - 1) > 0.001 ||
+            Math.abs(node.scale.y - 1) > 0.001 ||
+            Math.abs(node.scale.z - 1) > 0.001)
+        ) {
+          hasScale = true;
+        }
 
-            // Check translation
-            if (
-              object.position &&
-              (Math.abs(object.position.x) > 0.001 ||
-                Math.abs(object.position.y) > 0.001 ||
-                Math.abs(object.position.z) > 0.001)
-            ) {
-              hasTranslation = true;
-            }
-          }
-        } catch (error) {
-          console.error(`Error analyzing transforms for ${node.uuid}:`, error);
+        // Check translation
+        if (
+          node.position &&
+          (Math.abs(node.position.x) > 0.001 ||
+            Math.abs(node.position.y) > 0.001 ||
+            Math.abs(node.position.z) > 0.001)
+        ) {
+          hasTranslation = true;
         }
       }
 
@@ -374,7 +395,7 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
     return transforms.join(", ");
   };
 
-  // Update statistics when model structure changes
+  // Update statistics when model or ref changes, with short polling to handle late-ready scenes
   useEffect(() => {
     if (!modelStructure && !modelViewerRef?.current) {
       setStats({
@@ -391,42 +412,34 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
       return;
     }
 
-    // Add a small delay to ensure the model is fully loaded
-    const updateStats = () => {
+    let attempts = 0;
+    const maxAttempts = 10; // ~10s
+
+    const tick = () => {
+      attempts++;
       try {
-        // Count meshes from structure if available
         const meshCount = modelStructure
           ? countNodes(modelStructure, "Mesh")
           : 0;
-
-        // Extract geometry statistics
         const geometryStats = extractGeometryStats();
-
-        // Extract variants count
         const variantsCount = extractVariantsCount();
 
-        // Count unique materials by traversing the model structure
         const materialNames = new Set<string>();
         if (modelStructure) {
           const countMaterials = (node: any) => {
-            if (node.type === "Mesh" && node.material) {
+            if (node.type === "Mesh" && node.material)
               materialNames.add(node.material);
-            }
-            if (node.children && Array.isArray(node.children)) {
-              for (const child of node.children) {
-                countMaterials(child);
-              }
-            }
+            if (node.children && Array.isArray(node.children))
+              node.children.forEach(countMaterials);
           };
           countMaterials(modelStructure);
         }
 
-        // Analyze additional properties
         const textureQuality = analyzeTextureQuality();
         const aoStatus = analyzeAOStatus();
         const transformations = analyzeTransformations();
 
-        setStats({
+        const next = {
           triangles: geometryStats.triangles,
           vertices: geometryStats.vertices,
           meshes: meshCount,
@@ -436,19 +449,24 @@ const ModelStatisticsCard: React.FC<ModelStatisticsCardProps> = ({
           textureQuality,
           aoStatus,
           transformations,
-        });
-      } catch (error) {
-        console.error("Error calculating model statistics:", error);
+        };
+
+        setStats(next);
+
+        // Stop early if we have meaningful data
+        if (next.triangles > 0 || next.vertices > 0 || next.meshes > 0) return;
+        if (attempts < maxAttempts) setTimeout(tick, 1000);
+      } catch {
+        if (attempts < maxAttempts) setTimeout(tick, 1000);
       }
     };
 
-    // Update immediately
-    updateStats();
+    // kick off
+    setTimeout(tick, 300);
 
-    // Also update after a short delay to catch late-loading data
-    const timeoutId = setTimeout(updateStats, 1000);
-
-    return () => clearTimeout(timeoutId);
+    return () => {
+      attempts = maxAttempts;
+    };
   }, [modelStructure, modelViewerRef]);
 
   // Format numbers with commas
