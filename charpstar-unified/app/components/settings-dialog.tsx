@@ -34,7 +34,6 @@ import {
   Zap,
   Target,
   Palette,
-  RotateCcw,
 } from "lucide-react";
 import {
   Tabs,
@@ -156,6 +155,34 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { withLoading } = useLoadingState();
+
+  // Cleanup effect to ensure body styles are reset when dialog closes
+  useEffect(() => {
+    if (!open) {
+      // Reset any problematic body styles that might have been set
+      document.body.style.pointerEvents = "";
+      document.body.style.overflow = "";
+
+      // Force cleanup of any remaining dialog elements
+      const remainingOverlays = document.querySelectorAll(
+        '[data-slot="dialog-overlay"]'
+      );
+      remainingOverlays.forEach((overlay) => {
+        if (overlay instanceof HTMLElement) {
+          overlay.style.display = "none";
+          overlay.style.pointerEvents = "none";
+        }
+      });
+
+      // Force cleanup of any remaining dialog portals
+      const remainingPortals = document.querySelectorAll("[data-radix-portal]");
+      remainingPortals.forEach((portal) => {
+        if (portal instanceof HTMLElement) {
+          portal.remove();
+        }
+      });
+    }
+  }, [open]);
 
   // Team management state
   const [userRole, setUserRole] = useState<string | undefined>();
@@ -414,21 +441,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     } finally {
       setLoggingOut(false);
     }
-  };
-
-  const handleResetTour = () => {
-    // Clear the tour completion flag from localStorage
-    localStorage.removeItem("client-dashboard-tour-completed");
-
-    // Show success message
-    toast({
-      title: "Tour Reset",
-      description:
-        "The dashboard tour has been reset. It will start again on your next visit.",
-    });
-
-    // Trigger the tour immediately by dispatching a custom event
-    window.dispatchEvent(new CustomEvent("resetDashboardTour"));
   };
 
   const handleAddUser = async (formData: UserFormValues) => {
@@ -724,146 +736,134 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          className="w-full max-w-[98vw] h-[85vh] sm:max-w-6xl max-w-6xl sm:h-[58vh] flex flex-col p-2 sm:p-6"
-          style={{ minWidth: 0 }}
-          onPointerDownOutside={() => {
-            onOpenChange(false);
-          }}
-          onEscapeKeyDown={() => {
-            onOpenChange(false);
-          }}
-        >
-          <VisuallyHidden>
-            <DialogTitle>Settings</DialogTitle>
-          </VisuallyHidden>
+      {open && (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent
+            className="w-full max-w-[98vw] h-[85vh] sm:max-w-6xl max-w-6xl sm:h-[58vh] flex flex-col p-2 sm:p-6"
+            style={{ minWidth: 0 }}
+            onPointerDownOutside={() => {
+              onOpenChange(false);
+            }}
+            onEscapeKeyDown={() => {
+              onOpenChange(false);
+            }}
+          >
+            <VisuallyHidden>
+              <DialogTitle>Settings</DialogTitle>
+            </VisuallyHidden>
 
-          {user ? (
-            <Tabs
-              value={activeTab}
-              onValueChange={handleTabChange}
-              className="w-full flex-1 flex flex-col"
-            >
-              {/* Mobile Dropdown */}
-              <div className="sm:hidden mb-4 pt-15">
-                <Select value={activeTab} onValueChange={handleTabChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a tab" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="account">Account</SelectItem>
-                    {user?.role === "admin" && (
-                      <>
-                        <SelectItem value="team">Team</SelectItem>
-                        <SelectItem value="permissions">Permissions</SelectItem>
-                        <SelectItem value="clients">Clients</SelectItem>
-                        <SelectItem value="3d-editor">3D Editor</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Tabs List (visible only on sm and up) */}
-              <TabsList
-                className={`hidden sm:grid w-full gap-2 ${
-                  user?.role === "admin" ? "grid-cols-5" : "grid-cols-1"
-                }`}
+            {user ? (
+              <Tabs
+                value={activeTab}
+                onValueChange={handleTabChange}
+                className="w-full flex-1 flex flex-col"
               >
-                <TabsTrigger
-                  value="account"
-                  className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-full"
+                {/* Mobile Dropdown */}
+                <div className="sm:hidden mb-4 pt-15">
+                  <Select value={activeTab} onValueChange={handleTabChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a tab" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="account">Account</SelectItem>
+                      {user?.role === "admin" && (
+                        <>
+                          <SelectItem value="team">Team</SelectItem>
+                          <SelectItem value="permissions">
+                            Permissions
+                          </SelectItem>
+                          <SelectItem value="clients">Clients</SelectItem>
+                          <SelectItem value="3d-editor">3D Editor</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Tabs List (visible only on sm and up) */}
+                <TabsList
+                  className={`hidden sm:grid w-full gap-2 ${
+                    user?.role === "admin" ? "grid-cols-5" : "grid-cols-1"
+                  }`}
                 >
-                  <User2 className="w-4 h-5" />
-                  Account
-                </TabsTrigger>
-                {user?.role === "admin" && (
-                  <>
-                    <TabsTrigger
-                      value="team"
-                      className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
-                    >
-                      <Users className="w-4 h-4" />
-                      Team
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="permissions"
-                      className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                      Permissions
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="clients"
-                      className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
-                    >
-                      <Users className="w-4 h-4" />
-                      Clients
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="3d-editor"
-                      className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
-                    >
-                      <Box className="w-4 h-4" />
-                      3D Editor
-                    </TabsTrigger>
-                  </>
-                )}
-              </TabsList>
+                  <TabsTrigger
+                    value="account"
+                    className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-full"
+                  >
+                    <User2 className="w-4 h-5" />
+                    Account
+                  </TabsTrigger>
+                  {user?.role === "admin" && (
+                    <>
+                      <TabsTrigger
+                        value="team"
+                        className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
+                      >
+                        <Users className="w-4 h-4" />
+                        Team
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="permissions"
+                        className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        Permissions
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="clients"
+                        className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
+                      >
+                        <Users className="w-4 h-4" />
+                        Clients
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="3d-editor"
+                        className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
+                      >
+                        <Box className="w-4 h-4" />
+                        3D Editor
+                      </TabsTrigger>
+                    </>
+                  )}
+                </TabsList>
 
-              <div className="flex-1 overflow-y-auto mt-3 sm:mt-6">
-                <TabsContent value="account" className="space-y-6">
-                  <div className="space-y-3 sm:space-y-6  px-1  text-xs sm:text-base max-h-[60vh] sm:max-h-[48vh] overflow-y-auto">
-                    {/* Email and Role */}
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-muted-foreground text-xs sm:text-sm">
-                        Email
-                      </Label>
-                      <div className="text-xs sm:text-lg font-medium text-foreground break-all">
-                        {user?.email}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-muted-foreground text-xs sm:text-sm">
-                        Role
-                      </Label>
-                      <div className="text-xs sm:text-base text-foreground capitalize">
-                        {user?.role || "User"}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground text-xs sm:text-sm">
-                        Theme
-                      </Label>
-                      <div className="flex flex-col gap-2">
-                        <EditorThemePicker />
-                      </div>
-                    </div>
-
-                    {/* Reset Tour Guide */}
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground text-xs sm:text-sm">
-                        Help
-                      </Label>
-                      <div className="flex flex-col gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleResetTour}
-                          className="gap-2 cursor-pointer text-xs max-w-[fit-content] sm:text-sm h-8 sm:h-10 px-2 sm:px-4 justify-start "
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                          Reset Dashboard Tour Guide
-                        </Button>
-                        <div className="text-xs text-muted-foreground">
-                          Restart the interactive tour to learn about dashboard
-                          features
+                <div className="flex-1 overflow-y-auto mt-3 sm:mt-6">
+                  <TabsContent value="account" className="space-y-6">
+                    <div className="space-y-3 sm:space-y-6  px-1  text-xs sm:text-base max-h-[60vh] sm:max-h-[48vh] overflow-y-auto">
+                      {/* Email and Role */}
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-muted-foreground text-xs sm:text-sm">
+                          Email
+                        </Label>
+                        <div className="text-xs sm:text-lg font-medium text-foreground break-all">
+                          {user?.email}
                         </div>
                       </div>
-                    </div>
-                    {/* Profile Picture */}
-                    {/* <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-muted-foreground text-xs sm:text-sm">
+                          Role
+                        </Label>
+                        <div className="text-xs sm:text-base text-foreground capitalize">
+                          {user?.role || "User"}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-muted-foreground text-xs sm:text-sm">
+                          Theme
+                        </Label>
+                        <div className="flex flex-col gap-2">
+                          <EditorThemePicker />
+                        </div>
+                      </div>
+
+                      {/* Reset Tour Guide */}
+                      <div className="space-y-2">
+                        <Label className="text-muted-foreground text-xs sm:text-sm">
+                          Help
+                        </Label>
+                      </div>
+                      {/* Profile Picture */}
+                      {/* <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-3">
                         {renderAvatar(
                           user?.avatar_url,
@@ -875,217 +875,352 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </div>
                       </div>
                     </div> */}
-                    {/* Analytics Profile */}
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-muted-foreground mb-1 flex items-center gap-2 text-xs sm:text-sm">
-                        <BarChart3 className="w-4 h-4" /> Analytics Profile
-                      </Label>
-                      {user?.analytics_profile_id ? (
-                        analyticsProfile ? (
-                          <div className="rounded-lg border border-muted p-2 sm:p-3 bg-muted/40">
-                            <div className="text-xs text-muted-foreground">
-                              <span className="font-medium">Dataset ID:</span>{" "}
-                              {analyticsProfile.datasetid}
+                      {/* Analytics Profile */}
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-muted-foreground mb-1 flex items-center gap-2 text-xs sm:text-sm">
+                          <BarChart3 className="w-4 h-4" /> Analytics Profile
+                        </Label>
+                        {user?.analytics_profile_id ? (
+                          analyticsProfile ? (
+                            <div className="rounded-lg border border-muted p-2 sm:p-3 bg-muted/40">
+                              <div className="text-xs text-muted-foreground">
+                                <span className="font-medium">Dataset ID:</span>{" "}
+                                {analyticsProfile.datasetid}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                <span className="font-medium">Table Name:</span>{" "}
+                                {analyticsProfile.tablename}
+                              </div>
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              <span className="font-medium">Table Name:</span>{" "}
-                              {analyticsProfile.tablename}
-                            </div>
-                          </div>
-                        ) : null
-                      ) : (
-                        <div className="text-xs sm:text-sm text-muted-foreground">
-                          No analytics profile assigned
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Theme Settings */}
-
-                    <div className="flex justify-start pt-2 sm:pt-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleLogout}
-                        loading={loggingOut}
-                        loadingText="Logging out..."
-                        className="gap-2 cursor-pointer text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Log Out
-                      </Button>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                {user?.role === "admin" && (
-                  <>
-                    <TabsContent
-                      value="team"
-                      className="space-y-4 sm:space-y-6 h-full"
-                    >
-                      <div className="space-y-4 sm:space-y-6 h-full">
-                        {!userPermissions.view_user_details ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            You don&apos;t have permission to view user details.
-                          </div>
+                          ) : null
                         ) : (
-                          <>
-                            {/* Filters */}
-                            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                              <div className="relative flex-1 w-full">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                                <Input
-                                  placeholder="Search by name or email..."
-                                  value={searchTerm}
-                                  onChange={(e) =>
-                                    setSearchTerm(e.target.value)
-                                  }
-                                  className="pl-9 w-full"
-                                />
-                              </div>
+                          <div className="text-xs sm:text-sm text-muted-foreground">
+                            No analytics profile assigned
+                          </div>
+                        )}
+                      </div>
 
-                              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                                <Select
-                                  value={selectedRole}
-                                  onValueChange={(
-                                    value: (typeof roleOptions)[number]
-                                  ) => setSelectedRole(value)}
-                                >
-                                  <SelectTrigger className="w-full sm:w-[180px] h-10 cursor-pointer">
-                                    <SelectValue placeholder="Select role" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {roleOptions.map((role) => (
-                                      <SelectItem
-                                        key={role}
-                                        value={role}
-                                        className="cursor-pointer"
-                                      >
-                                        {role === "all"
-                                          ? "All Roles"
-                                          : role.charAt(0).toUpperCase() +
-                                            role.slice(1)}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                      {/* Theme Settings */}
 
-                                {userPermissions.add_user && (
-                                  <Dialog
-                                    open={isAddUserDialogOpen}
-                                    onOpenChange={setIsAddUserDialogOpen}
-                                  >
-                                    <DialogTrigger asChild>
-                                      <Button
-                                        variant="default"
-                                        className="whitespace-nowrap h-9 cursor-pointer w-full sm:w-auto"
-                                      >
-                                        <UserPlus className="w-4 h-4 mr-2" />
-                                        Add User
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="sm:max-w-md max-h-[30vh] overflow-y-auto">
-                                      <DialogHeader>
-                                        <DialogTitle>Add New User</DialogTitle>
-                                      </DialogHeader>
-                                      <UserForm
-                                        onSubmit={handleAddUser}
-                                        isLoading={isProcessing}
-                                      />
-                                    </DialogContent>
-                                  </Dialog>
-                                )}
-                              </div>
+                      <div className="flex justify-start pt-2 sm:pt-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleLogout}
+                          loading={loggingOut}
+                          loadingText="Logging out..."
+                          className="gap-2 cursor-pointer text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Log Out
+                        </Button>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  {user?.role === "admin" && (
+                    <>
+                      <TabsContent
+                        value="team"
+                        className="space-y-4 sm:space-y-6 h-full"
+                      >
+                        <div className="space-y-4 sm:space-y-6 h-full">
+                          {!userPermissions.view_user_details ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                              You don&apos;t have permission to view user
+                              details.
                             </div>
+                          ) : (
+                            <>
+                              {/* Filters */}
+                              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                                <div className="relative flex-1 w-full">
+                                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                                  <Input
+                                    placeholder="Search by name or email..."
+                                    value={searchTerm}
+                                    onChange={(e) =>
+                                      setSearchTerm(e.target.value)
+                                    }
+                                    className="pl-9 w-full"
+                                  />
+                                </div>
 
-                            {/* Table for md+ screens */}
-                            <div className="rounded-md border max-h-[65vh] sm:max-h-[42vh] overflow-y-auto w-full overflow-x-auto hidden md:block">
-                              <Table className="min-w-[600px]">
-                                <TableHeader className="sticky top-0 bg-background z-10">
-                                  <TableRow className="bg-muted/50">
-                                    <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                      User
-                                    </TableHead>
-                                    <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                      <span className="flex items-center justify-start gap-2">
-                                        Role
-                                        <Shield className="h-3 w-3 opacity-0" />
-                                      </span>
-                                    </TableHead>
-                                    <TableHead className="font-medium hidden md:table-cell px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                      <span className="flex items-center justify-start gap-2">
-                                        Created
-                                      </span>
-                                    </TableHead>
-                                    {hasActionPermissions && (
-                                      <TableHead className="w-[80px] text-right px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                        Actions
+                                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                  <Select
+                                    value={selectedRole}
+                                    onValueChange={(
+                                      value: (typeof roleOptions)[number]
+                                    ) => setSelectedRole(value)}
+                                  >
+                                    <SelectTrigger className="w-full sm:w-[180px] h-10 cursor-pointer">
+                                      <SelectValue placeholder="Select role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {roleOptions.map((role) => (
+                                        <SelectItem
+                                          key={role}
+                                          value={role}
+                                          className="cursor-pointer"
+                                        >
+                                          {role === "all"
+                                            ? "All Roles"
+                                            : role.charAt(0).toUpperCase() +
+                                              role.slice(1)}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+
+                                  {userPermissions.add_user && (
+                                    <Dialog
+                                      open={isAddUserDialogOpen}
+                                      onOpenChange={setIsAddUserDialogOpen}
+                                    >
+                                      <DialogTrigger asChild>
+                                        <Button
+                                          variant="default"
+                                          className="whitespace-nowrap h-9 cursor-pointer w-full sm:w-auto"
+                                        >
+                                          <UserPlus className="w-4 h-4 mr-2" />
+                                          Add User
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="sm:max-w-md max-h-[30vh] overflow-y-auto">
+                                        <DialogHeader>
+                                          <DialogTitle>
+                                            Add New User
+                                          </DialogTitle>
+                                        </DialogHeader>
+                                        <UserForm
+                                          onSubmit={handleAddUser}
+                                          isLoading={isProcessing}
+                                        />
+                                      </DialogContent>
+                                    </Dialog>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Table for md+ screens */}
+                              <div className="rounded-md border max-h-[65vh] sm:max-h-[42vh] overflow-y-auto w-full overflow-x-auto hidden md:block">
+                                <Table className="min-w-[600px]">
+                                  <TableHeader className="sticky top-0 bg-background z-10">
+                                    <TableRow className="bg-muted/50">
+                                      <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                        User
                                       </TableHead>
-                                    )}
-                                  </TableRow>
-                                </TableHeader>
+                                      <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                        <span className="flex items-center justify-start gap-2">
+                                          Role
+                                          <Shield className="h-3 w-3 opacity-0" />
+                                        </span>
+                                      </TableHead>
+                                      <TableHead className="font-medium hidden md:table-cell px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                        <span className="flex items-center justify-start gap-2">
+                                          Created
+                                        </span>
+                                      </TableHead>
+                                      {hasActionPermissions && (
+                                        <TableHead className="w-[80px] text-right px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                          Actions
+                                        </TableHead>
+                                      )}
+                                    </TableRow>
+                                  </TableHeader>
 
-                                <TableBody>
-                                  {usersLoading ? (
-                                    <TableRow>
-                                      <TableCell
-                                        colSpan={4}
-                                        className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4"
-                                      >
-                                        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                                          <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
-                                          Loading users...
-                                        </div>
-                                      </TableCell>
-                                    </TableRow>
-                                  ) : error ? (
-                                    <TableRow>
-                                      <TableCell
-                                        colSpan={4}
-                                        className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4 text-destructive"
-                                      >
-                                        Error loading users: {error}
-                                      </TableCell>
-                                    </TableRow>
-                                  ) : filteredUsers.length === 0 ? (
-                                    <TableRow>
-                                      <TableCell
-                                        colSpan={hasActionPermissions ? 4 : 3}
-                                        className="text-center text-muted-foreground py-16 px-2 text-xs sm:text-sm sm:px-4"
-                                      >
-                                        <div className="flex flex-col items-center justify-center gap-2">
-                                          <UserCog className="h-12 w-12 text-muted-foreground/50" />
-                                          <p>No users found</p>
-                                        </div>
-                                      </TableCell>
-                                    </TableRow>
-                                  ) : (
-                                    filteredUsers.map((user) => (
-                                      <TableRow
+                                  <TableBody>
+                                    {usersLoading ? (
+                                      <TableRow>
+                                        <TableCell
+                                          colSpan={4}
+                                          className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4"
+                                        >
+                                          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                                            <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
+                                            Loading users...
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    ) : error ? (
+                                      <TableRow>
+                                        <TableCell
+                                          colSpan={4}
+                                          className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4 text-destructive"
+                                        >
+                                          Error loading users: {error}
+                                        </TableCell>
+                                      </TableRow>
+                                    ) : filteredUsers.length === 0 ? (
+                                      <TableRow>
+                                        <TableCell
+                                          colSpan={hasActionPermissions ? 4 : 3}
+                                          className="text-center text-muted-foreground py-16 px-2 text-xs sm:text-sm sm:px-4"
+                                        >
+                                          <div className="flex flex-col items-center justify-center gap-2">
+                                            <UserCog className="h-12 w-12 text-muted-foreground/50" />
+                                            <p>No users found</p>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    ) : (
+                                      filteredUsers.map((user) => (
+                                        <TableRow
+                                          key={user.id}
+                                          className="group transition-colors hover:bg-accent/30 cursor-pointer"
+                                        >
+                                          <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                            <div className="flex items-center gap-3">
+                                              {renderAvatar(
+                                                user.avatar_url,
+                                                user.name
+                                              )}
+                                              <div>
+                                                <p className="font-medium text-sm sm:text-base">
+                                                  {user.name}
+                                                </p>
+                                                <p className="text-xs sm:text-sm text-muted-foreground flex items-center">
+                                                  <Mail className="mr-1 h-3 w-3" />
+                                                  {user.email}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </TableCell>
+
+                                          <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                            <div className="flex items-center gap-2">
+                                              <Badge
+                                                variant={
+                                                  getRoleBadgeVariant(
+                                                    user.role
+                                                  ) as
+                                                    | "default"
+                                                    | "destructive"
+                                                    | "secondary"
+                                                    | "outline"
+                                                    | null
+                                                    | undefined
+                                                }
+                                                className="text-xs sm:text-sm"
+                                              >
+                                                {user.role
+                                                  .charAt(0)
+                                                  .toUpperCase() +
+                                                  user.role.slice(1)}
+                                              </Badge>
+                                              {user.role === "admin" ? (
+                                                <Shield className="h-3 w-3 text-primary" />
+                                              ) : (
+                                                <span className="h-3 w-3" />
+                                              )}
+                                            </div>
+                                          </TableCell>
+
+                                          <TableCell className="hidden md:table-cell text-muted-foreground text-sm align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                            {formatDate(user.created_at)}
+                                          </TableCell>
+
+                                          {hasActionPermissions && (
+                                            <TableCell className="text-right align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                              <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 cursor-pointer"
+                                                  >
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                    <span className="sr-only">
+                                                      Open menu
+                                                    </span>
+                                                  </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                  {userPermissions.edit_user && (
+                                                    <DropdownMenuItem
+                                                      className="cursor-pointer"
+                                                      onClick={() =>
+                                                        handleEditUserClick(
+                                                          user
+                                                        )
+                                                      }
+                                                    >
+                                                      <Pencil className="w-4 h-4 mr-2" />
+                                                      Edit user
+                                                    </DropdownMenuItem>
+                                                  )}
+                                                  {userPermissions.edit_user &&
+                                                    userPermissions.delete_user && (
+                                                      <DropdownMenuSeparator />
+                                                    )}
+                                                  {userPermissions.delete_user && (
+                                                    <DropdownMenuItem
+                                                      className="cursor-pointer text-destructive focus:text-destructive"
+                                                      onClick={() =>
+                                                        handleDeleteUser(
+                                                          user.id
+                                                        )
+                                                      }
+                                                    >
+                                                      <Trash2 className="w-4 h-4 mr-2" />
+                                                      Delete user
+                                                    </DropdownMenuItem>
+                                                  )}
+                                                </DropdownMenuContent>
+                                              </DropdownMenu>
+                                            </TableCell>
+                                          )}
+                                        </TableRow>
+                                      ))
+                                    )}
+                                  </TableBody>
+                                </Table>
+                              </div>
+
+                              {/* Mobile card list */}
+                              <div className="md:hidden space-y-4">
+                                {usersLoading ? (
+                                  <div className="text-center py-8 text-muted-foreground">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
+                                      Loading users...
+                                    </div>
+                                  </div>
+                                ) : error ? (
+                                  <div className="text-center py-8 text-destructive">
+                                    Error loading users: {error}
+                                  </div>
+                                ) : filteredUsers.length === 0 ? (
+                                  <div className="text-center text-muted-foreground py-8">
+                                    <UserCog className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                                    <p>No users found</p>
+                                  </div>
+                                ) : (
+                                  // 🎯 Make only this part scrollable
+                                  <div className="max-h-[40vh] overflow-y-auto space-y-4 pr-1">
+                                    {filteredUsers.map((user) => (
+                                      <Card
                                         key={user.id}
-                                        className="group transition-colors hover:bg-accent/30 cursor-pointer"
+                                        className="cursor-pointer hover:bg-accent/30 transition-colors"
                                       >
-                                        <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                        <CardContent className="p-4 space-y-2">
                                           <div className="flex items-center gap-3">
                                             {renderAvatar(
                                               user.avatar_url,
                                               user.name
                                             )}
-                                            <div>
-                                              <p className="font-medium text-sm sm:text-base">
+                                            <div className="flex flex-col flex-1">
+                                              <p className="font-medium text-base">
                                                 {user.name}
                                               </p>
-                                              <p className="text-xs sm:text-sm text-muted-foreground flex items-center">
-                                                <Mail className="mr-1 h-3 w-3" />
+                                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                <Mail className="h-3 w-3" />
                                                 {user.email}
                                               </p>
                                             </div>
                                           </div>
-                                        </TableCell>
 
-                                        <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                          <div className="flex items-center gap-2">
+                                          <div className="flex flex-wrap items-center gap-2">
                                             <Badge
                                               variant={
                                                 getRoleBadgeVariant(
@@ -1098,259 +1233,140 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                                   | null
                                                   | undefined
                                               }
-                                              className="text-xs sm:text-sm"
+                                              className="text-xs"
                                             >
                                               {user.role
                                                 .charAt(0)
                                                 .toUpperCase() +
                                                 user.role.slice(1)}
                                             </Badge>
-                                            {user.role === "admin" ? (
+                                            {user.role === "admin" && (
                                               <Shield className="h-3 w-3 text-primary" />
-                                            ) : (
-                                              <span className="h-3 w-3" />
                                             )}
+                                            <span className="text-xs text-muted-foreground ml-auto">
+                                              {formatDate(user.created_at)}
+                                            </span>
                                           </div>
-                                        </TableCell>
 
-                                        <TableCell className="hidden md:table-cell text-muted-foreground text-sm align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                          {formatDate(user.created_at)}
-                                        </TableCell>
-
-                                        {hasActionPermissions && (
-                                          <TableCell className="text-right align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                            <DropdownMenu>
-                                              <DropdownMenuTrigger asChild>
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  className="h-8 w-8 p-0 cursor-pointer"
-                                                >
-                                                  <MoreHorizontal className="h-4 w-4" />
-                                                  <span className="sr-only">
-                                                    Open menu
-                                                  </span>
-                                                </Button>
-                                              </DropdownMenuTrigger>
-                                              <DropdownMenuContent align="end">
-                                                {userPermissions.edit_user && (
-                                                  <DropdownMenuItem
-                                                    className="cursor-pointer"
-                                                    onClick={() =>
-                                                      handleEditUserClick(user)
-                                                    }
+                                          {hasActionPermissions && (
+                                            <div className="flex justify-end">
+                                              <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 cursor-pointer"
                                                   >
-                                                    <Pencil className="w-4 h-4 mr-2" />
-                                                    Edit user
-                                                  </DropdownMenuItem>
-                                                )}
-                                                {userPermissions.edit_user &&
-                                                  userPermissions.delete_user && (
-                                                    <DropdownMenuSeparator />
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                    <span className="sr-only">
+                                                      Open menu
+                                                    </span>
+                                                  </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                  {userPermissions.edit_user && (
+                                                    <DropdownMenuItem
+                                                      className="cursor-pointer"
+                                                      onClick={() =>
+                                                        handleEditUserClick(
+                                                          user
+                                                        )
+                                                      }
+                                                    >
+                                                      <Pencil className="w-4 h-4 mr-2" />
+                                                      Edit user
+                                                    </DropdownMenuItem>
                                                   )}
-                                                {userPermissions.delete_user && (
-                                                  <DropdownMenuItem
-                                                    className="cursor-pointer text-destructive focus:text-destructive"
-                                                    onClick={() =>
-                                                      handleDeleteUser(user.id)
-                                                    }
-                                                  >
-                                                    <Trash2 className="w-4 h-4 mr-2" />
-                                                    Delete user
-                                                  </DropdownMenuItem>
-                                                )}
-                                              </DropdownMenuContent>
-                                            </DropdownMenu>
-                                          </TableCell>
-                                        )}
-                                      </TableRow>
-                                    ))
-                                  )}
-                                </TableBody>
-                              </Table>
-                            </div>
-
-                            {/* Mobile card list */}
-                            <div className="md:hidden space-y-4">
-                              {usersLoading ? (
-                                <div className="text-center py-8 text-muted-foreground">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
-                                    Loading users...
+                                                  {userPermissions.edit_user &&
+                                                    userPermissions.delete_user && (
+                                                      <DropdownMenuSeparator />
+                                                    )}
+                                                  {userPermissions.delete_user && (
+                                                    <DropdownMenuItem
+                                                      className="cursor-pointer text-destructive focus:text-destructive"
+                                                      onClick={() =>
+                                                        handleDeleteUser(
+                                                          user.id
+                                                        )
+                                                      }
+                                                    >
+                                                      <Trash2 className="w-4 h-4 mr-2" />
+                                                      Delete user
+                                                    </DropdownMenuItem>
+                                                  )}
+                                                </DropdownMenuContent>
+                                              </DropdownMenu>
+                                            </div>
+                                          )}
+                                        </CardContent>
+                                      </Card>
+                                    ))}
                                   </div>
-                                </div>
-                              ) : error ? (
-                                <div className="text-center py-8 text-destructive">
-                                  Error loading users: {error}
-                                </div>
-                              ) : filteredUsers.length === 0 ? (
-                                <div className="text-center text-muted-foreground py-8">
-                                  <UserCog className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                                  <p>No users found</p>
-                                </div>
-                              ) : (
-                                // 🎯 Make only this part scrollable
-                                <div className="max-h-[40vh] overflow-y-auto space-y-4 pr-1">
-                                  {filteredUsers.map((user) => (
-                                    <Card
-                                      key={user.id}
-                                      className="cursor-pointer hover:bg-accent/30 transition-colors"
-                                    >
-                                      <CardContent className="p-4 space-y-2">
-                                        <div className="flex items-center gap-3">
-                                          {renderAvatar(
-                                            user.avatar_url,
-                                            user.name
-                                          )}
-                                          <div className="flex flex-col flex-1">
-                                            <p className="font-medium text-base">
-                                              {user.name}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                              <Mail className="h-3 w-3" />
-                                              {user.email}
-                                            </p>
-                                          </div>
-                                        </div>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </TabsContent>
 
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <Badge
-                                            variant={
-                                              getRoleBadgeVariant(user.role) as
-                                                | "default"
-                                                | "destructive"
-                                                | "secondary"
-                                                | "outline"
-                                                | null
-                                                | undefined
-                                            }
-                                            className="text-xs"
-                                          >
-                                            {user.role.charAt(0).toUpperCase() +
-                                              user.role.slice(1)}
-                                          </Badge>
-                                          {user.role === "admin" && (
-                                            <Shield className="h-3 w-3 text-primary" />
-                                          )}
-                                          <span className="text-xs text-muted-foreground ml-auto">
-                                            {formatDate(user.created_at)}
-                                          </span>
-                                        </div>
-
-                                        {hasActionPermissions && (
-                                          <div className="flex justify-end">
-                                            <DropdownMenu>
-                                              <DropdownMenuTrigger asChild>
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  className="h-8 w-8 p-0 cursor-pointer"
-                                                >
-                                                  <MoreHorizontal className="h-4 w-4" />
-                                                  <span className="sr-only">
-                                                    Open menu
-                                                  </span>
-                                                </Button>
-                                              </DropdownMenuTrigger>
-                                              <DropdownMenuContent align="end">
-                                                {userPermissions.edit_user && (
-                                                  <DropdownMenuItem
-                                                    className="cursor-pointer"
-                                                    onClick={() =>
-                                                      handleEditUserClick(user)
-                                                    }
-                                                  >
-                                                    <Pencil className="w-4 h-4 mr-2" />
-                                                    Edit user
-                                                  </DropdownMenuItem>
-                                                )}
-                                                {userPermissions.edit_user &&
-                                                  userPermissions.delete_user && (
-                                                    <DropdownMenuSeparator />
-                                                  )}
-                                                {userPermissions.delete_user && (
-                                                  <DropdownMenuItem
-                                                    className="cursor-pointer text-destructive focus:text-destructive"
-                                                    onClick={() =>
-                                                      handleDeleteUser(user.id)
-                                                    }
-                                                  >
-                                                    <Trash2 className="w-4 h-4 mr-2" />
-                                                    Delete user
-                                                  </DropdownMenuItem>
-                                                )}
-                                              </DropdownMenuContent>
-                                            </DropdownMenu>
-                                          </div>
-                                        )}
-                                      </CardContent>
-                                    </Card>
-                                  ))}
-                                </div>
-                              )}
+                      <TabsContent
+                        value="permissions"
+                        className="space-y-6 max-h-[80vh] sm:max-h-[48vh] overflow-y-auto"
+                      >
+                        <div className="space-y-6 h-full overflow-y-auto">
+                          {permissionError ? (
+                            <div className="text-center py-8 text-destructive">
+                              An error occurred while checking permissions:{" "}
+                              {permissionError}
                             </div>
-                          </>
-                        )}
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent
-                      value="permissions"
-                      className="space-y-6 max-h-[80vh] sm:max-h-[48vh] overflow-y-auto"
-                    >
-                      <div className="space-y-6 h-full overflow-y-auto">
-                        {permissionError ? (
-                          <div className="text-center py-8 text-destructive">
-                            An error occurred while checking permissions:{" "}
-                            {permissionError}
-                          </div>
-                        ) : !hasAccess && userRole && !permissionLoading ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            You don&apos;t have permission to access the
-                            permissions page.
-                          </div>
-                        ) : loading || permissionLoading || !userRole ? (
-                          <div className="text-center py-8">
-                            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                              <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
-                              Loading permissions...
+                          ) : !hasAccess && userRole && !permissionLoading ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                              You don&apos;t have permission to access the
+                              permissions page.
                             </div>
-                          </div>
-                        ) : (
-                          <div className="max-h-[70vh] overflow-y-auto space-y-4 p-1">
-                            {/* Page Access */}
-                            <Card className="rounded-xl shadow-sm border border-border">
-                              <CardHeader>
-                                <CardTitle>Page Access</CardTitle>
-                                <CardDescription>
-                                  Control which roles can access each page of
-                                  your app.
-                                </CardDescription>
-                              </CardHeader>
-                              <CardContent className="p-0">
-                                <div className="rounded-md overflow-x-auto w-full">
-                                  <Table className="min-w-[600px]">
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead className="text-right font-bold text-foreground bg-muted">
-                                          <span className="flex items-center justify-start gap-2 pl-0.5">
-                                            Role
-                                          </span>
-                                        </TableHead>
-                                        {pageResources.map((res) => (
-                                          <TableHead
-                                            key={res}
-                                            className="text-center font-bold text-foreground bg-muted"
-                                          >
-                                            {PAGE_LABELS[res] ||
-                                              formatLabel(res)}
+                          ) : loading || permissionLoading || !userRole ? (
+                            <div className="text-center py-8">
+                              <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                                <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
+                                Loading permissions...
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="max-h-[70vh] overflow-y-auto space-y-4 p-1">
+                              {/* Page Access */}
+                              <Card className="rounded-xl shadow-sm border border-border">
+                                <CardHeader>
+                                  <CardTitle>Page Access</CardTitle>
+                                  <CardDescription>
+                                    Control which roles can access each page of
+                                    your app.
+                                  </CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                  <div className="rounded-md overflow-x-auto w-full">
+                                    <Table className="min-w-[600px]">
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead className="text-right font-bold text-foreground bg-muted">
+                                            <span className="flex items-center justify-start gap-2 pl-0.5">
+                                              Role
+                                            </span>
                                           </TableHead>
-                                        ))}
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {Object.keys(groupedPagePermissions).map(
-                                        (role, i) => (
+                                          {pageResources.map((res) => (
+                                            <TableHead
+                                              key={res}
+                                              className="text-center font-bold text-foreground bg-muted"
+                                            >
+                                              {PAGE_LABELS[res] ||
+                                                formatLabel(res)}
+                                            </TableHead>
+                                          ))}
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {Object.keys(
+                                          groupedPagePermissions
+                                        ).map((role, i) => (
                                           <TableRow
                                             key={role}
                                             className={cn(
@@ -1397,283 +1413,288 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                               );
                                             })}
                                           </TableRow>
-                                        )
-                                      )}
-                                    </TableBody>
-                                  </Table>
-                                </div>
-                              </CardContent>
-                            </Card>
-
-                            {/* Feature Access */}
-                            <Card className="rounded-xl shadow-sm border border-border">
-                              <CardHeader>
-                                <CardTitle>Feature Access</CardTitle>
-                                <CardDescription>
-                                  Fine-tune access to app features by role.
-                                </CardDescription>
-                              </CardHeader>
-                              <CardContent className="p-0">
-                                <div className="rounded-md overflow-x-auto w-full">
-                                  <Table className="min-w-[600px]">
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead className="text-left font-bold text-foreground bg-muted">
-                                          Role
-                                        </TableHead>
-                                        {featureResources.map((res) => (
-                                          <TableHead
-                                            key={res}
-                                            className="text-center font-bold text-foreground bg-muted"
-                                          >
-                                            {FEATURE_LABELS[res] ||
-                                              formatLabel(res)}
-                                          </TableHead>
                                         ))}
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {Object.keys(
-                                        groupedFeaturePermissions
-                                      ).map((role, i) => (
-                                        <TableRow
-                                          key={role}
-                                          className={cn(
-                                            i % 2 === 0
-                                              ? "bg-card"
-                                              : "bg-muted",
-                                            "hover:bg-muted transition-colors"
-                                          )}
-                                        >
-                                          <TableCell className="font-medium text-foreground pl-4 whitespace-nowrap">
-                                            {role}
-                                          </TableCell>
-                                          {featureResources.map((res) => {
-                                            const perm =
-                                              groupedFeaturePermissions[
-                                                role
-                                              ]?.find(
-                                                (p) => p.resource === res
-                                              );
-                                            return (
-                                              <TableCell
-                                                key={`${role}-${res}`}
-                                                className="text-center"
-                                              >
-                                                {perm ? (
-                                                  <Switch
-                                                    checked={perm.can_access}
-                                                    onCheckedChange={() =>
-                                                      handleToggle(perm)
-                                                    }
-                                                    disabled={updating}
-                                                    aria-label={
-                                                      perm.can_access
-                                                        ? `Disable ${role} access to ${res}`
-                                                        : `Enable ${role} access to ${res}`
-                                                    }
-                                                  />
-                                                ) : (
-                                                  <span className="text-muted-foreground select-none">
-                                                    –
-                                                  </span>
-                                                )}
-                                              </TableCell>
-                                            );
-                                          })}
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </div>
-                        )}
-                      </div>
-                    </TabsContent>
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                </CardContent>
+                              </Card>
 
-                    <TabsContent value="clients" className="space-y-6">
-                      <div className="rounded-md border max-h-[65vh] sm:max-h-[42vh] overflow-y-auto w-full overflow-x-auto">
-                        <Table className="min-w-[600px]">
-                          <TableHeader className="sticky top-0 bg-background z-10">
-                            <TableRow className="bg-muted/50">
-                              <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                Client
-                              </TableHead>
-                              <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                <span className="flex items-center justify-start gap-2">
-                                  Email
-                                </span>
-                              </TableHead>
-                              <TableHead className="font-medium hidden md:table-cell px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                <span className="flex items-center justify-start gap-2">
-                                  Created
-                                </span>
-                              </TableHead>
-                              <TableHead className="w-[80px] text-right px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                Actions
-                              </TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {clientsLoading ? (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={4}
-                                  className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4"
-                                >
-                                  Loading clients...
-                                </TableCell>
+                              {/* Feature Access */}
+                              <Card className="rounded-xl shadow-sm border border-border">
+                                <CardHeader>
+                                  <CardTitle>Feature Access</CardTitle>
+                                  <CardDescription>
+                                    Fine-tune access to app features by role.
+                                  </CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                  <div className="rounded-md overflow-x-auto w-full">
+                                    <Table className="min-w-[600px]">
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead className="text-left font-bold text-foreground bg-muted">
+                                            Role
+                                          </TableHead>
+                                          {featureResources.map((res) => (
+                                            <TableHead
+                                              key={res}
+                                              className="text-center font-bold text-foreground bg-muted"
+                                            >
+                                              {FEATURE_LABELS[res] ||
+                                                formatLabel(res)}
+                                            </TableHead>
+                                          ))}
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {Object.keys(
+                                          groupedFeaturePermissions
+                                        ).map((role, i) => (
+                                          <TableRow
+                                            key={role}
+                                            className={cn(
+                                              i % 2 === 0
+                                                ? "bg-card"
+                                                : "bg-muted",
+                                              "hover:bg-muted transition-colors"
+                                            )}
+                                          >
+                                            <TableCell className="font-medium text-foreground pl-4 whitespace-nowrap">
+                                              {role}
+                                            </TableCell>
+                                            {featureResources.map((res) => {
+                                              const perm =
+                                                groupedFeaturePermissions[
+                                                  role
+                                                ]?.find(
+                                                  (p) => p.resource === res
+                                                );
+                                              return (
+                                                <TableCell
+                                                  key={`${role}-${res}`}
+                                                  className="text-center"
+                                                >
+                                                  {perm ? (
+                                                    <Switch
+                                                      checked={perm.can_access}
+                                                      onCheckedChange={() =>
+                                                        handleToggle(perm)
+                                                      }
+                                                      disabled={updating}
+                                                      aria-label={
+                                                        perm.can_access
+                                                          ? `Disable ${role} access to ${res}`
+                                                          : `Enable ${role} access to ${res}`
+                                                      }
+                                                    />
+                                                  ) : (
+                                                    <span className="text-muted-foreground select-none">
+                                                      –
+                                                    </span>
+                                                  )}
+                                                </TableCell>
+                                              );
+                                            })}
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="clients" className="space-y-6">
+                        <div className="rounded-md border max-h-[65vh] sm:max-h-[42vh] overflow-y-auto w-full overflow-x-auto">
+                          <Table className="min-w-[600px]">
+                            <TableHeader className="sticky top-0 bg-background z-10">
+                              <TableRow className="bg-muted/50">
+                                <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                  Client
+                                </TableHead>
+                                <TableHead className="font-medium text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                  <span className="flex items-center justify-start gap-2">
+                                    Email
+                                  </span>
+                                </TableHead>
+                                <TableHead className="font-medium hidden md:table-cell px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                  <span className="flex items-center justify-start gap-2">
+                                    Created
+                                  </span>
+                                </TableHead>
+                                <TableHead className="w-[80px] text-right px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                  Actions
+                                </TableHead>
                               </TableRow>
-                            ) : clientsError ? (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={4}
-                                  className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4 text-destructive"
-                                >
-                                  {clientsError}
-                                </TableCell>
-                              </TableRow>
-                            ) : clients.length === 0 ? (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={4}
-                                  className="text-center text-muted-foreground py-16 px-2 text-xs sm:text-sm sm:px-4"
-                                >
-                                  No clients found.
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              clients.map((client) => (
-                                <TableRow
-                                  key={client.id}
-                                  className="group transition-colors hover:bg-accent/30 cursor-pointer"
-                                >
-                                  <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                    <div className="flex items-center gap-3">
-                                      {renderAvatar(client.avatar, client.name)}
-                                      <div>
-                                        <p className="font-medium text-sm sm:text-base">
-                                          {client.name}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3 break-all">
-                                    {client.email}
-                                  </TableCell>
-                                  <TableCell className="hidden md:table-cell text-muted-foreground text-sm align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                    {new Date(
-                                      client.created_at
-                                    ).toLocaleDateString()}
-                                  </TableCell>
-                                  <TableCell className="text-right align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="text-xs"
-                                      onClick={() =>
-                                        handleViewDashboardAs(client.id)
-                                      }
-                                    >
-                                      View Dashboard as
-                                    </Button>
+                            </TableHeader>
+                            <TableBody>
+                              {clientsLoading ? (
+                                <TableRow>
+                                  <TableCell
+                                    colSpan={4}
+                                    className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4"
+                                  >
+                                    Loading clients...
                                   </TableCell>
                                 </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="3d-editor" className="space-y-6">
-                      <div className="space-y-4">
-                        <div className="text-center">
-                          <h3 className="text-lg font-semibold mb-2">
-                            3D Editor Access
-                          </h3>
-                          <p className="text-sm text-muted-foreground mb-6">
-                            Quick access to 3D editor clients
-                          </p>
+                              ) : clientsError ? (
+                                <TableRow>
+                                  <TableCell
+                                    colSpan={4}
+                                    className="text-center py-8 px-2 text-xs sm:text-sm sm:px-4 text-destructive"
+                                  >
+                                    {clientsError}
+                                  </TableCell>
+                                </TableRow>
+                              ) : clients.length === 0 ? (
+                                <TableRow>
+                                  <TableCell
+                                    colSpan={4}
+                                    className="text-center text-muted-foreground py-16 px-2 text-xs sm:text-sm sm:px-4"
+                                  >
+                                    No clients found.
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                clients.map((client) => (
+                                  <TableRow
+                                    key={client.id}
+                                    className="group transition-colors hover:bg-accent/30 cursor-pointer"
+                                  >
+                                    <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                      <div className="flex items-center gap-3">
+                                        {renderAvatar(
+                                          client.avatar,
+                                          client.name
+                                        )}
+                                        <div>
+                                          <p className="font-medium text-sm sm:text-base">
+                                            {client.name}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3 break-all">
+                                      {client.email}
+                                    </TableCell>
+                                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                      {new Date(
+                                        client.created_at
+                                      ).toLocaleDateString()}
+                                    </TableCell>
+                                    <TableCell className="text-right align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-xs"
+                                        onClick={() =>
+                                          handleViewDashboardAs(client.id)
+                                        }
+                                      >
+                                        View Dashboard as
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                              )}
+                            </TableBody>
+                          </Table>
                         </div>
+                      </TabsContent>
 
-                        {/* Editor Theme Settings */}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="border rounded-lg p-4 hover:bg-accent/30 transition-colors">
-                            <div className="flex items-center gap-3 mb-3">
-                              <Box className="w-5 h-5 text-primary" />
-                              <h4 className="font-medium">ArtwoodTest</h4>
-                            </div>
-                            <p className="text-sm text-muted-foreground mb-4">
-                              Access the ArtwoodTest 3D editor environment
+                      <TabsContent value="3d-editor" className="space-y-6">
+                        <div className="space-y-4">
+                          <div className="text-center">
+                            <h3 className="text-lg font-semibold mb-2">
+                              3D Editor Access
+                            </h3>
+                            <p className="text-sm text-muted-foreground mb-6">
+                              Quick access to 3D editor clients
                             </p>
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={() => handleOpenEditor("ArtwoodTest")}
-                                className="flex-1"
-                              >
-                                Open Editor
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleViewDemo("ArtwoodTest")}
-                                className="flex-1"
-                              >
-                                View Demo
-                              </Button>
-                            </div>
                           </div>
 
-                          <div className="border rounded-lg p-4 hover:bg-accent/30 transition-colors">
-                            <div className="flex items-center gap-3 mb-3">
-                              <Box className="w-5 h-5 text-primary" />
-                              <h4 className="font-medium">SweefV2</h4>
+                          {/* Editor Theme Settings */}
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="border rounded-lg p-4 hover:bg-accent/30 transition-colors">
+                              <div className="flex items-center gap-3 mb-3">
+                                <Box className="w-5 h-5 text-primary" />
+                                <h4 className="font-medium">ArtwoodTest</h4>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-4">
+                                Access the ArtwoodTest 3D editor environment
+                              </p>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() =>
+                                    handleOpenEditor("ArtwoodTest")
+                                  }
+                                  className="flex-1"
+                                >
+                                  Open Editor
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleViewDemo("ArtwoodTest")}
+                                  className="flex-1"
+                                >
+                                  View Demo
+                                </Button>
+                              </div>
                             </div>
-                            <p className="text-sm text-muted-foreground mb-4">
-                              Access the SweefV2 3D editor environment
-                            </p>
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={() => handleOpenEditor("SweefV2")}
-                                className="flex-1"
-                              >
-                                Open Editor
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleViewDemo("SweefV2")}
-                                className="flex-1"
-                              >
-                                View Demo
-                              </Button>
+
+                            <div className="border rounded-lg p-4 hover:bg-accent/30 transition-colors">
+                              <div className="flex items-center gap-3 mb-3">
+                                <Box className="w-5 h-5 text-primary" />
+                                <h4 className="font-medium">SweefV2</h4>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-4">
+                                Access the SweefV2 3D editor environment
+                              </p>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => handleOpenEditor("SweefV2")}
+                                  className="flex-1"
+                                >
+                                  Open Editor
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleViewDemo("SweefV2")}
+                                  className="flex-1"
+                                >
+                                  View Demo
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </TabsContent>
-                  </>
-                )}
+                      </TabsContent>
+                    </>
+                  )}
+                </div>
+              </Tabs>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                  <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
+                  Loading...
+                </div>
               </div>
-            </Tabs>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
-                Loading...
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Move EditUserDialog outside of SettingsDialog */}
       {userPermissions.edit_user && (
