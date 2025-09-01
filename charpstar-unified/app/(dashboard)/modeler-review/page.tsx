@@ -333,6 +333,19 @@ export default function ModelerReviewPage() {
     return null;
   }
 
+  // Show loading state while user context is initializing
+  if (user === null) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied only after user context has loaded and user doesn't have access
   if (user.metadata?.role !== "modeler") {
     return (
       <div className="container mx-auto p-6 space-y-6">

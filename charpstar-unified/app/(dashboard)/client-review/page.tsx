@@ -50,8 +50,8 @@ const STATUS_LABELS = {
     hoverColor: "",
   },
   delivered_by_artist: {
-    label: "Waiting for Approval",
-    color: "bg-blue-100 text-blue-700 border-blue-200",
+    label: "In Progress", // Changed from "Waiting for Approval" to "In Progress" for clients
+    color: "bg-warning-muted text-warning border-warning/20", // Same color as in_production
     rowColor: "table-row-status-in-production",
     hoverColor: "",
   },

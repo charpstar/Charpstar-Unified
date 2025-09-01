@@ -437,8 +437,12 @@ export default function ProductionDashboard() {
       // Group assets by client
       const clientMap = new Map<string, ClientSummary>();
 
+      // First pass: count models and collect unique batches
+      const clientBatches = new Map<string, Set<number>>();
+
       assetData.forEach((asset) => {
         const clientName = asset.client;
+        const batchNumber = asset.batch || 1;
 
         if (!clientMap.has(clientName)) {
           clientMap.set(clientName, {
@@ -461,10 +465,17 @@ export default function ProductionDashboard() {
             averageProgress: 0,
             batches: [],
           });
+
+          // Initialize batch tracking for this client
+          clientBatches.set(clientName, new Set());
         }
 
         const client = clientMap.get(clientName)!;
         client.totalModels++;
+
+        // Track unique batches for this client
+        const clientBatchSet = clientBatches.get(clientName)!;
+        clientBatchSet.add(batchNumber);
 
         // Count status
         const status = asset.status || "in_production";
@@ -475,6 +486,35 @@ export default function ProductionDashboard() {
         if (status === "approved" || status === "approved_by_client") {
           client.completedModels++;
         }
+      });
+
+      // Second pass: update totalBatches and populate batches array
+      clientMap.forEach((client, clientName) => {
+        const batchSet = clientBatches.get(clientName)!;
+        client.totalBatches = batchSet.size;
+
+        // Populate batches array with batch information
+        client.batches = Array.from(batchSet).map((batchNum) => {
+          const batchAssets = assetData.filter(
+            (asset) =>
+              asset.client === clientName && (asset.batch || 1) === batchNum
+          );
+          const completedCount = batchAssets.filter(
+            (asset) =>
+              asset.status === "approved" ||
+              asset.status === "approved_by_client"
+          ).length;
+
+          return {
+            batch: batchNum,
+            totalModels: batchAssets.length,
+            completionPercentage:
+              batchAssets.length > 0
+                ? Math.round((completedCount / batchAssets.length) * 100)
+                : 0,
+            startDate: batchAssets[0]?.created_at || new Date().toISOString(),
+          };
+        });
       });
 
       // Calculate unassigned assets for each client

@@ -15,6 +15,7 @@ import {
   Package,
   MessageSquare,
   DollarSign,
+  Bell,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -54,6 +55,11 @@ export default function AppSidebar({
           title: "Dashboard",
           url: "/dashboard",
           icon: LayoutDashboard,
+        },
+        {
+          title: "Notifications",
+          url: "/notifications",
+          icon: Bell,
         },
         // Hide Analytics and Asset Library for clients in onboarding, modelers, and QA
         ...(user?.metadata?.role === "client" &&

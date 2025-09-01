@@ -427,6 +427,10 @@ export default function CostTrackingPage() {
           const bonusAmount = price * (bonusPercentage / 100);
           const totalCost = price + bonusAmount;
 
+          // Only mark as completed when client has approved, not when modeler delivers
+          // delivered_by_artist = modeler finished, waiting for QA review
+          // approved = QA approved, waiting for client review
+          // approved_by_client = client approved, truly completed
           return {
             ...asset,
             price: price, // Use the price from asset_assignments
@@ -434,8 +438,8 @@ export default function CostTrackingPage() {
             bonus_amount: bonusAmount,
             total_cost: totalCost,
             modeler_email: modelerInfo.email,
+            status: asset.status, // Preserve the original status
             allocation_list_completed:
-              asset.status === "delivered_by_artist" ||
               asset.status === "approved" ||
               asset.status === "approved_by_client",
           };
@@ -444,11 +448,10 @@ export default function CostTrackingPage() {
       console.log("Processed assets:", processedAssets.length);
       console.log("Sample processed asset:", processedAssets[0]);
 
-      // Calculate cost summary
-      const totalSpent = processedAssets.reduce(
-        (sum, asset) => sum + asset.total_cost,
-        0
-      );
+      // Calculate cost summary - only include completed costs (approved by client, not just delivered by artist)
+      const totalSpent = processedAssets
+        .filter((asset) => asset.allocation_list_completed)
+        .reduce((sum, asset) => sum + asset.total_cost, 0);
       const remainingBudget = costSummary.totalBudget - totalSpent;
       const spentPercentage = (totalSpent / costSummary.totalBudget) * 100;
 
@@ -485,14 +488,15 @@ export default function CostTrackingPage() {
         modelerCost.totalAssets++;
         modelerCost.baseCost += asset.price || 50;
         modelerCost.bonusCost += asset.bonus_amount;
-        modelerCost.totalCost += asset.total_cost;
 
         if (asset.allocation_list_completed) {
           modelerCost.completedAssets++;
           modelerCost.completedCost += asset.total_cost;
+          modelerCost.totalCost += asset.total_cost; // Only add completed costs to totalCost
         } else {
           modelerCost.pendingAssets++;
           modelerCost.pendingCost += asset.total_cost;
+          // Don't add pending costs to totalCost since they'll be invoiced later
         }
       });
 
@@ -538,15 +542,16 @@ export default function CostTrackingPage() {
       }
 
       const monthlyData = monthlyMap.get(monthYear)!;
-      monthlyData.totalSpent += asset.total_cost;
       monthlyData.assetCount++;
 
       if (asset.allocation_list_completed) {
         monthlyData.completedCost += asset.total_cost;
         monthlyData.completedAssets++;
+        monthlyData.totalSpent += asset.total_cost; // Only add completed costs to totalSpent
       } else {
         monthlyData.pendingCost += asset.total_cost;
         monthlyData.pendingAssets++;
+        // Don't add pending costs to totalSpent since they'll be invoiced later
       }
     });
 
@@ -627,10 +632,10 @@ export default function CostTrackingPage() {
         "Total Assets",
         "Base Cost",
         "Bonus Cost",
-        "Total Cost",
-        "Completed Cost",
+        "Total Cost (Client-Approved)",
+        "Client-Approved Cost",
         "Pending Cost",
-        "Completed Assets",
+        "Client-Approved Assets",
         "Pending Assets",
       ],
       ...filteredModelerCosts.map((modeler) => [
@@ -662,7 +667,6 @@ export default function CostTrackingPage() {
       [
         "Month",
         "Total Assets",
-        "Total Cost",
         "Completed Cost",
         "Pending Cost",
         "Completed Assets",
@@ -671,7 +675,6 @@ export default function CostTrackingPage() {
       ...monthlyCosts.map((month) => [
         month.monthYear,
         month.assetCount.toString(),
-        `€${month.totalSpent.toFixed(2)}`,
         `€${month.completedCost.toFixed(2)}`,
         `€${month.pendingCost.toFixed(2)}`,
         month.completedAssets.toString(),
@@ -690,6 +693,19 @@ export default function CostTrackingPage() {
     window.URL.revokeObjectURL(url);
   };
 
+  // Show loading state while user context is initializing
+  if (user === null) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied only after user context has loaded and user doesn't have access
   if (!user || user.metadata?.role !== "admin") {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -784,7 +800,7 @@ export default function CostTrackingPage() {
                   .toFixed(2)}
               </div>
               <div className="text-sm text-muted-foreground">
-                Completed Costs
+                Client-Approved Costs
               </div>
               <div className="text-xs text-green-600 mt-1">
                 {(
@@ -892,7 +908,6 @@ export default function CostTrackingPage() {
                 <TableRow>
                   <TableHead>Month</TableHead>
                   <TableHead>Total Assets</TableHead>
-                  <TableHead>Total Cost</TableHead>
                   <TableHead>Completed Cost</TableHead>
                   <TableHead>Pending Cost</TableHead>
                 </TableRow>
@@ -919,14 +934,6 @@ export default function CostTrackingPage() {
                         <div className="text-center">
                           <span className="font-medium">
                             {month.assetCount}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-right justify-center">
-                          <Euro className="h-3 w-3 text-muted-foreground" />
-                          <span className="font-bold">
-                            €{month.totalSpent.toFixed(2)}
                           </span>
                         </div>
                       </TableCell>
@@ -978,7 +985,9 @@ export default function CostTrackingPage() {
               <TrendingUp className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total Spent</p>
+              <p className="text-sm text-muted-foreground">
+                Total Spent (Client-Approved)
+              </p>
               <p className="text-2xl font-bold">
                 €{costSummary.totalSpent.toFixed(2)}
               </p>
@@ -1016,14 +1025,18 @@ export default function CostTrackingPage() {
               <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Completed Cost</p>
+              <p className="text-sm text-muted-foreground">
+                Client-Approved Cost
+              </p>
               <p className="text-2xl font-bold">
                 €
                 {modelerCosts
                   .reduce((sum, m) => sum + m.completedCost, 0)
                   .toFixed(2)}
               </p>
-              <p className="text-xs text-muted-foreground">Already spent</p>
+              <p className="text-xs text-muted-foreground">
+                Client approved & invoiced
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -1056,7 +1069,9 @@ export default function CostTrackingPage() {
               <Calendar className="h-5 w-5 text-indigo-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">This Month</p>
+              <p className="text-sm text-muted-foreground">
+                This Month (Completed)
+              </p>
               <p className="text-2xl font-bold">
                 €
                 {(() => {
@@ -1084,8 +1099,8 @@ export default function CostTrackingPage() {
                     (m) => m.monthYear === currentMonthKey
                   );
                   return currentMonthData
-                    ? `${currentMonthData.assetCount} assets`
-                    : "0 assets";
+                    ? `${currentMonthData.completedAssets} completed assets`
+                    : "0 completed assets";
                 })()}
               </p>
             </div>
@@ -1098,7 +1113,7 @@ export default function CostTrackingPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            Budget Progress
+            Budget Progress (Client-Approved Costs Only)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1266,10 +1281,10 @@ export default function CostTrackingPage() {
                   <TableHead>Total Assets</TableHead>
                   <TableHead>Base Cost</TableHead>
                   <TableHead>Bonus Cost</TableHead>
-                  <TableHead>Total Cost</TableHead>
-                  <TableHead>Completed Cost</TableHead>
+                  <TableHead>Total Cost (Client-Approved)</TableHead>
+                  <TableHead>Client-Approved Cost</TableHead>
                   <TableHead>Pending Cost</TableHead>
-                  <TableHead>Completed</TableHead>
+                  <TableHead>Client-Approved</TableHead>
                   <TableHead>Pending</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1315,6 +1330,9 @@ export default function CostTrackingPage() {
                         <span className="font-bold text-lg">
                           €{modeler.totalCost.toFixed(2)}
                         </span>
+                        <div className="text-xs text-muted-foreground ml-1">
+                          (Client-Approved)
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -1406,7 +1424,7 @@ export default function CostTrackingPage() {
                   <TableHead>Base Price</TableHead>
                   <TableHead>Bonus</TableHead>
                   <TableHead>Total Cost</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Status & Budget</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1459,22 +1477,52 @@ export default function CostTrackingPage() {
                     </TableCell>
                     <TableCell>
                       <div className="text-center">
-                        {asset.allocation_list_completed ? (
-                          <Badge
-                            variant="outline"
-                            className="bg-green-50 text-green-700"
-                          >
+                        <Badge
+                          variant="outline"
+                          className={
+                            asset.status === "approved" ||
+                            asset.status === "approved_by_client"
+                              ? "bg-green-50 text-green-700"
+                              : asset.status === "delivered_by_artist"
+                                ? "bg-blue-50 text-blue-700"
+                                : asset.status === "in_production"
+                                  ? "bg-yellow-50 text-yellow-700"
+                                  : asset.status === "revisions"
+                                    ? "bg-red-50 text-red-700"
+                                    : "bg-gray-50 text-gray-700"
+                          }
+                        >
+                          {asset.status === "approved" && (
                             <CheckCircle className="h-3 w-3 mr-1" />
-                            Complete
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="bg-amber-50 text-amber-700"
-                          >
+                          )}
+                          {asset.status === "approved_by_client" && (
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                          )}
+                          {asset.status === "delivered_by_artist" && (
                             <Clock className="h-3 w-3 mr-1" />
-                            Pending
-                          </Badge>
+                          )}
+                          {asset.status === "in_production" && (
+                            <Clock className="h-3 w-3 mr-1" />
+                          )}
+                          {asset.status === "revisions" && (
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                          )}
+                          {asset.status === "delivered_by_artist"
+                            ? "Delivered by Artist"
+                            : asset.status === "in_production"
+                              ? "In Production"
+                              : asset.status === "revisions"
+                                ? "Revisions"
+                                : asset.status === "approved"
+                                  ? "QA Approved"
+                                  : asset.status === "approved_by_client"
+                                    ? "Client Approved"
+                                    : asset.status}
+                        </Badge>
+                        {asset.allocation_list_completed && (
+                          <div className="text-xs text-green-600 mt-1">
+                            ✓ Budget Complete
+                          </div>
                         )}
                       </div>
                     </TableCell>

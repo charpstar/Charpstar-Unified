@@ -207,8 +207,7 @@ export function OnboardingDashboard() {
               router.push("/onboarding/csv-upload");
             },
             disabled: false,
-            helpText:
-              "Upload a CSV file with your product information. We'll use this to create your 3D models.",
+
             estimatedTime: "2-3 minutes",
             removeAction: user?.metadata?.csv_uploaded
               ? handleRemoveCsv
@@ -217,7 +216,7 @@ export function OnboardingDashboard() {
           {
             id: "reference-images",
             title: "Reference Images Upload",
-            description: "Upload reference images for your products",
+            description: "Upload additional reference images for your products",
             icon: Package,
             completed: user?.metadata?.reference_images_uploaded || false,
             action: user?.metadata?.csv_uploaded
@@ -227,8 +226,7 @@ export function OnboardingDashboard() {
                 }
               : undefined,
             disabled: !user?.metadata?.csv_uploaded,
-            helpText:
-              "Add reference images to help our modelers understand your product requirements.",
+
             estimatedTime: "5-10 minutes",
           },
         ];

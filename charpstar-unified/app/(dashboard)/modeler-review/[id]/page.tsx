@@ -207,7 +207,11 @@ export default function ModelerReviewPage() {
   };
 
   const handleImageWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    // Only allow zooming when Shift key is held down
+    if (!e.shiftKey) return;
+
     e.preventDefault();
+    e.stopPropagation();
 
     if (!imageZoom) return;
 
@@ -1315,6 +1319,19 @@ export default function ModelerReviewPage() {
     return null;
   }
 
+  // Show loading state while user context is initializing
+  if (user === null) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied only after user context has loaded and user doesn't have access
   if (user.metadata?.role !== "modeler") {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -2050,7 +2067,7 @@ export default function ModelerReviewPage() {
                               </div>
                               <div className="mt-2 text-xs text-muted-foreground text-center">
                                 Reference {(selectedReferenceIndex || 0) + 1} •
-                                Scroll to zoom (1x-3x)
+                                Hold Shift + Scroll to zoom (1x-3x)
                               </div>
                             </div>
 

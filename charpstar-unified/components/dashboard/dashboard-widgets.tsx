@@ -50,7 +50,7 @@ const getStatusColor = (status: StatusKey): string => {
     in_production: "var(--status-in-production)",
     revisions: "var(--status-revisions)",
     approved: "var(--status-approved)",
-    approved_by_client: "var(--status-emerald)",
+    approved_by_client: "var(--status-approved-by-client)",
     delivered_by_artist: "var(--status-delivered-by-artist)",
   };
   return statusColorMap[status];
@@ -493,21 +493,29 @@ export function QuickActionsWidget() {
   const router = useRouter();
 
   const actions = [
-    {
-      name: user?.metadata?.role === "client" ? "Add Product" : "Upload Asset",
-      icon: FileText,
-      description:
-        user?.metadata?.role === "client"
-          ? "Add a new product to your catalog"
-          : "Upload a new 3D asset to the library",
-      action: () => {
-        if (user?.metadata?.role === "client") {
-          router.push("/add-products");
-        } else {
-          router.push("/asset-library/upload");
-        }
-      },
-    },
+    // Upload Asset/Add Product - hide for QA users
+    ...(user?.metadata?.role !== "qa"
+      ? [
+          {
+            name:
+              user?.metadata?.role === "client"
+                ? "Add Product"
+                : "Upload Asset",
+            icon: FileText,
+            description:
+              user?.metadata?.role === "client"
+                ? "Add a new product to your catalog"
+                : "Upload a new 3D asset to the library",
+            action: () => {
+              if (user?.metadata?.role === "client") {
+                router.push("/add-products");
+              } else {
+                router.push("/asset-library/upload");
+              }
+            },
+          },
+        ]
+      : []),
     {
       name:
         user?.metadata?.role === "admin"
@@ -532,25 +540,37 @@ export function QuickActionsWidget() {
         }
       },
     },
-    {
-      name: "View Analytics",
-      icon: TrendingUp,
-      description: "See performance and usage analytics",
-      action: () => {
-        router.push("/analytics");
-      },
-    },
-    {
-      name: "Settings",
-      icon: Settings,
-      description: "Manage your account and preferences",
-      action: () => {
-        const userMenu = document.querySelector('[data-tour="user-profile"]');
-        if (userMenu) {
-          (userMenu as HTMLElement).click();
-        }
-      },
-    },
+    // View Analytics - hide for QA users
+    ...(user?.metadata?.role !== "qa"
+      ? [
+          {
+            name: "View Analytics",
+            icon: TrendingUp,
+            description: "See performance and usage analytics",
+            action: () => {
+              router.push("/analytics");
+            },
+          },
+        ]
+      : []),
+    // Settings - hide for QA users
+    ...(user?.metadata?.role !== "qa"
+      ? [
+          {
+            name: "Settings",
+            icon: Settings,
+            description: "Manage your account and preferences",
+            action: () => {
+              const userMenu = document.querySelector(
+                '[data-tour="user-profile"]'
+              );
+              if (userMenu) {
+                (userMenu as HTMLElement).click();
+              }
+            },
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -1190,7 +1210,7 @@ export function ModelStatusWidget() {
   }, [user?.metadata?.client, user?.metadata?.role]);
 
   return (
-    <Card className="p-6 rounded-lg shadow- bg-background w-full mx-auto flex flex-col items-center border-0 shadow-none">
+    <Card className="p-6 rounded-lg shadow- bg-muted-background w-full mx-auto flex flex-col items-center border-0 shadow-none">
       <CardHeader>
         <CardTitle className="text-lg font-semibold mb-1 text-foreground">
           Total Models: {products.length}
@@ -1340,7 +1360,7 @@ export function StatusPieChartWidget() {
     });
 
   return (
-    <Card className="p-0  rounded-lg bg-background w-full mx-auto flex flex-col items-center pointer-events-none select-none border-0 shadow-none">
+    <Card className="p-0  rounded-lg bg-muted-background w-full mx-auto flex flex-col items-center pointer-events-none select-none border-0 shadow-none">
       <CardHeader className="!pb-0">
         <CardTitle className="text-lg font-semibold mb-1 text-foreground">
           Model Status Distribution

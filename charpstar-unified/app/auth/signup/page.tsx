@@ -678,8 +678,8 @@ export default function SignupPage() {
                 {formData.portfolioLinks.map((link, index) => (
                   <div key={index} className="flex gap-2">
                     <Input
-                      type="url"
-                      placeholder="https://your-portfolio.com"
+                      type="text"
+                      placeholder="your-portfolio.com or https://your-portfolio.com"
                       value={link}
                       onChange={(e) => {
                         const newLinks = [...formData.portfolioLinks];

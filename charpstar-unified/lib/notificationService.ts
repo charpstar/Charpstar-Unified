@@ -993,6 +993,74 @@ class NotificationService {
     }
   }
 
+  async markNotificationsAsRead(notificationIds: string[]): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: true })
+        .in("id", notificationIds);
+
+      if (error) {
+        console.error("Error marking notifications as read:", error);
+        throw error;
+      }
+    } catch (error) {
+      console.error("Failed to mark notifications as read:", error);
+      throw error;
+    }
+  }
+
+  async markNotificationAsUnread(notificationId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: false })
+        .eq("id", notificationId);
+
+      if (error) {
+        console.error("Error marking notification as unread:", error);
+        throw error;
+      }
+    } catch (error) {
+      console.error("Failed to mark notification as unread:", error);
+      throw error;
+    }
+  }
+
+  async markNotificationsAsUnread(notificationIds: string[]): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: false })
+        .in("id", notificationIds);
+
+      if (error) {
+        console.error("Error marking notifications as unread:", error);
+        throw error;
+      }
+    } catch (error) {
+      console.error("Failed to mark notifications as unread:", error);
+      throw error;
+    }
+  }
+
+  async deleteNotifications(notificationIds: string[]): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .in("id", notificationIds);
+
+      if (error) {
+        console.error("Error deleting notifications:", error);
+        throw error;
+      }
+    } catch (error) {
+      console.error("Failed to delete notifications:", error);
+      throw error;
+    }
+  }
+
   async getUnreadNotifications(userId: string): Promise<NotificationData[]> {
     try {
       const { data, error } = await supabase

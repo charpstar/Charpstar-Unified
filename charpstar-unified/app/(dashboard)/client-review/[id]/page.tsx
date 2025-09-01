@@ -97,8 +97,8 @@ const STATUS_LABELS = {
     color: "bg-emerald-100 text-emerald-700",
   },
   delivered_by_artist: {
-    label: "Delivered by Artist",
-    color: "bg-blue-100 text-blue-700",
+    label: "In Progress",
+    color: "bg-yellow-100 text-yellow-800",
   },
 };
 
@@ -214,7 +214,7 @@ export default function ReviewPage() {
   // Function to handle back navigation based on where user came from
   const handleBackNavigation = () => {
     const from = searchParams.get("from");
-    if (from === "admin-review") {
+    if (from === "client-review") {
       // Preserve filter parameters when navigating back to admin-review
       const params = new URLSearchParams();
       const client = searchParams.get("client");
@@ -974,6 +974,11 @@ export default function ReviewPage() {
     if (!editComment.trim()) return;
 
     try {
+      const annotation = annotations.find((ann) => ann.id === annotationId);
+      if (!isAdmin && annotation && annotation.created_by !== user?.id) {
+        toast.error("You can only edit your own annotations");
+        return;
+      }
       const response = await fetch("/api/annotations", {
         method: "PUT",
         headers: {
@@ -1011,6 +1016,11 @@ export default function ReviewPage() {
   // Delete annotation
   const deleteAnnotation = async (annotationId: string) => {
     try {
+      const annotation = annotations.find((ann) => ann.id === annotationId);
+      if (!isAdmin && annotation && annotation.created_by !== user?.id) {
+        toast.error("You can only delete your own annotations");
+        return;
+      }
       const response = await fetch(`/api/annotations?id=${annotationId}`, {
         method: "DELETE",
       });
@@ -1031,6 +1041,11 @@ export default function ReviewPage() {
   };
 
   const confirmDeleteAnnotation = (annotationId: string) => {
+    const annotation = annotations.find((ann) => ann.id === annotationId);
+    if (!isAdmin && annotation && annotation.created_by !== user?.id) {
+      toast.error("You can only delete your own annotations");
+      return;
+    }
     setSingleDeleteId(annotationId);
     setShowDeleteWarning(true);
   };
@@ -1046,6 +1061,16 @@ export default function ReviewPage() {
   // Delete multiple annotations
   const deleteMultipleAnnotations = async (annotationIds: string[]) => {
     try {
+      if (!isAdmin) {
+        const unauthorized = annotationIds.some((id) => {
+          const ann = annotations.find((a) => a.id === id);
+          return ann && ann.created_by !== user?.id;
+        });
+        if (unauthorized) {
+          toast.error("You can only delete your own annotations");
+          return;
+        }
+      }
       const promises = annotationIds.map((id) =>
         fetch(`/api/annotations?id=${id}`, {
           method: "DELETE",
@@ -1074,6 +1099,10 @@ export default function ReviewPage() {
   };
 
   const handleAnnotationSelect = (annotationId: string) => {
+    const annotation = annotations.find((ann) => ann.id === annotationId);
+    if (!isAdmin && annotation && annotation.created_by !== user?.id) {
+      return;
+    }
     setSelectedAnnotations((prev) =>
       prev.includes(annotationId)
         ? prev.filter((id) => id !== annotationId)
@@ -1107,6 +1136,11 @@ export default function ReviewPage() {
     if (!inlineEditComment.trim()) return;
 
     try {
+      const annotation = annotations.find((ann) => ann.id === annotationId);
+      if (!isAdmin && annotation && annotation.created_by !== user?.id) {
+        toast.error("You can only edit your own annotations");
+        return;
+      }
       const response = await fetch("/api/annotations", {
         method: "PUT",
         headers: {
@@ -1173,6 +1207,11 @@ export default function ReviewPage() {
     if (!viewerEditComment.trim()) return;
 
     try {
+      const annotation = annotations.find((ann) => ann.id === annotationId);
+      if (!isAdmin && annotation && annotation.created_by !== user?.id) {
+        toast.error("You can only edit your own annotations");
+        return;
+      }
       const response = await fetch("/api/annotations", {
         method: "PUT",
         headers: {
@@ -2096,6 +2135,12 @@ export default function ReviewPage() {
     return colors[index % colors.length];
   };
 
+  // Permissions: Admins can edit/delete all annotations and comments, users can edit/delete their own annotations
+  const isAdmin = user?.metadata?.role === "admin";
+  const canEditOrDeleteAnnotation = (annotation: Annotation) =>
+    isAdmin || annotation.created_by === user?.id;
+  const canEditOrDeleteComment = () => isAdmin;
+
   // Function to get comments for selected annotation
   // Comments should be independent of annotations - show all comments for the asset
   const getAllComments = () => {
@@ -2271,6 +2316,10 @@ export default function ReviewPage() {
   };
 
   const startCommentInlineEdit = (comment: any) => {
+    if (!canEditOrDeleteComment()) {
+      toast.error("You can only edit your own comments");
+      return;
+    }
     setInlineEditingCommentId(comment.id);
     setInlineEditCommentText(comment.comment);
   };
@@ -2284,6 +2333,11 @@ export default function ReviewPage() {
     if (!inlineEditCommentText.trim()) return;
 
     try {
+      const target = comments.find((c) => c.id === commentId);
+      if (!isAdmin && target && target.created_by !== user?.id) {
+        toast.error("You can only edit your own comments");
+        return;
+      }
       const { data, error } = await supabase
         .from("asset_comments")
         .update({ comment: inlineEditCommentText.trim() })
@@ -2341,6 +2395,11 @@ export default function ReviewPage() {
 
   const deleteComment = async (commentId: string) => {
     try {
+      const target = comments.find((c) => c.id === commentId);
+      if (!isAdmin && target && target.created_by !== user?.id) {
+        toast.error("You can only delete your own comments");
+        return;
+      }
       const { error } = await supabase
         .from("asset_comments")
         .delete()
@@ -3724,16 +3783,28 @@ export default function ReviewPage() {
 
                                 <DropdownMenuItem
                                   onClick={() => {
+                                    if (
+                                      !canEditOrDeleteAnnotation(annotation)
+                                    ) {
+                                      toast.error(
+                                        "You can only edit your own annotations"
+                                      );
+                                      return;
+                                    }
                                     setEditingAnnotation(annotation.id);
                                     setEditComment(annotation.comment);
                                     setEditImageUrl(annotation.image_url || "");
                                   }}
-                                  disabled={isFunctionalityDisabled()}
-                                  className={
-                                    isFunctionalityDisabled()
+                                  disabled={
+                                    isFunctionalityDisabled() ||
+                                    !canEditOrDeleteAnnotation(annotation)
+                                  }
+                                  className={`${
+                                    isFunctionalityDisabled() ||
+                                    !canEditOrDeleteAnnotation(annotation)
                                       ? "opacity-50 cursor-not-allowed"
                                       : ""
-                                  }
+                                  }`}
                                 >
                                   <Edit3 className="h-3 w-3 mr-2" />
                                   Edit Annotation
@@ -3744,9 +3815,20 @@ export default function ReviewPage() {
                                 {!deleteMode && (
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      confirmDeleteAnnotation(annotation.id)
+                                      canEditOrDeleteAnnotation(annotation)
+                                        ? confirmDeleteAnnotation(annotation.id)
+                                        : toast.error(
+                                            "You can only delete your own annotations"
+                                          )
                                     }
-                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                    disabled={
+                                      !canEditOrDeleteAnnotation(annotation)
+                                    }
+                                    className={`${
+                                      !canEditOrDeleteAnnotation(annotation)
+                                        ? "opacity-50 cursor-not-allowed"
+                                        : "text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                    }`}
                                   >
                                     <X className="h-3 w-3 mr-2" />
                                     Delete Annotation
@@ -4096,11 +4178,21 @@ export default function ReviewPage() {
                               <DropdownMenuContent align="end" className="w-40">
                                 <DropdownMenuItem
                                   onClick={() => {
+                                    if (!canEditOrDeleteComment()) {
+                                      toast.error(
+                                        "You can only edit your own comments"
+                                      );
+                                      return;
+                                    }
                                     startCommentInlineEdit(comment);
                                   }}
-                                  disabled={isFunctionalityDisabled()}
+                                  disabled={
+                                    isFunctionalityDisabled() ||
+                                    !canEditOrDeleteComment()
+                                  }
                                   className={
-                                    isFunctionalityDisabled()
+                                    isFunctionalityDisabled() ||
+                                    !canEditOrDeleteComment()
                                       ? "opacity-50 cursor-not-allowed"
                                       : ""
                                   }
@@ -4110,8 +4202,19 @@ export default function ReviewPage() {
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
-                                  onClick={() => deleteComment(comment.id)}
-                                  className="text-destructive hover:text-destructive"
+                                  onClick={() =>
+                                    canEditOrDeleteComment()
+                                      ? deleteComment(comment.id)
+                                      : toast.error(
+                                          "You can only delete your own comments"
+                                        )
+                                  }
+                                  disabled={!canEditOrDeleteComment()}
+                                  className={`${
+                                    !canEditOrDeleteComment()
+                                      ? "opacity-50 cursor-not-allowed"
+                                      : "text-destructive hover:text-destructive"
+                                  }`}
                                 >
                                   <X className="h-3 w-3 mr-2" />
                                   Delete Comment
@@ -4152,14 +4255,19 @@ export default function ReviewPage() {
                                   : "cursor-pointer hover:bg-muted/50"
                               }`}
                               onClick={() => {
-                                if (!isFunctionalityDisabled()) {
+                                if (
+                                  !isFunctionalityDisabled() &&
+                                  canEditOrDeleteComment()
+                                ) {
                                   startCommentInlineEdit(comment);
                                 }
                               }}
                               title={
                                 isFunctionalityDisabled()
                                   ? "Editing disabled during revision"
-                                  : "Click to edit comment"
+                                  : canEditOrDeleteComment()
+                                    ? "Click to edit comment"
+                                    : "You can only edit your own comments"
                               }
                             >
                               <div className="flex items-start justify-between min-w-0">

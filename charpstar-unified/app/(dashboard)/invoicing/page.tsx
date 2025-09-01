@@ -928,6 +928,19 @@ export default function InvoicingPage() {
     return null;
   }
 
+  // Show loading state while user context is initializing
+  if (user === null) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied only after user context has loaded and user doesn't have access
   if (user.metadata?.role !== "modeler") {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -1069,7 +1082,7 @@ export default function InvoicingPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          {/* <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-blue-50 rounded-xl">
@@ -1091,7 +1104,7 @@ export default function InvoicingPage() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
 
           <Card>
             <CardContent className="p-6">
@@ -1176,7 +1189,7 @@ export default function InvoicingPage() {
       )}
 
       {/* Future Bonus Information */}
-      {selectedPeriod && futureBonuses.length > 0 && (
+      {/* {selectedPeriod && futureBonuses.length > 0 && (
         <Card className="border-blue-200 bg-blue-50/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-800">
@@ -1231,7 +1244,7 @@ export default function InvoicingPage() {
             </div>
           </CardContent>
         </Card>
-      )}
+      )} */}
 
       {/* Bonus Breakdown */}
       {selectedPeriod && monthlyStats.completedLists > 0 && (
@@ -1292,7 +1305,7 @@ export default function InvoicingPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="h-4 w-4 text-blue-600" />
               <span className="font-medium text-blue-800">
@@ -1307,7 +1320,7 @@ export default function InvoicingPage() {
               column shows what you&apos;ll receive for each asset (base price +
               bonus if eligible).
             </p>
-          </div>
+          </div> */}
 
           {loading ? (
             <div className="space-y-4">

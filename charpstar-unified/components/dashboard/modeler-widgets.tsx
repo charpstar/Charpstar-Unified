@@ -16,7 +16,6 @@ import {
   Eye,
   Package,
   FileText,
-  MessageSquare,
 } from "lucide-react";
 
 // Helper function to get priority CSS class
@@ -1002,16 +1001,6 @@ export function ModelerQuickActionsWidget() {
       iconColor: "text-blue-600 dark:text-blue-400",
     },
     {
-      title: "Modeler Review",
-      description: "Upload GLB files and communicate with QA",
-      icon: MessageSquare,
-      action: () => router.push("/modeler-review"),
-      color: "from-emerald-500 to-emerald-600",
-      hoverColor: "from-emerald-600 to-emerald-700",
-      iconBg: "bg-emerald-100 dark:bg-emerald-900/50",
-      iconColor: "text-emerald-600 dark:text-emerald-400",
-    },
-    {
       title: "View Guidelines",
       description: "Quality standards & requirements",
       icon: FileText,
@@ -1050,7 +1039,9 @@ export function ModelerQuickActionsWidget() {
         {actions.map((action, index) => (
           <div
             key={index}
-            className="group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer"
+            className={`group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer ${
+              action.title === "Model Viewer" ? "col-span-2" : ""
+            }`}
             onClick={action.action}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-current/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

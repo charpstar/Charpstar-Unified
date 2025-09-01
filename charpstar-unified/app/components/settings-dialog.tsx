@@ -788,7 +788,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 >
                   <TabsTrigger
                     value="account"
-                    className="flex items-center justify-center gap-2 cursor-pointer w-full sm:w-full"
+                    className="flex items-center justify-center gap-2  w-full sm:w-full"
                   >
                     <User2 className="w-4 h-5" />
                     Account
