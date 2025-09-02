@@ -206,6 +206,7 @@ export function OnboardingDashboard() {
               startLoading();
               router.push("/onboarding/csv-upload");
             },
+
             disabled: false,
 
             estimatedTime: "2-3 minutes",
@@ -213,6 +214,7 @@ export function OnboardingDashboard() {
               ? handleRemoveCsv
               : undefined,
           },
+
           {
             id: "reference-images",
             title: "Reference Images Upload",
@@ -482,16 +484,47 @@ export function OnboardingDashboard() {
                                   </Badge>
                                 )}
                                 {step.action && status === "available" && (
-                                  <Button
-                                    size="default"
-                                    onClick={step.action}
-                                    className="gap-2 px-6 py-2"
-                                    disabled={step.disabled}
-                                  >
-                                    <Play className="h-4 w-4" />
-                                    Start
-                                    <ArrowRight className="h-4 w-4" />
-                                  </Button>
+                                  <>
+                                    {step.id === "csv-upload" ? (
+                                      <>
+                                        <Button
+                                          onClick={() =>
+                                            router.push(
+                                              "/onboarding/manual-upload"
+                                            )
+                                          }
+                                          disabled={step.disabled}
+                                          className="gap-2 px-6 py-2"
+                                        >
+                                          <Play className="h-4 w-4" />
+                                          Manual Upload
+                                          <ArrowRight className="h-4 w-4" />
+                                        </Button>
+
+                                        <Button
+                                          size="default"
+                                          onClick={step.action}
+                                          className="gap-2 px-6 py-2"
+                                          disabled={step.disabled}
+                                        >
+                                          <Play className="h-4 w-4" />
+                                          Upload With CSV
+                                          <ArrowRight className="h-4 w-4" />
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <Button
+                                        size="default"
+                                        onClick={step.action}
+                                        className="gap-2 px-6 py-2"
+                                        disabled={step.disabled}
+                                      >
+                                        <Play className="h-4 w-4" />
+                                        Continue
+                                        <ArrowRight className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </>
                                 )}
                               </>
                             )}

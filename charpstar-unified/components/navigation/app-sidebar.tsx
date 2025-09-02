@@ -16,6 +16,7 @@ import {
   MessageSquare,
   DollarSign,
   Bell,
+  Building2,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -45,6 +46,7 @@ export default function AppSidebar({
 
   const user = useUser();
   const clientName = user?.metadata?.client_config;
+  const role = (user?.metadata?.role || "").toLowerCase();
 
   // Debug logging for onboarding navigation
 
@@ -56,18 +58,24 @@ export default function AppSidebar({
           url: "/dashboard",
           icon: LayoutDashboard,
         },
-        {
-          title: "Notifications",
-          url: "/notifications",
-          icon: Bell,
-        },
-        // Hide Analytics and Asset Library for clients in onboarding, modelers, and QA
-        ...(user?.metadata?.role === "client" &&
-        user?.metadata?.onboarding === true
+        // Hide Notifications for clients in onboarding (either onboarding flag or incomplete CSV upload)
+        ...(role === "client" &&
+        (user?.metadata?.onboarding === true ||
+          user?.metadata?.csv_uploaded === false)
           ? []
-          : user?.metadata?.role === "modeler"
+          : [
+              {
+                title: "Notifications",
+                url: "/notifications",
+                icon: Bell,
+              },
+            ]),
+        // Hide Analytics and Asset Library for clients in onboarding, modelers, and QA
+        ...(role === "client" && user?.metadata?.onboarding === true
+          ? []
+          : role === "modeler"
             ? []
-            : user?.metadata?.role === "qa"
+            : role === "qa"
               ? []
               : [
                   {
@@ -82,8 +90,7 @@ export default function AppSidebar({
                   },
                 ]),
         // Add Products and Review pages for clients only
-        ...(user?.metadata?.role === "client" &&
-        user?.metadata?.onboarding === false
+        ...(role === "client" && user?.metadata?.onboarding === false
           ? [
               {
                 title: "Add Products",
@@ -109,7 +116,7 @@ export default function AppSidebar({
 
   // Admin-only navigation items
   const adminNavItems =
-    user?.metadata?.role === "admin"
+    role === "admin"
       ? [
           {
             title: "Onboarding",
@@ -120,6 +127,11 @@ export default function AppSidebar({
             title: "Production",
             url: "/production",
             icon: Factory,
+          },
+          {
+            title: "Clients",
+            url: "/admin/clients",
+            icon: Building2,
           },
           // Pending Revisions removed (reverted)
 
@@ -135,7 +147,7 @@ export default function AppSidebar({
 
   // Financial navigation items (admin only)
   const financialNavItems =
-    user?.metadata?.role === "admin"
+    role === "admin"
       ? [
           {
             title: "Cost Tracking",
@@ -147,13 +159,8 @@ export default function AppSidebar({
 
   // Modeler-only navigation items
   const modelerNavItems =
-    user?.metadata?.role === "modeler"
+    role === "modeler"
       ? [
-          {
-            title: "Pending Assignments",
-            url: "/pending-assignments",
-            icon: Package,
-          },
           {
             title: "My Assignments",
             url: "/my-assignments",
@@ -175,7 +182,7 @@ export default function AppSidebar({
 
   // QA-only navigation items
   const qaNavItems =
-    user?.metadata?.role === "qa"
+    role === "qa"
       ? [
           {
             title: "QA Review",

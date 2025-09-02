@@ -118,10 +118,11 @@ export async function POST(request: NextRequest) {
             user_id: userId,
             role: role,
             allocation_list_id: listData.id,
-            status: "pending",
+            status: "accepted",
             price: prices?.[assetId] || 0,
             assigned_by: user.id,
             start_time: new Date().toISOString(),
+            accepted_at: new Date().toISOString(),
           };
           assignments.push(assignment);
           assignmentDetails.push({
@@ -204,7 +205,7 @@ export async function POST(request: NextRequest) {
         // Don't fail the entire request if notifications fail
       }
 
-      const message = `Successfully created ${allocationLists.length} allocation list(s) with ${assignments.length} asset(s)`;
+      const message = `Successfully created ${allocationLists.length} allocation list(s) with ${assignments.length} asset(s) (auto-accepted)`;
 
       return NextResponse.json({
         message: message,

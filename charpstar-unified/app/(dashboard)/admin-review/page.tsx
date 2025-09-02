@@ -31,7 +31,6 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  AlertCircle,
   ArrowLeft,
   Trash2,
   X,
@@ -75,7 +74,7 @@ const getStatusRowClass = (status: string): string => {
     case "delivered_by_artist":
       return "table-row-status-delivered-by-artist";
     case "not_started":
-      return "table-row-status-not-started";
+      return "table-row-status-not-started bg-gray-50 dark:bg-gray-900/30";
     default:
       return "table-row-status-unknown";
   }
@@ -102,6 +101,15 @@ const STATUS_LABELS = {
     label: "Delivered by Artist",
     color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
   },
+  not_started: {
+    label: "Not Started",
+    color:
+      "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/50",
+  },
+  in_progress: {
+    label: "In Progress",
+    color: "bg-warning-muted text-warning border-warning/20",
+  },
   waiting_for_approval: {
     label: "Waiting for Approval",
     color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
@@ -119,7 +127,7 @@ const getStatusIcon = (status: string) => {
     case "in_production":
       return <Clock className="h-4 w-4 text-warning" />;
     case "not_started":
-      return <AlertCircle className="h-4 w-4 text-error" />;
+      return null;
     case "revisions":
       return <RotateCcw className="h-4 w-4 text-error" />;
     default:
@@ -136,7 +144,7 @@ const getStatusColor = (status: string) => {
     case "in_production":
       return "bg-warning-muted text-warning border-warning/20";
     case "not_started":
-      return "bg-error-muted text-error border-error/20";
+      return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/50";
     case "revisions":
       return "bg-error-muted text-error border-error/20";
     default:
@@ -710,7 +718,8 @@ export default function AdminReviewPage() {
                 client,
                 batch,
                 reference,
-                glb_link
+                glb_link,
+                product_link
               )
             )
           `
@@ -776,7 +785,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link"
         );
 
       // If modeler filters are applied, only fetch assets assigned to those modelers
@@ -1022,6 +1031,7 @@ export default function AdminReviewPage() {
               priority,
               reference,
               glb_link,
+              product_link,
               created_at
             )
           `
@@ -2168,6 +2178,9 @@ export default function AdminReviewPage() {
                               <TableHead className="w-24">Price</TableHead>
                               <TableHead className="w-32">Status</TableHead>
                               <TableHead className="w-32">References</TableHead>
+                              <TableHead className="w-40">
+                                Product Link
+                              </TableHead>
                               <TableHead className="w-12">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -2204,7 +2217,7 @@ export default function AdminReviewPage() {
                                       assignment.onboarding_assets.id
                                     )}
                                   >
-                                    <SelectTrigger className="border-0 bg-transparent p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
+                                    <SelectTrigger className="border-0 bg-transparent shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
                                       <span
                                         className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
                                           assignment.onboarding_assets
@@ -2268,7 +2281,7 @@ export default function AdminReviewPage() {
                                       }}
                                     >
                                       <FileText className="mr-1 h-3 w-3" />
-                                      Ref (aa
+                                      Ref (
                                       {(() => {
                                         const allRefs = parseReferences(
                                           assignment.onboarding_assets.reference
@@ -2283,6 +2296,27 @@ export default function AdminReviewPage() {
                                       )
                                     </Button>
                                   </div>
+                                </TableCell>
+
+                                <TableCell>
+                                  {assignment.onboarding_assets.product_link ? (
+                                    <a
+                                      href={
+                                        assignment.onboarding_assets
+                                          .product_link
+                                      }
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 underline break-all text-xs"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      Product Link
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
                                 </TableCell>
 
                                 <TableCell>
@@ -2417,6 +2451,7 @@ export default function AdminReviewPage() {
                   <TableHead className="text-center">Priority</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>References</TableHead>
+                  <TableHead>Product Link</TableHead>
                   <TableHead>Review</TableHead>
                 </TableRow>
               </TableHeader>
@@ -2531,6 +2566,22 @@ export default function AdminReviewPage() {
                             )
                           </Button>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {asset.product_link ? (
+                          <a
+                            href={asset.product_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 underline break-all text-xs"
+                          >
+                            Product Link
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Button

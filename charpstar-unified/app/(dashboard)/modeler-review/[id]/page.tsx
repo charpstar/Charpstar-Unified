@@ -81,6 +81,10 @@ const STATUS_LABELS = {
     label: "In Production",
     color: "bg-yellow-100 text-yellow-800",
   },
+  not_started: {
+    label: "Not Started",
+    color: "bg-gray-100 text-gray-700",
+  },
   revisions: { label: "Ready for Revision", color: "bg-red-100 text-red-700" },
   approved: { label: "Approved", color: "bg-green-100 text-green-700" },
   approved_by_client: {
@@ -1881,6 +1885,22 @@ export default function ModelerReviewPage() {
                 </div>
               </div>
               <div className="flex gap-3">
+                <Button
+                  onClick={() => updateAssetStatus("in_production")}
+                  disabled={asset?.status === "in_production" || statusUpdating}
+                  variant={
+                    asset?.status === "in_production" ? "default" : "outline"
+                  }
+                  size="sm"
+                  className="w-full cursor-pointer"
+                >
+                  {statusUpdating ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Mark as In Progress
+                </Button>
                 <Button
                   onClick={() => updateAssetStatus("delivered_by_artist")}
                   disabled={

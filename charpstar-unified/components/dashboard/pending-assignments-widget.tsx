@@ -39,10 +39,13 @@ export function PendingAssignmentsWidget() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (user?.metadata?.role === "modeler") {
+      return; // hide for modelers
+    }
     if (user?.id) {
       fetchPendingAssignments();
     }
-  }, [user?.id]);
+  }, [user?.id, user?.metadata?.role]);
 
   const fetchPendingAssignments = async () => {
     try {
@@ -119,6 +122,10 @@ export function PendingAssignmentsWidget() {
     (sum, list) => sum + list.totalWithBonus,
     0
   );
+
+  if (user?.metadata?.role === "modeler") {
+    return null;
+  }
 
   if (loading) {
     return (

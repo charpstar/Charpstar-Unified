@@ -43,7 +43,6 @@ import {
   ModelerEarningsWidget,
   ModelerQuickActionsWidget,
 } from "@/components/dashboard/modeler-widgets";
-import { PendingAssignmentsWidget } from "@/components/dashboard/pending-assignments-widget";
 import {
   QAWidgets,
   PersonalMetricsWidget,
@@ -210,14 +209,7 @@ export function FixedDashboard({ stats, profileContent }: FixedDashboardProps) {
           </CardContent>
         </Card>
 
-        {/* Row 3 */}
-        <Card className="h-4/4">
-          <CardContent>
-            <ErrorBoundary>
-              <PendingAssignmentsWidget />
-            </ErrorBoundary>
-          </CardContent>
-        </Card>
+        {/* Row 3: Pending Assignments card removed for modelers */}
 
         <Card className="h-4/4">
           <CardContent className="h-4/4">

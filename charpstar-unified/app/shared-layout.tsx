@@ -23,7 +23,9 @@ export function SharedLayout({ children }: { children: React.ReactNode }) {
   // List all routes where you DON'T want the sidebar (and bg-muted)
   // These are typically authentication pages or standalone pages
   const noSidebarRoutes = ["/auth", "/reset-password"];
-  const hideSidebar = noSidebarRoutes.includes(pathname);
+  const hideSidebar = noSidebarRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
 
   // Conditional class for the main content wrapper
   // Applies different styling based on whether sidebar is present

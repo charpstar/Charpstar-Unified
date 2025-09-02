@@ -1159,8 +1159,11 @@ export function ModelStatusWidget() {
           delivered_by_artist: 0,
         };
         for (const row of data) {
-          const status = row.status as StatusKey;
-          if (status in newCounts) newCounts[status]++;
+          const rawStatus = (row.status || "") as string;
+          const mapped = (
+            rawStatus === "not_started" ? "in_production" : rawStatus
+          ) as StatusKey;
+          if (mapped in newCounts) newCounts[mapped]++;
         }
 
         // Debug logging to see what we're counting
@@ -1178,13 +1181,16 @@ export function ModelStatusWidget() {
         // Add detailed counting debug
         console.log("Widget counting details:");
         for (const row of data) {
-          const status = row.status as StatusKey;
+          const status = (row.status || "") as string;
           console.log(
             `Row ${row.id}: status = "${status}", type = ${typeof status}`
           );
-          if (status in newCounts) {
+          const mapped = (
+            status === "not_started" ? "in_production" : status
+          ) as StatusKey;
+          if (mapped in newCounts) {
             console.log(
-              `  ✓ Status "${status}" found in newCounts, incrementing`
+              `  ✓ Status "${mapped}" (from "${status}") found in newCounts, incrementing`
             );
           } else {
             console.log(
@@ -1287,8 +1293,11 @@ export function StatusPieChartWidget() {
           delivered_by_artist: 0,
         };
         for (const row of data) {
-          const status = row.status as StatusKey;
-          if (status in newCounts) newCounts[status]++;
+          const rawStatus = (row.status || "") as string;
+          const mapped = (
+            rawStatus === "not_started" ? "in_production" : rawStatus
+          ) as StatusKey;
+          if (mapped in newCounts) newCounts[mapped]++;
         }
 
         // Debug logging to see what we're counting

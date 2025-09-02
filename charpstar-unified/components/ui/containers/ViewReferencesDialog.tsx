@@ -19,6 +19,7 @@ import {
   FileIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import Image from "next/image";
 
 interface FileItem {
   url: string;
@@ -378,13 +379,29 @@ export function ViewReferencesDialog({
                     className="flex items-center justify-between p-3 border rounded-lg dark:border-border dark:bg-muted/10"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <ImageIcon className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      {/* Image Preview */}
+                      <div className="w-16 h-16 bg-muted rounded-lg border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <Image
+                          width={64}
+                          height={64}
+                          src={file.url}
+                          alt={file.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = "none";
+                            const fallback =
+                              target.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = "flex";
+                          }}
+                        />
+                        <div className="hidden w-full h-full items-center justify-center bg-muted">
+                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate dark:text-foreground">
                           {file.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
-                          {file.url}
                         </p>
                       </div>
                     </div>

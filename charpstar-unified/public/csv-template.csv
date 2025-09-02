@@ -1,10 +1,10 @@
-Article ID,Product Name,Product Link,GLB Link,Category,Subcategory
-12345,Sample Product,https://example.com/product/12345,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
-12346,Another Product,https://example.com/product/12346,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
-12347,Third Product,https://example.com/product/12347,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones
-12348,Sample Product,https://example.com/product/12348,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
-12349,Another Product,https://example.com/product/12349,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
-12350,Third Product,https://example.com/product/12350,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones
+Article ID,Product Name,Product Link,CAD/File Link,Category,Subcategory
+12345,Sample Product,https://example.com/product/12345,https://drive.google.com/file/d/12345_cad.step,Electronics,Headphones
+12346,Another Product,https://example.com/product/12346,https://drive.google.com/file/d/12346_cad.iges,Electronics,Speakers
+12347,Third Product,https://example.com/product/12347,https://drive.google.com/file/d/12347_cad.sldprt,Electronics,Microphones
+12348,Sample Product,https://example.com/product/12348,https://drive.google.com/file/d/12348_cad.dwg,Electronics,Headphones
+12349,Another Product,https://example.com/product/12349,https://drive.google.com/file/d/12349_cad.prt,Electronics,Speakers
+12350,Third Product,https://example.com/product/12350,https://drive.google.com/file/d/12350_cad.x_t,Electronics,Microphones
 12351,Sample Product,https://example.com/product/12351,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
 12352,Another Product,https://example.com/product/12352,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
 12353,Third Product,https://example.com/product/12353,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones

@@ -61,16 +61,22 @@ const STATUS_LABELS = {
     rowColor: "table-row-status-revisions",
     hoverColor: "",
   },
+  not_started: {
+    label: "In Progress",
+    color: "bg-warning-muted text-warning border-warning/20",
+    rowColor: "table-row-status-in-production",
+    hoverColor: "",
+  },
   approved: {
-    label: "Approved",
-    color: "bg-green-100 text-green-800 border-green-200",
-    rowColor: "table-row-status-approved",
+    label: "New Upload",
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+    rowColor: "table-row-status-approved-by-client",
     hoverColor: "",
   },
   approved_by_client: {
     label: "Approved by Client",
-    color: "bg-blue-100 text-blue-700 border-blue-200",
-    rowColor: "table-row-status-approved-by-client",
+    color: "bg-green-100 text-green-800 border-green-200",
+    rowColor: "table-row-status-approved",
     hoverColor: "",
   },
 };
@@ -610,24 +616,24 @@ export default function ReviewDashboardPage() {
               </div>
             </Card>
 
-            {/* Approved */}
+            {/* New Upload (Approved) */}
             <Card
               className="p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
               onClick={() => {
-                setStatusFilters(["approved", "approved_by_client"]);
+                setStatusFilters(["approved"]);
                 setPage(1);
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-success-muted dark:bg-success-muted/20 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-success" />
+                <div className="p-2 bg-info-muted dark:bg-info-muted/20 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-info" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
-                    Approved
+                    New Upload
                   </p>
-                  <p className="text-2xl font-medium text-success">
-                    {statusTotals.approved + statusTotals.approved_by_client}
+                  <p className="text-2xl font-medium text-info">
+                    {statusTotals.approved}
                   </p>
                 </div>
               </div>
@@ -665,14 +671,14 @@ export default function ReviewDashboardPage() {
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-muted dark:bg-emerald-muted/20 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-emerald" />
+                <div className="p-2 bg-success-muted dark:bg-success-muted/20 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-success" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     Approved by Client
                   </p>
-                  <p className="text-2xl font-bold text-emerald">
+                  <p className="text-2xl font-bold text-success">
                     {statusTotals.approved_by_client}
                   </p>
                 </div>

@@ -42,7 +42,6 @@ import {
   Package,
   ExternalLink,
   Check,
-  X,
   File,
   Info,
   Image,
@@ -111,6 +110,15 @@ const separateReferences = (referenceImages: string[] | string | null) => {
   return { glbFiles, imageReferences };
 };
 
+// Heuristic mapping from price to task type (pricing option not stored here)
+const getTaskTypeFromPrice = (price: number): string => {
+  if (price === 18 || price === 30) return "PBR 3D Model Creation";
+  if (price === 1 || price === 1.5) return "Additional Colors";
+  if (price === 7) return "Additional Textures/Materials";
+  if (price === 4 || price === 5) return "Additional Sizes";
+  return "Hard 3D Model";
+};
+
 export default function PendingAssignmentsPage() {
   const user = useUser();
   const router = useRouter();
@@ -121,19 +129,24 @@ export default function PendingAssignmentsPage() {
   const [clientFilter, setClientFilter] = useState("all");
   const [batchFilter, setBatchFilter] = useState("all");
   const [accepting, setAccepting] = useState<string | null>(null);
-  const [declining, setDeclining] = useState<string | null>(null);
   const [acceptedLists, setAcceptedLists] = useState<
     Map<string, AllocationList>
   >(new Map());
-  const [declinedLists, setDeclinedLists] = useState<
-    Map<string, AllocationList>
-  >(new Map());
+  const [clientGuides, setClientGuides] = useState<Record<string, string[]>>(
+    {}
+  );
 
+  // Hide this page for modelers by redirecting to dashboard
   useEffect(() => {
+    if (!user) return;
+    if (user?.metadata?.role === "modeler") {
+      router.replace("/dashboard");
+      return;
+    }
     if (user?.id) {
       fetchPendingAssignments();
     }
-  }, [user?.id]);
+  }, [user?.id, user?.metadata?.role]);
 
   // Mark related notifications as read when visiting this page
   useEffect(() => {
@@ -179,6 +192,54 @@ export default function PendingAssignmentsPage() {
           }
         });
       });
+    }
+  }, [allocationLists]);
+
+  // Fetch client guideline links for the clients present in lists
+  useEffect(() => {
+    const loadGuides = async () => {
+      const uniqueClients = Array.from(
+        new Set(
+          allocationLists.flatMap(
+            (list) =>
+              list.asset_assignments
+                .map((a) => a.onboarding_assets?.client)
+                .filter(Boolean) as string[]
+          )
+        )
+      );
+      const toFetch = uniqueClients.filter(
+        (c) => clientGuides[c] === undefined
+      );
+      if (toFetch.length === 0) return;
+      const { data, error } = await supabase
+        .from("clients")
+        .select("name, client_guide, client_guide_links")
+        .in("name", toFetch);
+      if (error) {
+        console.error("Error fetching client guides:");
+        return;
+      }
+      const map: Record<string, string[]> = { ...clientGuides };
+      data?.forEach((row: any) => {
+        const links: string[] = [];
+        if (row.client_guide) links.push(row.client_guide);
+        if (Array.isArray(row.client_guide_links)) {
+          links.push(
+            ...row.client_guide_links.filter(
+              (x: any) => typeof x === "string" && x
+            )
+          );
+        }
+        map[row.name] = links;
+      });
+      toFetch.forEach((c) => {
+        if (map[c] === undefined) map[c] = [];
+      });
+      setClientGuides(map);
+    };
+    if (allocationLists.length > 0) {
+      loadGuides();
     }
   }, [allocationLists]);
 
@@ -404,96 +465,7 @@ export default function PendingAssignmentsPage() {
     }
   };
 
-  const handleDeclineList = async (listId: string) => {
-    try {
-      setDeclining(listId);
-      const list = allocationLists.find((l) => l.id === listId);
-      if (!list) return;
-
-      // Optimistic update - immediately remove from the list
-      setAllocationLists((prev) => prev.filter((l) => l.id !== listId));
-      setDeclinedLists((prev) => new Map(prev).set(listId, list));
-
-      const assetIds = list.asset_assignments.map((a) => a.asset_id);
-
-      // Delete the assignments when declined (this makes assets unassigned again)
-      const { error } = await supabase
-        .from("asset_assignments")
-        .delete()
-        .in("asset_id", assetIds)
-        .eq("user_id", user?.id);
-
-      if (error) {
-        console.error("Error declining list:", error);
-        toast.error("Failed to decline list");
-        // Revert optimistic update on error
-        setAllocationLists((prev) => [...prev, list]);
-        setDeclinedLists((prev) => {
-          const newMap = new Map(prev);
-          newMap.delete(listId);
-          return newMap;
-        });
-        return;
-      }
-
-      toast.success("Allocation list declined successfully!");
-
-      // Send notification to admin users about allocation list decline
-      try {
-        const firstAsset = list.asset_assignments[0]?.onboarding_assets;
-        if (firstAsset && user?.email) {
-          console.log("📤 Sending allocation list decline notification...");
-          console.log("👤 User data:", {
-            name: user?.user_metadata?.name,
-            email: user?.email,
-            hasFirstAsset: !!firstAsset,
-          });
-          await notificationService.sendAllocationListStatusNotification({
-            modelerName: user.user_metadata.name || user.email,
-            modelerEmail: user.email,
-            allocationListName: list.name,
-            allocationListNumber: list.number,
-            assetCount: list.totalAssets,
-            totalPrice: list.totalPrice,
-            client: firstAsset.client,
-            batch: firstAsset.batch,
-            status: "declined",
-          });
-          console.log("Allocation list decline notification sent successfully");
-        }
-      } catch (notificationError) {
-        console.error(
-          "Failed to send allocation list decline notification:",
-          notificationError
-        );
-        // Don't fail the decline if notification fails
-      }
-
-      // Remove from declined lists after a delay to show success animation
-      setTimeout(() => {
-        setDeclinedLists((prev) => {
-          const newMap = new Map(prev);
-          newMap.delete(listId);
-          return newMap;
-        });
-      }, 2000);
-    } catch (error) {
-      console.error("Error:", error);
-      toast.error("Failed to decline list");
-      // Revert optimistic update on error
-      const list = allocationLists.find((l) => l.id === listId);
-      if (list) {
-        setAllocationLists((prev) => [...prev, list]);
-      }
-      setDeclinedLists((prev) => {
-        const newMap = new Map(prev);
-        newMap.delete(listId);
-        return newMap;
-      });
-    } finally {
-      setDeclining(null);
-    }
-  };
+  // Decline functionality removed for modelers
 
   const [assetFilesMap, setAssetFilesMap] = useState<Record<string, any[]>>({});
   const [, setCheckingFiles] = useState<Record<string, boolean>>({});
@@ -603,6 +575,10 @@ export default function PendingAssignmentsPage() {
       )
     )
   ).sort((a, b) => a - b);
+
+  if (user?.metadata?.role === "modeler") {
+    return null;
+  }
 
   if (loading) {
     return (
@@ -762,32 +738,7 @@ export default function PendingAssignmentsPage() {
               </div>
             )}
 
-            {declinedLists.size > 0 && (
-              <div className="space-y-2">
-                {Array.from(declinedLists.entries()).map(([listId, list]) => {
-                  return (
-                    <div
-                      key={listId}
-                      className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg animate-in slide-in-from-top-2 duration-300"
-                    >
-                      <div className="flex items-center justify-center w-8 h-8 bg-error-muted rounded-full">
-                        <X className="h-4 w-4 text-error" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-red-800">
-                          {list?.name || "Allocation List"} declined
-                          successfully!
-                        </p>
-                        <p className="text-sm text-error">
-                          The list has been removed from your pending
-                          assignments.
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Declined success messages removed */}
 
             {/* Allocation Lists */}
             {loading ? (
@@ -797,9 +748,7 @@ export default function PendingAssignmentsPage() {
                   Loading allocation lists...
                 </p>
               </div>
-            ) : filteredLists.length === 0 &&
-              acceptedLists.size === 0 &&
-              declinedLists.size === 0 ? (
+            ) : filteredLists.length === 0 && acceptedLists.size === 0 ? (
               <div className="text-center py-12">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">
@@ -835,6 +784,50 @@ export default function PendingAssignmentsPage() {
                               )}{" "}
                               - {list.totalAssets} assets
                             </h3>
+                            {(() => {
+                              const listClient =
+                                list.asset_assignments[0]?.onboarding_assets
+                                  ?.client;
+                              return listClient ? (
+                                <div className="text-sm text-muted-foreground mt-1">
+                                  Client:{" "}
+                                  <span className="font-medium">
+                                    {listClient}
+                                  </span>
+                                  {Array.isArray(clientGuides[listClient]) &&
+                                  clientGuides[listClient].length > 0 ? (
+                                    <>
+                                      {" "}
+                                      •{" "}
+                                      {clientGuides[listClient].map(
+                                        (url, idx) => (
+                                          <a
+                                            key={`${listClient}-guide-${idx}`}
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-primary hover:underline mr-2"
+                                          >
+                                            {idx === 0
+                                              ? `Client Guidelines - ${listClient}`
+                                              : `Guide ${idx + 1} - ${listClient}`}
+                                          </a>
+                                        )
+                                      )}
+                                    </>
+                                  ) : (
+                                    <>
+                                      {" "}
+                                      •{" "}
+                                      <span className="italic">
+                                        No guidelines found – contact production
+                                        team
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              ) : null;
+                            })()}
                             <p className="text-sm text-muted-foreground mt-1">
                               Review assets and references below before
                               accepting
@@ -859,15 +852,6 @@ export default function PendingAssignmentsPage() {
                             >
                               <Check className="h-4 w-4" />
                               Accept List
-                            </Button>
-                            <Button
-                              onClick={() => handleDeclineList(list.id)}
-                              variant="outline"
-                              className="flex items-center gap-2"
-                              disabled={declining === list.id}
-                            >
-                              <X className="h-4 w-4" />
-                              Decline List
                             </Button>
                           </div>
                         </div>
@@ -953,6 +937,9 @@ export default function PendingAssignmentsPage() {
                               Price
                             </TableHead>
                             <TableHead className="w-32 text-center">
+                              Task Type
+                            </TableHead>
+                            <TableHead className="w-32 text-center">
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="flex items-center gap-1 justify-center cursor-help">
@@ -992,6 +979,11 @@ export default function PendingAssignmentsPage() {
                                       €{assignment.price?.toFixed(2)}
                                     </span>
                                   </div>
+                                </TableCell>
+                                <TableCell className="text-center w-32">
+                                  <span className="inline-flex items-center rounded-full border px-2 py-1 text-xs">
+                                    {getTaskTypeFromPrice(assignment.price)}
+                                  </span>
                                 </TableCell>
                                 <TableCell className="text-center w-32">
                                   <div className="flex flex-col items-center gap-1">

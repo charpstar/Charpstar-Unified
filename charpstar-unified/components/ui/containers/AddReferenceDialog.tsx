@@ -37,6 +37,7 @@ export function AddReferenceDialog({
     fileName: string;
   } | null>(null);
   const [draggedFileIndex, setDraggedFileIndex] = useState<number | null>(null);
+  const [pastedImages, setPastedImages] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Validate file types
@@ -71,6 +72,52 @@ export function AddReferenceDialog({
     });
 
     return { valid: validFiles, invalid: invalidFiles };
+  };
+
+  // Handle clipboard paste
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageFiles: File[] = [];
+
+    items.forEach((item) => {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          // Generate a filename for pasted images
+          const timestamp = new Date()
+            .toISOString()
+            .slice(0, 19)
+            .replace(/:/g, "-");
+          const extension = file.type.split("/")[1] || "png";
+          const newFile = new File(
+            [file],
+            `pasted-image-${timestamp}.${extension}`,
+            {
+              type: file.type,
+              lastModified: Date.now(),
+            }
+          );
+          imageFiles.push(newFile);
+        }
+      }
+    });
+
+    if (imageFiles.length > 0) {
+      const { valid, invalid } = validateFiles(imageFiles);
+
+      if (invalid.length > 0) {
+        setFileError(`Invalid pasted image(s): ${invalid.join(", ")}`);
+        setTimeout(() => setFileError(null), 5000);
+      }
+
+      if (valid.length > 0) {
+        setPastedImages((prev) => [...prev, ...valid]);
+        setFileError(null);
+        toast.success(
+          `Pasted ${valid.length} image${valid.length > 1 ? "s" : ""} from clipboard!`
+        );
+      }
+    }
   };
 
   // Handle file reordering
@@ -147,15 +194,16 @@ export function AddReferenceDialog({
 
   // Handle multiple file uploads
   const handleMultipleFileUpload = async () => {
-    if (droppedFiles.length === 0 || !assetId) return;
+    const allFiles = [...droppedFiles, ...pastedImages];
+    if (allFiles.length === 0 || !assetId) return;
 
     setUploading(true);
-    setUploadProgress({ current: 0, total: droppedFiles.length, fileName: "" });
+    setUploadProgress({ current: 0, total: allFiles.length, fileName: "" });
 
     try {
       // Upload files sequentially
-      for (let i = 0; i < droppedFiles.length; i++) {
-        const file = droppedFiles[i];
+      for (let i = 0; i < allFiles.length; i++) {
+        const file = allFiles[i];
         setUploadProgress({
           current: i + 1,
           total: droppedFiles.length,
@@ -190,13 +238,14 @@ export function AddReferenceDialog({
       }
 
       toast.success(
-        `Successfully uploaded ${droppedFiles.length} file${
-          droppedFiles.length > 1 ? "s" : ""
+        `Successfully uploaded ${allFiles.length} file${
+          allFiles.length > 1 ? "s" : ""
         }!`
       );
 
       // Reset dialog state
       setDroppedFiles([]);
+      setPastedImages([]);
       setFileError(null);
       setUploadProgress(null);
       setDraggedFileIndex(null);
@@ -221,6 +270,7 @@ export function AddReferenceDialog({
   const resetDialog = () => {
     setReferenceUrl("");
     setDroppedFiles([]);
+    setPastedImages([]);
     setFileError(null);
     setUploadProgress(null);
     setDraggedFileIndex(null);
@@ -229,7 +279,11 @@ export function AddReferenceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] h-fit dark:bg-background dark:border-border">
+      <DialogContent
+        className="sm:max-w-[500px] h-fit dark:bg-background dark:border-border"
+        onPaste={handlePaste}
+        tabIndex={-1}
+      >
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-foreground dark:text-foreground">
             Add Reference or GLB File
@@ -349,6 +403,9 @@ export function AddReferenceDialog({
                     Supported: JPG, PNG, GIF, WebP, SVG, GLB (max 100MB per
                     file)
                   </p>
+                  <p className="text-xs text-primary dark:text-primary mt-2 font-medium">
+                    💡 Tip: You can also paste images from clipboard (Ctrl+V)
+                  </p>
                 </div>
                 {fileError && (
                   <div className="mt-3 p-2 bg-destructive/10 border border-destructive/20 rounded">
@@ -357,34 +414,37 @@ export function AddReferenceDialog({
                     </p>
                   </div>
                 )}
-                {droppedFiles.length > 0 && (
+                {(droppedFiles.length > 0 || pastedImages.length > 0) && (
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-muted-foreground dark:text-muted-foreground">
-                      {droppedFiles.length} file
-                      {droppedFiles.length > 1 ? "s" : ""} selected:
+                      {droppedFiles.length + pastedImages.length} file
+                      {droppedFiles.length + pastedImages.length > 1
+                        ? "s"
+                        : ""}{" "}
+                      selected:
                     </p>
-                    {droppedFiles.length > 1 && (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDroppedFiles([]);
-                          }}
-                          className="h-6 text-xs hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          Clear All
-                        </Button>
-                        <span className="text-xs text-muted-foreground">
-                          Drag files to reorder upload sequence
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDroppedFiles([]);
+                          setPastedImages([]);
+                        }}
+                        className="h-6 text-xs hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        Clear All
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Drag files to reorder upload sequence
+                      </span>
+                    </div>
                     <div className="space-y-1 max-h-20 overflow-y-auto">
+                      {/* Dropped Files */}
                       {droppedFiles.map((file, index) => (
                         <div
-                          key={index}
+                          key={`dropped-${index}`}
                           className={`flex items-center justify-between text-xs bg-muted/50 dark:bg-muted/20 rounded px-2 py-1 cursor-move transition-all ${
                             draggedFileIndex === index
                               ? "opacity-50 scale-95"
@@ -413,6 +473,37 @@ export function AddReferenceDialog({
                                 (_, i) => i !== index
                               );
                               setDroppedFiles(newFiles);
+                            }}
+                            className="h-4 w-4 p-0 ml-2 hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      {/* Pasted Images */}
+                      {pastedImages.map((file, index) => (
+                        <div
+                          key={`pasted-${index}`}
+                          className="flex items-center justify-between text-xs bg-blue-50 dark:bg-blue-900/20 rounded px-2 py-1 transition-all hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="text-blue-600 dark:text-blue-400">
+                              📋
+                            </span>
+                            <span className="truncate">
+                              {file.name} (
+                              {(file.size / 1024 / 1024).toFixed(2)} MB)
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const newFiles = pastedImages.filter(
+                                (_, i) => i !== index
+                              );
+                              setPastedImages(newFiles);
                             }}
                             className="h-4 w-4 p-0 ml-2 hover:bg-destructive/10 hover:text-destructive"
                           >
@@ -450,7 +541,7 @@ export function AddReferenceDialog({
               uploading ||
               (uploadMode === "url"
                 ? !referenceUrl.trim()
-                : droppedFiles.length === 0)
+                : droppedFiles.length === 0 && pastedImages.length === 0)
             }
             className="cursor-pointer"
           >
@@ -462,7 +553,7 @@ export function AddReferenceDialog({
                   : "Uploading..."}
               </>
             ) : (
-              `Add ${uploadMode === "url" ? "URL" : droppedFiles.length > 1 ? `${droppedFiles.length} Files` : "File"}`
+              `Add ${uploadMode === "url" ? "URL" : droppedFiles.length + pastedImages.length > 1 ? `${droppedFiles.length + pastedImages.length} Files` : "File"}`
             )}
           </Button>
         </div>

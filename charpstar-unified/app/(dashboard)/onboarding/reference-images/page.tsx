@@ -54,6 +54,7 @@ import { Input } from "@/components/ui/inputs";
 import { useRouter } from "next/navigation";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
+import { notificationService } from "@/lib/notificationService";
 
 interface UploadedFile {
   id: string;
@@ -662,6 +663,19 @@ export default function ReferenceImagesPage() {
           variant: "destructive",
         });
         return;
+      }
+
+      // Send admin notification now that products are uploaded and references done
+      try {
+        await notificationService.sendProductSubmissionNotification({
+          client: user?.metadata?.client || "Unknown Client",
+          batch: 1,
+          productCount: assets.length,
+          productNames: assets.map((a) => a.product_name).filter(Boolean),
+          submittedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("Failed to send product submission notification:", err);
       }
 
       toast({

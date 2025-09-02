@@ -36,6 +36,7 @@ import { useLoading } from "@/contexts/LoadingContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/utilities";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Alert, AlertDescription } from "@/components/ui/feedback";
 import { notificationService } from "@/lib/notificationService";
 
@@ -190,7 +191,7 @@ export default function CsvUploadPage() {
         article_id,
         product_name,
         product_link,
-        glb_link,
+        cad_file_link,
         category,
         subcategory,
       ] = row;
@@ -203,7 +204,7 @@ export default function CsvUploadPage() {
         article_id: article_id?.trim() || null,
         product_name: product_name?.trim() || null,
         product_link: product_link?.trim() || null,
-        glb_link: glb_link?.trim() || null,
+        cad_file_link: cad_file_link?.trim() || null,
         category: category?.trim() || null,
         subcategory: subcategory?.trim() || null,
         reference: null, // No reference column in template
@@ -309,10 +310,21 @@ export default function CsvUploadPage() {
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Upload your product data to get started with your 3D asset library.
-            The template includes: Article ID, Product Name, product_link,
-            glb_link, Category, and Subcategory. All fields are optional and can
-            be empty.
+            The template includes: Article ID, Product Name, Product Link,
+            CAD/File Link, Category, and Subcategory. All fields are optional
+            and can be empty.{" "}
+            <strong>
+              Note: Do not add images yet - that&apos;s the next step.
+            </strong>
           </p>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <Link href="/onboarding/manual-upload" className="cursor-pointer">
+              <Button variant="outline" size="sm" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Add products manually
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -373,35 +385,83 @@ export default function CsvUploadPage() {
       {/* Main Upload Area */}
       <div className="w-full max-w-4xl">
         <Card className="border">
-          {/* Download Template Section */}
+          {/* Step 1: Choose how to add products */}
           <div className="p-8 border-b border-border/50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Download className="h-8 w-8 text-primary" />
-                  <div className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full animate-pulse" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold">
-                    Step 1: Download Template
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Get the CSV template with the correct column structure:
-                    Article ID, Product Name, product_link, glb_link, Category,
-                    Subcategory. All fields are optional and can be empty.
-                  </p>
-                </div>
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="relative">
+                <Download className="h-8 w-8 text-primary" />
+                <div className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full animate-pulse" />
               </div>
-              <a
-                href="/csv-template.csv"
-                download
-                onClick={() => setProgress((p) => ({ ...p, downloaded: true }))}
-              >
-                <Button variant="default" size="lg">
-                  <Download className="h-5 w-5 mr-2" />
-                  Download Template
-                </Button>
-              </a>
+              <div>
+                <h3 className="text-xl font-semibold">
+                  Step 1: Choose how to add products
+                </h3>
+                <p className="text-muted-foreground">
+                  Use CSV for larger batches or Manual upload for a few items.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* CSV Path */}
+              <Card className="p-4 border">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h4 className="text-lg font-semibold mb-1">CSV upload</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Download the template and upload your filled file. Best
+                      for 10+ products.
+                    </p>
+                    <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                      <li>
+                        Columns: Article ID, Product Name, Product Link,
+                        CAD/File Link, Category, Subcategory
+                      </li>
+                      <li>
+                        All fields optional except Article ID and Product Name
+                        for processing
+                      </li>
+                    </ul>
+                  </div>
+                  <a
+                    href="/csv-template.csv"
+                    download
+                    onClick={() =>
+                      setProgress((p) => ({ ...p, downloaded: true }))
+                    }
+                    className="shrink-0"
+                  >
+                    <Button variant="default" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Template
+                    </Button>
+                  </a>
+                </div>
+              </Card>
+
+              {/* Manual Path */}
+              <Card className="p-4 border">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h4 className="text-lg font-semibold mb-1">
+                      Manual upload
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Add multiple rows in a spreadsheet-like table and submit
+                      together.
+                    </p>
+                    <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                      <li>Great for smaller batches</li>
+                      <li>Requires Article ID and Product Name per row</li>
+                    </ul>
+                  </div>
+                  <Link href="/onboarding/manual-upload" className="shrink-0">
+                    <Button variant="outline" size="sm">
+                      Go to Manual
+                    </Button>
+                  </Link>
+                </div>
+              </Card>
             </div>
           </div>
 
@@ -423,6 +483,12 @@ export default function CsvUploadPage() {
                     ? "Drag and drop your CSV file or click to browse"
                     : "Download the template first to enable upload"}
                 </p>
+                {progress.downloaded && (
+                  <p className="text-sm text-amber-600 mt-1">
+                    <strong>Important:</strong> This step is for product data
+                    only. Do not add images yet - that&apos;s the next step.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -549,7 +615,12 @@ export default function CsvUploadPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 Preview your data before confirming. Review the data below to
-                ensure everything looks correct before uploading.
+                ensure everything looks correct before uploading. The Preview
+                column shows visual indicators for your CAD/File links.{" "}
+                <strong>
+                  Remember: This step is for product data only - images come
+                  next!
+                </strong>
               </AlertDescription>
             </Alert>
 
@@ -570,23 +641,52 @@ export default function CsvUploadPage() {
                               {cell}
                             </TableHead>
                           ))}
+                          <TableHead className="font-semibold text-primary bg-primary/5">
+                            Preview
+                          </TableHead>
                         </TableRow>
                       )}
                     </TableHeader>
                     <TableBody>
-                      {csvPreview.slice(1).map((row, i) => (
-                        <TableRow key={i} className="p-2">
-                          {row.map((cell, j) => (
-                            <TableCell key={j} className="text-sm p-4">
-                              {cell || (
-                                <span className="text-muted-foreground italic">
-                                  empty
+                      {csvPreview.slice(1).map((row, i) => {
+                        const cadFileLink = row[3]; // CAD/File Link is the 4th column (index 3)
+                        return (
+                          <TableRow key={i} className="p-2">
+                            {row.map((cell, j) => (
+                              <TableCell key={j} className="text-sm p-4">
+                                {cell || (
+                                  <span className="text-muted-foreground italic">
+                                    empty
+                                  </span>
+                                )}
+                              </TableCell>
+                            ))}
+                            <TableCell className="text-sm p-4">
+                              {cadFileLink ? (
+                                <div className="flex items-center space-x-2">
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-medium text-primary">
+                                      {cadFileLink
+                                        .split("/")
+                                        .pop()
+                                        ?.split("?")[0] || "Link"}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {cadFileLink.includes("drive.google.com")
+                                        ? "Google Drive"
+                                        : "External Link"}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground italic text-sm">
+                                  No file
                                 </span>
                               )}
                             </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 ) : (

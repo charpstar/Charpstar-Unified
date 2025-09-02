@@ -95,69 +95,119 @@ interface AssetFileHistory {
   };
 }
 
-// Predefined pricing options based on the pricing structure
+// Predefined pricing options based on the new pricing structure
 const PRICING_OPTIONS: PricingOption[] = [
+  // First List Pricing
   {
-    id: "pbr_3d_model",
-    label: "PBR 3D Model Creation",
+    id: "pbr_3d_model_first",
+    label: "PBR 3D Model Creation (First List)",
     price: 18,
-    description: "Standard PBR 3D model creation",
+    description: "Standard PBR 3D model creation for first list",
   },
   {
-    id: "pbr_3d_model_future",
-    label: "PBR 3D Model Creation (Future)",
-    price: 15,
-    description: "PBR 3D model creation for future models",
+    id: "hard_3d_model_first",
+    label: "Hard 3D Model (First List)",
+    price: 0, // Custom price - decided before commencing
+    description: "Hard surface 3D model for first list - custom pricing",
   },
   {
-    id: "hard_3d_model",
-    label: "Hard Surface 3D Model",
-    price: 0, // Custom price
-    description: "Hard surface 3D model with custom pricing",
+    id: "additional_colors_first",
+    label: "Additional Colors (First List)",
+    price: 1,
+    description: "Additional colors for already made 3D models",
   },
   {
-    id: "hard_3d_model_future",
-    label: "Hard Surface 3D Model (Future)",
-    price: 0, // Custom price
-    description: "Hard surface 3D model for future models with custom pricing",
-  },
-  {
-    id: "texture_creation",
-    label: "Texture Creation",
-    price: 8,
-    description: "Texture creation for existing models",
-  },
-  {
-    id: "texture_creation_future",
-    label: "Texture Creation (Future)",
-    price: 6,
-    description: "Texture creation for future models",
-  },
-  {
-    id: "uv_unwrapping",
-    label: "UV Unwrapping",
+    id: "additional_textures_first",
+    label: "Additional Textures/Materials (First List)",
     price: 5,
-    description: "UV unwrapping for existing models",
+    description: "Additional textures/materials for already made 3D models",
   },
   {
-    id: "uv_unwrapping_future",
-    label: "UV Unwrapping (Future)",
+    id: "additional_sizes_first",
+    label: "Additional Sizes (First List)",
     price: 4,
-    description: "UV unwrapping for future models",
+    description: "Additional sizes for already made 3D models",
+  },
+
+  // After First Deadline Pricing
+  {
+    id: "pbr_3d_model_after_first",
+    label: "PBR 3D Model Creation (After First Deadline)",
+    price: 18,
+    description: "Standard PBR 3D model creation after first deadline",
   },
   {
-    id: "retopology",
-    label: "Retopology",
-    price: 12,
-    description: "Retopology for existing models",
+    id: "hard_3d_model_after_first",
+    label: "Hard 3D Model (After First Deadline)",
+    price: 0, // Custom price - decided before commencing
+    description: "Hard surface 3D model after first deadline - custom pricing",
   },
   {
-    id: "retopology_future",
-    label: "Retopology (Future)",
-    price: 10,
-    description: "Retopology for future models",
+    id: "additional_colors_after_first",
+    label: "Additional Colors (After First Deadline)",
+    price: 1,
+    description: "Additional colors for already made 3D models",
+  },
+  {
+    id: "additional_textures_after_first",
+    label: "Additional Textures/Materials (After First Deadline)",
+    price: 5,
+    description: "Additional textures/materials for already made 3D models",
+  },
+  {
+    id: "additional_sizes_after_first",
+    label: "Additional Sizes (After First Deadline)",
+    price: 4,
+    description: "Additional sizes for already made 3D models",
+  },
+
+  // After Second Deadline Pricing (Premium Tier)
+  {
+    id: "pbr_3d_model_after_second",
+    label: "PBR 3D Model Creation (Premium Tier)",
+    price: 30,
+    description: "Premium PBR 3D model creation after second deadline",
+  },
+  {
+    id: "hard_3d_model_after_second",
+    label: "Hard 3D Model (Premium Tier)",
+    price: 0, // Custom price - decided before commencing
+    description: "Hard surface 3D model premium tier - custom pricing",
+  },
+  {
+    id: "additional_colors_after_second",
+    label: "Additional Colors (Premium Tier)",
+    price: 1.5,
+    description: "Additional colors for already made 3D models",
+  },
+  {
+    id: "additional_textures_after_second",
+    label: "Additional Textures/Materials (Premium Tier)",
+    price: 7,
+    description: "Additional textures/materials for already made 3D models",
+  },
+  {
+    id: "additional_sizes_after_second",
+    label: "Additional Sizes (Premium Tier)",
+    price: 5,
+    description: "Additional sizes for already made 3D models",
   },
 ];
+
+// Derive human-readable task type from pricing option id
+const getTaskTypeFromPricingOptionId = (pricingOptionId: string): string => {
+  if (!pricingOptionId) return "Unknown";
+  if (pricingOptionId.startsWith("pbr_3d_model_"))
+    return "PBR 3D Model Creation";
+  if (pricingOptionId.startsWith("hard_3d_model_")) return "Hard 3D Model";
+  if (pricingOptionId.startsWith("additional_colors_"))
+    return "Additional Colors";
+  if (pricingOptionId.startsWith("additional_textures_"))
+    return "Additional Textures/Materials";
+  if (pricingOptionId.startsWith("additional_sizes_"))
+    return "Additional Sizes";
+  return "Unknown";
+};
 
 export default function AllocateAssetsPage() {
   const router = useRouter();
@@ -176,11 +226,11 @@ export default function AllocateAssetsPage() {
       new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       "yyyy-MM-dd"
     ),
-    bonus: 0,
+    bonus: 15, // Default to first list bonus (15%)
   });
-  const [pricingTier, setPricingTier] = useState<"first_list" | "future">(
-    "first_list"
-  );
+  const [pricingTier, setPricingTier] = useState<
+    "first_list" | "after_first_deadline" | "after_second_deadline"
+  >("first_list");
   const [globalTeamAssignment, setGlobalTeamAssignment] = useState<{
     modelerId: string;
   }>({
@@ -200,10 +250,22 @@ export default function AllocateAssetsPage() {
 
   // Update pricing when pricing tier changes
   const updatePricingForTierChange = useCallback(
-    (newPricingTier: "first_list" | "future") => {
+    (
+      newPricingTier:
+        | "first_list"
+        | "after_first_deadline"
+        | "after_second_deadline"
+    ) => {
       if (allocationData.length === 0 || isUpdatingPricing.current) return;
 
       isUpdatingPricing.current = true;
+
+      // Update bonus percentage based on pricing tier
+      const newBonusPercentage = newPricingTier === "first_list" ? 15 : 30;
+      setGroupSettings((prev) => ({
+        ...prev,
+        bonus: newBonusPercentage,
+      }));
 
       const updatedData = allocationData.map((item) => {
         let newPricingOptionId = item.pricingOptionId;
@@ -213,89 +275,154 @@ export default function AllocateAssetsPage() {
         const pricingMappings: Record<
           string,
           {
-            future: string;
             first_list: string;
-            futurePrice: number;
+            after_first_deadline: string;
+            after_second_deadline: string;
             firstListPrice: number;
+            afterFirstDeadlinePrice: number;
+            afterSecondDeadlinePrice: number;
           }
         > = {
           // PBR 3D Model
-          pbr_3d_model: {
-            future: "pbr_3d_model_future",
-            first_list: "pbr_3d_model",
-            futurePrice: 15,
+          pbr_3d_model_first: {
+            first_list: "pbr_3d_model_first",
+            after_first_deadline: "pbr_3d_model_after_first",
+            after_second_deadline: "pbr_3d_model_after_second",
             firstListPrice: 18,
+            afterFirstDeadlinePrice: 18,
+            afterSecondDeadlinePrice: 30,
           },
-          pbr_3d_model_future: {
-            future: "pbr_3d_model_future",
-            first_list: "pbr_3d_model",
-            futurePrice: 15,
+          pbr_3d_model_after_first: {
+            first_list: "pbr_3d_model_first",
+            after_first_deadline: "pbr_3d_model_after_first",
+            after_second_deadline: "pbr_3d_model_after_second",
             firstListPrice: 18,
+            afterFirstDeadlinePrice: 18,
+            afterSecondDeadlinePrice: 30,
+          },
+          pbr_3d_model_after_second: {
+            first_list: "pbr_3d_model_first",
+            after_first_deadline: "pbr_3d_model_after_first",
+            after_second_deadline: "pbr_3d_model_after_second",
+            firstListPrice: 18,
+            afterFirstDeadlinePrice: 18,
+            afterSecondDeadlinePrice: 30,
           },
 
-          // Hard Surface 3D Model
-          hard_3d_model: {
-            future: "hard_3d_model_future",
-            first_list: "hard_3d_model",
-            futurePrice: 0,
+          // Hard Surface 3D Model (always custom pricing)
+          hard_3d_model_first: {
+            first_list: "hard_3d_model_first",
+            after_first_deadline: "hard_3d_model_after_first",
+            after_second_deadline: "hard_3d_model_after_second",
             firstListPrice: 0,
-          }, // Custom pricing
-          hard_3d_model_future: {
-            future: "hard_3d_model_future",
-            first_list: "hard_3d_model",
-            futurePrice: 0,
+            afterFirstDeadlinePrice: 0,
+            afterSecondDeadlinePrice: 0,
+          },
+          hard_3d_model_after_first: {
+            first_list: "hard_3d_model_first",
+            after_first_deadline: "hard_3d_model_after_first",
+            after_second_deadline: "hard_3d_model_after_second",
             firstListPrice: 0,
-          }, // Custom pricing
-
-          // Texture Creation
-          texture_creation: {
-            future: "texture_creation_future",
-            first_list: "texture_creation",
-            futurePrice: 6,
-            firstListPrice: 8,
+            afterFirstDeadlinePrice: 0,
+            afterSecondDeadlinePrice: 0,
           },
-          texture_creation_future: {
-            future: "texture_creation_future",
-            first_list: "texture_creation",
-            futurePrice: 6,
-            firstListPrice: 8,
+          hard_3d_model_after_second: {
+            first_list: "hard_3d_model_first",
+            after_first_deadline: "hard_3d_model_after_first",
+            after_second_deadline: "hard_3d_model_after_second",
+            firstListPrice: 0,
+            afterFirstDeadlinePrice: 0,
+            afterSecondDeadlinePrice: 0,
           },
 
-          // UV Unwrapping
-          uv_unwrapping: {
-            future: "uv_unwrapping_future",
-            first_list: "uv_unwrapping",
-            futurePrice: 4,
+          // Additional Colors
+          additional_colors_first: {
+            first_list: "additional_colors_first",
+            after_first_deadline: "additional_colors_after_first",
+            after_second_deadline: "additional_colors_after_second",
+            firstListPrice: 1,
+            afterFirstDeadlinePrice: 1,
+            afterSecondDeadlinePrice: 1.5,
+          },
+          additional_colors_after_first: {
+            first_list: "additional_colors_first",
+            after_first_deadline: "additional_colors_after_first",
+            after_second_deadline: "additional_colors_after_second",
+            firstListPrice: 1,
+            afterFirstDeadlinePrice: 1,
+            afterSecondDeadlinePrice: 1.5,
+          },
+          additional_colors_after_second: {
+            first_list: "additional_colors_first",
+            after_first_deadline: "additional_colors_after_first",
+            after_second_deadline: "additional_colors_after_second",
+            firstListPrice: 1,
+            afterFirstDeadlinePrice: 1,
+            afterSecondDeadlinePrice: 1.5,
+          },
+
+          // Additional Textures/Materials
+          additional_textures_first: {
+            first_list: "additional_textures_first",
+            after_first_deadline: "additional_textures_after_first",
+            after_second_deadline: "additional_textures_after_second",
             firstListPrice: 5,
+            afterFirstDeadlinePrice: 5,
+            afterSecondDeadlinePrice: 7,
           },
-          uv_unwrapping_future: {
-            future: "uv_unwrapping_future",
-            first_list: "uv_unwrapping",
-            futurePrice: 4,
+          additional_textures_after_first: {
+            first_list: "additional_textures_first",
+            after_first_deadline: "additional_textures_after_first",
+            after_second_deadline: "additional_textures_after_second",
             firstListPrice: 5,
+            afterFirstDeadlinePrice: 5,
+            afterSecondDeadlinePrice: 7,
+          },
+          additional_textures_after_second: {
+            first_list: "additional_textures_first",
+            after_first_deadline: "additional_textures_after_first",
+            after_second_deadline: "additional_textures_after_second",
+            firstListPrice: 5,
+            afterFirstDeadlinePrice: 5,
+            afterSecondDeadlinePrice: 7,
           },
 
-          // Retopology
-          retopology: {
-            future: "retopology_future",
-            first_list: "retopology",
-            futurePrice: 10,
-            firstListPrice: 12,
+          // Additional Sizes
+          additional_sizes_first: {
+            first_list: "additional_sizes_first",
+            after_first_deadline: "additional_sizes_after_first",
+            after_second_deadline: "additional_sizes_after_second",
+            firstListPrice: 4,
+            afterFirstDeadlinePrice: 4,
+            afterSecondDeadlinePrice: 5,
           },
-          retopology_future: {
-            future: "retopology_future",
-            first_list: "retopology",
-            futurePrice: 10,
-            firstListPrice: 12,
+          additional_sizes_after_first: {
+            first_list: "additional_sizes_first",
+            after_first_deadline: "additional_sizes_after_first",
+            after_second_deadline: "additional_sizes_after_second",
+            firstListPrice: 4,
+            afterFirstDeadlinePrice: 4,
+            afterSecondDeadlinePrice: 5,
+          },
+          additional_sizes_after_second: {
+            first_list: "additional_sizes_first",
+            after_first_deadline: "additional_sizes_after_first",
+            after_second_deadline: "additional_sizes_after_second",
+            firstListPrice: 4,
+            afterFirstDeadlinePrice: 4,
+            afterSecondDeadlinePrice: 5,
           },
         };
 
         const mapping = pricingMappings[item.pricingOptionId];
 
         if (mapping) {
-          if (newPricingTier === "future") {
-            newPricingOptionId = mapping.future;
-            newPrice = mapping.futurePrice;
+          if (newPricingTier === "after_second_deadline") {
+            newPricingOptionId = mapping.after_second_deadline;
+            newPrice = mapping.afterSecondDeadlinePrice;
+          } else if (newPricingTier === "after_first_deadline") {
+            newPricingOptionId = mapping.after_first_deadline;
+            newPrice = mapping.afterFirstDeadlinePrice;
           } else if (newPricingTier === "first_list") {
             newPricingOptionId = mapping.first_list;
             newPrice = mapping.firstListPrice;
@@ -319,7 +446,7 @@ export default function AllocateAssetsPage() {
     [allocationData]
   );
 
-  // Check if modeler has completed their first list and set pricing tier accordingly
+  // Check if modeler has completed their deadlines and set pricing tier accordingly
   const checkModelerPricingTier = useCallback(async (modelerId: string) => {
     if (!modelerId) return;
 
@@ -365,11 +492,21 @@ export default function AllocateAssetsPage() {
         return;
       }
 
-      // If the modeler has completed at least one allocation list, set pricing to future
+      // Count completed lists to determine pricing tier
       if (completedLists && completedLists.length > 0) {
-        setPricingTier("future");
+        if (completedLists.length >= 2) {
+          // After second deadline - premium tier
+          setPricingTier("after_second_deadline");
+          setGroupSettings((prev) => ({ ...prev, bonus: 30 }));
+        } else {
+          // After first deadline
+          setPricingTier("after_first_deadline");
+          setGroupSettings((prev) => ({ ...prev, bonus: 30 }));
+        }
       } else {
+        // First list
         setPricingTier("first_list");
+        setGroupSettings((prev) => ({ ...prev, bonus: 15 }));
       }
     } catch (error) {
       console.error("Error checking modeler pricing tier:", error);
@@ -469,29 +606,42 @@ export default function AllocateAssetsPage() {
     }
 
     // Get default pricing based on current pricing tier
-    const getDefaultPricing = (pricingTier: "first_list" | "future") => {
-      if (pricingTier === "future") {
+    const getDefaultPricing = (
+      pricingTier:
+        | "first_list"
+        | "after_first_deadline"
+        | "after_second_deadline"
+    ) => {
+      if (pricingTier === "after_second_deadline") {
         return {
-          pbr_3d_model: "pbr_3d_model_future",
-          hard_3d_model: "hard_3d_model_future",
-          texture_creation: "texture_creation_future",
-          uv_unwrapping: "uv_unwrapping_future",
-          retopology: "retopology_future",
+          pbr_3d_model: "pbr_3d_model_after_second",
+          hard_3d_model: "hard_3d_model_after_second",
+          additional_colors: "additional_colors_after_second",
+          additional_textures: "additional_textures_after_second",
+          additional_sizes: "additional_sizes_after_second",
+        };
+      } else if (pricingTier === "after_first_deadline") {
+        return {
+          pbr_3d_model: "pbr_3d_model_after_first",
+          hard_3d_model: "hard_3d_model_after_first",
+          additional_colors: "additional_colors_after_first",
+          additional_textures: "additional_textures_after_first",
+          additional_sizes: "additional_sizes_after_first",
         };
       } else {
         return {
-          pbr_3d_model: "pbr_3d_model",
-          hard_3d_model: "hard_3d_model",
-          texture_creation: "texture_creation",
-          uv_unwrapping: "uv_unwrapping",
-          retopology: "retopology",
+          pbr_3d_model: "pbr_3d_model_first",
+          hard_3d_model: "hard_3d_model_first",
+          additional_colors: "additional_colors_first",
+          additional_textures: "additional_textures_first",
+          additional_sizes: "additional_sizes_first",
         };
       }
     };
 
     const defaultPricingOptions = getDefaultPricing(pricingTier);
-    const defaultPricingOption = defaultPricingOptions.pbr_3d_model; // This will now correctly use future pricing when tier is "future"
-    const defaultPrice = pricingTier === "future" ? 15 : 18; // Future pricing is 15, first list is 18
+    const defaultPricingOption = defaultPricingOptions.pbr_3d_model;
+    const defaultPrice = pricingTier === "after_second_deadline" ? 30 : 18; // Premium tier is 30, others are 18
 
     const data: AllocationData[] = Array.from(selectedAssets).map(
       (assetId) => ({
@@ -940,11 +1090,16 @@ export default function AllocateAssetsPage() {
 
   // Get current pricing options based on tier
   const getCurrentPricingOptions = () => {
-    return PRICING_OPTIONS.filter((option) =>
-      pricingTier === "first_list"
-        ? !option.id.includes("_future")
-        : option.id.includes("_future")
-    );
+    return PRICING_OPTIONS.filter((option) => {
+      if (pricingTier === "first_list") {
+        return option.id.includes("_first") && !option.id.includes("after_");
+      } else if (pricingTier === "after_first_deadline") {
+        return option.id.includes("after_first");
+      } else if (pricingTier === "after_second_deadline") {
+        return option.id.includes("after_second");
+      }
+      return false;
+    });
   };
 
   // Get pricing option by ID
@@ -1196,6 +1351,9 @@ export default function AllocateAssetsPage() {
                         </th>
                         <th className="px-3 py-2 font-medium">Category</th>
                         <th className="px-3 py-2 font-medium">Client</th>
+                        <th className="px-3 py-2 font-medium text-center">
+                          Task Type
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1220,6 +1378,13 @@ export default function AllocateAssetsPage() {
                             <td className="px-3 py-2 text-center">
                               <Badge variant="secondary" className="text-xs">
                                 {asset.client}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <Badge variant="outline" className="text-xs">
+                                {getTaskTypeFromPricingOptionId(
+                                  data.pricingOptionId
+                                )}
                               </Badge>
                             </td>
                           </tr>
@@ -1425,7 +1590,12 @@ export default function AllocateAssetsPage() {
                 <label className="text-sm font-medium">Pricing Tier</label>
                 <Select
                   value={pricingTier}
-                  onValueChange={(value: "first_list" | "future") => {
+                  onValueChange={(
+                    value:
+                      | "first_list"
+                      | "after_first_deadline"
+                      | "after_second_deadline"
+                  ) => {
                     setPricingTier(value);
                     updatePricingForTierChange(value);
                   }}
@@ -1437,8 +1607,11 @@ export default function AllocateAssetsPage() {
                     <SelectItem value="first_list">
                       First List Pricing
                     </SelectItem>
-                    <SelectItem value="future">
-                      Future Models Pricing
+                    <SelectItem value="after_first_deadline">
+                      After First Deadline
+                    </SelectItem>
+                    <SelectItem value="after_second_deadline">
+                      Premium Tier (After Second Deadline)
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -1498,6 +1671,34 @@ export default function AllocateAssetsPage() {
                 </div>
               </div>
 
+              {/* Project Specifications & Financial Details */}
+              <div className="border-t pt-6">
+                <h4 className="text-lg font-medium mb-4 flex items-center gap-2">
+                  <Package className="h-5 w-5 text-blue-600" />
+                  Project Specifications & Financial Details
+                </h4>
+
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-blue-800 mb-3">
+                    <strong>Note:</strong> Client specifications and project
+                    requirements are now managed in the dedicated
+                    <a
+                      href="/admin/clients"
+                      className="underline font-medium hover:text-blue-600"
+                    >
+                      {" "}
+                      Clients Management page
+                    </a>
+                    .
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    This allows for better organization and centralized
+                    management of client information, contracts, and
+                    specifications.
+                  </p>
+                </div>
+              </div>
+
               {/* Individual Asset Pricing */}
               <div className="border-t pt-6">
                 <h3 className="text-lg font-medium mb-4">Asset Pricing</h3>
@@ -1546,40 +1747,41 @@ export default function AllocateAssetsPage() {
                         {option.label} - €{option.price}
                       </Button>
                     ))}
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Custom price"
-                        className="w-28"
-                        disabled={selectedForPricing.size === 0}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            const price = parseFloat(e.currentTarget.value);
-                            if (price > 0) {
-                              applyBulkCustomPrice(price);
-                              e.currentTarget.value = "";
-                            }
-                          }
-                        }}
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={selectedForPricing.size === 0}
-                        onClick={() => {
-                          const input = document.querySelector(
-                            'input[placeholder="Custom price"]'
-                          ) as HTMLInputElement;
-                          const price = parseFloat(input?.value || "0");
+                  </div>
+
+                  <div className="flex gap-2 mt-3">
+                    <Input
+                      type="number"
+                      placeholder="Custom price"
+                      className="w-28"
+                      disabled={selectedForPricing.size === 0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const price = parseFloat(e.currentTarget.value);
                           if (price > 0) {
                             applyBulkCustomPrice(price);
-                            input.value = "";
+                            e.currentTarget.value = "";
                           }
-                        }}
-                      >
-                        Apply
-                      </Button>
-                    </div>
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={selectedForPricing.size === 0}
+                      onClick={() => {
+                        const input = document.querySelector(
+                          'input[placeholder="Custom price"]'
+                        ) as HTMLInputElement;
+                        const price = parseFloat(input?.value || "0");
+                        if (price > 0) {
+                          applyBulkCustomPrice(price);
+                          input.value = "";
+                        }
+                      }}
+                    >
+                      Apply
+                    </Button>
                   </div>
                 </div>
 
@@ -1607,6 +1809,8 @@ export default function AllocateAssetsPage() {
                         <th className="p-2 text-left">Product Name</th>
                         <th className="p-2 text-left">Article ID</th>
                         <th className="p-2">Category</th>
+                        <th className="p-2">Product Link</th>
+                        <th className="p-2">Task Type</th>
                         <th className="p-2">Pricing Option</th>
                         <th className="p-2">Price (€)</th>
                       </tr>
@@ -1644,6 +1848,30 @@ export default function AllocateAssetsPage() {
                                 {asset.category}
                               </Badge>
                             </td>
+                            <td className="p-2 text-center">
+                              {asset.product_link ? (
+                                <a
+                                  href={asset.product_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline text-xs truncate block max-w-[150px]"
+                                  title={asset.product_link}
+                                >
+                                  View Product
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">
+                                  No link
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2 text-center">
+                              <Badge variant="secondary" className="text-xs">
+                                {getTaskTypeFromPricingOptionId(
+                                  data.pricingOptionId
+                                )}
+                              </Badge>
+                            </td>
                             <td className="p-2 text-center items-center justify-center flex">
                               <Select
                                 value={data.pricingOptionId}
@@ -1677,9 +1905,9 @@ export default function AllocateAssetsPage() {
                               </Select>
                             </td>
                             <td className="p-2 text-center items-center justify-center ">
-                              {data.pricingOptionId === "hard_3d_model" ||
-                              data.pricingOptionId ===
-                                "hard_3d_model_future" ? (
+                              {data.pricingOptionId.includes(
+                                "hard_3d_model"
+                              ) ? (
                                 <Input
                                   type="number"
                                   value={data.price}
@@ -1725,6 +1953,57 @@ export default function AllocateAssetsPage() {
                   <p>
                     Deadline: {format(new Date(groupSettings.deadline), "PPP")}
                   </p>
+
+                  {/* Project Specifications Note */}
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-blue-800 text-xs">
+                      <strong>Note:</strong> Client specifications and project
+                      requirements are now managed in the
+                      <a
+                        href="/admin/clients"
+                        className="underline font-medium hover:text-blue-600"
+                      >
+                        {" "}
+                        Clients Management page
+                      </a>
+                      .
+                    </p>
+                  </div>
+
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <h5 className="font-medium text-blue-800 mb-2">
+                      Bonus Structure
+                    </h5>
+                    <div className="text-xs text-blue-700 space-y-1">
+                      <p>
+                        • Complete before deadline:{" "}
+                        {pricingTier === "first_list" ? "15%" : "30%"}{" "}
+                        commission on next invoice
+                      </p>
+                      <div className="mt-2 pt-2 border-t border-blue-200">
+                        <p className="font-medium">
+                          Current Pricing Tier:{" "}
+                          {pricingTier === "first_list"
+                            ? "First List"
+                            : pricingTier === "after_first_deadline"
+                              ? "After First Deadline"
+                              : "Premium Tier (After Second Deadline)"}
+                        </p>
+                        <p className="text-blue-600">
+                          {pricingTier === "first_list"
+                            ? "PBR Models: €18, Additional Colors: €1, Textures: €5, Sizes: €4"
+                            : pricingTier === "after_first_deadline"
+                              ? "PBR Models: €18, Additional Colors: €1, Textures: €5, Sizes: €4"
+                              : "PBR Models: €30, Additional Colors: €1.5, Textures: €7, Sizes: €5"}
+                        </p>
+                        <p className="text-blue-600 mt-1">
+                          Commission Rate:{" "}
+                          {pricingTier === "first_list" ? "15%" : "30%"} of
+                          total list value
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

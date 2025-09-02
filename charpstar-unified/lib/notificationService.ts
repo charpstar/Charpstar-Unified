@@ -379,6 +379,51 @@ class NotificationService {
   }
 
   /**
+   * Send a warning notification to all admin users when an asset reaches its 3rd revision
+   */
+  async sendThirdRevisionWarningToAdmins(
+    assetId: string,
+    assetName: string,
+    client: string,
+    revisionNumber: number
+  ): Promise<void> {
+    try {
+      const adminUserIds = await this.getProductionAdminUsers();
+      if (adminUserIds.length === 0) {
+        console.log("No admin users found for third revision warnings");
+        return;
+      }
+
+      for (const adminId of adminUserIds) {
+        const notification: Omit<NotificationData, "created_at"> = {
+          recipient_id: adminId,
+          recipient_email: "",
+          type: "revision_required",
+          title: `⚠️ Third Revision Warning - ${client}`,
+          message: `Asset "${assetName}" has reached revision R${revisionNumber}. Review scope and potential costs.`,
+          metadata: {
+            assetId,
+            assetName,
+            client,
+            revisionNumber,
+            severity: "warning",
+            timestamp: new Date().toISOString(),
+          },
+          read: false,
+        };
+
+        await this.createNotification(notification);
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      }
+    } catch (error) {
+      console.error("Failed to send third revision warning to admins:", error);
+    }
+  }
+
+  /**
    * Check for upcoming deadlines and send reminder notifications
    * This function should be called by a scheduled job (cron, etc.)
    */

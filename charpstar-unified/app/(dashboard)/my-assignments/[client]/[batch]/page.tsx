@@ -44,7 +44,6 @@ import {
   Package,
   Clock,
   CheckCircle,
-  AlertCircle,
   RotateCcw,
   Eye,
   Calendar,
@@ -217,6 +216,7 @@ export default function BatchDetailPage() {
   const [assetFileHistory, setAssetFileHistory] = useState<AssetFileHistory[]>(
     []
   );
+  const [clientGuideUrls, setClientGuideUrls] = useState<string[]>([]);
 
   // Add Ref dialog state
   const [showAddRefDialog, setShowAddRefDialog] = useState(false);
@@ -237,6 +237,52 @@ export default function BatchDetailPage() {
       fetchBatchAssets();
     }
   }, [user?.id, client, batch]);
+
+  // Fetch client guidelines link for this client
+  useEffect(() => {
+    const fetchClientGuide = async () => {
+      try {
+        // Try by name first, fetch both single guide and array of links
+        let { data, error } = await supabase
+          .from("clients")
+          .select("client_guide, client_guide_links")
+          .eq("name", client)
+          .maybeSingle();
+        // If not found, try by id as fallback
+        const isUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            client as string
+          );
+        if ((!data || error) && client && isUuid) {
+          const byId = await supabase
+            .from("clients")
+            .select("client_guide, client_guide_links")
+            .eq("id", client)
+            .maybeSingle();
+          data = byId.data as any;
+          error = byId.error as any;
+        }
+        if (error) {
+          console.error("Error fetching client guide:", error);
+        }
+        const urls: string[] = [];
+        if ((data as any)?.client_guide) urls.push((data as any).client_guide);
+        if (Array.isArray((data as any)?.client_guide_links)) {
+          urls.push(
+            ...((data as any).client_guide_links as any[]).filter(
+              (x) => typeof x === "string" && x
+            )
+          );
+        }
+        setClientGuideUrls(urls);
+      } catch (e) {
+        console.error("Failed to fetch client guide:", e);
+      }
+    };
+    if (client) {
+      fetchClientGuide();
+    }
+  }, [client]);
 
   // Mark relevant notifications as read when visiting this page
   useEffect(() => {
@@ -647,7 +693,7 @@ export default function BatchDetailPage() {
       case "in_production":
         return <Clock className="h-4 w-4 text-warning" />;
       case "not_started":
-        return <AlertCircle className="h-4 w-4 text-error" />;
+        return null;
       case "revisions":
         return <RotateCcw className="h-4 w-4 text-error" />;
       default:
@@ -660,13 +706,13 @@ export default function BatchDetailPage() {
       case "approved":
         return "bg-success-muted text-success border-success/20";
       case "approved_by_client":
-        return "bg-blue-100 text-blue-700 border-blue-200";
+        return "bg-success-muted text-success border-success/20";
       case "delivered_by_artist":
         return "bg-accent-purple/10 text-accent-purple border-accent-purple/20";
       case "in_production":
         return "bg-warning-muted text-warning border-warning/20";
       case "not_started":
-        return "bg-error-muted text-error border-error/20";
+        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/50";
       case "revisions":
         return "bg-error-muted text-error border-error/20";
       default:
@@ -684,7 +730,7 @@ export default function BatchDetailPage() {
       case "approved":
         return "table-row-status-approved";
       case "approved_by_client":
-        return "table-row-status-approved-by-client";
+        return "table-row-status-approved";
       case "delivered_by_artist":
         return "table-row-status-delivered-by-artist";
       case "not_started":
@@ -1138,6 +1184,31 @@ export default function BatchDetailPage() {
                 <span className="text-sm">Batch {batch}</span>
                 <span>•</span>
                 <span className="text-sm">Active Assignment</span>
+                {clientGuideUrls.length > 0 ? (
+                  <>
+                    <span>•</span>
+                    {clientGuideUrls.map((url, idx) => (
+                      <a
+                        key={`guide-header-${idx}`}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline mr-2"
+                      >
+                        {idx === 0
+                          ? `Client Guidelines - ${client}`
+                          : `Guide ${idx + 1} - ${client}`}
+                      </a>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <span>•</span>
+                    <span className="text-sm italic">
+                      No guidelines found – contact production team
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1471,6 +1542,38 @@ export default function BatchDetailPage() {
                                     +{allocationList.bonus}% bonus
                                   </span>
                                 </div>
+                                {clientGuideUrls.length > 0 ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1 bg-primary/10 rounded">
+                                      <Link2 className="h-3 w-3 text-primary" />
+                                    </div>
+                                    <div className="flex gap-2">
+                                      {clientGuideUrls.map((url, idx) => (
+                                        <a
+                                          key={`guide-list-${idx}`}
+                                          href={url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline"
+                                        >
+                                          {idx === 0
+                                            ? `Client Guidelines - ${client}`
+                                            : `Guide ${idx + 1} - ${client}`}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1 bg-muted rounded">
+                                      <Link2 className="h-3 w-3 text-muted-foreground" />
+                                    </div>
+                                    <span className="italic text-muted-foreground">
+                                      No guidelines found – contact production
+                                      team
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1590,7 +1693,10 @@ export default function BatchDetailPage() {
                                                   ? "Approved by Client"
                                                   : asset.status === "approved"
                                                     ? "Approved"
-                                                    : asset.status}
+                                                    : asset.status ===
+                                                        "not_started"
+                                                      ? "Not Started"
+                                                      : asset.status}
                                         </Badge>
                                       </div>
                                     </TableCell>

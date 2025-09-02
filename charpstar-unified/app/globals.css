@@ -150,7 +150,7 @@
   --status-approved-alt: #059669; /* darker green for charts */
   --status-reviewed: #0891b2; /* cyan for reviewed items */
   --status-approved-by-client: #1a5442; /* darker green for charts */
-
+  --status-not-started: #6b7280; /* gray */
   /* Priority color variables */
   --priority-high: var(--error-muted);
   --priority-high-text: var(--error);
@@ -257,6 +257,7 @@
   --status-approved-alt: #059669; /* darker green for charts */
   --status-reviewed: #0891b2; /* cyan for reviewed items */
   --status-approved-by-client: #118511; /* darker green for charts */
+  --status-not-started: #6b7280; /* gray */
 
   /* Priority color variables */
   --priority-high: var(--error-muted);
@@ -663,10 +664,10 @@ model-viewer::part(default-ar-button):focus-visible {
   }
 
   .table-row-status-not-started {
-    background-color: rgb(239 68 68 / 0.2) !important;
+    background-color: rgb(243 244 246 / 0.7) !important; /* gray-100 */
   }
   .table-row-status-not-started:hover {
-    background-color: rgb(239 68 68 / 0.3) !important;
+    background-color: rgb(229 231 235 / 0.9) !important; /* gray-200 */
   }
 
   .table-row-status-unknown {

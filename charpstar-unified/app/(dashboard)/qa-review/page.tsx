@@ -60,6 +60,11 @@ const STATUS_LABELS = {
     label: "In Progress",
     color: "bg-warning-muted text-warning border-warning/20",
   },
+  not_started: {
+    label: "Not Started",
+    color:
+      "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/50",
+  },
   delivered_by_artist: {
     label: "Waiting for Approval",
     color: "bg-blue-100 text-blue-700 border-blue-200",
@@ -74,7 +79,7 @@ const STATUS_LABELS = {
   },
   approved_by_client: {
     label: "Approved by Client",
-    color: "bg-blue-100 text-blue-700 border-blue-200",
+    color: "bg-success-muted text-success border-success/20",
   },
 };
 
@@ -119,6 +124,9 @@ export default function QAReviewPage() {
     Array<{ id: string; email: string; title?: string }>
   >([]);
   const [updatingAssetId, setUpdatingAssetId] = useState<string | null>(null);
+  const [updatingStatusAssetId, setUpdatingStatusAssetId] = useState<
+    string | null
+  >(null);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(
     new Set()
   );
@@ -484,6 +492,28 @@ export default function QAReviewPage() {
     }
   };
 
+  const handleUpdateStatus = async (assetId: string, newStatus: string) => {
+    try {
+      setUpdatingStatusAssetId(assetId);
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ status: newStatus })
+        .eq("id", assetId);
+      if (error) {
+        throw new Error(error.message);
+      }
+      setAssets((prev) =>
+        prev.map((a) => (a.id === assetId ? { ...a, status: newStatus } : a))
+      );
+      toast.success("Status updated to In Progress");
+    } catch (err) {
+      console.error("Error updating status:", err);
+      toast.error("Failed to update status");
+    } finally {
+      setUpdatingStatusAssetId(null);
+    }
+  };
+
   const clearFilters = () => {
     setSearch("");
     setModelerFilter("all");
@@ -767,14 +797,14 @@ export default function QAReviewPage() {
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-blue-700" />
+                <div className="p-2 bg-success-muted rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-success" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Delivered by Client
+                    Approved by Client
                   </p>
-                  <p className="text-2xl font-bold text-blue-700">
+                  <p className="text-2xl font-bold text-success">
                     {statusTotals.approved_by_client || 0}
                   </p>
                 </div>
@@ -1032,15 +1062,14 @@ export default function QAReviewPage() {
                         ? "table-row-status-in-production"
                         : asset.status === "revisions"
                           ? "table-row-status-revisions"
-                          : asset.status === "approved"
+                          : asset.status === "approved" ||
+                              asset.status === "approved_by_client"
                             ? "table-row-status-approved"
-                            : asset.status === "approved_by_client"
-                              ? "table-row-status-approved-by-client"
-                              : asset.status === "delivered_by_artist"
-                                ? "table-row-status-delivered-by-artist"
-                                : asset.status === "not_started"
-                                  ? "table-row-status-not-started"
-                                  : "table-row-status-unknown"
+                            : asset.status === "delivered_by_artist"
+                              ? "table-row-status-delivered-by-artist"
+                              : asset.status === "not_started"
+                                ? "table-row-status-not-started"
+                                : "table-row-status-unknown"
                     }
                   >
                     <TableCell>
@@ -1092,19 +1121,34 @@ export default function QAReviewPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${
-                          STATUS_LABELS[
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            STATUS_LABELS[
+                              asset.status as keyof typeof STATUS_LABELS
+                            ]?.color ||
+                            "bg-muted text-muted-foreground border-border"
+                          }`}
+                        >
+                          {STATUS_LABELS[
                             asset.status as keyof typeof STATUS_LABELS
-                          ]?.color ||
-                          "bg-muted text-muted-foreground border-border"
-                        }`}
-                      >
-                        {STATUS_LABELS[
-                          asset.status as keyof typeof STATUS_LABELS
-                        ]?.label || asset.status}
-                      </Badge>
+                          ]?.label || asset.status}
+                        </Badge>
+                        {asset.status === "revisions" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={updatingStatusAssetId === asset.id}
+                            onClick={() =>
+                              handleUpdateStatus(asset.id, "in_production")
+                            }
+                          >
+                            In Progress
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {asset.modeler ? (

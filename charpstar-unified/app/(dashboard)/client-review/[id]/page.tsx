@@ -40,6 +40,7 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
+  Clock,
   Ruler,
   Download,
 } from "lucide-react";
@@ -86,20 +87,67 @@ interface Hotspot {
 }
 
 const STATUS_LABELS = {
+  // Client-facing mapping
   in_production: {
     label: "In Production",
     color: "bg-yellow-100 text-yellow-800",
   },
-  revisions: { label: "Ready for Revision", color: "bg-red-100 text-red-700" },
-  approved: { label: "Approved", color: "bg-green-100 text-green-700" },
+  not_started: {
+    label: "In Production",
+    color: "bg-yellow-100 text-yellow-800",
+  },
+  revisions: { label: "Feedback Given", color: "bg-red-100 text-red-700" },
   approved_by_client: {
-    label: "Approved by Client",
+    label: "Approved",
     color: "bg-emerald-100 text-emerald-700",
   },
   delivered_by_artist: {
-    label: "In Progress",
+    label: "In Production",
     color: "bg-yellow-100 text-yellow-800",
   },
+  approved: { label: "New Upload", color: "bg-blue-100 text-blue-700" },
+};
+
+// Internal role (admin/qa) should see real statuses, clients see client-facing mapping above
+const getStatusDisplay = (
+  status?: string,
+  role?: string
+): { label: string; className: string } => {
+  if (!status) return { label: "Unknown", className: "" };
+  const isInternal = role === "admin" || role === "qa";
+  if (isInternal) {
+    switch (status) {
+      case "not_started":
+        return { label: "Not Started", className: "bg-gray-100 text-gray-800" };
+      case "in_production":
+        return {
+          label: "In Production",
+          className: "bg-yellow-100 text-yellow-800",
+        };
+      case "revisions":
+        return { label: "Revisions", className: "bg-red-100 text-red-700" };
+      case "approved_by_client":
+        return {
+          label: "Approved by Client",
+          className: "bg-emerald-100 text-emerald-700",
+        };
+      case "delivered_by_artist":
+        return {
+          label: "Delivered by Artist",
+          className: "bg-yellow-100 text-yellow-800",
+        };
+      case "approved":
+        return { label: "Approved", className: "bg-blue-100 text-blue-700" };
+      default:
+        return { label: status.replace(/_/g, " "), className: "" };
+    }
+  } else {
+    const clientMap = STATUS_LABELS[status as keyof typeof STATUS_LABELS];
+    return {
+      label: clientMap?.label || status,
+      className: clientMap?.color || "",
+    };
+  }
 };
 
 export default function ReviewPage() {
@@ -1345,6 +1393,36 @@ export default function ReviewPage() {
     }
   };
 
+  // Handle paste image from clipboard (e.g., Win+Shift+S then Ctrl+V)
+  const handlePasteImage = async (e: React.ClipboardEvent) => {
+    try {
+      const items = e.clipboardData?.items || [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file && file.type.startsWith("image/")) {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append("file", file);
+            const response = await fetch("/api/upload", {
+              method: "POST",
+              body: formData,
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Upload failed");
+            setNewImageUrl(data.url);
+            toast.success("Image pasted and uploaded");
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error handling pasted image:", error);
+      toast.error("Failed to paste image");
+    }
+  };
+
   // Helper function to update modeler's end time when asset is approved
   const updateModelerEndTime = async (assetId: string) => {
     try {
@@ -1847,6 +1925,34 @@ export default function ReviewPage() {
           ? { ...prev, revision_count: nextRevisionNumber, status: "revisions" }
           : null
       );
+
+      // Send admin warning on third revision
+      try {
+        if (nextRevisionNumber === 3 && asset) {
+          await notificationService.sendThirdRevisionWarningToAdmins(
+            assetId,
+            asset.product_name,
+            (asset as any).client,
+            nextRevisionNumber
+          );
+        }
+      } catch (warnErr) {
+        console.error("Failed to notify admins for third revision:", warnErr);
+      }
+
+      // Send admin warning on third revision
+      try {
+        if (nextRevisionNumber === 3 && asset) {
+          await notificationService.sendThirdRevisionWarningToAdmins(
+            assetId,
+            asset.product_name,
+            (asset as any).client,
+            nextRevisionNumber
+          );
+        }
+      } catch (warnErr) {
+        console.error("Failed to notify admins for third revision:", warnErr);
+      }
 
       // Now update the asset status to revisions with the correct revision number
       console.log(
@@ -2575,24 +2681,16 @@ export default function ReviewPage() {
                   </h3>
                   <div className="flex items-center gap-4 mt-2">
                     <Badge
-                      variant={
-                        STATUS_LABELS[
-                          asset?.status as keyof typeof STATUS_LABELS
-                        ]?.color
-                          ? "outline"
-                          : "secondary"
-                      }
+                      variant="outline"
                       className={`text-xs font-medium ${
-                        STATUS_LABELS[
-                          asset?.status as keyof typeof STATUS_LABELS
-                        ]?.color || ""
+                        getStatusDisplay(asset?.status, user?.metadata?.role)
+                          .className
                       }`}
                     >
-                      {STATUS_LABELS[
-                        asset?.status as keyof typeof STATUS_LABELS
-                      ]?.label ||
-                        asset?.status ||
-                        "Unknown"}
+                      {
+                        getStatusDisplay(asset?.status, user?.metadata?.role)
+                          .label
+                      }
                     </Badge>
                     <span className="text-sm text-muted-foreground font-medium">
                       {asset?.article_id}
@@ -3008,16 +3106,16 @@ export default function ReviewPage() {
                 </span>
                 <div className="flex items-center gap-2">
                   <Badge
-                    variant={
-                      asset?.status === "approved" ||
-                      asset?.status === "approved_by_client"
-                        ? "default"
-                        : "secondary"
-                    }
-                    className="text-xs"
+                    variant="outline"
+                    className={`text-xs ${
+                      getStatusDisplay(asset?.status, user?.metadata?.role)
+                        .className
+                    }`}
                   >
-                    {STATUS_LABELS[asset?.status as keyof typeof STATUS_LABELS]
-                      ?.label || "Unknown"}
+                    {
+                      getStatusDisplay(asset?.status, user?.metadata?.role)
+                        .label
+                    }
                   </Badge>
                   {revisionCount > 0 && (
                     <Badge variant="outline" className="text-xs">
@@ -3069,6 +3167,24 @@ export default function ReviewPage() {
                     Approve (Internal)
                   </Button>
                 )}
+                {(user?.metadata?.role === "admin" ||
+                  user?.metadata?.role === "qa") &&
+                  asset?.status === "revisions" && (
+                    <Button
+                      onClick={() => updateAssetStatus("in_production")}
+                      disabled={statusUpdating}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 cursor-pointer"
+                    >
+                      {statusUpdating ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Clock className="h-4 w-4 mr-2" />
+                      )}
+                      Set In Progress
+                    </Button>
+                  )}
                 <Button
                   onClick={() => updateAssetStatus("revisions")}
                   disabled={asset?.status === "revisions" || statusUpdating}
@@ -4356,9 +4472,14 @@ export default function ReviewPage() {
                     placeholder="Describe what you want to highlight or comment on..."
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
+                    onPaste={handlePasteImage}
                     className="min-h-[100px] border-border focus:border-primary focus:ring-primary"
                     rows={4}
                   />
+                  <div className="text-[11px] text-muted-foreground">
+                    Tip: Paste screenshots directly to comments (Win+Shift+S →
+                    Ctrl+V)
+                  </div>
                 </div>
 
                 {/* Image Upload Section */}
