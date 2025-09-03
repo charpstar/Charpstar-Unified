@@ -563,7 +563,7 @@ export function ModelerEarningsWidget() {
       setLoading(true);
 
       // First, let's check if there are any allocation lists at all for this user
-      const { data: allLists, error: allListsError } = await supabase
+      const {} = await supabase
         .from("allocation_lists")
         .select("id, name, status, approved_at")
         .eq("user_id", user?.id)

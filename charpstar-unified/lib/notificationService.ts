@@ -754,7 +754,6 @@ class NotificationService {
           .limit(10);
 
         if (!allError && allProfiles) {
-          const availableRoles = [...new Set(allProfiles.map((p) => p.role))];
         }
 
         return [];

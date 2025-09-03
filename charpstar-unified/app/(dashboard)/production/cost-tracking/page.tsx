@@ -157,7 +157,6 @@ export default function CostTrackingPage() {
       }
 
       let alertSent = false;
-      let thresholdHit = "";
 
       // Budget threshold configuration
       // These thresholds trigger notifications when spending reaches certain levels
@@ -178,7 +177,6 @@ export default function CostTrackingPage() {
           }
         );
         alertSent = true;
-        thresholdHit = "critical";
       } else if (totalSpent >= BUDGET_THRESHOLDS.warning) {
         await notificationService.sendBudgetAlertNotification(
           productionUserIds,
@@ -189,7 +187,6 @@ export default function CostTrackingPage() {
           }
         );
         alertSent = true;
-        thresholdHit = "warning";
       } else if (totalSpent >= BUDGET_THRESHOLDS.alert) {
         await notificationService.sendBudgetAlertNotification(
           productionUserIds,
@@ -200,7 +197,6 @@ export default function CostTrackingPage() {
           }
         );
         alertSent = true;
-        thresholdHit = "alert";
       } else {
       }
 

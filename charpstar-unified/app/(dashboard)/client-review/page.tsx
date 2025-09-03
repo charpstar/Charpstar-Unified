@@ -261,7 +261,7 @@ export default function ReviewDashboardPage() {
     try {
       // First, let's check what's in the database directly
 
-      const { data: directCheck, error: directError } = await supabase
+      const { error: directError } = await supabase
         .from("onboarding_assets")
         .select("id, client")
         .eq("client", user.metadata.client);

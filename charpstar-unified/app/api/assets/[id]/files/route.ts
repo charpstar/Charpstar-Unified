@@ -240,7 +240,6 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const fileName = searchParams.get("file_name");
     const filePath = searchParams.get("file_path");
-    const assetId = searchParams.get("asset_id");
 
     if (!fileName || !filePath) {
       return NextResponse.json(

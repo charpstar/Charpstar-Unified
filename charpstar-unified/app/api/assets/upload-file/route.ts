@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (Object.keys(updateData).length > 0) {
-      const { data: updateResult, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update(updateData)
         .eq("id", assetId)

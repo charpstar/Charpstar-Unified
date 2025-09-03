@@ -458,7 +458,7 @@ export default function ReferenceImagesPage() {
       // Wait a moment for the database to update, then refresh the asset data
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const { data: updatedAssets, error: fetchError } = await supabase
+      const { error: fetchError } = await supabase
         .from("onboarding_assets")
         .select("id, reference, status, glb_link")
         .in("id", selectedAssetIds);
@@ -855,9 +855,6 @@ export default function ReferenceImagesPage() {
                   </TableHeader>
                   <TableBody>
                     {assets.map((asset) => {
-                      const refs = getReferenceArray(asset.reference);
-                      const hasReferences = refs.length > 0;
-
                       // Debug logging
 
                       return (

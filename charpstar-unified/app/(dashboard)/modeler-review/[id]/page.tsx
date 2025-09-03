@@ -459,7 +459,7 @@ export default function ModelerReviewPage() {
         );
 
         // For each group with duplicates, keep only the most recent
-        for (const [url, items] of Object.entries(urlGroups)) {
+        for (const [, items] of Object.entries(urlGroups)) {
           if ((items as any[]).length > 1) {
             // Sort by uploaded_at descending and keep only the first (most recent)
             const itemsToDelete = (items as any[]).slice(1);
@@ -552,9 +552,9 @@ export default function ModelerReviewPage() {
             }, 500);
           };
 
-          const handleError = (event: any) => {};
+          const handleError = {};
 
-          const handleProgress = (event: any) => {};
+          const handleProgress = {};
 
           modelViewer.addEventListener("load", handleLoad);
           modelViewer.addEventListener("error", handleError);
@@ -1161,7 +1161,7 @@ export default function ModelerReviewPage() {
             line.setAttribute("y2", endScreen.y.toString());
           }
         }
-      } catch (error) {}
+      } catch {}
     };
 
     try {
@@ -2789,11 +2789,6 @@ export default function ModelerReviewPage() {
                     });
 
                     // Debug logging to help identify any issues
-                    if (sortedHistory.length > 0) {
-                      sortedHistory.forEach((item, index) => {
-                        const isCurrent = asset?.glb_link === item.glb_url;
-                      });
-                    }
 
                     return sortedHistory.map((historyItem, index) => {
                       const isCurrentVersion =

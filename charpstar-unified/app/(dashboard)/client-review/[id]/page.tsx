@@ -572,9 +572,9 @@ export default function ReviewPage() {
       }, 10000);
 
       // Add more event listeners for debugging
-      const handleError = (e: any) => {};
+      const handleError = {};
 
-      const handleProgress = (e: any) => {};
+      const handleProgress = {};
 
       modelViewer.addEventListener("load", handleLoad);
       modelViewer.addEventListener("error", handleError);
@@ -832,7 +832,7 @@ export default function ReviewPage() {
       ];
 
       function setVisibility(visible: boolean) {
-        dimElements.forEach((element, index) => {
+        dimElements.forEach((element) => {
           if (element) {
             if (visible) {
               element.classList.remove("hide");
@@ -1425,8 +1425,6 @@ export default function ReviewPage() {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to update status");
       }
-
-      const result = await response.json();
 
       // Update local state
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));

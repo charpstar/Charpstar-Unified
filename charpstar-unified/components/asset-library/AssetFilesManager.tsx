@@ -135,8 +135,6 @@ export function AssetFilesManager({
         throw new Error(errorData.error || "Failed to delete file");
       }
 
-      const result = await response.json();
-
       toast.success("File deleted successfully");
 
       // Refresh the file list to ensure it's in sync with the backend
