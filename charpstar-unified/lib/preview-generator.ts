@@ -1,8 +1,6 @@
 import puppeteer from "puppeteer-core";
 
 export async function generatePreviewImage(glbUrl: string): Promise<Buffer> {
-  console.log("Starting preview generation for GLB URL:", glbUrl);
-
   // Create a temporary HTML file for rendering
   const html = `
     <!DOCTYPE html>
@@ -98,7 +96,6 @@ export async function generatePreviewImage(glbUrl: string): Promise<Buffer> {
     </html>
   `;
 
-  console.log("Launching headless browser...");
   // Launch headless browser
   const browser = await puppeteer.launch({
     executablePath:
@@ -108,7 +105,6 @@ export async function generatePreviewImage(glbUrl: string): Promise<Buffer> {
   });
 
   try {
-    console.log("Creating new page...");
     const page = await browser.newPage();
     await page.setViewport({ width: 800, height: 600 });
 
@@ -116,27 +112,24 @@ export async function generatePreviewImage(glbUrl: string): Promise<Buffer> {
     page.on("console", (msg) => console.log("Page log:", msg.text()));
     page.on("pageerror", (err) => console.error("Page error:", err));
 
-    console.log("Setting page content...");
     await page.setContent(html);
 
     // Wait for the model to load and render
-    console.log("Waiting for model to load...");
+
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     // Take screenshot
-    console.log("Taking screenshot...");
+
     const screenshot = await page.screenshot({
       type: "png",
       encoding: "binary",
     });
 
-    console.log("Screenshot taken successfully");
     return screenshot as Buffer;
   } catch (error) {
     console.error("Error in preview generation:", error);
     throw error;
   } finally {
-    console.log("Closing browser...");
     await browser.close();
   }
 }

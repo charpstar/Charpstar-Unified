@@ -636,9 +636,6 @@ class NotificationService {
           );
           // Continue with creation even if check fails
         } else if (existingNotifications && existingNotifications.length > 0) {
-          console.log(
-            `Product submission notification for ${client} batch ${batch} already exists for admin user, skipping creation`
-          );
           continue; // Skip creating duplicate notification
         }
 
@@ -661,10 +658,6 @@ class NotificationService {
 
         // Create notification in database
         await this.createNotification(notification);
-
-        console.log(
-          `✅ Product submission notification sent to admin user ${adminId}`
-        );
       }
 
       // Trigger global notification update event
@@ -699,13 +692,8 @@ class NotificationService {
       }
 
       if (!qaUsers || qaUsers.length === 0) {
-        console.log("No QA users found to send notification");
         return;
       }
-
-      console.log(
-        `Sending QA review notifications to ${qaUsers.length} QA users`
-      );
 
       // Create notifications for all QA users
       const notificationPromises = qaUsers.map(async (qaUser) => {
@@ -735,14 +723,6 @@ class NotificationService {
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("notificationsUpdated"));
       }
-
-      console.log("QA review notifications sent:", {
-        assetId,
-        assetName,
-        modelerName,
-        client,
-        recipients: qaUsers.length,
-      });
     } catch (error) {
       console.error("Failed to send QA review notification:", error);
       throw error;
@@ -755,8 +735,6 @@ class NotificationService {
    */
   async getProductionAdminUsers(): Promise<string[]> {
     try {
-      console.log("Fetching admin users...");
-
       // Query for users with admin role (this is the only valid role available)
       const { data: profiles, error } = await supabase
         .from("profiles")
@@ -768,11 +746,7 @@ class NotificationService {
         return [];
       }
 
-      console.log("Raw profiles query result:", profiles);
-
       if (!profiles || profiles.length === 0) {
-        console.log("No profiles found with admin role");
-
         // Fallback: Let's see what roles actually exist in the database
         const { data: allProfiles, error: allError } = await supabase
           .from("profiles")
@@ -780,16 +754,13 @@ class NotificationService {
           .limit(10);
 
         if (!allError && allProfiles) {
-          console.log("Sample profiles to check available roles:", allProfiles);
           const availableRoles = [...new Set(allProfiles.map((p) => p.role))];
-          console.log("Available roles in database:", availableRoles);
         }
 
         return [];
       }
 
       const userIds = profiles.map((profile) => profile.id);
-      console.log("Admin user IDs found:", userIds);
 
       return userIds;
     } catch (error) {
@@ -817,35 +788,12 @@ class NotificationService {
     } = data;
 
     try {
-      console.log("🔔 Starting allocation list status notification process...");
-      console.log("📋 Notification data:", {
-        modelerName,
-        allocationListName,
-        allocationListNumber,
-        assetCount,
-        totalPrice,
-        client,
-        batch,
-        status,
-      });
-
       // Get all admin users to send notifications to
       const adminUserIds = await this.getProductionAdminUsers();
 
       if (adminUserIds.length === 0) {
-        console.log(
-          "❌ No admin users found for allocation list status notifications"
-        );
-        console.log(
-          "💡 Make sure you have users with role='admin' in your profiles table"
-        );
         return;
       }
-
-      console.log(
-        `✅ Found ${adminUserIds.length} admin users, sending allocation list ${status} notifications...`
-      );
-      console.log("👥 Admin user IDs:", adminUserIds);
 
       const statusText = status === "accepted" ? "accepted" : "declined";
       const actionText = status === "accepted" ? "Accepted" : "Declined";
@@ -877,17 +825,9 @@ class NotificationService {
         };
 
         // Create notification in database
-        console.log(`📤 Creating notification for admin ${adminId}:`, {
-          type: notification.type,
-          title: notification.title,
-          recipient_id: adminId,
-        });
 
         try {
           await this.createNotification(notification);
-          console.log(
-            `✅ Allocation list ${status} notification sent to admin user ${adminId}`
-          );
         } catch (notificationError) {
           console.error(
             `❌ Failed to create notification for admin ${adminId}:`,
