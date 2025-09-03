@@ -33,9 +33,6 @@ export async function GET(
 
     // List files from storage - check all subfolders
     if (!asset.client || !asset.article_id) {
-      console.log(
-        "Asset missing client or article_id, skipping storage file lookup"
-      );
       return NextResponse.json({ files: [] });
     }
 
@@ -58,28 +55,16 @@ export async function GET(
       // Collect all files from all subfolders
       let allFiles: any[] = [];
 
-      console.log(
-        "Found folders:",
-        folders?.map((f) => f.name)
-      );
-
       for (const folder of folders || []) {
         if (folder.name && !folder.name.includes(".")) {
           // Only process folders, not files
           const subfolderPath = `${basePath}${folder.name}/`;
-
-          console.log("Checking subfolder:", subfolderPath);
 
           const { data: subfolderFiles, error: subfolderError } =
             await supabase.storage.from("assets").list(subfolderPath, {
               limit: 100,
               offset: 0,
             });
-
-          console.log(
-            `Files in ${subfolderPath}:`,
-            subfolderFiles?.map((f) => f.name)
-          );
 
           if (!subfolderError && subfolderFiles) {
             // Convert storage files to our format
@@ -105,7 +90,6 @@ export async function GET(
 
       // Also check for GLB files in the models folder
       const modelsPath = `models/`;
-      console.log("Checking models folder:", modelsPath);
 
       const { data: modelsFiles, error: modelsError } = await supabase.storage
         .from("assets")
@@ -115,22 +99,12 @@ export async function GET(
         });
 
       if (!modelsError && modelsFiles) {
-        console.log(
-          `Files in ${modelsPath}:`,
-          modelsFiles?.map((f) => f.name)
-        );
-
         // Filter for files that belong to this asset (check if filename contains article_id)
         const assetModelsFiles = modelsFiles.filter(
           (file) =>
             file.name &&
             asset.article_id &&
             file.name.includes(asset.article_id)
-        );
-
-        console.log(
-          `Asset-specific files in models:`,
-          assetModelsFiles?.map((f) => f.name)
         );
 
         if (assetModelsFiles.length > 0) {
@@ -152,16 +126,6 @@ export async function GET(
           allFiles = [...allFiles, ...modelsFileList];
         }
       }
-
-      console.log("Total files found:", allFiles.length);
-      console.log("Files breakdown:", {
-        storageFiles: allFiles.filter(
-          (f) =>
-            !f.id.startsWith("glb_history_") && !f.id.startsWith("current_")
-        ).length,
-        currentAssetFiles: allFiles.filter((f) => f.id.startsWith("current_"))
-          .length,
-      });
 
       // Also add current asset files (GLB, reference images, product link)
       if (asset.glb_link) {
@@ -278,8 +242,6 @@ export async function DELETE(request: NextRequest) {
     const filePath = searchParams.get("file_path");
     const assetId = searchParams.get("asset_id");
 
-    console.log("DELETE request params:", { fileName, filePath, assetId });
-
     if (!fileName || !filePath) {
       return NextResponse.json(
         { error: "File name and path are required" },
@@ -292,12 +254,6 @@ export async function DELETE(request: NextRequest) {
     if (cleanFilePath.startsWith("assets/")) {
       cleanFilePath = cleanFilePath.substring(7); // Remove "assets/" prefix
     }
-
-    console.log("Attempting to delete file:", {
-      originalPath: filePath,
-      cleanPath: cleanFilePath,
-      fileName,
-    });
 
     // Delete from storage
     const { error: storageError } = await supabase.storage
@@ -314,8 +270,6 @@ export async function DELETE(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    console.log("File deleted successfully from storage:", cleanFilePath);
 
     return NextResponse.json({
       success: true,

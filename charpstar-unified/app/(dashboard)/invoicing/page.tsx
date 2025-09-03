@@ -1018,7 +1018,7 @@ export default function InvoicingPage() {
 
       {/* Monthly Statistics */}
       {selectedPeriod && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-3">

@@ -523,8 +523,6 @@ export default function AllocateAssetsPage() {
 
       // If we have pre-selected assets, fetch them regardless of assignment status
       if (selectedAssetsParam.length > 0) {
-        console.log("Fetching pre-selected assets:", selectedAssetsParam);
-
         const { data: preSelectedAssets, error: preSelectedError } =
           await supabase
             .from("onboarding_assets")
@@ -533,7 +531,6 @@ export default function AllocateAssetsPage() {
 
         if (preSelectedError) throw preSelectedError;
 
-        console.log("Pre-selected assets fetched:", preSelectedAssets);
         setAssets(preSelectedAssets || []);
         return;
       }
@@ -653,15 +650,6 @@ export default function AllocateAssetsPage() {
         pricingOptionId: defaultPricingOption,
       })
     );
-
-    console.log("Initializing allocation data:", {
-      selectedAssets: Array.from(selectedAssets),
-      allocationData: data,
-      pricingTier,
-      defaultPricingOption,
-      defaultPrice,
-      availableAssets: assets.map((a) => ({ id: a.id, name: a.product_name })),
-    });
 
     setAllocationData(data);
   };
@@ -829,7 +817,6 @@ export default function AllocateAssetsPage() {
         }
       } catch {
         // asset_files table might not exist, ignore
-        console.log("asset_files table not available");
       }
 
       // Get user details for previous modelers
@@ -1079,12 +1066,7 @@ export default function AllocateAssetsPage() {
   // Helper function to get asset by ID
   const getAssetById = (id: string) => {
     const asset = assets.find((asset) => asset.id === id);
-    if (!asset) {
-      console.log(`Asset not found for ID: ${id}`, {
-        availableAssetIds: assets.map((a) => a.id),
-        totalAssets: assets.length,
-      });
-    }
+
     return asset;
   };
 

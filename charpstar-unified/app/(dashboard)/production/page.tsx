@@ -1920,7 +1920,6 @@ export default function ProductionDashboard() {
       }
 
       if (!assets || assets.length === 0) {
-        console.log("No assets found for this batch");
         return;
       }
 
@@ -2010,8 +2009,6 @@ export default function ProductionDashboard() {
           );
           throw allocationListsError;
         }
-
-        console.log(`Deleted ${allocationListIds.length} allocation lists`);
       }
 
       // 6. Finally, delete the assets themselves
@@ -2028,10 +2025,6 @@ export default function ProductionDashboard() {
 
       // Refresh the data
       await fetchBatchProgress();
-
-      console.log(
-        `Successfully deleted ${assetIds.length} assets from ${clientName} Batch ${batchNumber}`
-      );
 
       // Close the dialog after successful deletion
       setDeleteDialogOpen(null);

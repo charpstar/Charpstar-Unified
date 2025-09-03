@@ -410,12 +410,6 @@ export default function PendingAssignmentsPage() {
       try {
         const firstAsset = list.asset_assignments[0]?.onboarding_assets;
         if (firstAsset && user?.email) {
-          console.log("📤 Sending allocation list acceptance notification...");
-          console.log("👤 User data:", {
-            name: user?.user_metadata?.name,
-            email: user?.email,
-            hasFirstAsset: !!firstAsset,
-          });
           await notificationService.sendAllocationListStatusNotification({
             modelerName: user.user_metadata.name || user.email,
             modelerEmail: user.email,
@@ -427,9 +421,6 @@ export default function PendingAssignmentsPage() {
             batch: firstAsset.batch,
             status: "accepted",
           });
-          console.log(
-            "Allocation list acceptance notification sent successfully"
-          );
         }
       } catch (notificationError) {
         console.error(
@@ -1000,17 +991,10 @@ export default function PendingAssignmentsPage() {
                                       <FileText className="mr-1 h-3 w-3" />
                                       Ref (
                                       {(() => {
-                                        console.log(
-                                          "Asset reference:",
-                                          asset.reference
-                                        );
                                         const separated = separateReferences(
                                           asset.reference
                                         );
-                                        console.log(
-                                          "Separated references:",
-                                          separated
-                                        );
+
                                         return (
                                           separated.imageReferences.length +
                                           separated.glbFiles.length +

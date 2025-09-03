@@ -136,11 +136,6 @@ export default function CostTrackingPage() {
   // Auto-check budget thresholds whenever spending changes (with debounce)
   useEffect(() => {
     if (!loading && costSummary.totalSpent > 0) {
-      console.log(
-        "💰 Auto-checking budget thresholds - spending changed to €",
-        costSummary.totalSpent.toFixed(2)
-      );
-
       // Debounce the budget threshold check to prevent multiple rapid calls
       const timeoutId = setTimeout(() => {
         checkBudgetThresholds(costSummary.totalSpent);
@@ -153,19 +148,11 @@ export default function CostTrackingPage() {
   // Function to show budget threshold notifications using the notification service
   const checkBudgetThresholds = async (totalSpent: number) => {
     try {
-      console.log("🔍 Checking budget thresholds for €", totalSpent.toFixed(2));
-
       // Get all admin users to send notifications to
       const productionUserIds =
         await notificationService.getProductionAdminUsers();
-      console.log(
-        "👥 Admin users found:",
-        productionUserIds.length,
-        productionUserIds
-      );
 
       if (productionUserIds.length === 0) {
-        console.log("❌ No admin users found for budget notifications");
         return;
       }
 
@@ -182,12 +169,6 @@ export default function CostTrackingPage() {
 
       // Check thresholds and send notifications
       if (totalSpent >= BUDGET_THRESHOLDS.critical) {
-        console.log(
-          "🚨 CRITICAL threshold hit: €",
-          totalSpent.toFixed(2),
-          ">= €",
-          BUDGET_THRESHOLDS.critical
-        );
         await notificationService.sendBudgetAlertNotification(
           productionUserIds,
           {
@@ -199,12 +180,6 @@ export default function CostTrackingPage() {
         alertSent = true;
         thresholdHit = "critical";
       } else if (totalSpent >= BUDGET_THRESHOLDS.warning) {
-        console.log(
-          "⚠️ WARNING threshold hit: €",
-          totalSpent.toFixed(2),
-          ">= €",
-          BUDGET_THRESHOLDS.warning
-        );
         await notificationService.sendBudgetAlertNotification(
           productionUserIds,
           {
@@ -216,12 +191,6 @@ export default function CostTrackingPage() {
         alertSent = true;
         thresholdHit = "warning";
       } else if (totalSpent >= BUDGET_THRESHOLDS.alert) {
-        console.log(
-          "🔶 ALERT threshold hit: €",
-          totalSpent.toFixed(2),
-          ">= €",
-          BUDGET_THRESHOLDS.alert
-        );
         await notificationService.sendBudgetAlertNotification(
           productionUserIds,
           {
@@ -233,17 +202,9 @@ export default function CostTrackingPage() {
         alertSent = true;
         thresholdHit = "alert";
       } else {
-        console.log(
-          "✅ No thresholds hit - spending €",
-          totalSpent.toFixed(2),
-          "is below €",
-          BUDGET_THRESHOLDS.alert
-        );
       }
 
       if (alertSent) {
-        console.log("📢 Budget alert sent successfully:", thresholdHit);
-
         // Trigger global notification update event
         window.dispatchEvent(new CustomEvent("notificationsUpdated"));
 
@@ -267,8 +228,6 @@ export default function CostTrackingPage() {
     try {
       setLoading(true);
 
-      console.log("Starting to fetch cost data...");
-
       // First, get all asset assignments for modelers
       const { data: assignments, error: assignmentsError } = await supabase
         .from("asset_assignments")
@@ -289,16 +248,8 @@ export default function CostTrackingPage() {
         throw assignmentsError;
       }
 
-      console.log("All assignments found:", assignments?.length);
-      console.log("Sample assignment:", assignments?.[0]);
-      console.log(
-        "Assignment statuses:",
-        assignments?.map((a) => a.status)
-      );
-
       // Get unique user IDs from assignments to fetch profile information
       const userIds = [...new Set(assignments?.map((a) => a.user_id) || [])];
-      console.log("Unique user IDs:", userIds);
 
       // Get unique allocation list IDs to fetch bonus information
       const allocationListIds = [
@@ -306,7 +257,6 @@ export default function CostTrackingPage() {
           assignments?.map((a) => a.allocation_list_id).filter(Boolean) || []
         ),
       ];
-      console.log("Allocation list IDs:", allocationListIds);
 
       // Fetch profile information for all users in assignments
       const { data: profiles, error: profilesError } = await supabase
@@ -339,11 +289,6 @@ export default function CostTrackingPage() {
         console.error("Error fetching allocation lists:", listsError);
         throw listsError;
       }
-
-      console.log("Profiles found:", profiles?.length);
-      console.log("Sample profile:", profiles?.[0]);
-      console.log("Allocation lists found:", allocationLists?.length);
-      console.log("Sample allocation list:", allocationLists?.[0]);
 
       // Create a map of user_id to profile info
       const userToProfile = new Map();
@@ -379,9 +324,6 @@ export default function CostTrackingPage() {
         }
       });
 
-      console.log("Asset to modeler mapping:", assetToModeler.size, "entries");
-      console.log("Assigned asset IDs:", assignedAssetIds.size);
-
       // Now fetch the assets that are assigned to modelers
       const { data: assignedAssets, error: assetsError } = await supabase
         .from("onboarding_assets")
@@ -402,13 +344,6 @@ export default function CostTrackingPage() {
         console.error("Error fetching assets:", assetsError);
         throw assetsError;
       }
-
-      console.log("Assigned assets found:", assignedAssets?.length);
-      console.log("Sample asset:", assignedAssets?.[0]);
-      console.log(
-        "Asset statuses:",
-        assignedAssets?.map((a) => a.status)
-      );
 
       // Process assets - include all assets that have been assigned to modelers
       const processedAssets: AssetCost[] =
@@ -444,9 +379,6 @@ export default function CostTrackingPage() {
               asset.status === "approved_by_client",
           };
         }) || [];
-
-      console.log("Processed assets:", processedAssets.length);
-      console.log("Sample processed asset:", processedAssets[0]);
 
       // Calculate cost summary - only include completed costs (approved by client, not just delivered by artist)
       const totalSpent = processedAssets
@@ -501,7 +433,6 @@ export default function CostTrackingPage() {
       });
 
       const modelerCostsArray = Array.from(modelerCostMap.values());
-      console.log("Modeler costs:", modelerCostsArray);
 
       setModelerCosts(modelerCostsArray);
       setAssetCosts(processedAssets);

@@ -123,11 +123,6 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if all assets in the list are approved
-        console.log("List assets:", listAssets);
-        console.log(
-          "Asset statuses:",
-          listAssets?.map((item: any) => item.onboarding_assets?.status)
-        );
 
         // Only assets with status "approved" or "approved_by_client" count for allocation list approval
         // "delivered_by_artist" and "revisions" do NOT count as approved
@@ -137,42 +132,6 @@ export async function POST(request: NextRequest) {
             item.onboarding_assets?.status === "approved_by_client"
         );
 
-        console.log(
-          "All assets approved (excluding delivered_by_artist and revisions):",
-          allApproved
-        );
-        console.log("Asset count breakdown:", {
-          total: listAssets?.length || 0,
-          approved:
-            listAssets?.filter(
-              (item: any) => item.onboarding_assets?.status === "approved"
-            ).length || 0,
-          approved_by_client:
-            listAssets?.filter(
-              (item: any) =>
-                item.onboarding_assets?.status === "approved_by_client"
-            ).length || 0,
-          delivered_by_artist:
-            listAssets?.filter(
-              (item: any) =>
-                item.onboarding_assets?.status === "delivered_by_artist"
-            ).length || 0,
-          revisions:
-            listAssets?.filter(
-              (item: any) => item.onboarding_assets?.status === "revisions"
-            ).length || 0,
-          other:
-            listAssets?.filter(
-              (item: any) =>
-                ![
-                  "approved",
-                  "approved_by_client",
-                  "delivered_by_artist",
-                  "revisions",
-                ].includes(item.onboarding_assets?.status)
-            ).length || 0,
-        });
-
         // Get current allocation list status
         const { data: currentList, error: listStatusError } =
           await supabaseAdmin
@@ -180,8 +139,6 @@ export async function POST(request: NextRequest) {
             .select("status")
             .eq("id", assignment.allocation_list_id)
             .single();
-
-        console.log("Current list status:", currentList?.status);
 
         if (listStatusError) {
           console.error(

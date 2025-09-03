@@ -78,15 +78,9 @@ export async function cleanupEmptyAllocationLists(
               name: listName,
               reason: "No assets assigned",
             });
-            console.log(
-              `Deleted empty allocation list: ${listName} (${listId})`
-            );
           }
         } else {
           remainingCount++;
-          console.log(
-            `Allocation list ${listId} still has ${remainingAssets.length} assets, keeping it`
-          );
         }
       } catch (error) {
         console.error(`Error processing allocation list ${listId}:`, error);
@@ -286,16 +280,12 @@ export async function cleanupSingleAllocationList(
           error: allocationListError.message,
         };
       } else {
-        console.log(`Deleted empty allocation list ${allocationListId}`);
         return {
           deleted: true,
           reason: "No assets assigned",
         };
       }
     } else {
-      console.log(
-        `Allocation list ${allocationListId} still has ${remainingAssets.length} assets, keeping it`
-      );
       return {
         deleted: false,
         reason: `Still has ${remainingAssets.length} assets assigned`,

@@ -86,11 +86,6 @@ class NotificationService {
         );
         // Continue with creation even if check fails
       } else if (existingNotifications && existingNotifications.length > 0) {
-        console.log("Duplicate notification detected, skipping creation:", {
-          recipient_id: notification.recipient_id,
-          type: notification.type,
-          title: notification.title,
-        });
         return; // Skip creating duplicate notification
       }
 
@@ -171,14 +166,6 @@ class NotificationService {
     await this.createNotification(notification);
 
     // TODO: Email notification removed - will implement in later stage
-    console.log("Email notification would be sent for asset allocation:", {
-      to: modelerEmail,
-      assetNames,
-      client,
-      deadline,
-      price,
-      bonus,
-    });
   }
 
   async sendAssetCompletedNotification(
@@ -207,11 +194,6 @@ class NotificationService {
     await this.createNotification(notification);
 
     // TODO: Email notification removed - will implement in later stage
-    console.log("Email notification would be sent for asset completion:", {
-      to: modelerEmail,
-      assetName,
-      client,
-    });
   }
 
   async sendRevisionNotification(
@@ -240,13 +222,6 @@ class NotificationService {
     };
 
     await this.createNotification(notification);
-
-    console.log("Revision notification sent:", {
-      to: modelerEmail,
-      assetName,
-      client,
-      reviewer: reviewerName,
-    });
   }
 
   async sendDeadlineReminderNotification(
@@ -287,13 +262,6 @@ class NotificationService {
     };
 
     await this.createNotification(notification);
-
-    console.log("Deadline reminder sent:", {
-      to: modelerEmail,
-      assetCount: assetNames.length,
-      client,
-      daysRemaining,
-    });
   }
 
   /**
@@ -330,14 +298,6 @@ class NotificationService {
     };
 
     await this.createNotification(notification);
-
-    console.log("Asset approval notification sent:", {
-      to: modelerEmail,
-      assetName,
-      client,
-      approver: approverName,
-      type: typeText,
-    });
   }
 
   /**
@@ -369,13 +329,6 @@ class NotificationService {
     };
 
     await this.createNotification(notification);
-
-    console.log("Client review ready notification sent:", {
-      to: clientEmail,
-      assetName,
-      client,
-      modeler: modelerName,
-    });
   }
 
   /**
@@ -390,7 +343,6 @@ class NotificationService {
     try {
       const adminUserIds = await this.getProductionAdminUsers();
       if (adminUserIds.length === 0) {
-        console.log("No admin users found for third revision warnings");
         return;
       }
 
@@ -429,8 +381,6 @@ class NotificationService {
    */
   async sendDeadlineReminders(): Promise<void> {
     try {
-      console.log("Checking for upcoming deadlines...");
-
       const today = new Date();
       const threeDaysFromNow = new Date(today);
       threeDaysFromNow.setDate(today.getDate() + 3);
@@ -460,11 +410,8 @@ class NotificationService {
       }
 
       if (!assets || assets.length === 0) {
-        console.log("No assets with upcoming deadlines found");
         return;
       }
-
-      console.log(`Found ${assets.length} assets with upcoming deadlines`);
 
       // Get asset assignments for these assets
       const assetIds = assets.map((asset) => asset.id);
@@ -569,10 +516,6 @@ class NotificationService {
               daysRemaining
             );
           }
-
-          console.log(
-            `✅ Deadline reminders sent to ${data.modelerEmail} for ${data.assets.length} assets`
-          );
         } catch (error) {
           console.error(
             `❌ Failed to send deadline reminder to modeler ${modelerId}:`,
@@ -585,8 +528,6 @@ class NotificationService {
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("notificationsUpdated"));
       }
-
-      console.log("Deadline reminder check completed");
     } catch (error) {
       console.error("Error in deadline reminder process:", error);
     }
@@ -610,7 +551,6 @@ class NotificationService {
     }
 
     if (!profiles || profiles.length === 0) {
-      console.log("No production users found for budget notifications");
       return;
     }
 
@@ -631,13 +571,6 @@ class NotificationService {
         console.error("Error checking for existing budget alerts:", checkError);
         // Continue with creation even if check fails
       } else if (existingBudgetAlerts && existingBudgetAlerts.length > 0) {
-        console.log(
-          "Budget alert for threshold €" +
-            threshold +
-            " already exists for user " +
-            profile.email +
-            ", skipping creation"
-        );
         continue; // Skip creating duplicate budget alert
       }
 
@@ -660,12 +593,6 @@ class NotificationService {
       await this.createNotification(notification);
 
       // TODO: Email notification removed - will implement in later stage
-      console.log("Budget alert email would be sent:", {
-        to: profile.email,
-        alertLevel,
-        totalSpent,
-        threshold,
-      });
     }
   }
 
@@ -682,15 +609,8 @@ class NotificationService {
       const adminUserIds = await this.getProductionAdminUsers();
 
       if (adminUserIds.length === 0) {
-        console.log(
-          "❌ No admin users found for product submission notifications"
-        );
         return;
       }
-
-      console.log(
-        `📦 Sending product submission notifications to ${adminUserIds.length} admin users`
-      );
 
       // Create notifications for each admin user
       for (const adminId of adminUserIds) {

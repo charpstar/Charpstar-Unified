@@ -252,17 +252,15 @@ export default function ReviewDashboardPage() {
   // Fetch assets for this client
   const fetchAssets = async () => {
     if (!user?.metadata?.client) {
-      console.log("No user or client metadata, skipping fetch");
       return;
     }
 
-    console.log("Fetching assets for client:", user.metadata.client);
     startLoading();
     setLoading(true);
 
     try {
       // First, let's check what's in the database directly
-      console.log("Checking database directly...");
+
       const { data: directCheck, error: directError } = await supabase
         .from("onboarding_assets")
         .select("id, client")
@@ -271,11 +269,6 @@ export default function ReviewDashboardPage() {
       if (directError) {
         console.error("Direct database check failed:", directError);
       } else {
-        console.log(
-          "Direct database check found:",
-          directCheck?.length || 0,
-          "assets for client"
-        );
       }
 
       const { data, error } = await supabase
@@ -292,8 +285,6 @@ export default function ReviewDashboardPage() {
       }
 
       if (data) {
-        console.log("Fetched assets:", data.length, "assets");
-        console.log("Sample asset:", data[0]);
         setAssets(data);
 
         // Populate clients array for filter dropdown
@@ -302,7 +293,6 @@ export default function ReviewDashboardPage() {
         ).sort();
         setClients(uniqueClients);
       } else {
-        console.log("No data returned from fetch");
         setAssets([]);
       }
     } catch (err) {

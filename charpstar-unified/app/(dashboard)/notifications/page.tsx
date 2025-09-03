@@ -253,9 +253,6 @@ export default function NotificationsPage() {
 
     // Listen for global notification updates to refresh notifications
     const handler = () => {
-      console.log(
-        "🔔 Global notification update event received, refreshing notifications page"
-      );
       fetchNotifications();
     };
     window.addEventListener("notificationsUpdated", handler as EventListener);

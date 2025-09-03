@@ -232,7 +232,6 @@ export default function CsvUploadPage() {
           productNames: [], // CSV uploads don't have individual product names easily accessible
           submittedAt: new Date().toISOString(),
         });
-        console.log("📦 CSV product submission notification sent successfully");
       } catch (notificationError) {
         console.error(
           "Failed to send CSV product submission notification:",

@@ -123,13 +123,6 @@ export function AssetFilesManager({
         }
       }
 
-      console.log("Deleting file:", {
-        fileName: file.file_name,
-        filePath,
-        fileId: file.id,
-        fileUrl: file.file_url,
-      });
-
       const response = await fetch(
         `/api/assets/${assetId}/files?file_name=${encodeURIComponent(file.file_name)}&file_path=${encodeURIComponent(filePath)}&asset_id=${encodeURIComponent(assetId)}`,
         {
@@ -143,7 +136,6 @@ export function AssetFilesManager({
       }
 
       const result = await response.json();
-      console.log("Delete response:", result);
 
       toast.success("File deleted successfully");
 

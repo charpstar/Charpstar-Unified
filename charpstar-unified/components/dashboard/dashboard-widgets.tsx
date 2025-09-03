@@ -1166,37 +1166,16 @@ export function ModelStatusWidget() {
           if (mapped in newCounts) newCounts[mapped]++;
         }
 
-        // Debug logging to see what we're counting
-        console.log("Widget raw counts:", newCounts);
-        console.log("Widget client filter:", user.metadata.client);
-        console.log("Widget total data rows:", data.length);
-        console.log("Widget all statuses found:", [
-          ...new Set(data.map((row) => row.status)),
-        ]);
-        console.log(
-          "Widget raw data sample:",
-          data.slice(0, 3).map((row) => ({ id: row.id, status: row.status }))
-        );
-
         // Add detailed counting debug
-        console.log("Widget counting details:");
+
         for (const row of data) {
           const status = (row.status || "") as string;
-          console.log(
-            `Row ${row.id}: status = "${status}", type = ${typeof status}`
-          );
+
           const mapped = (
             status === "not_started" ? "in_production" : status
           ) as StatusKey;
           if (mapped in newCounts) {
-            console.log(
-              `  ✓ Status "${mapped}" (from "${status}") found in newCounts, incrementing`
-            );
           } else {
-            console.log(
-              `  ✗ Status "${status}" NOT found in newCounts keys:`,
-              Object.keys(newCounts)
-            );
           }
         }
 
@@ -1207,7 +1186,6 @@ export function ModelStatusWidget() {
           newCounts.delivered_by_artist = 0;
         }
 
-        console.log("Widget final counts:", newCounts);
         setCounts(newCounts);
         setProducts(data);
       }
@@ -1300,34 +1278,13 @@ export function StatusPieChartWidget() {
           if (mapped in newCounts) newCounts[mapped]++;
         }
 
-        // Debug logging to see what we're counting
-        console.log("PieChart raw counts:", newCounts);
-        console.log("PieChart client filter:", user.metadata.client);
-        console.log("PieChart total data rows:", data.length);
-        console.log("PieChart all statuses found:", [
-          ...new Set(data.map((row) => row.status)),
-        ]);
-        console.log(
-          "PieChart raw data sample:",
-          data.slice(0, 3).map((row) => ({ id: row.id, status: row.status }))
-        );
-
         // Add detailed counting debug
-        console.log("PieChart counting details:");
+
         for (const row of data) {
           const status = row.status as StatusKey;
-          console.log(
-            `Row ${row.id}: status = "${status}", type = ${typeof status}`
-          );
+
           if (status in newCounts) {
-            console.log(
-              `  ✓ Status "${status}" found in newCounts, incrementing`
-            );
           } else {
-            console.log(
-              `  ✗ Status "${status}" NOT found in newCounts keys:`,
-              Object.keys(newCounts)
-            );
           }
         }
 
@@ -1338,7 +1295,6 @@ export function StatusPieChartWidget() {
           newCounts.delivered_by_artist = 0;
         }
 
-        console.log("PieChart final counts:", newCounts);
         setCounts(newCounts);
       }
       setLoading(false);

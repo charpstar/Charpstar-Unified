@@ -76,9 +76,6 @@ export function NotificationBell({ className }: NotificationBellProps) {
     const interval = setInterval(fetchNotifications, 30000);
     // Listen for global notification updates to refresh immediately
     const handler = () => {
-      console.log(
-        "🔔 Global notification update event received, refreshing notifications"
-      );
       fetchNotifications();
     };
     window.addEventListener("notificationsUpdated", handler as EventListener);
@@ -99,16 +96,14 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const markAsRead = async (notificationId: string) => {
     if (!notificationId) return;
     try {
-      console.log("📝 Marking notification as read:", notificationId);
       await notificationService.markNotificationAsRead(notificationId);
-      console.log("✅ Notification marked as read successfully");
 
       // Remove the notification from the local state immediately
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
       setUnreadCount((prev) => Math.max(0, prev - 1));
 
       // Refresh notifications to ensure we have the latest state
-      console.log("🔄 Refreshing notifications after mark as read");
+
       await fetchNotifications();
     } catch (error) {
       console.error("Failed to mark notification as read:", error);

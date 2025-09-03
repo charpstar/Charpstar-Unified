@@ -403,17 +403,6 @@ export default function ModelerReviewPage() {
 
       // Debug logging to help understand the data
       if (data && data.length > 0) {
-        console.log("GLB History loaded:", data.length, "items");
-        console.log("Current asset GLB link:", asset?.glb_link);
-        data.forEach((item, index) => {
-          console.log(`Item ${index}:`, {
-            id: item.id,
-            file_name: item.file_name,
-            glb_url: item.glb_url,
-            isCurrent: asset?.glb_link === item.glb_url,
-            uploaded_at: item.uploaded_at,
-          });
-        });
       }
     } catch (error) {
       console.error("Error fetching GLB history:", error);
@@ -439,7 +428,6 @@ export default function ModelerReviewPage() {
       if (cleanupError) {
         console.error("Error cleaning up GLB history:", cleanupError);
       } else {
-        console.log("Cleaned up old GLB history entries");
       }
 
       // Now handle potential duplicate URLs - keep only the most recent entry for each unique URL
@@ -489,9 +477,6 @@ export default function ModelerReviewPage() {
                   deleteError
                 );
               } else {
-                console.log(
-                  `Cleaned up ${idsToDelete.length} duplicate entries for URL: ${url}`
-                );
               }
             }
           }
@@ -531,44 +516,30 @@ export default function ModelerReviewPage() {
   // Dimensions setup effect
   useEffect(() => {
     if (!asset?.glb_link || !modelViewerRef.current) {
-      console.log("⏳ Waiting for asset GLB link or model viewer ref");
       return;
     }
 
     const setupDimensions = () => {
-      console.log("🔧 Setting up dimensions...");
-
       if (!modelViewerRef.current) {
-        console.warn("❌ Model viewer ref not available yet");
         return;
       }
 
       // Add a small delay to ensure model-viewer is fully mounted and hotspots are created
       setTimeout(() => {
         if (!modelViewerRef.current) {
-          console.warn("❌ Model viewer ref still not available after timeout");
           return;
         }
 
         const modelViewer = modelViewerRef.current;
 
-        console.log("🎯 Model viewer ref available, checking model state...");
-        console.log("🔍 Model loaded state:", modelLoaded);
-        console.log("🔍 Model viewer model:", modelViewer.model);
-        console.log("🔍 Model viewer loaded:", modelViewer.loaded);
-
         // Check if model is already loaded
         if (modelViewer.model || modelViewer.loaded) {
-          console.log("🚀 Model already loaded, initializing immediately");
           if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
             initializeDimensions(modelViewer);
           }
         } else if (typeof modelViewer.addEventListener === "function") {
-          console.log("📡 Model not loaded yet, adding event listeners");
-
           // Listen for model load events
           const handleLoad = () => {
-            console.log("🔧 Model loaded via useEffect event listener");
             setModelLoaded(true);
             // Add a small delay to ensure hotspots are created
             setTimeout(() => {
@@ -581,16 +552,9 @@ export default function ModelerReviewPage() {
             }, 500);
           };
 
-          const handleError = (event: any) => {
-            console.error("❌ Model loading error:", event);
-          };
+          const handleError = (event: any) => {};
 
-          const handleProgress = (event: any) => {
-            console.log(
-              "📈 Model loading progress:",
-              event.detail?.totalProgress || "unknown"
-            );
-          };
+          const handleProgress = (event: any) => {};
 
           modelViewer.addEventListener("load", handleLoad);
           modelViewer.addEventListener("error", handleError);
@@ -608,15 +572,11 @@ export default function ModelerReviewPage() {
             }
           };
         } else {
-          console.warn("❌ Model viewer methods not available yet");
         }
 
         // Fallback: Force model loaded state after 3 seconds if events are missed
         const fallbackCheck = setInterval(() => {
           if (modelViewer && (modelViewer.model || modelViewer.loaded)) {
-            console.log(
-              "⚡ Fallback: Model detected as loaded, clearing interval"
-            );
             setModelLoaded(true);
             if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
               initializeDimensions(modelViewer);
@@ -627,9 +587,6 @@ export default function ModelerReviewPage() {
 
         // Clear fallback after 3 seconds max
         setTimeout(() => {
-          console.log(
-            "⏰ Fallback timeout reached, forcing model loaded state"
-          );
           setModelLoaded(true);
           clearInterval(fallbackCheck);
         }, 3000);
@@ -938,7 +895,6 @@ export default function ModelerReviewPage() {
             modelerName,
             asset.client
           );
-          console.log("✅ QA notification sent successfully");
         } catch (error) {
           console.error("❌ Failed to send QA notification:", error);
           // Don't throw error to avoid blocking status update
@@ -1155,8 +1111,6 @@ export default function ModelerReviewPage() {
         svg.style.display = showDimensions ? "block" : "none";
       }
 
-      console.log("✅ Dimensions initialized successfully");
-
       // Initial render of dimension lines
       if (showDimensions) {
         renderDimensionLines();
@@ -1168,27 +1122,20 @@ export default function ModelerReviewPage() {
 
   // Render dimension lines (like client-review page)
   const renderDimensionLines = () => {
-    console.log("📏 Rendering dimension lines...");
-
     const modelViewer = modelViewerRef.current;
     if (!modelViewer || !modelViewer.model) {
-      console.warn("❌ Model viewer not ready for dimension line rendering");
       return;
     }
 
     const svg = modelViewer.querySelector("#dimLines");
     if (!svg) {
-      console.warn("❌ Dimension lines SVG not found");
       return;
     }
 
     const dimLines = svg.querySelectorAll(".dimensionLine");
     if (!dimLines || dimLines.length === 0) {
-      console.warn("❌ Dimension lines not found or incomplete");
       return;
     }
-
-    console.log("📊 Found", dimLines.length, "dimension lines to update");
 
     const drawLine = (
       line: Element,
@@ -1214,9 +1161,7 @@ export default function ModelerReviewPage() {
             line.setAttribute("y2", endScreen.y.toString());
           }
         }
-      } catch (error) {
-        console.warn("⚠️ Error drawing line:", error);
-      }
+      } catch (error) {}
     };
 
     try {
@@ -1251,8 +1196,6 @@ export default function ModelerReviewPage() {
         modelViewer.queryHotspot("hotspot-dot-X-Y+Z"),
         modelViewer.queryHotspot("hotspot-dim-X-Y")
       );
-
-      console.log("✅ Dimension lines rendered successfully");
     } catch (error) {
       console.error("❌ Error rendering dimension lines:", error);
     }
@@ -1260,16 +1203,11 @@ export default function ModelerReviewPage() {
 
   // Handle dimensions toggle (like client-review page)
   const handleDimensionsToggle = () => {
-    console.log("🎛️ Dimensions toggle clicked, current state:", showDimensions);
-
     const newShowDimensions = !showDimensions;
     setShowDimensions(newShowDimensions);
 
-    console.log("🔄 Setting showDimensions to:", newShowDimensions);
-
     const modelViewer = modelViewerRef.current;
     if (!modelViewer) {
-      console.warn("❌ No model viewer ref available for dimension toggle");
       return;
     }
 
@@ -1280,17 +1218,9 @@ export default function ModelerReviewPage() {
       modelViewer.querySelector("#dimLines"),
     ];
 
-    console.log("📊 Found", dimElements.length, "dimension elements to toggle");
-
     dimElements.forEach((element: any, index: number) => {
       if (element) {
         element.style.display = newShowDimensions ? "block" : "none";
-        console.log(
-          "🔄 Element",
-          index,
-          "visibility set to:",
-          newShowDimensions ? "visible" : "hidden"
-        );
       } else {
         console.warn("⚠️ Dimension element", index, "is null");
       }
@@ -1302,19 +1232,14 @@ export default function ModelerReviewPage() {
       if (newShowDimensions) {
         svg.classList.remove("hide");
         svg.style.display = "block";
-        console.log("📏 SVG lines shown");
       } else {
         svg.classList.add("hide");
         svg.style.display = "none";
-        console.log("📏 SVG lines hidden");
       }
     }
 
-    console.log("✅ Set dimensions visibility to:", newShowDimensions);
-
     // Re-render dimension lines if showing
     if (newShowDimensions) {
-      console.log("🔄 Re-rendering dimension lines");
       renderDimensionLines();
     }
   };
@@ -1532,9 +1457,7 @@ export default function ModelerReviewPage() {
             <Script
               type="module"
               src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
-              onLoad={() => {
-                console.log("📦 Model-viewer script loaded successfully");
-              }}
+              onLoad={() => {}}
               onError={() => {
                 console.error("❌ Failed to load model-viewer script");
               }}
@@ -1557,7 +1480,6 @@ export default function ModelerReviewPage() {
                   max-field-of-view="35deg"
                   style={{ width: "100%", height: "100%" }}
                   onLoad={() => {
-                    console.log("🎯 Model loaded via onLoad event");
                     setModelLoaded(true);
                     // Add a delay to ensure hotspots are created before initializing dimensions
                     setTimeout(() => {
@@ -1792,10 +1714,6 @@ export default function ModelerReviewPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  console.log(
-                    "🎛️ Show Dimensions button clicked, current modelLoaded:",
-                    modelLoaded
-                  );
                   handleDimensionsToggle();
                 }}
                 disabled={!modelLoaded}
@@ -2872,15 +2790,8 @@ export default function ModelerReviewPage() {
 
                     // Debug logging to help identify any issues
                     if (sortedHistory.length > 0) {
-                      console.log("Sorted GLB History for display:");
-                      console.log("Current asset GLB link:", asset?.glb_link);
                       sortedHistory.forEach((item, index) => {
                         const isCurrent = asset?.glb_link === item.glb_url;
-                        console.log(`[${index}] ${item.file_name}:`, {
-                          glb_url: item.glb_url,
-                          isCurrent,
-                          uploaded_at: item.uploaded_at,
-                        });
                       });
                     }
 

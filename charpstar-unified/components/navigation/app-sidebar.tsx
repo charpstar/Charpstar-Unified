@@ -129,7 +129,7 @@ export default function AppSidebar({
             icon: Factory,
           },
           {
-            title: "Clients",
+            title: "Client information",
             url: "/admin/clients",
             icon: Building2,
           },
@@ -198,30 +198,54 @@ export default function AppSidebar({
         ]
       : [];
 
-  // Add 3D Editor only if user has client_config
-  const navMain =
-    clientName && clientName.trim() !== ""
-      ? [
-          ...baseNavItems,
-          ...adminNavItems,
+  // Build navigation items and then sort them by a fixed priority while keeping Dashboard first
+  const ORDER: Record<string, number> = {
+    Dashboard: 0,
+    // Admin
+    Production: 10,
+    "Client information": 20,
+    Onboarding: 30,
+    "Create Users": 40,
+    "Cost Tracking": 50,
+    // General
+    "3D Editor": 60,
+    Analytics: 70,
+    "Asset Library": 80,
+    Notifications: 90,
+    // Client
+    "Add Products": 15,
+    "Client Review": 20,
+    // Modeler
+    "My Assignments": 10,
+    Guidelines: 80,
+    Invoicing: 50,
+    // QA
+    "QA Review": 10,
+  };
 
-          ...financialNavItems,
-          ...modelerNavItems,
-          ...qaNavItems,
+  const unsortedNavItems = [
+    ...baseNavItems,
+    ...adminNavItems,
+    ...financialNavItems,
+    ...modelerNavItems,
+    ...qaNavItems,
+    ...(clientName && clientName.trim() !== ""
+      ? [
           {
             title: "3D Editor",
             url: `/3d-editor/${clientName}`,
             icon: Box,
           },
         ]
-      : [
-          ...baseNavItems,
-          ...adminNavItems,
+      : []),
+  ];
 
-          ...financialNavItems,
-          ...modelerNavItems,
-          ...qaNavItems,
-        ];
+  const navMain = unsortedNavItems.sort((a, b) => {
+    const orderA = ORDER[a.title] ?? 999;
+    const orderB = ORDER[b.title] ?? 999;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.title.localeCompare(b.title);
+  });
 
   const data = {
     user: {

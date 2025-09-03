@@ -360,9 +360,6 @@ export default function ReviewPage() {
 
         if (revisionHistory && revisionHistory.length > 0) {
           finalRevisionCount = revisionHistory[0].revision_number;
-          console.log(
-            `Found revision history, updating count from 0 to ${finalRevisionCount}`
-          );
 
           // Update the asset record to fix the mismatch
           await supabase
@@ -506,7 +503,6 @@ export default function ReviewPage() {
 
   // Handle model load
   const handleModelLoaded = () => {
-    console.log("🎯 Model loaded via onLoad event");
     setModelLoaded(true);
   };
 
@@ -515,24 +511,18 @@ export default function ReviewPage() {
     // Add a small delay to ensure the model-viewer element is properly mounted
     const setupTimeout = setTimeout(() => {
       if (!modelViewerRef.current) {
-        console.log("❌ No modelViewerRef.current available after timeout");
         return;
       }
 
       const modelViewer = modelViewerRef.current as any;
-      console.log("🔍 Setting up model viewer with GLB:", asset?.glb_link);
-      console.log("🔍 Model viewer element:", modelViewer);
 
       const handleLoad = () => {
-        console.log("🔧 Model loaded via useEffect event listener");
         setModelLoaded(true);
         // Wait a bit for all methods to be available
         setTimeout(() => {
           if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
-            console.log("✅ Initializing dimensions from useEffect");
             initializeDimensions(modelViewer);
           } else {
-            console.warn("❌ Model viewer methods not available yet");
           }
         }, 100);
       };
@@ -544,40 +534,26 @@ export default function ReviewPage() {
       };
 
       // Check if model is already loaded
-      console.log(
-        "🔍 Checking if model is already loaded. modelViewer.model:",
-        modelViewer.model
-      );
+
       if (modelViewer.model) {
-        console.log("🚀 Model already loaded, initializing immediately");
         setModelLoaded(true);
         setTimeout(() => {
           if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
-            console.log("✅ Initializing dimensions from already loaded model");
             initializeDimensions(modelViewer);
           } else {
-            console.warn(
-              "❌ Model viewer methods not available for already loaded model"
-            );
           }
         }, 100);
       } else {
-        console.log("⏳ Model not yet loaded, setting up event listeners");
       }
 
       // Fallback: Check periodically if model has loaded but event wasn't caught
       let fallbackCheckCount = 0;
       const fallbackCheck = setInterval(() => {
         fallbackCheckCount++;
-        console.log(
-          `🔄 Fallback check ${fallbackCheckCount}: modelViewer.model=${!!modelViewer.model}, modelLoaded=${modelLoaded}`
-        );
 
         if (modelViewer.model && !modelLoaded) {
-          console.log("🔄 Fallback: Model detected as loaded");
           setModelLoaded(true);
           if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
-            console.log("✅ Initializing dimensions from fallback check");
             initializeDimensions(modelViewer);
           }
           clearInterval(fallbackCheck);
@@ -585,7 +561,6 @@ export default function ReviewPage() {
 
         // Also check if we need to enable the button anyway after some time
         if (fallbackCheckCount >= 6 && !modelLoaded) {
-          console.log("⚠️ Fallback: Force enabling button after 3 seconds");
           setModelLoaded(true);
           clearInterval(fallbackCheck);
         }
@@ -597,23 +572,14 @@ export default function ReviewPage() {
       }, 10000);
 
       // Add more event listeners for debugging
-      const handleError = (e: any) => {
-        console.error("❌ Model-viewer error event:", e);
-      };
+      const handleError = (e: any) => {};
 
-      const handleProgress = (e: any) => {
-        console.log(
-          "📊 Model loading progress:",
-          e.detail?.totalProgress || "unknown"
-        );
-      };
+      const handleProgress = (e: any) => {};
 
       modelViewer.addEventListener("load", handleLoad);
       modelViewer.addEventListener("error", handleError);
       modelViewer.addEventListener("progress", handleProgress);
       modelViewer.addEventListener("camera-change", handleCameraChange);
-
-      console.log("📝 Event listeners attached to model viewer");
 
       return () => {
         clearInterval(fallbackCheck);
@@ -641,7 +607,6 @@ export default function ReviewPage() {
       !modelViewer.updateHotspot ||
       !modelViewer.querySelector
     ) {
-      console.warn("Model viewer not ready for dimension initialization");
       return;
     }
 
@@ -773,7 +738,6 @@ export default function ReviewPage() {
       !modelViewer.querySelectorAll ||
       !modelViewer.queryHotspot
     ) {
-      console.warn("Model viewer not ready for dimension line rendering");
       return;
     }
 
@@ -851,10 +815,6 @@ export default function ReviewPage() {
 
   // Handle dimensions toggle (like asset library)
   const handleDimensionsToggle = () => {
-    console.log(
-      `🎛️ Dimensions toggle clicked. Current state: ${showDimensions}, modelLoaded: ${modelLoaded}`
-    );
-
     const newShowDimensions = !showDimensions;
     setShowDimensions(newShowDimensions);
 
@@ -862,7 +822,6 @@ export default function ReviewPage() {
       const modelViewer = modelViewerRef.current as any;
 
       if (!modelViewer.querySelectorAll || !modelViewer.querySelector) {
-        console.warn("❌ Model viewer not ready for dimension toggle");
         return;
       }
 
@@ -871,10 +830,6 @@ export default function ReviewPage() {
         ...modelViewer.querySelectorAll('button[slot^="hotspot-dot"]'),
         modelViewer.querySelector("#dimLines"),
       ];
-
-      console.log(
-        `📊 Found ${dimElements.length} dimension elements to toggle`
-      );
 
       function setVisibility(visible: boolean) {
         dimElements.forEach((element, index) => {
@@ -885,21 +840,18 @@ export default function ReviewPage() {
               element.classList.add("hide");
             }
           } else {
-            console.warn(`❌ Dimension element ${index} is null`);
           }
         });
       }
 
       setVisibility(newShowDimensions);
-      console.log(`✅ Set dimensions visibility to: ${newShowDimensions}`);
 
       if (newShowDimensions) {
         // Re-render dimension lines when showing
-        console.log("🔄 Re-rendering dimension lines");
+
         renderDimensionLines(modelViewer);
       }
     } else {
-      console.warn("❌ No model viewer ref available for dimension toggle");
     }
   };
 
@@ -1453,9 +1405,6 @@ export default function ReviewPage() {
   ) => {
     if (!assetId) return;
 
-    console.log(
-      `updateAssetStatusWithRevision called with status: ${newStatus}, revisionNumber: ${revisionNumber}`
-    );
     setStatusUpdating(true);
 
     try {
@@ -1478,7 +1427,6 @@ export default function ReviewPage() {
       }
 
       const result = await response.json();
-      console.log("API response:", result);
 
       // Update local state
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
@@ -1537,9 +1485,6 @@ export default function ReviewPage() {
                 (asset as any).client,
                 reviewerName
               );
-              console.log(
-                "✅ Revision notification sent successfully from updateAssetStatusWithRevision"
-              );
             } else {
               console.error(
                 "❌ Failed to fetch modeler profile:",
@@ -1563,35 +1508,22 @@ export default function ReviewPage() {
   const updateAssetStatus = async (newStatus: string, skipDialog = false) => {
     if (!assetId) return;
 
-    console.log(
-      `updateAssetStatus called with: ${newStatus}, skipDialog: ${skipDialog}`
-    );
-    console.log(
-      `Current revisionCount: ${revisionCount}, user role: ${user?.metadata?.role}`
-    );
-
     // Handle revision workflow
     if (newStatus === "revisions" && !skipDialog) {
       const currentRevisionCount = revisionCount + 1;
       const isClient = user?.metadata?.role === "client";
-      console.log(
-        `Revision workflow - currentRevisionCount: ${currentRevisionCount}, isClient: ${isClient}`
-      );
 
       if (isClient) {
         if (currentRevisionCount === 1 || currentRevisionCount === 2) {
-          console.log("Showing first/second revision dialog");
           setShowRevisionDialog(true);
           return;
         } else if (currentRevisionCount >= 3) {
-          console.log("Showing additional revision dialog");
           setShowSecondRevisionDialog(true);
           return;
         }
       }
     }
 
-    console.log("Proceeding with direct status update (no dialog)");
     setStatusUpdating(true);
 
     try {
@@ -1657,7 +1589,6 @@ export default function ReviewPage() {
                 (asset as any).client,
                 reviewerName
               );
-              console.log("✅ Revision notification sent successfully");
             } else {
               console.error(
                 "❌ Failed to fetch modeler profile:",
@@ -1705,7 +1636,6 @@ export default function ReviewPage() {
                 approverName,
                 "client"
               );
-              console.log("✅ Client approval notification sent successfully");
             } else {
               console.error(
                 "❌ Failed to fetch modeler profile for client approval:",
@@ -1783,7 +1713,6 @@ export default function ReviewPage() {
                 approverName,
                 "qa"
               );
-              console.log("✅ QA approval notification sent to modeler");
             } else {
               console.error(
                 "❌ Failed to fetch modeler profile for QA approval:",
@@ -1811,7 +1740,6 @@ export default function ReviewPage() {
               (asset as any).client,
               modelerName
             );
-            console.log("✅ Client review ready notification sent");
           }
         } catch (error) {
           console.error("❌ Failed to send approval notifications:", error);
@@ -1899,7 +1827,6 @@ export default function ReviewPage() {
       if (historyError) {
         // If it's a duplicate key error, check if this revision already exists
         if (historyError.code === "23505") {
-          console.log("Revision history already exists, continuing...");
           // This is fine, the revision was already saved
         } else {
           console.error("Error saving revision history:", historyError);
@@ -1955,12 +1882,10 @@ export default function ReviewPage() {
       }
 
       // Now update the asset status to revisions with the correct revision number
-      console.log(
-        `Updating asset status to revisions with revision number: ${nextRevisionNumber}`
-      );
+
       try {
         await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
-        console.log("Status update completed successfully");
+
         toast.success("Revision submitted. Awaiting production review.");
       } catch (statusError) {
         console.error("Error updating status:", statusError);
@@ -2011,7 +1936,6 @@ export default function ReviewPage() {
       if (historyError) {
         // If it's a duplicate key error, check if this revision already exists
         if (historyError.code === "23505") {
-          console.log("Revision history already exists, continuing...");
           // This is fine, the revision was already saved
         } else {
           console.error("Error saving revision history:", historyError);
@@ -2039,12 +1963,10 @@ export default function ReviewPage() {
       );
 
       // Now update the asset status to revisions with the correct revision number
-      console.log(
-        `Updating asset status to revisions with revision number: ${nextRevisionNumber}`
-      );
+
       try {
         await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
-        console.log("Status update completed successfully");
+
         toast.success("Revision submitted. Awaiting production review.");
       } catch (statusError) {
         console.error("Error updating status:", statusError);
@@ -2095,7 +2017,6 @@ export default function ReviewPage() {
       if (historyError) {
         // If it's a duplicate key error, check if this revision already exists
         if (historyError.code === "23505") {
-          console.log("Revision history already exists, continuing...");
           // This is fine, the revision was already saved
         } else {
           console.error("Error saving revision history:", historyError);
@@ -2123,12 +2044,10 @@ export default function ReviewPage() {
       );
 
       // Now update the asset status to revisions with the correct revision number
-      console.log(
-        `Updating asset status to revisions with revision number: ${nextRevisionNumber}`
-      );
+
       try {
         await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
-        console.log("Status update completed successfully");
+
         toast.success("Revision submitted. Awaiting production review.");
       } catch (statusError) {
         console.error("Error updating status:", statusError);
@@ -2741,9 +2660,7 @@ export default function ReviewPage() {
             <Script
               type="module"
               src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
-              onLoad={() =>
-                console.log("📦 Model-viewer script loaded successfully")
-              }
+              onLoad={() => {}}
               onError={(e) =>
                 console.error("❌ Model-viewer script failed to load:", e)
               }
@@ -3040,9 +2957,6 @@ export default function ReviewPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    console.log(
-                      `🔘 Button clicked! modelLoaded: ${modelLoaded}, disabled: ${!modelLoaded}`
-                    );
                     handleDimensionsToggle();
                   }}
                   disabled={!modelLoaded}

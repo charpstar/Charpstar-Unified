@@ -10,8 +10,6 @@ export async function POST(_request: NextRequest) {
     //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     // }
 
-    console.log("🔔 Deadline reminder API called");
-
     // Run the deadline reminder check
     await notificationService.sendDeadlineReminders();
 

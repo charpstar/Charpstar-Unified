@@ -382,9 +382,7 @@ export default function BatchDetailPage() {
         if (filesData) {
           assetFiles = filesData;
         }
-      } catch {
-        console.log("asset_files table not available");
-      }
+      } catch {}
 
       // Create file history for assets with previous modelers
       const history: AssetFileHistory[] = [];
@@ -782,12 +780,6 @@ export default function BatchDetailPage() {
   const handleUploadGLB = async (assetId: string, file: File) => {
     try {
       setUploadingGLB(assetId);
-      console.log(
-        "Starting GLB upload for asset:",
-        assetId,
-        "File:",
-        file.name
-      );
 
       // Validate file
       const fileName = file.name.toLowerCase();
@@ -806,10 +798,7 @@ export default function BatchDetailPage() {
         .flatMap((list) => list.assets)
         .find((a) => a.id === assetId);
 
-      console.log("Found asset:", asset);
-
       if (asset?.glb_link) {
-        console.log("Saving current GLB to history:", asset.glb_link);
         // Save current GLB to history
         const { error: historyError } = await supabase
           .from("glb_upload_history")
@@ -828,14 +817,12 @@ export default function BatchDetailPage() {
             historyError
           );
         } else {
-          console.log("Successfully saved current GLB to history");
         }
       }
 
       // Upload to Supabase Storage
       const fileNameForUpload = `${asset?.article_id || assetId}_${Date.now()}.glb`;
       const filePath = `models/${fileNameForUpload}`;
-      console.log("Uploading to path:", filePath);
 
       const { error: uploadError } = await supabase.storage
         .from("assets")
@@ -849,14 +836,10 @@ export default function BatchDetailPage() {
         throw uploadError;
       }
 
-      console.log("File uploaded successfully to storage");
-
       // Get the public URL
       const { data: urlData } = supabase.storage
         .from("assets")
         .getPublicUrl(filePath);
-
-      console.log("Got public URL:", urlData.publicUrl);
 
       // Update the asset with the new GLB link
       const { error: updateError } = await supabase
@@ -871,8 +854,6 @@ export default function BatchDetailPage() {
         console.error("Database update error:", updateError);
         throw updateError;
       }
-
-      console.log("Asset updated successfully in database");
 
       // Record GLB upload history
       const { error: newHistoryError } = await supabase
@@ -889,7 +870,6 @@ export default function BatchDetailPage() {
       if (newHistoryError) {
         console.error("Error recording GLB history:", newHistoryError);
       } else {
-        console.log("GLB history recorded successfully");
       }
 
       toast.success("GLB file uploaded successfully!");
@@ -941,14 +921,11 @@ export default function BatchDetailPage() {
   };
 
   const handleOpenUploadDialog = (asset: BatchAsset, type: "glb" | "asset") => {
-    console.log("Opening upload dialog for asset:", asset.id, "type:", type);
     setCurrentUploadAsset(asset);
     setUploadType(type);
     if (type === "glb") {
-      console.log("Setting GLB upload dialog open");
       setGlbUploadDialogOpen(true);
     } else {
-      console.log("Setting asset upload dialog open");
       setAssetUploadDialogOpen(true);
     }
   };
@@ -1045,24 +1022,14 @@ export default function BatchDetailPage() {
   };
 
   const handleFileUpload = (file: File) => {
-    console.log("handleFileUpload called with:", {
-      file: file.name,
-      uploadType,
-      currentUploadAsset,
-    });
     if (!currentUploadAsset) {
       console.error("No current upload asset");
       return;
     }
 
     if (uploadType === "glb") {
-      console.log("Calling handleUploadGLB for asset:", currentUploadAsset.id);
       handleUploadGLB(currentUploadAsset.id, file);
     } else {
-      console.log(
-        "Calling handleUploadAsset for asset:",
-        currentUploadAsset.id
-      );
       handleUploadAsset(currentUploadAsset.id, file);
     }
 
@@ -1076,14 +1043,8 @@ export default function BatchDetailPage() {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    console.log("File selected:", file);
+
     if (file) {
-      console.log(
-        "Calling handleFileUpload with file:",
-        file.name,
-        "uploadType:",
-        uploadType
-      );
       handleFileUpload(file);
     }
     // Clear the input

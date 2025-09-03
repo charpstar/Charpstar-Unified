@@ -467,8 +467,6 @@ export default function ReferenceImagesPage() {
         console.error("Error fetching updated assets:", fetchError);
       }
 
-      console.log("Updated assets from DB:", updatedAssets);
-
       // Refresh the entire assets list to ensure UI is updated
       await refreshAssetsData();
 
@@ -861,14 +859,6 @@ export default function ReferenceImagesPage() {
                       const hasReferences = refs.length > 0;
 
                       // Debug logging
-                      console.log(
-                        `Asset ${asset.id} (${asset.product_name}):`,
-                        {
-                          rawReference: asset.reference,
-                          parsedRefs: refs,
-                          hasReferences,
-                        }
-                      );
 
                       return (
                         <TableRow key={asset.id}>

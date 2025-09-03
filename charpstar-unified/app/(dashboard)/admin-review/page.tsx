@@ -1554,12 +1554,7 @@ export default function AdminReviewPage() {
               );
               throw allocationListError;
             }
-
-            console.log(`Deleted empty allocation list ${listId}`);
           } else {
-            console.log(
-              `Allocation list ${listId} still has ${remainingAssets.length} assets, keeping it`
-            );
           }
         }
       }
@@ -1625,7 +1620,6 @@ export default function AdminReviewPage() {
       );
 
       toast.success("Asset deleted successfully");
-      console.log(`Successfully deleted asset ${assetId}`);
     } catch (error) {
       console.error("Error deleting asset:", error);
       toast.error("Failed to delete asset");

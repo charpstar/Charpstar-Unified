@@ -232,7 +232,6 @@ export default function AddProductsPage() {
           productNames: validProducts.map((p) => p.product_name),
           submittedAt: new Date().toISOString(),
         });
-        console.log("📦 Product submission notification sent successfully");
       } catch (notificationError) {
         console.error(
           "Failed to send product submission notification:",
@@ -568,7 +567,6 @@ export default function AddProductsPage() {
           productNames: productNames,
           submittedAt: new Date().toISOString(),
         });
-        console.log("📦 CSV Product submission notification sent successfully");
       } catch (notificationError) {
         console.error(
           "Failed to send CSV product submission notification:",

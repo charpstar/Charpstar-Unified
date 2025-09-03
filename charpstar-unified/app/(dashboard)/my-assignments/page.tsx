@@ -296,9 +296,7 @@ export default function MyAssignmentsPage() {
         if (!filesError && filesData) {
           assetFiles = filesData;
         }
-      } catch {
-        console.log("asset_files table not available");
-      }
+      } catch {}
 
       // Create file history for assets with previous modelers
       const history: AssetFileHistory[] = [];

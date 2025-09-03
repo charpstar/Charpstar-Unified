@@ -523,7 +523,6 @@ export function ModelerEarningsWidget() {
   // Listen for allocation list approval/unapproval events
   useEffect(() => {
     const handleAllocationListStatusChange = () => {
-      console.log("Allocation list status changed, refreshing earnings data");
       setRefreshTrigger((prev) => prev + 1);
     };
 
@@ -562,7 +561,6 @@ export function ModelerEarningsWidget() {
   const fetchEarningsData = async () => {
     try {
       setLoading(true);
-      console.log("Fetching earnings data for user:", user?.id);
 
       // First, let's check if there are any allocation lists at all for this user
       const { data: allLists, error: allListsError } = await supabase
@@ -570,9 +568,6 @@ export function ModelerEarningsWidget() {
         .select("id, name, status, approved_at")
         .eq("user_id", user?.id)
         .eq("role", "modeler");
-
-      console.log("All allocation lists for user:", allLists);
-      console.log("Allocation lists error:", allListsError);
 
       // Get user's allocation lists with pricing - only for approved lists
       const { data: allocationLists, error: listsError } = await supabase
@@ -604,11 +599,7 @@ export function ModelerEarningsWidget() {
         return;
       }
 
-      console.log("Allocation lists found:", allocationLists?.length || 0);
-      console.log("Allocation lists data:", allocationLists);
-
       if (!allocationLists || allocationLists.length === 0) {
-        console.log("No allocation lists found, setting empty data");
         setEarningsData({
           thisMonth: 0,
           lastMonth: 0,
@@ -629,9 +620,6 @@ export function ModelerEarningsWidget() {
             assignment.onboarding_assets?.status === "approved_by_client"
         );
       });
-
-      console.log("Fully approved lists:", fullyApprovedLists.length);
-      console.log("Total lists:", allocationLists.length);
 
       // Calculate earnings from fully approved allocation lists only
       const now = new Date();
@@ -666,18 +654,9 @@ export function ModelerEarningsWidget() {
           if (approvedDate <= deadlineDate) {
             bonusAmount = listEarnings * (list.bonus / 100);
             totalListEarnings = listEarnings + bonusAmount;
-            console.log(
-              `Bonus applied for list ${list.id}: ${bonusAmount} (completed before deadline)`
-            );
           } else {
-            console.log(
-              `No bonus for list ${list.id}: completed after deadline (approved: ${approvedDate.toISOString()}, deadline: ${deadlineDate.toISOString()})`
-            );
           }
         } else {
-          console.log(
-            `No bonus for list ${list.id}: missing approved_at or deadline`
-          );
         }
 
         totalEarnings += totalListEarnings;
@@ -738,11 +717,6 @@ export function ModelerEarningsWidget() {
         approvedThisMonth,
         chartData,
       };
-
-      console.log("Calculated earnings data:", finalData);
-      console.log("This month earnings:", thisMonthEarnings);
-      console.log("Total earnings:", totalEarnings);
-      console.log("Approved this month:", approvedThisMonth);
 
       setEarningsData(finalData);
     } catch (error) {
