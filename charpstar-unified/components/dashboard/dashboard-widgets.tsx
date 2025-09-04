@@ -6,7 +6,7 @@ import { useAssets } from "@/hooks/use-assets";
 import { useUser } from "@/contexts/useUser";
 import { Button } from "@/components/ui/display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/display";
-import { Badge } from "@/components/ui/feedback";
+import { Badge, Progress } from "@/components/ui/feedback";
 import {
   Users,
   TrendingUp,
@@ -1134,6 +1134,7 @@ export function CategoriesWidget({ stats }: { stats?: any }) {
 
 export function ModelStatusWidget() {
   const user = useUser();
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
     in_production: 0,
     revisions: 0,
@@ -1141,6 +1142,7 @@ export function ModelStatusWidget() {
     approved_by_client: 0,
     delivered_by_artist: 0,
   });
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
@@ -1193,53 +1195,7 @@ export function ModelStatusWidget() {
     fetchStatusCounts();
   }, [user?.metadata?.client, user?.metadata?.role]);
 
-  return (
-    <Card className="p-6 rounded-lg shadow- bg-muted-background w-full mx-auto flex flex-col items-center border-0 shadow-none">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold mb-1 text-foreground">
-          Total Models: {products.length}
-        </CardTitle>
-      </CardHeader>
-      <p className="text-sm text-muted-foreground mb-4">
-        Track the progress of your onboarding assets
-      </p>
-      {products.length === 0 ? (
-        <div className="py-8 text-center text-muted-foreground">
-          <span className="text-4xl">🗂️</span>
-          <div className="mt-2 font-medium">No models found yet.</div>
-          <div className="text-xs">Upload your CSV to get started.</div>
-        </div>
-      ) : (
-        <div className="w-full space-y-3">
-          {(Object.entries(STATUS_LABELS) as [StatusKey, string][]).map(
-            ([key, label]) => {
-              // Hide "Delivered by Artist" row for clients since it's shown as "In Production"
-              if (
-                user?.metadata?.role === "client" &&
-                key === "delivered_by_artist"
-              ) {
-                return null;
-              }
-
-              return (
-                <div
-                  key={key}
-                  className="flex items-center gap-3  border-b border-border"
-                >
-                  <span
-                    className="inline-block w-3 h-3 rounded-full"
-                    style={{ background: getStatusColor(key) }}
-                  />
-                  <span className="font-medium flex-1 text-sm">{label}</span>
-                  <span className=" text-lg ">{counts[key]}</span>
-                </div>
-              );
-            }
-          )}
-        </div>
-      )}
-    </Card>
-  );
+  return null;
 }
 
 export function StatusPieChartWidget() {
@@ -1316,11 +1272,20 @@ export function StatusPieChartWidget() {
     .map(([key, label]) => {
       const count = counts[key as StatusKey];
       const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+      const displayLabel =
+        user?.metadata?.role === "client" && key === "approved"
+          ? "New Upload"
+          : label;
+      const color =
+        user?.metadata?.role === "client" && key === "approved"
+          ? "#1b22e833"
+          : getStatusColor(key as StatusKey);
       return {
-        name: label,
+        name: displayLabel,
         value: count,
         percentage,
         key: key as StatusKey,
+        color,
       };
     });
 
@@ -1359,7 +1324,7 @@ export function StatusPieChartWidget() {
                     {chartData.map((entry) => (
                       <Cell
                         key={`cell-${entry.key}`}
-                        fill={getStatusColor(entry.key)}
+                        fill={entry.color as string}
                       />
                     ))}
                   </Pie>
@@ -1389,7 +1354,7 @@ export function StatusPieChartWidget() {
                   <div key={entry.key} className="flex items-center gap-3">
                     <span
                       className="inline-block w-4 h-4 rounded-full"
-                      style={{ background: getStatusColor(entry.key) }}
+                      style={{ background: entry.color as string }}
                     />
                     <span className="font-medium text-sm flex-1">
                       {entry.name}
@@ -1407,6 +1372,366 @@ export function StatusPieChartWidget() {
           </div>
         </CardContent>
       )}
+    </Card>
+  );
+}
+
+// Client-focused action center widget
+export function ClientActionCenterWidget() {
+  const user = useUser();
+  const router = useRouter();
+  const [waitingForApproval, setWaitingForApproval] = useState<any[]>([]);
+  const [readyForRevision, setReadyForRevision] = useState<any[]>([]);
+  const [totals, setTotals] = useState({ total: 0, approved_by_client: 0 });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchClientQueues = async () => {
+      if (!user?.metadata?.client) return;
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("id, product_name, article_id, status, created_at")
+        .eq("client", user.metadata.client)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        const waiting = data.filter((a) => a.status === "approved");
+        const revisions = data.filter((a) => a.status === "revisions");
+        const approvedByClient = data.filter(
+          (a) => a.status === "approved_by_client"
+        );
+
+        setWaitingForApproval(waiting.slice(0, 5));
+        setReadyForRevision(revisions.slice(0, 5));
+        setTotals({
+          total: data.length,
+          approved_by_client: approvedByClient.length,
+        });
+      }
+      setLoading(false);
+    };
+
+    fetchClientQueues();
+  }, [user?.metadata?.client]);
+
+  const completionPct = totals.total
+    ? Math.round((totals.approved_by_client / totals.total) * 100)
+    : 0;
+
+  return (
+    <Card className="p-0 rounded-lg bg-muted-background w-full border-0 shadow-none">
+      <CardHeader className="!pb-0">
+        <CardTitle className="text-lg font-semibold mb-1 text-foreground">
+          Action Center
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Overall completion
+          </div>
+          <div className="text-sm font-medium">{completionPct}%</div>
+        </div>
+        <Progress value={completionPct} className="h-2" />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-3 rounded-md border border-border bg-background">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium">New Upload</div>
+              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                {waitingForApproval.length}
+              </Badge>
+            </div>
+            {loading ? (
+              <div className="h-16 bg-muted animate-pulse rounded" />
+            ) : waitingForApproval.length === 0 ? (
+              <div className="text-xs text-muted-foreground">
+                Nothing pending
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {waitingForApproval.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <div className="truncate">
+                      <div className="font-medium truncate max-w-[180px]">
+                        {a.product_name}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {a.article_id}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => router.push("/dashboard/client-review")}
+              >
+                Review all
+              </Button>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-md border border-border bg-background">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium">Ready for Revision</div>
+              <Badge variant="outline" className="bg-amber-50 text-amber-700">
+                {readyForRevision.length}
+              </Badge>
+            </div>
+            {loading ? (
+              <div className="h-16 bg-muted animate-pulse rounded" />
+            ) : readyForRevision.length === 0 ? (
+              <div className="text-xs text-muted-foreground">
+                No revisions requested
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {readyForRevision.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <div className="truncate">
+                      <div className="font-medium truncate max-w-[180px]">
+                        {a.product_name}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {a.article_id}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => router.push("/dashboard/client-review")}
+              >
+                Open review
+              </Button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Admin widgets
+export function AdminPipelineWidget() {
+  const [counts, setCounts] = useState<Record<StatusKey, number>>({
+    in_production: 0,
+    revisions: 0,
+    approved: 0,
+    approved_by_client: 0,
+    delivered_by_artist: 0,
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("status");
+      if (!error && data) {
+        const next: Record<StatusKey, number> = {
+          in_production: 0,
+          revisions: 0,
+          approved: 0,
+          approved_by_client: 0,
+          delivered_by_artist: 0,
+        };
+        for (const row of data) {
+          const raw = (row.status || "") as string;
+          const mapped = (
+            raw === "not_started" ? "in_production" : raw
+          ) as StatusKey;
+          if (mapped in next) next[mapped]++;
+        }
+        setCounts(next);
+      }
+      setLoading(false);
+    };
+    fetchCounts();
+  }, []);
+
+  const items: Array<{
+    key: StatusKey;
+    label: string;
+    color: string;
+    value: number;
+  }> = [
+    {
+      key: "in_production",
+      label: STATUS_LABELS.in_production,
+      color: getStatusColor("in_production"),
+      value: counts.in_production,
+    },
+    {
+      key: "revisions",
+      label: STATUS_LABELS.revisions,
+      color: getStatusColor("revisions"),
+      value: counts.revisions,
+    },
+    {
+      key: "approved",
+      label: "New Upload",
+      color: "#1b22e833",
+      value: counts.approved,
+    },
+    {
+      key: "approved_by_client",
+      label: STATUS_LABELS.approved_by_client,
+      color: getStatusColor("approved_by_client"),
+      value: counts.approved_by_client,
+    },
+  ];
+
+  return (
+    <Card className="p-4 rounded-lg bg-muted-background border-0 shadow-none h-full  ">
+      <WidgetHeader title="Pipeline Overview" />
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-20 bg-muted animate-pulse rounded" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+          {items.map((item) => (
+            <div
+              key={item.key}
+              className="p-3 rounded-md border border-border bg-background"
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="inline-block w-3 h-3 rounded-full"
+                  style={{ background: item.color }}
+                />
+                <div className="text-sm text-muted-foreground">
+                  {item.label}
+                </div>
+              </div>
+              <div className="text-2xl font-semibold mt-1">{item.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export function AdminQueuesWidget() {
+  const router = useRouter();
+  const [clientQueue, setClientQueue] = useState<
+    Array<{ client: string; count: number; batches: number[] }>
+  >([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchQueues = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("id, client, batch, status, created_at")
+        .eq("status", "approved")
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        const map = new Map<
+          string,
+          { client: string; count: number; batches: number[] }
+        >();
+        data.forEach((a) => {
+          const key = a.client || "Unknown";
+          if (!map.has(key)) {
+            map.set(key, { client: key, count: 0, batches: [] });
+          }
+          const entry = map.get(key)!;
+          entry.count += 1;
+          if (typeof a.batch === "number" && !entry.batches.includes(a.batch)) {
+            entry.batches.push(a.batch);
+          }
+        });
+        const grouped = Array.from(map.values()).map((g) => ({
+          ...g,
+          batches: g.batches.sort((a, b) => a - b),
+        }));
+        setClientQueue(grouped);
+      }
+      setLoading(false);
+    };
+    fetchQueues();
+  }, []);
+
+  const List = () => (
+    <div className="p-3 rounded-md border border-border bg-background">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-medium">New Uploads</div>
+        <Badge variant="outline" className="bg-indigo-50 text-indigo-700">
+          {clientQueue.length}
+        </Badge>
+      </div>
+      {loading ? (
+        <div className="h-16 bg-muted animate-pulse rounded" />
+      ) : clientQueue.length === 0 ? (
+        <div className="text-xs text-muted-foreground">Nothing here</div>
+      ) : (
+        <div className="space-y-2">
+          {clientQueue.map((g) => (
+            <div
+              key={g.client}
+              className="text-sm cursor-pointer hover:bg-muted/60 rounded px-2 py-1"
+              onClick={() =>
+                router.push(
+                  `/admin-review?client=${encodeURIComponent(g.client)}`
+                )
+              }
+            >
+              <div className="font-medium truncate">{g.client}</div>
+              <div className="text-xs text-muted-foreground">
+                {g.count} assets
+                {g.batches.length > 0
+                  ? ` • Batches: ${g.batches.join(", ")}`
+                  : ""}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-3">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            router.push(
+              `/admin-review?client=${encodeURIComponent(clientQueue[0].client)}`
+            )
+          }
+        >
+          Open filtered view
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <Card className="p-4 rounded-lg bg-muted-background border-0 shadow-none">
+      <WidgetHeader title="Queues" />
+      <div className="grid grid-cols-1 gap-4 mt-3">
+        <List />
+      </div>
     </Card>
   );
 }

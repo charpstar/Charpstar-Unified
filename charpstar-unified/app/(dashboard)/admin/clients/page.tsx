@@ -58,6 +58,7 @@ interface Client {
   client_guide_links?: string[] | null;
   created_at: string;
   updated_at: string;
+  isPlaceholder?: boolean;
 }
 
 interface ClientFormData {
@@ -115,7 +116,61 @@ export default function AdminClientsPage() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setClients(data || []);
+      const existingClients = data || [];
+
+      // Collect client names referenced elsewhere (profiles and onboarding assets)
+      const [profilesRes, assetsRes] = await Promise.all([
+        supabase.from("profiles").select("client"),
+        supabase.from("onboarding_assets").select("client"),
+      ]);
+
+      const referencedNames = new Set<string>();
+      existingClients.forEach((c) => c.name && referencedNames.add(c.name));
+
+      if (!profilesRes.error && profilesRes.data) {
+        profilesRes.data
+          .map((r: any) => r.client)
+          .filter((x: any) => typeof x === "string" && x.trim().length > 0)
+          .forEach((n: string) => referencedNames.add(n));
+      }
+      if (!assetsRes.error && assetsRes.data) {
+        assetsRes.data
+          .map((r: any) => r.client)
+          .filter((x: any) => typeof x === "string" && x.trim().length > 0)
+          .forEach((n: string) => referencedNames.add(n));
+      }
+
+      // Create placeholder entries for clients without a row in clients table
+      const existingNames = new Set(existingClients.map((c) => c.name));
+      const placeholders: Client[] = Array.from(referencedNames)
+        .filter((n) => !existingNames.has(n))
+        .map((name) => ({
+          id: `placeholder-${name}`,
+          name,
+          email: "",
+          company: "",
+          contract_type: "standard",
+          contract_value: 0,
+          payment_terms: "",
+          start_date: "",
+          end_date: null,
+          status: "pending",
+          specifications: "",
+          requirements: "",
+          notes: "",
+          client_guide: null,
+          client_guide_links: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          isPlaceholder: true,
+        }));
+
+      // Merge and sort by name
+      const merged = [...existingClients, ...placeholders].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+
+      setClients(merged);
     } catch (error) {
       console.error("Error fetching clients:", error);
       toast({
@@ -179,6 +234,25 @@ export default function AdminClientsPage() {
     setIsAddDialogOpen(true);
   };
 
+  const handleAddClientPrefill = (name: string) => {
+    setFormData({
+      name,
+      email: "",
+      company: "",
+      contract_type: "standard",
+      contract_value: 0,
+      payment_terms: "",
+      start_date: "",
+      status: "active",
+      specifications: "",
+      requirements: "",
+      notes: "",
+      client_guide: "",
+      client_guide_links: [],
+    });
+    setIsAddDialogOpen(true);
+  };
+
   const handleSubmit = async (isEdit: boolean) => {
     try {
       // Validate required fields
@@ -190,6 +264,22 @@ export default function AdminClientsPage() {
         });
         return;
       }
+
+      // Validate contract_value against NUMERIC(10,2) limit
+      const MAX_NUMERIC_10_2 = 99999999.99; // absolute must be < 1e8
+      if (
+        formData.contract_value < 0 ||
+        Math.abs(formData.contract_value) > MAX_NUMERIC_10_2
+      ) {
+        toast({
+          title: "Contract value too large",
+          description:
+            "The amount must be between 0 and 99,999,999.99 to fit the database limit.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (isEdit && selectedClient) {
         const { error } = await supabase
           .from("clients")
@@ -349,45 +439,79 @@ export default function AdminClientsPage() {
                       <div className="text-sm text-muted-foreground">
                         {client.email}
                       </div>
+                      {client.isPlaceholder && (
+                        <div className="text-xs text-amber-700 mt-1">
+                          Please fill in client info for this client
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>{client.company}</TableCell>
                   <TableCell>
-                    <Badge
-                      className={getContractTypeColor(client.contract_type)}
-                    >
-                      {client.contract_type.charAt(0).toUpperCase() +
-                        client.contract_type.slice(1)}
-                    </Badge>
+                    {client.isPlaceholder ? (
+                      "-"
+                    ) : (
+                      <Badge
+                        className={getContractTypeColor(client.contract_type)}
+                      >
+                        {client.contract_type === "standard"
+                          ? "Small"
+                          : client.contract_type === "premium"
+                            ? "Medium"
+                            : client.contract_type === "enterprise"
+                              ? "Big"
+                              : "Custom"}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
-                    €{client.contract_value.toLocaleString()}
+                    {client.isPlaceholder
+                      ? "-"
+                      : `€${client.contract_value.toLocaleString()}`}
                   </TableCell>
                   <TableCell>
-                    <Badge className={getStatusColor(client.status)}>
-                      {client.status.charAt(0).toUpperCase() +
-                        client.status.slice(1)}
-                    </Badge>
+                    {client.isPlaceholder ? (
+                      "-"
+                    ) : (
+                      <Badge className={getStatusColor(client.status)}>
+                        {client.status.charAt(0).toUpperCase() +
+                          client.status.slice(1)}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
-                    {new Date(client.start_date).toLocaleDateString()}
+                    {client.start_date
+                      ? new Date(client.start_date).toLocaleDateString()
+                      : "-"}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewClient(client)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditClient(client)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      {client.isPlaceholder ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddClientPrefill(client.name)}
+                        >
+                          Add Info
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewClient(client)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditClient(client)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -551,6 +675,9 @@ function ClientForm({
             <Input
               id="contract_value"
               type="number"
+              min="0"
+              max="99999999.99"
+              step="0.01"
               value={
                 formData.contract_value === 0 ? "" : formData.contract_value
               }
@@ -634,7 +761,7 @@ function ClientForm({
           {(role === "admin" || role === "qa") && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Guideline Link (For Modelers</Label>
+                <Label>Guideline Link (For Modelers)</Label>
                 <Input
                   value={
                     (formData.client_guide_links &&

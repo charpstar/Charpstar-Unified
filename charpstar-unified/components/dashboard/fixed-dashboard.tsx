@@ -7,36 +7,24 @@ import ErrorBoundary from "@/components/dashboard/error-boundary";
 import { Suspense, lazy } from "react";
 
 // Lazy load heavy dashboard widgets
-const LazyTotalModelsWidget = lazy(() =>
-  import("@/components/dashboard").then((module) => ({
-    default: module.TotalModelsWidget,
-  }))
-);
-const LazyCategoriesWidget = lazy(() =>
-  import("@/components/dashboard").then((module) => ({
-    default: module.CategoriesWidget,
-  }))
-);
 const LazyQuickActionsWidget = lazy(() =>
   import("@/components/dashboard").then((module) => ({
     default: module.QuickActionsWidget,
   }))
 );
+//eslint-disable-next-line @typescript-eslint/no-unused-vars
 const LazyActivityWidget = lazy(() =>
   import("@/components/dashboard").then((module) => ({
     default: module.ActivityWidget,
   }))
 );
-const LazyNewUsersChartWidget = lazy(() =>
-  import("@/components/dashboard").then((module) => ({
-    default: module.NewUsersChartWidget,
-  }))
-);
 
 // Import role-specific widgets
 import {
-  ModelStatusWidget,
   StatusPieChartWidget,
+  ClientActionCenterWidget,
+  AdminPipelineWidget,
+  AdminQueuesWidget,
 } from "@/components/dashboard/dashboard-widgets";
 import {
   ModelerStatsWidget,
@@ -54,7 +42,7 @@ interface FixedDashboardProps {
   profileContent?: React.ReactNode;
 }
 
-export function FixedDashboard({ stats, profileContent }: FixedDashboardProps) {
+export function FixedDashboard({ profileContent }: FixedDashboardProps) {
   const user = useUser();
   const isAdmin = user?.metadata?.role === "admin";
   const isClient = user?.metadata?.role === "client";
@@ -68,14 +56,13 @@ export function FixedDashboard({ stats, profileContent }: FixedDashboardProps) {
   // Admin Dashboard Layout
   if (isAdmin) {
     return (
-      <div className="grid grid-cols-6 grid-rows-7 gap-4 h-full">
-        {/* Profile - grid-area: 1 / 1 / 3 / 4 */}
-        <Card className="grid-area-1-1-3-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Row 1 */}
+        <Card>
           <CardContent>{profileContent}</CardContent>
         </Card>
 
-        {/* Quick Actions - grid-area: 1 / 4 / 3 / 7 */}
-        <Card className="grid-area-1-4-3-7">
+        <Card>
           <CardContent>
             <Suspense
               fallback={
@@ -87,55 +74,20 @@ export function FixedDashboard({ stats, profileContent }: FixedDashboardProps) {
           </CardContent>
         </Card>
 
-        {/* Total Models - grid-area: 3 / 1 / 5 / 3 */}
-        <Card className="grid-area-3-1-5-3 ">
+        {/* Row 2 */}
+        <Card>
           <CardContent>
-            <Suspense
-              fallback={
-                <div className="h-48 bg-muted animate-pulse rounded-lg" />
-              }
-            >
-              <LazyTotalModelsWidget />
-            </Suspense>
+            <ErrorBoundary>
+              <AdminPipelineWidget />
+            </ErrorBoundary>
           </CardContent>
         </Card>
 
-        {/* Categories - grid-area: 3 / 3 / 5 / 5 */}
-        <Card className="grid-area-3-3-5-5">
+        <Card>
           <CardContent>
-            <Suspense
-              fallback={
-                <div className="h-48 bg-muted animate-pulse rounded-lg" />
-              }
-            >
-              <LazyCategoriesWidget stats={stats} />
-            </Suspense>
-          </CardContent>
-        </Card>
-
-        {/* New Users Chart - grid-area: 3 / 5 / 5 / 7 */}
-        <Card className="grid-area-3-5-5-7">
-          <CardContent>
-            <Suspense
-              fallback={
-                <div className="h-48 bg-muted animate-pulse rounded-lg" />
-              }
-            >
-              <LazyNewUsersChartWidget />
-            </Suspense>
-          </CardContent>
-        </Card>
-
-        {/* Recent Activity - grid-area: 5 / 1 / 7 / 7 */}
-        <Card className="grid-area-5-1-7-7">
-          <CardContent>
-            <Suspense
-              fallback={
-                <div className="h-64 bg-muted animate-pulse rounded-lg" />
-              }
-            >
-              <LazyActivityWidget />
-            </Suspense>
+            <ErrorBoundary>
+              <AdminQueuesWidget />
+            </ErrorBoundary>
           </CardContent>
         </Card>
       </div>
@@ -167,7 +119,7 @@ export function FixedDashboard({ stats, profileContent }: FixedDashboardProps) {
         <Card>
           <CardContent>
             <ErrorBoundary>
-              <ModelStatusWidget />
+              <ClientActionCenterWidget />
             </ErrorBoundary>
           </CardContent>
         </Card>

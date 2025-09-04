@@ -7,7 +7,6 @@ export {
   ActivityWidget,
   NewUsersChartWidget,
   NewModelsChartWidget,
-  TotalModelsWidget,
   CategoriesWidget,
   WidgetHeader,
   WidgetContainer,

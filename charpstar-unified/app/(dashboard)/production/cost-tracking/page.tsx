@@ -47,6 +47,8 @@ import {
   Calendar,
   Filter,
   Download,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 interface CostSummary {
@@ -84,6 +86,29 @@ interface ModelerCosts {
   pendingAssets: number;
 }
 
+interface ClientModelerBreakdown {
+  modelerId: string;
+  modelerEmail: string;
+  totalAssets: number;
+  baseCost: number;
+  bonusCost: number;
+  totalCost: number;
+  completedCost: number;
+  pendingCost: number;
+  completedAssets: number;
+  pendingAssets: number;
+}
+
+interface ClientCosts {
+  client: string;
+  assetCount: number;
+  completedCost: number;
+  pendingCost: number;
+  completedAssets: number;
+  pendingAssets: number;
+  modelers: ClientModelerBreakdown[];
+}
+
 interface AssetCost {
   id: string;
   product_name: string;
@@ -116,11 +141,16 @@ export default function CostTrackingPage() {
   const [modelerCosts, setModelerCosts] = useState<ModelerCosts[]>([]);
   const [assetCosts, setAssetCosts] = useState<AssetCost[]>([]);
   const [monthlyCosts, setMonthlyCosts] = useState<MonthlyCosts[]>([]);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [clientCosts, setClientCosts] = useState<ClientCosts[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [selectedModeler, setSelectedModeler] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<string>("totalCost");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [expandedClients, setExpandedClients] = useState<
+    Record<string, boolean>
+  >({});
 
   // Check if user has access
   useEffect(() => {
@@ -437,6 +467,10 @@ export default function CostTrackingPage() {
       const monthlyCostsData = calculateMonthlyCosts(processedAssets);
       setMonthlyCosts(monthlyCostsData);
 
+      // Calculate client costs with modeler breakdown
+      const clientCostsData = calculateClientCosts(processedAssets);
+      setClientCosts(clientCostsData);
+
       // Note: Budget thresholds are checked in the useEffect when totalSpent changes
     } catch (error) {
       console.error("Error fetching cost data:", error);
@@ -503,6 +537,75 @@ export default function CostTrackingPage() {
     });
   };
 
+  const calculateClientCosts = (assets: AssetCost[]): ClientCosts[] => {
+    const clientMap = new Map<string, ClientCosts>();
+
+    assets.forEach((asset) => {
+      if (!clientMap.has(asset.client)) {
+        clientMap.set(asset.client, {
+          client: asset.client,
+          assetCount: 0,
+          completedCost: 0,
+          pendingCost: 0,
+          completedAssets: 0,
+          pendingAssets: 0,
+          modelers: [],
+        });
+      }
+
+      const clientData = clientMap.get(asset.client)!;
+      clientData.assetCount++;
+
+      // Find or create modeler breakdown entry
+      let modelerEntry = clientData.modelers.find(
+        (m) => m.modelerEmail === asset.modeler_email
+      );
+      if (!modelerEntry) {
+        modelerEntry = {
+          modelerId: asset.modeler_email,
+          modelerEmail: asset.modeler_email,
+          totalAssets: 0,
+          baseCost: 0,
+          bonusCost: 0,
+          totalCost: 0,
+          completedCost: 0,
+          pendingCost: 0,
+          completedAssets: 0,
+          pendingAssets: 0,
+        };
+        clientData.modelers.push(modelerEntry);
+      }
+
+      modelerEntry.totalAssets++;
+      modelerEntry.baseCost += asset.price || 50;
+      modelerEntry.bonusCost += asset.bonus_amount;
+
+      if (asset.allocation_list_completed) {
+        clientData.completedAssets++;
+        clientData.completedCost += asset.total_cost;
+        modelerEntry.completedAssets++;
+        modelerEntry.completedCost += asset.total_cost;
+        modelerEntry.totalCost += asset.total_cost;
+      } else {
+        clientData.pendingAssets++;
+        clientData.pendingCost += asset.total_cost;
+        modelerEntry.pendingAssets++;
+        modelerEntry.pendingCost += asset.total_cost;
+        // Do not add pending to totalCost (not spent yet)
+      }
+    });
+
+    // Sort modelers within each client by completed cost desc
+    const results = Array.from(clientMap.values());
+    results.forEach((c) => {
+      c.modelers.sort((a, b) => b.completedCost - a.completedCost);
+    });
+
+    // Sort clients by completed cost desc
+    results.sort((a, b) => b.completedCost - a.completedCost);
+    return results;
+  };
+
   const getBudgetStatus = () => {
     if (costSummary.totalSpent >= costSummary.criticalThreshold) {
       return {
@@ -529,28 +632,27 @@ export default function CostTrackingPage() {
       return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
-  const filteredAssetCosts = assetCosts
-    .filter(
-      (asset) =>
-        selectedModeler === "all" || asset.modeler_email === selectedModeler
-    )
-    .filter(
-      (asset) =>
-        selectedMonth === "all" ||
-        (() => {
-          const date = new Date(asset.created_at);
-          const month = date.toLocaleString("default", { month: "long" });
-          const year = date.getFullYear();
-          return `${month} ${year}` === selectedMonth;
-        })()
-    )
-    .filter(
-      (asset) =>
-        !searchTerm ||
-        asset.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.article_id.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const filteredClientCosts = React.useMemo(() => {
+    const filteredAssets = assetCosts
+      .filter(
+        (asset) =>
+          selectedModeler === "all" || asset.modeler_email === selectedModeler
+      )
+      .filter((asset) => {
+        if (selectedMonth === "all") return true;
+        const date = new Date(asset.created_at);
+        const month = date.toLocaleString("default", { month: "long" });
+        const year = date.getFullYear();
+        return `${month} ${year}` === selectedMonth;
+      });
+
+    let grouped = calculateClientCosts(filteredAssets);
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      grouped = grouped.filter((c) => c.client.toLowerCase().includes(q));
+    }
+    return grouped;
+  }, [assetCosts, selectedModeler, selectedMonth, searchTerm]);
 
   const exportCostData = () => {
     const csvContent = [
@@ -1306,23 +1408,23 @@ export default function CostTrackingPage() {
         </CardContent>
       </Card>
 
-      {/* Asset Cost Details */}
+      {/* Client Cost Overview */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Asset Cost Details
+            Client Cost Overview
             <Badge variant="outline" className="ml-auto">
-              {filteredAssetCosts.length} assets
+              {filteredClientCosts.length} clients
             </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="grid grid-cols-7 gap-4 py-3">
-                  {[...Array(7)].map((_, j) => (
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="grid grid-cols-6 gap-4 py-3">
+                  {[...Array(6)].map((_, j) => (
                     <div
                       key={j}
                       className="h-4 bg-muted animate-pulse rounded"
@@ -1331,129 +1433,147 @@ export default function CostTrackingPage() {
                 </div>
               ))}
             </div>
-          ) : filteredAssetCosts.length === 0 ? (
+          ) : filteredClientCosts.length === 0 ? (
             <div className="text-center py-8">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Assets Found</h3>
+              <h3 className="text-lg font-semibold mb-2">No Clients Found</h3>
               <p className="text-muted-foreground">
-                {searchTerm
-                  ? "No assets match your search criteria."
-                  : "No approved assets found."}
+                No client cost data available.
               </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Product</TableHead>
+                  <TableHead></TableHead>
                   <TableHead>Client</TableHead>
-                  <TableHead>Modeler</TableHead>
-                  <TableHead>Base Price</TableHead>
-                  <TableHead>Bonus</TableHead>
-                  <TableHead>Total Cost</TableHead>
-                  <TableHead>Status & Budget</TableHead>
+                  <TableHead>Completed Cost</TableHead>
+                  <TableHead>Pending Cost</TableHead>
+                  <TableHead>Completed</TableHead>
+                  <TableHead>Pending</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAssetCosts.map((asset) => (
-                  <TableRow key={asset.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{asset.product_name}</div>
-                        <div className="text-xs text-muted-foreground font-mono">
-                          {asset.article_id}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{asset.client}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Batch {asset.batch}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-muted-foreground">
-                        {asset.modeler_email}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-right justify-center">
-                        <Euro className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-medium">
-                          €{asset.price.toFixed(2)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-muted-foreground">
-                        <span>+{asset.bonus_percentage}%</span>
-                        <div className="text-xs">
-                          €{asset.bonus_amount.toFixed(2)}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-right justify-center">
-                        <Euro className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-bold">
-                          €{asset.total_cost.toFixed(2)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-center">
-                        <Badge
-                          variant="outline"
-                          className={
-                            asset.status === "approved" ||
-                            asset.status === "approved_by_client"
-                              ? "bg-green-50 text-green-700"
-                              : asset.status === "delivered_by_artist"
-                                ? "bg-blue-50 text-blue-700"
-                                : asset.status === "in_production"
-                                  ? "bg-yellow-50 text-yellow-700"
-                                  : asset.status === "revisions"
-                                    ? "bg-red-50 text-red-700"
-                                    : "bg-gray-50 text-gray-700"
+                {filteredClientCosts.map((client) => (
+                  <React.Fragment key={client.client}>
+                    <TableRow>
+                      <TableCell className="w-10">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-0 h-6 w-6"
+                          onClick={() =>
+                            setExpandedClients((prev) => ({
+                              ...prev,
+                              [client.client]: !prev[client.client],
+                            }))
                           }
                         >
-                          {asset.status === "approved" && (
-                            <CheckCircle className="h-3 w-3 mr-1" />
+                          {expandedClients[client.client] ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
                           )}
-                          {asset.status === "approved_by_client" && (
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                          )}
-                          {asset.status === "delivered_by_artist" && (
-                            <Clock className="h-3 w-3 mr-1" />
-                          )}
-                          {asset.status === "in_production" && (
-                            <Clock className="h-3 w-3 mr-1" />
-                          )}
-                          {asset.status === "revisions" && (
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                          )}
-                          {asset.status === "delivered_by_artist"
-                            ? "Delivered by Artist"
-                            : asset.status === "in_production"
-                              ? "In Production"
-                              : asset.status === "revisions"
-                                ? "Revisions"
-                                : asset.status === "approved"
-                                  ? "QA Approved"
-                                  : asset.status === "approved_by_client"
-                                    ? "Client Approved"
-                                    : asset.status}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{client.client}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {client.completedAssets} completed,{" "}
+                          {client.pendingAssets} pending
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 justify-center">
+                          <Euro className="h-3 w-3 text-green-600" />
+                          <span className="font-medium text-green-700">
+                            €{client.completedCost.toFixed(2)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 justify-center">
+                          <Euro className="h-3 w-3 text-amber-600" />
+                          <span className="font-medium text-amber-700">
+                            €{client.pendingCost.toFixed(2)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant="outline"
+                          className="bg-green-50 text-green-700"
+                        >
+                          {client.completedAssets}
                         </Badge>
-                        {asset.allocation_list_completed && (
-                          <div className="text-xs text-green-600 mt-1">
-                            ✓ Budget Complete
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-50 text-amber-700"
+                        >
+                          {client.pendingAssets}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                    {expandedClients[client.client] && (
+                      <TableRow>
+                        <TableCell colSpan={7}>
+                          <div className="p-3 rounded-md bg-muted/40">
+                            <div className="text-sm font-medium mb-2">
+                              Modeler breakdown
+                            </div>
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Modeler</TableHead>
+                                    <TableHead>Assets</TableHead>
+                                    <TableHead>Base</TableHead>
+                                    <TableHead>Bonus</TableHead>
+                                    <TableHead>Completed</TableHead>
+                                    <TableHead>Pending</TableHead>
+                                    <TableHead>
+                                      Total (Client-Approved)
+                                    </TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {client.modelers.map((m) => (
+                                    <TableRow key={m.modelerEmail}>
+                                      <TableCell>
+                                        <div className="text-sm">
+                                          {m.modelerEmail}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        {m.totalAssets}
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        €{m.baseCost.toFixed(2)}
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        €{m.bonusCost.toFixed(2)}
+                                      </TableCell>
+                                      <TableCell className="text-center text-green-700">
+                                        €{m.completedCost.toFixed(2)}
+                                      </TableCell>
+                                      <TableCell className="text-center text-amber-700">
+                                        €{m.pendingCost.toFixed(2)}
+                                      </TableCell>
+                                      <TableCell className="text-center font-medium">
+                                        €{m.totalCost.toFixed(2)}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>
