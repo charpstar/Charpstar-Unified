@@ -166,6 +166,7 @@ export default function ReviewPage() {
     useState<Annotation | null>(null);
   const [newComment, setNewComment] = useState("");
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [isUploadingPastedImage, setIsUploadingPastedImage] = useState(false);
   const [editingAnnotation, setEditingAnnotation] = useState<string | null>(
     null
   );
@@ -214,9 +215,6 @@ export default function ReviewPage() {
   >(0); // Always start with the first image selected
   const [carouselIndex] = useState(0);
   const [comments, setComments] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"annotations" | "comments">(
-    "annotations"
-  );
   const [rightPanelTab, setRightPanelTab] = useState<"images" | "feedback">(
     "images"
   );
@@ -1355,23 +1353,29 @@ export default function ReviewPage() {
           const file = item.getAsFile();
           if (file && file.type.startsWith("image/")) {
             e.preventDefault();
+            setIsUploadingPastedImage(true);
             const formData = new FormData();
             formData.append("file", file);
-            const response = await fetch("/api/upload", {
-              method: "POST",
-              body: formData,
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "Upload failed");
-            setNewImageUrl(data.url);
-            toast.success("Image pasted and uploaded");
-            return;
+            try {
+              const response = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+              });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Upload failed");
+              setNewImageUrl(data.url);
+              toast.success("Image pasted and uploaded");
+              return;
+            } finally {
+              setIsUploadingPastedImage(false);
+            }
           }
         }
       }
     } catch (error) {
       console.error("Error handling pasted image:", error);
       toast.error("Failed to paste image");
+      setIsUploadingPastedImage(false);
     }
   };
 
@@ -3535,237 +3539,205 @@ export default function ReviewPage() {
             {/* Feedback Tab */}
             {rightPanelTab === "feedback" && (
               <div className="flex-1 overflow-y-auto">
-                {/* Sticky Tab Navigation */}
+                {/* Sticky Header with controls */}
                 <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 pb-4">
-                  <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
-                    <button
-                      onClick={() => setActiveTab("annotations")}
-                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
-                        activeTab === "annotations"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MessageCircle className="h-4 w-4" />
-                        Annotations ({annotations.length})
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab("comments")}
-                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
-                        activeTab === "comments"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4" />
-                        Comments ({comments.length})
-                      </div>
-                    </button>
-                  </div>
-
-                  {/* Sticky Annotations Header */}
-                  {activeTab === "annotations" && (
-                    <div className="p-2">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-4">
-                          <h4 className="text-muted-foreground font-semibold">
-                            Annotations
-                          </h4>
-                          <Button
-                            variant={deleteMode ? "ghost" : "ghost"}
-                            size="sm"
-                            onClick={() => {
-                              setDeleteMode(!deleteMode);
-                              setSelectedAnnotations([]);
-                              if (deleteMode) {
-                                setSelectedAnnotations([]);
-                              }
-                            }}
-                            className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
-                              deleteMode
-                                ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30 shadow-sm"
-                                : "border-border hover:bg-accent hover:border-border"
-                            }`}
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            {deleteMode ? "Cancel" : "Delete"}
-                          </Button>
-                        </div>
+                  <div className="p-2">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <h4 className="text-muted-foreground font-semibold">
+                          Feedback
+                        </h4>
                         <Button
-                          variant={annotationMode ? "default" : "outline"}
+                          variant={deleteMode ? "ghost" : "ghost"}
                           size="sm"
-                          onClick={() => setAnnotationMode(!annotationMode)}
-                          disabled={isFunctionalityDisabled()}
+                          onClick={() => {
+                            setDeleteMode(!deleteMode);
+                            setSelectedAnnotations([]);
+                            if (deleteMode) {
+                              setSelectedAnnotations([]);
+                            }
+                          }}
                           className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
-                            annotationMode
-                              ? "bg-primary hover:bg-primary/90 shadow-sm"
+                            deleteMode
+                              ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30 shadow-sm"
                               : "border-border hover:bg-accent hover:border-border"
-                          } ${
-                            isFunctionalityDisabled()
-                              ? "opacity-50 cursor-not-allowed"
-                              : ""
                           }`}
                         >
-                          <Plus className="h-3 w-3 mr-1" />
-                          {annotationMode ? "Cancel" : "Add Annotation"}
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          {deleteMode ? "Cancel" : "Delete"}
                         </Button>
                       </div>
-
-                      {/* Annotations Disabled Banner */}
-                      {isFunctionalityDisabled() && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30">
-                          <div className="flex items-center gap-2">
-                            <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                            <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                              Annotations disabled - Asset is in revision mode
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Multi-Delete Actions */}
-                      {deleteMode && selectedAnnotations.length > 0 && (
-                        <div className="bg-red-50/50 border border-red-200/50 rounded-xl p-4 dark:bg-red-950/10 dark:border-red-800/30">
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center dark:bg-red-900/30">
-                                <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
-                              </div>
-                              <span className="font-semibold text-red-700 dark:text-red-400">
-                                {selectedAnnotations.length} annotation(s)
-                                selected
-                              </span>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowDeleteWarning(true)}
-                              className="shadow-sm cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete Selected
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                      <Button
+                        variant={annotationMode ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setAnnotationMode(!annotationMode)}
+                        disabled={isFunctionalityDisabled()}
+                        className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                          annotationMode
+                            ? "bg-primary hover:bg-primary/90 shadow-sm"
+                            : "border-border hover:bg-accent hover:border-border"
+                        } ${
+                          isFunctionalityDisabled()
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        {annotationMode ? "Cancel" : "Add Annotation"}
+                      </Button>
                     </div>
-                  )}
 
-                  {/* Sticky Comments Header */}
-                  {activeTab === "comments" && (
-                    <div className="p-2">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-muted-foreground font-semibold">
-                          Comments
-                        </h4>
-                        {selectedHotspotId && (
-                          <Badge variant="outline" className="text-xs">
-                            Showing comments for Annotation{" "}
-                            {annotations.findIndex(
-                              (a) => a.id === selectedHotspotId
-                            ) + 1}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Add New Comment */}
-                      <div className="space-y-3 mb-6">
-                        {isFunctionalityDisabled() && (
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30">
-                            <div className="flex items-center gap-2">
-                              <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                              <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                                Comments disabled - Asset is in revision mode
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        <Textarea
-                          placeholder={
-                            isFunctionalityDisabled()
-                              ? "Comments disabled during revision"
-                              : selectedHotspotId
-                                ? `Add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
-                                : "Add a comment about this asset..."
-                          }
-                          value={newCommentText}
-                          onChange={(e) => setNewCommentText(e.target.value)}
-                          onKeyDown={handleNewCommentKeyDown}
-                          disabled={isFunctionalityDisabled()}
-                          className={`min-h-[100px] border-border focus:border-primary focus:ring-primary ${
-                            isFunctionalityDisabled()
-                              ? "opacity-50 cursor-not-allowed"
-                              : ""
-                          }`}
-                          rows={4}
-                        />
-                        <div className="flex gap-2 text-xs text-muted-foreground">
-                          <span>
-                            {isFunctionalityDisabled()
-                              ? "Comments are disabled during revision mode"
-                              : "Press Enter to send, Shift+Enter for new line"}
+                    {isFunctionalityDisabled() && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30 mb-4">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                          <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
+                            Annotations and comments are disabled - Asset is in
+                            revision mode
                           </span>
                         </div>
                       </div>
+                    )}
+
+                    {/* Add New Comment */}
+                    <div className="space-y-3">
+                      <Textarea
+                        placeholder={
+                          isFunctionalityDisabled()
+                            ? "Comments disabled during revision"
+                            : selectedHotspotId
+                              ? `Add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
+                              : "Add a comment about this asset..."
+                        }
+                        value={newCommentText}
+                        onChange={(e) => setNewCommentText(e.target.value)}
+                        onKeyDown={handleNewCommentKeyDown}
+                        disabled={isFunctionalityDisabled()}
+                        className={`min-h-[100px] border-border focus:border-primary focus:ring-primary ${
+                          isFunctionalityDisabled()
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                        rows={4}
+                      />
+                      <div className="flex gap-2 text-xs text-muted-foreground">
+                        <span>
+                          {isFunctionalityDisabled()
+                            ? "Comments are disabled during revision mode"
+                            : "Press Enter to send, Shift+Enter for new line"}
+                        </span>
+                      </div>
                     </div>
-                  )}
+
+                    {/* Multi-Delete Actions */}
+                    {deleteMode && selectedAnnotations.length > 0 && (
+                      <div className="bg-red-50/50 border border-red-200/50 rounded-xl p-4 mt-4 dark:bg-red-950/10 dark:border-red-800/30">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center dark:bg-red-900/30">
+                              <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
+                            </div>
+                            <span className="font-semibold text-red-700 dark:text-red-400">
+                              {selectedAnnotations.length} annotation(s)
+                              selected
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowDeleteWarning(true)}
+                            className="shadow-sm cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Selected
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Scrollable Content */}
+                {/* Scrollable Content - Combined Feed */}
                 <div className="p-2">
-                  {/* Annotations Tab Content */}
-                  {activeTab === "annotations" && (
-                    <div className="space-y-4">
-                      {annotations.map((annotation, index) => (
-                        <Card
-                          key={annotation.id}
-                          className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
-                            selectedHotspotId === annotation.id
-                              ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
-                              : deleteMode &&
-                                  selectedAnnotations.includes(annotation.id)
-                                ? "ring-2 ring-red-300 bg-red-50/50 shadow-lg dark:ring-red-700 dark:bg-red-950/10"
-                                : "hover:shadow-md hover:border-border"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              {deleteMode && (
-                                <input
-                                  type="checkbox"
-                                  checked={selectedAnnotations.includes(
-                                    annotation.id
-                                  )}
-                                  onChange={() =>
-                                    handleAnnotationSelect(annotation.id)
-                                  }
-                                  className="h-4 w-4 text-red-600 border-border rounded focus:ring-red-500 cursor-pointer dark:text-red-400 dark:focus:ring-red-400"
-                                />
-                              )}
-                              <div className="relative">
-                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                                  <MessageCircle className="h-4 w-4 text-primary" />
+                  <div className="space-y-4">
+                    {[
+                      ...annotations.map((a) => ({
+                        ...a,
+                        type: "annotation" as const,
+                      })),
+                      ...getAllComments().map((c) => ({
+                        ...c,
+                        type: "comment" as const,
+                      })),
+                    ]
+                      .sort(
+                        (a, b) =>
+                          new Date(a.created_at).getTime() -
+                          new Date(b.created_at).getTime()
+                      )
+                      .map((item) =>
+                        item.type === "annotation" ? (
+                          <Card
+                            key={`annotation-${item.id}`}
+                            className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
+                              selectedHotspotId === item.id
+                                ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
+                                : deleteMode &&
+                                    selectedAnnotations.includes(item.id)
+                                  ? "ring-2 ring-red-300 bg-red-50/50 shadow-lg dark:ring-red-700 dark:bg-red-950/10"
+                                  : "hover:shadow-md hover:border-border"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                {deleteMode && (
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedAnnotations.includes(
+                                      item.id
+                                    )}
+                                    onChange={() =>
+                                      handleAnnotationSelect(item.id)
+                                    }
+                                    className="h-4 w-4 text-red-600 border-border rounded focus:ring-red-500 cursor-pointer dark:text-red-400 dark:focus:ring-red-400"
+                                  />
+                                )}
+                                <div className="relative">
+                                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                    <MessageCircle className="h-4 w-4 text-primary" />
+                                  </div>
+                                  {/* Annotation Number Badge */}
+                                  <div
+                                    className={`absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(annotations.findIndex((a) => a.id === item.id))}`}
+                                  >
+                                    {annotations.findIndex(
+                                      (a) => a.id === item.id
+                                    ) + 1}
+                                  </div>
                                 </div>
-                                {/* Annotation Number Badge */}
-                                <div
-                                  className={`absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(index)}`}
-                                >
-                                  {index + 1}
-                                </div>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <span className="text-sm font-medium text-foreground">
-                                  {annotation.profiles?.email || "Unknown"}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  {annotation.profiles?.title && (
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground">
+                                      {item.profiles?.email || "Unknown"}
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(item.created_at))}`}
+                                    >
+                                      R{getRevisionForItem(item.created_at)}
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      Annotation
+                                    </Badge>
+                                  </div>
+                                  {item.profiles?.title && (
                                     <Badge
                                       variant={
                                         getTitleBadgeVariant(
-                                          annotation.profiles.title
+                                          item.profiles.title
                                         ) as
                                           | "default"
                                           | "destructive"
@@ -3776,400 +3748,357 @@ export default function ReviewPage() {
                                       }
                                       className="text-xs px-2 py-0.5 w-fit"
                                     >
-                                      {annotation.profiles.title}
+                                      {item.profiles.title}
                                     </Badge>
                                   )}
-                                  {/* Revision Badge */}
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(annotation.created_at))}`}
-                                  >
-                                    R{getRevisionForItem(annotation.created_at)}
-                                  </Badge>
                                 </div>
                               </div>
-                            </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 cursor-pointer"
-                                >
-                                  <MoreVertical className="h-5 w-5" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    handleHotspotSelect(annotation.id);
-                                  }}
-                                >
-                                  <Eye className="h-3 w-3 mr-2" />
-                                  Focus on Hotspot
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    if (
-                                      !canEditOrDeleteAnnotation(annotation)
-                                    ) {
-                                      toast.error(
-                                        "You can only edit your own annotations"
-                                      );
-                                      return;
-                                    }
-                                    setEditingAnnotation(annotation.id);
-                                    setEditComment(annotation.comment);
-                                    setEditImageUrl(annotation.image_url || "");
-                                  }}
-                                  disabled={
-                                    isFunctionalityDisabled() ||
-                                    !canEditOrDeleteAnnotation(annotation)
-                                  }
-                                  className={`${
-                                    isFunctionalityDisabled() ||
-                                    !canEditOrDeleteAnnotation(annotation)
-                                      ? "opacity-50 cursor-not-allowed"
-                                      : ""
-                                  }`}
-                                >
-                                  <Edit3 className="h-3 w-3 mr-2" />
-                                  Edit Annotation
-                                </DropdownMenuItem>
-
-                                <DropdownMenuSeparator />
-
-                                {!deleteMode && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      canEditOrDeleteAnnotation(annotation)
-                                        ? confirmDeleteAnnotation(annotation.id)
-                                        : toast.error(
-                                            "You can only delete your own annotations"
-                                          )
-                                    }
-                                    disabled={
-                                      !canEditOrDeleteAnnotation(annotation)
-                                    }
-                                    className={`${
-                                      !canEditOrDeleteAnnotation(annotation)
-                                        ? "opacity-50 cursor-not-allowed"
-                                        : "text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                    }`}
-                                  >
-                                    <X className="h-3 w-3 mr-2" />
-                                    Delete Annotation
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-
-                          {editingAnnotation === annotation.id ? (
-                            <div className="space-y-2">
-                              <Textarea
-                                value={editComment}
-                                onChange={(e) => setEditComment(e.target.value)}
-                                rows={3}
-                              />
-
-                              {/* Image Upload for Edit */}
-                              <div>
-                                <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                                  Reference Image (optional)
-                                </label>
-                                <div className="flex gap-2">
-                                  <Input
-                                    placeholder="https://example.com/image.jpg or upload file"
-                                    value={editImageUrl}
-                                    onChange={(e) =>
-                                      setEditImageUrl(e.target.value)
-                                    }
-                                    className="flex-1"
-                                  />
-
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
                                   <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="icon"
+                                    className="h-6 w-6 cursor-pointer"
+                                  >
+                                    <MoreVertical className="h-5 w-5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-40"
+                                >
+                                  <DropdownMenuItem
                                     onClick={() => {
-                                      const input =
-                                        document.createElement("input");
-                                      input.type = "file";
-                                      input.accept = "image/*";
-                                      input.onchange = async (e) => {
-                                        const file = (
-                                          e.target as HTMLInputElement
-                                        ).files?.[0];
-                                        if (file) {
-                                          try {
-                                            const formData = new FormData();
-                                            formData.append("file", file);
+                                      handleHotspotSelect(item.id);
+                                    }}
+                                  >
+                                    <Eye className="h-3 w-3 mr-2" />
+                                    Focus on Hotspot
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      if (!canEditOrDeleteAnnotation(item)) {
+                                        toast.error(
+                                          "You can only edit your own annotations"
+                                        );
+                                        return;
+                                      }
+                                      setEditingAnnotation(item.id);
+                                      setEditComment(item.comment);
+                                      setEditImageUrl(item.image_url || "");
+                                    }}
+                                    disabled={
+                                      isFunctionalityDisabled() ||
+                                      !canEditOrDeleteAnnotation(item)
+                                    }
+                                    className={`${isFunctionalityDisabled() || !canEditOrDeleteAnnotation(item) ? "opacity-50 cursor-not-allowed" : ""}`}
+                                  >
+                                    <Edit3 className="h-3 w-3 mr-2" />
+                                    Edit Annotation
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  {!deleteMode && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        canEditOrDeleteAnnotation(item)
+                                          ? confirmDeleteAnnotation(item.id)
+                                          : toast.error(
+                                              "You can only delete your own annotations"
+                                            )
+                                      }
+                                      disabled={
+                                        !canEditOrDeleteAnnotation(item)
+                                      }
+                                      className={`${!canEditOrDeleteAnnotation(item) ? "opacity-50 cursor-not-allowed" : "text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"}`}
+                                    >
+                                      <X className="h-3 w-3 mr-2" />
+                                      Delete Annotation
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
 
-                                            const response = await fetch(
-                                              "/api/upload",
-                                              {
-                                                method: "POST",
-                                                body: formData,
+                            {editingAnnotation === item.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editComment}
+                                  onChange={(e) =>
+                                    setEditComment(e.target.value)
+                                  }
+                                  rows={3}
+                                />
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                                    Reference Image (optional)
+                                  </label>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      placeholder="https://example.com/image.jpg or upload file"
+                                      value={editImageUrl}
+                                      onChange={(e) =>
+                                        setEditImageUrl(e.target.value)
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => {
+                                        const input =
+                                          document.createElement("input");
+                                        input.type = "file";
+                                        input.accept = "image/*";
+                                        input.onchange = async (e) => {
+                                          const file = (
+                                            e.target as HTMLInputElement
+                                          ).files?.[0];
+                                          if (file) {
+                                            try {
+                                              const formData = new FormData();
+                                              formData.append("file", file);
+                                              const response = await fetch(
+                                                "/api/upload",
+                                                {
+                                                  method: "POST",
+                                                  body: formData,
+                                                }
+                                              );
+                                              const data =
+                                                await response.json();
+                                              if (response.ok) {
+                                                setEditImageUrl(data.url);
+                                                toast.success(
+                                                  "Image uploaded successfully!"
+                                                );
+                                              } else {
+                                                toast.error(
+                                                  data.error || "Upload failed"
+                                                );
                                               }
-                                            );
-
-                                            const data = await response.json();
-
-                                            if (response.ok) {
-                                              setEditImageUrl(data.url);
-                                              toast.success(
-                                                "Image uploaded successfully!"
+                                            } catch (error) {
+                                              console.error(
+                                                "Upload error:",
+                                                error
                                               );
-                                            } else {
-                                              toast.error(
-                                                data.error || "Upload failed"
-                                              );
+                                              toast.error("Upload failed");
                                             }
-                                          } catch (error) {
-                                            console.error(
-                                              "Upload error:",
-                                              error
-                                            );
-                                            toast.error("Upload failed");
                                           }
-                                        }
-                                      };
-                                      input.click();
+                                        };
+                                        input.click();
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <Upload className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                {editImageUrl && (
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                                      Preview:
+                                    </label>
+                                    <div
+                                      className="relative w-full h-52 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() =>
+                                        handleImageClick(
+                                          editImageUrl,
+                                          "Preview Image"
+                                        )
+                                      }
+                                    >
+                                      <Image
+                                        width={320}
+                                        height={28}
+                                        unoptimized
+                                        src={editImageUrl}
+                                        alt="Reference"
+                                        className="w-full h-full object-contain"
+                                        onError={(e) => {
+                                          (
+                                            e.currentTarget as HTMLElement
+                                          ).style.display = "none";
+                                          (e.currentTarget
+                                            .nextElementSibling as HTMLElement)!.style.display =
+                                            "flex";
+                                        }}
+                                      />
+                                      <div
+                                        className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs"
+                                        style={{ display: "none" }}
+                                      >
+                                        Invalid URL
+                                      </div>
+                                      <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full">
+                                        <Maximize2 className="h-3 w-3" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="flex p-4 justify-around">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => updateAnnotation(item.id)}
+                                    disabled={!editComment.trim()}
+                                    className="cursor-pointer"
+                                  >
+                                    Update
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditingAnnotation(null);
+                                      setEditImageUrl("");
                                     }}
                                     className="cursor-pointer"
                                   >
-                                    <Upload className="h-4 w-4" />
+                                    Cancel
                                   </Button>
                                 </div>
                               </div>
-
-                              {/* Preview Image for Edit */}
-                              {editImageUrl && (
-                                <div>
-                                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                                    Preview:
-                                  </label>
-                                  <div
-                                    className="relative w-full h-52 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                                    onClick={() =>
-                                      handleImageClick(
-                                        editImageUrl,
-                                        "Preview Image"
-                                      )
-                                    }
-                                  >
-                                    <Image
-                                      width={320}
-                                      height={28}
-                                      unoptimized
-                                      src={editImageUrl}
-                                      alt="Reference"
-                                      className="w-full h-full object-contain"
-                                      onError={(e) => {
-                                        (
-                                          e.currentTarget as HTMLElement
-                                        ).style.display = "none";
-                                        (e.currentTarget
-                                          .nextElementSibling as HTMLElement)!.style.display =
-                                          "flex";
+                            ) : (
+                              <div className="space-y-2">
+                                {inlineEditingId === item.id ? (
+                                  <div className="space-y-2">
+                                    <Textarea
+                                      value={inlineEditComment}
+                                      onChange={(e) =>
+                                        setInlineEditComment(e.target.value)
+                                      }
+                                      onKeyDown={(e) =>
+                                        handleInlineEditKeyDown(e, item.id)
+                                      }
+                                      onBlur={() => {
+                                        if (!isSwitchingEdit) {
+                                          submitInlineEdit(item.id);
+                                        }
                                       }}
+                                      className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
+                                      rows={3}
+                                      autoFocus
+                                      placeholder="Edit annotation..."
                                     />
-                                    <div
-                                      className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs"
-                                      style={{ display: "none" }}
-                                    >
-                                      Invalid URL
-                                    </div>
-                                    <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full">
-                                      <Maximize2 className="h-3 w-3" />
+                                    <div className="flex gap-2 text-xs text-muted-foreground">
+                                      <span>
+                                        Press Enter to save, Escape to cancel
+                                      </span>
                                     </div>
                                   </div>
-                                </div>
-                              )}
-
-                              <div className="flex p-4 justify-around">
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    updateAnnotation(annotation.id)
-                                  }
-                                  disabled={!editComment.trim()}
-                                  className="cursor-pointer"
-                                >
-                                  Update
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setEditingAnnotation(null);
-                                    setEditImageUrl("");
-                                  }}
-                                  className="cursor-pointer"
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              {inlineEditingId === annotation.id ? (
-                                <div className="space-y-2">
-                                  <Textarea
-                                    value={inlineEditComment}
-                                    onChange={(e) =>
-                                      setInlineEditComment(e.target.value)
-                                    }
-                                    onKeyDown={(e) =>
-                                      handleInlineEditKeyDown(e, annotation.id)
-                                    }
-                                    onBlur={() => {
-                                      if (!isSwitchingEdit) {
-                                        submitInlineEdit(annotation.id);
+                                ) : (
+                                  <div
+                                    className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${isFunctionalityDisabled() ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50"}`}
+                                    onClick={() => {
+                                      if (!isFunctionalityDisabled()) {
+                                        startInlineEdit(item as any);
                                       }
                                     }}
-                                    className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
-                                    rows={3}
-                                    autoFocus
-                                    placeholder="Edit annotation..."
-                                  />
-                                  <div className="flex gap-2 text-xs text-muted-foreground">
-                                    <span>
-                                      Press Enter to save, Escape to cancel
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div
-                                  className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
-                                    isFunctionalityDisabled()
-                                      ? "opacity-50 cursor-not-allowed"
-                                      : "cursor-pointer hover:bg-muted/50"
-                                  }`}
-                                  onClick={() => {
-                                    if (!isFunctionalityDisabled()) {
-                                      startInlineEdit(annotation);
-                                    }
-                                  }}
-                                  title={
-                                    isFunctionalityDisabled()
-                                      ? "Editing disabled during revision"
-                                      : "Click to edit annotation"
-                                  }
-                                >
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex-1 break-words w-full">
-                                      <div className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                                        {linkifyText(annotation.comment)}
-                                      </div>
-                                    </div>
-                                    <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Image Display */}
-                              {annotation.image_url && (
-                                <div className="mt-4">
-                                  <div
-                                    className="relative w-full h-48 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                                    onClick={() =>
-                                      handleImageClick(
-                                        annotation.image_url!,
-                                        "Annotation Image"
-                                      )
+                                    title={
+                                      isFunctionalityDisabled()
+                                        ? "Editing disabled during revision"
+                                        : "Click to edit annotation"
                                     }
                                   >
-                                    <Image
-                                      width={320}
-                                      height={192}
-                                      unoptimized
-                                      src={annotation.image_url}
-                                      alt="Annotation reference"
-                                      className="w-full h-full object-contain"
-                                      onError={(e) => {
-                                        (
-                                          e.currentTarget as HTMLElement
-                                        ).style.display = "none";
-                                        (e.currentTarget
-                                          .nextElementSibling as HTMLElement)!.style.display =
-                                          "flex";
-                                      }}
-                                    />
-                                    <div
-                                      className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs"
-                                      style={{ display: "none" }}
-                                    >
-                                      Invalid URL
-                                    </div>
-                                    <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full">
-                                      <Maximize2 className="h-3 w-3" />
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex-1 break-words w-full">
+                                        <div className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                          {linkifyText((item as any).comment)}
+                                        </div>
+                                      </div>
+                                      <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
                                     </div>
                                   </div>
+                                )}
+                                {item.image_url && (
+                                  <div className="mt-4">
+                                    <div
+                                      className="relative w-full h-48 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() =>
+                                        handleImageClick(
+                                          item.image_url!,
+                                          "Annotation Image"
+                                        )
+                                      }
+                                    >
+                                      <Image
+                                        width={320}
+                                        height={192}
+                                        unoptimized
+                                        src={item.image_url}
+                                        alt="Annotation reference"
+                                        className="w-full h-full object-contain"
+                                        onError={(e) => {
+                                          (
+                                            e.currentTarget as HTMLElement
+                                          ).style.display = "none";
+                                          (e.currentTarget
+                                            .nextElementSibling as HTMLElement)!.style.display =
+                                            "flex";
+                                        }}
+                                      />
+                                      <div
+                                        className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs"
+                                        style={{ display: "none" }}
+                                      >
+                                        Invalid URL
+                                      </div>
+                                      <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full">
+                                        <Maximize2 className="h-3 w-3" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="mt-4 flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(
+                                      item.created_at
+                                    ).toLocaleDateString()}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    •
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(
+                                      item.created_at
+                                    ).toLocaleTimeString()}
+                                  </span>
                                 </div>
-                              )}
-
-                              <div className="mt-4 flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(
-                                    annotation.created_at
-                                  ).toLocaleDateString()}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  •
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(
-                                    annotation.created_at
-                                  ).toLocaleTimeString()}
-                                </span>
                               </div>
-                            </div>
-                          )}
-                        </Card>
-                      ))}
-
-                      {annotations.length === 0 && (
-                        <div className="text-center py-12">
-                          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                            <MessageCircle className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-foreground mb-2">
-                            No annotations yet
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            Click &quot;Add Annotation&quot; to start reviewing
-                            this model
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Comments Tab Content */}
-                  {activeTab === "comments" && (
-                    <div className="space-y-4">
-                      {getAllComments().map((comment) => (
-                        <Card
-                          key={comment.id}
-                          className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <span className="text-sm font-medium text-foreground">
-                                  {comment.profiles?.email || "Unknown"}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  {comment.profiles?.title && (
+                            )}
+                          </Card>
+                        ) : (
+                          <Card
+                            key={`comment-${item.id}`}
+                            className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
+                          >
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground">
+                                      {item.profiles?.email || "Unknown"}
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(item.created_at))}`}
+                                    >
+                                      R{getRevisionForItem(item.created_at)}
+                                    </Badge>
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs"
+                                    >
+                                      Comment
+                                    </Badge>
+                                  </div>
+                                  {item.profiles?.title && (
                                     <Badge
                                       variant={
                                         getTitleBadgeVariant(
-                                          comment.profiles.title
+                                          item.profiles.title
                                         ) as
                                           | "default"
                                           | "destructive"
@@ -4180,168 +4109,144 @@ export default function ReviewPage() {
                                       }
                                       className="text-xs px-2 py-0.5 w-fit"
                                     >
-                                      {comment.profiles.title}
+                                      {item.profiles.title}
                                     </Badge>
                                   )}
-                                  {/* Revision Badge */}
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(comment.created_at))}`}
+                                </div>
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 cursor-pointer"
                                   >
-                                    R{getRevisionForItem(comment.created_at)}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 cursor-pointer"
+                                    <MoreVertical className="h-5 w-5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-40"
                                 >
-                                  <MoreVertical className="h-5 w-5" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    if (!canEditOrDeleteComment()) {
-                                      toast.error(
-                                        "You can only edit your own comments"
-                                      );
-                                      return;
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      if (!canEditOrDeleteComment()) {
+                                        toast.error(
+                                          "You can only edit your own comments"
+                                        );
+                                        return;
+                                      }
+                                      startCommentInlineEdit(item as any);
+                                    }}
+                                    disabled={
+                                      isFunctionalityDisabled() ||
+                                      !canEditOrDeleteComment()
                                     }
-                                    startCommentInlineEdit(comment);
+                                    className={`${isFunctionalityDisabled() || !canEditOrDeleteComment() ? "opacity-50 cursor-not-allowed" : ""}`}
+                                  >
+                                    <Edit3 className="h-3 w-3 mr-2" />
+                                    Edit Comment
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      canEditOrDeleteComment()
+                                        ? deleteComment(item.id)
+                                        : toast.error(
+                                            "You can only delete your own comments"
+                                          )
+                                    }
+                                    disabled={!canEditOrDeleteComment()}
+                                    className={`${!canEditOrDeleteComment() ? "opacity-50 cursor-not-allowed" : "text-destructive hover:text-destructive"}`}
+                                  >
+                                    <X className="h-3 w-3 mr-2" />
+                                    Delete Comment
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            {inlineEditingCommentId === item.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={inlineEditCommentText}
+                                  onChange={(e) =>
+                                    setInlineEditCommentText(e.target.value)
+                                  }
+                                  onKeyDown={(e) =>
+                                    handleCommentInlineEditKeyDown(e, item.id)
+                                  }
+                                  onBlur={() => {
+                                    submitCommentInlineEdit(item.id);
                                   }}
-                                  disabled={
-                                    isFunctionalityDisabled() ||
-                                    !canEditOrDeleteComment()
-                                  }
-                                  className={
-                                    isFunctionalityDisabled() ||
-                                    !canEditOrDeleteComment()
-                                      ? "opacity-50 cursor-not-allowed"
-                                      : ""
-                                  }
-                                >
-                                  <Edit3 className="h-3 w-3 mr-2" />
-                                  Edit Comment
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    canEditOrDeleteComment()
-                                      ? deleteComment(comment.id)
-                                      : toast.error(
-                                          "You can only delete your own comments"
-                                        )
-                                  }
-                                  disabled={!canEditOrDeleteComment()}
-                                  className={`${
-                                    !canEditOrDeleteComment()
-                                      ? "opacity-50 cursor-not-allowed"
-                                      : "text-destructive hover:text-destructive"
-                                  }`}
-                                >
-                                  <X className="h-3 w-3 mr-2" />
-                                  Delete Comment
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-
-                          {inlineEditingCommentId === comment.id ? (
-                            <div className="space-y-2">
-                              <Textarea
-                                value={inlineEditCommentText}
-                                onChange={(e) =>
-                                  setInlineEditCommentText(e.target.value)
-                                }
-                                onKeyDown={(e) =>
-                                  handleCommentInlineEditKeyDown(e, comment.id)
-                                }
-                                onBlur={() => {
-                                  submitCommentInlineEdit(comment.id);
-                                }}
-                                className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
-                                rows={3}
-                                autoFocus
-                                placeholder="Edit comment..."
-                              />
-                              <div className="flex gap-2 text-xs text-muted-foreground">
-                                <span>
-                                  Press Enter to save, Escape to cancel
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div
-                              className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${
-                                isFunctionalityDisabled()
-                                  ? "opacity-50 cursor-not-allowed"
-                                  : "cursor-pointer hover:bg-muted/50"
-                              }`}
-                              onClick={() => {
-                                if (
-                                  !isFunctionalityDisabled() &&
-                                  canEditOrDeleteComment()
-                                ) {
-                                  startCommentInlineEdit(comment);
-                                }
-                              }}
-                              title={
-                                isFunctionalityDisabled()
-                                  ? "Editing disabled during revision"
-                                  : canEditOrDeleteComment()
-                                    ? "Click to edit comment"
-                                    : "You can only edit your own comments"
-                              }
-                            >
-                              <div className="flex items-start justify-between min-w-0">
-                                <div className="flex-1 break-words w-full overflow-hidden">
-                                  <div className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
-                                    {linkifyText(comment.comment)}
-                                  </div>
+                                  className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
+                                  rows={3}
+                                  autoFocus
+                                  placeholder="Edit comment..."
+                                />
+                                <div className="flex gap-2 text-xs text-muted-foreground">
+                                  <span>
+                                    Press Enter to save, Escape to cancel
+                                  </span>
                                 </div>
-                                <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
                               </div>
+                            ) : (
+                              <div
+                                className={`text-sm text-foreground p-2 rounded-md transition-colors -m-2 group relative ${isFunctionalityDisabled() ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50"}`}
+                                onClick={() => {
+                                  if (
+                                    !isFunctionalityDisabled() &&
+                                    canEditOrDeleteComment()
+                                  ) {
+                                    startCommentInlineEdit(item as any);
+                                  }
+                                }}
+                                title={
+                                  isFunctionalityDisabled()
+                                    ? "Editing disabled during revision"
+                                    : canEditOrDeleteComment()
+                                      ? "Click to edit comment"
+                                      : "You can only edit your own comments"
+                                }
+                              >
+                                <div className="flex items-start justify-between min-w-0">
+                                  <div className="flex-1 break-words w-full overflow-hidden">
+                                    <div className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                      {linkifyText((item as any).comment)}
+                                    </div>
+                                  </div>
+                                  <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
+                                </div>
+                              </div>
+                            )}
+                            <div className="mt-4 flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(item.created_at).toLocaleDateString()}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                •
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(item.created_at).toLocaleTimeString()}
+                              </span>
                             </div>
-                          )}
-
-                          <div className="mt-4 flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(
-                                comment.created_at
-                              ).toLocaleDateString()}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              •
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(
-                                comment.created_at
-                              ).toLocaleTimeString()}
-                            </span>
-                          </div>
-                        </Card>
-                      ))}
-
-                      {getAllComments().length === 0 && (
-                        <div className="text-center py-12">
-                          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                            <MessageSquare className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-foreground mb-2">
-                            No comments yet
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            Be the first to add a comment!
-                          </p>
-                        </div>
+                          </Card>
+                        )
                       )}
-                    </div>
-                  )}
+
+                    {annotations.length + getAllComments().length === 0 && (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                          <MessageCircle className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-foreground mb-2">
+                          No feedback yet
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Start by adding an annotation or a comment
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -4399,6 +4304,12 @@ export default function ReviewPage() {
                   <label className="text-sm font-semibold text-foreground">
                     Reference Image (optional)
                   </label>
+                  {isUploadingPastedImage && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Uploading pasted image...
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Input
                       placeholder="https://example.com/image.jpg or upload file"

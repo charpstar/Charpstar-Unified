@@ -34,6 +34,7 @@ import {
   Zap,
   Target,
   Palette,
+  KeyRound,
 } from "lucide-react";
 import {
   Tabs,
@@ -155,6 +156,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { withLoading } = useLoadingState();
+  const [sendingReset, setSendingReset] = useState(false);
 
   // Cleanup effect to ensure body styles are reset when dialog closes
   useEffect(() => {
@@ -426,6 +428,30 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   };
 
   // Actions
+  const handleSendPasswordReset = async () => {
+    if (!user?.email) return;
+    setSendingReset(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast({
+        title: "Password reset sent",
+        description: "Check your inbox for the reset link.",
+      });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send reset email. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingReset(false);
+    }
+  };
+
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
@@ -861,6 +887,28 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         <Label className="text-muted-foreground text-xs sm:text-sm">
                           Help
                         </Label>
+                      </div>
+                      {/* Security */}
+                      <div className="space-y-2">
+                        <Label className="text-muted-foreground text-xs sm:text-sm">
+                          Security
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleSendPasswordReset}
+                            loading={sendingReset}
+                            loadingText="Sending..."
+                            className="gap-2 cursor-pointer text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-4"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                            Send reset link
+                          </Button>
+                          <span className="text-xs text-muted-foreground hidden sm:inline">
+                            We will email {user?.email}
+                          </span>
+                        </div>
                       </div>
                       {/* Profile Picture */}
                       {/* <div className="flex flex-col gap-1">

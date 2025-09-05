@@ -115,9 +115,6 @@ export default function ModelerReviewPage() {
     useState<Annotation | null>(null);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [comments, setComments] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"annotations" | "comments">(
-    "annotations"
-  );
   const [rightPanelTab, setRightPanelTab] = useState<"images" | "feedback">(
     "images"
   );
@@ -2341,324 +2338,280 @@ export default function ModelerReviewPage() {
             {/* Feedback Tab */}
             {rightPanelTab === "feedback" && (
               <div className="flex-1 overflow-y-auto">
-                {/* Sticky Tab Navigation */}
+                {/* Sticky Header */}
                 <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 pb-4">
-                  <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
-                    <button
-                      onClick={() => setActiveTab("annotations")}
-                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
-                        activeTab === "annotations"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MessageCircle className="h-4 w-4" />
-                        Annotations ({annotations.length})
+                  <div className="p-2">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-muted-foreground font-semibold">
+                        Feedback
+                      </h4>
+                    </div>
+
+                    {/* Add New Comment */}
+                    <div className="space-y-3">
+                      <Textarea
+                        placeholder="Add a comment about this asset..."
+                        value={newCommentText}
+                        onChange={(e) => setNewCommentText(e.target.value)}
+                        onKeyDown={handleNewCommentKeyDown}
+                        className="min-h-[100px] border-border focus:border-primary focus:ring-primary"
+                        rows={4}
+                      />
+                      <div className="flex gap-2 text-xs text-muted-foreground">
+                        <span>
+                          Press Enter to send, Shift+Enter for new line
+                        </span>
                       </div>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab("comments")}
-                      className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
-                        activeTab === "comments"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4" />
-                        Comments ({comments.length})
-                      </div>
-                    </button>
+                    </div>
                   </div>
-
-                  {/* Sticky Annotations Header */}
-                  {activeTab === "annotations" && (
-                    <div className="p-2">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-4">
-                          <h4 className="text-muted-foreground font-semibold">
-                            Annotations
-                          </h4>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Sticky Comments Header */}
-                  {activeTab === "comments" && (
-                    <div className="p-2">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-muted-foreground font-semibold">
-                          Comments
-                        </h4>
-                      </div>
-
-                      {/* Add New Comment */}
-                      <div className="space-y-3 mb-6">
-                        <Textarea
-                          placeholder="Add a comment about this asset..."
-                          value={newCommentText}
-                          onChange={(e) => setNewCommentText(e.target.value)}
-                          onKeyDown={handleNewCommentKeyDown}
-                          className="min-h-[100px] border-border focus:border-primary focus:ring-primary"
-                          rows={4}
-                        />
-                        <div className="flex gap-2 text-xs text-muted-foreground">
-                          <span>
-                            Press Enter to send, Shift+Enter for new line
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* Scrollable Content */}
+                {/* Scrollable Content - Combined Feed */}
                 <div className="p-2">
-                  {/* Annotations Tab Content */}
-                  {activeTab === "annotations" && (
-                    <div className="space-y-4">
-                      {annotations.map((annotation, index) => (
-                        <Card
-                          key={annotation.id}
-                          className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
-                            selectedHotspotId === annotation.id
-                              ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
-                              : "hover:shadow-md hover:border-border"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="relative">
-                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                                  <MessageCircle className="h-4 w-4 text-primary" />
+                  <div className="space-y-4">
+                    {[
+                      ...annotations.map((a) => ({
+                        ...a,
+                        type: "annotation" as const,
+                      })),
+                      ...comments.map((c) => ({
+                        ...c,
+                        type: "comment" as const,
+                      })),
+                    ]
+                      .sort(
+                        (a, b) =>
+                          new Date(a.created_at).getTime() -
+                          new Date(b.created_at).getTime()
+                      )
+                      .map((item) =>
+                        item.type === "annotation" ? (
+                          <Card
+                            key={`annotation-${item.id}`}
+                            className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
+                              selectedHotspotId === item.id
+                                ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
+                                : "hover:shadow-md hover:border-border"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                <div className="relative">
+                                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                    <MessageCircle className="h-4 w-4 text-primary" />
+                                  </div>
+                                  <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold bg-amber-500">
+                                    {annotations
+                                      .sort(
+                                        (a, b) =>
+                                          new Date(a.created_at).getTime() -
+                                          new Date(b.created_at).getTime()
+                                      )
+                                      .findIndex((a) => a.id === item.id) + 1}
+                                  </div>
                                 </div>
-                                <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold bg-amber-500">
-                                  {index + 1}
-                                </div>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <span className="text-sm font-medium text-foreground">
-                                  {annotation.profiles?.email || "Unknown"}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  {annotation.profiles?.title && (
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground">
+                                      {item.profiles?.email || "Unknown"}
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      Annotation
+                                    </Badge>
+                                  </div>
+                                  {item.profiles?.title && (
                                     <Badge
                                       variant={
                                         getTitleBadgeVariant(
-                                          annotation.profiles.title
+                                          item.profiles.title
                                         ) as any
                                       }
                                       className="text-xs px-2 py-0.5 w-fit"
                                     >
-                                      {annotation.profiles.title}
+                                      {item.profiles.title}
                                     </Badge>
                                   )}
                                 </div>
                               </div>
                             </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="text-sm text-foreground p-2 rounded-md break-words overflow-hidden whitespace-pre-wrap font-sans">
-                              {linkifyText(annotation.comment)}
-                            </div>
-
-                            {annotation.image_url && (
-                              <div className="mt-4">
-                                <div className="relative w-full h-48 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
-                                  {(() => {
-                                    const fileName =
-                                      annotation.image_url?.split("/").pop() ||
-                                      "";
-                                    const isGlbFile = fileName
-                                      .toLowerCase()
-                                      .endsWith(".glb");
-
-                                    if (
-                                      annotation.image_url.startsWith("file://")
-                                    ) {
-                                      return (
-                                        <div className="w-full h-full bg-muted flex items-center justify-center">
-                                          <div className="text-center">
-                                            <LucideImage className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                                            <p className="text-sm text-muted-foreground">
-                                              Local file: {fileName}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                              (Cannot display in browser)
-                                            </p>
-                                          </div>
-                                        </div>
-                                      );
-                                    } else if (isGlbFile) {
-                                      return (
-                                        <div
-                                          className="w-full h-full bg-muted flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
-                                          onClick={() => {
-                                            if (!annotation.image_url) return;
-                                            const link =
-                                              document.createElement("a");
-                                            link.href = annotation.image_url;
-                                            link.download = fileName;
-                                            link.target = "_blank";
-                                            document.body.appendChild(link);
-                                            link.click();
-                                            document.body.removeChild(link);
-                                          }}
-                                        >
-                                          <div className="text-center">
-                                            <div className="w-8 h-8 mx-auto mb-2 flex items-center justify-center">
-                                              <svg
-                                                className="w-8 h-8 text-muted-foreground"
-                                                fill="currentColor"
-                                                viewBox="0 0 24 24"
-                                              >
-                                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                                              </svg>
+                            <div className="space-y-2">
+                              <div className="text-sm text-foreground p-2 rounded-md break-words overflow-hidden whitespace-pre-wrap font-sans">
+                                {linkifyText(item.comment)}
+                              </div>
+                              {item.image_url && (
+                                <div className="mt-4">
+                                  <div className="relative w-full h-48 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
+                                    {(() => {
+                                      const fileName =
+                                        item.image_url?.split("/").pop() || "";
+                                      const isGlbFile = fileName
+                                        .toLowerCase()
+                                        .endsWith(".glb");
+                                      if (
+                                        item.image_url.startsWith("file://")
+                                      ) {
+                                        return (
+                                          <div className="w-full h-full bg-muted flex items-center justify-center">
+                                            <div className="text-center">
+                                              <LucideImage className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                                              <p className="text-sm text-muted-foreground">
+                                                Local file: {fileName}
+                                              </p>
+                                              <p className="text-xs text-muted-foreground">
+                                                (Cannot display in browser)
+                                              </p>
                                             </div>
-                                            <p className="text-sm text-muted-foreground">
-                                              3D Model: {fileName}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                              Click to download
-                                            </p>
                                           </div>
-                                        </div>
-                                      );
-                                    } else {
-                                      return (
-                                        <Image
-                                          width={320}
-                                          height={192}
-                                          unoptimized
-                                          src={annotation.image_url}
-                                          alt="Annotation reference"
-                                          className="w-full h-full object-contain"
-                                          onError={(e) => {
-                                            console.error(
-                                              "Failed to load annotation image:",
-                                              annotation.image_url
-                                            );
-                                            e.currentTarget.style.display =
-                                              "none";
-                                          }}
-                                        />
-                                      );
-                                    }
-                                  })()}
+                                        );
+                                      } else if (isGlbFile) {
+                                        return (
+                                          <div
+                                            className="w-full h-full bg-muted flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+                                            onClick={() => {
+                                              if (!item.image_url) return;
+                                              const link =
+                                                document.createElement("a");
+                                              link.href = item.image_url;
+                                              link.download = fileName;
+                                              link.target = "_blank";
+                                              document.body.appendChild(link);
+                                              link.click();
+                                              document.body.removeChild(link);
+                                            }}
+                                          >
+                                            <div className="text-center">
+                                              <div className="w-8 h-8 mx-auto mb-2 flex items-center justify-center">
+                                                <svg
+                                                  className="w-8 h-8 text-muted-foreground"
+                                                  fill="currentColor"
+                                                  viewBox="0 0 24 24"
+                                                >
+                                                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                                                </svg>
+                                              </div>
+                                              <p className="text-sm text-muted-foreground">
+                                                3D Model: {fileName}
+                                              </p>
+                                              <p className="text-xs text-muted-foreground">
+                                                Click to download
+                                              </p>
+                                            </div>
+                                          </div>
+                                        );
+                                      } else {
+                                        return (
+                                          <Image
+                                            width={320}
+                                            height={192}
+                                            unoptimized
+                                            src={item.image_url}
+                                            alt="Annotation reference"
+                                            className="w-full h-full object-contain"
+                                            onError={(e) => {
+                                              console.error(
+                                                "Failed to load annotation image:",
+                                                item.image_url
+                                              );
+                                              (
+                                                e.currentTarget as HTMLElement
+                                              ).style.display = "none";
+                                            }}
+                                          />
+                                        );
+                                      }
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+                              <div className="mt-4 flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(
+                                    item.created_at
+                                  ).toLocaleDateString()}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  •
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(
+                                    item.created_at
+                                  ).toLocaleTimeString()}
+                                </span>
+                              </div>
+                            </div>
+                          </Card>
+                        ) : (
+                          <Card
+                            key={`comment-${item.id}`}
+                            className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
+                          >
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground">
+                                      {item.profiles?.email || "Unknown"}
+                                    </span>
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs"
+                                    >
+                                      Comment
+                                    </Badge>
+                                  </div>
+                                  {item.profiles?.title && (
+                                    <Badge
+                                      variant={
+                                        getTitleBadgeVariant(
+                                          item.profiles.title
+                                        ) as any
+                                      }
+                                      className="text-xs px-2 py-0.5 w-fit"
+                                    >
+                                      {item.profiles.title}
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
-                            )}
-
+                            </div>
+                            <div className="text-sm text-foreground p-2 rounded-md break-words overflow-hidden whitespace-pre-wrap font-sans">
+                              {linkifyText(item.comment)}
+                            </div>
                             <div className="mt-4 flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">
-                                {new Date(
-                                  annotation.created_at
-                                ).toLocaleDateString()}
+                                {new Date(item.created_at).toLocaleDateString()}
                               </span>
                               <span className="text-xs text-muted-foreground">
                                 •
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(
-                                  annotation.created_at
-                                ).toLocaleTimeString()}
+                                {new Date(item.created_at).toLocaleTimeString()}
                               </span>
                             </div>
-                          </div>
-                        </Card>
-                      ))}
-
-                      {annotations.length === 0 && (
-                        <div className="text-center py-12">
-                          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                            <MessageCircle className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-foreground mb-2">
-                            No annotations yet
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            No annotations have been added to this model yet
-                          </p>
-                        </div>
+                          </Card>
+                        )
                       )}
-                    </div>
-                  )}
 
-                  {/* Comments Tab Content */}
-                  {activeTab === "comments" && (
-                    <div className="space-y-4">
-                      {comments.map((comment) => (
-                        <Card
-                          key={comment.id}
-                          className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <span className="text-sm font-medium text-foreground">
-                                  {comment.profiles?.email || "Unknown"}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  {comment.profiles?.title && (
-                                    <Badge
-                                      variant={
-                                        getTitleBadgeVariant(
-                                          comment.profiles.title
-                                        ) as any
-                                      }
-                                      className="text-xs px-2 py-0.5 w-fit"
-                                    >
-                                      {comment.profiles.title}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="text-sm text-foreground p-2 rounded-md break-words overflow-hidden whitespace-pre-wrap font-sans">
-                            {linkifyText(comment.comment)}
-                          </div>
-
-                          <div className="mt-4 flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(
-                                comment.created_at
-                              ).toLocaleDateString()}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              •
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(
-                                comment.created_at
-                              ).toLocaleTimeString()}
-                            </span>
-                          </div>
-                        </Card>
-                      ))}
-
-                      {comments.length === 0 && (
-                        <div className="text-center py-12">
-                          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                            <MessageSquare className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-foreground mb-2">
-                            No comments yet
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            Be the first to add a comment!
-                          </p>
+                    {annotations.length + comments.length === 0 && (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                          <MessageCircle className="h-8 w-8 text-muted-foreground" />
                         </div>
-                      )}
-                    </div>
-                  )}
+                        <h3 className="text-lg font-semibold text-foreground mb-2">
+                          No feedback yet
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Start by adding an annotation or a comment
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

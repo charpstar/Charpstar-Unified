@@ -27,6 +27,12 @@ import {
   Package,
   Folder,
   Cog,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
+  CheckCircle,
+  RotateCcw,
+  ShieldCheck,
 } from "lucide-react";
 
 import { BarChart, XAxis, YAxis, Bar } from "recharts";
@@ -55,6 +61,44 @@ const getStatusColor = (status: StatusKey): string => {
   };
   return statusColorMap[status];
 };
+
+// Simple count-up animation for numbers
+function useCountUp(targetValue: number, durationMs = 700) {
+  const [displayValue, setDisplayValue] = React.useState(0);
+  const previousRef = React.useRef(0);
+
+  React.useEffect(() => {
+    const startValue = previousRef.current;
+    const endValue = targetValue;
+    const startTime = performance.now();
+
+    if (startValue === endValue) return;
+
+    let rafId = 0;
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / durationMs);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const next = Math.round(startValue + (endValue - startValue) * eased);
+      setDisplayValue(next);
+      if (progress < 1) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        previousRef.current = endValue;
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [targetValue, durationMs]);
+
+  React.useEffect(() => {
+    // reset baseline when target changes dramatically (e.g., from 0 after loading)
+    previousRef.current = targetValue === 0 ? 0 : previousRef.current;
+  }, [targetValue]);
+
+  return displayValue;
+}
 
 // Unified Widget Header Component
 interface WidgetHeaderProps {
@@ -255,45 +299,50 @@ export function ProfileWidget({ user }: { user?: any }) {
 
       <div className="space-y-4">
         {/* Profile Header */}
-        <div className="flex items-start gap-4">
-          <div className="relative">
-            <Avatar className="h-16 w-16 border-2 border-primary/20">
-              <AvatarImage
-                src={user?.avatar_url || user?.metadata?.avatar_url}
-              />
-              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
-                {userName.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-green-500 border-2 border-background flex items-center justify-center">
-              <span className="text-xs text-white">✓</span>
-            </div>
+        <div className="group relative overflow-hidden rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-4">
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute top-0 right-0 w-20 h-20 transform rotate-45 translate-x-8 -translate-y-8 bg-current rounded-full"></div>
+            <div className="absolute bottom-0 left-0 w-16 h-16 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
           </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-lg truncate">{userName}</h3>
-              <span className="text-2xl">{roleData.icon}</span>
+          <div className="relative flex items-start gap-4">
+            <div className="relative">
+              <Avatar className="h-16 w-16 border-2 border-primary/20">
+                <AvatarImage
+                  src={user?.avatar_url || user?.metadata?.avatar_url}
+                />
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
+                  {userName.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-green-500 border-2 border-background flex items-center justify-center">
+                <span className="text-xs text-white">✓</span>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground truncate mb-2">
-              {userEmail}
-            </p>
-            <div className="flex items-center gap-2">
-              <Badge
-                variant={userRole === "admin" ? "destructive" : "secondary"}
-                className="text-xs"
-              >
-                {roleData.title}
-              </Badge>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-lg truncate">{userName}</h3>
+                <span className="text-2xl">{roleData.icon}</span>
+              </div>
+              <p className="text-sm text-muted-foreground mb-2">{userEmail}</p>
+              <div className="flex items-center gap-2">
                 <Badge
-                  variant="outline"
-                  className="h-2 w-2 p-0 bg-green-500 border-green-500"
-                ></Badge>
-                {roleData.status}
+                  variant={userRole === "admin" ? "destructive" : "secondary"}
+                  className="text-xs"
+                >
+                  {roleData.title}
+                </Badge>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Badge
+                    variant="outline"
+                    className="h-2 w-2 p-0 bg-green-500 border-green-500"
+                  ></Badge>
+                  {roleData.status}
+                </div>
               </div>
             </div>
           </div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 dark:bg-blue-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left"></div>
         </div>
 
         {/* Role Description */}
@@ -308,8 +357,11 @@ export function ProfileWidget({ user }: { user?: any }) {
           {roleData.stats.map((stat, index) => (
             <div
               key={index}
-              className="text-center p-3 bg-card border border-border rounded-lg"
+              className="group relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-muted/30 to-muted/50 p-3 text-center transition-all duration-200 hover:shadow-md hover:-translate-y-[1px]"
             >
+              <div className="absolute inset-0 opacity-5">
+                <div className="absolute top-0 right-0 w-10 h-10 transform rotate-45 translate-x-6 -translate-y-6 bg-current rounded-full"></div>
+              </div>
               <div className="text-lg font-bold text-primary">{stat.value}</div>
               <div className="text-xs text-muted-foreground mb-1">
                 {stat.label}
@@ -322,16 +374,18 @@ export function ProfileWidget({ user }: { user?: any }) {
         </div>
 
         {/* Recent Activity */}
-        <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-          <div className="flex items-center gap-2 mb-2">
-            <Activity className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium text-primary">
+        <div className="group relative overflow-hidden rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50 p-3">
+          <div className="absolute inset-0 opacity-5"></div>
+          <div className="relative flex items-center gap-2 mb-2">
+            <Activity className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
               Recent Activity
             </span>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="relative text-sm text-muted-foreground">
             {roleData.recentActivity}
           </p>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 dark:bg-indigo-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left"></div>
         </div>
 
         {/* Role Overview for Admins */}
@@ -513,6 +567,22 @@ export function QuickActionsWidget() {
                 router.push("/asset-library/upload");
               }
             },
+            color:
+              user?.metadata?.role === "client"
+                ? "from-violet-500 to-violet-600"
+                : "from-purple-500 to-purple-600",
+            hoverColor:
+              user?.metadata?.role === "client"
+                ? "from-violet-600 to-violet-700"
+                : "from-purple-600 to-purple-700",
+            iconBg:
+              user?.metadata?.role === "client"
+                ? "bg-violet-100 dark:bg-violet-900/50"
+                : "bg-purple-100 dark:bg-purple-900/50",
+            iconColor:
+              user?.metadata?.role === "client"
+                ? "text-violet-600 dark:text-violet-400"
+                : "text-purple-600 dark:text-purple-400",
           },
         ]
       : []),
@@ -539,6 +609,30 @@ export function QuickActionsWidget() {
           router.push("/client-review");
         }
       },
+      color:
+        user?.metadata?.role === "admin"
+          ? "from-indigo-500 to-indigo-600"
+          : user?.metadata?.role === "qa"
+            ? "from-amber-500 to-amber-600"
+            : "from-blue-500 to-blue-600",
+      hoverColor:
+        user?.metadata?.role === "admin"
+          ? "from-indigo-600 to-indigo-700"
+          : user?.metadata?.role === "qa"
+            ? "from-amber-600 to-amber-700"
+            : "from-blue-600 to-blue-700",
+      iconBg:
+        user?.metadata?.role === "admin"
+          ? "bg-indigo-100 dark:bg-indigo-900/50"
+          : user?.metadata?.role === "qa"
+            ? "bg-amber-100 dark:bg-amber-900/50"
+            : "bg-blue-100 dark:bg-blue-900/50",
+      iconColor:
+        user?.metadata?.role === "admin"
+          ? "text-indigo-600 dark:text-indigo-400"
+          : user?.metadata?.role === "qa"
+            ? "text-amber-600 dark:text-amber-400"
+            : "text-blue-600 dark:text-blue-400",
     },
     // View Analytics - hide for QA users
     ...(user?.metadata?.role !== "qa"
@@ -550,53 +644,66 @@ export function QuickActionsWidget() {
             action: () => {
               router.push("/analytics");
             },
+            color: "from-emerald-500 to-emerald-600",
+            hoverColor: "from-emerald-600 to-emerald-700",
+            iconBg: "bg-emerald-100 dark:bg-emerald-900/50",
+            iconColor: "text-emerald-600 dark:text-emerald-400",
           },
         ]
       : []),
     // Settings - hide for QA users
-    ...(user?.metadata?.role !== "qa"
-      ? [
-          {
-            name: "Settings",
-            icon: Settings,
-            description: "Manage your account and preferences",
-            action: () => {
-              const userMenu = document.querySelector(
-                '[data-tour="user-profile"]'
-              );
-              if (userMenu) {
-                (userMenu as HTMLElement).click();
-              }
-            },
-          },
-        ]
-      : []),
+    ...(user?.metadata?.role !== "qa" ? [] : []),
   ];
 
   return (
     <WidgetContainer>
-      <div className="grid grid-cols-2 gap-4 min-h-[238px]">
-        {actions.map((action) => (
-          <Card
-            key={action.name}
-            className="p-4 hover:shadow-md transition-shadow cursor-pointer h-full flex flex-col justify-center"
-            onClick={action.action}
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <action.icon className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium">{action.name}</p>
-                {action.description && (
-                  <p className="text-sm text-muted-foreground">
-                    {action.description}
+      <div className="grid grid-cols-2 gap-4 flex-1">
+        {actions.map((action) => {
+          const spanTwoCols =
+            user?.metadata?.role === "admin" &&
+            action.name === "View Analytics";
+          return (
+            <div
+              key={action.name}
+              className={`group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-t from-current/5 to-transparent dark:from-muted/20 dark:to-muted/30 p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer ${spanTwoCols ? "col-span-2" : ""}`}
+              onClick={action.action}
+            >
+              <div className="absolute inset-0 opacity-5"></div>
+
+              <div className="relative flex items-center gap-4 mb-2">
+                <div
+                  className={`p-3 rounded-xl ${action.iconBg} shadow-lg shadow-black/10`}
+                >
+                  <action.icon className={`h-5 w-5 ${action.iconColor}`} />
+                </div>
+                <div className="flex-1 min-w-0 p-2">
+                  <p className="text-base font-semibold truncate ">
+                    {action.name}
                   </p>
-                )}
+                  {action.description && (
+                    <p className="text-sm text-muted-foreground">
+                      {action.description}
+                    </p>
+                  )}
+                </div>
               </div>
+
+              <div className="mt-3">
+                <div
+                  className={`inline-flex items-center gap-2 px-3.5Action Center p-3 bg-gradient-to-r ${action.color} hover:${action.hoverColor} text-white rounded-lg transition-all duration-300 ease-out group-hover:scale-105 shadow-lg shadow-black/10`}
+                >
+                  <span className="text-sm font-medium leading-none">Open</span>
+                  <div className="w-1 h-1 bg-white rounded-full"></div>
+                </div>
+              </div>
+
+              <div className="absolute inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div
+                className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${action.color} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
+              ></div>
             </div>
-          </Card>
-        ))}
+          );
+        })}
       </div>
     </WidgetContainer>
   );
@@ -1290,7 +1397,7 @@ export function StatusPieChartWidget() {
     });
 
   return (
-    <Card className="p-0  rounded-lg bg-muted-background w-full mx-auto flex flex-col items-center pointer-events-none select-none border-0 shadow-none">
+    <Card className="p-0 rounded-2xl bg-transparent w-full mx-auto flex flex-col items-center border-0 shadow-none">
       <CardHeader className="!pb-0">
         <CardTitle className="text-lg font-semibold mb-1 text-foreground">
           Model Status Distribution
@@ -1306,9 +1413,10 @@ export function StatusPieChartWidget() {
           </div>
         </div>
       ) : (
-        <CardContent className="!p-0">
-          <div className="flex flex-row items-center gap-18 w-full justify-center select-none">
-            <div className="w-64 h-64 drop-shadow-lg pointer-events-auto">
+        <CardContent className="!p-0 w-full">
+          <div className="group relative overflow-hidden rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50 p-4 w-full flex flex-col md:flex-row items-center justify-center gap-6">
+            <div className="absolute inset-0 opacity-5"></div>
+            <div className="relative w-64 h-64 drop-shadow-lg pointer-events-auto">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -1348,7 +1456,7 @@ export function StatusPieChartWidget() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex flex-col gap-3 min-w-[160px] select-none">
+            <div className="relative flex flex-col gap-3 min-w-[160px] select-none">
               {chartData.map((entry, index) => (
                 <>
                   <div key={entry.key} className="flex items-center gap-3">
@@ -1420,23 +1528,32 @@ export function ClientActionCenterWidget() {
     : 0;
 
   return (
-    <Card className="p-0 rounded-lg bg-muted-background w-full border-0 shadow-none">
+    <Card className="p-0 rounded-2xl bg-transparent border-0 shadow-none">
       <CardHeader className="!pb-0">
         <CardTitle className="text-lg font-semibold mb-1 text-foreground">
           Action Center
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Overall completion
+        <div className="group relative overflow-hidden rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50 p-4">
+          <div className="absolute inset-0 opacity-5"></div>
+          <div className="relative flex items-center justify-between">
+            <div className="text-sm text-emerald-800 dark:text-emerald-300">
+              Overall completion
+            </div>
+            <div className="text-sm font-semibold">{completionPct}%</div>
           </div>
-          <div className="text-sm font-medium">{completionPct}%</div>
+          <div className="mt-2">
+            <Progress value={completionPct} className="h-2" />
+          </div>
         </div>
-        <Progress value={completionPct} className="h-2" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-3 rounded-md border border-border bg-background">
+          <div
+            className="group relative overflow-hidden rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-3 cursor-pointer"
+            onClick={() => router.push("/client-review")}
+          >
+            <div className="absolute inset-0 opacity-5"></div>
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-medium">New Upload</div>
               <Badge variant="outline" className="bg-blue-50 text-blue-700">
@@ -1454,7 +1571,8 @@ export function ClientActionCenterWidget() {
                 {waitingForApproval.map((a) => (
                   <div
                     key={a.id}
-                    className="flex items-center justify-between text-sm"
+                    className="group/item relative flex items-center justify-between text-sm cursor-pointer"
+                    onClick={() => router.push("/client-review")}
                   >
                     <div className="truncate">
                       <div className="font-medium truncate max-w-[180px]">
@@ -1464,6 +1582,7 @@ export function ClientActionCenterWidget() {
                         {a.article_id}
                       </div>
                     </div>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0" />
                   </div>
                 ))}
               </div>
@@ -1472,14 +1591,18 @@ export function ClientActionCenterWidget() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => router.push("/dashboard/client-review")}
+                onClick={() => router.push("/client-review")}
               >
                 Review all
               </Button>
             </div>
           </div>
 
-          <div className="p-3 rounded-md border border-border bg-background">
+          <div
+            className="group relative overflow-hidden rounded-2xl border-2 border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/50 p-3 cursor-pointer"
+            onClick={() => router.push("/client-review")}
+          >
+            <div className="absolute inset-0 opacity-5"></div>
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-medium">Ready for Revision</div>
               <Badge variant="outline" className="bg-amber-50 text-amber-700">
@@ -1497,7 +1620,8 @@ export function ClientActionCenterWidget() {
                 {readyForRevision.map((a) => (
                   <div
                     key={a.id}
-                    className="flex items-center justify-between text-sm"
+                    className="group/item relative flex items-center justify-between text-sm cursor-pointer"
+                    onClick={() => router.push("/client-review")}
                   >
                     <div className="truncate">
                       <div className="font-medium truncate max-w-[180px]">
@@ -1507,6 +1631,7 @@ export function ClientActionCenterWidget() {
                         {a.article_id}
                       </div>
                     </div>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0" />
                   </div>
                 ))}
               </div>
@@ -1537,8 +1662,12 @@ export function AdminPipelineWidget() {
     delivered_by_artist: 0,
   });
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const fetchedRef = React.useRef(false);
 
   useEffect(() => {
+    if (fetchedRef.current) return; // avoid double-invoke in React 18 StrictMode
+    fetchedRef.current = true;
     const fetchCounts = async () => {
       setLoading(true);
       const { data, error } = await supabase
@@ -1598,9 +1727,107 @@ export function AdminPipelineWidget() {
     },
   ];
 
+  const statusStyles: Record<
+    StatusKey,
+    {
+      bgGradient: string;
+      border: string;
+      iconBg: string;
+      accentBar: string;
+      icon: React.ComponentType<{ className?: string }>;
+    }
+  > = {
+    in_production: {
+      bgGradient:
+        "bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50",
+      border: "border-indigo-200 dark:border-indigo-800",
+      iconBg: "bg-indigo-500 dark:bg-indigo-600",
+      accentBar: "bg-indigo-500 dark:bg-indigo-600",
+      icon: Activity,
+    },
+    revisions: {
+      bgGradient:
+        "bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/50",
+      border: "border-amber-200 dark:border-amber-800",
+      iconBg: "bg-amber-500 dark:bg-amber-600",
+      accentBar: "bg-amber-500 dark:bg-amber-600",
+      icon: RotateCcw,
+    },
+    approved: {
+      bgGradient:
+        "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50",
+      border: "border-blue-200 dark:border-blue-800",
+      iconBg: "bg-blue-500 dark:bg-blue-600",
+      accentBar: "bg-blue-500 dark:bg-blue-600",
+      icon: CheckCircle,
+    },
+    approved_by_client: {
+      bgGradient:
+        "bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50",
+      border: "border-emerald-200 dark:border-emerald-800",
+      iconBg: "bg-emerald-500 dark:bg-emerald-600",
+      accentBar: "bg-emerald-500 dark:bg-emerald-600",
+      icon: ShieldCheck,
+    },
+    delivered_by_artist: {
+      bgGradient:
+        "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/50 dark:to-purple-900/50",
+      border: "border-purple-200 dark:border-purple-800",
+      iconBg: "bg-purple-500 dark:bg-purple-600",
+      accentBar: "bg-purple-500 dark:bg-purple-600",
+      icon: Package,
+    },
+  };
+
+  const StatusStatCard: React.FC<{
+    item: { key: StatusKey; label: string; color: string; value: number };
+  }> = ({ item }) => {
+    const animatedValue = useCountUp(item.value);
+    const handleClick = () => {
+      const statusParam = item.key;
+      router.push(`/admin-review?status=${encodeURIComponent(statusParam)}`);
+    };
+    const style = statusStyles[item.key] || statusStyles.in_production;
+    const Icon = style.icon;
+    return (
+      <button
+        type="button"
+        onClick={handleClick}
+        className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 ${style.bgGradient} ${style.border} p-4 text-left focus:outline-none focus:ring-2 focus:ring-primary/30`}
+        title={`View ${item.label}`}
+      >
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-20 h-20 transform rotate-45 translate-x-8 -translate-y-8 bg-current rounded-full"></div>
+          <div className="absolute bottom-0 left-0 w-16 h-16 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
+        </div>
+
+        <div className="relative flex items-start justify-between mb-2">
+          <div
+            className={`p-2.5 rounded-xl ${style.iconBg} shadow-lg shadow-black/10`}
+          >
+            <Icon className="h-4 w-4 text-white" />
+          </div>
+          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+
+        <div className="relative">
+          <div className="text-sm text-muted-foreground mb-1">{item.label}</div>
+          <div className="text-3xl font-bold text-foreground transition-all duration-300 group-hover:scale-105">
+            {animatedValue}
+          </div>
+        </div>
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        <div
+          className={`absolute bottom-0 left-0 right-0 h-1 ${style.accentBar} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
+        ></div>
+      </button>
+    );
+  };
+
   return (
     <Card className="p-4 rounded-lg bg-muted-background border-0 shadow-none h-full  ">
-      <WidgetHeader title="Pipeline Overview" />
+      <WidgetHeader title="" />
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
           {[...Array(4)].map((_, i) => (
@@ -1610,21 +1837,7 @@ export function AdminPipelineWidget() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
           {items.map((item) => (
-            <div
-              key={item.key}
-              className="p-3 rounded-md border border-border bg-background"
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className="inline-block w-3 h-3 rounded-full"
-                  style={{ background: item.color }}
-                />
-                <div className="text-sm text-muted-foreground">
-                  {item.label}
-                </div>
-              </div>
-              <div className="text-2xl font-semibold mt-1">{item.value}</div>
-            </div>
+            <StatusStatCard key={item.key} item={item} />
           ))}
         </div>
       )}
@@ -1638,6 +1851,7 @@ export function AdminQueuesWidget() {
     Array<{ client: string; count: number; batches: number[] }>
   >([]);
   const [loading, setLoading] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const fetchQueues = async () => {
@@ -1675,60 +1889,92 @@ export function AdminQueuesWidget() {
     fetchQueues();
   }, []);
 
-  const List = () => (
-    <div className="p-3 rounded-md border border-border bg-background">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium">New Uploads</div>
-        <Badge variant="outline" className="bg-indigo-50 text-indigo-700">
-          {clientQueue.length}
-        </Badge>
-      </div>
-      {loading ? (
-        <div className="h-16 bg-muted animate-pulse rounded" />
-      ) : clientQueue.length === 0 ? (
-        <div className="text-xs text-muted-foreground">Nothing here</div>
-      ) : (
-        <div className="space-y-2">
-          {clientQueue.map((g) => (
-            <div
-              key={g.client}
-              className="text-sm cursor-pointer hover:bg-muted/60 rounded px-2 py-1"
-              onClick={() =>
-                router.push(
-                  `/admin-review?client=${encodeURIComponent(g.client)}`
-                )
-              }
-            >
-              <div className="font-medium truncate">{g.client}</div>
-              <div className="text-xs text-muted-foreground">
-                {g.count} assets
-                {g.batches.length > 0
-                  ? ` • Batches: ${g.batches.join(", ")}`
-                  : ""}
-              </div>
-            </div>
-          ))}
+  const List = () => {
+    const visible = showAll ? clientQueue : clientQueue.slice(0, 5);
+    return (
+      <div className="group relative overflow-hidden rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50 p-3 transition-all duration-300 ease-out">
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-20 h-20 transform rotate-45 translate-x-8 -translate-y-8 bg-current rounded-full"></div>
+          <div className="absolute bottom-0 left-0 w-16 h-16 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
         </div>
-      )}
-      <div className="mt-3">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            router.push(
-              `/admin-review?client=${encodeURIComponent(clientQueue[0].client)}`
-            )
-          }
-        >
-          Open filtered view
-        </Button>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium">New Uploads</div>
+          <Badge variant="outline" className="bg-indigo-50 text-indigo-700">
+            {clientQueue.length}
+          </Badge>
+        </div>
+        {loading ? (
+          <div className="h-16 bg-muted animate-pulse rounded" />
+        ) : clientQueue.length === 0 ? (
+          <div className="text-xs text-muted-foreground">Nothing here</div>
+        ) : (
+          <div className="space-y-1">
+            {visible.map((g) => (
+              <div
+                key={g.client}
+                className="group/item relative text-sm cursor-pointer rounded px-2 py-2 transition-all duration-200 hover:shadow-sm hover:-translate-y-[1px]"
+                onClick={() =>
+                  router.push(
+                    `/admin-review?client=${encodeURIComponent(g.client)}`
+                  )
+                }
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{g.client}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {g.count} assets
+                      {g.batches.length > 0
+                        ? ` • Batches: ${g.batches.join(", ")}`
+                        : ""}
+                    </div>
+                  </div>
+                  <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0" />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500/60 transform scale-x-0 group-hover/item:scale-x-100 transition-transform duration-300 ease-out"></div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-3 flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              clientQueue.length > 0 &&
+              router.push(
+                `/admin-review?client=${encodeURIComponent(clientQueue[0].client)}`
+              )
+            }
+            disabled={clientQueue.length === 0}
+          >
+            Open filtered view
+          </Button>
+          {clientQueue.length > 5 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowAll((v) => !v)}
+              className="gap-1"
+            >
+              {showAll ? (
+                <>
+                  Show less <ChevronUp className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  Show all <ChevronDown className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <Card className="p-4 rounded-lg bg-muted-background border-0 shadow-none">
-      <WidgetHeader title="Queues" />
       <div className="grid grid-cols-1 gap-4 mt-3">
         <List />
       </div>

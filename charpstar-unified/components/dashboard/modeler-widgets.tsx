@@ -189,7 +189,7 @@ export function ModelerStatsWidget() {
   ];
 
   return (
-    <div className="h-full flex flex-col min-h-[320px]">
+    <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-xl font-bold text-foreground mb-1">
@@ -997,7 +997,7 @@ export function ModelerQuickActionsWidget() {
   ];
 
   return (
-    <div className="h-full flex flex-col min-h-[320px]">
+    <div className="h-full flex flex-col flex-1">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-xl font-bold text-foreground mb-1">
