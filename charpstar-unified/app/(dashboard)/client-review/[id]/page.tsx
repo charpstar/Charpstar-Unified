@@ -76,6 +76,7 @@ interface Annotation {
     name?: string;
     email?: string;
   };
+  parent_id?: string;
 }
 
 interface Hotspot {
@@ -216,7 +217,7 @@ export default function ReviewPage() {
   const [carouselIndex] = useState(0);
   const [comments, setComments] = useState<any[]>([]);
   const [rightPanelTab, setRightPanelTab] = useState<"images" | "feedback">(
-    "images"
+    "feedback"
   );
   const [imageZoom, setImageZoom] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -256,6 +257,14 @@ export default function ReviewPage() {
   const [selectedRevision, setSelectedRevision] = useState<any>(null);
 
   const modelViewerRef = useRef<any>(null);
+
+  // Reply system state
+  const [replyingTo, setReplyingTo] = useState<{
+    type: "annotation" | "comment";
+    id: string;
+  } | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replySubmitting, setReplySubmitting] = useState(false);
 
   // Function to handle back navigation based on where user came from
   const handleBackNavigation = () => {
@@ -297,17 +306,19 @@ export default function ReviewPage() {
   };
 
   // Convert annotations to hotspots format
-  const hotspots: Hotspot[] = annotations.map((annotation) => ({
-    id: annotation.id,
-    position: {
-      x: parseFloat(annotation.position.split(" ")[0]),
-      y: parseFloat(annotation.position.split(" ")[1]),
-      z: parseFloat(annotation.position.split(" ")[2]),
-    },
-    comment: annotation.comment,
-    image_url: annotation.image_url,
-    visible: true,
-  }));
+  const hotspots: Hotspot[] = annotations
+    .filter((annotation: any) => !annotation.parent_id)
+    .map((annotation) => ({
+      id: annotation.id,
+      position: {
+        x: parseFloat(annotation.position.split(" ")[0]),
+        y: parseFloat(annotation.position.split(" ")[1]),
+        z: parseFloat(annotation.position.split(" ")[2]),
+      },
+      comment: annotation.comment,
+      image_url: annotation.image_url,
+      visible: true,
+    }));
 
   // Fetch asset data
   useEffect(() => {
@@ -2483,6 +2494,72 @@ export default function ReviewPage() {
     }, 100);
   };
 
+  // Submit a reply for either an annotation or a comment
+  const submitReply = async () => {
+    if (!replyingTo || !replyText.trim() || !assetId || !user) return;
+    setReplySubmitting(true);
+    try {
+      if (replyingTo.type === "annotation") {
+        const parent = annotations.find((a) => a.id === replyingTo.id);
+        if (!parent) return;
+        const response = await fetch("/api/annotations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            asset_id: assetId,
+            parent_id: replyingTo.id,
+            comment: replyText.trim(),
+            position: parent.position,
+            normal: parent.normal,
+            surface: parent.surface || null,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to add reply");
+        // Append reply to annotations list
+        setAnnotations((prev) => [data.annotation, ...prev]);
+      } else {
+        // Comment reply: insert a new comment with parent_id
+        const { data, error } = await supabase
+          .from("asset_comments")
+          .insert({
+            asset_id: assetId,
+            comment: replyText.trim(),
+            parent_id: replyingTo.id,
+            created_by: user.id,
+          })
+          .select(`*, profiles:created_by (title, role, email)`)
+          .single();
+        if (error) throw error;
+        setComments((prev) => [data, ...prev]);
+      }
+      setReplyText("");
+      setReplyingTo(null);
+      toast.success("Reply posted");
+    } catch (e: any) {
+      console.error("Failed to post reply:", e);
+      toast.error(e?.message || "Failed to post reply");
+    } finally {
+      setReplySubmitting(false);
+    }
+  };
+
+  // Build a parent->children map for comments and annotations
+  const groupByParent = <T extends { id: string; parent_id?: string | null }>(
+    items: T[]
+  ) => {
+    const map: Record<string, T[]> = {};
+    for (const item of items) {
+      if (item.parent_id) {
+        if (!map[item.parent_id]) map[item.parent_id] = [];
+        map[item.parent_id].push(item);
+      }
+    }
+    return map;
+  };
+  const annotationRepliesMap = groupByParent(annotations as any);
+  const commentRepliesMap = groupByParent(comments as any);
+
   if (loading) {
     return (
       <div className="h-full flex flex-col bg-muted">
@@ -2987,19 +3064,6 @@ export default function ReviewPage() {
             {/* Tab Navigation */}
             <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
               <button
-                onClick={() => setRightPanelTab("images")}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
-                  rightPanelTab === "images"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <LucideImage className="h-4 w-4" />
-                  Reference Images ({referenceImages.length})
-                </div>
-              </button>
-              <button
                 onClick={() => setRightPanelTab("feedback")}
                 className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
                   rightPanelTab === "feedback"
@@ -3010,6 +3074,19 @@ export default function ReviewPage() {
                 <div className="flex items-center gap-2">
                   <MessageCircle className="h-4 w-4" />
                   Feedback ({annotations.length + comments.length})
+                </div>
+              </button>
+              <button
+                onClick={() => setRightPanelTab("images")}
+                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  rightPanelTab === "images"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <LucideImage className="h-4 w-4" />
+                  Reference Images ({referenceImages.length})
                 </div>
               </button>
             </div>
@@ -3040,7 +3117,7 @@ export default function ReviewPage() {
                   )}
                 </div>
               </div>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-1">
                 {user?.metadata?.role === "client" && (
                   <Button
                     onClick={() => updateAssetStatus("approved_by_client")}
@@ -3661,14 +3738,18 @@ export default function ReviewPage() {
                 <div className="p-2">
                   <div className="space-y-4">
                     {[
-                      ...annotations.map((a) => ({
-                        ...a,
-                        type: "annotation" as const,
-                      })),
-                      ...getAllComments().map((c) => ({
-                        ...c,
-                        type: "comment" as const,
-                      })),
+                      ...annotations
+                        .filter((a: any) => !a.parent_id)
+                        .map((a) => ({
+                          ...a,
+                          type: "annotation" as const,
+                        })),
+                      ...getAllComments()
+                        .filter((c: any) => !c.parent_id)
+                        .map((c) => ({
+                          ...c,
+                          type: "comment" as const,
+                        })),
                     ]
                       .sort(
                         (a, b) =>
@@ -4007,45 +4088,132 @@ export default function ReviewPage() {
                                       </div>
                                       <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 mt-0.5" />
                                     </div>
-                                  </div>
-                                )}
-                                {item.image_url && (
-                                  <div className="mt-4">
-                                    <div
-                                      className="relative w-full h-48 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                                      onClick={() =>
-                                        handleImageClick(
-                                          item.image_url!,
-                                          "Annotation Image"
-                                        )
-                                      }
-                                    >
-                                      <Image
-                                        width={320}
-                                        height={192}
-                                        unoptimized
-                                        src={item.image_url}
-                                        alt="Annotation reference"
-                                        className="w-full h-full object-contain"
-                                        onError={(e) => {
-                                          (
-                                            e.currentTarget as HTMLElement
-                                          ).style.display = "none";
-                                          (e.currentTarget
-                                            .nextElementSibling as HTMLElement)!.style.display =
-                                            "flex";
+                                    {/* Moved image preview above replies to keep it visible */}
+                                    {item.image_url && (
+                                      <div className="mt-4">
+                                        <div
+                                          className="relative w-full h-48 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                                          onClick={() =>
+                                            handleImageClick(
+                                              item.image_url!,
+                                              "Annotation Image"
+                                            )
+                                          }
+                                        >
+                                          <Image
+                                            width={320}
+                                            height={192}
+                                            unoptimized
+                                            src={item.image_url}
+                                            alt="Annotation reference"
+                                            className="w-full h-full object-contain"
+                                            onError={(e) => {
+                                              (
+                                                e.currentTarget as HTMLElement
+                                              ).style.display = "none";
+                                            }}
+                                          />
+                                          <div
+                                            className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs"
+                                            style={{ display: "none" }}
+                                          >
+                                            Invalid URL
+                                          </div>
+                                          <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full">
+                                            <Maximize2 className="h-3 w-3" />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Reply actions */}
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-2 text-xs cursor-pointer"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setReplyingTo({
+                                            type: "annotation",
+                                            id: item.id,
+                                          });
                                         }}
-                                      />
-                                      <div
-                                        className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs"
-                                        style={{ display: "none" }}
                                       >
-                                        Invalid URL
-                                      </div>
-                                      <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full">
-                                        <Maximize2 className="h-3 w-3" />
-                                      </div>
+                                        Reply
+                                      </Button>
                                     </div>
+                                    {replyingTo?.type === "annotation" &&
+                                      replyingTo.id === item.id && (
+                                        <div className="mt-2 flex items-center gap-2">
+                                          <Input
+                                            placeholder="Write a reply..."
+                                            value={replyText}
+                                            onChange={(e) =>
+                                              setReplyText(e.target.value)
+                                            }
+                                            className="flex-1"
+                                            onClick={(e) => e.stopPropagation()}
+                                          />
+                                          <Button
+                                            size="sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              submitReply();
+                                            }}
+                                            disabled={
+                                              !replyText.trim() ||
+                                              replySubmitting
+                                            }
+                                            className="cursor-pointer"
+                                          >
+                                            {replySubmitting
+                                              ? "Sending..."
+                                              : "Send"}
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setReplyingTo(null);
+                                              setReplyText("");
+                                            }}
+                                            className="cursor-pointer"
+                                          >
+                                            Cancel
+                                          </Button>
+                                        </div>
+                                      )}
+                                    {/* Render replies */}
+                                    {annotationRepliesMap[item.id]?.length >
+                                      0 && (
+                                      <div className="mt-3 pl-4 border-l border-border space-y-2">
+                                        {annotationRepliesMap[item.id]
+                                          .sort(
+                                            (a: any, b: any) =>
+                                              new Date(a.created_at).getTime() -
+                                              new Date(b.created_at).getTime()
+                                          )
+                                          .map((reply: any) => (
+                                            <div
+                                              key={reply.id}
+                                              className="text-sm text-foreground"
+                                            >
+                                              <div className="text-xs text-muted-foreground mb-1">
+                                                {reply.profiles?.email ||
+                                                  "Unknown"}{" "}
+                                                •{" "}
+                                                {new Date(
+                                                  reply.created_at
+                                                ).toLocaleString()}
+                                              </div>
+                                              <div className="whitespace-pre-wrap">
+                                                {linkifyText(reply.comment)}
+                                              </div>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                                 <div className="mt-4 flex items-center gap-2">
@@ -4062,6 +4230,72 @@ export default function ReviewPage() {
                                       item.created_at
                                     ).toLocaleTimeString()}
                                   </span>
+                                </div>
+                                <div className="mt-2">
+                                  {replyingTo?.type === "comment" &&
+                                    replyingTo.id === item.id && (
+                                      <div className="mt-2 flex items-center gap-2">
+                                        <Input
+                                          placeholder="Write a reply..."
+                                          value={replyText}
+                                          onChange={(e) =>
+                                            setReplyText(e.target.value)
+                                          }
+                                          className="flex-1"
+                                        />
+                                        <Button
+                                          size="sm"
+                                          onClick={submitReply}
+                                          disabled={
+                                            !replyText.trim() || replySubmitting
+                                          }
+                                          className="cursor-pointer"
+                                        >
+                                          {replySubmitting
+                                            ? "Sending..."
+                                            : "Send"}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => {
+                                            setReplyingTo(null);
+                                            setReplyText("");
+                                          }}
+                                          className="cursor-pointer"
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    )}
+                                  {commentRepliesMap[item.id]?.length > 0 && (
+                                    <div className="mt-3 pl-4 border-l border-border space-y-2">
+                                      {commentRepliesMap[item.id]
+                                        .sort(
+                                          (a: any, b: any) =>
+                                            new Date(a.created_at).getTime() -
+                                            new Date(b.created_at).getTime()
+                                        )
+                                        .map((reply: any) => (
+                                          <div
+                                            key={reply.id}
+                                            className="text-sm text-foreground"
+                                          >
+                                            <div className="text-xs text-muted-foreground mb-1">
+                                              {reply.profiles?.email ||
+                                                "Unknown"}{" "}
+                                              •{" "}
+                                              {new Date(
+                                                reply.created_at
+                                              ).toLocaleString()}
+                                            </div>
+                                            <div className="whitespace-pre-wrap">
+                                              {linkifyText(reply.comment)}
+                                            </div>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -4228,6 +4462,82 @@ export default function ReviewPage() {
                               <span className="text-xs text-muted-foreground">
                                 {new Date(item.created_at).toLocaleTimeString()}
                               </span>
+                            </div>
+                            {/* Reply actions for comments */}
+                            <div className="mt-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs cursor-pointer"
+                                onClick={() =>
+                                  setReplyingTo({
+                                    type: "comment",
+                                    id: item.id,
+                                  })
+                                }
+                              >
+                                Reply
+                              </Button>
+                              {replyingTo?.type === "comment" &&
+                                replyingTo.id === item.id && (
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <Input
+                                      placeholder="Write a reply..."
+                                      value={replyText}
+                                      onChange={(e) =>
+                                        setReplyText(e.target.value)
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      onClick={submitReply}
+                                      disabled={
+                                        !replyText.trim() || replySubmitting
+                                      }
+                                      className="cursor-pointer"
+                                    >
+                                      {replySubmitting ? "Sending..." : "Send"}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setReplyingTo(null);
+                                        setReplyText("");
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                )}
+                              {commentRepliesMap[item.id]?.length > 0 && (
+                                <div className="mt-3 pl-4 border-l border-border space-y-2">
+                                  {commentRepliesMap[item.id]
+                                    .sort(
+                                      (a: any, b: any) =>
+                                        new Date(a.created_at).getTime() -
+                                        new Date(b.created_at).getTime()
+                                    )
+                                    .map((reply: any) => (
+                                      <div
+                                        key={reply.id}
+                                        className="text-sm text-foreground"
+                                      >
+                                        <div className="text-xs text-muted-foreground mb-1">
+                                          {reply.profiles?.email || "Unknown"} •{" "}
+                                          {new Date(
+                                            reply.created_at
+                                          ).toLocaleString()}
+                                        </div>
+                                        <div className="whitespace-pre-wrap">
+                                          {linkifyText(reply.comment)}
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
                             </div>
                           </Card>
                         )

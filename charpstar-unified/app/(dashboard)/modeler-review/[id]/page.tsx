@@ -66,6 +66,7 @@ interface Annotation {
     name?: string;
     email?: string;
   };
+  parent_id?: string;
 }
 
 interface Hotspot {
@@ -115,8 +116,8 @@ export default function ModelerReviewPage() {
     useState<Annotation | null>(null);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [comments, setComments] = useState<any[]>([]);
-  const [rightPanelTab, setRightPanelTab] = useState<"images" | "feedback">(
-    "images"
+  const [rightPanelTab, setRightPanelTab] = useState<"feedback" | "images">(
+    "feedback"
   );
   const [statusUpdating, setStatusUpdating] = useState(false);
   // Make URLs in text clickable with blue styling
@@ -144,6 +145,13 @@ export default function ModelerReviewPage() {
 
   // Comment state variables
   const [newCommentText, setNewCommentText] = useState("");
+  // Reply system state (modelers can reply but not post new comments/annotations)
+  const [replyingTo, setReplyingTo] = useState<{
+    type: "annotation" | "comment";
+    id: string;
+  } | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replySubmitting, setReplySubmitting] = useState(false);
 
   // GLB Upload state
   const [uploading, setUploading] = useState(false);
@@ -173,6 +181,22 @@ export default function ModelerReviewPage() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isZooming, setIsZooming] = useState(false);
+
+  // Build a parent->children map for comments and annotations
+  const groupByParent = <T extends { id: string; parent_id?: string | null }>(
+    items: T[]
+  ) => {
+    const map: Record<string, T[]> = {};
+    for (const item of items) {
+      if (item.parent_id) {
+        if (!map[item.parent_id]) map[item.parent_id] = [];
+        map[item.parent_id].push(item);
+      }
+    }
+    return map;
+  };
+  const annotationRepliesMap = groupByParent(annotations as any);
+  const commentRepliesMap = groupByParent(comments as any);
 
   const handleBackNavigation = () => {
     const from = searchParams.get("from");
@@ -245,17 +269,19 @@ export default function ModelerReviewPage() {
   };
 
   // Convert annotations to hotspots format
-  const hotspots: Hotspot[] = annotations.map((annotation) => ({
-    id: annotation.id,
-    position: {
-      x: parseFloat(annotation.position.split(" ")[0]),
-      y: parseFloat(annotation.position.split(" ")[1]),
-      z: parseFloat(annotation.position.split(" ")[2]),
-    },
-    comment: annotation.comment,
-    image_url: annotation.image_url,
-    visible: true,
-  }));
+  const hotspots: Hotspot[] = annotations
+    .filter((annotation: any) => !annotation.parent_id)
+    .map((annotation) => ({
+      id: annotation.id,
+      position: {
+        x: parseFloat(annotation.position.split(" ")[0]),
+        y: parseFloat(annotation.position.split(" ")[1]),
+        z: parseFloat(annotation.position.split(" ")[2]),
+      },
+      comment: annotation.comment,
+      image_url: annotation.image_url,
+      visible: true,
+    }));
 
   // Fetch asset data
   useEffect(() => {
@@ -1364,6 +1390,51 @@ export default function ModelerReviewPage() {
     );
   }
 
+  // Submit a reply for either an annotation or a comment (modelers can reply)
+  const submitReply = async () => {
+    if (!replyingTo || !replyText.trim() || !assetId || !user) return;
+    setReplySubmitting(true);
+    try {
+      if (replyingTo.type === "annotation") {
+        const parent = annotations.find((a) => a.id === replyingTo.id);
+        if (!parent) return;
+        const response = await fetch("/api/annotations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            asset_id: assetId,
+            parent_id: replyingTo.id,
+            comment: replyText.trim(),
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to add reply");
+        setAnnotations((prev) => [data.annotation, ...prev]);
+      } else {
+        const { data, error } = await supabase
+          .from("asset_comments")
+          .insert({
+            asset_id: assetId,
+            comment: replyText.trim(),
+            parent_id: replyingTo.id,
+            created_by: user.id,
+          })
+          .select(`*, profiles:created_by (title, role, email)`)
+          .single();
+        if (error) throw error;
+        setComments((prev) => [data, ...prev]);
+      }
+      setReplyText("");
+      setReplyingTo(null);
+      toast.success("Reply posted");
+    } catch (e: any) {
+      console.error("Failed to post reply:", e);
+      toast.error(e?.message || "Failed to post reply");
+    } finally {
+      setReplySubmitting(false);
+    }
+  };
+
   return (
     <>
       <div className="h-full flex flex-col bg-muted">
@@ -1749,19 +1820,6 @@ export default function ModelerReviewPage() {
             {/* Tab Navigation */}
             <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
               <button
-                onClick={() => setRightPanelTab("images")}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
-                  rightPanelTab === "images"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <LucideImage className="h-4 w-4" />
-                  Reference Images ({referenceImages.length})
-                </div>
-              </button>
-              <button
                 onClick={() => setRightPanelTab("feedback")}
                 className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
                   rightPanelTab === "feedback"
@@ -1772,6 +1830,19 @@ export default function ModelerReviewPage() {
                 <div className="flex items-center gap-2">
                   <MessageCircle className="h-4 w-4" />
                   Feedback ({annotations.length + comments.length})
+                </div>
+              </button>
+              <button
+                onClick={() => setRightPanelTab("images")}
+                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  rightPanelTab === "images"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <LucideImage className="h-4 w-4" />
+                  Reference Images ({referenceImages.length})
                 </div>
               </button>
             </div>
@@ -2347,7 +2418,7 @@ export default function ModelerReviewPage() {
                       </h4>
                     </div>
 
-                    {/* Add New Comment */}
+                    {/* Modelers cannot add new top-level comments; reply only */}
                     <div className="space-y-3">
                       <Textarea
                         placeholder="Add a comment about this asset..."
@@ -2370,14 +2441,18 @@ export default function ModelerReviewPage() {
                 <div className="p-2">
                   <div className="space-y-4">
                     {[
-                      ...annotations.map((a) => ({
-                        ...a,
-                        type: "annotation" as const,
-                      })),
-                      ...comments.map((c) => ({
-                        ...c,
-                        type: "comment" as const,
-                      })),
+                      ...annotations
+                        .filter((a: any) => !a.parent_id)
+                        .map((a) => ({
+                          ...a,
+                          type: "annotation" as const,
+                        })),
+                      ...comments
+                        .filter((c: any) => !c.parent_id)
+                        .map((c) => ({
+                          ...c,
+                          type: "comment" as const,
+                        })),
                     ]
                       .sort(
                         (a, b) =>
@@ -2541,6 +2616,86 @@ export default function ModelerReviewPage() {
                                   ).toLocaleTimeString()}
                                 </span>
                               </div>
+                              {/* Reply actions for modelers */}
+                              <div className="mt-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs cursor-pointer"
+                                  onClick={() =>
+                                    setReplyingTo({
+                                      type: "annotation",
+                                      id: item.id,
+                                    })
+                                  }
+                                >
+                                  Reply
+                                </Button>
+                                {replyingTo?.type === "annotation" &&
+                                  replyingTo.id === item.id && (
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <Textarea
+                                        placeholder="Write a reply..."
+                                        value={replyText}
+                                        onChange={(e) =>
+                                          setReplyText(e.target.value)
+                                        }
+                                        className="flex-1"
+                                        rows={2}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={submitReply}
+                                        disabled={
+                                          !replyText.trim() || replySubmitting
+                                        }
+                                        className="cursor-pointer"
+                                      >
+                                        {replySubmitting
+                                          ? "Sending..."
+                                          : "Send"}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setReplyingTo(null);
+                                          setReplyText("");
+                                        }}
+                                        className="cursor-pointer"
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  )}
+                                {annotationRepliesMap[item.id]?.length > 0 && (
+                                  <div className="mt-3 pl-4 border-l border-border space-y-2">
+                                    {annotationRepliesMap[item.id]
+                                      .sort(
+                                        (a: any, b: any) =>
+                                          new Date(a.created_at).getTime() -
+                                          new Date(b.created_at).getTime()
+                                      )
+                                      .map((reply: any) => (
+                                        <div
+                                          key={reply.id}
+                                          className="text-sm text-foreground"
+                                        >
+                                          <div className="text-xs text-muted-foreground mb-1">
+                                            {reply.profiles?.email || "Unknown"}{" "}
+                                            •{" "}
+                                            {new Date(
+                                              reply.created_at
+                                            ).toLocaleString()}
+                                          </div>
+                                          <div className="whitespace-pre-wrap">
+                                            {linkifyText(reply.comment)}
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </Card>
                         ) : (
@@ -2593,6 +2748,83 @@ export default function ModelerReviewPage() {
                               <span className="text-xs text-muted-foreground">
                                 {new Date(item.created_at).toLocaleTimeString()}
                               </span>
+                            </div>
+                            {/* Reply actions for modelers */}
+                            <div className="mt-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs cursor-pointer"
+                                onClick={() =>
+                                  setReplyingTo({
+                                    type: "comment",
+                                    id: item.id,
+                                  })
+                                }
+                              >
+                                Reply
+                              </Button>
+                              {replyingTo?.type === "comment" &&
+                                replyingTo.id === item.id && (
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <Textarea
+                                      placeholder="Write a reply..."
+                                      value={replyText}
+                                      onChange={(e) =>
+                                        setReplyText(e.target.value)
+                                      }
+                                      className="flex-1"
+                                      rows={2}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      onClick={submitReply}
+                                      disabled={
+                                        !replyText.trim() || replySubmitting
+                                      }
+                                      className="cursor-pointer"
+                                    >
+                                      {replySubmitting ? "Sending..." : "Send"}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setReplyingTo(null);
+                                        setReplyText("");
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                )}
+                              {commentRepliesMap[item.id]?.length > 0 && (
+                                <div className="mt-3 pl-4 border-l border-border space-y-2">
+                                  {commentRepliesMap[item.id]
+                                    .sort(
+                                      (a: any, b: any) =>
+                                        new Date(a.created_at).getTime() -
+                                        new Date(b.created_at).getTime()
+                                    )
+                                    .map((reply: any) => (
+                                      <div
+                                        key={reply.id}
+                                        className="text-sm text-foreground"
+                                      >
+                                        <div className="text-xs text-muted-foreground mb-1">
+                                          {reply.profiles?.email || "Unknown"} •{" "}
+                                          {new Date(
+                                            reply.created_at
+                                          ).toLocaleString()}
+                                        </div>
+                                        <div className="whitespace-pre-wrap">
+                                          {linkifyText(reply.comment)}
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
                             </div>
                           </Card>
                         )

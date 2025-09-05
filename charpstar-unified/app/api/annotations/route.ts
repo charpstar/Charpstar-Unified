@@ -103,22 +103,62 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { asset_id, position, normal, surface, comment, image_url } = body;
+    const {
+      asset_id,
+      position,
+      normal,
+      surface,
+      comment,
+      image_url,
+      parent_id,
+    } = body;
 
-    if (!asset_id || !position || !normal || !comment) {
+    // For replies (when parent_id is provided) we don't require position/normal
+    if (!asset_id || !comment || (!parent_id && (!position || !normal))) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
+    // If this is a reply and position/normal are not provided, copy from parent
+    let effectivePosition: string | null = position || null;
+    let effectiveNormal: string | null = normal || null;
+    let effectiveSurface: string | null = surface || null;
+
+    if (parent_id) {
+      if (!effectivePosition || !effectiveNormal) {
+        const { data: parent, error: parentError } = await supabase
+          .from("asset_annotations")
+          .select("asset_id, position, normal, surface")
+          .eq("id", parent_id)
+          .single();
+        if (parentError || !parent) {
+          return NextResponse.json(
+            { error: "Invalid parent annotation" },
+            { status: 400 }
+          );
+        }
+        if (parent.asset_id !== asset_id) {
+          return NextResponse.json(
+            { error: "Parent annotation does not match asset" },
+            { status: 400 }
+          );
+        }
+        effectivePosition = effectivePosition || parent.position;
+        effectiveNormal = effectiveNormal || parent.normal;
+        effectiveSurface = effectiveSurface || parent.surface || null;
+      }
+    }
+
     const annotationData = {
       asset_id,
-      position,
-      normal,
-      surface: surface || null,
+      position: effectivePosition,
+      normal: effectiveNormal,
+      surface: effectiveSurface,
       comment,
       image_url: image_url || null,
+      parent_id: parent_id || null,
       created_by: session.user.id,
       created_at: new Date().toISOString(),
     };

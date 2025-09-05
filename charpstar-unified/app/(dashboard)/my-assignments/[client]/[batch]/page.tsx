@@ -620,6 +620,71 @@ export default function BatchDetailPage() {
     }
   };
 
+  // Recalculate batch stats from current allocation lists without full refetch
+  const recalculateBatchStatsFromLists = (lists: AllocationList[]) => {
+    const allAssets = lists.flatMap((list) => list.assets);
+    const totalAssets = allAssets.length;
+    const completedAssets = allAssets.filter(
+      (asset) => asset.status === "approved_by_client"
+    ).length;
+    const inProgressAssets = allAssets.filter(
+      (asset) => asset.status === "in_production"
+    ).length;
+    const pendingAssets = allAssets.filter(
+      (asset) => asset.status === "not_started"
+    ).length;
+    const revisionAssets = allAssets.filter(
+      (asset) => asset.status === "revisions"
+    ).length;
+    const waitingForApprovalAssets = allAssets.filter(
+      (asset) => asset.status === "delivered_by_artist"
+    ).length;
+
+    const totalBaseEarnings = allAssets.reduce(
+      (sum, asset) => sum + (asset.price || 0),
+      0
+    );
+    const totalBonusEarnings = allAssets.reduce((sum, asset) => {
+      const bonus = asset.bonus || 0;
+      return sum + ((asset.price || 0) * bonus) / 100;
+    }, 0);
+    const totalPotentialEarnings = totalBaseEarnings + totalBonusEarnings;
+
+    const completedEarnings = allAssets
+      .filter((asset) => asset.status === "approved_by_client")
+      .reduce((sum, asset) => {
+        const bonus = asset.bonus || 0;
+        return sum + (asset.price || 0) * (1 + bonus / 100);
+      }, 0);
+
+    const pendingEarnings = allAssets
+      .filter((asset) => asset.status !== "approved_by_client")
+      .reduce((sum, asset) => {
+        const bonus = asset.bonus || 0;
+        return sum + (asset.price || 0) * (1 + bonus / 100);
+      }, 0);
+
+    const averageAssetPrice =
+      totalAssets > 0 ? totalBaseEarnings / totalAssets : 0;
+
+    setBatchStats({
+      totalAssets,
+      completedAssets,
+      inProgressAssets,
+      pendingAssets,
+      revisionAssets,
+      waitingForApprovalAssets,
+      completionPercentage:
+        totalAssets > 0 ? Math.round((completedAssets / totalAssets) * 100) : 0,
+      totalBaseEarnings,
+      totalBonusEarnings,
+      totalPotentialEarnings,
+      completedEarnings,
+      pendingEarnings,
+      averageAssetPrice,
+    });
+  };
+
   const filterAndSortAssets = () => {
     // Get all assets from all allocation lists
     const allAssets = allocationLists.flatMap((list) => list.assets);
@@ -872,10 +937,21 @@ export default function BatchDetailPage() {
       } else {
       }
 
-      toast.success("GLB file uploaded successfully!");
+      // Update local state to avoid collapsing the accordion
+      setAllocationLists((prev) => {
+        const updatedLists = prev.map((list) => ({
+          ...list,
+          assets: list.assets.map((a) =>
+            a.id === assetId
+              ? { ...a, glb_link: urlData.publicUrl, status: "in_production" }
+              : a
+          ),
+        }));
+        recalculateBatchStatsFromLists(updatedLists);
+        return updatedLists;
+      });
 
-      // Refresh the assets list
-      fetchBatchAssets();
+      toast.success("GLB file uploaded successfully!");
     } catch (error) {
       console.error("Error uploading GLB:", error);
       toast.error(
@@ -907,9 +983,8 @@ export default function BatchDetailPage() {
       }
 
       toast.success("File uploaded successfully!");
-
-      // Refresh the assets list
-      fetchBatchAssets();
+      // Refresh only the affected asset to keep UI state
+      await refreshAssetReferenceData(assetId);
     } catch (error) {
       console.error("Error uploading file:", error);
       toast.error(
@@ -1458,18 +1533,6 @@ export default function BatchDetailPage() {
                                 <h3 className="text-lg font-semibold text-foreground">
                                   Allocation #{allocationList.number}
                                 </h3>
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs font-medium ${
-                                    allocationList.status === "approved"
-                                      ? "bg-green-50 text-green-700 border-green-200"
-                                      : "bg-amber-50 text-amber-700 border-amber-200"
-                                  }`}
-                                >
-                                  {allocationList.status === "approved"
-                                    ? "✓ Approved"
-                                    : allocationList.status}
-                                </Badge>
                               </div>
                               <div className="flex items-center gap-6 text-sm text-muted-foreground">
                                 <div className="flex items-center gap-2">
@@ -1611,7 +1674,7 @@ export default function BatchDetailPage() {
                                   <TableHead className="w-12 py-2">
                                     Status
                                   </TableHead>
-                                  <TableHead className="py-2">
+                                  <TableHead className="w-32 py-2">
                                     Product Name
                                   </TableHead>
                                   <TableHead className="w-32 py-2">
@@ -1630,10 +1693,10 @@ export default function BatchDetailPage() {
                                     GLB
                                   </TableHead>
                                   <TableHead className="w-24 py-2">
-                                    Asset
+                                    References
                                   </TableHead>
                                   <TableHead className="w-20 py-2">
-                                    Actions
+                                    Feedback
                                   </TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -1759,7 +1822,7 @@ export default function BatchDetailPage() {
                                           }`}
                                         >
                                           {uploadingGLB === asset.id ? (
-                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1" />
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1 dark:border-border dark:text-muted-foreground text-foreground" />
                                           ) : (
                                             <Upload className="h-3 w-3 mr-1" />
                                           )}
@@ -1778,7 +1841,7 @@ export default function BatchDetailPage() {
                                             setSelectedAssetForView(asset);
                                             setShowViewRefDialog(true);
                                           }}
-                                          className="text-xs h-6 px-2 w-full border-gray-200 text-gray-700 hover:bg-gray-50"
+                                          className="text-xs h-6 px-2 w-full border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-border dark:hover:bg-muted/50 dark:text-muted-foreground"
                                         >
                                           <FileText className="h-3 w-3 mr-1" />
                                           Ref (
@@ -2035,7 +2098,7 @@ export default function BatchDetailPage() {
       >
         <DialogContent className="max-w-md h-fit">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 dark:text-muted-foreground dark:text-foreground text-foreground">
               <Upload className="h-5 w-5" />
               {currentUploadAsset?.glb_link
                 ? "Update GLB File"

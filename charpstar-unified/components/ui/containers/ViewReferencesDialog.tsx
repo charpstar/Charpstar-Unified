@@ -17,9 +17,11 @@ import {
   Download,
   ImageIcon,
   FileIcon,
+  Link2,
 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
+import { useUser } from "@/contexts/useUser";
 
 interface FileItem {
   url: string;
@@ -61,6 +63,8 @@ export function ViewReferencesDialog({
   onAddReference,
 }: ViewReferencesDialogProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const user = useUser();
+  const isModeler = user?.metadata?.role === "modeler";
 
   // Get all files (GLB + references)
   const allReferences = asset ? parseReferences(asset.reference) : [];
@@ -239,9 +243,11 @@ export function ViewReferencesDialog({
             <p className="text-muted-foreground dark:text-muted-foreground">
               No files found
             </p>
-            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
-              Click &quot;Add Reference&quot; to upload files
-            </p>
+            {onAddReference && !isModeler && (
+              <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                Click &quot;Add Reference&quot; to upload files
+              </p>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-border dark:border-border">
@@ -466,8 +472,10 @@ export function ViewReferencesDialog({
           {categories.other.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <FileIcon className="h-5 w-5 text-orange-500" />
-                <h3 className="font-semibold text-foreground">Other Files</h3>
+                <Link2 className="h-5 w-5 text-orange-500" />
+                <h3 className="font-semibold text-foreground">
+                  External Links
+                </h3>
                 <Badge variant="secondary" className="text-xs">
                   {categories.other.length}
                 </Badge>
@@ -479,7 +487,7 @@ export function ViewReferencesDialog({
                     className="flex items-center justify-between p-3 border rounded-lg dark:border-border dark:bg-muted/10"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <FileIcon className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                      <Link2 className="h-4 w-4 text-orange-500 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate dark:text-foreground">
                           {file.name}
@@ -506,7 +514,7 @@ export function ViewReferencesDialog({
         </div>
 
         <div className="flex gap-3 pt-4 border-t border-border dark:border-border">
-          {onAddReference && (
+          {onAddReference && !isModeler && (
             <Button
               onClick={onAddReference}
               variant="outline"
@@ -516,12 +524,6 @@ export function ViewReferencesDialog({
               Add Reference
             </Button>
           )}
-          <Button
-            onClick={() => onOpenChange(false)}
-            className="cursor-pointer"
-          >
-            Close
-          </Button>
         </div>
       </DialogContent>
     </Dialog>
