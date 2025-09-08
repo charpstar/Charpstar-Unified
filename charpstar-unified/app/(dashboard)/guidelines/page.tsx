@@ -983,12 +983,6 @@ export default function GuidelinesPage() {
           Charpstar&apos;s Welcome Guide
         </h1>
         <p className="text-xl text-muted-foreground">For New 3D Modelers</p>
-        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-          <Clock className="h-4 w-4" />
-          <span>
-            Interactive Meeting: What Motivates You to Create 3D Models
-          </span>
-        </div>
       </div>
 
       {/* Guidelines Sections */}
