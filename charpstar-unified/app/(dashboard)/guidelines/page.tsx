@@ -3,6 +3,7 @@
 import { useUser } from "@/contexts/useUser";
 import { useRouter } from "next/navigation";
 import { useLoading } from "@/contexts/LoadingContext";
+import Image from "next/image";
 
 import {
   Card,
@@ -257,17 +258,37 @@ export default function GuidelinesPage() {
             </div>
           </div>
 
-          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+          <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
             <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-              <span className="font-medium text-red-800">
-                Software to Avoid for GLB Export
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <span className="font-medium text-amber-800">
+                Software to use with caution for GLB Export
               </span>
             </div>
-            <p className="text-sm text-red-700">
-              <strong>Substance Painter GLB Exporter:</strong> File size is too
-              high and GLB file is not optimized.
-            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h5 className="font-medium text-amber-800 mb-2">Pros</h5>
+                <ul className="text-sm text-amber-700 space-y-1 list-disc list-inside">
+                  <li>Effective for color testing</li>
+                  <li>Provides advanced color management tools</li>
+                  <li>Fast export and iteration workflow</li>
+                  <li>
+                    Supports direct hex color transfer from Substance Painter to
+                    Blender
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h5 className="font-medium text-amber-800 mb-2">Cons</h5>
+                <ul className="text-sm text-amber-700 space-y-1 list-disc list-inside">
+                  <li>
+                    File size is too big because this software uses PNG as a
+                    default file format
+                  </li>
+                  <li>Needs extra optimization: change all textures to JPEG</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       ),
@@ -335,9 +356,23 @@ export default function GuidelinesPage() {
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-purple-600" />
                   <span>
-                    <strong>Transformation:</strong> Needed in every mesh
+                    <strong>Transformations:</strong> Make sure the mesh has
+                    clean transforms (position, rotation, and scale applied).
                   </span>
                 </div>
+              </div>
+              <div className="mt-3 rounded-lg border border-purple-200 bg-white p-3 dark:bg-neutral-900 dark:border-purple-900/40">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Example (Blender): Backface Culling enabled and Double Sided
+                  OFF
+                </p>
+                <Image
+                  src="/images/GUIDE.png"
+                  alt="Blender material settings illustrating backface culling and double sided off"
+                  width={454}
+                  height={266}
+                  className="rounded-md border border-border/50"
+                />
               </div>
             </div>
           </div>
@@ -417,15 +452,34 @@ export default function GuidelinesPage() {
               <div className="space-y-3">
                 <div className="bg-white p-3 rounded border border-amber-200">
                   <h5 className="font-medium text-amber-800 mb-2">
-                    Why Avoid This Method?
+                    Why Use This Method?
                   </h5>
-                  <ul className="text-sm text-amber-700 space-y-1">
-                    <li>• 0 to 1 ratio UV mapping must be maintained</li>
-                    <li>• Can&apos;t scale UVs</li>
-                    <li>• Texture blur and distortions</li>
-                    <li>• Big file sizes</li>
-                    <li>• Texture details lost after GLB export</li>
+                  <p className="text-sm text-amber-700">
+                    Ensures physical accuracy and is well-suited for highly
+                    detailed areas.
+                  </p>
+                </div>
+
+                <div className="bg-white p-3 rounded border border-amber-200">
+                  <h5 className="font-medium text-amber-800 mb-2">
+                    Limitations
+                  </h5>
+                  <ul className="text-sm text-amber-700 space-y-1 list-disc list-inside">
+                    <li>0 to 1 ratio UV mapping must be maintained</li>
+                    <li>Can&apos;t scale UVs</li>
+                    <li>Texture blur and distortions</li>
+                    <li>Big file sizes</li>
+                    <li>Texture details lost after GLB export</li>
                   </ul>
+                </div>
+
+                <div className="bg-white p-3 rounded border border-amber-200">
+                  <h5 className="font-medium text-amber-800 mb-2">Best For</h5>
+                  <p className="text-sm text-amber-700">
+                    Highly detailed areas where replicating the detail with
+                    tileables would be extremely difficult. Even where possible,
+                    it could require an excessive number of materials.
+                  </p>
                 </div>
               </div>
             </div>

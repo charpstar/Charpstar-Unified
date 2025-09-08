@@ -9,14 +9,17 @@ import { cleanupEmptyAllocationLists } from "@/lib/allocationListCleanup";
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[assign] POST /api/assets/assign: start");
     const supabaseAuth = createRouteHandlerClient({ cookies });
     const {
       data: { user },
     } = await supabaseAuth.auth.getUser();
 
     if (!user) {
+      console.log("[assign] auth: no user");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    console.log("[assign] auth: user", user.id);
 
     // Check if user is admin
     const { data: profile } = await supabase
@@ -34,6 +37,15 @@ export async function POST(request: NextRequest) {
 
     const { assetIds, userIds, role, deadline, bonus, allocationName, prices } =
       await request.json();
+    console.log("[assign] input:", {
+      assetIdsCount: Array.isArray(assetIds) ? assetIds.length : 0,
+      userIdsCount: Array.isArray(userIds) ? userIds.length : 0,
+      role,
+      deadline,
+      bonus,
+      allocationName,
+      pricesKeys: prices ? Object.keys(prices).length : 0,
+    });
 
     if (!assetIds || !userIds || !role) {
       return NextResponse.json(
@@ -59,6 +71,11 @@ export async function POST(request: NextRequest) {
     // For modeler assignments, create allocation lists
     if (role === "modeler") {
       // First, remove any existing modeler assignments for these assets
+      console.log(
+        "[assign] cleanup: removing existing modeler assignments for",
+        assetIds?.length,
+        "assets"
+      );
       const { error: deleteError } = await supabaseAdmin
         .from("asset_assignments")
         .delete()
@@ -75,6 +92,7 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+      console.log("[assign] cleanup: done");
 
       // Create allocation lists for each modeler
       const allocationLists = [];
@@ -83,6 +101,7 @@ export async function POST(request: NextRequest) {
 
       for (const userId of userIds) {
         // Create allocation list
+        console.log("[assign] allocation: creating list for user", userId);
         const allocationList = {
           name:
             allocationName ||
@@ -110,6 +129,10 @@ export async function POST(request: NextRequest) {
         }
 
         allocationLists.push(listData);
+        console.log("[assign] allocation: list created", {
+          listId: listData.id,
+          userId,
+        });
 
         // Create asset assignments linked to this allocation list
         for (const assetId of assetIds) {
@@ -131,9 +154,16 @@ export async function POST(request: NextRequest) {
             allocationListId: listData.id,
           });
         }
+        console.log(
+          "[assign] allocation: prepared",
+          assetIds.length,
+          "assignments for user",
+          userId
+        );
       }
 
       // Insert all assignments
+      console.log("[assign] insert: inserting assignments", assignments.length);
       const { data, error } = await supabaseAdmin
         .from("asset_assignments")
         .insert(assignments);
@@ -145,11 +175,13 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+      console.log("[assign] insert: done", { inserted: assignments.length });
 
       // Send notifications to assigned modelers
       try {
         for (const userId of userIds) {
           // Get user details
+          console.log("[assign] notify: fetching profile for", userId);
           const { data: userProfile, error: userError } = await supabase
             .from("profiles")
             .select("email")
@@ -163,12 +195,20 @@ export async function POST(request: NextRequest) {
             );
             continue;
           }
+          console.log("[assign] notify: profile", {
+            userId,
+            email: userProfile.email,
+          });
 
           // Get asset details for this user's assignments
           const userAssignments = assignments.filter(
             (a) => a.user_id === userId
           );
           const assetIds = userAssignments.map((a) => a.asset_id);
+          console.log("[assign] notify: user assignments", {
+            userId,
+            assets: assetIds.length,
+          });
 
           // Get asset names
           const { data: assetDetails, error: assetError } = await supabase
@@ -187,6 +227,15 @@ export async function POST(request: NextRequest) {
             (sum, a) => sum + (a.price || 0),
             0
           );
+          console.log("[assign] notify: sending", {
+            userId,
+            email: userProfile.email,
+            client,
+            assetCount: assetNames.length,
+            totalPrice,
+            deadline,
+            bonus,
+          });
 
           // Send notification
           await notificationService.sendAssetAllocationNotification({
@@ -199,6 +248,7 @@ export async function POST(request: NextRequest) {
             bonus: bonus || 0,
             client: client,
           });
+          console.log("[assign] notify: done for", userId);
         }
       } catch (notificationError) {
         console.error("Failed to send notifications:", notificationError);
@@ -206,6 +256,7 @@ export async function POST(request: NextRequest) {
       }
 
       const message = `Successfully created ${allocationLists.length} allocation list(s) with ${assignments.length} asset(s) (auto-accepted)`;
+      console.log("[assign] success:", message);
 
       return NextResponse.json({
         message: message,

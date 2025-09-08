@@ -20,7 +20,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { getPriorityLabel } from "@/lib/constants";
 
 // Helper function to get priority CSS class
@@ -35,6 +35,31 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/display/chart";
+
+// Reusable header for QA widgets
+function QAWidgetHeader({
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 mb-6">
+      <div className="p-2 bg-muted rounded-lg">
+        <Icon className="h-5 w-5 text-foreground" />
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        {subtitle ? (
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 interface ModelerProgress {
   id: string;
@@ -354,15 +379,11 @@ export default function QAWidgets() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-gray-100 rounded-lg">
-          <Users className="h-5 w-5 text-gray-600" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Projects</h3>
-          <p className="text-sm text-gray-500">Your allocated project teams</p>
-        </div>
-      </div>
+      <QAWidgetHeader
+        icon={Users}
+        title="Projects"
+        subtitle="Your allocated project teams"
+      />
       <div className="flex-1 min-h-0">
         <div className="max-h-[60vh] overflow-y-auto space-y-4">
           {projects.map((p) => {
@@ -446,7 +467,10 @@ export function PersonalMetricsWidget() {
   const user = useUser();
   const [metrics, setMetrics] = useState<PersonalMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [modelsToReview, setModelsToReview] = useState<number>(0);
+  // Interactive selection of a day from the chart
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   // Custom event listener to track QA approval actions
   useEffect(() => {
@@ -507,6 +531,18 @@ export function PersonalMetricsWidget() {
         console.error("Error fetching QA comments:", commentError);
       }
 
+      // 2b. Get annotations made by this QA (count as reviewed)
+      const { data: qaAnnotations, error: annotationError } = await supabase
+        .from("asset_annotations")
+        .select("created_at")
+        .eq("created_by", user?.id)
+        .gte("created_at", sevenDaysAgo.toISOString())
+        .order("created_at", { ascending: true });
+
+      if (annotationError) {
+        console.error("Error fetching QA annotations:", annotationError);
+      }
+
       // 3. Get QA allocations to find assets this QA is responsible for
       const { error: allocationError } = await supabase
         .from("qa_allocations")
@@ -517,26 +553,31 @@ export function PersonalMetricsWidget() {
         console.error("Error fetching QA allocations:", allocationError);
       }
 
-      // 4. Track QA approval actions from qa_approvals table
-      const qaApprovals: { assetId: string; approvedAt: string }[] = [];
+      // 4. Track QA approval actions from activity_log (approved status changes)
+      const qaApprovals: { approvedAt: string }[] = [];
 
-      // Get QA approvals from the dedicated table
-      const { data: approvalRecords, error: approvalError } = await supabase
-        .from("qa_approvals")
-        .select("asset_id, approved_at")
-        .eq("qa_id", user?.id)
-        .gte("approved_at", sevenDaysAgo.toISOString())
-        .order("approved_at", { ascending: true });
+      const { data: approvalActivities, error: approvalActivityError } =
+        await supabase
+          .from("activity_log")
+          .select("created_at, metadata, resource_type, type")
+          .eq("user_id", user?.id)
+          .eq("resource_type", "asset")
+          .eq("type", "update")
+          .gte("created_at", sevenDaysAgo.toISOString())
+          .order("created_at", { ascending: true });
 
-      if (approvalError) {
-        console.error("Error fetching QA approvals:", approvalError);
-      } else if (approvalRecords) {
-        qaApprovals.push(
-          ...approvalRecords.map((record) => ({
-            assetId: record.asset_id,
-            approvedAt: record.approved_at,
-          }))
+      if (approvalActivityError) {
+        console.error(
+          "Error fetching approval activities:",
+          approvalActivityError
         );
+      } else if (approvalActivities) {
+        approvalActivities.forEach((act: any) => {
+          const newStatus = act?.metadata?.new_status;
+          if (newStatus === "approved") {
+            qaApprovals.push({ approvedAt: act.created_at });
+          }
+        });
       }
 
       // Process revision history (these are "Send for Revision" actions)
@@ -557,7 +598,15 @@ export function PersonalMetricsWidget() {
         }
       });
 
-      // Process QA approval actions (tracked via localStorage)
+      // Process annotations (each annotation counts as a review action)
+      qaAnnotations?.forEach((annotation) => {
+        const dateStr = annotation.created_at.split("T")[0];
+        if (dailyMetrics[dateStr]) {
+          dailyMetrics[dateStr].reviewed++;
+        }
+      });
+
+      // Process QA approval actions (from activity log)
       qaApprovals.forEach((approval) => {
         const dateStr = approval.approvedAt.split("T")[0];
         if (dailyMetrics[dateStr]) {
@@ -701,19 +750,11 @@ export function PersonalMetricsWidget() {
   if (loading) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-gray-100 rounded-lg">
-            <BarChart3 className="h-5 w-5 text-gray-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Personal Metrics
-            </h3>
-            <p className="text-sm text-gray-500">
-              Your QA performance overview
-            </p>
-          </div>
-        </div>
+        <QAWidgetHeader
+          icon={BarChart3}
+          title="Personal Metrics"
+          subtitle="Your QA performance overview"
+        />
         <div className="flex-1 space-y-4">
           <div className="grid grid-cols-3 gap-4 h-50">
             <div className="bg-card h-20 border border-border rounded-xl p-4 shadow-sm"></div>
@@ -731,19 +772,11 @@ export function PersonalMetricsWidget() {
   if (!metrics) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-gray-100 rounded-lg">
-            <BarChart3 className="h-5 w-5 text-gray-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Personal Metrics
-            </h3>
-            <p className="text-sm text-gray-500">
-              Your QA performance overview
-            </p>
-          </div>
-        </div>
+        <QAWidgetHeader
+          icon={BarChart3}
+          title="Personal Metrics"
+          subtitle="Your QA performance overview"
+        />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center py-12">
             <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
@@ -762,9 +795,12 @@ export function PersonalMetricsWidget() {
     );
   }
 
-  // Transform data for the new chart format
+  // Transform data for the new chart format (include raw date for selection)
   const chartData = metrics.weeklyData.map((day) => ({
-    day: new Date(day.date).toLocaleDateString("en-US", { weekday: "short" }),
+    dayLabel: new Date(day.date).toLocaleDateString("en-US", {
+      weekday: "short",
+    }),
+    date: day.date,
     reviewed: day.reviewed,
     approved: day.approved,
   }));
@@ -780,6 +816,11 @@ export function PersonalMetricsWidget() {
     },
   } satisfies ChartConfig;
 
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const selectedDayData = selectedDay
+    ? chartData.find((d) => d.date === selectedDay)
+    : null;
+
   // Calculate trend percentage
   const totalReviewed = metrics.weeklyData.reduce(
     (sum, day) => sum + day.reviewed,
@@ -789,6 +830,7 @@ export function PersonalMetricsWidget() {
     (sum, day) => sum + day.approved,
     0
   );
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const trendPercentage =
     totalReviewed > 0
       ? ((totalApproved / totalReviewed) * 100).toFixed(1)
@@ -796,62 +838,16 @@ export function PersonalMetricsWidget() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-gray-100 rounded-lg">
-          <BarChart3 className="h-5 w-5 text-gray-600" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            Personal Metrics
-          </h3>
-          <p className="text-sm text-gray-500">Your QA performance overview</p>
-        </div>
-      </div>
+      <QAWidgetHeader
+        icon={BarChart3}
+        title="Personal Metrics"
+        subtitle="Your QA performance overview"
+      />
 
       <div className="flex-1 space-y-6">
         {/* Key Statistics */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Reviewed
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">
-              {totalReviewed}
-            </p>
-            <p className="text-xs text-muted-foreground">Last 7 days</p>
-          </div>
 
-          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="h-4 w-4 text-blue-600" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Approved
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">
-              {totalApproved}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {trendPercentage}% rate
-            </p>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className="h-4 w-4 text-amber-600" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                To Review
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-foreground">
-              {modelsToReview}
-            </p>
-            <p className="text-xs text-muted-foreground">Pending assets</p>
-          </div>
-        </div>
+        {/* Selected day overview */}
 
         {/* Chart */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
@@ -863,8 +859,8 @@ export function PersonalMetricsWidget() {
               Daily review and approval trends
             </p>
           </div>
-          <div className="h-70">
-            <ChartContainer config={chartConfig} className="h-70 w-full">
+          <div className="h-50">
+            <ChartContainer config={chartConfig} className="h-50 w-full">
               <BarChart accessibilityLayer data={chartData} height={96}>
                 <CartesianGrid
                   vertical={false}
@@ -872,10 +868,17 @@ export function PersonalMetricsWidget() {
                   stroke="#e5e7eb"
                 />
                 <XAxis
-                  dataKey="day"
+                  dataKey="dayLabel"
                   tickLine={false}
                   tickMargin={10}
                   axisLine={false}
+                  fontSize={12}
+                  fill="#6b7280"
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={10}
                   fontSize={12}
                   fill="#6b7280"
                 />
@@ -888,12 +891,20 @@ export function PersonalMetricsWidget() {
                   fill="#3b82f6"
                   radius={[2, 2, 0, 0]}
                   name="Reviewed"
+                  onClick={(data: any) => {
+                    const date = data?.payload?.date as string | undefined;
+                    if (date) setSelectedDay(date);
+                  }}
                 />
                 <Bar
                   dataKey="approved"
                   fill="#10b981"
                   radius={[2, 2, 0, 0]}
                   name="Approved"
+                  onClick={(data: any) => {
+                    const date = data?.payload?.date as string | undefined;
+                    if (date) setSelectedDay(date);
+                  }}
                 />
               </BarChart>
             </ChartContainer>
@@ -1036,19 +1047,11 @@ export function WaitingForApprovalWidget() {
   if (loading) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-gray-100 rounded-lg">
-            <Clock className="h-5 w-5 text-gray-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Waiting for Approval
-            </h3>
-            <p className="text-sm text-gray-500">
-              Assets ready for your review
-            </p>
-          </div>
-        </div>
+        <QAWidgetHeader
+          icon={Clock}
+          title="Waiting for Approval"
+          subtitle="Assets ready for your review"
+        />
         <div className="flex-1 space-y-3">
           {[...Array(4)].map((_, i) => (
             <div
@@ -1076,19 +1079,11 @@ export function WaitingForApprovalWidget() {
   if (assets.length === 0) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-gray-100 rounded-lg">
-            <Clock className="h-5 w-5 text-gray-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Waiting for Approval
-            </h3>
-            <p className="text-sm text-gray-500">
-              Assets ready for your review
-            </p>
-          </div>
-        </div>
+        <QAWidgetHeader
+          icon={Clock}
+          title="Waiting for Approval"
+          subtitle="Assets ready for your review"
+        />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center py-12">
             <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
@@ -1108,19 +1103,11 @@ export function WaitingForApprovalWidget() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-muted rounded-lg">
-            <Clock className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              Waiting for Approval
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Assets ready for your review
-            </p>
-          </div>
-        </div>
+        <QAWidgetHeader
+          icon={Clock}
+          title="Waiting for Approval"
+          subtitle="Assets ready for your review"
+        />
         <div className="bg-muted px-3 py-1 rounded-full">
           <span className="text-sm font-semibold text-muted-foreground">
             {assets.length}

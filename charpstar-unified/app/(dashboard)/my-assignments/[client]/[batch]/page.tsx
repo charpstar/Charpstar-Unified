@@ -56,6 +56,7 @@ import {
   X,
   FileText,
   Link2,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -217,6 +218,8 @@ export default function BatchDetailPage() {
     []
   );
   const [clientGuideUrls, setClientGuideUrls] = useState<string[]>([]);
+  // Persisted expanded allocations in accordion
+  const [expandedAllocations, setExpandedAllocations] = useState<string[]>([]);
 
   // Add Ref dialog state
   const [showAddRefDialog, setShowAddRefDialog] = useState(false);
@@ -230,6 +233,23 @@ export default function BatchDetailPage() {
 
   useEffect(() => {
     document.title = `CharpstAR Platform - ${client} Batch ${batch}`;
+  }, [client, batch]);
+
+  // Load persisted expanded accordion state
+  useEffect(() => {
+    try {
+      const storageKey = `myAssignmentsAccordion:${client}:${batch}`;
+      const saved =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(storageKey)
+          : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setExpandedAllocations(parsed.filter((v) => typeof v === "string"));
+        }
+      }
+    } catch {}
   }, [client, batch]);
 
   useEffect(() => {
@@ -324,6 +344,20 @@ export default function BatchDetailPage() {
       checkForPreviousModelerFiles();
     }
   }, [allocationLists]);
+
+  // Keep expanded state in sync with available allocation ids
+  useEffect(() => {
+    if (!allocationLists?.length) return;
+    const ids = new Set(allocationLists.map((a) => a.id));
+    const filtered = expandedAllocations.filter((id) => ids.has(id));
+    if (filtered.length !== expandedAllocations.length) {
+      setExpandedAllocations(filtered);
+      try {
+        const storageKey = `myAssignmentsAccordion:${client}:${batch}`;
+        window.localStorage.setItem(storageKey, JSON.stringify(filtered));
+      } catch {}
+    }
+  }, [allocationLists, expandedAllocations, client, batch]);
 
   // Check for previous modeler files for re-allocated assets
   const checkForPreviousModelerFiles = async () => {
@@ -1492,7 +1526,19 @@ export default function BatchDetailPage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            <Accordion type="multiple" className="space-y-4">
+            <Accordion
+              type="multiple"
+              value={expandedAllocations}
+              onValueChange={(vals) => {
+                const next = Array.isArray(vals) ? (vals as string[]) : [];
+                setExpandedAllocations(next);
+                try {
+                  const storageKey = `myAssignmentsAccordion:${client}:${batch}`;
+                  window.localStorage.setItem(storageKey, JSON.stringify(next));
+                } catch {}
+              }}
+              className="space-y-4"
+            >
               {allocationLists.map((allocationList) => {
                 const visibleAssets = sortAssetsByStatus(
                   allocationList.assets.filter((a) =>
@@ -1506,24 +1552,28 @@ export default function BatchDetailPage() {
                     key={allocationList.id}
                   >
                     <div
-                      className={`bg-card border-2 rounded-xl shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md ${
+                      className={`group relative overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:shadow-xl backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ${
                         isOverdue(allocationList.deadline)
-                          ? "border-red-200 bg-red-50/30"
+                          ? "border-red-200/60 bg-white/60 dark:bg-white/5"
                           : allocationList.status === "approved"
-                            ? "border-green-200 bg-green-50/30"
-                            : "border-border hover:border-primary/30"
+                            ? "border-emerald-200/60 bg-white/60 dark:bg-white/5"
+                            : "border-border/60 bg-white/60 dark:bg-white/5 hover:border-primary/40"
                       }`}
                     >
-                      <AccordionTrigger className="px-6 py-5 hover:bg-muted/30 transition-all duration-200">
+                      {/* Accents */}
+                      <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
+                      <div className="pointer-events-none absolute -bottom-10 -left-10 h-24 w-24 rounded-full bg-accent-purple/10 blur-2xl" />
+
+                      <AccordionTrigger className="relative px-6 py-5 transition-all duration-200 hover:bg-black/3.5 dark:hover:bg-white/5">
                         <div className="flex items-center justify-between w-full">
                           <div className="flex items-start gap-4">
                             <div
-                              className={`p-3 rounded-xl shadow-sm ${
+                              className={`p-3 rounded-xl shadow-sm transition-all ${
                                 isOverdue(allocationList.deadline)
                                   ? "bg-red-100 text-red-600"
                                   : allocationList.status === "approved"
                                     ? "bg-green-100 text-green-600"
-                                    : "bg-primary/10 text-primary"
+                                    : "bg-primary/10 text-primary group-hover:bg-primary/15"
                               }`}
                             >
                               <Package className="h-5 w-5" />
@@ -1601,11 +1651,40 @@ export default function BatchDetailPage() {
                                       <Link2 className="h-3 w-3 text-muted-foreground" />
                                     </div>
                                     <span className="italic text-muted-foreground">
-                                      No guidelines found – contact production
-                                      team
+                                      No guidelines found for client – See
+                                      general guidelines page
                                     </span>
                                   </div>
                                 )}
+                              </div>
+                              {/* Progress */}
+                              <div className="mt-2">
+                                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                  <span>Progress</span>
+                                  <span className="font-medium">
+                                    {visibleAssets.length
+                                      ? Math.round(
+                                          (visibleAssets.filter(
+                                            (a) =>
+                                              a.status ===
+                                                "approved_by_client" ||
+                                              a.status === "approved"
+                                          ).length /
+                                            visibleAssets.length) *
+                                            100
+                                        )
+                                      : 0}
+                                    %
+                                  </span>
+                                </div>
+                                <div className="h-2 w-full rounded-full bg-muted/70 overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-700"
+                                    style={{
+                                      width: `${visibleAssets.length ? (visibleAssets.filter((a) => a.status === "approved_by_client" || a.status === "approved").length / visibleAssets.length) * 100 : 0}%`,
+                                    }}
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1662,6 +1741,7 @@ export default function BatchDetailPage() {
                                 </div>
                               </div>
                             )}
+                            <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                           </div>
                         </div>
                       </AccordionTrigger>

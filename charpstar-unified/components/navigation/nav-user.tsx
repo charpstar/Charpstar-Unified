@@ -193,7 +193,13 @@ export default function NavUser() {
   const email = supaUser?.email || "No email";
 
   const { isMobile } = useSidebar();
-  const { theme, setTheme } = useTheme();
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleLogout = async () => {
     // Remove any extra session data YOUR app stores
@@ -225,14 +231,18 @@ export default function NavUser() {
             transition={{ duration: 0.2 }}
             className="items-center"
           >
-            <Switch
-              checked={theme === "dark"}
-              onCheckedChange={(checked) =>
-                setTheme(checked ? "dark" : "light")
-              }
-              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200"
-              data-tour="theme-switcher"
-            />
+            {mounted ? (
+              <Switch
+                checked={resolvedTheme === "dark"}
+                onCheckedChange={(checked) =>
+                  setTheme(checked ? "dark" : "light")
+                }
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 cursor-pointer transition-all duration-200"
+                data-tour="theme-switcher"
+              />
+            ) : (
+              <div className="h-6 w-11 rounded-full bg-muted" />
+            )}
           </motion.div>
 
           <div className="flex items-center gap-2 pb-2">

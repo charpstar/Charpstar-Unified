@@ -441,7 +441,7 @@ export default function AdminClientsPage() {
                       </div>
                       {client.isPlaceholder && (
                         <div className="text-xs text-amber-700 mt-1">
-                          Please fill in client info for this client
+                          Please fill in info for this client
                         </div>
                       )}
                     </div>

@@ -57,30 +57,12 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
   if (isAdmin) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 ">
-        <Card
-          className="
-          rounded-2xl bg-background 
-          shadow-[inset_0_0_12px_rgba(0,0,0,0.25)] 
-          dark:shadow-[inset_0_0_12px_rgba(0,0,0,0.6)]
-          hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.35)]
-          dark:hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]
-          transition-all duration-300
-        "
-        >
-          <CardContent className="p-6">{profileContent}</CardContent>
+        <Card className="p-6 rounded-2xl border-none bg-background  shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">{profileContent}</CardContent>
         </Card>
 
-        <Card
-          className="
-          rounded-2xl bg-background 
-          shadow-[inset_0_0_12px_rgba(0,0,0,0.25)] 
-          dark:shadow-[inset_0_0_12px_rgba(0,0,0,0.6)]
-          hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.35)]
-          dark:hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]
-          transition-all duration-300
-        "
-        >
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <Suspense
               fallback={
                 <div className="h-32 bg-muted animate-pulse rounded-lg" />
@@ -91,34 +73,16 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
           </CardContent>
         </Card>
 
-        <Card
-          className="
-          rounded-2xl bg-background 
-          shadow-[inset_0_0_12px_rgba(0,0,0,0.25)] 
-          dark:shadow-[inset_0_0_12px_rgba(0,0,0,0.6)]
-          hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.35)]
-          dark:hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]
-          transition-all duration-300
-        "
-        >
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <ErrorBoundary>
               <AdminPipelineWidget />
             </ErrorBoundary>
           </CardContent>
         </Card>
 
-        <Card
-          className="
-          rounded-2xl bg-background 
-          shadow-[inset_0_0_12px_rgba(0,0,0,0.25)] 
-          dark:shadow-[inset_0_0_12px_rgba(0,0,0,0.6)]
-          hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.35)]
-          dark:hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]
-          transition-all duration-300
-        "
-        >
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background  shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <ErrorBoundary>
               <AdminQueuesWidget />
             </ErrorBoundary>
@@ -133,12 +97,12 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Row 1 */}
-        <Card className="p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
           <CardContent>{profileContent}</CardContent>
         </Card>
 
-        <Card className="p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <Suspense
               fallback={
                 <div className="h-32 bg-muted animate-pulse rounded-lg" />
@@ -150,16 +114,16 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
         </Card>
 
         {/* Row 2 */}
-        <Card className="p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <ErrorBoundary>
               <ClientActionCenterWidget />
             </ErrorBoundary>
           </CardContent>
         </Card>
 
-        <Card className="p-8 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <ErrorBoundary>
               <StatusPieChartWidget />
             </ErrorBoundary>
@@ -174,12 +138,12 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Row 1 */}
-        <Card className="p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">{profileContent}</CardContent>
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">{profileContent}</CardContent>
         </Card>
 
-        <Card className="p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <ErrorBoundary>
               <ModelerQuickActionsWidget />
             </ErrorBoundary>
@@ -187,8 +151,8 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
         </Card>
 
         {/* Row 2 */}
-        <Card className="md:col-span-2 p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <ErrorBoundary>
               <ModelerStatsWidget />
             </ErrorBoundary>
@@ -197,8 +161,8 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
 
         {/* Row 3: Pending Assignments card removed for modelers */}
 
-        <Card className="h-4/4 p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="h-4/4 p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="h-4/4 ">
             <ErrorBoundary>
               <ModelerEarningsWidget />
             </ErrorBoundary>
@@ -213,33 +177,21 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Row 1 */}
-        <Card className="p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">{profileContent}</CardContent>
-        </Card>
-
-        <Card className="p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">
-            <Suspense
-              fallback={
-                <div className="h-32 bg-muted animate-pulse rounded-lg" />
-              }
-            >
-              <LazyQuickActionsWidget />
-            </Suspense>
-          </CardContent>
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">{profileContent}</CardContent>
         </Card>
 
         {/* Row 2 */}
-        <Card className="h-4/4 p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <ErrorBoundary>
               <PersonalMetricsWidget />
             </ErrorBoundary>
           </CardContent>
         </Card>
 
-        <Card className="h-4/4 p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <ErrorBoundary>
               <QAWidgets />
             </ErrorBoundary>
@@ -247,8 +199,8 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
         </Card>
 
         {/* Row 3 */}
-        <Card className="md:col-span-2 p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-          <CardContent className="p-6">
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
             <ErrorBoundary>
               <WaitingForApprovalWidget />
             </ErrorBoundary>
@@ -261,12 +213,12 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
   // Default layout for unknown roles
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <Card className="p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-        <CardContent className="p-6">{profileContent}</CardContent>
+      <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+        <CardContent className="">{profileContent}</CardContent>
       </Card>
 
-      <Card className="p-6 rounded-2xl bg-background shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.05)] hover:shadow-[inset_6px_6px_16px_rgba(0,0,0,0.35),inset_6px_6px_16px_rgba(255,255,255,0.08)] transition-all duration-300">
-        <CardContent className="p-6">
+      <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+        <CardContent className="">
           <Suspense
             fallback={
               <div className="h-32 bg-muted animate-pulse rounded-lg" />

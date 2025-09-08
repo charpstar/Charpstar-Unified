@@ -17,6 +17,30 @@ import {
   Package,
   FileText,
 } from "lucide-react";
+// Reuse QA header style locally
+function QAHeader({
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 mb-6">
+      <div className="p-2 bg-muted rounded-lg">
+        <Icon className="h-5 w-5 text-foreground" />
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        {subtitle ? (
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 // Helper function to get priority CSS class
 const getPriorityClass = (priority: number): string => {
@@ -190,42 +214,38 @@ export function ModelerStatsWidget() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-xl font-bold text-foreground mb-1">
-            Assignment Overview
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Track your current workload and progress
-          </p>
-        </div>
-      </div>
+      <QAHeader
+        icon={Package}
+        title="Assignment Overview"
+        subtitle="Track your current workload and progress"
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1">
-        {statCards.map((stat, index) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+        {statCards.map((stat, index: number) => (
           <div
             key={index}
             className={`
-              group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ease-out
-              hover:scale-105 hover:shadow-xl hover:shadow-black/5
+              group relative overflow-hidden rounded-2xl border transition-all duration-300 ease-out min-h-[64px]
+              hover:scale-102 hover:shadow-xl hover:shadow-black/5
               ${stat.bgColor} ${stat.borderColor}
               ${loading ? "animate-pulse" : ""}
+              ${index === 0 ? "sm:col-span-2 min-h-[72px]" : ""}
             `}
           >
             {/* Background Pattern */}
             <div className="absolute inset-0 opacity-5">
-              <div className="absolute top-0 right-0 w-20 h-20 transform rotate-45 translate-x-8 -translate-y-8 bg-current rounded-full"></div>
-              <div className="absolute bottom-0 left-0 w-16 h-16 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
+              <div className="absolute top-0 right-0 w-14 h-14 transform rotate-45 translate-x-6 -translate-y-8 bg-current rounded-full"></div>
+              <div className="absolute bottom-0 left-0 w-12 h-12 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
             </div>
 
             {/* Content */}
-            <div className="relative p-6 h-full flex flex-col justify-between">
+            <div className="relative p-2.5 h-full flex flex-col justify-between">
               {/* Header */}
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-1.5">
                 <div
-                  className={`p-3 rounded-xl ${stat.iconBg} shadow-lg shadow-black/10`}
+                  className={`p-0 rounded-xl ${stat.iconBg} shadow-lg shadow-black/10`}
                 >
-                  <stat.icon className="h-5 w-5 text-white" />
+                  <stat.icon className="h-4 w-4 text-white" />
                 </div>
                 {!loading && stat.trend === "positive" && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-emerald-100 rounded-full">
@@ -244,10 +264,8 @@ export function ModelerStatsWidget() {
               </div>
 
               {/* Stats */}
-              <div className="space-y-2">
-                <p
-                  className={`text-3xl font-bold ${stat.color} transition-all duration-300 group-hover:scale-110`}
-                >
+              <div className="space-y-1.5">
+                <p className={`text-2xl font-bold ${stat.color} scale-102`}>
                   {stat.value}
                 </p>
                 <div>
@@ -264,7 +282,7 @@ export function ModelerStatsWidget() {
               {!loading &&
                 stat.title === "In Progress" &&
                 stats.inProgress > 0 && (
-                  <div className="mt-4">
+                  <div className="mt-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                       <span>Progress</span>
                       <span>
@@ -291,7 +309,7 @@ export function ModelerStatsWidget() {
 
             {/* Bottom Accent */}
             <div
-              className={`absolute bottom-0 left-0 right-0 h-1 ${stat.iconBg} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
+              className={`absolute bottom-0 left-0 right-0 h-0.5 ${stat.iconBg} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
             ></div>
           </div>
         ))}
@@ -411,7 +429,7 @@ export function AssignedModelsWidget() {
   return (
     <div className="space-y-4 min-h-[283px]">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Recent Assigned Models</h3>
+        <QAHeader icon={Package} title="Recent Assigned Models" />
         <Button
           variant="outline"
           size="sm"
@@ -776,16 +794,11 @@ export function ModelerEarningsWidget() {
 
   return (
     <div className="h-full flex flex-col min-h-[400px]">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-xl font-bold text-foreground mb-1">
-            Earnings & Performance
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Your earnings over the last 15 days
-          </p>
-        </div>
-      </div>
+      <QAHeader
+        icon={CheckCircle}
+        title="Earnings & Performance"
+        subtitle="Your earnings over the last 15 days"
+      />
 
       {/* Chart Container */}
       <div className="flex-1 mb-6">
@@ -794,7 +807,7 @@ export function ModelerEarningsWidget() {
 
           <div className="relative">
             {earningsData.chartData.length > 0 ? (
-              <ChartContainer className="h-48" config={chartConfig}>
+              <ChartContainer className="h-68" config={chartConfig}>
                 <LineChart
                   accessibilityLayer
                   data={earningsData.chartData}
@@ -998,16 +1011,11 @@ export function ModelerQuickActionsWidget() {
 
   return (
     <div className="h-full flex flex-col flex-1">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-xl font-bold text-foreground mb-1">
-            Quick Actions
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Access your most important tools and workflows
-          </p>
-        </div>
-      </div>
+      <QAHeader
+        icon={FileText}
+        title="Quick Actions"
+        subtitle="Access your most important tools and workflows"
+      />
 
       <div className="grid grid-cols-2 gap-4 flex-1">
         {actions.map((action, index) => (

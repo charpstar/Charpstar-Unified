@@ -5,12 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { supabase } from "@/lib/supabaseClient";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
+import { Card, CardContent, CardHeader } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 
@@ -584,114 +579,134 @@ export default function MyAssignmentsPage() {
           <h2 className="text-xl font-semibold mb-4">Batch Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {batchSummaries.map((summary) => (
-              <Card
+              <div
                 key={`${summary.client}-${summary.batch}`}
-                className="hover:shadow-md transition-shadow cursor-pointer group"
+                className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-muted/40 to-muted/70 p-4 transition-all duration-300 hover:shadow-xl hover:shadow-black/5 cursor-pointer"
                 onClick={() => handleViewBatch(summary.client, summary.batch)}
               >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Building className="h-5 w-5 text-muted-foreground" />
-                      <CardTitle className="text-lg">
+                {/* Accents */}
+                <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 blur-2xl" />
+                <div className="pointer-events-none absolute -bottom-10 -left-10 h-24 w-24 rounded-full bg-gradient-to-br from-accent-purple/10 to-accent-purple/5 blur-2xl" />
+
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                      <Building className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">
+                        Client
+                      </div>
+                      <div className="text-lg font-semibold tracking-tight">
                         {summary.client}
-                      </CardTitle>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-sm">
-                        Batch {summary.batch}
-                      </Badge>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                      </div>
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {/* Progress Section */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">
-                          Progress
-                        </span>
-                        <span className="font-semibold">
-                          {summary.completionPercentage}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all"
-                          style={{ width: `${summary.completionPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Earnings Section */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">
-                          Earnings
-                        </span>
-                        <span className="font-semibold text-success">
-                          €{summary.totalEarnings.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        €{summary.completedEarnings.toFixed(2)} completed
-                      </div>
-                    </div>
-
-                    {/* Deadline Section */}
-                    {summary.deliveryDate && (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          <span>Delivery Date</span>
-                        </div>
-                        <div className="text-sm font-medium">
-                          {new Date(summary.deliveryDate).toLocaleDateString()}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Asset Stats */}
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Package className="h-3 w-3 text-info" />
-                        <span>{summary.totalAssets} Total</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3 text-success" />
-                        <span>{summary.completedAssets} Done</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-warning" />
-                        <span>{summary.inProgressAssets} In Progress</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3 text-error" />
-                        <span>
-                          {summary.revisionAssets > 0
-                            ? `${summary.revisionAssets} Sent for Revisions`
-                            : summary.pendingAssets > 0
-                              ? `${summary.pendingAssets} Pending`
-                              : "0 Pending"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Urgent Assets Warning */}
-                    {summary.urgentAssets > 0 && (
-                      <div className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg">
-                        <Target className="h-4 w-4 text-warning" />
-                        <span className="text-sm font-medium text-orange-700">
-                          {summary.urgentAssets} urgent asset
-                          {summary.urgentAssets !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-background/60 text-muted-foreground border-border/60">
+                      Batch {summary.batch}
+                    </Badge>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                {/* Progress */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                    <span>Progress</span>
+                    <span className="font-medium">
+                      {summary.completionPercentage}%
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-700"
+                      style={{ width: `${summary.completionPercentage}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Stats Row */}
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div className="rounded-lg bg-background/60 border border-border/60 p-2 text-center">
+                    <div className="text-xs text-muted-foreground">Total</div>
+                    <div className="text-sm font-semibold">
+                      {summary.totalAssets}
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-emerald-50/60 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-800/60 p-2 text-center">
+                    <div className="text-xs text-emerald-700 dark:text-emerald-300">
+                      Done
+                    </div>
+                    <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                      {summary.completedAssets}
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-amber-50/60 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/60 p-2 text-center">
+                    <div className="text-xs text-amber-700 dark:text-amber-300">
+                      In Progress
+                    </div>
+                    <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                      {summary.inProgressAssets}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Earnings and Deadline */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Earnings
+                    </div>
+                    <div className="text-sm font-semibold text-success">
+                      €{summary.totalEarnings.toFixed(2)}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      €{summary.completedEarnings.toFixed(2)} completed
+                    </div>
+                  </div>
+                  {summary.deliveryDate && (
+                    <div className="text-right">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground justify-end">
+                        <Calendar className="h-3 w-3" />
+                        <span>Delivery</span>
+                      </div>
+                      <div className="text-sm font-medium">
+                        {new Date(summary.deliveryDate).toLocaleDateString()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer chips */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-info-muted px-2 py-1 text-[11px] font-medium text-info">
+                    <Package className="h-3 w-3" /> {summary.totalAssets} assets
+                  </span>
+                  {summary.revisionAssets > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-error/10 px-2 py-1 text-[11px] font-medium text-error">
+                      <AlertCircle className="h-3 w-3" />{" "}
+                      {summary.revisionAssets} revisions
+                    </span>
+                  ) : summary.pendingAssets > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-1 text-[11px] font-medium text-warning">
+                      <Clock className="h-3 w-3" /> {summary.pendingAssets}{" "}
+                      pending
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-1 text-[11px] font-medium text-success">
+                      <CheckCircle className="h-3 w-3" /> 0 pending
+                    </span>
+                  )}
+                  {summary.urgentAssets > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/20 px-2 py-1 text-[11px] font-medium text-orange-700 dark:text-orange-300">
+                      <Target className="h-3 w-3" /> {summary.urgentAssets}{" "}
+                      urgent
+                    </span>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         </div>

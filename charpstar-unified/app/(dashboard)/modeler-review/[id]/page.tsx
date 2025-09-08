@@ -29,6 +29,7 @@ import {
   Loader2,
   Download,
   Maximize2,
+  AlertTriangle,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -161,6 +162,12 @@ export default function ModelerReviewPage() {
   const [isDialogDragOver, setIsDialogDragOver] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [restoringVersion, setRestoringVersion] = useState(false);
+  const [existingGlbNameMismatch, setExistingGlbNameMismatch] = useState<
+    string | null
+  >(null);
+  const [selectedFileNameMismatch, setSelectedFileNameMismatch] = useState<
+    string | null
+  >(null);
   // Components panel state
   const [dependencies, setDependencies] = useState<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -304,6 +311,24 @@ export default function ModelerReviewPage() {
         }
 
         setAsset(data);
+
+        // Validate existing GLB filename against article id and set warning
+        try {
+          const fileName = decodeURIComponent(
+            (data.glb_link || "").split("/").pop() || ""
+          );
+          if (fileName && data.article_id) {
+            const baseName = fileName.replace(/\.(glb|gltf)$/i, "");
+            const matches = baseName
+              .toLowerCase()
+              .startsWith(`${String(data.article_id).toLowerCase()}_`);
+            setExistingGlbNameMismatch(matches ? null : fileName);
+          } else {
+            setExistingGlbNameMismatch(null);
+          }
+        } catch {
+          setExistingGlbNameMismatch(null);
+        }
 
         // Parse reference images
         if (data.reference) {
@@ -693,8 +718,8 @@ export default function ModelerReviewPage() {
   // Validate and set file for upload
   const validateAndSetFile = (file: File) => {
     const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith(".glb") && !fileName.endsWith(".gltf")) {
-      toast.error("Please select a GLB or GLTF file");
+    if (!fileName.endsWith(".glb")) {
+      toast.error("File must be a .glb");
       return;
     }
 
@@ -705,6 +730,19 @@ export default function ModelerReviewPage() {
 
     setSelectedFile(file);
     setShowUploadDialog(true);
+
+    // Validate exact filename match: <articleId>.glb
+    try {
+      if (asset?.article_id) {
+        const expected = `${String(asset.article_id).toLowerCase()}.glb`;
+        const matches = file.name.toLowerCase() === expected;
+        setSelectedFileNameMismatch(matches ? null : file.name);
+      } else {
+        setSelectedFileNameMismatch(null);
+      }
+    } catch {
+      setSelectedFileNameMismatch(null);
+    }
   };
 
   // Handle drag and drop for dialog
@@ -1410,6 +1448,28 @@ export default function ModelerReviewPage() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Failed to add reply");
         setAnnotations((prev) => [data.annotation, ...prev]);
+        // Notify parent author if different
+        try {
+          if (
+            (parent as any)?.created_by &&
+            (parent as any).created_by !== user.id
+          ) {
+            const { data: parentProfile } = await supabase
+              .from("profiles")
+              .select("id, email")
+              .eq("id", (parent as any).created_by)
+              .single();
+            if (parentProfile?.id) {
+              await notificationService.sendAnnotationReplyNotification({
+                recipientId: parentProfile.id,
+                recipientEmail: parentProfile.email || "",
+                assetId: assetId,
+                parentAnnotationId: replyingTo.id,
+                replyPreview: replyText.trim(),
+              });
+            }
+          }
+        } catch {}
       } else {
         const { data, error } = await supabase
           .from("asset_comments")
@@ -1423,6 +1483,31 @@ export default function ModelerReviewPage() {
           .single();
         if (error) throw error;
         setComments((prev) => [data, ...prev]);
+        // Notify parent comment author if different
+        try {
+          const { data: parentComment } = await supabase
+            .from("asset_comments")
+            .select("created_by")
+            .eq("id", replyingTo.id)
+            .single();
+          const parentAuthor = parentComment?.created_by;
+          if (parentAuthor && parentAuthor !== user.id) {
+            const { data: parentProfile } = await supabase
+              .from("profiles")
+              .select("id, email")
+              .eq("id", parentAuthor)
+              .single();
+            if (parentProfile?.id) {
+              await notificationService.sendCommentReplyNotification({
+                recipientId: parentProfile.id,
+                recipientEmail: parentProfile.email || "",
+                assetId: assetId,
+                parentCommentId: replyingTo.id,
+                replyPreview: replyText.trim(),
+              });
+            }
+          }
+        } catch {}
       }
       setReplyText("");
       setReplyingTo(null);
@@ -1518,6 +1603,22 @@ export default function ModelerReviewPage() {
             </div>
           </div>
         </div>
+
+        {/* GLB filename notice if the current GLB does not match article id */}
+        {existingGlbNameMismatch && asset?.article_id && (
+          <div className="mx-6 mt-4 p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5" />
+            <div className="text-xs">
+              <div className="font-medium">
+                GLB filename doesn&apos;t match article id
+              </div>
+              <div>
+                Expected filename: {String(asset.article_id)}.glb. Current:{" "}
+                {existingGlbNameMismatch}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-1 overflow-hidden bg-background">
           {/* Main Content (3D Viewer) */}
@@ -2673,8 +2774,8 @@ export default function ModelerReviewPage() {
                                     {annotationRepliesMap[item.id]
                                       .sort(
                                         (a: any, b: any) =>
-                                          new Date(a.created_at).getTime() -
-                                          new Date(b.created_at).getTime()
+                                          new Date(b.created_at).getTime() -
+                                          new Date(a.created_at).getTime()
                                       )
                                       .map((reply: any) => (
                                         <div
@@ -2804,8 +2905,8 @@ export default function ModelerReviewPage() {
                                   {commentRepliesMap[item.id]
                                     .sort(
                                       (a: any, b: any) =>
-                                        new Date(a.created_at).getTime() -
-                                        new Date(b.created_at).getTime()
+                                        new Date(b.created_at).getTime() -
+                                        new Date(a.created_at).getTime()
                                     )
                                     .map((reply: any) => (
                                       <div
@@ -2887,6 +2988,16 @@ export default function ModelerReviewPage() {
                     <p className="text-sm text-muted-foreground">
                       {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                     </p>
+                    {selectedFileNameMismatch && asset?.article_id && (
+                      <div className="mt-2 text-xs text-amber-600 flex items-center gap-2">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <span>
+                          File name should start with &apos;
+                          {String(asset.article_id)}_&apos; to match the asset
+                          id.
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div>
@@ -2897,6 +3008,12 @@ export default function ModelerReviewPage() {
                     <p className="text-xs text-muted-foreground">
                       or drag and drop a GLB or GLTF file here
                     </p>
+                    {asset?.article_id && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Suggested format: {String(asset.article_id)}
+                        _&lt;anything&gt;.glb or .gltf
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -2911,7 +3028,11 @@ export default function ModelerReviewPage() {
                 </Button>
                 <Button
                   onClick={handleUpload}
-                  disabled={!selectedFile || uploading}
+                  disabled={
+                    !selectedFile ||
+                    uploading ||
+                    Boolean(selectedFileNameMismatch)
+                  }
                   className="flex-1"
                 >
                   {uploading ? (

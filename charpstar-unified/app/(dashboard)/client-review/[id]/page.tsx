@@ -2518,6 +2518,25 @@ export default function ReviewPage() {
         if (!response.ok) throw new Error(data.error || "Failed to add reply");
         // Append reply to annotations list
         setAnnotations((prev) => [data.annotation, ...prev]);
+        // Notify parent author if different
+        if (parent.created_by && parent.created_by !== user.id) {
+          try {
+            const { data: parentProfile } = await supabase
+              .from("profiles")
+              .select("id, email")
+              .eq("id", parent.created_by)
+              .single();
+            if (parentProfile?.id) {
+              await notificationService.sendAnnotationReplyNotification({
+                recipientId: parentProfile.id,
+                recipientEmail: parentProfile.email || "",
+                assetId: assetId,
+                parentAnnotationId: replyingTo.id,
+                replyPreview: replyText.trim(),
+              });
+            }
+          } catch {}
+        }
       } else {
         // Comment reply: insert a new comment with parent_id
         const { data, error } = await supabase
@@ -2532,6 +2551,31 @@ export default function ReviewPage() {
           .single();
         if (error) throw error;
         setComments((prev) => [data, ...prev]);
+        // Fetch parent comment author and notify
+        try {
+          const { data: parentComment } = await supabase
+            .from("asset_comments")
+            .select("created_by")
+            .eq("id", replyingTo.id)
+            .single();
+          const parentAuthor = parentComment?.created_by;
+          if (parentAuthor && parentAuthor !== user.id) {
+            const { data: parentProfile } = await supabase
+              .from("profiles")
+              .select("id, email")
+              .eq("id", parentAuthor)
+              .single();
+            if (parentProfile?.id) {
+              await notificationService.sendCommentReplyNotification({
+                recipientId: parentProfile.id,
+                recipientEmail: parentProfile.email || "",
+                assetId: assetId,
+                parentCommentId: replyingTo.id,
+                replyPreview: replyText.trim(),
+              });
+            }
+          }
+        } catch {}
       }
       setReplyText("");
       setReplyingTo(null);
@@ -4191,8 +4235,8 @@ export default function ReviewPage() {
                                         {annotationRepliesMap[item.id]
                                           .sort(
                                             (a: any, b: any) =>
-                                              new Date(a.created_at).getTime() -
-                                              new Date(b.created_at).getTime()
+                                              new Date(b.created_at).getTime() -
+                                              new Date(a.created_at).getTime()
                                           )
                                           .map((reply: any) => (
                                             <div
@@ -4273,8 +4317,8 @@ export default function ReviewPage() {
                                       {commentRepliesMap[item.id]
                                         .sort(
                                           (a: any, b: any) =>
-                                            new Date(a.created_at).getTime() -
-                                            new Date(b.created_at).getTime()
+                                            new Date(b.created_at).getTime() -
+                                            new Date(a.created_at).getTime()
                                         )
                                         .map((reply: any) => (
                                           <div
@@ -4517,8 +4561,8 @@ export default function ReviewPage() {
                                   {commentRepliesMap[item.id]
                                     .sort(
                                       (a: any, b: any) =>
-                                        new Date(a.created_at).getTime() -
-                                        new Date(b.created_at).getTime()
+                                        new Date(b.created_at).getTime() -
+                                        new Date(a.created_at).getTime()
                                     )
                                     .map((reply: any) => (
                                       <div

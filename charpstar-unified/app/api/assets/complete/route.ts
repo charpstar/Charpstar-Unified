@@ -5,6 +5,7 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 
 import { cleanupSingleAllocationList } from "@/lib/allocationListCleanup";
+import { logActivityServer } from "@/lib/serverActivityLogger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,9 +35,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Get previous status for activity logging
+    const { data: prevAssetRow } = await supabase
+      .from("onboarding_assets")
+      .select("status")
+      .eq("id", assetId)
+      .single();
+    const prevStatus = prevAssetRow?.status || null;
+
     // Update the asset status
     const updateData: any = { status };
-    // On revisions, increment revision_count immediately and notify modeler
+    // On revisions, increment revision_count immediately and log the revision action
     if (status === "revisions") {
       // Fetch latest revision number to set on asset
       const { data: latestRev } = await supabase
@@ -48,6 +57,15 @@ export async function POST(request: NextRequest) {
         .single();
       const latestNumber = latestRev?.revision_number ?? revisionCount ?? null;
       if (latestNumber !== null) updateData.revision_count = latestNumber;
+
+      // Also create a revision history entry so QA metrics can attribute the review
+      const nextRevisionNumber = (latestNumber ?? 0) + 1;
+      await supabase.from("revision_history").insert({
+        asset_id: assetId,
+        revision_number: nextRevisionNumber,
+        created_by: user.id,
+        created_at: new Date().toISOString(),
+      });
     } else if (revisionCount !== undefined) {
       updateData.revision_count = revisionCount;
     }
@@ -63,6 +81,19 @@ export async function POST(request: NextRequest) {
         { error: "Failed to update asset status" },
         { status: 500 }
       );
+    }
+
+    // Log activity for status change (used by QA metrics for approvals)
+    try {
+      await logActivityServer({
+        action: `Updated asset status to ${status}`,
+        type: "update",
+        resource_type: "asset",
+        resource_id: assetId,
+        metadata: { prev_status: prevStatus, new_status: status },
+      });
+    } catch (e) {
+      console.error("Error logging status update activity:", e);
     }
 
     // Note: Revision notifications are now handled by the calling page

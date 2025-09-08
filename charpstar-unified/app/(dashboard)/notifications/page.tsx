@@ -37,6 +37,7 @@ import {
   DollarSign,
   RefreshCw,
   MoreVertical,
+  MessageSquare,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -63,12 +64,18 @@ const NotificationIcon = ({ type }: { type: string }) => {
     client_review_ready: Eye,
     allocation_list_accepted: CheckCircle,
     allocation_list_declined: AlertTriangle,
+    comment_reply: MessageSquare,
+    annotation_reply: MessageSquare,
     default: Bell,
   };
 
   // Use the same icon colors as the bell notifications
   const getIconColor = (notificationType: string) => {
     switch (notificationType) {
+      case "comment_reply":
+        return "text-indigo-600 dark:text-indigo-400";
+      case "annotation_reply":
+        return "text-indigo-600 dark:text-indigo-400";
       case "asset_allocation":
         return "text-slate-600 dark:text-slate-400";
       case "asset_completed":
@@ -105,6 +112,10 @@ const NotificationIcon = ({ type }: { type: string }) => {
 const getNotificationColor = (type: string) => {
   // Using the exact same colors as the bell notifications with dark mode support
   switch (type) {
+    case "comment_reply":
+      return "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700";
+    case "annotation_reply":
+      return "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700";
     case "asset_allocation":
       return "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700";
     case "asset_completed":

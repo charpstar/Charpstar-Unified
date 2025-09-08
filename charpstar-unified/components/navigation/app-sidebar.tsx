@@ -32,6 +32,7 @@ import {
   SidebarMenuItem,
 } from "@/components/navigation/sidebar";
 import Image from "next/image";
+import { supabase } from "@/lib/supabaseClient";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useUser } from "@/contexts/useUser";
@@ -47,6 +48,45 @@ export default function AppSidebar({
   const user = useUser();
   const clientName = user?.metadata?.client_config;
   const role = (user?.metadata?.role || "").toLowerCase();
+
+  const [guidelineClients, setGuidelineClients] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    const loadClients = async () => {
+      try {
+        if (!user?.id) return;
+
+        // Prefer allocation lists' clients if available on assignments
+        const { data, error } = await supabase
+          .from("asset_assignments")
+          .select(
+            `
+            onboarding_assets!inner(client)
+          `
+          )
+          .eq("user_id", user.id)
+          .limit(500);
+
+        if (error) {
+          console.error("sidebar guideline clients error", error);
+          return;
+        }
+
+        const clients: string[] = Array.from(
+          new Set(
+            (data || [])
+              .map((row: any) => row.onboarding_assets?.client)
+              .filter((c: any) => typeof c === "string" && c.trim() !== "")
+          )
+        );
+        setGuidelineClients(clients);
+      } catch (e) {
+        console.error("sidebar guideline clients exception", e);
+      }
+    };
+
+    loadClients();
+  }, [user?.id]);
 
   // Debug logging for onboarding navigation
 
@@ -247,6 +287,23 @@ export default function AppSidebar({
     return a.title.localeCompare(b.title);
   });
 
+  // Add submenu children to Guidelines without changing its main link behavior
+  const navMainWithChildren = navMain.map((item) => {
+    if (item.title === "Guidelines") {
+      const children = guidelineClients.length
+        ? guidelineClients.map((client) => ({
+            title: client,
+            url: `/guidelines/${encodeURIComponent(client)}`,
+          }))
+        : [];
+      return {
+        ...item,
+        children,
+      } as any;
+    }
+    return item as any;
+  });
+
   const data = {
     user: {
       name: "shadcn",
@@ -334,7 +391,7 @@ export default function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={navMainWithChildren as any} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

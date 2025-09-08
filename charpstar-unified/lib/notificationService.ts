@@ -16,7 +16,9 @@ export interface NotificationData {
     | "asset_approved"
     | "client_review_ready"
     | "allocation_list_accepted"
-    | "allocation_list_declined";
+    | "allocation_list_declined"
+    | "comment_reply"
+    | "annotation_reply";
   title: string;
   message: string;
   metadata?: Record<string, any>;
@@ -98,6 +100,13 @@ class NotificationService {
         console.error("Error creating notification:", error);
         throw error;
       }
+
+      // Notify clients to refresh notification UIs immediately
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+        } catch {}
+      }
     } catch (error) {
       console.error("Failed to create notification:", error);
       throw error;
@@ -165,7 +174,46 @@ class NotificationService {
     // Create notification in database
     await this.createNotification(notification);
 
-    // TODO: Email notification removed - will implement in later stage
+    // Fire-and-forget email (if provider configured)
+    try {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        (process.env.VERCEL_URL && process.env.VERCEL_URL.startsWith("http")
+          ? process.env.VERCEL_URL
+          : process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : "http://localhost:3000");
+      const payload = {
+        to: "developer@resend.dev",
+        client,
+        allocationListName: "Allocation",
+        assetNames,
+        deadline,
+        bonus,
+      } as any;
+      console.log("[notify] email -> /api/email/asset-allocation", {
+        to: payload.to,
+        client: payload.client,
+        assets: assetNames.length,
+        hasResend: Boolean(process.env.RESEND_API_KEY),
+        baseUrl,
+      });
+      const res = await fetch(`${baseUrl}/api/email/asset-allocation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        console.warn("[notify] email failed", res.status, txt);
+      } else {
+        const json = await res.json().catch(() => ({}) as any);
+        console.log("[notify] email ok", json);
+      }
+    } catch (e) {
+      // Non-blocking; log and continue
+      console.warn("Email dispatch failed (allocation)", e);
+    }
   }
 
   async sendAssetCompletedNotification(
@@ -727,6 +775,82 @@ class NotificationService {
       console.error("Failed to send QA review notification:", error);
       throw error;
     }
+  }
+
+  /**
+   * Notify a user when someone replies to their comment
+   */
+  async sendCommentReplyNotification(params: {
+    recipientId: string;
+    recipientEmail?: string;
+    assetId: string;
+    parentCommentId: string;
+    replyPreview?: string;
+  }): Promise<void> {
+    const {
+      recipientId,
+      recipientEmail = "",
+      assetId,
+      parentCommentId,
+      replyPreview,
+    } = params;
+
+    const notification: Omit<NotificationData, "created_at"> = {
+      recipient_id: recipientId,
+      recipient_email: recipientEmail,
+      type: "comment_reply",
+      title: "New reply to your comment",
+      message: replyPreview
+        ? `"${replyPreview.slice(0, 80)}"`
+        : "You have a new reply to your comment.",
+      metadata: {
+        assetId,
+        parentCommentId,
+        preview: replyPreview || "",
+        timestamp: new Date().toISOString(),
+      },
+      read: false,
+    };
+
+    await this.createNotification(notification);
+  }
+
+  /**
+   * Notify a user when someone replies to their annotation
+   */
+  async sendAnnotationReplyNotification(params: {
+    recipientId: string;
+    recipientEmail?: string;
+    assetId: string;
+    parentAnnotationId: string;
+    replyPreview?: string;
+  }): Promise<void> {
+    const {
+      recipientId,
+      recipientEmail = "",
+      assetId,
+      parentAnnotationId,
+      replyPreview,
+    } = params;
+
+    const notification: Omit<NotificationData, "created_at"> = {
+      recipient_id: recipientId,
+      recipient_email: recipientEmail,
+      type: "annotation_reply",
+      title: "New reply to your annotation",
+      message: replyPreview
+        ? `"${replyPreview.slice(0, 80)}"`
+        : "You have a new reply to your annotation.",
+      metadata: {
+        assetId,
+        parentAnnotationId,
+        preview: replyPreview || "",
+        timestamp: new Date().toISOString(),
+      },
+      read: false,
+    };
+
+    await this.createNotification(notification);
   }
 
   /**

@@ -14,6 +14,7 @@ import {
   FileText,
   RotateCcw,
   ThumbsUp,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
@@ -135,6 +136,23 @@ export function NotificationBell({ className }: NotificationBellProps) {
     // Close the notification popover
     setOpen(false);
 
+    // Role-based routing override: if we have an asset id, send modelers to modeler-review and admins to client-review
+    try {
+      const role = (user as any)?.metadata?.role as string | undefined;
+      const assetId =
+        (notification.metadata as any)?.assetId ||
+        (notification.metadata as any)?.assetIds?.[0];
+
+      if (assetId && (role === "modeler" || role === "admin")) {
+        const target = role === "modeler" ? "modeler-review" : "client-review";
+        router.push(`/${target}/${assetId}?from=notification`);
+        return;
+      }
+      //eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e) {
+      // Fallback to type-based routing below
+    }
+
     // Smart navigation based on notification type:
     // - asset_allocation: Go to pending assignments (new work)
     // - asset_completed: Go to my-assignments (view completed work)
@@ -248,6 +266,10 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const getNotificationIcon = (type: string) => {
     const iconClass = "h-4 w-4";
     switch (type) {
+      case "comment_reply":
+        return <MessageSquare className={iconClass} />;
+      case "annotation_reply":
+        return <MessageSquare className={iconClass} />;
       case "asset_allocation":
         return <UserPlus className={iconClass} />;
       case "asset_completed":
@@ -279,6 +301,10 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
   const getNotificationColor = (type: string) => {
     switch (type) {
+      case "comment_reply":
+        return "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700";
+      case "annotation_reply":
+        return "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700";
       case "asset_allocation":
         return "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700";
       case "asset_completed":
@@ -310,6 +336,10 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
   const getNotificationIconColor = (type: string) => {
     switch (type) {
+      case "comment_reply":
+        return "text-indigo-600 dark:text-indigo-400";
+      case "annotation_reply":
+        return "text-indigo-600 dark:text-indigo-400";
       case "asset_allocation":
         return "text-slate-600 dark:text-slate-400";
       case "asset_completed":

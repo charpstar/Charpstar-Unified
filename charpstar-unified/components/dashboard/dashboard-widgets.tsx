@@ -39,16 +39,35 @@ import { BarChart, XAxis, YAxis, Bar } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { ChartTooltip } from "@/components/ui/display";
 import { useActivities } from "@/hooks/use-activities";
-import {
-  Card,
-  CardTitle,
-  CardHeader,
-  Separator,
-  CardContent,
-} from "@/components/ui/containers";
+import { Card, Separator, CardContent } from "@/components/ui/containers";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { STATUS_LABELS, type StatusKey } from "@/lib/constants";
+
+// QA-style header used across widgets for consistent look
+function QAHeader({
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="p-2 bg-gray-100 rounded-lg">
+        <Icon className="h-5 w-5 text-gray-600" />
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        {subtitle ? (
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 // Helper function to get status color CSS variable
 const getStatusColor = (status: StatusKey): string => {
@@ -657,6 +676,11 @@ export function QuickActionsWidget() {
 
   return (
     <WidgetContainer>
+      <QAHeader
+        icon={Settings}
+        title="Quick Actions"
+        subtitle="Common tools and workflows"
+      />
       <div className="grid grid-cols-2 gap-4 flex-1">
         {actions.map((action) => {
           const spanTwoCols =
@@ -1398,14 +1422,16 @@ export function StatusPieChartWidget() {
 
   return (
     <Card className="p-0 rounded-2xl bg-transparent w-full mx-auto flex flex-col items-center border-0 shadow-none">
-      <CardHeader className="!pb-0">
-        <CardTitle className="text-lg font-semibold mb-1 text-foreground">
-          Model Status Distribution
-        </CardTitle>
-      </CardHeader>
+      <div className="w-full px-4 pt-4 text-primary">
+        <QAHeader
+          icon={Activity}
+          title="Model Status Distribution "
+          subtitle="Your assets by status"
+        />
+      </div>
 
       {chartData.every((entry) => entry.value === 0) ? (
-        <div className="py-8 text-center text-muted-foreground">
+        <div className=" text-center text-muted-foreground">
           <span className="text-4xl">📊</span>
           <div className="mt-2 font-medium">No data to display yet.</div>
           <div className="text-xs">
@@ -1413,8 +1439,8 @@ export function StatusPieChartWidget() {
           </div>
         </div>
       ) : (
-        <CardContent className="!p-0 w-full">
-          <div className="group relative overflow-hidden rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50 p-4 w-full flex flex-col md:flex-row items-center justify-center gap-6">
+        <CardContent className=" w-full">
+          <div className="group relative overflow-hidden rounded-2xl border-1   w-full flex flex-col md:flex-row items-center justify-center gap-6">
             <div className="absolute inset-0 opacity-5"></div>
             <div className="relative w-64 h-64 drop-shadow-lg pointer-events-auto">
               <ResponsiveContainer width="100%" height="100%">
@@ -1529,11 +1555,13 @@ export function ClientActionCenterWidget() {
 
   return (
     <Card className="p-0 rounded-2xl bg-transparent border-0 shadow-none">
-      <CardHeader className="!pb-0">
-        <CardTitle className="text-lg font-semibold mb-1 text-foreground">
-          Action Center
-        </CardTitle>
-      </CardHeader>
+      <div className="w-full px-4 pt-4">
+        <QAHeader
+          icon={Settings}
+          title="Action Center"
+          subtitle="What needs your attention"
+        />
+      </div>
       <CardContent className="space-y-4">
         <div className="group relative overflow-hidden rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50 p-4">
           <div className="absolute inset-0 opacity-5"></div>
@@ -1793,7 +1821,7 @@ export function AdminPipelineWidget() {
       <button
         type="button"
         onClick={handleClick}
-        className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 ${style.bgGradient} ${style.border} p-4 text-left focus:outline-none focus:ring-2 focus:ring-primary/30`}
+        className={`group relative overflow-hidden rounded-xl border transition-all duration-200 ease-out hover:shadow-md ${style.bgGradient} ${style.border} p-3 text-left focus:outline-none focus:ring-2 focus:ring-primary/20`}
         title={`View ${item.label}`}
       >
         <div className="absolute inset-0 opacity-5">
@@ -1801,25 +1829,27 @@ export function AdminPipelineWidget() {
           <div className="absolute bottom-0 left-0 w-16 h-16 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
         </div>
 
-        <div className="relative flex items-start justify-between mb-2">
+        <div className="relative flex items-start justify-between mb-1">
           <div
-            className={`p-2.5 rounded-xl ${style.iconBg} shadow-lg shadow-black/10`}
+            className={`p-2 rounded-lg ${style.iconBg} shadow-md shadow-black/10`}
           >
-            <Icon className="h-4 w-4 text-white" />
+            <Icon className="h-3.5 w-3.5 text-white" />
           </div>
-          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
         <div className="relative">
-          <div className="text-sm text-muted-foreground mb-1">{item.label}</div>
-          <div className="text-3xl font-bold text-foreground transition-all duration-300 group-hover:scale-105">
+          <div className="text-xs text-muted-foreground mb-0.5">
+            {item.label}
+          </div>
+          <div className="text-2xl font-bold text-foreground">
             {animatedValue}
           </div>
         </div>
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         <div
-          className={`absolute bottom-0 left-0 right-0 h-1 ${style.accentBar} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
+          className={`absolute bottom-0 left-0 right-0 h-0.5 ${style.accentBar} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
         ></div>
       </button>
     );
@@ -1827,15 +1857,19 @@ export function AdminPipelineWidget() {
 
   return (
     <Card className="p-4 rounded-lg bg-muted-background border-0 shadow-none h-full  ">
-      <WidgetHeader title="" />
+      <QAHeader
+        icon={Activity}
+        title="Production Pipeline"
+        subtitle="Overview of asset statuses"
+      />
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2 mt-2">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-20 bg-muted animate-pulse rounded" />
+            <div key={i} className="h-16 bg-muted animate-pulse rounded-md" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2 mt-2">
           {items.map((item) => (
             <StatusStatCard key={item.key} item={item} />
           ))}
@@ -1937,19 +1971,6 @@ export function AdminQueuesWidget() {
           </div>
         )}
         <div className="mt-3 flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              clientQueue.length > 0 &&
-              router.push(
-                `/admin-review?client=${encodeURIComponent(clientQueue[0].client)}`
-              )
-            }
-            disabled={clientQueue.length === 0}
-          >
-            Open filtered view
-          </Button>
           {clientQueue.length > 5 && (
             <Button
               size="sm"
@@ -1975,6 +1996,11 @@ export function AdminQueuesWidget() {
 
   return (
     <Card className="p-4 rounded-lg bg-muted-background border-0 shadow-none">
+      <QAHeader
+        icon={Folder}
+        title="Client Queues"
+        subtitle="New uploads grouped by client"
+      />
       <div className="grid grid-cols-1 gap-4 mt-3">
         <List />
       </div>
