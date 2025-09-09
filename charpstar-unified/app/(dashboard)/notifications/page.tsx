@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import {
   notificationService,
@@ -228,6 +229,7 @@ const groupNotificationsByDate = (notifications: NotificationData[]) => {
 
 export default function NotificationsPage() {
   const user = useUser();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -324,6 +326,7 @@ export default function NotificationsPage() {
 
   const deleteNotifications = async (notificationIds: string[]) => {
     try {
+      console.log("[notifications] Request delete IDs:", notificationIds);
       await notificationService.deleteNotifications(notificationIds);
 
       setNotifications((prev) =>
@@ -337,6 +340,8 @@ export default function NotificationsPage() {
 
       // Trigger global notification update to refresh bell notifications
       window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      // Refetch to be safe
+      fetchNotifications();
     } catch (error) {
       console.error("Error:", error);
       toast.error("Failed to delete notifications");
@@ -364,6 +369,143 @@ export default function NotificationsPage() {
       newSelected.add(notificationId);
     }
     setSelectedNotifications(newSelected);
+  };
+
+  const handleNavigateForNotification = async (
+    notification: NotificationData
+  ) => {
+    try {
+      // Mark as read first if unread
+      if (!notification.read && notification.id) {
+        await notificationService.markNotificationAsRead(notification.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
+        );
+        window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      }
+
+      // Role-based override
+      const role = (user as any)?.metadata?.role as string | undefined;
+      const assetId =
+        (notification.metadata as any)?.assetId ||
+        (notification.metadata as any)?.assetIds?.[0];
+      if (assetId && (role === "modeler" || role === "admin")) {
+        const target = role === "modeler" ? "modeler-review" : "client-review";
+        router.push(`/${target}/${assetId}?from=notification`);
+        return;
+      }
+
+      // Type-based routing (mirrors bell)
+      switch (notification.type) {
+        case "comment_reply":
+        case "annotation_reply": {
+          const asset =
+            notification.metadata?.assetId ||
+            notification.metadata?.assetIds?.[0];
+          const roleLc = (
+            (user as any)?.metadata?.role as string | undefined
+          )?.toLowerCase();
+          if (asset) {
+            if (roleLc === "modeler") {
+              router.push(`/modeler-review/${asset}?from=reply-notification`);
+            } else {
+              router.push(`/client-review/${asset}?from=reply-notification`);
+            }
+          } else {
+            // Fallback per role
+            if (roleLc === "modeler") router.push("/my-assignments");
+            else router.push("/client-review");
+          }
+          break;
+        }
+        case "asset_allocation":
+          router.push("/pending-assignments");
+          break;
+        case "asset_completed":
+          if (notification.metadata?.assetIds?.[0]) {
+            router.push(
+              `/modeler-review/${notification.metadata.assetIds[0]}?from=completion-notification`
+            );
+          } else {
+            router.push("/my-assignments");
+          }
+          break;
+        case "qa_review":
+          if (notification.metadata?.assetIds?.[0]) {
+            router.push(
+              `/client-review/${notification.metadata.assetIds[0]}?from=qa-notification`
+            );
+          } else {
+            router.push("/qa-review");
+          }
+          break;
+        case "revision_required":
+          if (notification.metadata?.assetIds?.[0]) {
+            router.push(
+              `/modeler-review/${notification.metadata.assetIds[0]}?from=revision-notification`
+            );
+          } else {
+            router.push("/my-assignments");
+          }
+          break;
+        case "asset_approved":
+          if (notification.metadata?.assetIds?.[0]) {
+            router.push(
+              `/modeler-review/${notification.metadata.assetIds[0]}?from=approval-notification`
+            );
+          } else {
+            router.push("/my-assignments");
+          }
+          break;
+        case "client_review_ready":
+          if (notification.metadata?.assetIds?.[0]) {
+            router.push(
+              `/client-review/${notification.metadata.assetIds[0]}?from=client-notification`
+            );
+          } else {
+            router.push("/client-review");
+          }
+          break;
+        case "status_change":
+          router.push("/my-assignments");
+          break;
+        case "deadline_reminder":
+          router.push("/pending-assignments");
+          break;
+        case "budget_alert":
+          router.push("/production/cost-tracking");
+          break;
+        case "product_submission":
+          if (notification.metadata?.client && notification.metadata?.batch) {
+            router.push(
+              `/admin-review?client=${encodeURIComponent(
+                (notification.metadata as any).client
+              )}&batch=${(notification.metadata as any).batch}`
+            );
+          } else {
+            router.push("/admin-review");
+          }
+          break;
+        case "allocation_list_accepted":
+        case "allocation_list_declined":
+          if (notification.metadata?.client && notification.metadata?.batch) {
+            router.push(
+              `/admin-review?client=${encodeURIComponent(
+                (notification.metadata as any).client
+              )}&batch=${(notification.metadata as any).batch}`
+            );
+          } else {
+            router.push("/admin-review");
+          }
+          break;
+        default:
+          router.push("/my-assignments");
+          break;
+      }
+    } catch (e) {
+      console.error("Failed to navigate for notification:", e);
+      router.push("/my-assignments");
+    }
   };
 
   const handleSelectAll = () => {
@@ -579,24 +721,25 @@ export default function NotificationsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Button
-                  onClick={() => markAsRead(Array.from(selectedNotifications))}
+                  onClick={async () => {
+                    const ids = Array.from(selectedNotifications);
+                    // Toggle: if any selected are unread, mark all as read; otherwise mark all as unread
+                    const anyUnread = notifications.some(
+                      (n) => ids.includes(n.id!) && !n.read
+                    );
+                    if (anyUnread) {
+                      await markAsRead(ids);
+                    } else {
+                      await markAsUnread(ids);
+                    }
+                    handleDeselectAll();
+                  }}
                   variant="outline"
                   size="sm"
                   className="gap-2"
                 >
                   <CheckCheck className="h-4 w-4" />
                   Mark Read
-                </Button>
-                <Button
-                  onClick={() =>
-                    markAsUnread(Array.from(selectedNotifications))
-                  }
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                >
-                  <Clock className="h-4 w-4" />
-                  Mark Unread
                 </Button>
                 <Button
                   onClick={() =>
@@ -694,6 +837,7 @@ export default function NotificationsPage() {
                               onChange={() =>
                                 handleSelectNotification(notification.id!)
                               }
+                              onClick={(e) => e.stopPropagation()}
                               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                             <div
@@ -703,7 +847,12 @@ export default function NotificationsPage() {
                             </div>
                           </div>
 
-                          <div className="flex-1 min-w-0">
+                          <div
+                            className="flex-1 min-w-0 cursor-pointer"
+                            onClick={() =>
+                              handleNavigateForNotification(notification)
+                            }
+                          >
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1">
                                 <h4
@@ -734,7 +883,11 @@ export default function NotificationsPage() {
 
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
                                     <MoreVertical className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>

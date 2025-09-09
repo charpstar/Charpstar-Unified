@@ -13,6 +13,7 @@ import { DashboardSkeleton } from "@/components/ui/skeletons";
 import { OnboardingDashboard } from "@/components/dashboard/onboarding-dashboard";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ClientDashboardTour } from "@/components/dashboard/client-dashboard-tour";
+import { ModelerDashboardTour } from "@/components/dashboard/modeler-dashboard-tour";
 
 interface DashboardStats {
   totalModels: number;
@@ -200,6 +201,8 @@ export default function DashboardPage() {
         {user?.metadata?.role === "client" && !user?.metadata?.onboarding && (
           <ClientDashboardTour />
         )}
+        {/* Add the dashboard tour component for modelers */}
+        {user?.metadata?.role === "modeler" && <ModelerDashboardTour />}
 
         <FixedDashboard stats={stats} profileContent={profileContent} />
       </div>

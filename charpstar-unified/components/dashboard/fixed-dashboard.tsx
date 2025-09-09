@@ -142,7 +142,10 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
           <CardContent className="">{profileContent}</CardContent>
         </Card>
 
-        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+        <Card
+          className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
+          data-tour="modeler-quick-actions"
+        >
           <CardContent className="">
             <ErrorBoundary>
               <ModelerQuickActionsWidget />
@@ -151,7 +154,10 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
         </Card>
 
         {/* Row 2 */}
-        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+        <Card
+          className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
+          data-tour="modeler-stats"
+        >
           <CardContent className="">
             <ErrorBoundary>
               <ModelerStatsWidget />
@@ -161,7 +167,10 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
 
         {/* Row 3: Pending Assignments card removed for modelers */}
 
-        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+        <Card
+          className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
+          data-tour="modeler-earnings"
+        >
           <CardContent className="h-4/4 ">
             <ErrorBoundary>
               <ModelerEarningsWidget />

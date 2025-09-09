@@ -1074,15 +1074,35 @@ class NotificationService {
 
   async deleteNotifications(notificationIds: string[]): Promise<void> {
     try {
-      const { error } = await supabase
+      if (!notificationIds || notificationIds.length === 0) return;
+      // Scope delete to current user to satisfy RLS
+      let recipientId: string | null = null;
+      try {
+        const { data } = await supabase.auth.getUser();
+        recipientId = data?.user?.id ?? null;
+        console.log("[notifications] auth user:", recipientId);
+      } catch {}
+
+      console.log("[notifications] Deleting IDs:", notificationIds);
+
+      let query = supabase
         .from("notifications")
         .delete()
         .in("id", notificationIds);
+      if (recipientId) {
+        query = query.eq("recipient_id", recipientId);
+      }
+      const { data, error } = await query.select("id");
 
       if (error) {
         console.error("Error deleting notifications:", error);
         throw error;
       }
+
+      console.log(
+        "[notifications] Deleted rows:",
+        Array.isArray(data) ? data.map((d: any) => d.id) : data
+      );
     } catch (error) {
       console.error("Failed to delete notifications:", error);
       throw error;

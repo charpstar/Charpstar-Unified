@@ -264,7 +264,7 @@ export function ModelerStatsWidget() {
               </div>
 
               {/* Stats */}
-              <div className="space-y-1.5">
+              <div className="">
                 <p className={`text-2xl font-bold ${stat.color} `}>
                   {stat.value}
                 </p>
@@ -304,7 +304,7 @@ export function ModelerStatsWidget() {
                 )}
 
               {/* Hover Effect Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="absolute  inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </div>
 
             {/* Bottom Accent */}

@@ -1863,13 +1863,13 @@ export function AdminPipelineWidget() {
         subtitle="Overview of asset statuses"
       />
       {loading ? (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2 mt-2">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2 mt-2">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-16 bg-muted animate-pulse rounded-md" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2 mt-2">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2 mt-2">
           {items.map((item) => (
             <StatusStatCard key={item.key} item={item} />
           ))}

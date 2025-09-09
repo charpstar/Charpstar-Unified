@@ -36,6 +36,11 @@ const TITLES = {
   "/create-users": "Create Users",
   "/add-models": "Add Models",
   "/admin-review": "Admin Review",
+  "/invoicing": "Invoicing",
+  "/notifications": "Notifications",
+  "/qa-review": "QA Review",
+  "/production/cost-tracking": "Cost Tracking",
+  "/admin/clients": "Client Information",
 };
 
 export default function SiteHeader() {

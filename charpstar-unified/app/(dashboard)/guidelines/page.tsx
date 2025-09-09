@@ -850,6 +850,18 @@ export default function GuidelinesPage() {
               textures and proper AO maps without conflicts or quality loss.
             </p>
           </div>
+          <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="h-4 w-4 text-cyan-600" />
+              <span className="font-medium text-cyan-800">
+                UV Mapping Best Practices
+              </span>
+            </div>
+            <p className="text-sm text-cyan-700">
+              Always unwrap the UVs, even if it is a metallic object, and
+              organize them in an optimized way.
+            </p>
+          </div>
         </div>
       ),
     },

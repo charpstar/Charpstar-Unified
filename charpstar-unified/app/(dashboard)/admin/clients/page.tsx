@@ -775,7 +775,6 @@ function ClientForm({
                     else next[0] = first;
                     setFormData({ ...formData, client_guide_links: next });
                   }}
-                  placeholder="https://..."
                 />
               </div>
             </div>

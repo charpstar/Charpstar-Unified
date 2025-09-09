@@ -229,12 +229,6 @@ export default function AppSidebar({
             url: "/qa-review",
             icon: MessageSquare,
           },
-          // Pending Revisions removed (reverted)
-          {
-            title: "Guidelines",
-            url: "/guidelines",
-            icon: FileText,
-          },
         ]
       : [];
 

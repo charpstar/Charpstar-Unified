@@ -124,6 +124,7 @@ export default function QAReviewPage() {
     Array<{ id: string; email: string; title?: string }>
   >([]);
   const [updatingAssetId, setUpdatingAssetId] = useState<string | null>(null);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [updatingStatusAssetId, setUpdatingStatusAssetId] = useState<
     string | null
   >(null);
@@ -492,6 +493,7 @@ export default function QAReviewPage() {
     }
   };
 
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleUpdateStatus = async (assetId: string, newStatus: string) => {
     try {
       setUpdatingStatusAssetId(assetId);
@@ -971,14 +973,14 @@ export default function QAReviewPage() {
                 <TableHead>Product Name</TableHead>
                 <TableHead>Article ID</TableHead>
                 <TableHead>Client</TableHead>
-                <TableHead>Batch</TableHead>
+
                 <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Modeler</TableHead>
-                <TableHead className="w-24">Product</TableHead>
-                <TableHead className="w-20">GLB</TableHead>
-                <TableHead className="w-20">Files</TableHead>
-                <TableHead className="w-16">View</TableHead>
+                <TableHead className="">Product Link</TableHead>
+                <TableHead className="">GLB</TableHead>
+                <TableHead className="">Files</TableHead>
+                <TableHead className="">View</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1090,7 +1092,7 @@ export default function QAReviewPage() {
                       </span>
                     </TableCell>
                     <TableCell>{asset.client}</TableCell>
-                    <TableCell>Batch {asset.batch}</TableCell>
+
                     <TableCell>
                       <div className="flex justify-center items-center">
                         <Select
@@ -1121,7 +1123,7 @@ export default function QAReviewPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 justify-center">
                         <Badge
                           variant="outline"
                           className={`text-xs ${
@@ -1135,19 +1137,6 @@ export default function QAReviewPage() {
                             asset.status as keyof typeof STATUS_LABELS
                           ]?.label || asset.status}
                         </Badge>
-                        {asset.status === "revisions" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs"
-                            disabled={updatingStatusAssetId === asset.id}
-                            onClick={() =>
-                              handleUpdateStatus(asset.id, "in_production")
-                            }
-                          >
-                            In Progress
-                          </Button>
-                        )}
                       </div>
                     </TableCell>
                     <TableCell>

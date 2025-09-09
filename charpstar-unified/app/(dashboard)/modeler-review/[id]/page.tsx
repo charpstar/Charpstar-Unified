@@ -158,6 +158,11 @@ export default function ModelerReviewPage() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [glbHistory, setGlbHistory] = useState<any[]>([]);
+  const [latestGlbTime, setLatestGlbTime] = useState<number | null>(null);
+  const [latestExternalFeedbackTime, setLatestExternalFeedbackTime] = useState<
+    number | null
+  >(null);
+  const [showStaleGlbDialog, setShowStaleGlbDialog] = useState(false);
   const [isDialogDragOver, setIsDialogDragOver] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [restoringVersion, setRestoringVersion] = useState(false);
@@ -444,6 +449,10 @@ export default function ModelerReviewPage() {
       }
 
       setGlbHistory(data || []);
+      const newest = (data || [])[0]?.uploaded_at
+        ? new Date((data || [])[0].uploaded_at).getTime()
+        : null;
+      setLatestGlbTime(newest);
 
       // Debug logging to help understand the data
       if (data && data.length > 0) {
@@ -556,6 +565,23 @@ export default function ModelerReviewPage() {
   useEffect(() => {
     fetchDependencies();
   }, [assetId]);
+
+  // Compute latest external feedback time (annotations/comments not by modeler)
+  useEffect(() => {
+    const modelerId = user?.id;
+    const externalAnnotationTimes = annotations
+      .filter((a: any) => a.created_by && a.created_by !== modelerId)
+      .map((a) => new Date(a.created_at).getTime());
+    const externalCommentTimes = comments
+      .filter((c: any) => c.created_by && c.created_by !== modelerId)
+      .map((c) => new Date(c.created_at).getTime());
+    const latestExternal = Math.max(
+      0,
+      ...(externalAnnotationTimes.length ? externalAnnotationTimes : [0]),
+      ...(externalCommentTimes.length ? externalCommentTimes : [0])
+    );
+    setLatestExternalFeedbackTime(latestExternal > 0 ? latestExternal : null);
+  }, [annotations, comments, user]);
 
   // Check if newer versions exist for each dependency
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -832,6 +858,17 @@ export default function ModelerReviewPage() {
 
     // Warn and block if trying to deliver without correct GLB naming
     if (newStatus === "delivered_by_artist") {
+      // Block if GLB is older than latest external feedback
+      try {
+        if (
+          latestExternalFeedbackTime &&
+          latestGlbTime &&
+          latestGlbTime < latestExternalFeedbackTime
+        ) {
+          setShowStaleGlbDialog(true);
+          return;
+        }
+      } catch {}
       if (!asset.glb_link) {
         setShowDeliverBlockDialog(true);
         return;
@@ -1534,6 +1571,26 @@ export default function ModelerReviewPage() {
                   )}
                 </div>
               </div>
+              {/* Freshness indicator */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                <div className="flex items-center gap-2">
+                  {latestExternalFeedbackTime &&
+                  latestGlbTime &&
+                  latestGlbTime < latestExternalFeedbackTime ? (
+                    <Badge variant="destructive" className="text-[10px]">
+                      GLB older than feedback, please upload a new GLB to change
+                      status
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] text-emerald-600 border-emerald-300"
+                    >
+                      Up-to-date
+                    </Badge>
+                  )}
+                </div>
+              </div>
               <div className="flex gap-3">
                 <Button
                   onClick={() => updateAssetStatus("in_production")}
@@ -2082,22 +2139,24 @@ export default function ModelerReviewPage() {
                       </h4>
                     </div>
 
-                    {/* Modelers cannot add new top-level comments; reply only */}
-                    <div className="space-y-3">
-                      <Textarea
-                        placeholder="Add a comment about this asset..."
-                        value={newCommentText}
-                        onChange={(e) => setNewCommentText(e.target.value)}
-                        onKeyDown={handleNewCommentKeyDown}
-                        className="min-h-[100px] border-border focus:border-primary focus:ring-primary"
-                        rows={4}
-                      />
-                      <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span>
-                          Press Enter to send, Shift+Enter for new line
-                        </span>
+                    {/* Composer: hidden for modelers */}
+                    {user.metadata?.role !== "modeler" && (
+                      <div className="space-y-3">
+                        <Textarea
+                          placeholder="Add a comment about this asset..."
+                          value={newCommentText}
+                          onChange={(e) => setNewCommentText(e.target.value)}
+                          onKeyDown={handleNewCommentKeyDown}
+                          className="min-h-[100px] border-border focus:border-primary focus:ring-primary"
+                          rows={4}
+                        />
+                        <div className="flex gap-2 text-xs text-muted-foreground">
+                          <span>
+                            Press Enter to send, Shift+Enter for new line
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -2280,7 +2339,7 @@ export default function ModelerReviewPage() {
                                   ).toLocaleTimeString()}
                                 </span>
                               </div>
-                              {/* Reply actions for modelers */}
+                              {/* Reply actions */}
                               <div className="mt-2">
                                 <Button
                                   variant="ghost"
@@ -2413,7 +2472,7 @@ export default function ModelerReviewPage() {
                                 {new Date(item.created_at).toLocaleTimeString()}
                               </span>
                             </div>
-                            {/* Reply actions for modelers */}
+                            {/* Reply actions */}
                             <div className="mt-2">
                               <Button
                                 variant="ghost"
@@ -2877,6 +2936,37 @@ export default function ModelerReviewPage() {
                   Upload Correct GLB
                 </Button>
               )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Stale GLB Dialog */}
+        <Dialog open={showStaleGlbDialog} onOpenChange={setShowStaleGlbDialog}>
+          <DialogContent className="max-w-md w-full h-fit">
+            <DialogHeader>
+              <DialogTitle>Update GLB before delivering</DialogTitle>
+              <DialogDescription className="text-sm max-w-sm">
+                New feedback exists after your current GLB upload. Please upload
+                a new GLB that addresses the latest feedback before marking as
+                delivered.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex gap-2 justify-end mt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowStaleGlbDialog(false)}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowStaleGlbDialog(false);
+                  setShowUploadDialog(true);
+                }}
+              >
+                Upload New GLB
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

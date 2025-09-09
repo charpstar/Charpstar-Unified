@@ -1817,37 +1817,37 @@ export default function AdminReviewPage() {
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <Eye className="h-5 w-5 text-blue-600" />
+                <div className="p-2 bg-red-50 rounded-lg">
+                  <Eye className="h-5 w-5 text-red-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     Sent for Revision
                   </p>
-                  <p className="text-2xl font-bold text-blue-600">
+                  <p className="text-2xl font-bold text-red-600">
                     {statusTotals.totals.revisions}
                   </p>
                 </div>
               </div>
             </Card>
 
-            {/* Sent for Revision */}
+            {/*    Waiting for Approval*/}
             <Card
               className="p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
-                setStatusFilters(["waiting_for_approval"]);
+                setStatusFilters(["delivered_by_artist"]);
                 setPage(1);
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <Eye className="h-5 w-5 text-blue-600" />
+                <div className="p-2 bg-purple-50 rounded-lg">
+                  <Eye className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
                     Waiting for Approval
                   </p>
-                  <p className="text-2xl font-bold text-blue-600">
+                  <p className="text-2xl font-bold text-purple-600">
                     {statusTotals.totals.waiting_for_approval}
                   </p>
                 </div>
@@ -1867,6 +1867,9 @@ export default function AdminReviewPage() {
               onValueChange={(value) => {
                 if (value === "all") {
                   setStatusFilters([]);
+                } else if (value === "waiting_for_approval") {
+                  // Map virtual status to actual asset status
+                  setStatusFilters(["delivered_by_artist"]);
                 } else if (value) {
                   setStatusFilters([value]);
                 }

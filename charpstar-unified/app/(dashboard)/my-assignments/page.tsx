@@ -8,11 +8,11 @@ import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
+// removed ModelerAssignmentsTour
 
 import {
   Package,
   Clock,
-  CheckCircle,
   AlertCircle,
   ArrowRight,
   ArrowLeft,
@@ -32,9 +32,11 @@ interface BatchSummary {
   inProgressAssets: number;
   pendingAssets: number;
   revisionAssets: number;
+  waitingOnApprovalAssets: number;
+  notStartedAssets: number;
   completionPercentage: number;
   assignedAt: string;
-  deliveryDate?: string;
+  deliveryDate?: string | null;
   totalEarnings: number;
   completedEarnings: number;
   pendingEarnings: number;
@@ -131,6 +133,8 @@ export default function MyAssignmentsPage() {
             inProgressAssets: 0,
             pendingAssets: 0,
             revisionAssets: 0,
+            waitingOnApprovalAssets: 0,
+            notStartedAssets: 0,
             completionPercentage: 0,
             assignedAt: assignment.assigned_at,
             deliveryDate: asset.delivery_date,
@@ -181,6 +185,7 @@ export default function MyAssignmentsPage() {
             batch.pendingEarnings += potentialEarnings;
             break;
           case "delivered_by_artist":
+            batch.waitingOnApprovalAssets++;
             batch.pendingEarnings += potentialEarnings;
             break;
           case "revisions":
@@ -188,7 +193,7 @@ export default function MyAssignmentsPage() {
             batch.pendingEarnings += potentialEarnings;
             break;
           case "not_started":
-            batch.pendingAssets++;
+            batch.notStartedAssets++;
             batch.pendingEarnings += potentialEarnings;
             break;
         }
@@ -488,7 +493,10 @@ export default function MyAssignmentsPage() {
           ))}
         </div>
       ) : batchSummaries.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+          data-tour="assignments-summary"
+        >
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-info-muted rounded-lg">
@@ -566,7 +574,7 @@ export default function MyAssignmentsPage() {
 
       {/* Batch Summaries */}
       {loading ? (
-        <div className="mb-6">
+        <div className="mb-6 ">
           <h2 className="text-xl font-semibold mb-4">Batch Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...Array(6)].map((_, i) => (
@@ -575,13 +583,19 @@ export default function MyAssignmentsPage() {
           </div>
         </div>
       ) : batchSummaries.length > 0 ? (
-        <div className="mb-6">
+        <div className="mb-6 " data-tour="assignments-batch-list">
           <h2 className="text-xl font-semibold mb-4">Batch Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {batchSummaries.map((summary) => (
               <div
                 key={`${summary.client}-${summary.batch}`}
                 className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-muted/40 to-muted/70 p-4 transition-all duration-300 hover:shadow-xl hover:shadow-black/5 cursor-pointer"
+                data-tour={
+                  summary.client === batchSummaries[0]?.client &&
+                  summary.batch === batchSummaries[0]?.batch
+                    ? "assignments-first-batch"
+                    : undefined
+                }
                 onClick={() => handleViewBatch(summary.client, summary.batch)}
               >
                 {/* Accents */}
@@ -681,23 +695,23 @@ export default function MyAssignmentsPage() {
 
                 {/* Footer chips */}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-info-muted px-2 py-1 text-[11px] font-medium text-info">
-                    <Package className="h-3 w-3" /> {summary.totalAssets} assets
-                  </span>
-                  {summary.revisionAssets > 0 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-error/10 px-2 py-1 text-[11px] font-medium text-error">
+                  {summary.revisionAssets > 0 && (
+                    <Badge className="inline-flex items-center gap-1 rounded-full bg-error-muted px-2 py-1 text-[11px] font-medium text-error">
                       <AlertCircle className="h-3 w-3" />{" "}
                       {summary.revisionAssets} revisions
-                    </span>
-                  ) : summary.pendingAssets > 0 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-1 text-[11px] font-medium text-warning">
-                      <Clock className="h-3 w-3" /> {summary.pendingAssets}{" "}
-                      pending
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-1 text-[11px] font-medium text-success">
-                      <CheckCircle className="h-3 w-3" /> 0 pending
-                    </span>
+                    </Badge>
+                  )}
+                  {summary.waitingOnApprovalAssets > 0 && (
+                    <Badge className="inline-flex items-center gap-1 rounded-full bg-purple-100 dark:bg-purple-900/20 px-2 py-1 text-[11px] font-medium text-purple-700 dark:text-purple-300">
+                      <Clock className="h-3 w-3" />{" "}
+                      {summary.waitingOnApprovalAssets} waiting on approval
+                    </Badge>
+                  )}
+                  {summary.notStartedAssets < 0 && (
+                    <Badge className="inline-flex items-center gap-1 rounded-full bg-white-100 dark:bg-white-900/20 px-2 py-1 text-[11px] font-medium text-white-700 dark:text-white-300">
+                      <AlertCircle className="h-3 w-3" />{" "}
+                      {summary.notStartedAssets} Not started
+                    </Badge>
                   )}
                   {summary.urgentAssets > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/20 px-2 py-1 text-[11px] font-medium text-orange-700 dark:text-orange-300">
@@ -865,6 +879,8 @@ export default function MyAssignmentsPage() {
           </div>
         </div>
       )}
+
+      {/* Tour removed for now */}
     </div>
   );
 }
