@@ -28,7 +28,6 @@ import {
   AlertTriangle,
   Info,
   ExternalLink,
-  Clock,
   Star,
 } from "lucide-react";
 

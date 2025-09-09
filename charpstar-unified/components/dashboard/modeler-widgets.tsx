@@ -265,7 +265,7 @@ export function ModelerStatsWidget() {
 
               {/* Stats */}
               <div className="space-y-1.5">
-                <p className={`text-2xl font-bold ${stat.color} scale-102`}>
+                <p className={`text-2xl font-bold ${stat.color} `}>
                   {stat.value}
                 </p>
                 <div>

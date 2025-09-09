@@ -2,8 +2,6 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Script from "next/script";
-import { Switch } from "@/components/ui/inputs";
-import { Ruler } from "lucide-react";
 
 interface ModelViewerProps {
   modelUrl: string;
@@ -49,6 +47,7 @@ export function ModelViewer({
   ...props
 }: ModelViewerProps & React.HTMLAttributes<HTMLElement>) {
   const modelViewerRef = useRef<HTMLElement | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showDimensions, setShowDimensions] = useState(true);
 
   useEffect(() => {
@@ -72,10 +71,6 @@ export function ModelViewer({
         }
       });
     }
-
-    checkbox.addEventListener("change", () => {
-      setVisibility(checkbox.checked);
-    });
 
     modelViewer.addEventListener("ar-status", (event: any) => {
       setVisibility(
@@ -139,93 +134,11 @@ export function ModelViewer({
       );
     };
 
-    modelViewer.addEventListener("load", () => {
-      const center = modelViewer.getBoundingBoxCenter();
-      const size = modelViewer.getDimensions();
-      const x2 = size.x / 2;
-      const y2 = size.y / 2;
-      const z2 = size.z / 2;
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot+X-Y+Z",
-        position: `${center.x + x2} ${center.y - y2} ${center.z + z2}`,
-      });
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dim+X-Y",
-        position: `${center.x + x2 * 1.2} ${center.y - y2 * 1.1} ${center.z}`,
-      });
-      modelViewer.querySelector('button[slot="hotspot-dim+X-Y"]').textContent =
-        `${(size.z * 100).toFixed(0)} cm`;
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot+X-Y-Z",
-        position: `${center.x + x2} ${center.y - y2} ${center.z - z2}`,
-      });
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dim+X-Z",
-        position: `${center.x + x2 * 1.2} ${center.y} ${center.z - z2 * 1.2}`,
-      });
-      modelViewer.querySelector('button[slot="hotspot-dim+X-Z"]').textContent =
-        `${(size.y * 100).toFixed(0)} cm`;
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot+X+Y-Z",
-        position: `${center.x + x2} ${center.y + y2} ${center.z - z2}`,
-      });
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dim+Y-Z",
-        position: `${center.x} ${center.y + y2 * 1.1} ${center.z - z2 * 1.1}`,
-      });
-      modelViewer.querySelector('button[slot="hotspot-dim+Y-Z"]').textContent =
-        `${(size.x * 100).toFixed(0)} cm`;
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot-X+Y-Z",
-        position: `${center.x - x2} ${center.y + y2} ${center.z - z2}`,
-      });
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dim-X-Z",
-        position: `${center.x - x2 * 1.2} ${center.y} ${center.z - z2 * 1.2}`,
-      });
-      modelViewer.querySelector('button[slot="hotspot-dim-X-Z"]').textContent =
-        `${(size.y * 100).toFixed(0)} cm`;
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot-X-Y-Z",
-        position: `${center.x - x2} ${center.y - y2} ${center.z - z2}`,
-      });
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dim-X-Y",
-        position: `${center.x - x2 * 1.2} ${center.y - y2 * 1.1} ${center.z}`,
-      });
-      modelViewer.querySelector('button[slot="hotspot-dim-X-Y"]').textContent =
-        `${(size.z * 100).toFixed(0)} cm`;
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot-X-Y+Z",
-        position: `${center.x - x2} ${center.y - y2} ${center.z + z2}`,
-      });
-
-      renderSVG();
-
-      // Unhide the SVG lines now that everything is ready
-      const dimLines = modelViewer.querySelector("#dimLines");
-      if (dimLines) {
-        dimLines.classList.remove("hide");
-      }
-    });
-
     modelViewer.addEventListener("camera-change", renderSVG);
 
     return () => {
       modelViewer.removeEventListener("camera-change", renderSVG);
       modelViewer.removeEventListener("ar-status", () => {});
-      checkbox.removeEventListener("change", () => {});
     };
   }, [modelUrl]);
 
@@ -249,6 +162,7 @@ export function ModelViewer({
     return () => modelViewer.removeEventListener("click", handleClick);
   }, [addHotspotMode, onAddHotspot]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDimensionToggle = (checked: boolean) => {
     setShowDimensions(checked);
 
@@ -290,104 +204,7 @@ export function ModelViewer({
         {...props}
       >
         {children}
-        <button
-          slot="hotspot-dot+X-Y+Z"
-          className="dot"
-          data-position="1 -1 1"
-          data-normal="1 0 0"
-        ></button>
-        <button
-          slot="hotspot-dim+X-Y"
-          className="dim"
-          data-position="1 -1 0"
-          data-normal="1 0 0"
-        ></button>
-        <button
-          slot="hotspot-dot+X-Y-Z"
-          className="dot"
-          data-position="1 -1 -1"
-          data-normal="1 0 0"
-        ></button>
-        <button
-          slot="hotspot-dim+X-Z"
-          className="dim"
-          data-position="1 0 -1"
-          data-normal="1 0 0"
-        ></button>
-        <button
-          slot="hotspot-dot+X+Y-Z"
-          className="dot"
-          data-position="1 1 -1"
-          data-normal="0 1 0"
-        ></button>
-        <button
-          slot="hotspot-dim+Y-Z"
-          className="dim"
-          data-position="0 -1 -1"
-          data-normal="0 1 0"
-        ></button>
-        <button
-          slot="hotspot-dot-X+Y-Z"
-          className="dot"
-          data-position="-1 1 -1"
-          data-normal="0 1 0"
-        ></button>
-        <button
-          slot="hotspot-dim-X-Z"
-          className="dim"
-          data-position="-1 0 -1"
-          data-normal="-1 0 0"
-        ></button>
-        <button
-          slot="hotspot-dot-X-Y-Z"
-          className="dot"
-          data-position="-1 -1 -1"
-          data-normal="-1 0 0"
-        ></button>
-        <button
-          slot="hotspot-dim-X-Y"
-          className="dim"
-          data-position="-1 -1 0"
-          data-normal="-1 0 0"
-        ></button>
-        <button
-          slot="hotspot-dot-X-Y+Z"
-          className="dot"
-          data-position="-1 -1 1"
-          data-normal="-1 0 0"
-        ></button>
-        <svg
-          id="dimLines"
-          width="100%"
-          height="100%"
-          xmlns="http://www.w3.org/2000/svg"
-          className="dimensionLineContainer hide"
-        >
-          <line className="dimensionLine"></line>
-          <line className="dimensionLine"></line>
-          <line className="dimensionLine"></line>
-          <line className="dimensionLine"></line>
-          <line className="dimensionLine"></line>
-        </svg>
 
-        <div id="controls" className="dimension-controls">
-          <div className="control-panel bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-xl p-3 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 flex items-center gap-3 min-w-[140px]">
-            <div className="control-header flex items-center gap-2 flex-1">
-              <Ruler className="control-icon w-4 h-4 text-gray-600 dark:text-gray-300 flex-shrink-0" />
-              <span className="control-label text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                Dimensions
-              </span>
-            </div>
-            <div className="control-switch flex-shrink-0">
-              <Switch
-                id="show-dimensions"
-                checked={showDimensions}
-                onCheckedChange={handleDimensionToggle}
-                className="scale-90"
-              />
-            </div>
-          </div>
-        </div>
         {/* @ts-expect-error -- model-viewer is a custom element */}
       </model-viewer>
 

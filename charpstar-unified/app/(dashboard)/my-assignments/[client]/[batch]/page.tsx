@@ -134,35 +134,6 @@ const isOverdue = (deadline: string) => {
   return new Date(deadline) < new Date();
 };
 
-// Helper function to get status priority for sorting
-const getStatusPriority = (status: string): number => {
-  switch (status) {
-    case "revisions":
-      return 1; // Highest priority - needs immediate attention
-    case "not_started":
-      return 2; // Second priority - needs to be started
-    case "in_production":
-      return 3; // Third priority - currently working
-    case "delivered_by_artist":
-      return 4; // Fourth priority - waiting for approval
-    case "approved_by_client":
-      return 5; // Fifth priority - approved by client
-    case "approved":
-      return 6; // Lowest priority - completed
-    default:
-      return 7; // Unknown status goes last
-  }
-};
-
-// Helper function to sort assets by status priority
-const sortAssetsByStatus = (assets: BatchAsset[]): BatchAsset[] => {
-  return [...assets].sort((a, b) => {
-    const priorityA = getStatusPriority(a.status);
-    const priorityB = getStatusPriority(b.status);
-    return priorityA - priorityB;
-  });
-};
-
 export default function BatchDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -739,22 +710,6 @@ export default function BatchDetailPage() {
       filtered = filtered.filter((asset) => asset.status === statusFilter);
     }
 
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "priority":
-          return a.priority - b.priority;
-        case "name":
-          return a.product_name.localeCompare(b.product_name);
-        case "status":
-          return a.status.localeCompare(b.status);
-        case "article_id":
-          return a.article_id.localeCompare(b.article_id);
-        default:
-          return 0;
-      }
-    });
-
     setFilteredAssets(filtered);
   };
 
@@ -1191,6 +1146,69 @@ export default function BatchDetailPage() {
     }
   };
 
+  useEffect(() => {
+    const applyLocalAssetStatus = (data: any) => {
+      const sameClient = String(data.client) === String(client);
+      const sameBatch = Number(data.batch) === Number(batch);
+      if (!sameClient || !sameBatch) return;
+      const assetId: string | undefined = data.assetId;
+      const status: string | undefined = data.status;
+      if (!assetId || !status) return;
+      setAllocationLists((prev) => {
+        const updated = prev.map((list) => ({
+          ...list,
+          assets: list.assets.map((a) =>
+            a.id === assetId ? { ...a, status } : a
+          ),
+        }));
+        recalculateBatchStatsFromLists(updated);
+        return updated;
+      });
+    };
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as any;
+      if (data && data.type === "assetStatusChanged") {
+        applyLocalAssetStatus(data);
+      }
+    };
+
+    // BroadcastChannel listener
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel("charpstar-asset-status");
+      bc.onmessage = (ev) => {
+        const data = ev.data as any;
+        if (data && data.type === "assetStatusChanged") {
+          applyLocalAssetStatus(data);
+        }
+      };
+    } catch {}
+
+    // storage event fallback
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key !== "charpstar-asset-status-event" || !e.newValue) return;
+      try {
+        const data = JSON.parse(e.newValue);
+        if (data && data.type === "assetStatusChanged") {
+          applyLocalAssetStatus(data);
+        }
+      } catch {}
+    };
+
+    window.addEventListener("message", handleMessage);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      window.removeEventListener("storage", handleStorage);
+      try {
+        if (bc) bc.close();
+      } catch {}
+    };
+  }, [client, batch]);
+
   if (!user) {
     return null;
   }
@@ -1540,10 +1558,8 @@ export default function BatchDetailPage() {
               className="space-y-4"
             >
               {allocationLists.map((allocationList) => {
-                const visibleAssets = sortAssetsByStatus(
-                  allocationList.assets.filter((a) =>
-                    filteredAssets.some((f) => f.id === a.id)
-                  )
+                const visibleAssets = allocationList.assets.filter((a) =>
+                  filteredAssets.some((f) => f.id === a.id)
                 );
                 if (visibleAssets.length === 0) return null;
                 return (
@@ -1943,8 +1959,10 @@ export default function BatchDetailPage() {
                                           size="sm"
                                           className="w-full h-6 px-2 text-xs hover:text-purple-700 hover:underline"
                                           onClick={() =>
-                                            router.push(
-                                              `/modeler-review/${asset.id}?from=my-assignments&client=${encodeURIComponent(client)}&batch=${batch}`
+                                            window.open(
+                                              `/modeler-review/${asset.id}?from=my-assignments&client=${encodeURIComponent(client)}&batch=${batch}`,
+                                              "_blank",
+                                              "noopener,noreferrer"
                                             )
                                           }
                                         >

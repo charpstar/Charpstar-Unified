@@ -22,7 +22,6 @@ import {
   MessageCircle,
   Upload,
   Image as LucideImage,
-  Eye,
   Camera,
   MessageSquare,
   CheckCircle,
@@ -94,8 +93,8 @@ const STATUS_LABELS = {
     color: "bg-blue-100 text-blue-700",
   },
   delivered_by_artist: {
-    label: "Delivered by Artist",
-    color: "bg-blue-100 text-blue-700",
+    label: "Waiting for Approval",
+    color: "bg-purple-100 text-purple-700",
   },
 };
 
@@ -168,17 +167,14 @@ export default function ModelerReviewPage() {
   const [selectedFileNameMismatch, setSelectedFileNameMismatch] = useState<
     string | null
   >(null);
+  const [showDeliverBlockDialog, setShowDeliverBlockDialog] = useState(false);
   // Components panel state
   const [dependencies, setDependencies] = useState<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [checkingUpdates, setCheckingUpdates] = useState(false);
 
   const modelViewerRef = useRef<any>(null);
-  const [modelLoaded, setModelLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Dimensions state
-  const [showDimensions, setShowDimensions] = useState(true);
 
   // Reference image selection and zoom state
   const [selectedReferenceIndex, setSelectedReferenceIndex] = useState<
@@ -561,93 +557,6 @@ export default function ModelerReviewPage() {
     fetchDependencies();
   }, [assetId]);
 
-  // Dimensions setup effect
-  useEffect(() => {
-    if (!asset?.glb_link || !modelViewerRef.current) {
-      return;
-    }
-
-    const setupDimensions = () => {
-      if (!modelViewerRef.current) {
-        return;
-      }
-
-      // Add a small delay to ensure model-viewer is fully mounted and hotspots are created
-      setTimeout(() => {
-        if (!modelViewerRef.current) {
-          return;
-        }
-
-        const modelViewer = modelViewerRef.current;
-
-        // Check if model is already loaded
-        if (modelViewer.model || modelViewer.loaded) {
-          if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
-            initializeDimensions(modelViewer);
-          }
-        } else if (typeof modelViewer.addEventListener === "function") {
-          // Listen for model load events
-          const handleLoad = () => {
-            setModelLoaded(true);
-            // Add a small delay to ensure hotspots are created
-            setTimeout(() => {
-              if (
-                modelViewer.getBoundingBoxCenter &&
-                modelViewer.getDimensions
-              ) {
-                initializeDimensions(modelViewer);
-              }
-            }, 500);
-          };
-
-          const handleError = {};
-
-          const handleProgress = {};
-
-          modelViewer.addEventListener("load", handleLoad);
-          modelViewer.addEventListener("error", handleError);
-          modelViewer.addEventListener("progress", handleProgress);
-
-          // Cleanup function
-          return () => {
-            if (
-              modelViewer &&
-              typeof modelViewer.removeEventListener === "function"
-            ) {
-              modelViewer.removeEventListener("load", handleLoad);
-              modelViewer.removeEventListener("error", handleError);
-              modelViewer.removeEventListener("progress", handleProgress);
-            }
-          };
-        } else {
-        }
-
-        // Fallback: Force model loaded state after 3 seconds if events are missed
-        const fallbackCheck = setInterval(() => {
-          if (modelViewer && (modelViewer.model || modelViewer.loaded)) {
-            setModelLoaded(true);
-            if (modelViewer.getBoundingBoxCenter && modelViewer.getDimensions) {
-              initializeDimensions(modelViewer);
-            }
-            clearInterval(fallbackCheck);
-          }
-        }, 500);
-
-        // Clear fallback after 3 seconds max
-        setTimeout(() => {
-          setModelLoaded(true);
-          clearInterval(fallbackCheck);
-        }, 3000);
-
-        return () => {
-          clearInterval(fallbackCheck);
-        };
-      }, 200); // Increased delay to ensure hotspots are created
-    };
-
-    setupDimensions();
-  }, [asset?.glb_link]); // Don't include modelLoaded to prevent infinite re-renders
-
   // Check if newer versions exist for each dependency
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const checkForUpdates = async () => {
@@ -921,6 +830,29 @@ export default function ModelerReviewPage() {
   const updateAssetStatus = async (newStatus: string) => {
     if (!asset) return;
 
+    // Warn and block if trying to deliver without correct GLB naming
+    if (newStatus === "delivered_by_artist") {
+      if (!asset.glb_link) {
+        setShowDeliverBlockDialog(true);
+        return;
+      }
+      try {
+        const fileName = decodeURIComponent(
+          (asset.glb_link || "").split("/").pop() || ""
+        );
+        const baseName = fileName.replace(/\.(glb|gltf)$/i, "");
+        const expectedPrefix = `${String(asset.article_id).toLowerCase()}_`;
+        const matches = baseName.toLowerCase().startsWith(expectedPrefix);
+        if (!matches) {
+          setShowDeliverBlockDialog(true);
+          return;
+        }
+      } catch {
+        setShowDeliverBlockDialog(true);
+        return;
+      }
+    }
+
     setStatusUpdating(true);
     try {
       // Use the complete API endpoint for proper allocation list handling
@@ -991,6 +923,51 @@ export default function ModelerReviewPage() {
 
       // Dispatch event to notify earnings widget to refresh
       window.dispatchEvent(new CustomEvent("assetStatusChanged"));
+
+      // Cross-tab update: BroadcastChannel + storage fallback
+      try {
+        const payload = {
+          type: "assetStatusChanged",
+          assetId: asset.id,
+          status: newStatus,
+          client: asset.client,
+          batch: asset.batch,
+          ts: Date.now(),
+        };
+        // BroadcastChannel (preferred)
+        try {
+          const bc = new BroadcastChannel("charpstar-asset-status");
+          bc.postMessage(payload);
+          bc.close();
+        } catch {}
+        // Storage fallback (fires 'storage' in other tabs)
+        try {
+          localStorage.setItem(
+            "charpstar-asset-status-event",
+            JSON.stringify(payload)
+          );
+        } catch {}
+      } catch {}
+
+      // Also try notifying opener if available (noopener may prevent this)
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(
+            {
+              type: "assetStatusChanged",
+              assetId: asset.id,
+              status: newStatus,
+              client: asset.client,
+              batch: asset.batch,
+            },
+            window.location.origin
+          );
+        }
+      } catch {}
+
+      // Close this tab when marking as delivered
+      if (newStatus === "delivered_by_artist") {
+      }
     } catch (error) {
       console.error("Error updating status:", error);
       toast.error("Failed to update status");
@@ -1042,266 +1019,6 @@ export default function ModelerReviewPage() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       addComment();
-    }
-  };
-
-  // Initialize dimensions (like client-review page)
-  const initializeDimensions = (modelViewer: any) => {
-    if (
-      !modelViewer ||
-      !modelViewer.getBoundingBoxCenter ||
-      !modelViewer.getDimensions ||
-      !modelViewer.updateHotspot ||
-      !modelViewer.querySelector
-    ) {
-      console.warn("Model viewer not ready for dimension initialization");
-      return;
-    }
-
-    try {
-      const center = modelViewer.getBoundingBoxCenter();
-      const size = modelViewer.getDimensions();
-      const x2 = size.x / 2;
-      const y2 = size.y / 2;
-      const z2 = size.z / 2;
-
-      // Update dimension dot positions
-      modelViewer.updateHotspot({
-        name: "hotspot-dot+X-Y+Z",
-        position: `${center.x + x2} ${center.y - y2} ${center.z + z2}`,
-      });
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dim+X-Y",
-        position: `${center.x + x2 * 1.2} ${center.y - y2 * 1.1} ${center.z}`,
-      });
-      const dimXYElement = modelViewer.querySelector(
-        'button[slot="hotspot-dim+X-Y"]'
-      );
-      if (dimXYElement) {
-        dimXYElement.textContent = `${(size.z * 100).toFixed(0)} cm`;
-      }
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot+X-Y-Z",
-        position: `${center.x + x2} ${center.y - y2} ${center.z - z2}`,
-      });
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dim+X-Z",
-        position: `${center.x + x2 * 1.2} ${center.y} ${center.z - z2 * 1.2}`,
-      });
-      const dimXZElement = modelViewer.querySelector(
-        'button[slot="hotspot-dim+X-Z"]'
-      );
-      if (dimXZElement) {
-        dimXZElement.textContent = `${(size.y * 100).toFixed(0)} cm`;
-      }
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot+X+Y-Z",
-        position: `${center.x + x2} ${center.y + y2} ${center.z - z2}`,
-      });
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dim+Y-Z",
-        position: `${center.x} ${center.y + y2 * 1.1} ${center.z - z2 * 1.1}`,
-      });
-      const dimYZElement = modelViewer.querySelector(
-        'button[slot="hotspot-dim+Y-Z"]'
-      );
-      if (dimYZElement) {
-        dimYZElement.textContent = `${(size.x * 100).toFixed(0)} cm`;
-      }
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot-X+Y-Z",
-        position: `${center.x - x2} ${center.y + y2} ${center.z - z2}`,
-      });
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dim-X-Z",
-        position: `${center.x - x2 * 1.2} ${center.y} ${center.z - z2 * 1.2}`,
-      });
-      const dimNegXZElement = modelViewer.querySelector(
-        'button[slot="hotspot-dim-X-Z"]'
-      );
-      if (dimNegXZElement) {
-        dimNegXZElement.textContent = `${(size.y * 100).toFixed(0)} cm`;
-      }
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot-X-Y-Z",
-        position: `${center.x - x2} ${center.y - y2} ${center.z - z2}`,
-      });
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dim-X-Y",
-        position: `${center.x - x2 * 1.2} ${center.y - y2 * 1.1} ${center.z}`,
-      });
-      const dimNegXYElement = modelViewer.querySelector(
-        'button[slot="hotspot-dim-X-Y"]'
-      );
-      if (dimNegXYElement) {
-        dimNegXYElement.textContent = `${(size.z * 100).toFixed(0)} cm`;
-      }
-
-      modelViewer.updateHotspot({
-        name: "hotspot-dot-X-Y+Z",
-        position: `${center.x - x2} ${center.y - y2} ${center.z + z2}`,
-      });
-
-      // Set initial visibility based on showDimensions state
-      const dimElements = [
-        ...modelViewer.querySelectorAll('button[slot^="hotspot-dim"]'),
-        ...modelViewer.querySelectorAll('button[slot^="hotspot-dot"]'),
-        modelViewer.querySelector("#dimLines"),
-      ];
-
-      dimElements.forEach((element: any) => {
-        if (element) {
-          element.style.display = showDimensions ? "block" : "none";
-        }
-      });
-
-      // Remove the hide class from SVG lines to make them visible
-      const svg = modelViewer.querySelector("#dimLines");
-      if (svg) {
-        svg.classList.remove("hide");
-        // Also ensure SVG is visible
-        svg.style.display = showDimensions ? "block" : "none";
-      }
-
-      // Initial render of dimension lines
-      if (showDimensions) {
-        renderDimensionLines();
-      }
-    } catch (error) {
-      console.error("❌ Error initializing dimensions:", error);
-    }
-  };
-
-  // Render dimension lines (like client-review page)
-  const renderDimensionLines = () => {
-    const modelViewer = modelViewerRef.current;
-    if (!modelViewer || !modelViewer.model) {
-      return;
-    }
-
-    const svg = modelViewer.querySelector("#dimLines");
-    if (!svg) {
-      return;
-    }
-
-    const dimLines = svg.querySelectorAll(".dimensionLine");
-    if (!dimLines || dimLines.length === 0) {
-      return;
-    }
-
-    const drawLine = (
-      line: Element,
-      startHotspot: any,
-      endHotspot: any,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      dimHotspot: any = null
-    ) => {
-      if (!line || !startHotspot || !endHotspot) return;
-
-      try {
-        const startPos = startHotspot.position3D;
-        const endPos = endHotspot.position3D;
-
-        if (startPos && endPos) {
-          const startScreen = modelViewer.positionToCanvas(startPos);
-          const endScreen = modelViewer.positionToCanvas(endPos);
-
-          if (startScreen && endScreen) {
-            line.setAttribute("x1", startScreen.x.toString());
-            line.setAttribute("y1", startScreen.y.toString());
-            line.setAttribute("x2", endScreen.x.toString());
-            line.setAttribute("y2", endScreen.y.toString());
-          }
-        }
-      } catch {}
-    };
-
-    try {
-      // Draw dimension lines using queryHotspot method
-      drawLine(
-        dimLines[0],
-        modelViewer.queryHotspot("hotspot-dot+X-Y+Z"),
-        modelViewer.queryHotspot("hotspot-dot+X-Y-Z"),
-        modelViewer.queryHotspot("hotspot-dim+X-Y")
-      );
-      drawLine(
-        dimLines[1],
-        modelViewer.queryHotspot("hotspot-dot+X-Y-Z"),
-        modelViewer.queryHotspot("hotspot-dot+X+Y-Z"),
-        modelViewer.queryHotspot("hotspot-dim+X-Z")
-      );
-      drawLine(
-        dimLines[2],
-        modelViewer.queryHotspot("hotspot-dot+X+Y-Z"),
-        modelViewer.queryHotspot("hotspot-dot-X+Y-Z"),
-        null // always visible
-      );
-      drawLine(
-        dimLines[3],
-        modelViewer.queryHotspot("hotspot-dot-X+Y-Z"),
-        modelViewer.queryHotspot("hotspot-dot-X-Y-Z"),
-        modelViewer.queryHotspot("hotspot-dim-X-Z")
-      );
-      drawLine(
-        dimLines[4],
-        modelViewer.queryHotspot("hotspot-dot-X-Y-Z"),
-        modelViewer.queryHotspot("hotspot-dot-X-Y+Z"),
-        modelViewer.queryHotspot("hotspot-dim-X-Y")
-      );
-    } catch (error) {
-      console.error("❌ Error rendering dimension lines:", error);
-    }
-  };
-
-  // Handle dimensions toggle (like client-review page)
-  const handleDimensionsToggle = () => {
-    const newShowDimensions = !showDimensions;
-    setShowDimensions(newShowDimensions);
-
-    const modelViewer = modelViewerRef.current;
-    if (!modelViewer) {
-      return;
-    }
-
-    // Toggle dimension elements visibility
-    const dimElements = [
-      ...modelViewer.querySelectorAll('button[slot^="hotspot-dim"]'),
-      ...modelViewer.querySelectorAll('button[slot^="hotspot-dot"]'),
-      modelViewer.querySelector("#dimLines"),
-    ];
-
-    dimElements.forEach((element: any, index: number) => {
-      if (element) {
-        element.style.display = newShowDimensions ? "block" : "none";
-      } else {
-        console.warn("⚠️ Dimension element", index, "is null");
-      }
-    });
-
-    // Toggle SVG visibility
-    const svg = modelViewer.querySelector("#dimLines");
-    if (svg instanceof HTMLElement) {
-      if (newShowDimensions) {
-        svg.classList.remove("hide");
-        svg.style.display = "block";
-      } else {
-        svg.classList.add("hide");
-        svg.style.display = "none";
-      }
-    }
-
-    // Re-render dimension lines if showing
-    if (newShowDimensions) {
-      renderDimensionLines();
     }
   };
 
@@ -1625,7 +1342,7 @@ export default function ModelerReviewPage() {
           <div className="flex-1 relative bg-background m-6 rounded-lg shadow-lg border border-border/50">
             <Script
               type="module"
-              src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+              src="/model-viewer.js"
               onLoad={() => {}}
               onError={() => {
                 console.error("❌ Failed to load model-viewer script");
@@ -1648,19 +1365,7 @@ export default function ModelerReviewPage() {
                   min-field-of-view="5deg"
                   max-field-of-view="35deg"
                   style={{ width: "100%", height: "100%" }}
-                  onLoad={() => {
-                    setModelLoaded(true);
-                    // Add a delay to ensure hotspots are created before initializing dimensions
-                    setTimeout(() => {
-                      if (
-                        modelViewerRef.current &&
-                        modelViewerRef.current.getBoundingBoxCenter &&
-                        modelViewerRef.current.getDimensions
-                      ) {
-                        initializeDimensions(modelViewerRef.current);
-                      }
-                    }, 1000);
-                  }}
+                  onLoad={() => {}}
                 >
                   {hotspots.map(
                     (hotspot) =>
@@ -1734,133 +1439,7 @@ export default function ModelerReviewPage() {
                         </div>
                       )
                   )}
-                  {/* Dimension hotspots and lines */}
-                  <button
-                    slot="hotspot-dot+X-Y+Z"
-                    className="dot"
-                    data-position="1 -1 1"
-                    data-normal="1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dim+X-Y"
-                    className="dim"
-                    data-position="1.2 -1.1 0"
-                    data-normal="1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dot+X-Y-Z"
-                    className="dot"
-                    data-position="1 -1 -1"
-                    data-normal="1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dim+X-Z"
-                    className="dim"
-                    data-position="1.2 0 -1.2"
-                    data-normal="1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dot+X+Y-Z"
-                    className="dot"
-                    data-position="1 1 -1"
-                    data-normal="0 1 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dim+Y-Z"
-                    className="dim"
-                    data-position="0 1.1 -1.1"
-                    data-normal="0 1 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dot-X+Y-Z"
-                    className="dot"
-                    data-position="-1 1 -1"
-                    data-normal="0 1 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dim-X-Z"
-                    className="dim"
-                    data-position="-1.2 0 -1.2"
-                    data-normal="-1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dot-X-Y-Z"
-                    className="dot"
-                    data-position="-1 -1 -1"
-                    data-normal="-1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dim-X-Y"
-                    className="dim"
-                    data-position="-1.2 -1.1 0"
-                    data-normal="-1 0 0"
-                  ></button>
-                  <button
-                    slot="hotspot-dot-X-Y+Z"
-                    className="dot"
-                    data-position="-1 -1 1"
-                    data-normal="-1 0 0"
-                  ></button>
-                  <svg
-                    id="dimLines"
-                    width="100%"
-                    height="100%"
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      pointerEvents: "none",
-                      zIndex: 1000,
-                    }}
-                  >
-                    <defs>
-                      <marker
-                        id="arrowhead"
-                        markerWidth="10"
-                        markerHeight="7"
-                        refX="9"
-                        refY="3.5"
-                        orient="auto"
-                      >
-                        <polygon points="0 0, 10 3.5, 0 7" fill="#007bff" />
-                      </marker>
-                    </defs>
-                    <line
-                      className="dimensionLine"
-                      stroke="#007bff"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowhead)"
-                      markerStart="url(#arrowhead)"
-                    />
-                    <line
-                      className="dimensionLine"
-                      stroke="#007bff"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowhead)"
-                      markerStart="url(#arrowhead)"
-                    />
-                    <line
-                      className="dimensionLine"
-                      stroke="#007bff"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowhead)"
-                      markerStart="url(#arrowhead)"
-                    />
-                    <line
-                      className="dimensionLine"
-                      stroke="#007bff"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowhead)"
-                      markerStart="url(#arrowhead)"
-                    />
-                    <line
-                      className="dimensionLine"
-                      stroke="#007bff"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowhead)"
-                      markerStart="url(#arrowhead)"
-                    />
-                  </svg>
+                  {/* Dimension elements removed; handled by integrated viewer */}
                   {/* @ts-expect-error -- model-viewer is a custom element */}
                 </model-viewer>
               </div>
@@ -1878,24 +1457,8 @@ export default function ModelerReviewPage() {
               </div>
             )}
 
-            {/* GLB Upload Button and Dimensions Toggle */}
+            {/* GLB Upload Button */}
             <div className="absolute top-4 right-4 z-20 flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  handleDimensionsToggle();
-                }}
-                disabled={!modelLoaded}
-                className="cursor-pointer"
-                title={
-                  modelLoaded
-                    ? "Toggle dimension display"
-                    : "Waiting for model to load..."
-                }
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                {showDimensions ? "Hide" : "Show"} Dimensions
-              </Button>
               {glbHistory.length > 0 && (
                 <Button
                   variant="outline"
@@ -3255,6 +2818,65 @@ export default function ModelerReviewPage() {
               >
                 Clean Up History
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Block Delivery Dialog */}
+        <Dialog
+          open={showDeliverBlockDialog}
+          onOpenChange={setShowDeliverBlockDialog}
+        >
+          <DialogContent className="max-w-md w-full h-fit">
+            <DialogHeader>
+              <DialogTitle>Fix GLB before delivering</DialogTitle>
+              <DialogDescription>
+                The GLB must exist and its filename should start with the
+                article ID followed by an underscore.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 text-sm">
+              {!asset?.glb_link ? (
+                <div className="text-red-600">No GLB is uploaded yet.</div>
+              ) : (
+                <div>
+                  <div className="text-amber-700">
+                    Filename mismatch detected.
+                  </div>
+                  <div>
+                    Expected prefix:{" "}
+                    <span className="font-mono">
+                      {String(asset?.article_id).toLowerCase()}_
+                    </span>
+                  </div>
+                  <div>
+                    Current file:{" "}
+                    <span className="font-mono">
+                      {decodeURIComponent(
+                        (asset?.glb_link || "").split("/").pop() || ""
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 justify-end mt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeliverBlockDialog(false)}
+              >
+                Close
+              </Button>
+              {asset && (
+                <Button
+                  onClick={() => {
+                    setShowDeliverBlockDialog(false);
+                    setShowUploadDialog(true);
+                  }}
+                >
+                  Upload Correct GLB
+                </Button>
+              )}
             </div>
           </DialogContent>
         </Dialog>
