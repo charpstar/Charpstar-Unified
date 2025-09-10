@@ -148,7 +148,7 @@ export default function InvoicingPage() {
   const [retroactiveBonuses, setRetroactiveBonuses] = useState<
     RetroactiveBonus[]
   >([]);
-  const [futureBonuses, setFutureBonuses] = useState<FutureBonus[]>([]);
+  // const [futureBonuses, setFutureBonuses] = useState<FutureBonus[]>([]);
 
   useEffect(() => {
     document.title = "CharpstAR Platform - Invoicing";
@@ -287,7 +287,7 @@ export default function InvoicingPage() {
     if (!selectedPeriod || !monthlyPeriods.length) {
       setFilteredAssets([]);
       setRetroactiveBonuses([]);
-      setFutureBonuses([]);
+      // setFutureBonuses([]);
       return;
     }
 
@@ -295,13 +295,13 @@ export default function InvoicingPage() {
     if (!period) {
       setFilteredAssets([]);
       setRetroactiveBonuses([]);
-      setFutureBonuses([]);
+      // setFutureBonuses([]);
       return;
     }
 
     // Reset retroactive and future bonuses for new period calculation
     setRetroactiveBonuses([]);
-    setFutureBonuses([]);
+    // setFutureBonuses([]);
 
     // Filter assets that were approved in this specific month period
     // We need to determine when each asset was approved
@@ -481,7 +481,7 @@ export default function InvoicingPage() {
       return dateA.getTime() - dateB.getTime();
     });
 
-    setFutureBonuses(futureBonusData);
+    // setFutureBonuses(futureBonusData);
 
     const totalPotential = totalBaseEarnings + bonusEarnings;
 
@@ -514,8 +514,25 @@ export default function InvoicingPage() {
     const period = monthlyPeriods.find((p) => p.value === selectedPeriod);
     if (!period) return;
 
+    // Generate invoice number in format: INV{number}_{Modeler_name}_{month}_{year}
+    const modelerName = (
+      user?.metadata?.title ||
+      user?.email?.split("@")[0] ||
+      "Modeler"
+    )
+      .replace(/\s+/g, "_") // Replace spaces with underscores
+      .replace(/[^a-zA-Z0-9_]/g, ""); // Remove special characters except underscores
+
+    const periodDate = new Date(period.startDate);
+    const month = periodDate.getMonth() + 1; // getMonth() returns 0-11, so add 1
+    const year = periodDate.getFullYear().toString().slice(-2); // Get last 2 digits of year
+
+    // For now, we'll use a simple counter based on the period
+    // In a real implementation, you might want to store this in the database
+    const invoiceNumber = `INV${month}_${modelerName}_${month.toString().padStart(2, "0")}_${year}`;
+
     const invoicePreviewData = {
-      invoiceNumber: `INV-${user?.id?.slice(-6)}-${Date.now().toString().slice(-6)}`,
+      invoiceNumber,
       date: new Date().toISOString().split("T")[0],
       modelerName:
         user?.metadata?.title || user?.email?.split("@")[0] || "Modeler",
@@ -1526,122 +1543,6 @@ export default function InvoicingPage() {
                     <p className="text-sm text-muted-foreground">
                       Date: {invoicePreview.date}
                     </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bonus Breakdown Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Bonus Breakdown</h3>
-
-                {/* Current Period Bonuses */}
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="font-medium text-green-800 mb-2">
-                        Bonuses Included in This Invoice (€
-                        {invoicePreview.bonusEarnings.toFixed(2)})
-                      </p>
-                      <div className="space-y-2">
-                        {retroactiveBonuses.length > 0 && (
-                          <div className="bg-white p-3 rounded border border-green-300">
-                            <p className="text-sm font-medium text-green-700 mb-1">
-                              Retroactive Bonuses: +€
-                              {retroactiveBonuses
-                                .reduce((sum, bonus) => sum + bonus.amount, 0)
-                                .toFixed(2)}
-                            </p>
-                            <p className="text-xs text-green-600">
-                              From {retroactiveBonuses.length} allocation
-                              list(s) created in previous months but completed
-                              this month
-                            </p>
-                          </div>
-                        )}
-                        {monthlyStats.completedLists > 0 && (
-                          <div className="bg-white p-3 rounded border border-green-300">
-                            <p className="text-sm font-medium text-green-700 mb-1">
-                              Current Month Bonuses: +€
-                              {(
-                                invoicePreview.bonusEarnings -
-                                retroactiveBonuses.reduce(
-                                  (sum, bonus) => sum + bonus.amount,
-                                  0
-                                )
-                              ).toFixed(2)}
-                            </p>
-                            <p className="text-xs text-green-600">
-                              From {monthlyStats.completedLists} allocation
-                              list(s) created and completed this month
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Future Bonuses */}
-                {futureBonuses.length > 0 && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <Calendar className="h-4 w-4 text-blue-600 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="font-medium text-blue-800 mb-2">
-                          Future Bonuses NOT Included (€
-                          {futureBonuses
-                            .reduce((sum, bonus) => sum + bonus.amount, 0)
-                            .toFixed(2)}
-                          )
-                        </p>
-                        <p className="text-sm text-blue-700 mb-3">
-                          These bonuses will be credited in future invoices when
-                          the allocation lists are completed:
-                        </p>
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {futureBonuses.map((bonus) => (
-                            <div
-                              key={bonus.allocationListId}
-                              className="bg-white p-2 rounded border border-blue-300 text-xs"
-                            >
-                              <div className="flex justify-between items-center">
-                                <span className="font-medium text-blue-700">
-                                  List #{bonus.allocationListId.slice(-8)}: €
-                                  {bonus.amount.toFixed(2)}
-                                </span>
-                                <span className="text-blue-600">
-                                  Est: {bonus.estimatedCompletion}
-                                </span>
-                              </div>
-                              <span className="text-blue-600">
-                                {bonus.assetCount} assets •{" "}
-                                {bonus.bonusPercentage}% bonus
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Bonus Calculation Note */}
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-                    <div className="text-sm text-amber-800">
-                      <p className="font-medium mb-1">How Bonuses Work:</p>
-                      <p>
-                        <strong>Included Now:</strong> Bonuses from allocation
-                        lists that were completed this month (whether created
-                        this month or in previous months).
-                        <br />
-                        <strong>Coming Later:</strong> Bonuses from incomplete
-                        allocation lists will be credited when those lists are
-                        completed in future months.
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>

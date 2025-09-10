@@ -739,36 +739,67 @@ export default function BatchDetailPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "approved":
-        return <CheckCircle className="h-4 w-4 text-success" />;
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case "approved_by_client":
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
       case "delivered_by_artist":
-        return <Clock className="h-4 w-4 text-accent-purple" />;
+        return <Clock className="h-4 w-4 text-green-600" />;
       case "in_production":
-        return <Clock className="h-4 w-4 text-warning" />;
+        return <Clock className="h-4 w-4 text-blue-600" />;
       case "not_started":
         return null;
       case "revisions":
-        return <RotateCcw className="h-4 w-4 text-error" />;
+        return <RotateCcw className="h-4 w-4 text-orange-600" />;
       default:
         return <Eye className="h-4 w-4 text-gray-600" />;
     }
   };
 
-  const getStatusColor = (status: string) => {
+  // Helper function to get status label CSS class
+  const getStatusLabelClass = (status: string): string => {
     switch (status) {
-      case "approved":
-        return "bg-success-muted text-success border-success/20";
-      case "approved_by_client":
-        return "bg-success-muted text-success border-success/20";
-      case "delivered_by_artist":
-        return "bg-accent-purple/10 text-accent-purple border-accent-purple/20";
       case "in_production":
-        return "bg-warning-muted text-warning border-warning/20";
-      case "not_started":
-        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/50";
+        return "status-in-production";
       case "revisions":
-        return "bg-error-muted text-error border-error/20";
+        return "status-revisions";
+      case "approved":
+        return "status-approved";
+      case "approved_by_client":
+        return "status-approved-by-client";
+      case "delivered_by_artist":
+        return "status-delivered-by-artist";
+      case "not_started":
+        return "status-not-started";
+      case "in_progress":
+        return "status-in-progress";
+      case "waiting_for_approval":
+        return "status-waiting-for-approval";
       default:
         return "bg-muted text-muted-foreground border-border";
+    }
+  };
+
+  // Helper function to get status label text
+  const getStatusLabelText = (status: string): string => {
+    switch (status) {
+      case "in_production":
+        return "In Production";
+      case "revisions":
+        return "Sent for Revision";
+      case "approved":
+        return "Approved";
+      case "approved_by_client":
+        return "Approved by Client";
+      case "delivered_by_artist":
+        return "Delivered by Artist";
+      case "not_started":
+        return "Not Started";
+      case "in_progress":
+        return "In Progress";
+      case "waiting_for_approval":
+        return "Waiting for Approval";
+      default:
+        return status;
     }
   };
 
@@ -1435,15 +1466,21 @@ export default function BatchDetailPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="in_production">In Progress</SelectItem>
-                <SelectItem value="revisions">Sent for Revisions</SelectItem>
-                <SelectItem value="delivered_by_artist">
-                  Waiting for Approval
-                </SelectItem>
-                <SelectItem value="approved_by_client">
-                  Approved by Client
-                </SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
+                {[
+                  "in_production",
+                  "revisions",
+                  "delivered_by_artist",
+                  "approved_by_client",
+                  "approved",
+                  "not_started",
+                ].map((status) => (
+                  <SelectItem key={status} value={status}>
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(status)}
+                      {getStatusLabelText(status)}
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -1734,21 +1771,7 @@ export default function BatchDetailPage() {
                                     return (
                                       <div
                                         key={status}
-                                        className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                                          status === "revisions"
-                                            ? "bg-red-100 text-red-700"
-                                            : status === "not_started"
-                                              ? "bg-gray-100 text-gray-700"
-                                              : status === "in_production"
-                                                ? "bg-amber-100 text-amber-700"
-                                                : status ===
-                                                    "delivered_by_artist"
-                                                  ? "bg-purple-100 text-purple-700"
-                                                  : status ===
-                                                      "approved_by_client"
-                                                    ? "bg-blue-100 text-blue-700"
-                                                    : "bg-green-100 text-green-700"
-                                        }`}
+                                        className={`px-1.5 py-0.5 rounded text-xs font-medium ${getStatusLabelClass(status)}`}
                                       >
                                         {count}
                                       </div>
@@ -1794,6 +1817,9 @@ export default function BatchDetailPage() {
                                   <TableHead className="w-20 py-2">
                                     Feedback
                                   </TableHead>
+                                  <TableHead className="w-24 py-2">
+                                    Product Link
+                                  </TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1807,24 +1833,9 @@ export default function BatchDetailPage() {
                                         {getStatusIcon(asset.status)}
                                         <Badge
                                           variant="outline"
-                                          className={`text-xs ${getStatusColor(asset.status)}`}
+                                          className={`text-xs ${getStatusLabelClass(asset.status)}`}
                                         >
-                                          {asset.status ===
-                                          "delivered_by_artist"
-                                            ? "Waiting for Approval"
-                                            : asset.status === "in_production"
-                                              ? "In Progress"
-                                              : asset.status === "revisions"
-                                                ? "Sent for Revision"
-                                                : asset.status ===
-                                                    "approved_by_client"
-                                                  ? "Approved by Client"
-                                                  : asset.status === "approved"
-                                                    ? "Approved"
-                                                    : asset.status ===
-                                                        "not_started"
-                                                      ? "Not Started"
-                                                      : asset.status}
+                                          {getStatusLabelText(asset.status)}
                                         </Badge>
                                       </div>
                                     </TableCell>
@@ -1968,20 +1979,28 @@ export default function BatchDetailPage() {
                                         >
                                           <Eye className="h-4 w-4 mr-1" />
                                         </Button>
-
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="w-full h-6 px-2 text-xs hover:text-blue-700 hover:underline"
-                                          onClick={() =>
-                                            handleOpenProductLink(
-                                              asset.product_link || ""
-                                            )
-                                          }
-                                          disabled={!asset.product_link}
-                                        >
-                                          <Link2 className="h-4 w-4 mr-1" />
-                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <div className="flex justify-center">
+                                        {asset.product_link ? (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                            onClick={() =>
+                                              handleOpenProductLink(
+                                                asset.product_link || ""
+                                              )
+                                            }
+                                          >
+                                            Product Link
+                                          </Button>
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground">
+                                            -
+                                          </span>
+                                        )}
                                       </div>
                                     </TableCell>
                                   </TableRow>

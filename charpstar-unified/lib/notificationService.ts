@@ -18,7 +18,10 @@ export interface NotificationData {
     | "allocation_list_accepted"
     | "allocation_list_declined"
     | "comment_reply"
-    | "annotation_reply";
+    | "annotation_reply"
+    | "pending_reply"
+    | "reply_approved"
+    | "reply_rejected";
   title: string;
   message: string;
   metadata?: Record<string, any>;
@@ -61,6 +64,30 @@ export interface AllocationListStatusNotification {
   client: string;
   batch: number;
   status: "accepted" | "declined";
+}
+
+export interface PendingReplyNotification {
+  recipientId: string;
+  recipientEmail: string;
+  assetId: string;
+  pendingReplyId: string;
+  qaName: string;
+  replyPreview: string;
+  parentCommentPreview: string;
+}
+
+export interface ReplyApprovedNotification {
+  recipientId: string;
+  recipientEmail: string;
+  assetId: string;
+  replyText: string;
+}
+
+export interface ReplyRejectedNotification {
+  recipientId: string;
+  recipientEmail: string;
+  assetId: string;
+  replyText: string;
 }
 
 class NotificationService {
@@ -1146,6 +1173,75 @@ class NotificationService {
       return data || [];
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
+      throw error;
+    }
+  }
+
+  async sendPendingReplyNotification(
+    data: PendingReplyNotification
+  ): Promise<void> {
+    try {
+      await this.createNotification({
+        recipient_id: data.recipientId,
+        recipient_email: data.recipientEmail,
+        type: "pending_reply",
+        title: "QA Reply Requires Approval",
+        message: `${data.qaName} replied to a client comment and needs admin approval. Reply: "${data.replyPreview.substring(0, 100)}${data.replyPreview.length > 100 ? "..." : ""}"`,
+        metadata: {
+          assetId: data.assetId,
+          pendingReplyId: data.pendingReplyId,
+          qaName: data.qaName,
+          replyPreview: data.replyPreview,
+          parentCommentPreview: data.parentCommentPreview,
+        },
+        read: false,
+      });
+    } catch (error) {
+      console.error("Failed to send pending reply notification:", error);
+      throw error;
+    }
+  }
+
+  async sendReplyApprovedNotification(
+    data: ReplyApprovedNotification
+  ): Promise<void> {
+    try {
+      await this.createNotification({
+        recipient_id: data.recipientId,
+        recipient_email: data.recipientEmail,
+        type: "reply_approved",
+        title: "Reply Approved",
+        message: `Your reply has been approved and posted. Reply: "${data.replyText.substring(0, 100)}${data.replyText.length > 100 ? "..." : ""}"`,
+        metadata: {
+          assetId: data.assetId,
+          replyText: data.replyText,
+        },
+        read: false,
+      });
+    } catch (error) {
+      console.error("Failed to send reply approved notification:", error);
+      throw error;
+    }
+  }
+
+  async sendReplyRejectedNotification(
+    data: ReplyRejectedNotification
+  ): Promise<void> {
+    try {
+      await this.createNotification({
+        recipient_id: data.recipientId,
+        recipient_email: data.recipientEmail,
+        type: "reply_rejected",
+        title: "Reply Rejected",
+        message: `Your reply was rejected by an admin. Reply: "${data.replyText.substring(0, 100)}${data.replyText.length > 100 ? "..." : ""}"`,
+        metadata: {
+          assetId: data.assetId,
+          replyText: data.replyText,
+        },
+        read: false,
+      });
+    } catch (error) {
+      console.error("Failed to send reply rejected notification:", error);
       throw error;
     }
   }

@@ -77,25 +77,52 @@ interface Hotspot {
   visible: boolean;
 }
 
-const STATUS_LABELS = {
-  in_production: {
-    label: "In Production",
-    color: "bg-yellow-100 text-yellow-800",
-  },
-  not_started: {
-    label: "Not Started",
-    color: "bg-gray-100 text-gray-700",
-  },
-  revisions: { label: "Ready for Revision", color: "bg-red-100 text-red-700" },
-  approved: { label: "Approved", color: "bg-green-100 text-green-700" },
-  approved_by_client: {
-    label: "Approved by Client",
-    color: "bg-blue-100 text-blue-700",
-  },
-  delivered_by_artist: {
-    label: "Waiting for Approval",
-    color: "bg-purple-100 text-purple-700",
-  },
+// Helper function to get status label CSS class
+const getStatusLabelClass = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "status-in-production";
+    case "revisions":
+      return "status-revisions";
+    case "approved":
+      return "status-approved";
+    case "approved_by_client":
+      return "status-approved-by-client";
+    case "delivered_by_artist":
+      return "status-delivered-by-artist";
+    case "not_started":
+      return "status-not-started";
+    case "in_progress":
+      return "status-in-progress";
+    case "waiting_for_approval":
+      return "status-waiting-for-approval";
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
+};
+
+// Helper function to get status label text
+const getStatusLabelText = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "In Production";
+    case "revisions":
+      return "Ready for Revision";
+    case "approved":
+      return "Approved";
+    case "approved_by_client":
+      return "Approved by Client";
+    case "delivered_by_artist":
+      return "Delivered by Artist";
+    case "not_started":
+      return "Not Started";
+    case "in_progress":
+      return "In Progress";
+    case "waiting_for_approval":
+      return "Delivered by Artist";
+    default:
+      return status;
+  }
 };
 
 export default function ModelerReviewPage() {
@@ -1296,24 +1323,10 @@ export default function ModelerReviewPage() {
                   </h3>
                   <div className="flex items-center gap-4 mt-2">
                     <Badge
-                      variant={
-                        STATUS_LABELS[
-                          asset?.status as keyof typeof STATUS_LABELS
-                        ]?.color
-                          ? "outline"
-                          : "secondary"
-                      }
-                      className={`text-xs font-medium ${
-                        STATUS_LABELS[
-                          asset?.status as keyof typeof STATUS_LABELS
-                        ]?.color || ""
-                      }`}
+                      variant="outline"
+                      className={`text-xs font-medium ${getStatusLabelClass(asset?.status || "")}`}
                     >
-                      {STATUS_LABELS[
-                        asset?.status as keyof typeof STATUS_LABELS
-                      ]?.label ||
-                        asset?.status ||
-                        "Unknown"}
+                      {getStatusLabelText(asset?.status || "")}
                     </Badge>
                     <span className="text-sm text-muted-foreground font-medium">
                       {asset?.article_id}
@@ -1561,8 +1574,7 @@ export default function ModelerReviewPage() {
                     }
                     className="text-xs"
                   >
-                    {STATUS_LABELS[asset?.status as keyof typeof STATUS_LABELS]
-                      ?.label || "Unknown"}
+                    {getStatusLabelText(asset?.status || "")}
                   </Badge>
                   {asset?.revision_count > 0 && (
                     <Badge variant="outline" className="text-xs">
@@ -2582,7 +2594,7 @@ export default function ModelerReviewPage() {
               </DialogTitle>
               <DialogDescription>
                 Select a GLB file to upload for this asset. Maximum file size:
-                100MB.
+                15MB.
               </DialogDescription>
             </DialogHeader>
 

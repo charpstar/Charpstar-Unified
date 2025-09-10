@@ -55,32 +55,83 @@ const getPriorityClass = (priority: number): string => {
   return "priority-low";
 };
 
-const STATUS_LABELS = {
-  in_production: {
-    label: "In Progress",
-    color: "bg-warning-muted text-warning border-warning/20",
-  },
-  not_started: {
-    label: "Not Started",
-    color:
-      "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/50",
-  },
-  delivered_by_artist: {
-    label: "Waiting for Approval",
-    color: "bg-blue-100 text-blue-700 border-blue-200",
-  },
-  revisions: {
-    label: "Sent for Revision",
-    color: "bg-error-muted text-error border-error/20",
-  },
-  approved: {
-    label: "Approved",
-    color: "bg-green-100 text-green-800 border-green-200",
-  },
-  approved_by_client: {
-    label: "Approved by Client",
-    color: "bg-success-muted text-success border-success/20",
-  },
+// Helper function to check if an asset is new (created within last 7 days)
+const isNewAsset = (createdAt: string): boolean => {
+  const createdDate = dayjs(createdAt);
+  const sevenDaysAgo = dayjs().subtract(7, "days");
+  return createdDate.isAfter(sevenDaysAgo);
+};
+
+// Helper function to get status label CSS class
+const getStatusLabelClass = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "status-in-production";
+    case "revisions":
+      return "status-revisions";
+    case "approved":
+      return "status-approved";
+    case "approved_by_client":
+      return "status-approved-by-client";
+    case "delivered_by_artist":
+      return "status-delivered-by-artist";
+    case "not_started":
+      return "status-not-started";
+    case "in_progress":
+      return "status-in-progress";
+    case "waiting_for_approval":
+      return "status-waiting-for-approval";
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
+};
+
+// Helper function to get status label text
+const getStatusLabelText = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "In Production";
+    case "revisions":
+      return "Sent for Revision";
+    case "approved":
+      return "Approved";
+    case "approved_by_client":
+      return "Approved by Client";
+    case "delivered_by_artist":
+      return "Delivered by Artist";
+    case "not_started":
+      return "Not Started";
+    case "in_progress":
+      return "In Progress";
+    case "waiting_for_approval":
+      return "Delivered by Artist";
+    default:
+      return status;
+  }
+};
+
+// Helper function to get status icon
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case "approved":
+      return <CheckCircle className="h-4 w-4 text-green-600" />;
+    case "approved_by_client":
+      return <CheckCircle className="h-4 w-4 text-green-600" />;
+    case "delivered_by_artist":
+      return <Clock className="h-4 w-4 text-green-600" />;
+    case "waiting_for_approval":
+      return <Clock className="h-4 w-4 text-green-600" />;
+    case "in_production":
+      return <Clock className="h-4 w-4 text-blue-600" />;
+    case "in_progress":
+      return <Clock className="h-4 w-4 text-blue-600" />;
+    case "not_started":
+      return null;
+    case "revisions":
+      return <AlertCircle className="h-4 w-4 text-orange-600" />;
+    default:
+      return <Eye className="h-4 w-4 text-gray-600" />;
+  }
 };
 
 const PAGE_SIZE = 18;
@@ -100,6 +151,7 @@ interface AssignedAsset {
   subcategory: string;
   created_at: string;
   reference?: string[] | null;
+  price: number;
   modeler?: {
     id: string;
     email: string;
@@ -135,7 +187,9 @@ export default function QAReviewPage() {
   // Add new filter states for multi-select capability
   const [clientFilters, setClientFilters] = useState<string[]>([]);
   const [batchFilters, setBatchFilters] = useState<number[]>([]);
-  const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<string[]>([
+    "delivered_by_artist",
+  ]);
   const [clients, setClients] = useState<string[]>([]);
 
   // Add Ref dialog state
@@ -298,6 +352,7 @@ export default function QAReviewPage() {
           `
           asset_id,
           user_id,
+          price,
           onboarding_assets!inner(
             id,
             product_name,
@@ -367,6 +422,7 @@ export default function QAReviewPage() {
             subcategory: asset.subcategory,
             created_at: asset.created_at,
             reference: asset.reference,
+            price: assignment.price || 0,
             modeler: modelerMap.get(assignment.user_id),
           };
         }) || [];
@@ -416,9 +472,14 @@ export default function QAReviewPage() {
 
     // Apply multi status filter
     if (statusFilters.length > 0) {
-      filtered = filtered.filter((asset) =>
-        statusFilters.includes(asset.status)
-      );
+      filtered = filtered.filter((asset) => {
+        // Handle special "new" filter
+        if (statusFilters.includes("new")) {
+          return isNewAsset(asset.created_at);
+        }
+        // Handle regular status filters
+        return statusFilters.includes(asset.status);
+      });
     }
 
     // Apply modeler filter
@@ -708,7 +769,7 @@ export default function QAReviewPage() {
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-warning-muted rounded-lg">
-                  <Clock className="h-5 w-5 text-warning" />
+                  {getStatusIcon("in_production")}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
@@ -731,11 +792,11 @@ export default function QAReviewPage() {
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-accent-purple/10 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-accent-purple" />
+                  {getStatusIcon("delivered_by_artist")}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Waiting for Approval
+                    Delivered by Artist
                   </p>
                   <p className="text-2xl font-bold text-accent-purple">
                     {statusTotals.delivered_by_artist}
@@ -754,7 +815,7 @@ export default function QAReviewPage() {
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-info-muted rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-info" />
+                  {getStatusIcon("revisions")}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
@@ -777,7 +838,7 @@ export default function QAReviewPage() {
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-success-muted rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-success" />
+                  {getStatusIcon("approved")}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
@@ -800,7 +861,7 @@ export default function QAReviewPage() {
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-success-muted rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-success" />
+                  {getStatusIcon("approved_by_client")}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
@@ -812,6 +873,8 @@ export default function QAReviewPage() {
                 </div>
               </div>
             </Card>
+
+            {/* New Assets */}
           </div>
         )}
         <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
@@ -973,10 +1036,11 @@ export default function QAReviewPage() {
                 <TableHead>Product Name</TableHead>
                 <TableHead>Article ID</TableHead>
                 <TableHead>Client</TableHead>
-
+                <TableHead>Price</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Modeler</TableHead>
+                <TableHead className="w-20">Created</TableHead>
                 <TableHead className="">Product Link</TableHead>
                 <TableHead className="">GLB</TableHead>
                 <TableHead className="">Files</TableHead>
@@ -1004,9 +1068,9 @@ export default function QAReviewPage() {
                     <TableCell>
                       <div className="h-4 w-16 bg-muted rounded animate-pulse" />
                     </TableCell>
-                    {/* Batch */}
+                    {/* Price */}
                     <TableCell>
-                      <div className="h-4 w-8 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-12 bg-muted rounded animate-pulse" />
                     </TableCell>
                     {/* Priority */}
                     <TableCell>
@@ -1021,6 +1085,10 @@ export default function QAReviewPage() {
                     {/* Modeler */}
                     <TableCell>
                       <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                    </TableCell>
+                    {/* Created */}
+                    <TableCell>
+                      <div className="h-4 w-12 bg-muted rounded animate-pulse" />
                     </TableCell>
                     {/* Product */}
                     <TableCell>
@@ -1042,16 +1110,30 @@ export default function QAReviewPage() {
                 ))
               ) : currentAssets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-8">
+                  <TableCell colSpan={14} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2">
                       <Package className="h-8 w-8 text-muted-foreground" />
-                      <p className="text-muted-foreground">
-                        No assets assigned
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        You will see assets here once you are allocated to
-                        modelers by production management.
-                      </p>
+                      {assets.length === 0 ? (
+                        <>
+                          <p className="text-muted-foreground">
+                            No assets assigned
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            You will see assets here once you are allocated to
+                            modelers by production management.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-muted-foreground">
+                            No assets match the current filters
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Try adjusting your search or filter criteria to see
+                            more results.
+                          </p>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1059,7 +1141,7 @@ export default function QAReviewPage() {
                 currentAssets.map((asset) => (
                   <TableRow
                     key={asset.id}
-                    className={
+                    className={`${
                       asset.status === "in_production"
                         ? "table-row-status-in-production"
                         : asset.status === "revisions"
@@ -1072,7 +1154,11 @@ export default function QAReviewPage() {
                               : asset.status === "not_started"
                                 ? "table-row-status-not-started"
                                 : "table-row-status-unknown"
-                    }
+                    } ${
+                      isNewAsset(asset.created_at)
+                        ? "bg-green-50/30 dark:bg-green-900/5 border-l-2 border-l-green-400"
+                        : ""
+                    }`}
                   >
                     <TableCell>
                       <Checkbox
@@ -1092,7 +1178,11 @@ export default function QAReviewPage() {
                       </span>
                     </TableCell>
                     <TableCell>{asset.client}</TableCell>
-
+                    <TableCell>
+                      <div className="text-sm font-medium">
+                        €{(asset.price || 0).toFixed(2)}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex justify-center items-center">
                         <Select
@@ -1126,16 +1216,9 @@ export default function QAReviewPage() {
                       <div className="flex items-center gap-2 justify-center">
                         <Badge
                           variant="outline"
-                          className={`text-xs ${
-                            STATUS_LABELS[
-                              asset.status as keyof typeof STATUS_LABELS
-                            ]?.color ||
-                            "bg-muted text-muted-foreground border-border"
-                          }`}
+                          className={`text-xs ${getStatusLabelClass(asset.status)}`}
                         >
-                          {STATUS_LABELS[
-                            asset.status as keyof typeof STATUS_LABELS
-                          ]?.label || asset.status}
+                          {getStatusLabelText(asset.status)}
                         </Badge>
                       </div>
                     </TableCell>
@@ -1143,7 +1226,8 @@ export default function QAReviewPage() {
                       {asset.modeler ? (
                         <div className="text-sm">
                           <div className="font-medium">
-                            {asset.modeler.email}
+                            {asset.modeler.title ||
+                              asset.modeler.email.split("@")[0]}
                           </div>
                           {asset.modeler.title && (
                             <div className="text-xs text-muted-foreground">
@@ -1154,6 +1238,15 @@ export default function QAReviewPage() {
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
+                    </TableCell>
+                    {/* Created Date */}
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <div className="text-xs text-muted-foreground">
+                          {dayjs(asset.created_at).format("MMM DD")}•
+                          {dayjs(asset.created_at).format("YYYY")}
+                        </div>
+                      </div>
                     </TableCell>
                     {/* Product */}
                     <TableCell>

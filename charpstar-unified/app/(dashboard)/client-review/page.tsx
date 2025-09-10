@@ -42,43 +42,52 @@ import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import { getPriorityLabel } from "@/lib/constants";
 
-const STATUS_LABELS = {
-  in_production: {
-    label: "In Progress",
-    color: "bg-warning-muted text-warning border-warning/20",
-    rowColor: "table-row-status-in-production",
-    hoverColor: "",
-  },
-  delivered_by_artist: {
-    label: "In Progress", // Changed from "Waiting for Approval" to "In Progress" for clients
-    color: "bg-warning-muted text-warning border-warning/20", // Same color as in_production
-    rowColor: "table-row-status-in-production",
-    hoverColor: "",
-  },
-  revisions: {
-    label: "Sent for Revision",
-    color: "bg-error-muted text-error border-error/20",
-    rowColor: "table-row-status-revisions",
-    hoverColor: "",
-  },
-  not_started: {
-    label: "In Progress",
-    color: "bg-warning-muted text-warning border-warning/20",
-    rowColor: "table-row-status-in-production",
-    hoverColor: "",
-  },
-  approved: {
-    label: "New Upload",
-    color: "bg-blue-100 text-blue-700 border-blue-200",
-    rowColor: "table-row-status-approved-by-client",
-    hoverColor: "",
-  },
-  approved_by_client: {
-    label: "Approved by Client",
-    color: "bg-green-100 text-green-800 border-green-200",
-    rowColor: "table-row-status-approved",
-    hoverColor: "",
-  },
+// Helper function to get status label CSS class
+const getStatusLabelClass = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "status-in-production";
+    case "revisions":
+      return "status-revisions";
+    case "approved":
+      return "status-approved";
+    case "approved_by_client":
+      return "status-approved-by-client";
+    case "delivered_by_artist":
+      return "status-delivered-by-artist";
+    case "not_started":
+      return "status-not-started";
+    case "in_progress":
+      return "status-in-progress";
+    case "waiting_for_approval":
+      return "status-waiting-for-approval";
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
+};
+
+// Helper function to get status label text
+const getStatusLabelText = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "In Progress";
+    case "revisions":
+      return "Sent for Revision";
+    case "approved":
+      return "New Upload";
+    case "approved_by_client":
+      return "Approved by Client";
+    case "delivered_by_artist":
+      return "In Progress"; // Client-facing label
+    case "not_started":
+      return "In Progress"; // Client-facing label
+    case "in_progress":
+      return "In Progress";
+    case "waiting_for_approval":
+      return "In Progress"; // Client-facing label
+    default:
+      return status;
+  }
 };
 
 // Helper function to get priority CSS class
@@ -90,18 +99,26 @@ const getPriorityClass = (priority: number): string => {
 
 // Helper function to get row styling based on status
 const getRowStyling = (status: string): { base: string; hover: string } => {
-  if (status in STATUS_LABELS) {
-    const statusConfig = STATUS_LABELS[status as keyof typeof STATUS_LABELS];
-    return {
-      base: statusConfig.rowColor,
-      hover: statusConfig.hoverColor,
-    };
+  switch (status) {
+    case "in_production":
+      return { base: "table-row-status-in-production", hover: "" };
+    case "revisions":
+      return { base: "table-row-status-revisions", hover: "" };
+    case "approved":
+      return { base: "table-row-status-approved", hover: "" };
+    case "approved_by_client":
+      return { base: "table-row-status-approved-by-client", hover: "" };
+    case "delivered_by_artist":
+      return { base: "table-row-status-delivered-by-artist", hover: "" };
+    case "not_started":
+      return { base: "table-row-status-not-started", hover: "" };
+    case "in_progress":
+      return { base: "table-row-status-in-progress", hover: "" };
+    case "waiting_for_approval":
+      return { base: "table-row-status-waiting-for-approval", hover: "" };
+    default:
+      return { base: "table-row-status-unknown", hover: "" };
   }
-  // Default styling for unknown statuses
-  return {
-    base: "table-row-status-unknown",
-    hover: "",
-  };
 };
 
 const PAGE_SIZE = 18;
@@ -590,14 +607,14 @@ export default function ReviewDashboardPage() {
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning-muted dark:bg-warning-muted/20 rounded-lg">
-                  <Send className="h-5 w-5 text-warning" />
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <Send className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     In Production
                   </p>
-                  <p className="text-2xl font-bold text-warning">
+                  <p className="text-2xl font-bold text-blue-600">
                     {statusTotals.in_production +
                       statusTotals.revisions +
                       statusTotals.delivered_by_artist}
@@ -615,14 +632,14 @@ export default function ReviewDashboardPage() {
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-info-muted dark:bg-info-muted/20 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-info" />
+                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     New Upload
                   </p>
-                  <p className="text-2xl font-medium text-info">
+                  <p className="text-2xl font-medium text-green-600">
                     {statusTotals.approved}
                   </p>
                 </div>
@@ -638,14 +655,14 @@ export default function ReviewDashboardPage() {
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-error-muted dark:bg-error-muted/20 rounded-lg">
-                  <Eye className="h-5 w-5 text-error" />
+                <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                  <Eye className="h-5 w-5 text-orange-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     Ready for Revision
                   </p>
-                  <p className="text-2xl font-bold text-error">
+                  <p className="text-2xl font-bold text-orange-600">
                     {statusTotals.revisions}
                   </p>
                 </div>
@@ -661,14 +678,14 @@ export default function ReviewDashboardPage() {
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-success-muted dark:bg-success-muted/20 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-success" />
+                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     Approved by Client
                   </p>
-                  <p className="text-2xl font-bold text-success">
+                  <p className="text-2xl font-bold text-green-600">
                     {statusTotals.approved_by_client}
                   </p>
                 </div>
@@ -1001,19 +1018,9 @@ export default function ReviewDashboardPage() {
                           <TableCell>
                             <div className="flex items-center justify-center">
                               <span
-                                className={`px-2 py-1 rounded text-xs font-semibold ${
-                                  asset.status in STATUS_LABELS
-                                    ? STATUS_LABELS[
-                                        asset.status as keyof typeof STATUS_LABELS
-                                      ].color
-                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
-                                }`}
+                                className={`px-2 py-1 rounded text-xs font-semibold ${getStatusLabelClass(asset.status)}`}
                               >
-                                {asset.status in STATUS_LABELS
-                                  ? STATUS_LABELS[
-                                      asset.status as keyof typeof STATUS_LABELS
-                                    ].label
-                                  : asset.status}
+                                {getStatusLabelText(asset.status)}
                               </span>
                             </div>
                           </TableCell>

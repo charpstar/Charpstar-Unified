@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // For replies (when parent_id is provided) we don't require position/normal
-    if (!asset_id || !comment || (!parent_id && (!position || !normal))) {
+    if (!asset_id || (!parent_id && (!position || !normal))) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }

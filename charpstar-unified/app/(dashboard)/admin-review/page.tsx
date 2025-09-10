@@ -80,40 +80,52 @@ const getStatusRowClass = (status: string): string => {
   }
 };
 
-const STATUS_LABELS = {
-  in_production: {
-    label: "In Production",
-    color: "bg-warning-muted text-warning border-warning/20",
-  },
-  revisions: {
-    label: "Sent for Revision",
-    color: "bg-error-muted text-error border-error/20",
-  },
-  approved: {
-    label: "Approved",
-    color: "bg-green-100 text-green-800 border-green-200",
-  },
-  approved_by_client: {
-    label: "Approved by Client",
-    color: "bg-blue-100 text-blue-700 border-blue-200",
-  },
-  delivered_by_artist: {
-    label: "Delivered by Artist",
-    color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
-  },
-  not_started: {
-    label: "Not Started",
-    color:
-      "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/50",
-  },
-  in_progress: {
-    label: "In Progress",
-    color: "bg-warning-muted text-warning border-warning/20",
-  },
-  waiting_for_approval: {
-    label: "Waiting for Approval",
-    color: "bg-accent-purple/10 text-accent-purple border-accent-purple/20",
-  },
+// Helper function to get status label CSS class
+const getStatusLabelClass = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "status-in-production";
+    case "revisions":
+      return "status-revisions";
+    case "approved":
+      return "status-approved";
+    case "approved_by_client":
+      return "status-approved-by-client";
+    case "delivered_by_artist":
+      return "status-delivered-by-artist";
+    case "not_started":
+      return "status-not-started";
+    case "in_progress":
+      return "status-in-progress";
+    case "waiting_for_approval":
+      return "status-waiting-for-approval";
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
+};
+
+// Helper function to get status label text
+const getStatusLabelText = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "In Production";
+    case "revisions":
+      return "Sent for Revision";
+    case "approved":
+      return "Approved";
+    case "approved_by_client":
+      return "Approved by Client";
+    case "delivered_by_artist":
+      return "Delivered by Artist";
+    case "not_started":
+      return "Not Started";
+    case "in_progress":
+      return "In Progress";
+    case "waiting_for_approval":
+      return "Delivered by Artist";
+    default:
+      return status;
+  }
 };
 
 const PAGE_SIZE = 100;
@@ -121,34 +133,23 @@ const PAGE_SIZE = 100;
 const getStatusIcon = (status: string) => {
   switch (status) {
     case "approved":
-      return <CheckCircle className="h-4 w-4 text-success" />;
+      return <CheckCircle className="h-4 w-4 text-green-600" />;
+    case "approved_by_client":
+      return <CheckCircle className="h-4 w-4 text-green-600" />;
     case "delivered_by_artist":
-      return <Clock className="h-4 w-4 text-accent-purple" />;
+      return <Clock className="h-4 w-4 text-green-600" />;
+    case "waiting_for_approval":
+      return <Clock className="h-4 w-4 text-green-600" />;
     case "in_production":
-      return <Clock className="h-4 w-4 text-warning" />;
+      return <Clock className="h-4 w-4 text-blue-600" />;
+    case "in_progress":
+      return <Clock className="h-4 w-4 text-blue-600" />;
     case "not_started":
       return null;
     case "revisions":
-      return <RotateCcw className="h-4 w-4 text-error" />;
+      return <RotateCcw className="h-4 w-4 text-orange-600" />;
     default:
       return <Eye className="h-4 w-4 text-gray-600" />;
-  }
-};
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "approved":
-      return "bg-success-muted text-success border-success/20";
-    case "delivered_by_artist":
-      return "bg-accent-purple/10 text-accent-purple border-accent-purple/20";
-    case "in_production":
-      return "bg-warning-muted text-warning border-warning/20";
-    case "not_started":
-      return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/50";
-    case "revisions":
-      return "bg-error-muted text-error border-error/20";
-    default:
-      return "bg-muted text-muted-foreground border-border";
   }
 };
 
@@ -432,7 +433,6 @@ export default function AdminReviewPage() {
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0,
-        waiting_for_approval: 0,
       };
 
       allocationLists.forEach((list) => {
@@ -441,9 +441,6 @@ export default function AdminReviewPage() {
           totals.total++;
           if (totals.hasOwnProperty(assetStatus)) {
             totals[assetStatus as keyof typeof totals]++;
-          }
-          if (assetStatus === "delivered_by_artist") {
-            totals.waiting_for_approval++;
           }
         });
       });
@@ -483,16 +480,12 @@ export default function AdminReviewPage() {
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0,
-        waiting_for_approval: 0,
       };
 
       filtered.forEach((asset) => {
         const status = asset.status;
         if (totals.hasOwnProperty(status)) {
           totals[status as keyof typeof totals]++;
-        }
-        if (status === "delivered_by_artist") {
-          totals.waiting_for_approval++;
         }
       });
 
@@ -530,7 +523,6 @@ export default function AdminReviewPage() {
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0, // Include not_started for consistency
-        waiting_for_approval: 0,
       };
 
       assets.forEach((asset) => {
@@ -538,9 +530,6 @@ export default function AdminReviewPage() {
 
         if (displayStatus && totals.hasOwnProperty(displayStatus)) {
           totals[displayStatus as keyof typeof totals]++;
-        }
-        if (displayStatus === "delivered_by_artist") {
-          totals.waiting_for_approval++;
         }
       });
 
@@ -1731,7 +1720,7 @@ export default function AdminReviewPage() {
         </div>
 
         {/* Status Summary Cards */}
-        {!loading && (
+        {!loading && !showAllocationLists && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             {/* Total Models (no filtering on this card itself) */}
             <Card
@@ -1831,7 +1820,7 @@ export default function AdminReviewPage() {
               </div>
             </Card>
 
-            {/*    Waiting for Approval*/}
+            {/*    Delivered by Artist*/}
             <Card
               className="p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
@@ -1845,10 +1834,10 @@ export default function AdminReviewPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Waiting for Approval
+                    Delivered by Artist
                   </p>
                   <p className="text-2xl font-bold text-purple-600">
-                    {statusTotals.totals.waiting_for_approval}
+                    {statusTotals.totals.delivered_by_artist}
                   </p>
                 </div>
               </div>
@@ -1857,13 +1846,19 @@ export default function AdminReviewPage() {
         )}
 
         {/* Inline Filter Controls */}
-        {!loading && (
+        {!loading && !showAllocationLists && (
           <div className="flex flex-wrap items-center gap-3 mb-4">
             {/* Client Filter */}
 
             {/* Status Filter */}
             <Select
-              value={statusFilters.length === 1 ? statusFilters[0] : undefined}
+              value={
+                statusFilters.length === 1
+                  ? statusFilters[0] === "delivered_by_artist"
+                    ? "waiting_for_approval"
+                    : statusFilters[0]
+                  : undefined
+              }
               onValueChange={(value) => {
                 if (value === "all") {
                   setStatusFilters([]);
@@ -1882,20 +1877,29 @@ export default function AdminReviewPage() {
                     statusFilters.length === 0
                       ? "All statuses"
                       : statusFilters.length === 1
-                        ? STATUS_LABELS[
-                            statusFilters[0] as keyof typeof STATUS_LABELS
-                          ]?.label
+                        ? statusFilters[0] === "delivered_by_artist"
+                          ? "Delivered by Artist"
+                          : getStatusLabelText(statusFilters[0])
                         : `${statusFilters.length} selected`
                   }
                 />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                {Object.entries(STATUS_LABELS).map(([status, config]) => (
+                {[
+                  "in_production",
+                  "revisions",
+                  "approved",
+                  "approved_by_client",
+                  "delivered_by_artist",
+                  "not_started",
+                  "in_progress",
+                  "waiting_for_approval",
+                ].map((status) => (
                   <SelectItem key={status} value={status}>
                     <div className="flex items-center gap-2">
                       {getStatusIcon(status)}
-                      {config.label}
+                      {getStatusLabelText(status)}
                     </div>
                   </SelectItem>
                 ))}
@@ -2063,7 +2067,7 @@ export default function AdminReviewPage() {
                             {getStatusIcon(list.status)}
                             <Badge
                               variant="outline"
-                              className={`text-xs ${getStatusColor(list.status)}`}
+                              className={`text-xs ${getStatusLabelClass(list.status)}`}
                             >
                               {list.status === "in_progress"
                                 ? "In Progress"
@@ -2104,7 +2108,7 @@ export default function AdminReviewPage() {
                       </div>
 
                       {/* Summary stats always visible */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4">
                         <div className="text-center">
                           <p className="text-sm font-medium text-muted-foreground">
                             Assets
@@ -2128,19 +2132,6 @@ export default function AdminReviewPage() {
                           <p className="text-2xl font-medium  text-success">
                             €{stats.totalPrice.toFixed(2)}
                           </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm font-medium text-muted-foreground">
-                            Potential Earnings
-                          </p>
-                          <p className="text-2xl font-medium text-success">
-                            €{stats.potentialEarnings.toFixed(2)}
-                          </p>
-                          {list.bonus > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              +{list.bonus}% bonus (if completed on time)
-                            </p>
-                          )}
                         </div>
                       </div>
                     </CardHeader>
@@ -2249,11 +2240,11 @@ export default function AdminReviewPage() {
                                 <TableCell>
                                   <Badge
                                     variant="outline"
-                                    className={`text-xs ${getStatusColor(assignment.onboarding_assets.status)}`}
+                                    className={`text-xs ${getStatusLabelClass(assignment.onboarding_assets.status)}`}
                                   >
                                     {assignment.onboarding_assets.status ===
                                     "delivered_by_artist"
-                                      ? "Waiting for Approval"
+                                      ? "Delivered by Artist"
                                       : assignment.onboarding_assets.status ===
                                           "in_production"
                                         ? "In Progress"
@@ -2371,7 +2362,7 @@ export default function AdminReviewPage() {
                                           assignment.onboarding_assets.id ? (
                                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-error" />
                                           ) : (
-                                            <Trash2 className="h-5 w-5" />
+                                            <Trash2 className="h-4 w-4" />
                                           )}
                                         </Button>
                                       </DialogTrigger>
@@ -2526,19 +2517,9 @@ export default function AdminReviewPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              asset.status in STATUS_LABELS
-                                ? STATUS_LABELS[
-                                    asset.status as keyof typeof STATUS_LABELS
-                                  ].color
-                                : "bg-gray-100 text-gray-600"
-                            }`}
+                            className={`px-2 py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
                           >
-                            {asset.status in STATUS_LABELS
-                              ? STATUS_LABELS[
-                                  asset.status as keyof typeof STATUS_LABELS
-                                ].label
-                              : asset.status}
+                            {getStatusLabelText(asset.status)}
                           </span>
                         </div>
                       </TableCell>
@@ -2745,19 +2726,9 @@ export default function AdminReviewPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              asset.status in STATUS_LABELS
-                                ? STATUS_LABELS[
-                                    asset.status as keyof typeof STATUS_LABELS
-                                  ].color
-                                : "bg-gray-100 text-gray-600"
-                            }`}
+                            className={`px-2 py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
                           >
-                            {asset.status in STATUS_LABELS
-                              ? STATUS_LABELS[
-                                  asset.status as keyof typeof STATUS_LABELS
-                                ].label
-                              : asset.status}
+                            {getStatusLabelText(asset.status)}
                           </span>
                           {/* Revision badge removed */}
                         </div>
@@ -2824,7 +2795,7 @@ export default function AdminReviewPage() {
                               {deletingAsset === asset.id ? (
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-error" />
                               ) : (
-                                <Trash2 className="h-5 w-5" />
+                                <Trash2 className="h-3 w-3" />
                               )}
                             </Button>
                           </DialogTrigger>

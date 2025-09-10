@@ -86,26 +86,52 @@ interface Hotspot {
   visible: boolean;
 }
 
-const STATUS_LABELS = {
-  // Client-facing mapping
-  in_production: {
-    label: "In Production",
-    color: "bg-yellow-100 text-yellow-800",
-  },
-  not_started: {
-    label: "In Production",
-    color: "bg-yellow-100 text-yellow-800",
-  },
-  revisions: { label: "Feedback Given", color: "bg-red-100 text-red-700" },
-  approved_by_client: {
-    label: "Approved",
-    color: "bg-emerald-100 text-emerald-700",
-  },
-  delivered_by_artist: {
-    label: "In Production",
-    color: "bg-yellow-100 text-yellow-800",
-  },
-  approved: { label: "New Upload", color: "bg-blue-100 text-blue-700" },
+// Helper function to get status label CSS class
+const getStatusLabelClass = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "status-in-production";
+    case "revisions":
+      return "status-revisions";
+    case "approved":
+      return "status-approved";
+    case "approved_by_client":
+      return "status-approved-by-client";
+    case "delivered_by_artist":
+      return "status-delivered-by-artist";
+    case "not_started":
+      return "status-not-started";
+    case "in_progress":
+      return "status-in-progress";
+    case "waiting_for_approval":
+      return "status-waiting-for-approval";
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
+};
+
+// Helper function to get status label text
+const getStatusLabelText = (status: string): string => {
+  switch (status) {
+    case "in_production":
+      return "In Production";
+    case "revisions":
+      return "Sent for Revision";
+    case "approved":
+      return "Approved";
+    case "approved_by_client":
+      return "Approved by Client";
+    case "delivered_by_artist":
+      return "Delivered by Artist";
+    case "not_started":
+      return "Not Started";
+    case "in_progress":
+      return "In Progress";
+    case "waiting_for_approval":
+      return "Delivered by Artist";
+    default:
+      return status;
+  }
 };
 
 // Internal role (admin/qa) should see real statuses, clients see client-facing mapping above
@@ -115,38 +141,31 @@ const getStatusDisplay = (
 ): { label: string; className: string } => {
   if (!status) return { label: "Unknown", className: "" };
   const isInternal = role === "admin" || role === "qa";
+
   if (isInternal) {
-    switch (status) {
-      case "not_started":
-        return { label: "Not Started", className: "bg-gray-100 text-gray-800" };
-      case "in_production":
-        return {
-          label: "In Production",
-          className: "bg-yellow-100 text-yellow-800",
-        };
-      case "revisions":
-        return { label: "Revisions", className: "bg-red-100 text-red-700" };
-      case "approved_by_client":
-        return {
-          label: "Approved by Client",
-          className: "bg-emerald-100 text-emerald-700",
-        };
-      case "delivered_by_artist":
-        return {
-          label: "Delivered by Artist",
-          className: "bg-yellow-100 text-yellow-800",
-        };
-      case "approved":
-        return { label: "Approved", className: "bg-blue-100 text-blue-700" };
-      default:
-        return { label: status.replace(/_/g, " "), className: "" };
-    }
-  } else {
-    const clientMap = STATUS_LABELS[status as keyof typeof STATUS_LABELS];
     return {
-      label: clientMap?.label || status,
-      className: clientMap?.color || "",
+      label: getStatusLabelText(status),
+      className: getStatusLabelClass(status),
     };
+  } else {
+    // Client-facing mapping
+    switch (status) {
+      case "in_production":
+      case "not_started":
+      case "delivered_by_artist":
+        return { label: "In Production", className: "status-in-production" };
+      case "revisions":
+        return { label: "Feedback Given", className: "status-revisions" };
+      case "approved_by_client":
+        return { label: "Approved", className: "status-approved-by-client" };
+      case "approved":
+        return { label: "New Upload", className: "status-approved" };
+      default:
+        return {
+          label: status.replace(/_/g, " "),
+          className: getStatusLabelClass(status),
+        };
+    }
   }
 };
 
@@ -575,14 +594,14 @@ export default function ReviewPage() {
 
   // Save annotation
   const saveAnnotation = async () => {
-    if (!selectedAnnotation || !newComment.trim()) return;
+    if (!selectedAnnotation) return;
 
     const annotationData = {
       asset_id: selectedAnnotation.asset_id,
       position: selectedAnnotation.position,
       normal: selectedAnnotation.normal,
       surface: selectedAnnotation.surface,
-      comment: newComment.trim(),
+      comment: newComment.trim() || "",
       image_url: newImageUrl.trim() || null,
     };
 
@@ -1434,14 +1453,10 @@ export default function ReviewPage() {
           // Trigger earnings widget refresh for unapproval
           window.dispatchEvent(new CustomEvent("allocationListUnapproved"));
         } else {
-          toast.success(
-            `Status updated to ${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}`
-          );
+          toast.success(`Status updated to ${getStatusLabelText(newStatus)}`);
         }
       } else {
-        toast.success(
-          `Status updated to ${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}`
-        );
+        toast.success(`Status updated to ${getStatusLabelText(newStatus)}`);
       }
     } catch (error) {
       console.error("Error updating asset status:", error);
@@ -2185,48 +2200,86 @@ export default function ReviewPage() {
           } catch {}
         }
       } else {
-        // Comment reply: insert a new comment with parent_id
-        const { data, error } = await supabase
+        // Comment reply: check if QA is replying to a client comment
+        const { data: parentComment } = await supabase
           .from("asset_comments")
-          .insert({
-            asset_id: assetId,
-            comment: replyText.trim(),
-            parent_id: replyingTo.id,
-            created_by: user.id,
-          })
-          .select(`*, profiles:created_by (title, role, email)`)
+          .select("created_by, profiles:created_by (role)")
+          .eq("id", replyingTo.id)
           .single();
-        if (error) throw error;
-        setComments((prev) => [data, ...prev]);
-        // Fetch parent comment author and notify
-        try {
-          const { data: parentComment } = await supabase
-            .from("asset_comments")
-            .select("created_by")
-            .eq("id", replyingTo.id)
-            .single();
-          const parentAuthor = parentComment?.created_by;
-          if (parentAuthor && parentAuthor !== user.id) {
-            const { data: parentProfile } = await supabase
-              .from("profiles")
-              .select("id, email")
-              .eq("id", parentAuthor)
-              .single();
-            if (parentProfile?.id) {
-              await notificationService.sendCommentReplyNotification({
-                recipientId: parentProfile.id,
-                recipientEmail: parentProfile.email || "",
-                assetId: assetId,
-                parentCommentId: replyingTo.id,
-                replyPreview: replyText.trim(),
-              });
-            }
+
+        const parentAuthorRole = parentComment?.profiles?.[0]?.role;
+        const isQAReplyingToClient =
+          user?.metadata?.role === "qa" && parentAuthorRole === "client";
+
+        console.log("Reply debug:", {
+          userRole: user?.metadata?.role,
+          parentAuthorRole,
+          isQAReplyingToClient,
+          parentComment,
+        });
+
+        if (isQAReplyingToClient) {
+          // QA replying to client - requires admin approval
+          const response = await fetch("/api/pending-replies", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              assetId: assetId,
+              parentCommentId: replyingTo.id,
+              replyText: replyText.trim(),
+              createdBy: user.id,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.error || "Failed to submit reply for approval"
+            );
           }
-        } catch {}
+
+          toast.success("Reply submitted for admin approval");
+        } else {
+          // Regular comment reply: insert directly
+          const { data, error } = await supabase
+            .from("asset_comments")
+            .insert({
+              asset_id: assetId,
+              comment: replyText.trim(),
+              parent_id: replyingTo.id,
+              created_by: user.id,
+            })
+            .select(`*, profiles:created_by (title, role, email)`)
+            .single();
+          if (error) throw error;
+          setComments((prev) => [data, ...prev]);
+
+          // Fetch parent comment author and notify
+          try {
+            const parentAuthor = parentComment?.created_by;
+            if (parentAuthor && parentAuthor !== user.id) {
+              const { data: parentProfile } = await supabase
+                .from("profiles")
+                .select("id, email")
+                .eq("id", parentAuthor)
+                .single();
+              if (parentProfile?.id) {
+                await notificationService.sendCommentReplyNotification({
+                  recipientId: parentProfile.id,
+                  recipientEmail: parentProfile.email || "",
+                  assetId: assetId,
+                  parentCommentId: replyingTo.id,
+                  replyPreview: replyText.trim(),
+                });
+              }
+            }
+          } catch {}
+
+          toast.success("Reply posted");
+        }
       }
       setReplyText("");
       setReplyingTo(null);
-      toast.success("Reply posted");
     } catch (e: any) {
       console.error("Failed to post reply:", e);
       toast.error(e?.message || "Failed to post reply");
@@ -4313,7 +4366,6 @@ export default function ReviewPage() {
               <div className="flex gap-3 pt-4 border-t border-border">
                 <Button
                   onClick={saveAnnotation}
-                  disabled={!newComment.trim()}
                   className="flex-1 bg-primary hover:bg-primary/90 font-medium cursor-pointer"
                 >
                   Save Annotation

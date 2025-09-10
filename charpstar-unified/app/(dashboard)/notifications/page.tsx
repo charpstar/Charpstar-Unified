@@ -39,6 +39,8 @@ import {
   RefreshCw,
   MoreVertical,
   MessageSquare,
+  Settings,
+  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -48,6 +50,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/interactive";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
 
 // Using NotificationData interface from the notification service
 
@@ -239,6 +242,78 @@ export default function NotificationsPage() {
     Set<string>
   >(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
+  const [notificationPreferences, setNotificationPreferences] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Role-specific notification types
+  const getRoleSpecificNotificationTypes = (role: string | undefined) => {
+    const allTypes = {
+      asset_allocation: "When new assets are assigned to you",
+      asset_completed: "When assets are marked as completed",
+      deadline_reminder: "Reminders about upcoming deadlines",
+      qa_review: "When assets are ready for QA review",
+      status_change: "When asset status changes",
+      budget_alert: "Budget and cost-related alerts",
+      product_submission: "When products are submitted for review",
+      revision_required: "When revisions are requested",
+      asset_approved: "When assets are approved",
+      client_review_ready: "When assets are ready for client review",
+      allocation_list_accepted: "When allocation lists are accepted",
+      allocation_list_declined: "When allocation lists are declined",
+      comment_reply: "When someone replies to your comments",
+      annotation_reply: "When someone replies to your annotations",
+      pending_reply: "When QA replies to client comments need approval",
+      reply_approved: "When your QA replies are approved",
+      reply_rejected: "When your QA replies are rejected",
+    };
+
+    // Filter based on role
+    switch (role) {
+      case "modeler":
+        return {
+          asset_allocation: allTypes.asset_allocation,
+          asset_completed: allTypes.asset_completed,
+          deadline_reminder: allTypes.deadline_reminder,
+          revision_required: allTypes.revision_required,
+          asset_approved: allTypes.asset_approved,
+          status_change: allTypes.status_change,
+          comment_reply: allTypes.comment_reply,
+          annotation_reply: allTypes.annotation_reply,
+        };
+      case "qa":
+        return {
+          qa_review: allTypes.qa_review,
+          status_change: allTypes.status_change,
+          comment_reply: allTypes.comment_reply,
+          annotation_reply: allTypes.annotation_reply,
+          reply_approved: allTypes.reply_approved,
+          reply_rejected: allTypes.reply_rejected,
+        };
+      case "client":
+        return {
+          client_review_ready: allTypes.client_review_ready,
+          asset_approved: allTypes.asset_approved,
+          status_change: allTypes.status_change,
+          comment_reply: allTypes.comment_reply,
+          annotation_reply: allTypes.annotation_reply,
+        };
+      case "admin":
+        return {
+          product_submission: allTypes.product_submission,
+          allocation_list_accepted: allTypes.allocation_list_accepted,
+          allocation_list_declined: allTypes.allocation_list_declined,
+          budget_alert: allTypes.budget_alert,
+          status_change: allTypes.status_change,
+          comment_reply: allTypes.comment_reply,
+          annotation_reply: allTypes.annotation_reply,
+          pending_reply: "When QA replies to client comments need approval",
+        };
+      default:
+        return allTypes;
+    }
+  };
 
   const fetchNotifications = async () => {
     if (!user?.id) return;
@@ -249,7 +324,18 @@ export default function NotificationsPage() {
       const allNotifications = await notificationService.getAllNotifications(
         user.id
       );
-      setNotifications(allNotifications);
+
+      // Filter notifications based on user role
+      const userRole = (user as any)?.metadata?.role as string | undefined;
+      const roleSpecificTypes = Object.keys(
+        getRoleSpecificNotificationTypes(userRole)
+      );
+
+      const filteredNotifications = allNotifications.filter((notification) =>
+        roleSpecificTypes.includes(notification.type)
+      );
+
+      setNotifications(filteredNotifications);
     } catch (error) {
       console.error("Error:", error);
       toast.error("Failed to load notifications");
@@ -259,9 +345,67 @@ export default function NotificationsPage() {
     }
   };
 
+  const fetchNotificationPreferences = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("notification_preferences")
+        .select("notification_type, enabled")
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error fetching preferences:", error);
+        return;
+      }
+
+      // Convert array to object with default enabled state
+      const preferences: Record<string, boolean> = {};
+      data?.forEach((pref) => {
+        preferences[pref.notification_type] = pref.enabled;
+      });
+
+      setNotificationPreferences(preferences);
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+    }
+  };
+
+  const updateNotificationPreference = async (
+    notificationType: string,
+    enabled: boolean
+  ) => {
+    if (!user?.id) return;
+
+    try {
+      const { error } = await supabase.from("notification_preferences").upsert({
+        user_id: user.id,
+        notification_type: notificationType,
+        enabled: enabled,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setNotificationPreferences((prev) => ({
+        ...prev,
+        [notificationType]: enabled,
+      }));
+
+      toast.success(
+        `${enabled ? "Enabled" : "Disabled"} ${notificationType.replace(/_/g, " ")} notifications`
+      );
+    } catch (error) {
+      console.error("Error updating preference:", error);
+      toast.error("Failed to update notification preference");
+    }
+  };
+
   useEffect(() => {
     if (user?.id) {
       fetchNotifications();
+      fetchNotificationPreferences();
     }
 
     // Listen for global notification updates to refresh notifications
@@ -538,6 +682,12 @@ export default function NotificationsPage() {
   // Get unique notification types for filter
   const notificationTypes = [...new Set(notifications.map((n) => n.type))];
 
+  // Get user role
+  const userRole = (user as any)?.metadata?.role as string | undefined;
+
+  const notificationTypeDescriptions =
+    getRoleSpecificNotificationTypes(userRole);
+
   // Group notifications by date
   const groupedNotifications = groupNotificationsByDate(filteredNotifications);
 
@@ -603,6 +753,15 @@ export default function NotificationsPage() {
               className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
             />
             Refresh
+          </Button>
+          <Button
+            onClick={() => setShowPreferences(true)}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Preferences
           </Button>
           <Button
             onClick={markAllAsRead}
@@ -933,6 +1092,100 @@ export default function NotificationsPage() {
               </div>
             )
           )}
+        </div>
+      )}
+
+      {/* Notification Preferences Dialog */}
+      {showPreferences && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Notification Preferences
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Choose which types of notifications you want to receive
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPreferences(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="overflow-y-auto max-h-[60vh]">
+              <div className="space-y-4">
+                {Object.keys(notificationTypeDescriptions).length === 0 ? (
+                  <div className="text-center py-8">
+                    <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">
+                      No notifications available
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Your role doesn&apos;t have access to any notification
+                      types.
+                    </p>
+                  </div>
+                ) : (
+                  Object.entries(notificationTypeDescriptions).map(
+                    ([type, description]) => (
+                      <div
+                        key={type}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`p-2 rounded-full ${getNotificationColor(type)}`}
+                          >
+                            <NotificationIcon type={type} />
+                          </div>
+                          <div>
+                            <h4 className="font-medium">
+                              {type
+                                .replace(/_/g, " ")
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}
+                            </h4>
+                            <p className="text-sm text-muted-foreground">
+                              {description}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            {notificationPreferences[type] !== false
+                              ? "On"
+                              : "Off"}
+                          </span>
+                          <Button
+                            variant={
+                              notificationPreferences[type] !== false
+                                ? "default"
+                                : "outline"
+                            }
+                            size="sm"
+                            onClick={() =>
+                              updateNotificationPreference(
+                                type,
+                                notificationPreferences[type] === false
+                              )
+                            }
+                          >
+                            {notificationPreferences[type] !== false
+                              ? "Disable"
+                              : "Enable"}
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  )
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

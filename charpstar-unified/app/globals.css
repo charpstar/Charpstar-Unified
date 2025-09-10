@@ -629,45 +629,47 @@ model-viewer::part(default-ar-button):focus-visible {
 
   /* Table row status backgrounds - high specificity */
   .table-row-status-in-production {
-    background-color: rgb(251 191 36 / 0.2) !important;
+    background-color: rgb(219 234 254 / 0.3) !important; /* light blue */
   }
   .table-row-status-in-production:hover {
-    background-color: rgb(251 191 36 / 0.3) !important;
+    background-color: rgb(219 234 254 / 0.5) !important;
   }
 
   .table-row-status-revisions {
-    background-color: rgb(239 68 68 / 0.14) !important; /* red-500 @ ~14% */
+    background-color: rgb(
+      254 215 170 / 0.3
+    ) !important; /* darker orange warning */
   }
   .table-row-status-revisions:hover {
-    background-color: rgb(239 68 68 / 0.22) !important;
+    background-color: rgb(254 215 170 / 0.5) !important;
   }
 
   .table-row-status-approved {
-    background-color: rgb(34 197 94 / 0.2) !important;
+    background-color: rgb(34 197 94 / 0.2) !important; /* green */
   }
   .table-row-status-approved:hover {
     background-color: rgb(34 197 94 / 0.3) !important;
   }
 
   .table-row-status-approved-by-client {
-    background-color: rgba(27, 34, 232, 0.2) !important;
+    background-color: rgb(34 197 94 / 0.2) !important; /* green */
   }
   .table-row-status-approved-by-client:hover {
-    background-color: rgba(27, 34, 232, 0.3) !important;
+    background-color: rgb(34 197 94 / 0.3) !important;
   }
 
   .table-row-status-delivered-by-artist {
-    background-color: rgba(168, 85, 247, 0.2) !important;
+    background-color: rgb(220 252 231 / 0.3) !important; /* light green */
   }
   .table-row-status-delivered-by-artist:hover {
-    background-color: rgba(168, 85, 247, 0.3) !important;
+    background-color: rgb(220 252 231 / 0.5) !important;
   }
 
   .table-row-status-not-started {
-    background-color: rgb(243 244 246 / 0.7) !important; /* gray-100 */
+    background-color: rgb(254 249 195 / 0.3) !important; /* light yellow */
   }
   .table-row-status-not-started:hover {
-    background-color: rgb(229 231 235 / 0.9) !important; /* gray-200 */
+    background-color: rgb(254 249 195 / 0.5) !important;
   }
 
   .table-row-status-unknown {
@@ -680,6 +682,141 @@ model-viewer::part(default-ar-button):focus-visible {
   /* Scrollbar gutter utility to prevent layout shift */
   .scrollbar-gutter-stable {
     scrollbar-gutter: stable;
+  }
+
+  /* Status label utility classes */
+  .status-in-production {
+    background-color: rgb(219 234 254); /* light blue */
+    color: rgb(30 64 175); /* darker blue */
+    border: 1px solid rgb(147 197 253 / 0.5);
+  }
+
+  .status-revisions {
+    background-color: rgb(254 215 170); /* darker orange warning */
+    color: rgb(194 65 12); /* dark orange */
+    border: 1px solid rgb(251 146 60 / 0.5);
+  }
+
+  .status-approved {
+    background-color: var(--success-muted);
+    color: var(--success);
+    border: 1px solid var(--success);
+    opacity: 0.8;
+  }
+
+  .status-approved-by-client {
+    background-color: var(--success-muted);
+    color: var(--success);
+    border: 1px solid var(--success);
+    opacity: 0.8;
+  }
+
+  .status-delivered-by-artist {
+    background-color: rgb(220 252 231); /* light green */
+    color: rgb(22 101 52); /* dark green */
+    border: 1px solid rgb(134 239 172 / 0.5);
+  }
+
+  .status-not-started {
+    background-color: rgb(254 249 195); /* light yellow */
+    color: rgb(161 98 7); /* dark yellow */
+    border: 1px solid rgb(250 204 21 / 0.5);
+  }
+
+  .status-in-progress {
+    background-color: rgb(219 234 254); /* light blue */
+    color: rgb(30 64 175); /* darker blue */
+    border: 1px solid rgb(147 197 253 / 0.5);
+  }
+
+  .status-waiting-for-approval {
+    background-color: rgb(220 252 231); /* light green */
+    color: rgb(22 101 52); /* dark green */
+    border: 1px solid rgb(134 239 172 / 0.5);
+  }
+
+  /* Dark mode status label overrides */
+  .dark .status-in-production {
+    background-color: rgb(30 58 138 / 0.2); /* dark blue */
+    color: rgb(147 197 253);
+    border: 1px solid rgb(59 130 246 / 0.3);
+  }
+
+  .dark .status-revisions {
+    background-color: rgb(194 65 12 / 0.2); /* dark orange */
+    color: rgb(251 146 60);
+    border: 1px solid rgb(251 146 60 / 0.3);
+  }
+
+  .dark .status-approved {
+    background-color: var(--success-muted);
+    color: var(--success);
+    border: 1px solid var(--success);
+    opacity: 0.8;
+  }
+
+  .dark .status-approved-by-client {
+    background-color: var(--success-muted);
+    color: var(--success);
+    border: 1px solid var(--success);
+    opacity: 0.8;
+  }
+
+  .dark .status-delivered-by-artist {
+    background-color: rgb(22 101 52 / 0.2); /* dark green */
+    color: rgb(134 239 172);
+    border: 1px solid rgb(34 197 94 / 0.3);
+  }
+
+  .dark .status-not-started {
+    background-color: rgb(161 98 7 / 0.2); /* dark yellow */
+    color: rgb(250 204 21);
+    border: 1px solid rgb(250 204 21 / 0.3);
+  }
+
+  .dark .status-in-progress {
+    background-color: rgb(30 58 138 / 0.2); /* dark blue */
+    color: rgb(147 197 253);
+    border: 1px solid rgb(59 130 246 / 0.3);
+  }
+
+  .dark .status-waiting-for-approval {
+    background-color: rgb(22 101 52 / 0.2); /* dark green */
+    color: rgb(134 239 172);
+    border: 1px solid rgb(34 197 94 / 0.3);
+  }
+
+  /* Status text content classes */
+  .status-text-in-production::before {
+    content: "In Production";
+  }
+
+  .status-text-revisions::before {
+    content: "Sent for Revision";
+  }
+
+  .status-text-approved::before {
+    content: "Approved";
+  }
+
+  .status-text-approved-by-client::before {
+    content: "Approved by Client";
+  }
+
+  .status-text-delivered-by-artist::before {
+    content: "Delivered by Artist";
+  }
+
+  .status-text-not-started::before {
+    content: "Not Started";
+  }
+
+  .status-text-in-progress::before {
+    content: "In Progress";
+  }
+
+  .status-text-waiting-for-approval::before {
+    content: "Waiting for Approval";
   }
 }
 

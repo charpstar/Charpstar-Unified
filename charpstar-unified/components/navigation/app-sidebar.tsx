@@ -17,6 +17,7 @@ import {
   DollarSign,
   Bell,
   Building2,
+  Palette,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -142,6 +143,11 @@ export default function AppSidebar({
                 url: "/client-review",
                 icon: Eye,
               },
+              {
+                title: "Scene Render",
+                url: "/scene-render",
+                icon: Palette,
+              },
             ]
           : []),
       ]
@@ -179,6 +185,16 @@ export default function AppSidebar({
             title: "Create Users",
             url: "/create-users",
             icon: UserPlus,
+          },
+          {
+            title: "Scene Render",
+            url: "/scene-render",
+            icon: Palette,
+          },
+          {
+            title: "Pending Replies",
+            url: "/admin/pending-replies",
+            icon: MessageSquare,
           },
         ]
       : [];
@@ -249,6 +265,7 @@ export default function AppSidebar({
     // Client
     "Add Products": 15,
     "Client Review": 20,
+    "Scene Render": 25,
     // Modeler
     "My Assignments": 10,
     Guidelines: 80,
