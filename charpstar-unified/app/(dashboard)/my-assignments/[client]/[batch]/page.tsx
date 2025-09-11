@@ -1718,7 +1718,7 @@ export default function BatchDetailPage() {
                                       href="https://cdn2.charpstar.net/3DTester/TransparencyFix/"
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-primary hover:underline"
+                                      className="text-blue-600 hover:text-blue-700 hover:underline "
                                     >
                                       Synsam viewer
                                     </a>
@@ -1732,7 +1732,7 @@ export default function BatchDetailPage() {
                                       href="https://charpstar.se/3DTester-V5/"
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-primary hover:underline"
+                                      className="text-blue-600 hover:text-blue-700 hover:underline"
                                     >
                                       Model viewer
                                     </a>
