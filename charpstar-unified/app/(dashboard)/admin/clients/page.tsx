@@ -56,6 +56,7 @@ interface Client {
   notes: string;
   client_guide?: string | null;
   client_guide_links?: string[] | null;
+  viewer_type?: "v6_aces" | "v5_tester" | "synsam" | "v2" | null;
   created_at: string;
   updated_at: string;
   isPlaceholder?: boolean;
@@ -75,6 +76,7 @@ interface ClientFormData {
   notes: string;
   client_guide?: string;
   client_guide_links?: string[];
+  viewer_type?: "v6_aces" | "v5_tester" | "synsam" | "v2" | null;
 }
 
 export default function AdminClientsPage() {
@@ -99,6 +101,7 @@ export default function AdminClientsPage() {
     notes: "",
     client_guide: "",
     client_guide_links: [],
+    viewer_type: null,
   });
   const { toast } = useToast();
 
@@ -160,6 +163,7 @@ export default function AdminClientsPage() {
           notes: "",
           client_guide: null,
           client_guide_links: [],
+          viewer_type: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           isPlaceholder: true,
@@ -206,6 +210,7 @@ export default function AdminClientsPage() {
       notes: client.notes,
       client_guide: client.client_guide || "",
       client_guide_links: client.client_guide_links || [],
+      viewer_type: client.viewer_type || null,
     });
     setIsEditDialogOpen(true);
   };
@@ -230,6 +235,7 @@ export default function AdminClientsPage() {
       notes: "",
       client_guide: "",
       client_guide_links: [],
+      viewer_type: null,
     });
     setIsAddDialogOpen(true);
   };
@@ -249,6 +255,7 @@ export default function AdminClientsPage() {
       notes: "",
       client_guide: "",
       client_guide_links: [],
+      viewer_type: null,
     });
     setIsAddDialogOpen(true);
   };
@@ -325,6 +332,7 @@ export default function AdminClientsPage() {
         notes: "",
         client_guide: "",
         client_guide_links: [],
+        viewer_type: null,
       });
       setIsEditDialogOpen(false);
       setIsAddDialogOpen(false);
@@ -779,6 +787,29 @@ function ClientForm({
               </div>
             </div>
           )}
+          {(role === "admin" || role === "qa") && (
+            <div className="space-y-2">
+              <Label htmlFor="viewer_type">Choose Viewer</Label>
+              <Select
+                value={formData.viewer_type || ""}
+                onValueChange={(
+                  value: "v6_aces" | "v5_tester" | "synsam" | "v2" | ""
+                ) => setFormData({ ...formData, viewer_type: value || null })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a viewer type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="v6_aces">V6 ACES Tester</SelectItem>
+                  <SelectItem value="v5_tester">V5 Tester</SelectItem>
+                  <SelectItem value="synsam">Synsam</SelectItem>
+                  <SelectItem value="v2" disabled>
+                    V2 (Under Construction)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -865,6 +896,30 @@ function ClientView({ client }: { client: Client }) {
             <h4 className="font-medium text-muted-foreground">Start Date</h4>
             <p>{new Date(client.start_date).toLocaleDateString()}</p>
           </div>
+          {client.viewer_type && (
+            <div>
+              <h4 className="font-medium text-muted-foreground">Viewer Type</h4>
+              <Badge
+                className={
+                  client.viewer_type === "v6_aces"
+                    ? "bg-blue-100 text-blue-800"
+                    : client.viewer_type === "v5_tester"
+                      ? "bg-green-100 text-green-800"
+                      : client.viewer_type === "synsam"
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-gray-100 text-gray-800"
+                }
+              >
+                {client.viewer_type === "v6_aces"
+                  ? "V6 ACES Tester"
+                  : client.viewer_type === "v5_tester"
+                    ? "V5 Tester"
+                    : client.viewer_type === "synsam"
+                      ? "Synsam"
+                      : "V2 (Under Construction)"}
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
 

@@ -169,6 +169,43 @@ const getStatusDisplay = (
   }
 };
 
+// Helper function to get viewer parameters based on client viewer type
+const getViewerParameters = (viewerType?: string | null) => {
+  switch (viewerType) {
+    case "v6_aces":
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
+        exposure: "1.2",
+        toneMapping: "aces",
+      };
+    case "v5_tester":
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/warm.hdr",
+        exposure: "1.3",
+        toneMapping: "commerce",
+      };
+    case "synsam":
+      return {
+        environmentImage: "https://charpstar.se/3DTester/SynsamNewHDRI.jpg",
+        exposure: "1",
+        toneMapping: "aces",
+      };
+    case "v2":
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
+        exposure: "1.2",
+        toneMapping: "aces",
+      };
+    default:
+      // Default to V6 ACES Tester
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
+        exposure: "1.2",
+        toneMapping: "aces",
+      };
+  }
+};
+
 export default function ReviewPage() {
   const params = useParams();
   const router = useRouter();
@@ -179,6 +216,7 @@ export default function ReviewPage() {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clientViewerType, setClientViewerType] = useState<string | null>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [annotationMode, setAnnotationMode] = useState(false);
   const [selectedAnnotation, setSelectedAnnotation] =
@@ -369,6 +407,39 @@ export default function ReviewPage() {
       }
 
       setAsset(data);
+
+      // Fetch client's viewer type
+      try {
+        const { data: clientData, error: clientError } = await supabase
+          .from("clients")
+          .select("viewer_type")
+          .eq("name", data.client)
+          .single();
+
+        if (!clientError && clientData) {
+          setClientViewerType(clientData.viewer_type);
+          console.log("🎯 Client viewer type:", clientData.viewer_type);
+          console.log(
+            "🎯 Viewer parameters:",
+            getViewerParameters(clientData.viewer_type)
+          );
+        } else {
+          // If no client found, default to null (will use default viewer)
+          setClientViewerType(null);
+          console.log(
+            "🎯 No client viewer type found, using default parameters"
+          );
+          console.log(
+            "🎯 Default viewer parameters:",
+            getViewerParameters(null)
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching client viewer type:", error);
+        setClientViewerType(null);
+        console.log("🎯 Error fetching viewer type, using default parameters");
+        console.log("🎯 Default viewer parameters:", getViewerParameters(null));
+      }
 
       // Set revision count - fallback to revision history if asset record is outdated
       let finalRevisionCount = data.revision_count || 0;
@@ -2489,9 +2560,13 @@ export default function ReviewPage() {
                   alt={asset.product_name}
                   camera-controls={!annotationMode}
                   shadow-intensity="0.5"
-                  environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
-                  exposure="1.2"
-                  tone-mapping="aces"
+                  environment-image={
+                    getViewerParameters(clientViewerType).environmentImage
+                  }
+                  exposure={getViewerParameters(clientViewerType).exposure}
+                  tone-mapping={
+                    getViewerParameters(clientViewerType).toneMapping
+                  }
                   shadow-softness="1"
                   min-field-of-view="5deg"
                   max-field-of-view="35deg"
