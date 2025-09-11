@@ -56,7 +56,7 @@ const getStatusLabelClass = (status: string): string => {
     case "delivered_by_artist":
       return "status-delivered-by-artist";
     case "not_started":
-      return "status-not-started";
+      return "status-in-production"; // Use same styling as in_production
     case "in_progress":
       return "status-in-progress";
     case "waiting_for_approval":
@@ -111,7 +111,7 @@ const getRowStyling = (status: string): { base: string; hover: string } => {
     case "delivered_by_artist":
       return { base: "table-row-status-delivered-by-artist", hover: "" };
     case "not_started":
-      return { base: "table-row-status-not-started", hover: "" };
+      return { base: "table-row-status-in-production", hover: "" }; // Use same styling as in_production
     case "in_progress":
       return { base: "table-row-status-in-progress", hover: "" };
     case "waiting_for_approval":

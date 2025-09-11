@@ -209,6 +209,7 @@ export default function CsvUploadPage() {
         subcategory: subcategory?.trim() || null,
         reference: null, // No reference column in template
         priority: 2, // Default priority since not in template
+        status: "not_started",
       });
       if (error) failCount++;
       else successCount++;

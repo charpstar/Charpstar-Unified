@@ -136,6 +136,7 @@ export default function ManualUploadPage() {
         subcategory: r.subcategory || null,
         reference: null,
         priority: 2,
+        status: "not_started",
       }));
 
       const { error } = await supabase
