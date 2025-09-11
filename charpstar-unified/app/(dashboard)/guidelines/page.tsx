@@ -97,10 +97,6 @@ export default function GuidelinesPage() {
                   </span>{" "}
                   Roney
                 </div>
-                <div className="flex items-center gap-2">
-                  <Building className="h-4 w-4 text-blue-600" />
-                  <span className="font-medium">Team Lead:</span> Karthik
-                </div>
               </div>
             </div>
           </div>

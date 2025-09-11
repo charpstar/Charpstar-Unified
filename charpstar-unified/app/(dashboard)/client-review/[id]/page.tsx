@@ -715,21 +715,10 @@ export default function ReviewPage() {
     }
   };
 
-  const confirmDeleteAnnotation = (annotationId: string) => {
-    const annotation = annotations.find((ann) => ann.id === annotationId);
-    if (!isAdmin && annotation && annotation.created_by !== user?.id) {
-      toast.error("You can only delete your own annotations");
-      return;
-    }
-    setSingleDeleteId(annotationId);
-    setShowDeleteWarning(true);
-  };
-
   const handleSingleDelete = async () => {
     if (singleDeleteId) {
       await deleteAnnotation(singleDeleteId);
       setSingleDeleteId(null);
-      setShowDeleteWarning(false);
     }
   };
 
@@ -1837,9 +1826,11 @@ export default function ReviewPage() {
 
   // Permissions: Admins can edit/delete all annotations and comments, users can edit/delete their own annotations
   const isAdmin = user?.metadata?.role === "admin";
+  const isQA = user?.metadata?.role === "qa";
   const canEditOrDeleteAnnotation = (annotation: Annotation) =>
     isAdmin || annotation.created_by === user?.id;
-  const canEditOrDeleteComment = () => isAdmin;
+  const canEditOrDeleteComment = (comment?: any) =>
+    isAdmin || (isQA && comment && comment.created_by === user?.id);
 
   // Function to get comments for selected annotation
   // Comments should be independent of annotations - show all comments for the asset
@@ -2016,7 +2007,7 @@ export default function ReviewPage() {
   };
 
   const startCommentInlineEdit = (comment: any) => {
-    if (!canEditOrDeleteComment()) {
+    if (!canEditOrDeleteComment(comment)) {
       toast.error("You can only edit your own comments");
       return;
     }
@@ -2096,7 +2087,7 @@ export default function ReviewPage() {
   const deleteComment = async (commentId: string) => {
     try {
       const target = comments.find((c) => c.id === commentId);
-      if (!isAdmin && target && target.created_by !== user?.id) {
+      if (!canEditOrDeleteComment(target)) {
         toast.error("You can only delete your own comments");
         return;
       }
@@ -3525,25 +3516,6 @@ export default function ReviewPage() {
                                     <Edit3 className="h-3 w-3 mr-2" />
                                     Edit Annotation
                                   </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  {!deleteMode && (
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        canEditOrDeleteAnnotation(item)
-                                          ? confirmDeleteAnnotation(item.id)
-                                          : toast.error(
-                                              "You can only delete your own annotations"
-                                            )
-                                      }
-                                      disabled={
-                                        !canEditOrDeleteAnnotation(item)
-                                      }
-                                      className={`${!canEditOrDeleteAnnotation(item) ? "opacity-50 cursor-not-allowed" : "text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"}`}
-                                    >
-                                      <X className="h-3 w-3 mr-2" />
-                                      Delete Annotation
-                                    </DropdownMenuItem>
-                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -4012,7 +3984,7 @@ export default function ReviewPage() {
                                 >
                                   <DropdownMenuItem
                                     onClick={() => {
-                                      if (!canEditOrDeleteComment()) {
+                                      if (!canEditOrDeleteComment(item)) {
                                         toast.error(
                                           "You can only edit your own comments"
                                         );
@@ -4022,9 +3994,9 @@ export default function ReviewPage() {
                                     }}
                                     disabled={
                                       isFunctionalityDisabled() ||
-                                      !canEditOrDeleteComment()
+                                      !canEditOrDeleteComment(item)
                                     }
-                                    className={`${isFunctionalityDisabled() || !canEditOrDeleteComment() ? "opacity-50 cursor-not-allowed" : ""}`}
+                                    className={`${isFunctionalityDisabled() || !canEditOrDeleteComment(item) ? "opacity-50 cursor-not-allowed" : ""}`}
                                   >
                                     <Edit3 className="h-3 w-3 mr-2" />
                                     Edit Comment
@@ -4032,14 +4004,14 @@ export default function ReviewPage() {
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      canEditOrDeleteComment()
+                                      canEditOrDeleteComment(item)
                                         ? deleteComment(item.id)
                                         : toast.error(
                                             "You can only delete your own comments"
                                           )
                                     }
-                                    disabled={!canEditOrDeleteComment()}
-                                    className={`${!canEditOrDeleteComment() ? "opacity-50 cursor-not-allowed" : "text-destructive hover:text-destructive"}`}
+                                    disabled={!canEditOrDeleteComment(item)}
+                                    className={`${!canEditOrDeleteComment(item) ? "opacity-50 cursor-not-allowed" : "text-destructive hover:text-destructive"}`}
                                   >
                                     <X className="h-3 w-3 mr-2" />
                                     Delete Comment
@@ -4077,7 +4049,7 @@ export default function ReviewPage() {
                                 onClick={() => {
                                   if (
                                     !isFunctionalityDisabled() &&
-                                    canEditOrDeleteComment()
+                                    canEditOrDeleteComment(item)
                                   ) {
                                     startCommentInlineEdit(item as any);
                                   }
@@ -4085,7 +4057,7 @@ export default function ReviewPage() {
                                 title={
                                   isFunctionalityDisabled()
                                     ? "Editing disabled during revision"
-                                    : canEditOrDeleteComment()
+                                    : canEditOrDeleteComment(item)
                                       ? "Click to edit comment"
                                       : "You can only edit your own comments"
                                 }
@@ -4409,13 +4381,13 @@ export default function ReviewPage() {
               <div className="flex gap-3 pt-4">
                 <Button
                   variant="outline"
-                  onClick={() => {
+                  onClick={async () => {
                     if (singleDeleteId) {
-                      handleSingleDelete();
+                      await handleSingleDelete();
                     } else {
-                      deleteMultipleAnnotations(selectedAnnotations);
-                      setShowDeleteWarning(false);
+                      await deleteMultipleAnnotations(selectedAnnotations);
                     }
+                    setShowDeleteWarning(false);
                   }}
                   className="flex-1 cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
                 >

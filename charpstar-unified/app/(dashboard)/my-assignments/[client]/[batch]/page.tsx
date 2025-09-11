@@ -1709,6 +1709,35 @@ export default function BatchDetailPage() {
                                     </span>
                                   </div>
                                 )}
+                                {client === "Synsam" ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1 bg-primary/10 rounded">
+                                      <Link2 className="h-3 w-3 text-primary" />
+                                    </div>
+                                    <a
+                                      href="https://cdn2.charpstar.net/3DTester/TransparencyFix/"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      Synsam viewer
+                                    </a>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1 bg-primary/10 rounded">
+                                      <Link2 className="h-3 w-3 text-primary" />
+                                    </div>
+                                    <a
+                                      href="https://charpstar.se/3DTester-V5/"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      Model viewer
+                                    </a>
+                                  </div>
+                                )}
                               </div>
                               {/* Progress */}
                               <div className="mt-2">

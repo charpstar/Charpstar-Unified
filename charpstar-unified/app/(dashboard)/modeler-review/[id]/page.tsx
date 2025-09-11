@@ -199,6 +199,8 @@ export default function ModelerReviewPage() {
   const [selectedFileNameMismatch, setSelectedFileNameMismatch] = useState<
     string | null
   >(null);
+  const [selectedFileSizeWarning, setSelectedFileSizeWarning] =
+    useState<boolean>(false);
   const [showDeliverBlockDialog, setShowDeliverBlockDialog] = useState(false);
   // Components panel state
   const [dependencies, setDependencies] = useState<any[]>([]);
@@ -677,6 +679,17 @@ export default function ModelerReviewPage() {
     }
   };
 
+  // Handle upload dialog close
+  const handleUploadDialogClose = (open: boolean) => {
+    setShowUploadDialog(open);
+    if (!open) {
+      // Reset all upload-related states when dialog is closed
+      setSelectedFile(null);
+      setSelectedFileSizeWarning(false);
+      setSelectedFileNameMismatch(null);
+    }
+  };
+
   // Validate and set file for upload
   const validateAndSetFile = (file: File) => {
     const fileName = file.name.toLowerCase();
@@ -689,6 +702,14 @@ export default function ModelerReviewPage() {
       toast.error("File size must be less than 100MB");
       return;
     }
+
+    // Reset previous warnings
+    setSelectedFileSizeWarning(false);
+    setSelectedFileNameMismatch(null);
+
+    // Check for 25MB warning
+    const isLargeFile = file.size > 25 * 1024 * 1024;
+    setSelectedFileSizeWarning(isLargeFile);
 
     setSelectedFile(file);
     setShowUploadDialog(true);
@@ -2586,7 +2607,7 @@ export default function ModelerReviewPage() {
         </div>
 
         {/* GLB Upload Dialog */}
-        <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <Dialog open={showUploadDialog} onOpenChange={handleUploadDialogClose}>
           <DialogContent className="max-w-2xl w-full h-fit">
             <DialogHeader>
               <DialogTitle>
@@ -2632,6 +2653,16 @@ export default function ModelerReviewPage() {
                         </span>
                       </div>
                     )}
+                    {selectedFileSizeWarning && (
+                      <div className="mt-2 text-xs text-amber-600 flex items-center gap-2">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <span>
+                          Warning: This file is larger than 25MB. Please keep it
+                          under 25MB. Large files may take longer to upload and
+                          process.
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div>
@@ -2665,7 +2696,8 @@ export default function ModelerReviewPage() {
                   disabled={
                     !selectedFile ||
                     uploading ||
-                    Boolean(selectedFileNameMismatch)
+                    Boolean(selectedFileNameMismatch) ||
+                    selectedFileSizeWarning
                   }
                   className="flex-1"
                 >
