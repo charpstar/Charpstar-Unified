@@ -1468,22 +1468,6 @@ export default function ModelerReviewPage() {
           </div>
         </div>
 
-        {/* GLB filename notice if the current GLB does not match article id */}
-        {existingGlbNameMismatch && asset?.article_id && (
-          <div className="mx-6 mt-4 p-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300 flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 mt-0.5" />
-            <div className="text-xs">
-              <div className="font-medium">
-                GLB filename doesn&apos;t match article id
-              </div>
-              <div>
-                Expected filename: {String(asset.article_id)}.glb. Current:{" "}
-                {existingGlbNameMismatch}
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="flex flex-1 overflow-hidden bg-background">
           {/* Main Content (3D Viewer) */}
           <div className="flex-1 relative bg-background m-6 rounded-lg shadow-lg border border-border/50">
@@ -2731,7 +2715,7 @@ export default function ModelerReviewPage() {
                         <AlertTriangle className="h-3.5 w-3.5" />
                         <span>
                           File name should start with &apos;
-                          {String(asset.article_id)}_&apos; to match the asset
+                          {String(asset.article_id)}&apos; to match the asset
                           id.
                         </span>
                       </div>
@@ -3018,7 +3002,7 @@ export default function ModelerReviewPage() {
               <DialogTitle>Fix GLB before delivering</DialogTitle>
               <DialogDescription>
                 The GLB must exist and its filename should start with the
-                article ID followed by an underscore.
+                article ID
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 text-sm">

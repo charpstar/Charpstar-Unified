@@ -165,53 +165,46 @@ export default function AppSidebar({
     role === "admin"
       ? [
           {
-            title: "Onboarding",
-            url: "/onboarding",
-            icon: Users,
-          },
-          {
             title: "Production",
             url: "/production",
             icon: Factory,
-          },
-          {
-            title: "Client information",
-            url: "/admin/clients",
-            icon: Building2,
-          },
-          // Pending Revisions removed (reverted)
-
-          {
-            title: "Create Users",
-            url: "/create-users",
-            icon: UserPlus,
+            children: [
+              {
+                title: "Client Information",
+                url: "/admin/clients",
+                icon: Building2,
+              },
+              {
+                title: "Onboarding",
+                url: "/onboarding",
+                icon: Users,
+              },
+              {
+                title: "Cost Tracking",
+                url: "/production/cost-tracking",
+                icon: DollarSign,
+              },
+              {
+                title: "Create Users",
+                url: "/create-users",
+                icon: UserPlus,
+              },
+              {
+                title: "Pending Replies",
+                url: "/admin/pending-replies",
+                icon: MessageSquare,
+              },
+            ],
           },
           {
             title: "Scene Render",
             url: "/scene-render",
             icon: Palette,
           },
-          {
-            title: "Pending Replies",
-            url: "/admin/pending-replies",
-            icon: MessageSquare,
-          },
         ]
       : [];
 
   // Production-only navigation items (only for admin users)
-
-  // Financial navigation items (admin only)
-  const financialNavItems =
-    role === "admin"
-      ? [
-          {
-            title: "Cost Tracking",
-            url: "/production/cost-tracking",
-            icon: DollarSign,
-          },
-        ]
-      : [];
 
   // Modeler-only navigation items
   const modelerNavItems =
@@ -277,7 +270,6 @@ export default function AppSidebar({
   const unsortedNavItems = [
     ...baseNavItems,
     ...adminNavItems,
-    ...financialNavItems,
     ...modelerNavItems,
     ...qaNavItems,
     ...(clientName && clientName.trim() !== ""

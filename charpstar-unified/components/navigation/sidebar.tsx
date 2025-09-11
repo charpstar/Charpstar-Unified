@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeletons";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "11.2rem";
+const SIDEBAR_WIDTH = "14rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
@@ -648,7 +648,7 @@ function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
       data-slot="sidebar-menu-sub"
       data-sidebar="menu-sub"
       className={cn(
-        "border-sidebar-border mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l px-2.5 py-0.5",
+        "border-sidebar-border mx-2.0 flex min-w-0 translate-x-px flex-col gap-1 border-l px-1.5 py-0.5 ",
         "group-data-[collapsible=icon]:hidden",
         className
       )}
@@ -663,9 +663,12 @@ function SidebarMenuSubItem({
 }: React.ComponentProps<"li">) {
   return (
     <li
-      data-slot="sidebar-menu-sub-item"
+      data-slot="sidebar-menu-sub-item "
       data-sidebar="menu-sub-item"
-      className={cn("group/menu-sub-item relative", className)}
+      className={cn(
+        "group/menu-sub-item relative hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
+        className
+      )}
       {...props}
     />
   );

@@ -28,8 +28,10 @@ export default function NavMain({
   }[];
 }) {
   const pathname = usePathname();
-  const [open, setOpen] = React.useState<Record<string, boolean>>({});
-  const enableSubmenus = false; // temporarily hide submenu UI
+  const [open, setOpen] = React.useState<Record<string, boolean>>({
+    Production: true, // Open Production submenu by default
+  });
+  const enableSubmenus = true; // enable submenu UI
 
   // Don't render if no items (loading state)
   if (!items || items.length === 0) {
@@ -54,10 +56,10 @@ export default function NavMain({
                 isActive={isActive}
                 className=""
               >
-                <SidebarMenuButton asChild isActive={isActive}>
+                <SidebarMenuButton asChild isActive={isActive} className="">
                   <Link href={item.url} className="group">
                     {item.icon && <item.icon className="" />}
-                    {item.title}
+                    <span className=" w-full">{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
 
@@ -78,16 +80,22 @@ export default function NavMain({
                 )}
 
                 {hasChildren && enableSubmenus && isOpen && (
-                  <SidebarMenuSub>
+                  <SidebarMenuSub className="min-w-full">
                     {item.children!.map((child) => (
-                      <SidebarMenuSubItem key={child.title}>
+                      <SidebarMenuSubItem
+                        key={child.title}
+                        className="min-w-full"
+                      >
                         <SidebarMenuSubButton
                           asChild
                           isActive={pathname === child.url}
+                          className="min-w-full [&>span:last-child]:truncate-none hover:bg-black/3.5 dark:hover:bg-background/20 hover:text-accent-foreground dark:hover:text-accent-foreground data-[active=true]:bg-black/8 dark:data-[active=true]:bg-background/90 data-[active=true]:font-medium data-[active=true]:text-accent-foreground data-[active=true]:text-accent-foreground"
                         >
-                          <Link href={child.url} className="group">
+                          <Link href={child.url} className="group w-full">
                             {child.icon && <child.icon className="" />}
-                            <span>{child.title}</span>
+                            <span className="whitespace-nowrap flex-1">
+                              {child.title}
+                            </span>
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
