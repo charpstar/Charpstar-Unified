@@ -86,13 +86,22 @@ export async function POST(request: NextRequest) {
         contentType = file.type || "application/octet-stream";
     }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const sanitizedName = (file?.name || "upload.bin").replace(
-      /[^a-zA-Z0-9.-]/g,
-      "_"
-    );
-    const fileName = `${timestamp}_${sanitizedName}`;
+    // Generate clean filename for GLB files, unique filename for others
+    let fileName: string;
+    if (fileType === "glb") {
+      const sanitizedName = (file?.name || "upload.bin").replace(
+        /[^a-zA-Z0-9.-]/g,
+        "_"
+      );
+      fileName = sanitizedName;
+    } else {
+      const timestamp = Date.now();
+      const sanitizedName = (file?.name || "upload.bin").replace(
+        /[^a-zA-Z0-9.-]/g,
+        "_"
+      );
+      fileName = `${timestamp}_${sanitizedName}`;
+    }
     const fullPath = `${storagePath}${fileName}`;
 
     // Upload to Supabase Storage
@@ -101,7 +110,7 @@ export async function POST(request: NextRequest) {
       .upload(fullPath, file, {
         contentType,
         cacheControl: "3600",
-        upsert: false,
+        upsert: fileType === "glb", // Allow overwrites for GLB files
       });
 
     if (uploadError) {

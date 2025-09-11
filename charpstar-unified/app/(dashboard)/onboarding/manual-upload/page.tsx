@@ -204,10 +204,16 @@ export default function ManualUploadPage() {
                 <TableHead>
                   Article ID <span className="text-red-500">*</span>
                 </TableHead>
-                <TableHead>Product Link</TableHead>
+                <TableHead>
+                  Product Link <span className="text-red-500">*</span>
+                </TableHead>
                 <TableHead>CAD/File Link</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Subcategory</TableHead>
+                <TableHead>
+                  Category <span className="text-red-500">*</span>
+                </TableHead>
+                <TableHead>
+                  Subcategory <span className="text-red-500">*</span>
+                </TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
@@ -307,7 +313,7 @@ export default function ManualUploadPage() {
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-5xl h-fit">
           <DialogHeader>
             <DialogTitle>Review products to be added</DialogTitle>
           </DialogHeader>

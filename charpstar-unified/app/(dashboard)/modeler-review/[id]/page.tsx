@@ -803,15 +803,15 @@ export default function ModelerReviewPage() {
     setUploading(true);
 
     try {
-      // Upload to Supabase Storage
-      const fileName = `${asset.article_id}_${Date.now()}.glb`;
+      // Upload to Supabase Storage with clean filename
+      const fileName = `${asset.article_id}.glb`;
       const filePath = `models/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("assets")
         .upload(filePath, selectedFile, {
           cacheControl: "3600",
-          upsert: false,
+          upsert: true, // Allow overwrites for same article_id
         });
 
       if (uploadError) {
@@ -842,7 +842,7 @@ export default function ModelerReviewPage() {
         .insert({
           asset_id: asset.id,
           glb_url: urlData.publicUrl,
-          file_name: selectedFile.name,
+          file_name: `${asset.article_id}.glb`,
           file_size: selectedFile.size,
           uploaded_by: user?.id,
           uploaded_at: new Date().toISOString(),
@@ -1644,7 +1644,10 @@ export default function ModelerReviewPage() {
                 <Button
                   onClick={() => updateAssetStatus("delivered_by_artist")}
                   disabled={
-                    asset?.status === "delivered_by_artist" || statusUpdating
+                    asset?.status === "delivered_by_artist" ||
+                    asset?.status === "approved" ||
+                    asset?.status === "approved_by_client" ||
+                    statusUpdating
                   }
                   variant={
                     asset?.status === "delivered_by_artist"
@@ -1905,7 +1908,7 @@ export default function ModelerReviewPage() {
                         {glbFiles.length > 0 ? (
                           <div className="space-y-3">
                             {glbFiles.map((glbUrl, index) => {
-                              const fileName = glbUrl.split("/").pop() || "";
+                              const cleanFileName = `${asset?.article_id || "model"}.glb`;
                               return (
                                 <div
                                   key={index}
@@ -1913,7 +1916,7 @@ export default function ModelerReviewPage() {
                                   onClick={() => {
                                     const link = document.createElement("a");
                                     link.href = glbUrl;
-                                    link.download = fileName;
+                                    link.download = cleanFileName;
                                     link.target = "_blank";
                                     document.body.appendChild(link);
                                     link.click();
@@ -1932,7 +1935,7 @@ export default function ModelerReviewPage() {
                                     </div>
                                     <div className="text-left">
                                       <p className="text-sm font-medium text-foreground">
-                                        {fileName}
+                                        {cleanFileName}
                                       </p>
                                       <p className="text-xs text-muted-foreground">
                                         Click to download
@@ -2676,7 +2679,7 @@ export default function ModelerReviewPage() {
                     {asset?.article_id && (
                       <p className="text-xs text-muted-foreground mt-2">
                         Suggested format: {String(asset.article_id)}
-                        _&lt;anything&gt;.glb or .gltf
+                        .glb
                       </p>
                     )}
                   </div>

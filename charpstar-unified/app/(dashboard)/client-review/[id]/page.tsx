@@ -2677,7 +2677,7 @@ export default function ReviewPage() {
                   onClick={() => {
                     const a = document.createElement("a");
                     a.href = asset.glb_link as string;
-                    a.download = `${asset.product_name}_${asset.article_id}.glb`;
+                    a.download = `${asset.article_id}.glb`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);

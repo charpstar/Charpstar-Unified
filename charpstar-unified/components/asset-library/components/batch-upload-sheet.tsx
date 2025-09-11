@@ -483,7 +483,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                 );
             }
             const fileBuffer = await row.glb_file.arrayBuffer();
-            const fileName = `${row.article_id}_${Date.now()}.${fileExtension}`;
+            const fileName = `${row.article_id}.${fileExtension}`;
             const filePath = `models/${fileName}`;
 
             const { error: uploadError } = await supabase.storage
@@ -491,7 +491,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
               .upload(filePath, fileBuffer, {
                 contentType,
                 cacheControl: "3600",
-                upsert: false,
+                upsert: true, // Allow overwrites for same article_id
               });
             if (uploadError) {
               console.error("Upload error:", uploadError);

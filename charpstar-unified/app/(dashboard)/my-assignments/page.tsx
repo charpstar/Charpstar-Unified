@@ -46,6 +46,7 @@ interface BatchSummary {
 
 interface AssetFileHistory {
   assetId: string;
+  articleId: string;
   previousModelerId: string;
   previousModelerName: string;
   files: {
@@ -265,7 +266,7 @@ export default function MyAssignmentsPage() {
       // Get asset details including files
       const { data: assetDetails, error: assetError } = await supabase
         .from("onboarding_assets")
-        .select("id, glb_link, reference, product_link")
+        .select("id, article_id, glb_link, reference, product_link")
         .in("id", assetIds);
 
       if (assetError) {
@@ -325,6 +326,7 @@ export default function MyAssignmentsPage() {
 
             history.push({
               assetId: assignment.asset_id,
+              articleId: asset.article_id,
               previousModelerId: assignment.user_id,
               previousModelerName:
                 profile?.title || profile?.email || "Unknown",
@@ -803,7 +805,7 @@ export default function MyAssignmentsPage() {
                             onClick={() =>
                               handleFileDownload(
                                 history.files.glb_link!,
-                                `asset-${history.assetId}.glb`
+                                `${history.articleId}.glb`
                               )
                             }
                             className="text-xs h-6 px-2"

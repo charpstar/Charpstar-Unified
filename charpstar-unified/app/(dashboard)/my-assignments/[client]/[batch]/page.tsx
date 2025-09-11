@@ -890,7 +890,7 @@ export default function BatchDetailPage() {
           .insert({
             asset_id: assetId,
             glb_url: asset.glb_link,
-            file_name: `Current_${asset.article_id}_${Date.now()}.glb`,
+            file_name: `${asset.article_id}.glb`,
             file_size: 0,
             uploaded_by: user?.id,
             uploaded_at: new Date().toISOString(),
@@ -905,15 +905,15 @@ export default function BatchDetailPage() {
         }
       }
 
-      // Upload to Supabase Storage
-      const fileNameForUpload = `${asset?.article_id || assetId}_${Date.now()}.glb`;
+      // Upload to Supabase Storage with clean filename
+      const fileNameForUpload = `${asset?.article_id || assetId}.glb`;
       const filePath = `models/${fileNameForUpload}`;
 
       const { error: uploadError } = await supabase.storage
         .from("assets")
         .upload(filePath, file, {
           cacheControl: "3600",
-          upsert: false,
+          upsert: true, // Allow overwrites for same article_id
         });
 
       if (uploadError) {
@@ -940,13 +940,13 @@ export default function BatchDetailPage() {
         throw updateError;
       }
 
-      // Record GLB upload history
+      // Record GLB upload history with clean filename
       const { error: newHistoryError } = await supabase
         .from("glb_upload_history")
         .insert({
           asset_id: assetId,
           glb_url: urlData.publicUrl,
-          file_name: file.name,
+          file_name: `${asset?.article_id || assetId}.glb`,
           file_size: file.size,
           uploaded_by: user?.id,
           uploaded_at: new Date().toISOString(),
@@ -1941,7 +1941,7 @@ export default function BatchDetailPage() {
                                             onClick={() =>
                                               handleFileDownload(
                                                 asset.glb_link!,
-                                                `${asset.product_name}-${asset.article_id}.glb`
+                                                `${asset.article_id}.glb`
                                               )
                                             }
                                             className="text-xs h-6 px-2 w-full hover:text-blue-700 hover:underline"

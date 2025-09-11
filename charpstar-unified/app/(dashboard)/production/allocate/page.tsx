@@ -1454,11 +1454,11 @@ export default function AllocateAssetsPage() {
                                     onClick={() =>
                                       handleFileDownload(
                                         history.files.glb_link!,
-                                        `${asset.product_name}-${asset.article_id}.glb`
+                                        `${asset.article_id}.glb`
                                       )
                                     }
                                     className="text-xs h-6 px-2"
-                                    title={`Download GLB: ${asset.product_name}-${asset.article_id}.glb`}
+                                    title={`Download GLB: ${asset.article_id}.glb`}
                                   >
                                     Download
                                   </Button>

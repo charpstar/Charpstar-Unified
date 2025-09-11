@@ -203,7 +203,7 @@ export function ViewReferencesDialog({
 
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${asset?.product_name || "model"}.glb`;
+      link.download = `${asset?.article_id || "model"}.glb`;
       link.style.display = "none";
 
       document.body.appendChild(link);

@@ -97,11 +97,17 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Row 1 */}
-        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+        <Card
+          className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
+          data-tour="profile"
+        >
           <CardContent>{profileContent}</CardContent>
         </Card>
 
-        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+        <Card
+          className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
+          data-tour="quick-actions"
+        >
           <CardContent className="">
             <Suspense
               fallback={
