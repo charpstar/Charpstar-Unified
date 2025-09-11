@@ -85,15 +85,46 @@ const getStatusColor = (status: StatusKey): string => {
 function useCountUp(targetValue: number, durationMs = 700) {
   const [displayValue, setDisplayValue] = React.useState(0);
   const previousRef = React.useRef(0);
+  const isAnimatingRef = React.useRef(false);
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   React.useEffect(() => {
     const startValue = previousRef.current;
     const endValue = targetValue;
-    const startTime = performance.now();
 
+    // If values are the same, don't animate
     if (startValue === endValue) return;
 
-    let rafId = 0;
+    // Clear any pending timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    // If already animating, wait a bit before starting new animation
+    if (isAnimatingRef.current) {
+      timeoutRef.current = setTimeout(() => {
+        if (!isAnimatingRef.current) {
+          // Start animation after a short delay
+          startAnimation(startValue, endValue, durationMs);
+        }
+        timeoutRef.current = null;
+      }, 100);
+      return;
+    }
+
+    startAnimation(startValue, endValue, durationMs);
+  }, [targetValue, durationMs]);
+
+  const startAnimation = (
+    startValue: number,
+    endValue: number,
+    durationMs: number
+  ) => {
+    isAnimatingRef.current = true;
+    const startTime = performance.now();
+
+    let rafId: number | null = null;
     const tick = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / durationMs);
@@ -105,16 +136,22 @@ function useCountUp(targetValue: number, durationMs = 700) {
         rafId = requestAnimationFrame(tick);
       } else {
         previousRef.current = endValue;
+        isAnimatingRef.current = false;
       }
     };
+    //eslint-disable-next-line @typescript-eslint/no-unused-vars
     rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [targetValue, durationMs]);
+  };
 
+  // Cleanup on unmount
   React.useEffect(() => {
-    // reset baseline when target changes dramatically (e.g., from 0 after loading)
-    previousRef.current = targetValue === 0 ? 0 : previousRef.current;
-  }, [targetValue]);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
 
   return displayValue;
 }
