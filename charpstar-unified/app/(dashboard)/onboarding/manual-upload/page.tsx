@@ -327,7 +327,14 @@ export default function ManualUploadPage() {
                 {previewRows.map((r, i) => (
                   <TableRow key={i}>
                     <TableCell className="font-medium">
-                      {r.product_name}
+                      <div
+                        className="truncate max-w-[200px] cursor-help"
+                        title={r.product_name}
+                      >
+                        {r.product_name.length > 25
+                          ? r.product_name.substring(0, 25) + "..."
+                          : r.product_name}
+                      </div>
                     </TableCell>
                     <TableCell>{r.article_id}</TableCell>
                     <TableCell className="truncate max-w-[240px]">

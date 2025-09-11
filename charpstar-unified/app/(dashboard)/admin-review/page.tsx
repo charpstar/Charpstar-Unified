@@ -310,6 +310,8 @@ export default function AdminReviewPage() {
   const [batchFilters, setBatchFilters] = useState<number[]>([]);
   const [modelerFilters, setModelerFilters] = useState<string[]>([]);
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -2181,8 +2183,20 @@ export default function AdminReviewPage() {
                                 )}
                               >
                                 <TableCell className="text-center">
-                                  <div className="font-medium">
-                                    {assignment.onboarding_assets.product_name}
+                                  <div
+                                    className="font-medium truncate max-w-[200px] cursor-help"
+                                    title={
+                                      assignment.onboarding_assets.product_name
+                                    }
+                                  >
+                                    {assignment.onboarding_assets.product_name
+                                      .length > 25
+                                      ? assignment.onboarding_assets.product_name.substring(
+                                          0,
+                                          25
+                                        ) + "..."
+                                      : assignment.onboarding_assets
+                                          .product_name}
                                   </div>
                                 </TableCell>
                                 <TableCell>
@@ -2458,8 +2472,13 @@ export default function AdminReviewPage() {
                     >
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <span className="font-medium">
-                            {asset.product_name}
+                          <span
+                            className="font-medium truncate max-w-[200px] cursor-help"
+                            title={asset.product_name}
+                          >
+                            {asset.product_name.length > 25
+                              ? asset.product_name.substring(0, 25) + "..."
+                              : asset.product_name}
                           </span>
                         </div>
                       </TableCell>
@@ -2627,8 +2646,60 @@ export default function AdminReviewPage() {
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
-                      No products found.
+                    <TableCell colSpan={9} className="text-center py-8">
+                      {statusFilters.length > 0 ||
+                      clientFilters.length > 0 ||
+                      batchFilters.length > 0 ||
+                      modelerFilters.length > 0 ||
+                      search ? (
+                        <div className="space-y-2">
+                          <div className="text-lg font-medium">
+                            No matching assets found
+                          </div>
+                          <div className="text-sm">
+                            {statusFilters.length > 0 && (
+                              <div>
+                                No assets with status:{" "}
+                                {statusFilters.join(", ")}
+                              </div>
+                            )}
+                            {clientFilters.length > 0 && (
+                              <div>
+                                No assets for client: {clientFilters.join(", ")}
+                              </div>
+                            )}
+                            {batchFilters.length > 0 && (
+                              <div>
+                                No assets in batch: {batchFilters.join(", ")}
+                              </div>
+                            )}
+                            {modelerFilters.length > 0 && (
+                              <div>
+                                No assets assigned to modeler:{" "}
+                                {modelerFilters.join(", ")}
+                              </div>
+                            )}
+                            {search && (
+                              <div>
+                                No assets matching: &quot;{search}&quot;
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-3">
+                            Try adjusting your filters or check back later for
+                            new assets.
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="text-lg font-medium">
+                            No products found
+                          </div>
+                          <div className="text-sm">
+                            No assets are available at the moment.
+                          </div>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -2670,8 +2741,13 @@ export default function AdminReviewPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <span className="font-medium">
-                            {asset.product_name}
+                          <span
+                            className="font-medium truncate max-w-[200px] cursor-help"
+                            title={asset.product_name}
+                          >
+                            {asset.product_name.length > 25
+                              ? asset.product_name.substring(0, 25) + "..."
+                              : asset.product_name}
                           </span>
                           <div className="flex items-center justify-center gap-2">
                             <span className="text-xs text-muted-foreground">

@@ -1167,7 +1167,14 @@ export default function QAReviewPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">{asset.product_name}</div>
+                      <div
+                        className="font-medium truncate max-w-[200px] cursor-help"
+                        title={asset.product_name}
+                      >
+                        {asset.product_name.length > 25
+                          ? asset.product_name.substring(0, 25) + "..."
+                          : asset.product_name}
+                      </div>
                       <div className="text-sm text-muted-foreground">
                         {asset.category} • {asset.subcategory}
                       </div>

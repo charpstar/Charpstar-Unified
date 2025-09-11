@@ -961,7 +961,15 @@ export default function PendingAssignmentsPage() {
                                   {asset.article_id}
                                 </TableCell>
                                 <TableCell className="font-medium">
-                                  {asset.product_name}
+                                  <div
+                                    className="truncate max-w-[200px] cursor-help"
+                                    title={asset.product_name}
+                                  >
+                                    {asset.product_name.length > 25
+                                      ? asset.product_name.substring(0, 25) +
+                                        "..."
+                                      : asset.product_name}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-center w-24">
                                   <div className="flex items-center justify-center gap-1">

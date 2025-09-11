@@ -870,8 +870,13 @@ export default function ReferenceImagesPage() {
                           </TableCell>
                           <TableCell>
                             <div>
-                              <p className="font-medium">
-                                {asset.product_name}
+                              <p
+                                className="font-medium truncate max-w-[200px] cursor-help"
+                                title={asset.product_name}
+                              >
+                                {asset.product_name.length > 25
+                                  ? asset.product_name.substring(0, 25) + "..."
+                                  : asset.product_name}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 {asset.category}{" "}

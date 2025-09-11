@@ -687,33 +687,33 @@ class NotificationService {
         return;
       }
 
+      // Check for existing notifications for this batch/client combination
+      // This prevents duplicate notifications across all admin users
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: existingNotifications, error: checkError } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("type", "product_submission")
+        .eq("metadata->>client", client)
+        .eq("metadata->>batch", batch.toString())
+        .gte("created_at", fiveMinutesAgo)
+        .limit(1);
+
+      if (checkError) {
+        console.error(
+          "Error checking for existing product submission notifications:",
+          checkError
+        );
+        // Continue with creation even if check fails
+      } else if (existingNotifications && existingNotifications.length > 0) {
+        console.log(
+          `Skipping duplicate product submission notification for ${client} batch ${batch}`
+        );
+        return; // Skip creating duplicate notification
+      }
+
       // Create notifications for each admin user
       for (const adminId of adminUserIds) {
-        // Check if a notification for this batch already exists for this user
-        const fiveMinutesAgo = new Date(
-          Date.now() - 5 * 60 * 1000
-        ).toISOString();
-        const { data: existingNotifications, error: checkError } =
-          await supabase
-            .from("notifications")
-            .select("id")
-            .eq("recipient_id", adminId)
-            .eq("type", "product_submission")
-            .eq("metadata->>client", client)
-            .eq("metadata->>batch", batch.toString())
-            .gte("created_at", fiveMinutesAgo)
-            .limit(1);
-
-        if (checkError) {
-          console.error(
-            "Error checking for existing product submission notifications:",
-            checkError
-          );
-          // Continue with creation even if check fails
-        } else if (existingNotifications && existingNotifications.length > 0) {
-          continue; // Skip creating duplicate notification
-        }
-
         const notification: Omit<NotificationData, "created_at"> = {
           recipient_id: adminId,
           recipient_email: "", // Will be filled by createNotification
@@ -731,12 +731,30 @@ class NotificationService {
           read: false,
         };
 
-        // Create notification in database
-        await this.createNotification(notification);
+        // Create notification in database (without duplicate check since we already checked)
+        try {
+          const { error } = await supabase.from("notifications").insert({
+            ...notification,
+            created_at: new Date().toISOString(),
+          });
+
+          if (error) {
+            console.error("Error creating notification:", error);
+            throw error;
+          }
+        } catch (notificationError) {
+          console.error(
+            `❌ Failed to create notification for admin ${adminId}:`,
+            notificationError
+          );
+          // Continue with other admins even if one fails
+        }
       }
 
       // Trigger global notification update event
-      window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      }
     } catch (error) {
       console.error(
         "❌ Error sending product submission notifications:",

@@ -625,7 +625,7 @@ export function QuickActionsWidget() {
         } else if (user?.metadata?.role === "qa") {
           router.push("/qa-review");
         } else {
-          router.push("/client-review");
+          router.push("/client-review?status=approved");
         }
       },
       color:

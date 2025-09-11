@@ -889,9 +889,49 @@ export default function ReviewDashboardPage() {
                     <TableRow className="dark:border-border">
                       <TableCell
                         colSpan={9}
-                        className="text-center dark:text-muted-foreground"
+                        className="text-center dark:text-muted-foreground py-8"
                       >
-                        No products found.
+                        {statusFilters.length > 0 ||
+                        clientFilters.length > 0 ||
+                        batchFilters.length > 0 ||
+                        search ? (
+                          <div className="space-y-2">
+                            <div className="text-lg font-medium">
+                              No matching assets found
+                            </div>
+                            <div className="text-sm">
+                              {clientFilters.length > 0 && (
+                                <div>
+                                  No assets for client:{" "}
+                                  {clientFilters.join(", ")}
+                                </div>
+                              )}
+                              {batchFilters.length > 0 && (
+                                <div>
+                                  No assets in batch: {batchFilters.join(", ")}
+                                </div>
+                              )}
+                              {search && (
+                                <div>
+                                  No assets matching: &quot;{search}&quot;
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-3">
+                              Try adjusting your filters or check back later for
+                              new assets.
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="text-lg font-medium">
+                              No products found
+                            </div>
+                            <div className="text-sm">
+                              No assets are available at the moment.
+                            </div>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -911,8 +951,13 @@ export default function ReviewDashboardPage() {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1">
-                              <span className="font-medium dark:text-foreground">
-                                {asset.product_name}
+                              <span
+                                className="font-medium dark:text-foreground truncate max-w-[200px] cursor-help"
+                                title={asset.product_name}
+                              >
+                                {asset.product_name.length > 25
+                                  ? asset.product_name.substring(0, 25) + "..."
+                                  : asset.product_name}
                               </span>
                               <div className="flex items-center justify-center gap-2">
                                 <span className="text-xs text-muted-foreground dark:text-muted-foreground">

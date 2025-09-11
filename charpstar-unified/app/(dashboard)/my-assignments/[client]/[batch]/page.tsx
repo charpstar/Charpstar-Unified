@@ -1869,9 +1869,17 @@ export default function BatchDetailPage() {
                                       </div>
                                     </TableCell>
                                     <TableCell className="py-2">
-                                      <div className="font-medium">
+                                      <div
+                                        className="font-medium truncate max-w-[200px] cursor-help"
+                                        title={asset.product_name}
+                                      >
                                         {highlightMatch(
-                                          asset.product_name,
+                                          asset.product_name.length > 25
+                                            ? asset.product_name.substring(
+                                                0,
+                                                25
+                                              ) + "..."
+                                            : asset.product_name,
                                           searchTerm
                                         )}
                                       </div>

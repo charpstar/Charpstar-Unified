@@ -1380,7 +1380,14 @@ export default function InvoicingPage() {
                   <TableRow key={asset.id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{asset.product_name}</div>
+                        <div
+                          className="font-medium truncate max-w-[200px] cursor-help"
+                          title={asset.product_name}
+                        >
+                          {asset.product_name.length > 25
+                            ? asset.product_name.substring(0, 25) + "..."
+                            : asset.product_name}
+                        </div>
                         <div className="text-xs text-muted-foreground font-mono">
                           {asset.article_id}
                         </div>

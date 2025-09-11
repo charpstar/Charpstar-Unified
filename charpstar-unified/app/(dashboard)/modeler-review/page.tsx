@@ -571,8 +571,13 @@ export default function ModelerReviewPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <span className="font-medium">
-                            {asset.product_name}
+                          <span
+                            className="font-medium truncate max-w-[200px] cursor-help"
+                            title={asset.product_name}
+                          >
+                            {asset.product_name.length > 25
+                              ? asset.product_name.substring(0, 25) + "..."
+                              : asset.product_name}
                           </span>
                           <div className="flex items-center justify-center gap-2">
                             <span className="text-xs text-muted-foreground">

@@ -180,8 +180,10 @@ export default function CsvUploadPage() {
     if (!csvPreview || !user?.metadata?.client) return;
     const client = user.metadata.client;
     const rows = csvPreview.slice(1); // skip header
-    let successCount = 0;
-    let failCount = 0;
+
+    // Prepare all valid products for batch insert
+    const productsToInsert = [];
+    const failCount = 0;
 
     for (const row of rows) {
       // Skip completely empty rows (all fields empty)
@@ -199,7 +201,7 @@ export default function CsvUploadPage() {
       // All fields are optional - no validation needed
       // Proceed with insert even if fields are empty
 
-      const { error } = await supabase.from("onboarding_assets").insert({
+      productsToInsert.push({
         client,
         article_id: article_id?.trim() || null,
         product_name: product_name?.trim() || null,
@@ -211,8 +213,26 @@ export default function CsvUploadPage() {
         priority: 2, // Default priority since not in template
         status: "not_started",
       });
-      if (error) failCount++;
-      else successCount++;
+    }
+
+    // Batch insert all products at once
+    let successCount = 0;
+    if (productsToInsert.length > 0) {
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .insert(productsToInsert);
+
+      if (error) {
+        console.error("Error batch inserting products:", error);
+        toast({
+          title: "Upload Failed",
+          description: "Failed to upload products. Please try again.",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+        return;
+      }
+      successCount = productsToInsert.length;
     }
 
     setIsUploading(false);

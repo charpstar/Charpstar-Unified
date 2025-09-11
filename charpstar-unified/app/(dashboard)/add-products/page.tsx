@@ -197,6 +197,11 @@ export default function AddProductsPage() {
 
     setLoading(true);
 
+    // Show loading toast
+    const loadingToast = toast.loading("Adding products...", {
+      description: `Adding ${validProducts.length} product${validProducts.length === 1 ? "" : "s"} to batch ${currentBatch}`,
+    });
+
     try {
       const productsToInsert = validProducts.map((product) => ({
         client: user.metadata.client,
@@ -219,7 +224,9 @@ export default function AddProductsPage() {
 
       if (error) {
         console.error("Error inserting products:", error);
-        toast.error("Failed to add products. Please try again.");
+        toast.error("Failed to add products. Please try again.", {
+          id: loadingToast,
+        });
         return;
       }
 
@@ -241,7 +248,12 @@ export default function AddProductsPage() {
       }
 
       toast.success(
-        `Successfully added ${validProducts.length} product(s) to batch ${currentBatch}!`
+        ` Successfully added ${validProducts.length} product${validProducts.length === 1 ? "" : "s"} to batch ${currentBatch}!`,
+        {
+          id: loadingToast,
+          description: `Your products are now ready for review and will appear in the client review dashboard.`,
+          duration: 5000,
+        }
       );
 
       // Reset form
@@ -484,7 +496,14 @@ export default function AddProductsPage() {
     // Use edited data if available, otherwise use original preview
     const dataToUpload = editedCsvData || csvPreview;
     const rows = dataToUpload.slice(1); // skip header
-    let successCount = 0;
+
+    // Show initial loading toast
+    const loadingToast = toast.loading("Preparing products for upload...", {
+      description: "Validating and processing your CSV data",
+    });
+
+    // Prepare all valid products for batch insert
+    const productsToInsert = [];
     let failCount = 0;
 
     for (const row of rows) {
@@ -518,7 +537,8 @@ export default function AddProductsPage() {
         continue;
       }
 
-      const { error } = await supabase.from("onboarding_assets").insert({
+      // Add to batch insert array
+      productsToInsert.push({
         client,
         batch: currentBatch,
         article_id: article_id.trim(),
@@ -532,12 +552,30 @@ export default function AddProductsPage() {
         status: "not_started",
         delivery_date: null,
       });
+    }
+
+    // Update loading toast
+    toast.loading("Uploading products to database...", {
+      id: loadingToast,
+      description: `Uploading ${productsToInsert.length} products`,
+    });
+
+    // Batch insert all products at once
+    let successCount = 0;
+    if (productsToInsert.length > 0) {
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .insert(productsToInsert);
 
       if (error) {
-        failCount++;
-      } else {
-        successCount++;
+        console.error("Error batch inserting products:", error);
+        toast.error("Failed to upload products. Please try again.", {
+          id: loadingToast,
+        });
+        setLoading(false);
+        return;
       }
+      successCount = productsToInsert.length;
     }
 
     setLoading(false);
@@ -575,7 +613,14 @@ export default function AddProductsPage() {
         // Don't fail the product submission if notification fails
       }
 
-      toast.success(`Successfully uploaded ${successCount} products!`);
+      toast.success(
+        `🎉 Successfully uploaded ${successCount} product${successCount === 1 ? "" : "s"}!`,
+        {
+          id: loadingToast,
+          description: `Your products have been added to batch ${currentBatch} and are ready for review.`,
+          duration: 5000,
+        }
+      );
       // Increment batch number for next use
       setCurrentBatch((prev) => prev + 1);
     }
@@ -1457,7 +1502,17 @@ export default function AddProductsPage() {
                       <TableCell className="font-medium">
                         {product.article_id || "-"}
                       </TableCell>
-                      <TableCell>{product.product_name || "-"}</TableCell>
+                      <TableCell>
+                        <div
+                          className="truncate max-w-[200px] cursor-help"
+                          title={product.product_name || "-"}
+                        >
+                          {product.product_name &&
+                          product.product_name.length > 25
+                            ? product.product_name.substring(0, 25) + "..."
+                            : product.product_name || "-"}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         {product.product_link ? (
                           <a

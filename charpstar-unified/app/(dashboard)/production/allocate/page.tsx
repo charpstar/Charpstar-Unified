@@ -1348,7 +1348,16 @@ export default function AllocateAssetsPage() {
                             key={data.assetId}
                             className="border-t hover:bg-muted/50 transition-colors"
                           >
-                            <td className="px-3 py-2">{asset.product_name}</td>
+                            <td className="px-3 py-2">
+                              <div
+                                className="truncate max-w-[200px] cursor-help"
+                                title={asset.product_name}
+                              >
+                                {asset.product_name.length > 25
+                                  ? asset.product_name.substring(0, 25) + "..."
+                                  : asset.product_name}
+                              </div>
+                            </td>
                             <td className="px-3 py-2 text-muted-foreground font-mono">
                               {asset.article_id}
                             </td>
@@ -1821,7 +1830,16 @@ export default function AllocateAssetsPage() {
                                 }
                               />
                             </td>
-                            <td className="p-2">{asset.product_name}</td>
+                            <td className="p-2">
+                              <div
+                                className="truncate max-w-[200px] cursor-help"
+                                title={asset.product_name}
+                              >
+                                {asset.product_name.length > 25
+                                  ? asset.product_name.substring(0, 25) + "..."
+                                  : asset.product_name}
+                              </div>
+                            </td>
                             <td className="p-2 text-muted-foreground font-mono text-center items-center justify-center ">
                               {asset.article_id}
                             </td>

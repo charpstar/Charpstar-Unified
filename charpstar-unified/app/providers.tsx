@@ -3,7 +3,7 @@
 "use client";
 
 import { ThemeProvider } from "next-themes";
-import { Toaster } from "@/components/ui/feedback";
+import { Sonner } from "@/components/ui/feedback";
 import { UserProvider } from "@/contexts/useUser";
 import { LoadingProvider } from "@/contexts/LoadingContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -45,7 +45,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 disableTransitionOnChange
               >
                 {children}
-                <Toaster />
+                <Sonner />
               </ThemeProvider>
             </UserProvider>
           </LoadingProvider>
