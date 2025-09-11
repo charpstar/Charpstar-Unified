@@ -366,8 +366,13 @@ export default function MyAssignmentsPage() {
     }
   };
 
-  const handleViewBatch = (client: string, batch: number) => {
-    router.push(`/my-assignments/${encodeURIComponent(client)}/${batch}`);
+  const handleViewBatch = (client: string, batch: number, filter?: string) => {
+    const url = `/my-assignments/${encodeURIComponent(client)}/${batch}`;
+    if (filter) {
+      router.push(`${url}?filter=${filter}`);
+    } else {
+      router.push(url);
+    }
   };
 
   // Skeleton loading component
@@ -716,7 +721,17 @@ export default function MyAssignmentsPage() {
                     </Badge>
                   )}
                   {summary.urgentAssets > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/20 px-2 py-1 text-[11px] font-medium text-orange-700 dark:text-orange-300">
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/20 px-2 py-1 text-[11px] font-medium text-orange-700 dark:text-orange-300 cursor-pointer hover:bg-orange-200 dark:hover:bg-orange-800/30 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewBatch(
+                          summary.client,
+                          summary.batch,
+                          "urgent"
+                        );
+                      }}
+                    >
                       <Target className="h-3 w-3" /> {summary.urgentAssets}{" "}
                       urgent
                     </span>

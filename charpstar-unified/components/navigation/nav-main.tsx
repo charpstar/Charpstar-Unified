@@ -31,7 +31,7 @@ export default function NavMain({
   const [open, setOpen] = React.useState<Record<string, boolean>>({
     Production: true, // Open Production submenu by default
   });
-  const enableSubmenus = true; // enable submenu UI
+  const enableSubmenus = !pathname.startsWith("/modeler-review"); // disable submenu UI for modeler-review pages
 
   // Don't render if no items (loading state)
   if (!items || items.length === 0) {
@@ -49,6 +49,11 @@ export default function NavMain({
             const isActive = pathname === item.url;
             const hasChildren = !!(item.children && item.children.length > 0);
             const isOpen = !!open[item.title];
+
+            // Hide Production menu item for modeler-review pages
+            if (item.title === "Production" && !enableSubmenus) {
+              return null;
+            }
 
             return (
               <SidebarMenuItem

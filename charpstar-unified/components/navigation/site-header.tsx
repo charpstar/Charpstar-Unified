@@ -41,6 +41,7 @@ const TITLES = {
   "/qa-review": "QA Review",
   "/production/cost-tracking": "Cost Tracking",
   "/admin/clients": "Client Information",
+  "/my-assignments/[client]/[batch]": "My Assignments",
 };
 
 export default function SiteHeader() {
@@ -98,6 +99,20 @@ export default function SiteHeader() {
     } else {
       pageTitle = "Admin Review";
     }
+  } else if (
+    pathname.startsWith("/my-assignments/") &&
+    pathname.split("/").length === 4
+  ) {
+    // Handle my-assignments/[client]/[batch] dynamic route
+    const pathParts = pathname.split("/");
+    const client = decodeURIComponent(pathParts[2]);
+    const batch = pathParts[3];
+    pageTitle = (
+      <>
+        <span className="text-blue-600">{client}</span>
+        <span> Batch {batch} - My Assignments</span>
+      </>
+    );
   } else {
     pageTitle = TITLES[pathname as keyof typeof TITLES] || "Unified";
   }

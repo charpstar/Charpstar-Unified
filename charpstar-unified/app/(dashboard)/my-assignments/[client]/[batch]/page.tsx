@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { getPriorityLabel } from "@/lib/constants";
@@ -57,6 +57,7 @@ import {
   FileText,
   Link2,
   ChevronDown,
+  Target,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -137,11 +138,13 @@ const isOverdue = (deadline: string) => {
 export default function BatchDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const user = useUser();
   const { startLoading, stopLoading } = useLoadingState();
 
   const client = decodeURIComponent(params.client as string);
   const batch = parseInt(params.batch as string);
+  const filter = searchParams?.get("filter");
 
   const [allocationLists, setAllocationLists] = useState<AllocationList[]>([]);
   const [filteredAssets, setFilteredAssets] = useState<BatchAsset[]>([]);
@@ -307,7 +310,7 @@ export default function BatchDetailPage() {
 
   useEffect(() => {
     filterAndSortAssets();
-  }, [allocationLists, searchTerm, statusFilter]);
+  }, [allocationLists, searchTerm, statusFilter, filter]);
 
   // Check for previous modeler files when component mounts
   useEffect(() => {
@@ -694,6 +697,11 @@ export default function BatchDetailPage() {
     // Get all assets from all allocation lists
     const allAssets = allocationLists.flatMap((list) => list.assets);
     let filtered = [...allAssets];
+
+    // Apply urgent filter first (from URL parameter)
+    if (filter === "urgent") {
+      filtered = filtered.filter((asset) => asset.priority === 1);
+    }
 
     // Apply search filter
     if (searchTerm) {
@@ -1296,9 +1304,17 @@ export default function BatchDetailPage() {
               <Building className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-foreground">
-                {client}
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-semibold text-foreground">
+                  {client}
+                </h1>
+                {filter === "urgent" && (
+                  <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300 border-orange-200 dark:border-orange-800">
+                    <Target className="h-3 w-3 mr-1" />
+                    Urgent Only
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <span className="text-sm">Batch {batch}</span>
                 <span>•</span>
@@ -1483,6 +1499,20 @@ export default function BatchDetailPage() {
                 ))}
               </SelectContent>
             </Select>
+            {filter === "urgent" && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  router.push(
+                    `/my-assignments/${encodeURIComponent(client)}/${batch}`
+                  )
+                }
+                className="h-10 px-4"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Clear Urgent Filter
+              </Button>
+            )}
           </div>
         </div>
       )}

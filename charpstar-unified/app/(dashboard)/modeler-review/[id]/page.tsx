@@ -231,6 +231,7 @@ export default function ModelerReviewPage() {
   const [isDialogDragOver, setIsDialogDragOver] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [restoringVersion, setRestoringVersion] = useState(false);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [existingGlbNameMismatch, setExistingGlbNameMismatch] = useState<
     string | null
   >(null);
