@@ -128,8 +128,75 @@ export default function SiteHeader() {
   }, []);
 
   return (
-    <header className="bg-background flex h-(--header-height) shrink-0 items-center gap-2 border-b  rounded-t-lg border-border transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
-      <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
+    <header className="bg-gradient-to-b from-[#606d64] to-[#b69f84] flex h-(--header-height) shrink-0 items-center gap-2   rounded-t-lg border-border transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height) relative overflow-hidden">
+      {/* Animated Space Background for Header */}
+      <div className="absolute inset-0">
+        {/* Stars Layer 1 - Large stars */}
+        <div className="absolute inset-0 opacity-40">
+          {Array.from({ length: 15 }).map((_, i) => (
+            <div
+              key={`header-star1-${i}`}
+              className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${2 + Math.random() * 2}s`,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Stars Layer 2 - Medium stars */}
+        <div className="absolute inset-0 opacity-30">
+          {Array.from({ length: 25 }).map((_, i) => (
+            <div
+              key={`header-star2-${i}`}
+              className="absolute w-0.5 h-0.5 bg-blue-200 rounded-full"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animation: `twinkle ${3 + Math.random() * 4}s ease-in-out infinite`,
+                animationDelay: `${Math.random() * 5}s`,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Stars Layer 3 - Small stars */}
+        <div className="absolute inset-0 opacity-20">
+          {Array.from({ length: 40 }).map((_, i) => (
+            <div
+              key={`header-star3-${i}`}
+              className="absolute w-px h-px bg-white rounded-full"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animation: `twinkle ${2 + Math.random() * 3}s ease-in-out infinite`,
+                animationDelay: `${Math.random() * 4}s`,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Moving particles */}
+        <div className="absolute inset-0 overflow-hidden">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={`header-particle-${i}`}
+              className="absolute w-1 h-1 bg-cyan-300 rounded-full opacity-50"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animation: `float ${8 + Math.random() * 15}s linear infinite`,
+                animationDelay: `${Math.random() * 8}s`,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6 relative z-10">
         <SidebarTrigger className="-ml-1" />
         <Separator
           orientation="vertical"
@@ -169,6 +236,38 @@ export default function SiteHeader() {
           )}
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes twinkle {
+          0%,
+          100% {
+            opacity: 0.3;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1.2);
+          }
+        }
+
+        @keyframes float {
+          0% {
+            transform: translateY(100%) translateX(0px);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(-100px)
+              translateX(${Math.random() * 200 - 100}px);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </header>
   );
 }

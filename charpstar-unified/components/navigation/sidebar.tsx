@@ -163,12 +163,81 @@ function Sidebar({
       <div
         data-slot="sidebar"
         className={cn(
-          "bg-sidebar text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col",
+          "bg-gradient-to-b from-[#606d64] to-[#b69f84] text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col relative overflow-hidden",
           className
         )}
         {...props}
       >
-        {children}
+        {/* Animated Space Background for Sidebar */}
+        <div className="absolute inset-0">
+          {/* Stars Layer 1 - Large stars */}
+          <div className="absolute inset-0 opacity-30">
+            {Array.from({ length: 20 }).map((_, i) => (
+              <div
+                key={`sidebar-star1-${i}`}
+                className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 3}s`,
+                  animationDuration: `${2 + Math.random() * 2}s`,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Stars Layer 2 - Medium stars */}
+          <div className="absolute inset-0 opacity-25">
+            {Array.from({ length: 35 }).map((_, i) => (
+              <div
+                key={`sidebar-star2-${i}`}
+                className="absolute w-0.5 h-0.5 bg-blue-200 rounded-full"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animation: `twinkle ${3 + Math.random() * 4}s ease-in-out infinite`,
+                  animationDelay: `${Math.random() * 5}s`,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Stars Layer 3 - Small stars */}
+          <div className="absolute inset-0 opacity-20">
+            {Array.from({ length: 60 }).map((_, i) => (
+              <div
+                key={`sidebar-star3-${i}`}
+                className="absolute w-px h-px bg-white rounded-full"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animation: `twinkle ${2 + Math.random() * 3}s ease-in-out infinite`,
+                  animationDelay: `${Math.random() * 4}s`,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Moving particles */}
+          <div className="absolute inset-0 overflow-hidden">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div
+                key={`sidebar-particle-${i}`}
+                className="absolute w-1 h-1 bg-cyan-300 rounded-full opacity-40"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animation: `float ${12 + Math.random() * 18}s linear infinite`,
+                  animationDelay: `${Math.random() * 12}s`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="relative z-10 flex h-full w-full flex-col">
+          {children}
+        </div>
       </div>
     );
   }
@@ -180,7 +249,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden"
+          className="bg-gradient-to-b from-[#606d64] to-[#b69f84] text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden relative overflow-hidden"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -191,7 +260,77 @@ function Sidebar({
           <SheetTrigger className="sr-only">
             <span>Sidebar</span>
           </SheetTrigger>
-          <div className="flex h-full w-full flex-col">{children}</div>
+
+          {/* Animated Space Background for Mobile Sidebar */}
+          <div className="absolute inset-0">
+            {/* Stars Layer 1 - Large stars */}
+            <div className="absolute inset-0 opacity-30">
+              {Array.from({ length: 20 }).map((_, i) => (
+                <div
+                  key={`mobile-star1-${i}`}
+                  className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    animationDelay: `${Math.random() * 3}s`,
+                    animationDuration: `${2 + Math.random() * 2}s`,
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Stars Layer 2 - Medium stars */}
+            <div className="absolute inset-0 opacity-25">
+              {Array.from({ length: 35 }).map((_, i) => (
+                <div
+                  key={`mobile-star2-${i}`}
+                  className="absolute w-0.5 h-0.5 bg-blue-200 rounded-full"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    animation: `twinkle ${3 + Math.random() * 4}s ease-in-out infinite`,
+                    animationDelay: `${Math.random() * 5}s`,
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Stars Layer 3 - Small stars */}
+            <div className="absolute inset-0 opacity-20">
+              {Array.from({ length: 60 }).map((_, i) => (
+                <div
+                  key={`mobile-star3-${i}`}
+                  className="absolute w-px h-px bg-white rounded-full"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    animation: `twinkle ${2 + Math.random() * 3}s ease-in-out infinite`,
+                    animationDelay: `${Math.random() * 4}s`,
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Moving particles */}
+            <div className="absolute inset-0 overflow-hidden">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div
+                  key={`mobile-particle-${i}`}
+                  className="absolute w-1 h-1 bg-cyan-300 rounded-full opacity-40"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    animation: `float ${12 + Math.random() * 18}s linear infinite`,
+                    animationDelay: `${Math.random() * 12}s`,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex h-full w-full flex-col relative z-10">
+            {children}
+          </div>
         </SheetContent>
       </Sheet>
     );
@@ -199,7 +338,7 @@ function Sidebar({
 
   return (
     <div
-      className="group peer text-sidebar-foreground hidden md:block  bg-sidebar"
+      className="group peer text-sidebar-foreground hidden md:block bg-gradient-to-b from-[#606d64] to-[#b69f84]"
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}
       data-variant={variant}
@@ -221,7 +360,7 @@ function Sidebar({
       <div
         data-slot="sidebar-container"
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex bg-muted",
+          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex bg-gradient-to-b from-[#606d64] to-[#b69f84] relative overflow-hidden",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -233,10 +372,77 @@ function Sidebar({
         )}
         {...props}
       >
+        {/* Animated Space Background for Desktop Sidebar */}
+        <div className="absolute inset-0">
+          {/* Stars Layer 1 - Large stars */}
+          <div className="absolute inset-0 opacity-30">
+            {Array.from({ length: 20 }).map((_, i) => (
+              <div
+                key={`desktop-star1-${i}`}
+                className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 3}s`,
+                  animationDuration: `${2 + Math.random() * 2}s`,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Stars Layer 2 - Medium stars */}
+          <div className="absolute inset-0 opacity-25">
+            {Array.from({ length: 35 }).map((_, i) => (
+              <div
+                key={`desktop-star2-${i}`}
+                className="absolute w-0.5 h-0.5 bg-blue-200 rounded-full"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animation: `twinkle ${3 + Math.random() * 4}s ease-in-out infinite`,
+                  animationDelay: `${Math.random() * 5}s`,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Stars Layer 3 - Small stars */}
+          <div className="absolute inset-0 opacity-20">
+            {Array.from({ length: 60 }).map((_, i) => (
+              <div
+                key={`desktop-star3-${i}`}
+                className="absolute w-px h-px bg-white rounded-full"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animation: `twinkle ${2 + Math.random() * 3}s ease-in-out infinite`,
+                  animationDelay: `${Math.random() * 4}s`,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Moving particles */}
+          <div className="absolute inset-0 overflow-hidden">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div
+                key={`desktop-particle-${i}`}
+                className="absolute w-1 h-1 bg-cyan-300 rounded-full opacity-40"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animation: `float ${12 + Math.random() * 18}s linear infinite`,
+                  animationDelay: `${Math.random() * 12}s`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className=" group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+          className=" group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm relative z-10"
         >
           {children}
         </div>
@@ -469,7 +675,7 @@ function SidebarMenuItem({
       data-sidebar="menu-item"
       className={cn(
         "group/menu-item relative rounded-md",
-        isActive && "bg-sidebar-accent", // highlight background if active
+        isActive && "", // highlight background if active
         className
       )}
       {...props}
@@ -704,6 +910,34 @@ function SidebarMenuSubButton({
       {...props}
     />
   );
+}
+
+// CSS animations for sidebar space background
+const sidebarStyles = `
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+  
+  @keyframes float {
+    0% { 
+      transform: translateY(100%) translateX(0px);
+      opacity: 0;
+    }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { 
+      transform: translateY(-100px) translateX(${Math.random() * 200 - 100}px);
+      opacity: 0;
+    }
+  }
+`;
+
+// Inject styles into document head
+if (typeof document !== "undefined") {
+  const styleElement = document.createElement("style");
+  styleElement.textContent = sidebarStyles;
+  document.head.appendChild(styleElement);
 }
 
 export {

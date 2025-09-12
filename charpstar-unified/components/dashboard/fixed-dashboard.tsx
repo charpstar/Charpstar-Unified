@@ -95,46 +95,206 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
   // Client Dashboard Layout
   if (isClient) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Row 1 */}
-        <Card
-          className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
-          data-tour="profile"
+      <div className="grid grid-cols-2 md:grid-cols-1 gap-6">
+        {/* SVG filter for glass distortion */}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="0"
+          height="0"
+          style={{ position: "absolute", overflow: "hidden" }}
         >
-          <CardContent>{profileContent}</CardContent>
-        </Card>
-
-        <Card
-          className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
-          data-tour="quick-actions"
-        >
-          <CardContent className="">
-            <Suspense
-              fallback={
-                <div className="h-32 bg-muted animate-pulse rounded-lg" />
-              }
+          <defs>
+            <filter
+              id="glass-distortion"
+              x="0%"
+              y="0%"
+              width="100%"
+              height="100%"
             >
-              <LazyQuickActionsWidget />
-            </Suspense>
-          </CardContent>
-        </Card>
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency="0.015 0.015"
+                numOctaves="2"
+                seed="20"
+                result="noise"
+              />
+              <feGaussianBlur in="noise" stdDeviation="2" result="blurred" />
+              <feDisplacementMap
+                in="SourceGraphic"
+                in2="blurred"
+                scale="70"
+                xChannelSelector="R"
+                yChannelSelector="G"
+              />
+            </filter>
+          </defs>
+        </svg>
 
-        {/* Row 2 */}
-        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
-          <CardContent className="">
-            <ErrorBoundary>
-              <ClientActionCenterWidget />
-            </ErrorBoundary>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 gap-6">
+          {/* Row 1 */}
+          <Card
+            className="p-6 rounded-2xl m-0 border-none relative overflow-hidden   transition-all duration-300"
+            data-tour="profile"
+            style={
+              {
+                "--shadow-offset": "0",
+                "--shadow-blur": "30px",
+                "--shadow-spread": "-10px",
+                "--shadow-color": "#4f4f4f",
+                "--tint-color": "138, 138, 138",
+                "--tint-opacity": "0.11",
+                "--frost-blur": "2px",
+                "--noise-frequency": "0.005",
+                "--distortion-strength": "20",
+                "--outer-shadow-blur": "24px",
+                boxShadow: `0px 6px var(--outer-shadow-blur) rgba(93, 92, 92, 0.86)`,
+                isolation: "isolate",
+                touchAction: "none",
+              } as React.CSSProperties
+            }
+          >
+            {/* Glass tint layer */}
+            <div
+              className="absolute inset-0 rounded-2xl mb-0"
+              style={{
+                zIndex: 0,
+                boxShadow: `inset var(--shadow-offset) var(--shadow-offset) var(--shadow-blur) var(--shadow-spread) var(--shadow-color)`,
+                backgroundColor: `rgba(var(--tint-color), var(--tint-opacity))`,
+              }}
+            />
 
-        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
-          <CardContent className="">
-            <ErrorBoundary>
-              <StatusPieChartWidget />
-            </ErrorBoundary>
-          </CardContent>
-        </Card>
+            {/* Frost blur layer */}
+            <div
+              className="absolute inset-0 rounded-2xl mb-0"
+              style={{
+                backdropFilter: `blur(var(--frost-blur))`,
+                filter: "url(#glass-distortion)",
+                isolation: "isolate",
+                WebkitBackdropFilter: `blur(var(--frost-blur))`,
+                WebkitFilter: "url(#glass-distortion)",
+              }}
+            />
+
+            {/* Content */}
+            <div className="relative z-1">
+              <CardContent>{profileContent}</CardContent>
+            </div>
+          </Card>
+
+          <Card
+            className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
+            data-tour="quick-actions"
+          >
+            <CardContent className="">
+              <Suspense
+                fallback={
+                  <div className="h-32 bg-muted animate-pulse rounded-lg" />
+                }
+              >
+                <LazyQuickActionsWidget />
+              </Suspense>
+            </CardContent>
+          </Card>
+
+          {/* Row 2 */}
+          <Card
+            className="p-6 rounded-2xl mb-0 border-none relative overflow-hidden"
+            style={
+              {
+                "--shadow-offset": "0",
+                "--shadow-blur": "30px",
+                "--shadow-spread": "-10px",
+                "--shadow-color": "#4f4f4f",
+                "--tint-color": "138, 138, 138",
+                "--tint-opacity": "0.11",
+                "--frost-blur": "2px",
+                "--noise-frequency": "0.005",
+                "--distortion-strength": "20",
+                "--outer-shadow-blur": "24px",
+                boxShadow: `0px 6px var(--outer-shadow-blur) rgba(93, 92, 92, 0.86)`,
+                isolation: "isolate",
+                touchAction: "none",
+              } as React.CSSProperties
+            }
+          >
+            {/* Glass tint layer */}
+            <div
+              className="absolute inset-0 rounded-2xl mb-0"
+              style={{
+                zIndex: 0,
+                background: `rgba(var(--tint-color), var(--tint-opacity))`,
+                boxShadow: `inset var(--shadow-offset) var(--shadow-offset) var(--shadow-blur) var(--shadow-spread) var(--shadow-color)`,
+              }}
+            />
+
+            {/* Frost blur layer */}
+            <div
+              className="absolute inset-0 rounded-2xl mb-0"
+              style={{
+                backdropFilter: `blur(var(--frost-blur))`,
+                filter: "url(#glass-distortion)",
+              }}
+            />
+
+            {/* Content */}
+            <div className="relative z-1">
+              <CardContent className="">
+                <ErrorBoundary>
+                  <ClientActionCenterWidget />
+                </ErrorBoundary>
+              </CardContent>
+            </div>
+          </Card>
+
+          <Card
+            className="p-6 rounded-2xl mb-0 border-none relative overflow-hidden"
+            style={
+              {
+                "--shadow-offset": "0",
+                "--shadow-blur": "30px",
+                "--shadow-spread": "-10px",
+                "--shadow-color": "#4f4f4f",
+                "--tint-color": "138, 138, 138",
+                "--tint-opacity": "0.11",
+                "--frost-blur": "2px",
+                "--noise-frequency": "0.005",
+                "--distortion-strength": "20",
+                "--outer-shadow-blur": "24px",
+                boxShadow: `0px 6px var(--outer-shadow-blur) rgba(93, 92, 92, 0.86)`,
+                isolation: "isolate",
+                touchAction: "none",
+              } as React.CSSProperties
+            }
+          >
+            {/* Glass tint layer */}
+            <div
+              className="absolute inset-0 rounded-2xl mb-0"
+              style={{
+                zIndex: 0,
+                background: `rgba(var(--tint-color), var(--tint-opacity))`,
+                boxShadow: `inset var(--shadow-offset) var(--shadow-offset) var(--shadow-blur) var(--shadow-spread) var(--shadow-color)`,
+              }}
+            />
+
+            {/* Frost blur layer */}
+            <div
+              className="absolute inset-0 rounded-2xl mb-0"
+              style={{
+                backdropFilter: `blur(var(--frost-blur))`,
+                filter: "url(#glass-distortion)",
+              }}
+            />
+
+            {/* Content */}
+            <div className="relative z-1">
+              <CardContent className="">
+                <ErrorBoundary>
+                  <StatusPieChartWidget />
+                </ErrorBoundary>
+              </CardContent>
+            </div>
+          </Card>
+        </div>
       </div>
     );
   }
