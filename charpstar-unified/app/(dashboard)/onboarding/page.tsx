@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@/contexts/useUser";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+
 import { useLoading } from "@/contexts/LoadingContext";
 import { Button, Label } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
@@ -379,18 +379,6 @@ export default function OnboardingPage() {
           <p className="text-muted-foreground">
             Manage client invitations and track onboarding progress
           </p>
-          <div className="mt-3 flex items-center gap-2">
-            <Link href="/onboarding/csv-upload" className="cursor-pointer">
-              <Button size="sm" className="gap-2">
-                Upload with CSV
-              </Button>
-            </Link>
-            <Link href="/onboarding/manual-upload" className="cursor-pointer">
-              <Button variant="outline" size="sm" className="gap-2">
-                Manual upload
-              </Button>
-            </Link>
-          </div>
         </div>
         <Dialog open={newInviteDialog} onOpenChange={setNewInviteDialog}>
           <DialogTrigger asChild>
