@@ -17,5 +17,6 @@ export {
 export { LoginForm } from "./login-form";
 export { Calendar } from "./calendar";
 export { DateRangePicker } from "./date-range-picker";
+export { DatePicker } from "./date-picker";
 
 export { LoadingLink } from "./LoadingLink";

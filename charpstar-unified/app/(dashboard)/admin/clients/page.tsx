@@ -34,7 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/inputs";
 import { Plus, Edit, Eye, Search, Building2, FileText } from "lucide-react";
-import { Calendar as DateCalendar } from "@/components/ui/utilities";
+import { DatePicker } from "@/components/ui/utilities";
 
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/utilities";
@@ -531,13 +531,14 @@ export default function AdminClientsPage() {
 
       {/* Add Client Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="min-w-4xl w-full max-h-[60vh]  ">
+          <DialogHeader className="pb-4 ">
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5" />
               Add New Client
             </DialogTitle>
           </DialogHeader>
+
           <ClientForm
             formData={formData}
             setFormData={setFormData}
@@ -549,13 +550,14 @@ export default function AdminClientsPage() {
 
       {/* Edit Client Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="min-w-4xl w-full max-h-[60vh]  ">
+          <DialogHeader className="pb-4 ">
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5" />
               Edit Client: {selectedClient?.name}
             </DialogTitle>
           </DialogHeader>
+
           <ClientForm
             formData={formData}
             setFormData={setFormData}
@@ -567,8 +569,8 @@ export default function AdminClientsPage() {
 
       {/* View Client Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="min-w-4xl w-full max-h-[60vh]  ">
+          <DialogHeader className="pb-4 ">
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
               Client Details: {selectedClient?.name}
@@ -597,10 +599,10 @@ function ClientForm({
   const role = (user?.metadata?.role || "").toLowerCase();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Basic Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="space-y-1">
           <Label htmlFor="name">Client Name *</Label>
           <Input
             id="name"
@@ -610,7 +612,7 @@ function ClientForm({
             required
           />
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label htmlFor="email">Email *</Label>
           <Input
             id="email"
@@ -623,7 +625,7 @@ function ClientForm({
             required
           />
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label htmlFor="company">Company</Label>
           <Input
             id="company"
@@ -634,7 +636,7 @@ function ClientForm({
             placeholder="Enter company name"
           />
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label htmlFor="status">Status</Label>
           <Select
             value={formData.status}
@@ -654,60 +656,64 @@ function ClientForm({
       </div>
 
       {/* Contract Information */}
-      <div className="border-t pt-6">
-        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-          <FileText className="h-5 w-5 text-blue-600" />
+      <div className="border-t pt-4">
+        <h3 className="text-base font-medium mb-3 flex items-center gap-2">
+          <FileText className="h-4 w-4 text-blue-600" />
           Contract Details
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="contract_type">Contract Size</Label>
-            <Select
-              value={formData.contract_type}
-              onValueChange={(
-                value: "standard" | "premium" | "enterprise" | "custom"
-              ) => setFormData({ ...formData, contract_type: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="standard">Small</SelectItem>
-                <SelectItem value="premium">Medium</SelectItem>
-                <SelectItem value="enterprise">Big</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="contract_value">Contract Value (€)</Label>
-            <Input
-              id="contract_value"
-              type="number"
-              min="0"
-              max="99999999.99"
-              step="0.01"
-              value={
-                formData.contract_value === 0 ? "" : formData.contract_value
-              }
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  contract_value:
-                    e.target.value === "" ? 0 : parseFloat(e.target.value) || 0,
-                })
-              }
-              placeholder="0.00"
-            />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Contract Size and Value */}
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="contract_type">Contract Size</Label>
+              <Select
+                value={formData.contract_type}
+                onValueChange={(
+                  value: "standard" | "premium" | "enterprise" | "custom"
+                ) => setFormData({ ...formData, contract_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Small</SelectItem>
+                  <SelectItem value="premium">Medium</SelectItem>
+                  <SelectItem value="enterprise">Big</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="contract_value">Contract Value (€)</Label>
+              <Input
+                id="contract_value"
+                type="number"
+                min="0"
+                max="99999999.99"
+                step="0.01"
+                value={
+                  formData.contract_value === 0 ? "" : formData.contract_value
+                }
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    contract_value:
+                      e.target.value === ""
+                        ? 0
+                        : parseFloat(e.target.value) || 0,
+                  })
+                }
+                placeholder="0.00"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="start_date">Start Date</Label>
-            <DateCalendar
-              mode="single"
-              selected={
+          {/* Start Date */}
+          <div className="space-y-1">
+            <DatePicker
+              value={
                 formData.start_date ? new Date(formData.start_date) : undefined
               }
-              onSelect={(date) => {
+              onChange={(date) => {
                 if (!date) return;
                 const yyyy = date.getFullYear();
                 const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -715,20 +721,20 @@ function ClientForm({
                 const iso = `${yyyy}-${mm}-${dd}`;
                 setFormData({ ...formData, start_date: iso });
               }}
-              initialFocus
+              placeholder="Select start date"
             />
           </div>
         </div>
       </div>
 
       {/* Specifications and Requirements */}
-      <div className="border-t pt-6">
-        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-green-600" />
+      <div className="border-t pt-4">
+        <h3 className="text-base font-medium mb-3 flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-green-600" />
           Project Specifications
         </h3>
-        <div className="space-y-4">
-          <div className="space-y-2">
+        <div className="space-y-3">
+          <div className="space-y-1">
             <Label htmlFor="specifications">Client Specifications</Label>
             <Textarea
               id="specifications"
@@ -737,38 +743,40 @@ function ClientForm({
                 setFormData({ ...formData, specifications: e.target.value })
               }
               placeholder="Enter detailed client specifications, requirements, and any special instructions..."
-              rows={4}
+              rows={3}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="requirements">Project Requirements</Label>
-            <Textarea
-              id="requirements"
-              value={formData.requirements}
-              onChange={(e) =>
-                setFormData({ ...formData, requirements: e.target.value })
-              }
-              placeholder="Enter technical requirements, quality standards, and project scope..."
-              rows={4}
-            />
-          </div>
-          {role === "admin" && (
-            <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes (Admin only)</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="requirements">Project Requirements</Label>
               <Textarea
-                id="notes"
-                value={formData.notes}
+                id="requirements"
+                value={formData.requirements}
                 onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
+                  setFormData({ ...formData, requirements: e.target.value })
                 }
-                placeholder="Any additional notes or comments..."
+                placeholder="Enter technical requirements, quality standards, and project scope..."
                 rows={3}
               />
             </div>
-          )}
+            {role === "admin" && (
+              <div className="space-y-1">
+                <Label htmlFor="notes">Additional Notes (Admin only)</Label>
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
+                  placeholder="Any additional notes or comments..."
+                  rows={3}
+                />
+              </div>
+            )}
+          </div>
           {(role === "admin" || role === "qa") && (
-            <div className="space-y-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
                 <Label>Guideline Link (For Modelers)</Label>
                 <Input
                   value={
@@ -785,36 +793,34 @@ function ClientForm({
                   }}
                 />
               </div>
-            </div>
-          )}
-          {(role === "admin" || role === "qa") && (
-            <div className="space-y-2">
-              <Label htmlFor="viewer_type">Choose Viewer</Label>
-              <Select
-                value={formData.viewer_type || ""}
-                onValueChange={(
-                  value: "v6_aces" | "v5_tester" | "synsam" | "v2" | ""
-                ) => setFormData({ ...formData, viewer_type: value || null })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a viewer type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="v6_aces">V6 ACES Tester</SelectItem>
-                  <SelectItem value="v5_tester">V5 Tester</SelectItem>
-                  <SelectItem value="synsam">Synsam</SelectItem>
-                  <SelectItem value="v2" disabled>
-                    V2 (Under Construction)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-1">
+                <Label htmlFor="viewer_type">Choose Viewer</Label>
+                <Select
+                  value={formData.viewer_type || ""}
+                  onValueChange={(
+                    value: "v6_aces" | "v5_tester" | "synsam" | "v2" | ""
+                  ) => setFormData({ ...formData, viewer_type: value || null })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a viewer type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="v6_aces">V6 ACES Tester</SelectItem>
+                    <SelectItem value="v5_tester">V5 Tester</SelectItem>
+                    <SelectItem value="synsam">Synsam</SelectItem>
+                    <SelectItem value="v2" disabled>
+                      V2 (Under Construction)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
         </div>
       </div>
 
       {/* Form Actions */}
-      <div className="flex justify-end gap-3 pt-6 border-t">
+      <div className="flex justify-end gap-3 pt-4 border-t">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
