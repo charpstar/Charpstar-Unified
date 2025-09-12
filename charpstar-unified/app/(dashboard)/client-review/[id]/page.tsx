@@ -28,6 +28,7 @@ import {
   MessageCircle,
   Plus,
   X,
+  StickyNote,
   Edit3,
   Upload,
   Image as LucideImage,
@@ -241,10 +242,32 @@ export default function ReviewPage() {
   const [selectedImageTitle, setSelectedImageTitle] = useState<string>("");
   const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
   const [inlineEditComment, setInlineEditComment] = useState("");
-  const [viewerEditingId, setViewerEditingId] = useState<string | null>(null);
-  const [viewerEditComment, setViewerEditComment] = useState("");
-  const [isSwitchingEdit, setIsSwitchingEdit] = useState(false);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
+
+  // Notes state
+  const [notes, setNotes] = useState<
+    Array<{
+      id: string;
+      content: string;
+      created_at: string;
+      created_by: string;
+      profiles?: {
+        title?: string;
+        role?: string;
+        email?: string;
+      };
+    }>
+  >([]);
+  const [newNote, setNewNote] = useState("");
+  const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteContent, setEditNoteContent] = useState("");
+  const [showComments, setShowComments] = useState(false);
+  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+  const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<
+    string | null
+  >(null);
+
   // Make URLs in text clickable with blue styling
   const linkifyText = (text: string): any => {
     if (!text) return null;
@@ -547,7 +570,8 @@ export default function ReviewPage() {
             )
           `
           )
-          .eq("asset_id", assetId);
+          .eq("asset_id", assetId)
+          .not("comment", "like", "NOTE:%");
 
         // Apply role-based filtering for comments
         if (user.metadata?.role === "client") {
@@ -573,6 +597,49 @@ export default function ReviewPage() {
     fetchComments();
   }, [assetId, user]);
 
+  // Fetch notes (using asset_comments with a special prefix)
+  useEffect(() => {
+    async function fetchNotes() {
+      if (!assetId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from("asset_comments")
+          .select(
+            `
+            *,
+            profiles:created_by (
+              title,
+              role,
+              email
+            )
+          `
+          )
+          .eq("asset_id", assetId)
+          .like("comment", "NOTE:%")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching notes:", error);
+        } else {
+          // Transform the data to match our notes structure
+          const notesData = (data || []).map((comment) => ({
+            id: comment.id,
+            content: comment.comment.replace(/^NOTE:\s*/, ""), // Remove the NOTE: prefix
+            created_at: comment.created_at,
+            created_by: comment.created_by,
+            profiles: comment.profiles,
+          }));
+          setNotes(notesData);
+        }
+      } catch (error) {
+        console.error("Error fetching notes:", error);
+      }
+    }
+
+    fetchNotes();
+  }, [assetId]);
+
   // Fetch revision history
   const fetchRevisionHistory = async () => {
     if (!assetId) return;
@@ -595,6 +662,31 @@ export default function ReviewPage() {
   useEffect(() => {
     fetchRevisionHistory();
   }, [assetId]);
+
+  // Keyboard event listeners for Ctrl key detection
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey) {
+        setIsCtrlPressed(true);
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (!event.ctrlKey && !event.metaKey) {
+        setIsCtrlPressed(false);
+      }
+    };
+
+    // Add event listeners
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   // Handle model load
   const handleModelLoaded = () => {
@@ -637,6 +729,7 @@ export default function ReviewPage() {
       const annotation = annotations.find((ann) => ann.id === hotspotId);
       if (annotation) {
         setSelectedAnnotation(annotation);
+        setHighlightedAnnotationId(hotspotId);
 
         // Focus camera on the hotspot in the 3D model
         if (modelViewerRef.current && modelLoaded) {
@@ -657,9 +750,39 @@ export default function ReviewPage() {
           // Animate the camera movement
           modelViewerRef.current.play();
         }
+
+        // Scroll to the annotation in the feedback section
+        setTimeout(() => {
+          const annotationElement = document.getElementById(
+            `annotation-${hotspotId}`
+          );
+          if (annotationElement) {
+            annotationElement.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+              inline: "nearest",
+            });
+
+            // Add a temporary highlight effect
+            annotationElement.classList.add(
+              "ring-2",
+              "ring-primary",
+              "ring-opacity-50"
+            );
+            setTimeout(() => {
+              annotationElement.classList.remove(
+                "ring-2",
+                "ring-primary",
+                "ring-opacity-50"
+              );
+              setHighlightedAnnotationId(null);
+            }, 2000);
+          }
+        }, 100);
       }
     } else {
       setSelectedAnnotation(null);
+      setHighlightedAnnotationId(null);
     }
   };
 
@@ -853,10 +976,6 @@ export default function ReviewPage() {
 
   // Inline editing functions
   const startInlineEdit = (annotation: Annotation) => {
-    // Cancel any existing viewer editing first
-    if (viewerEditingId) {
-      cancelViewerEdit();
-    }
     setInlineEditingId(annotation.id);
     setInlineEditComment(annotation.comment);
   };
@@ -864,7 +983,6 @@ export default function ReviewPage() {
   const cancelInlineEdit = () => {
     setInlineEditingId(null);
     setInlineEditComment("");
-    setIsSwitchingEdit(false);
   };
 
   const submitInlineEdit = async (annotationId: string) => {
@@ -899,7 +1017,6 @@ export default function ReviewPage() {
         );
         setInlineEditingId(null);
         setInlineEditComment("");
-        setIsSwitchingEdit(false);
         toast.success("Comment updated successfully");
       } else {
         toast.error(data.error || "Failed to update comment");
@@ -923,75 +1040,6 @@ export default function ReviewPage() {
   };
 
   // 3D Viewer inline editing functions
-  const startViewerEdit = (annotation: Annotation) => {
-    // Cancel any existing panel editing first
-    if (inlineEditingId) {
-      cancelInlineEdit();
-    }
-    setViewerEditingId(annotation.id);
-    setViewerEditComment(annotation.comment);
-  };
-
-  const cancelViewerEdit = () => {
-    setViewerEditingId(null);
-    setViewerEditComment("");
-    setIsSwitchingEdit(false);
-  };
-
-  const submitViewerEdit = async (annotationId: string) => {
-    if (!viewerEditComment.trim()) return;
-
-    try {
-      const annotation = annotations.find((ann) => ann.id === annotationId);
-      if (!isAdmin && annotation && annotation.created_by !== user?.id) {
-        toast.error("You can only edit your own annotations");
-        return;
-      }
-      const response = await fetch("/api/annotations", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: annotationId,
-          comment: viewerEditComment.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setAnnotations((prev) =>
-          prev.map((ann) =>
-            ann.id === annotationId
-              ? { ...ann, comment: viewerEditComment.trim() }
-              : ann
-          )
-        );
-        setViewerEditingId(null);
-        setViewerEditComment("");
-        setIsSwitchingEdit(false);
-        toast.success("Comment updated successfully");
-      } else {
-        toast.error(data.error || "Failed to update comment");
-      }
-    } catch (error) {
-      console.error("Error updating comment:", error);
-      toast.error("Failed to update comment");
-    }
-  };
-
-  const handleViewerEditKeyDown = (
-    e: React.KeyboardEvent,
-    annotationId: string
-  ) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submitViewerEdit(annotationId);
-    } else if (e.key === "Escape") {
-      cancelViewerEdit();
-    }
-  };
 
   // Handle reference image uploads
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -2181,41 +2229,147 @@ export default function ReviewPage() {
     }
   };
 
+  // Notes functions
+  const addNote = async () => {
+    if (!newNote.trim() || !assetId || !user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("asset_comments")
+        .insert({
+          asset_id: assetId,
+          comment: `NOTE: ${newNote.trim()}`,
+          created_by: user.id,
+        })
+        .select(
+          `
+          *,
+            profiles:created_by (
+              title,
+              role,
+              email
+            )
+        `
+        )
+        .single();
+
+      if (error) {
+        console.error("Error adding note:", error);
+        toast.error("Failed to add note");
+        return;
+      }
+
+      // Transform the data to match our notes structure
+      const noteData = {
+        id: data.id,
+        content: data.comment.replace(/^NOTE:\s*/, ""),
+        created_at: data.created_at,
+        created_by: data.created_by,
+        profiles: data.profiles,
+      };
+
+      setNotes((prev) => [noteData, ...prev]);
+      setNewNote("");
+      toast.success("Note added successfully");
+    } catch (error) {
+      console.error("Error adding note:", error);
+      toast.error("Failed to add note");
+    }
+  };
+
+  const updateNote = async (noteId: string) => {
+    if (!editNoteContent.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("asset_comments")
+        .update({ comment: `NOTE: ${editNoteContent.trim()}` })
+        .eq("id", noteId)
+        .select(
+          `
+          *,
+            profiles:created_by (
+              title,
+              role,
+              email
+            )
+        `
+        )
+        .single();
+
+      if (error) {
+        console.error("Error updating note:", error);
+        toast.error("Failed to update note");
+        return;
+      }
+
+      // Transform the data to match our notes structure
+      const noteData = {
+        id: data.id,
+        content: data.comment.replace(/^NOTE:\s*/, ""),
+        created_at: data.created_at,
+        created_by: data.created_by,
+        profiles: data.profiles,
+      };
+
+      setNotes((prev) =>
+        prev.map((note) => (note.id === noteId ? noteData : note))
+      );
+      setEditingNoteId(null);
+      setEditNoteContent("");
+      toast.success("Note updated successfully");
+    } catch (error) {
+      console.error("Error updating note:", error);
+      toast.error("Failed to update note");
+    }
+  };
+
+  const deleteNote = async (noteId: string) => {
+    try {
+      const { error } = await supabase
+        .from("asset_comments")
+        .delete()
+        .eq("id", noteId);
+
+      if (error) {
+        console.error("Error deleting note:", error);
+        toast.error("Failed to delete note");
+        return;
+      }
+
+      setNotes((prev) => prev.filter((note) => note.id !== noteId));
+      toast.success("Note deleted successfully");
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      toast.error("Failed to delete note");
+    }
+  };
+
+  const startEditingNote = (note: any) => {
+    setEditingNoteId(note.id);
+    setEditNoteContent(note.content);
+  };
+
+  const cancelEditingNote = () => {
+    setEditingNoteId(null);
+    setEditNoteContent("");
+  };
+
   // Function to switch editing to a different annotation
-  const switchToEditing = (
-    annotation: Annotation,
-    isViewer: boolean = false
-  ) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const switchToEditing = (annotation: Annotation) => {
     // If we're already editing this annotation, do nothing
-    if (
-      (isViewer && viewerEditingId === annotation.id) ||
-      (!isViewer && inlineEditingId === annotation.id)
-    ) {
+    if (inlineEditingId === annotation.id) {
       return;
     }
-
-    // Set flag to prevent blur events during switch
-    setIsSwitchingEdit(true);
 
     // Cancel any existing editing sessions
     if (inlineEditingId) {
       cancelInlineEdit();
     }
-    if (viewerEditingId) {
-      cancelViewerEdit();
-    }
 
     // Start new editing session
-    if (isViewer) {
-      startViewerEdit(annotation);
-    } else {
-      startInlineEdit(annotation);
-    }
-
-    // Reset flag after a short delay
-    setTimeout(() => {
-      setIsSwitchingEdit(false);
-    }, 100);
+    startInlineEdit(annotation);
   };
 
   // Submit a reply for either an annotation or a comment
@@ -2480,9 +2634,25 @@ export default function ReviewPage() {
               </Button>
               <div className="flex items-center gap-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">
-                    {asset?.product_name || "Review Asset"}
-                  </h3>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {asset?.product_name || "Review Asset"}
+                    </h3>
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-medium text-muted-foreground border-border bg-yellow-500/20"
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsNotesDialogOpen(true)}
+                        className="h-8 px-3 "
+                      >
+                        <StickyNote className="h-4 w-4 mr-1" />
+                        Notes ({notes.length})
+                      </Button>
+                    </Badge>
+                  </div>
                   <div className="flex items-center gap-4 mt-2">
                     <Badge
                       variant="outline"
@@ -2535,13 +2705,264 @@ export default function ReviewPage() {
                   <div className="text-xs text-muted-foreground">Comments</div>
                 </div>
               </div>
+
+              {/* Status Update Buttons */}
+              <div className="flex items-center gap-2">
+                {user?.metadata?.role === "client" && (
+                  <Button
+                    onClick={() => updateAssetStatus("approved_by_client")}
+                    disabled={
+                      asset?.status === "approved_by_client" || statusUpdating
+                    }
+                    variant={
+                      asset?.status === "approved_by_client"
+                        ? "default"
+                        : "outline"
+                    }
+                    size="sm"
+                    className="h-8 px-3 text-xs cursor-pointer"
+                  >
+                    {statusUpdating ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                    )}
+                    Approve
+                  </Button>
+                )}
+
+                {(user?.metadata?.role === "admin" ||
+                  user?.metadata?.role === "qa") && (
+                  <Button
+                    onClick={() => updateAssetStatus("approved")}
+                    disabled={asset?.status === "approved" || statusUpdating}
+                    variant={
+                      asset?.status === "approved" ? "default" : "outline"
+                    }
+                    size="sm"
+                    className="h-8 px-3 text-xs cursor-pointer"
+                  >
+                    {statusUpdating ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                    )}
+                    Approve
+                  </Button>
+                )}
+
+                {(user?.metadata?.role === "admin" ||
+                  user?.metadata?.role === "qa") &&
+                  asset?.status === "revisions" && (
+                    <Button
+                      onClick={() => updateAssetStatus("in_production")}
+                      disabled={statusUpdating}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3 text-xs cursor-pointer"
+                    >
+                      {statusUpdating ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Clock className="h-3 w-3 mr-1" />
+                      )}
+                      In Progress
+                    </Button>
+                  )}
+
+                <Button
+                  onClick={() => updateAssetStatus("revisions")}
+                  disabled={asset?.status === "revisions" || statusUpdating}
+                  variant={
+                    asset?.status === "revisions" ? "outline" : "outline"
+                  }
+                  size="sm"
+                  className={`h-8 px-3 text-xs cursor-pointer ${
+                    asset?.status === "revisions"
+                      ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                      : ""
+                  }`}
+                >
+                  {statusUpdating ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                  )}
+                  Revision {revisionCount > 0 && `(${revisionCount})`}
+                </Button>
+
+                {/* Revision History Button */}
+                {revisionHistory.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowHistoryDropdown(!showHistoryDropdown)}
+                    className="h-8 px-3 text-xs text-muted-foreground cursor-pointer"
+                  >
+                    {showHistoryDropdown ? "Hide" : "Show"} History
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Revision History Dropdown - In Header Area */}
+        {revisionHistory.length > 0 && showHistoryDropdown && (
+          <div className="bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-sm">
+            <div className="p-4">
+              <div className="space-y-3 overflow-y-auto max-h-96">
+                {revisionHistory.map((revision) => (
+                  <div
+                    key={revision.id}
+                    className="p-4 border border-border rounded-lg bg-muted/30"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={`text-xs font-semibold ${getRevisionBadgeColors(revision.revision_number)}`}
+                        >
+                          R{revision.revision_number}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(revision.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {
+                          getRevisionItems(revision.revision_number).annotations
+                            .length
+                        }{" "}
+                        annotations,{" "}
+                        {
+                          getRevisionItems(revision.revision_number).comments
+                            .length
+                        }{" "}
+                        comments
+                      </span>
+                    </div>
+
+                    {/* Annotations Summary */}
+                    {(() => {
+                      const revisionAnnotations = getRevisionItems(
+                        revision.revision_number
+                      ).annotations;
+                      return revisionAnnotations.length > 0 ? (
+                        <div className="mb-3">
+                          <h4 className="text-xs font-medium text-foreground mb-2">
+                            Annotations ({revisionAnnotations.length})
+                          </h4>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {revisionAnnotations
+                              .slice(0, 3)
+                              .map((annotation: any, index: number) => (
+                                <div
+                                  key={annotation.id || index}
+                                  className="text-xs p-2 bg-background rounded border"
+                                >
+                                  <div className="font-medium text-muted-foreground mb-1">
+                                    Annotation {index + 1}
+                                  </div>
+                                  <div className="text-foreground">
+                                    <span className="break-words whitespace-pre-wrap">
+                                      {annotation.comment?.length > 100
+                                        ? `${annotation.comment.substring(0, 100)}...`
+                                        : annotation.comment}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            {revisionAnnotations.length > 3 && (
+                              <div className="text-xs text-muted-foreground text-center py-1">
+                                +{revisionAnnotations.length - 3} more
+                                annotations
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openRevisionDetails(revision)}
+                                  className="ml-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
+                                >
+                                  View All
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {/* Comments Summary */}
+                    {(() => {
+                      const revisionComments = getRevisionItems(
+                        revision.revision_number
+                      ).comments;
+                      return revisionComments.length > 0 ? (
+                        <div>
+                          <h4 className="text-xs font-medium text-foreground mb-2">
+                            Comments ({revisionComments.length})
+                          </h4>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {revisionComments
+                              .slice(0, 3)
+                              .map((comment: any, index: number) => (
+                                <div
+                                  key={comment.id || index}
+                                  className="text-xs p-2 bg-background rounded border"
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="font-medium text-muted-foreground">
+                                      {comment.profiles?.email || "Unknown"}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      {comment.profiles?.title ||
+                                        comment.profiles?.role ||
+                                        ""}
+                                    </span>
+                                  </div>
+                                  <div className="text-foreground">
+                                    {comment.comment?.length > 100
+                                      ? `${comment.comment.substring(0, 100)}...`
+                                      : comment.comment}
+                                  </div>
+                                </div>
+                              ))}
+                            {revisionComments.length > 3 && (
+                              <div className="text-xs text-muted-foreground text-center py-1">
+                                +{revisionComments.length - 3} more comments
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openRevisionDetails(revision)}
+                                  className="ml-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
+                                >
+                                  View All
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-1 overflow-hidden bg-background">
           {/* Main Content (3D Viewer) */}
           <div className="flex-1 relative bg-background m-6 rounded-lg shadow-lg border border-border/50">
+            {/* Ctrl Key Visual Indicator */}
+            {isCtrlPressed && !annotationMode && (
+              <div className="absolute top-4 left-4 z-10 bg-primary/90 text-primary-foreground px-3 py-2 rounded-lg text-sm font-medium shadow-lg border border-primary/20 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-primary-foreground rounded-full animate-pulse"></div>
+                  <span>Hold Ctrl + Click to add annotation</span>
+                </div>
+              </div>
+            )}
             <Script
               type="module"
               src="/model-viewer.js"
@@ -2572,11 +2993,21 @@ export default function ReviewPage() {
                   max-field-of-view="35deg"
                   style={{ width: "100%", height: "100%" }}
                   onLoad={handleModelLoaded}
-                  onDoubleClick={(event: any) => {
-                    if (!annotationMode) return;
+                  onClick={(event: any) => {
+                    // Check if Ctrl key is held down for hotkey shortcut
+                    const isCtrlPressed = event.ctrlKey || event.metaKey; // metaKey for Mac
+
+                    // Allow normal click in annotation mode OR Ctrl+click hotkey
+                    if (!annotationMode && !isCtrlPressed) return;
+                    if (annotationMode && isCtrlPressed) return; // Don't double-trigger
 
                     event.preventDefault();
                     event.stopPropagation();
+
+                    // If using hotkey, enable annotation mode first
+                    if (!annotationMode && isCtrlPressed) {
+                      setAnnotationMode(true);
+                    }
 
                     const positionData =
                       modelViewerRef.current?.positionAndNormalFromPoint(
@@ -2653,75 +3084,6 @@ export default function ReviewPage() {
                             </div>
                             <div className="hotspot-pulse"></div>
                           </div>
-
-                          {hotspot.comment && hotspot.comment.trim() && (
-                            <div className="hotspot-comment">
-                              {viewerEditingId === hotspot.id ? (
-                                <div className="comment-bubble editing">
-                                  <textarea
-                                    value={viewerEditComment}
-                                    onChange={(e) =>
-                                      setViewerEditComment(e.target.value)
-                                    }
-                                    onKeyDown={(e) =>
-                                      handleViewerEditKeyDown(e, hotspot.id)
-                                    }
-                                    onBlur={() => {
-                                      if (!isSwitchingEdit) {
-                                        submitViewerEdit(hotspot.id);
-                                      }
-                                    }}
-                                    className="comment-textarea"
-                                    autoFocus
-                                    placeholder="Edit comment..."
-                                    rows={3}
-                                  />
-                                  <div className="comment-edit-hint">
-                                    Press Enter to save, Escape to cancel
-                                  </div>
-                                </div>
-                              ) : (
-                                <div
-                                  className={`comment-bubble group ${
-                                    viewerEditingId === hotspot.id
-                                      ? "editing"
-                                      : ""
-                                  }`}
-                                  onClick={(e) => {
-                                    if (isFunctionalityDisabled()) return;
-                                    e.stopPropagation();
-                                    // Find the annotation and start inline editing
-                                    const annotation = annotations.find(
-                                      (ann) => ann.id === hotspot.id
-                                    );
-                                    if (annotation) {
-                                      switchToEditing(annotation, true);
-                                    }
-                                  }}
-                                  style={{
-                                    cursor: isFunctionalityDisabled()
-                                      ? "not-allowed"
-                                      : "pointer",
-                                    opacity: isFunctionalityDisabled()
-                                      ? 0.5
-                                      : 1,
-                                  }}
-                                  title={
-                                    isFunctionalityDisabled()
-                                      ? "Editing disabled during revision"
-                                      : "Click to edit comment"
-                                  }
-                                >
-                                  <div className="comment-text">
-                                    {hotspot.comment}
-                                  </div>
-                                  <div className="comment-edit-icon">
-                                    <Edit3 className="h-3 w-3 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       )
                   )}
@@ -2774,7 +3136,7 @@ export default function ReviewPage() {
           </div>
 
           {/* Right Panel - Switchable between Reference Images and Feedback */}
-          <div className="w-[620px] max-w-full flex flex-col bg-background  shadow-lg border border-border/50 p-6 ">
+          <div className="w-[570px] max-w-full flex flex-col bg-background  shadow-lg border border-border/50 p-6 ">
             {/* Tab Navigation */}
             <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
               <button
@@ -2803,291 +3165,6 @@ export default function ReviewPage() {
                   Reference Images ({referenceImages.length})
                 </div>
               </button>
-            </div>
-
-            {/* Asset Status Section - Always Visible */}
-            <div className="mb-6 p-4 bg-muted/30 rounded-lg border border-border/50">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-muted-foreground font-semibold">
-                  Asset Status
-                </span>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${
-                      getStatusDisplay(asset?.status, user?.metadata?.role)
-                        .className
-                    }`}
-                  >
-                    {
-                      getStatusDisplay(asset?.status, user?.metadata?.role)
-                        .label
-                    }
-                  </Badge>
-                  {revisionCount > 0 && (
-                    <Badge variant="outline" className="text-xs">
-                      Revision {revisionCount}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                {user?.metadata?.role === "client" && (
-                  <Button
-                    onClick={() => updateAssetStatus("approved_by_client")}
-                    disabled={
-                      asset?.status === "approved_by_client" || statusUpdating
-                    }
-                    variant={
-                      asset?.status === "approved_by_client"
-                        ? "default"
-                        : "outline"
-                    }
-                    size="sm"
-                    className="flex-1 cursor-pointer"
-                  >
-                    {statusUpdating ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                    )}
-                    Approve
-                  </Button>
-                )}
-
-                {(user?.metadata?.role === "admin" ||
-                  user?.metadata?.role === "qa") && (
-                  <Button
-                    onClick={() => updateAssetStatus("approved")}
-                    disabled={asset?.status === "approved" || statusUpdating}
-                    variant={
-                      asset?.status === "approved" ? "default" : "outline"
-                    }
-                    size="sm"
-                    className="flex-1 cursor-pointer"
-                  >
-                    {statusUpdating ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                    )}
-                    Approve (Internal)
-                  </Button>
-                )}
-                {(user?.metadata?.role === "admin" ||
-                  user?.metadata?.role === "qa") &&
-                  asset?.status === "revisions" && (
-                    <Button
-                      onClick={() => updateAssetStatus("in_production")}
-                      disabled={statusUpdating}
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 cursor-pointer"
-                    >
-                      {statusUpdating ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Clock className="h-4 w-4 mr-2" />
-                      )}
-                      Set In Progress
-                    </Button>
-                  )}
-                <Button
-                  onClick={() => updateAssetStatus("revisions")}
-                  disabled={asset?.status === "revisions" || statusUpdating}
-                  variant={
-                    asset?.status === "revisions" ? "outline" : "outline"
-                  }
-                  size="sm"
-                  className={`flex-1 cursor-pointer ${
-                    asset?.status === "revisions"
-                      ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
-                      : ""
-                  }`}
-                >
-                  {statusUpdating ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Ready for Revision {revisionCount > 0 && `(${revisionCount})`}
-                </Button>
-              </div>
-
-              {/* Revision History Dropdown */}
-              {revisionHistory.length > 0 && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-start mb-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        setShowHistoryDropdown(!showHistoryDropdown)
-                      }
-                      className="text-xs text-muted-foreground cursor-pointer"
-                    >
-                      {showHistoryDropdown ? "Hide" : "Show"} History
-                    </Button>
-                  </div>
-
-                  <div
-                    className={`transition-all duration-700 ease-in-out ${
-                      showHistoryDropdown
-                        ? "max-h-fit-content opacity-100"
-                        : "max-h-0 opacity-0 overflow-hidden"
-                    }`}
-                    style={{
-                      transitionDelay: showHistoryDropdown ? "0ms" : "200ms",
-                    }}
-                  >
-                    <div className="space-y-3 overflow-y-auto max-h-fit-content">
-                      {revisionHistory.map((revision) => (
-                        <div
-                          key={revision.id}
-                          className="p-4 border border-border rounded-lg bg-muted/30"
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant="outline"
-                                className={`text-xs font-semibold ${getRevisionBadgeColors(revision.revision_number)}`}
-                              >
-                                R{revision.revision_number}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(
-                                  revision.created_at
-                                ).toLocaleDateString()}
-                              </span>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              {
-                                getRevisionItems(revision.revision_number)
-                                  .annotations.length
-                              }{" "}
-                              annotations,{" "}
-                              {
-                                getRevisionItems(revision.revision_number)
-                                  .comments.length
-                              }{" "}
-                              comments
-                            </span>
-                          </div>
-
-                          {/* Annotations Summary */}
-                          {(() => {
-                            const revisionAnnotations = getRevisionItems(
-                              revision.revision_number
-                            ).annotations;
-                            return revisionAnnotations.length > 0 ? (
-                              <div className="mb-3">
-                                <h4 className="text-xs font-medium text-foreground mb-2">
-                                  Annotations ({revisionAnnotations.length})
-                                </h4>
-                                <div className="space-y-2 max-h-32 overflow-y-auto">
-                                  {revisionAnnotations
-                                    .slice(0, 3)
-                                    .map((annotation: any, index: number) => (
-                                      <div
-                                        key={annotation.id || index}
-                                        className="text-xs p-2 bg-background rounded border"
-                                      >
-                                        <div className="font-medium text-muted-foreground mb-1">
-                                          Annotation {index + 1}
-                                        </div>
-                                        <div className="text-foreground">
-                                          <span className="break-words whitespace-pre-wrap">
-                                            {annotation.comment?.length > 100
-                                              ? `${annotation.comment.substring(0, 100)}...`
-                                              : annotation.comment}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  {revisionAnnotations.length > 3 && (
-                                    <div className="text-xs text-muted-foreground text-center py-1">
-                                      +{revisionAnnotations.length - 3} more
-                                      annotations
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          openRevisionDetails(revision)
-                                        }
-                                        className="ml-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
-                                      >
-                                        View All
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ) : null;
-                          })()}
-
-                          {/* Comments Summary */}
-                          {(() => {
-                            const revisionComments = getRevisionItems(
-                              revision.revision_number
-                            ).comments;
-                            return revisionComments.length > 0 ? (
-                              <div>
-                                <h4 className="text-xs font-medium text-foreground mb-2">
-                                  Comments ({revisionComments.length})
-                                </h4>
-                                <div className="space-y-2 max-h-32 overflow-y-auto">
-                                  {revisionComments
-                                    .slice(0, 3)
-                                    .map((comment: any, index: number) => (
-                                      <div
-                                        key={comment.id || index}
-                                        className="text-xs p-2 bg-background rounded border"
-                                      >
-                                        <div className="flex items-center justify-between mb-1">
-                                          <span className="font-medium text-muted-foreground">
-                                            {comment.profiles?.name ||
-                                              comment.profiles?.email ||
-                                              "Unknown"}
-                                          </span>
-                                          <span className="text-muted-foreground">
-                                            {comment.profiles?.title ||
-                                              comment.profiles?.role ||
-                                              ""}
-                                          </span>
-                                        </div>
-                                        <div className="text-foreground">
-                                          {comment.comment?.length > 100
-                                            ? `${comment.comment.substring(0, 100)}...`
-                                            : comment.comment}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  {revisionComments.length > 3 && (
-                                    <div className="text-xs text-muted-foreground text-center py-1">
-                                      +{revisionComments.length - 3} more
-                                      comments
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          openRevisionDetails(revision)
-                                        }
-                                        className="ml-2 text-xs text-primary hover:text-primary/80 cursor-pointer"
-                                      >
-                                        View All
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ) : null;
-                          })()}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Reference Images Tab */}
@@ -3358,24 +3435,47 @@ export default function ReviewPage() {
                           {deleteMode ? "Cancel" : "Delete"}
                         </Button>
                       </div>
-                      <Button
-                        variant={annotationMode ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setAnnotationMode(!annotationMode)}
-                        disabled={isFunctionalityDisabled()}
-                        className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
-                          annotationMode
-                            ? "bg-primary hover:bg-primary/90 shadow-sm"
-                            : "border-border hover:bg-accent hover:border-border"
-                        } ${
-                          isFunctionalityDisabled()
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        {annotationMode ? "Cancel" : "Add Annotation"}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant={annotationMode ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setAnnotationMode(!annotationMode)}
+                          disabled={isFunctionalityDisabled()}
+                          className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                            annotationMode
+                              ? "bg-primary hover:bg-primary/90 shadow-sm"
+                              : "border-border hover:bg-accent hover:border-border"
+                          } ${
+                            isFunctionalityDisabled()
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          {annotationMode ? "Cancel" : "Add Annotation"}
+                          {!annotationMode && (
+                            <span className="ml-1 text-xs opacity-60"></span>
+                          )}
+                        </Button>
+                        <Button
+                          variant={showComments ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setShowComments(!showComments)}
+                          disabled={isFunctionalityDisabled()}
+                          className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                            showComments
+                              ? "bg-primary hover:bg-primary/90 shadow-sm"
+                              : "border-border hover:bg-accent hover:border-border"
+                          } ${
+                            isFunctionalityDisabled()
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                        >
+                          <MessageCircle className="h-3 w-3 mr-1" />
+                          {showComments ? "Hide Comments" : "Add Comment"}
+                        </Button>
+                      </div>
                     </div>
 
                     {isFunctionalityDisabled() && (
@@ -3390,35 +3490,37 @@ export default function ReviewPage() {
                       </div>
                     )}
 
-                    {/* Add New Comment */}
-                    <div className="space-y-3">
-                      <Textarea
-                        placeholder={
-                          isFunctionalityDisabled()
-                            ? "Comments disabled during revision"
-                            : selectedHotspotId
-                              ? `Add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
-                              : "Add a comment about this asset..."
-                        }
-                        value={newCommentText}
-                        onChange={(e) => setNewCommentText(e.target.value)}
-                        onKeyDown={handleNewCommentKeyDown}
-                        disabled={isFunctionalityDisabled()}
-                        className={`min-h-[100px] border-border focus:border-primary focus:ring-primary ${
-                          isFunctionalityDisabled()
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                        rows={4}
-                      />
-                      <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span>
-                          {isFunctionalityDisabled()
-                            ? "Comments are disabled during revision mode"
-                            : "Press Enter to send, Shift+Enter for new line"}
-                        </span>
+                    {/* Add New Comment - Collapsible */}
+                    {showComments && (
+                      <div className="space-y-3">
+                        <Textarea
+                          placeholder={
+                            isFunctionalityDisabled()
+                              ? "Comments disabled during revision"
+                              : selectedHotspotId
+                                ? `Add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
+                                : "Add a comment about this asset..."
+                          }
+                          value={newCommentText}
+                          onChange={(e) => setNewCommentText(e.target.value)}
+                          onKeyDown={handleNewCommentKeyDown}
+                          disabled={isFunctionalityDisabled()}
+                          className={`min-h-[100px] border-border focus:border-primary focus:ring-primary ${
+                            isFunctionalityDisabled()
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                          rows={4}
+                        />
+                        <div className="flex gap-2 text-xs text-muted-foreground">
+                          <span>
+                            {isFunctionalityDisabled()
+                              ? "Comments are disabled during revision mode"
+                              : "Press Enter to send, Shift+Enter for new line"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Multi-Delete Actions */}
                     {deleteMode && selectedAnnotations.length > 0 && (
@@ -3474,13 +3576,16 @@ export default function ReviewPage() {
                         item.type === "annotation" ? (
                           <Card
                             key={`annotation-${item.id}`}
+                            id={`annotation-${item.id}`}
                             className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
                               selectedHotspotId === item.id
                                 ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
-                                : deleteMode &&
-                                    selectedAnnotations.includes(item.id)
-                                  ? "ring-2 ring-red-300 bg-red-50/50 shadow-lg dark:ring-red-700 dark:bg-red-950/10"
-                                  : "hover:shadow-md hover:border-border"
+                                : highlightedAnnotationId === item.id
+                                  ? "ring-2 ring-primary ring-opacity-50 bg-primary/5 shadow-lg"
+                                  : deleteMode &&
+                                      selectedAnnotations.includes(item.id)
+                                    ? "ring-2 ring-red-300 bg-red-50/50 shadow-lg dark:ring-red-700 dark:bg-red-950/10"
+                                    : "hover:shadow-md hover:border-border"
                             }`}
                           >
                             <div className="flex items-start justify-between mb-4">
@@ -3746,9 +3851,7 @@ export default function ReviewPage() {
                                         handleInlineEditKeyDown(e, item.id)
                                       }
                                       onBlur={() => {
-                                        if (!isSwitchingEdit) {
-                                          submitInlineEdit(item.id);
-                                        }
+                                        submitInlineEdit(item.id);
                                       }}
                                       className="min-h-[80px] border-border focus:border-primary focus:ring-primary resize-none"
                                       rows={3}
@@ -4889,6 +4992,127 @@ export default function ReviewPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* Notes Dialog */}
+      <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <StickyNote className="h-5 w-5" />
+              Notes for {asset?.product_name}
+            </DialogTitle>
+            <DialogDescription>
+              Add and manage notes for this asset. Notes are visible to all team
+              members.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4">
+            {/* Add new note */}
+            <div className="space-y-3">
+              <Textarea
+                placeholder="Add a new note..."
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                className="min-h-[100px] resize-none"
+              />
+              <div className="flex justify-end">
+                <Button onClick={addNote} disabled={!newNote.trim()} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Note
+                </Button>
+              </div>
+            </div>
+
+            {/* Notes list */}
+            <div className="space-y-3">
+              {notes.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <StickyNote className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No notes yet. Add the first note above.</p>
+                </div>
+              ) : (
+                notes.map((note) => (
+                  <Card key={note.id} className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                          <StickyNote className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">
+                            {note.profiles?.email || "Unknown"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(note.created_at).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEditingNote(note)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteNote(note.id)}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {editingNoteId === note.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editNoteContent}
+                          onChange={(e) => setEditNoteContent(e.target.value)}
+                          className="min-h-[80px] resize-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={cancelEditingNote}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => updateNote(note.id)}
+                            disabled={!editNoteContent.trim()}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-foreground whitespace-pre-wrap">
+                        {note.content}
+                      </div>
+                    )}
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsNotesDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
