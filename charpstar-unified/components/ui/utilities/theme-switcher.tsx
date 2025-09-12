@@ -48,13 +48,13 @@ const themes = [
     value: "light",
     label: "Light",
     preview: <CardSkeleton variant="light" />,
-    className: "bg-background border",
+    className: "bg-transparent border-none",
   },
   {
     value: "dark",
     label: "Dark",
     preview: <CardSkeleton variant="dark" />,
-    className: "bg-[#181F2A] border",
+    className: "bg-transparent border-none",
   },
 ];
 
@@ -66,9 +66,9 @@ export function ThemeSwitcherCard() {
   };
 
   return (
-    <div>
-      <div className="text-base font-medium text-foreground">Theme</div>
-      <div className="text-sm text-muted-foreground mb-4">
+    <div className="flex flex-col gap-2 bg-foreground/5 rounded-lg p-6 h-full w-fit">
+      <div className="text-base font-medium text-muted/90 ">Theme</div>
+      <div className="text-sm text-muted/80 mb-4">
         Select the theme for the dashboard.
       </div>
       <div className="flex gap-8 pl-2">
@@ -82,22 +82,19 @@ export function ThemeSwitcherCard() {
               "relative flex flex-col items-center justify-between rounded-xl transition-all p-3 w-36 border-2 outline-none ring-0 cursor-pointer",
               t.className,
               theme === t.value
-                ? "border-primary ring-2 ring-primary shadow-lg"
-                : "border-muted hover:border-primary/60"
+                ? "border-primary  shadow-lg"
+                : "border-muted/90 hover:border-primary/60"
             )}
           >
             {t.preview}
             <span
               className={cn(
                 "block mt-3 text-sm font-medium",
-                theme === t.value ? "text-primary" : "text-muted-foreground"
+                theme === t.value ? "text-muted/80" : "text-muted/80"
               )}
             >
               {t.label}
             </span>
-            {theme === t.value && (
-              <span className="absolute top-2 right-2 inline-block w-3 h-3 rounded-full bg-primary shadow-md" />
-            )}
           </button>
         ))}
       </div>

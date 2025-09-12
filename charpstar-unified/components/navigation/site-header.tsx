@@ -128,7 +128,7 @@ export default function SiteHeader() {
   }, []);
 
   return (
-    <header className="bg-gradient-to-b from-[#606d64] to-[#b69f84] flex h-(--header-height) shrink-0 items-center gap-2   rounded-t-lg border-border transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height) relative overflow-hidden">
+    <header className="bg-[#606d64] flex h-(--header-height) shrink-0 items-center gap-2 shadow-md shadow-black/20 rounded-half   rounded-t-lg border-border transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height) relative overflow-hidden">
       {/* Animated Space Background for Header */}
       <div className="absolute inset-0">
         {/* Stars Layer 1 - Large stars */}

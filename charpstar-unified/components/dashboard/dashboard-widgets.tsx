@@ -56,13 +56,13 @@ function QAHeader({
 }) {
   return (
     <div className="flex items-center gap-3 mb-4">
-      <div className="p-2 bg-gray-100 rounded-lg">
-        <Icon className="h-5 w-5 text-gray-600" />
+      <div className="p-2 bg-muted/35 rounded-full">
+        <Icon className="h-5 w-5 text-foreground" />
       </div>
       <div>
         <h3 className="text-lg font-semibold text-foreground">{title}</h3>
         {subtitle ? (
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+          <p className="text-sm text-foreground">{subtitle}</p>
         ) : null}
       </div>
     </div>
@@ -726,23 +726,23 @@ export function QuickActionsWidget() {
           return (
             <div
               key={action.name}
-              className={`group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-t from-current/5 to-transparent dark:from-muted/20 dark:to-muted/30 p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer ${spanTwoCols ? "col-span-2" : ""}`}
+              className={` relative overflow-hidden rounded-2xl p-6 bg-foreground/5 transition-all duration-300 ease-out   hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer  ${spanTwoCols ? "col-span-2" : ""}`}
               onClick={action.action}
             >
               <div className="absolute inset-0 opacity-5"></div>
 
               <div className="relative flex items-center gap-4 mb-2">
                 <div
-                  className={`p-3 rounded-xl ${action.iconBg} shadow-lg shadow-black/10`}
+                  className={`p-3 rounded-full bg-foreground/5 shadow-lg shadow-black/30`}
                 >
-                  <action.icon className={`h-5 w-5 ${action.iconColor}`} />
+                  <action.icon className={`h-4 w-4 text-muted/80`} />
                 </div>
                 <div className="flex-1 min-w-0 p-2">
-                  <p className="text-base font-semibold truncate ">
+                  <p className="text-base font-semibold truncate text-muted/80">
                     {action.name}
                   </p>
                   {action.description && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted/60">
                       {action.description}
                     </p>
                   )}
@@ -751,16 +751,21 @@ export function QuickActionsWidget() {
 
               <div className="mt-3">
                 <div
-                  className={`inline-flex items-center gap-2 px-3.5Action Center p-3 bg-gradient-to-r ${action.color} hover:${action.hoverColor} text-white rounded-lg transition-all duration-300 ease-out group-hover:scale-105 shadow-lg shadow-black/10`}
+                  className={`inline-flex items-center gap-2 px-3.5 Action Center p-3 bg-foreground/5 text-white rounded-lg transition-all duration-300 ease-out group- shadow-lg shadow-black/10 cursor-pointer`}
                 >
-                  <span className="text-sm font-medium leading-none">Open</span>
+                  <Button
+                    variant="ghost"
+                    className="text-sm font-medium leading-none text-muted/80 cursor-pointer size-2"
+                  >
+                    Open
+                  </Button>
                   <div className="w-1 h-1 bg-white rounded-full"></div>
                 </div>
               </div>
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="absolute inset-0 bg-foreground/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div
-                className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${action.color} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
+                className={`absolute bottom-0 left-0 right-0 h-1 bg-foreground/5 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
               ></div>
             </div>
           );
@@ -1469,7 +1474,7 @@ export function StatusPieChartWidget() {
 
       {chartData.every((entry) => entry.value === 0) ? (
         <div className=" text-center text-muted-foreground">
-          <span className="text-4xl">📊</span>
+          <span className="text-2xl">📊</span>
           <div className="mt-2 font-medium">No data to display yet.</div>
           <div className="text-xs">
             Upload assets to see your status distribution.
@@ -1477,68 +1482,65 @@ export function StatusPieChartWidget() {
         </div>
       ) : (
         <CardContent className=" w-full">
-          <div className="group relative overflow-hidden rounded-2xl border-1   w-full flex flex-col md:flex-row items-center justify-center gap-6">
-            <div className="absolute inset-0 opacity-5"></div>
-            <div className="relative w-64 h-64 drop-shadow-lg pointer-events-auto">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    label
-                    isAnimationActive={true}
-                  >
-                    {chartData.map((entry) => (
-                      <Cell
-                        key={`cell-${entry.key}`}
-                        fill={entry.color as string}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 8,
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                      fontSize: 14,
-                      color: "#111827",
-                    }}
-                    formatter={(value: number, name: string) => {
-                      const entry = chartData.find(
-                        (item) => item.name === name
-                      );
-                      const percentage = entry ? entry.percentage : 0;
-                      return [`${percentage}%`, name];
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="group relative overflow-hidden rounded-2xl p-8 w-full grid grid-cols-2 items-center justify-center gap-6">
+            <div className="absolute inset-0 opacity-5 bg-foreground/5 rounded-2xl"></div>
+
+            {/* Left Column */}
             <div className="relative flex flex-col gap-3 min-w-[160px] select-none">
-              {chartData.map((entry, index) => (
-                <>
-                  <div key={entry.key} className="flex items-center gap-3">
-                    <span
-                      className="inline-block w-4 h-4 rounded-full"
-                      style={{ background: entry.color as string }}
-                    />
-                    <span className="font-medium text-sm flex-1">
-                      {entry.name}
-                    </span>
-                    <span className="pl-6 font-medium">
-                      {entry.percentage}%
-                    </span>
-                  </div>
-                  {index !== chartData.length - 1 && (
-                    <Separator className="w-full" />
-                  )}
-                </>
-              ))}
+              {chartData
+                .slice(0, Math.ceil(chartData.length / 2))
+                .map((entry, index) => (
+                  <>
+                    <div
+                      key={entry.key}
+                      className="flex flex-col md:flex-row items-center gap-3"
+                    >
+                      <span
+                        className="inline-block w-4 h-4 rounded-full"
+                        style={{ background: entry.color as string }}
+                      />
+                      <span className="font-medium text-sm flex-1 text-muted/80">
+                        {entry.name}
+                      </span>
+                      <span className="pl-6 font-medium text-muted/80">
+                        {entry.percentage}%
+                      </span>
+                    </div>
+                    {index !== Math.ceil(chartData.length / 2) - 1 && (
+                      <Separator className="w-full bg-muted/40" />
+                    )}
+                  </>
+                ))}
+            </div>
+
+            {/* Right Column */}
+            <div className="relative flex flex-col gap-3 min-w-[60px] select-none">
+              {chartData
+                .slice(Math.ceil(chartData.length / 2))
+                .map((entry, index) => (
+                  <>
+                    <div
+                      key={entry.key}
+                      className="flex flex-col md:flex-row items-center gap-3"
+                    >
+                      <span
+                        className="inline-block w-4 h-4 rounded-full"
+                        style={{ background: entry.color as string }}
+                      />
+                      <span className="font-medium text-sm flex-1 text-muted/80">
+                        {entry.name}
+                      </span>
+                      <span className="pl-6 font-medium text-muted/80">
+                        {entry.percentage}%
+                      </span>
+                    </div>
+                    {index !==
+                      chartData.slice(Math.ceil(chartData.length / 2)).length -
+                        1 && (
+                      <Separator className="w-full hidden md:block bg-muted/40" />
+                    )}
+                  </>
+                ))}
             </div>
           </div>
         </CardContent>
@@ -1600,13 +1602,13 @@ export function ClientActionCenterWidget() {
         />
       </div>
       <CardContent className="space-y-4">
-        <div className="group relative overflow-hidden rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50 p-4">
-          <div className="absolute inset-0 opacity-5"></div>
+        <div className="group relative overflow-hidden rounded-2xl   p-4">
+          <div className="absolute inset-0  bg-foreground/5 rounded-2xl"></div>
           <div className="relative flex items-center justify-between">
-            <div className="text-sm text-emerald-800 dark:text-emerald-300">
-              Overall completion
+            <div className="text-sm text-muted/90">Overall completion</div>
+            <div className="text-sm font-semibold text-muted/80">
+              {completionPct}%
             </div>
-            <div className="text-sm font-semibold">{completionPct}%</div>
           </div>
           <div className="mt-2">
             <Progress value={completionPct} className="h-2" />
@@ -1615,35 +1617,33 @@ export function ClientActionCenterWidget() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div
-            className="group relative overflow-hidden rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-3 cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl  p-3 cursor-pointer"
             onClick={() => router.push("/client-review")}
           >
-            <div className="absolute inset-0 opacity-5"></div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="absolute inset-0  bg-foreground/5 rounded-2xl"></div>
+            <div className="flex items-center justify-between mb-2 text-muted/90 hover:text-muted/100">
               <div className="text-sm font-medium">New Upload</div>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+              <Badge variant="default" className="bg-muted/35 text-foreground">
                 {waitingForApproval.length}
               </Badge>
             </div>
             {loading ? (
               <div className="h-16 bg-muted animate-pulse rounded" />
             ) : waitingForApproval.length === 0 ? (
-              <div className="text-xs text-muted-foreground">
-                Nothing pending
-              </div>
+              <div className="text-xs text-muted/80">Nothing pending</div>
             ) : (
               <div className="space-y-2">
                 {waitingForApproval.map((a) => (
                   <div
                     key={a.id}
-                    className="group/item relative flex items-center justify-between text-sm cursor-pointer"
+                    className="group/item relative flex items-center justify-between text-sm cursor-pointer hover:text-muted/90"
                     onClick={() => router.push("/client-review")}
                   >
                     <div className="truncate">
                       <div className="font-medium truncate max-w-[180px]">
                         {a.product_name}
                       </div>
-                      <div className="text-xs text-muted-foreground font-mono">
+                      <div className="text-xs text-muted/90 font-mono">
                         {a.article_id}
                       </div>
                     </div>
@@ -1655,8 +1655,9 @@ export function ClientActionCenterWidget() {
             <div className="mt-3">
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 onClick={() => router.push("/client-review")}
+                className="text-muted/90 hover:text-muted/100"
               >
                 Review all
               </Button>
@@ -1664,20 +1665,20 @@ export function ClientActionCenterWidget() {
           </div>
 
           <div
-            className="group relative overflow-hidden rounded-2xl border-2 border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/50 p-3 cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl  p-3 cursor-pointer"
             onClick={() => router.push("/client-review")}
           >
-            <div className="absolute inset-0 opacity-5"></div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="absolute inset-0  bg-foreground/5 rounded-2xl"></div>
+            <div className="flex items-center justify-between mb-2 text-muted/90 hover:text-muted/100">
               <div className="text-sm font-medium">Ready for Revision</div>
-              <Badge variant="outline" className="bg-amber-50 text-amber-700">
+              <Badge variant="default" className="bg-muted/35 text-foreground">
                 {readyForRevision.length}
               </Badge>
             </div>
             {loading ? (
               <div className="h-16 bg-muted animate-pulse rounded" />
             ) : readyForRevision.length === 0 ? (
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-muted/90">
                 No revisions requested
               </div>
             ) : (
@@ -1685,14 +1686,14 @@ export function ClientActionCenterWidget() {
                 {readyForRevision.map((a) => (
                   <div
                     key={a.id}
-                    className="group/item relative flex items-center justify-between text-sm cursor-pointer"
+                    className="group/item relative flex items-center justify-between text-sm cursor-pointer hover:text-muted/90"
                     onClick={() => router.push("/client-review")}
                   >
                     <div className="truncate">
                       <div className="font-medium truncate max-w-[180px]">
                         {a.product_name}
                       </div>
-                      <div className="text-xs text-muted-foreground font-mono">
+                      <div className="text-xs text-muted/90 font-mono">
                         {a.article_id}
                       </div>
                     </div>
@@ -1704,7 +1705,8 @@ export function ClientActionCenterWidget() {
             <div className="mt-3">
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
+                className="text-muted/90 hover:text-muted/100"
                 onClick={() => router.push("/dashboard/client-review")}
               >
                 Open review

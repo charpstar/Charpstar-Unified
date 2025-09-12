@@ -181,9 +181,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-      <div className="space-y-2">
-        <ThemeSwitcherCard />
-      </div>
+      <div className="space-y-2"></div>
     </div>
   );
 
