@@ -29,6 +29,9 @@ import {
   Download,
   Maximize2,
   AlertTriangle,
+  StickyNote,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -217,6 +220,13 @@ export default function ModelerReviewPage() {
   } | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
+
+  // Notes state
+  const [notes, setNotes] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteContent, setEditNoteContent] = useState("");
 
   // GLB Upload state
   const [uploading, setUploading] = useState(false);
@@ -508,7 +518,8 @@ export default function ModelerReviewPage() {
             )
           `
           )
-          .eq("asset_id", assetId);
+          .eq("asset_id", assetId)
+          .not("comment", "like", "NOTE:%"); // Exclude notes
 
         // Apply role-based filtering for comments
         if (user.metadata?.role === "client") {
@@ -532,6 +543,46 @@ export default function ModelerReviewPage() {
     }
 
     fetchComments();
+  }, [assetId, user]);
+
+  // Fetch notes
+  useEffect(() => {
+    async function fetchNotes() {
+      if (!assetId || !user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from("asset_comments")
+          .select(
+            `
+            *,
+            profiles:created_by (
+              title,
+              role,
+              email
+            )
+          `
+          )
+          .eq("asset_id", assetId)
+          .like("comment", "NOTE:%")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching notes:", error);
+        } else {
+          // Transform the data to remove the "NOTE:" prefix for display
+          const transformedNotes = (data || []).map((note) => ({
+            ...note,
+            comment: note.comment.replace(/^NOTE:\s*/, ""),
+          }));
+          setNotes(transformedNotes);
+        }
+      } catch (error) {
+        console.error("Error fetching notes:", error);
+      }
+    }
+
+    fetchNotes();
   }, [assetId, user]);
 
   // Fetch GLB upload history
@@ -1184,6 +1235,128 @@ export default function ModelerReviewPage() {
     }
   };
 
+  // Notes CRUD functions
+  const addNote = async () => {
+    if (!newNote.trim() || !assetId || !user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("asset_comments")
+        .insert({
+          asset_id: assetId,
+          comment: `NOTE: ${newNote.trim()}`,
+          created_by: user.id,
+        })
+        .select(
+          `
+          *,
+          profiles:created_by (
+            title,
+            role,
+            email
+          )
+        `
+        )
+        .single();
+
+      if (error) {
+        console.error("Error adding note:", error);
+        toast.error("Failed to add note");
+        return;
+      }
+
+      // Transform the data to remove the "NOTE:" prefix for display
+      const transformedNote = {
+        ...data,
+        comment: data.comment.replace(/^NOTE:\s*/, ""),
+      };
+
+      setNotes((prev) => [transformedNote, ...prev]);
+      setNewNote("");
+      toast.success("Note added successfully");
+    } catch (error) {
+      console.error("Error adding note:", error);
+      toast.error("Failed to add note");
+    }
+  };
+
+  const updateNote = async (noteId: string) => {
+    if (!editNoteContent.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("asset_comments")
+        .update({
+          comment: `NOTE: ${editNoteContent.trim()}`,
+        })
+        .eq("id", noteId)
+        .select(
+          `
+          *,
+          profiles:created_by (
+            title,
+            role,
+            email
+          )
+        `
+        )
+        .single();
+
+      if (error) {
+        console.error("Error updating note:", error);
+        toast.error("Failed to update note");
+        return;
+      }
+
+      // Transform the data to remove the "NOTE:" prefix for display
+      const transformedNote = {
+        ...data,
+        comment: data.comment.replace(/^NOTE:\s*/, ""),
+      };
+
+      setNotes((prev) =>
+        prev.map((note) => (note.id === noteId ? transformedNote : note))
+      );
+      setEditingNoteId(null);
+      setEditNoteContent("");
+      toast.success("Note updated successfully");
+    } catch (error) {
+      console.error("Error updating note:", error);
+      toast.error("Failed to update note");
+    }
+  };
+
+  const deleteNote = async (noteId: string) => {
+    try {
+      const { error } = await supabase
+        .from("asset_comments")
+        .delete()
+        .eq("id", noteId);
+
+      if (error) {
+        console.error("Error deleting note:", error);
+        toast.error("Failed to delete note");
+        return;
+      }
+
+      setNotes((prev) => prev.filter((note) => note.id !== noteId));
+      toast.success("Note deleted successfully");
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      toast.error("Failed to delete note");
+    }
+  };
+
+  const startEditingNote = (note: any) => {
+    setEditingNoteId(note.id);
+    setEditNoteContent(note.comment);
+  };
+
+  const cancelEditingNote = () => {
+    setEditingNoteId(null);
+    setEditNoteContent("");
+  };
+
   if (!user) {
     return null;
   }
@@ -1416,9 +1589,20 @@ export default function ModelerReviewPage() {
               </Button>
               <div className="flex items-center gap-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">
-                    {asset?.product_name || "Review Asset"}
-                  </h3>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {asset?.product_name || "Review Asset"}
+                    </h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsNotesDialogOpen(true)}
+                      className="gap-2 cursor-pointer bg-yellow-500/20 text-yellow-700 hover:bg-yellow-500/30 hover:text-yellow-700"
+                    >
+                      <StickyNote className="h-4 w-4" />
+                      Notes ({notes.length})
+                    </Button>
+                  </div>
                   <div className="flex items-center gap-4 mt-2">
                     <Badge
                       variant="outline"
@@ -3079,6 +3263,144 @@ export default function ModelerReviewPage() {
               >
                 Upload New GLB
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Notes Dialog */}
+        <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle className="flex items-center gap-2">
+                <StickyNote className="h-5 w-5 text-primary" />
+                Notes ({notes.length})
+              </DialogTitle>
+              <DialogDescription>
+                Add and manage notes for this asset. Notes are visible to all
+                users.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-4">
+              {/* Add new note */}
+              <div className="space-y-3">
+                <Textarea
+                  placeholder="Add a new note..."
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  className="min-h-[100px]"
+                  rows={4}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={addNote}
+                    disabled={!newNote.trim()}
+                    className="cursor-pointer"
+                  >
+                    Add Note
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setNewNote("")}
+                    className="cursor-pointer"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+
+              {/* Notes list */}
+              <div className="space-y-3">
+                {notes.length > 0 ? (
+                  notes.map((note) => (
+                    <Card key={note.id} className="p-4">
+                      <div className="space-y-3">
+                        {editingNoteId === note.id ? (
+                          <div className="space-y-3">
+                            <Textarea
+                              value={editNoteContent}
+                              onChange={(e) =>
+                                setEditNoteContent(e.target.value)
+                              }
+                              className="min-h-[80px]"
+                              rows={3}
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => updateNote(note.id)}
+                                disabled={!editNoteContent.trim()}
+                                className="cursor-pointer"
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={cancelEditingNote}
+                                className="cursor-pointer"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="text-sm text-foreground whitespace-pre-wrap">
+                              {note.comment}
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <span>{note.profiles?.email || "Unknown"}</span>
+                                <span>•</span>
+                                <span>
+                                  {new Date(
+                                    note.created_at
+                                  ).toLocaleDateString()}
+                                </span>
+                                <span>•</span>
+                                <span>
+                                  {new Date(
+                                    note.created_at
+                                  ).toLocaleTimeString()}
+                                </span>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => startEditingNote(note)}
+                                  className="h-6 w-6 p-0 cursor-pointer"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteNote(note.id)}
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <StickyNote className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      No notes yet
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Add your first note to get started
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </DialogContent>
         </Dialog>
