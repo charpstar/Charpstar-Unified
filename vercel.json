@@ -1,7 +1,7 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "cd charpstar-unified && npm run build",
   "outputDirectory": "charpstar-unified/.next",
-  "installCommand": "npm run install-deps",
-  "devCommand": "npm run dev",
+  "installCommand": "cd charpstar-unified && npm install --legacy-peer-deps",
+  "devCommand": "cd charpstar-unified && npm run dev",
   "framework": "nextjs"
 }
