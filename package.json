@@ -1,0 +1,14 @@
+{
+  "name": "charpstar-unified-root",
+  "version": "1.0.0",
+  "description": "Root package for Charpstar Unified Asset API",
+  "scripts": {
+    "build": "cd charpstar-unified && npm run build",
+    "dev": "cd charpstar-unified && npm run dev",
+    "start": "cd charpstar-unified && npm run start",
+    "install-deps": "cd charpstar-unified && npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
