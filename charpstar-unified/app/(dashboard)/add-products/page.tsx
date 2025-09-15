@@ -100,6 +100,7 @@ export default function AddProductsPage() {
   >([]);
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [editedCsvData, setEditedCsvData] = useState<string[][] | null>(null);
+  //eslint-disable-next-line
   const [scrapingImages, setScrapingImages] = useState(false);
 
   // Helper function to reset file input
