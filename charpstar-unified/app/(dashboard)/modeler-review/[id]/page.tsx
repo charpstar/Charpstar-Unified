@@ -1657,81 +1657,56 @@ export default function ModelerReviewPage() {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Asset Status Section - Moved to Header */}
-            <div className="p-3 sm:p-4 bg-muted/30 rounded-lg border border-border/50">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
-                <span className="text-xs text-muted-foreground font-semibold">
-                  Asset Status
-                </span>
+                {/* Compact Asset Status Section */}
                 <div className="flex items-center gap-2">
-                  {/* Freshness indicator */}
-                  <div className="flex items-center gap-2">
-                    {latestExternalFeedbackTime &&
-                    latestGlbTime &&
-                    latestGlbTime < latestExternalFeedbackTime ? (
-                      <Badge variant="destructive" className="text-[10px]">
-                        <span className="hidden sm:inline">
-                          GLB older than feedback, please upload a new GLB to
-                          change status
-                        </span>
-                        <span className="sm:hidden">GLB outdated</span>
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] text-emerald-600 border-emerald-300"
-                      >
-                        Up-to-date
-                      </Badge>
-                    )}
+                  <div className="w-px h-6 sm:h-8 bg-border"></div>
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <Button
+                      onClick={() => updateAssetStatus("in_production")}
+                      disabled={
+                        asset?.status === "in_production" || statusUpdating
+                      }
+                      variant={
+                        asset?.status === "in_production"
+                          ? "default"
+                          : "outline"
+                      }
+                      size="sm"
+                      className="h-6 sm:h-7 px-2 text-xs cursor-pointer"
+                    >
+                      {statusUpdating ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-3 w-3" />
+                      )}
+                      <span className="hidden sm:inline ml-1">In Progress</span>
+                    </Button>
+                    <Button
+                      onClick={() => updateAssetStatus("delivered_by_artist")}
+                      disabled={
+                        asset?.status === "delivered_by_artist" ||
+                        asset?.status === "approved" ||
+                        asset?.status === "approved_by_client" ||
+                        statusUpdating
+                      }
+                      variant={
+                        asset?.status === "delivered_by_artist"
+                          ? "default"
+                          : "outline"
+                      }
+                      size="sm"
+                      className="h-6 sm:h-7 px-2 text-xs cursor-pointer"
+                    >
+                      {statusUpdating ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-3 w-3" />
+                      )}
+                      <span className="hidden sm:inline ml-1">Delivered</span>
+                    </Button>
                   </div>
                 </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <Button
-                  onClick={() => updateAssetStatus("in_production")}
-                  disabled={asset?.status === "in_production" || statusUpdating}
-                  variant={
-                    asset?.status === "in_production" ? "default" : "outline"
-                  }
-                  size="sm"
-                  className="w-full cursor-pointer text-xs sm:text-sm h-8 sm:h-9"
-                >
-                  {statusUpdating ? (
-                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                  )}
-                  <span className="hidden sm:inline">Mark as In Progress</span>
-                  <span className="sm:hidden">In Progress</span>
-                </Button>
-                <Button
-                  onClick={() => updateAssetStatus("delivered_by_artist")}
-                  disabled={
-                    asset?.status === "delivered_by_artist" ||
-                    asset?.status === "approved" ||
-                    asset?.status === "approved_by_client" ||
-                    statusUpdating
-                  }
-                  variant={
-                    asset?.status === "delivered_by_artist"
-                      ? "default"
-                      : "outline"
-                  }
-                  size="sm"
-                  className="w-full cursor-pointer text-xs sm:text-sm h-8 sm:h-9"
-                >
-                  {statusUpdating ? (
-                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                  )}
-                  <span className="hidden sm:inline">Mark as Delivered</span>
-                  <span className="sm:hidden">Delivered</span>
-                </Button>
               </div>
             </div>
           </div>
@@ -2429,26 +2404,6 @@ export default function ModelerReviewPage() {
                   <h4 className="text-sm sm:text-base font-semibold text-muted-foreground">
                     Feedback
                   </h4>
-                </div>
-
-                {/* Status Section */}
-                <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-muted/30 rounded-lg border border-border/50">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
-                    <span className="text-xs text-muted-foreground font-semibold">
-                      Feedback Status
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {annotations.length + comments.length} Total
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {annotations.length} Annotations
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {comments.length} Comments
-                      </Badge>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Comment Section with Min Height */}

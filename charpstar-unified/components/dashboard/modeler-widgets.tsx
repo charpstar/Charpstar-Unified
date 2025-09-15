@@ -814,7 +814,7 @@ export function ModelerEarningsWidget() {
           <div className="relative overflow-x-auto">
             {earningsData.chartData.length > 0 ? (
               <ChartContainer
-                className="h-48 sm:h-68 min-w-[400px]"
+                className="h-48 sm:h-68 min-w-[600px]"
                 config={chartConfig}
               >
                 <LineChart

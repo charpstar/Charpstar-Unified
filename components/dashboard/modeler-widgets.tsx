@@ -806,7 +806,10 @@ export function ModelerEarningsWidget() {
 
           <div className="relative">
             {earningsData.chartData.length > 0 ? (
-              <ChartContainer className="h-68" config={chartConfig}>
+              <ChartContainer
+                className="h-68 w-full min-w-[600px]"
+                config={chartConfig}
+              >
                 <LineChart
                   accessibilityLayer
                   data={earningsData.chartData}
