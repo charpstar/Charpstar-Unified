@@ -33,7 +33,6 @@ import {
   Upload,
   Image as LucideImage,
   Eye,
-  Camera,
   MoreVertical,
   Trash2,
   Maximize2,
