@@ -211,7 +211,7 @@ class NotificationService {
             ? `https://${process.env.VERCEL_URL}`
             : "http://localhost:3000");
       const payload = {
-        to: "developer@resend.dev",
+        to: `${modelerEmail}`,
         client,
         allocationListName: "Allocation",
         assetNames,

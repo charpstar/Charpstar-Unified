@@ -108,27 +108,113 @@ const defaultHtml = (data: Partial<Payload>) => {
     ? new Date(data.deadline).toLocaleDateString()
     : undefined;
   return `
-  <div style="font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height:1.6; color:#0f172a;">
-    <h2 style="margin:0 0 8px">You have a new allocation</h2>
-    ${data.client ? `<p style="margin:4px 0;">Client: <strong>${escapeHtml(data.client)}</strong></p>` : ""}
-    ${data.allocationListName ? `<p style="margin:4px 0;">List: <strong>${escapeHtml(data.allocationListName)}</strong>${data.allocationListNumber != null ? ` (#${data.allocationListNumber})` : ""}</p>` : ""}
-    ${deadlineText ? `<p style="margin:4px 0;">Deadline: <strong>${deadlineText}</strong></p>` : ""}
-    ${typeof data.bonus === "number" ? `<p style="margin:4px 0;">Bonus: <strong>${data.bonus}%</strong></p>` : ""}
-    ${
-      Array.isArray(data.assetNames) && data.assetNames.length
-        ? `
-      <p style="margin:8px 0 4px;">Assets:</p>
-      <ul style="margin:0; padding-left:18px;">
-        ${data.assetNames
-          .slice(0, 15)
-          .map((n) => `<li>${escapeHtml(n)}</li>`)
-          .join("")}
-      </ul>
-      ${data.assetNames.length > 15 ? `<p style="margin-top:6px; color:#475569;">and ${data.assetNames.length - 15} more…</p>` : ""}
-    `
-        : ""
-    }
-    <p style="margin-top:12px; color:#475569;">Log in to your dashboard to view details.</p>
+  <div style="margin: 0; padding: 0; background: #000;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; padding: 40px 0;">
+      <tr>
+        <td style="text-align: center;">
+          <table width="480" cellpadding="0" cellspacing="0" border="0" style="background-color: #111111; border: 1px solid #222222; border-radius: 8px; padding: 30px; font-family: 'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; text-align: center;">
+            <tr style="text-align: center;">
+              <td height="195" style="background: url('https://tpamckewerybqzhhhqqp.supabase.co/storage/v1/object/public/maillogo/6%20(1).png') no-repeat center center; background-size: contain; height: 195px; width: 100%; max-width: 240px; display: block; text-align: center; margin: 0 auto;">
+                &nbsp;
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="color: #fff; font-size: 24px; font-weight: bold; padding-bottom: 16px;">
+                New Allocation Assigned!
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="color: #ddd; font-size: 16px; line-height: 1.6;">
+                <p>Hello there,</p>
+                <p>
+                  You have been assigned a new allocation for <strong>${data.client ? escapeHtml(data.client) : "a client"}</strong>!<br />
+                  Please review the details below and log in to your dashboard to get started.
+                </p>
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="color: #fff; font-size: 18px; font-weight: 600; padding-top: 20px; padding-bottom: 12px;">
+                Allocation Details
+              </td>
+            </tr>
+            
+            ${
+              data.allocationListName
+                ? `
+            <tr>
+              <td style="color: #ddd; font-size: 14px; padding-bottom: 8px;">
+                <strong>List:</strong> ${escapeHtml(data.allocationListName)}${data.allocationListNumber != null ? ` (#${data.allocationListNumber})` : ""}
+              </td>
+            </tr>
+            `
+                : ""
+            }
+            
+            ${
+              deadlineText
+                ? `
+            <tr>
+              <td style="color: #ddd; font-size: 14px; padding-bottom: 8px;">
+                <strong>Deadline:</strong> ${deadlineText}
+              </td>
+            </tr>
+            `
+                : ""
+            }
+            
+            ${
+              typeof data.bonus === "number"
+                ? `
+            <tr>
+              <td style="color: #ddd; font-size: 14px; padding-bottom: 8px;">
+                <strong>Bonus:</strong> ${data.bonus}%
+              </td>
+            </tr>
+            `
+                : ""
+            }
+            
+            ${
+              Array.isArray(data.assetNames) && data.assetNames.length > 0
+                ? `
+            <tr>
+              <td style="color: #ddd; font-size: 14px; padding-bottom: 8px;">
+                <strong>Assets:</strong> ${data.assetNames.length} assigned
+              </td>
+            </tr>
+            `
+                : ""
+            }
+            
+            <tr>
+              <td style="text-align: center; padding: 24px 0;">
+                <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+                  <tr>
+                    <td style="background-color: #ffffff; border-radius: 6px; text-align: center;">
+                      <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 16px; font-family: 'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; color: #000000; text-decoration: none; border-radius: 6px; border: 1px solid #222222; font-weight: 600;">
+                        View Dashboard
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            
+            <tr>
+              <td style="color: #999; font-size: 13px; padding-top: 30px;">
+                <div style="max-width: 360px; margin: 0 auto;">
+                  If you have any questions about this allocation, please contact our team.<br />
+                  Log in to your dashboard to view full details and start working.
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </div>`;
 };
 
