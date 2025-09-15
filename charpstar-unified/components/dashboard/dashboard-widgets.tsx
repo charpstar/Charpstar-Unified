@@ -718,7 +718,7 @@ export function QuickActionsWidget() {
         title="Quick Actions"
         subtitle="Common tools and workflows"
       />
-      <div className="grid grid-cols-2 gap-4 flex-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 flex-1">
         {actions.map((action) => {
           const spanTwoCols =
             user?.metadata?.role === "admin" &&
@@ -726,34 +726,38 @@ export function QuickActionsWidget() {
           return (
             <div
               key={action.name}
-              className={`group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-t from-current/5 to-transparent dark:from-muted/20 dark:to-muted/30 p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer ${spanTwoCols ? "col-span-2" : ""}`}
+              className={`group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-t from-current/5 to-transparent dark:from-muted/20 dark:to-muted/30 p-4 sm:p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer ${spanTwoCols ? "sm:col-span-2" : ""}`}
               onClick={action.action}
             >
               <div className="absolute inset-0 opacity-5"></div>
 
-              <div className="relative flex items-center gap-4 mb-2">
+              <div className="relative flex items-center gap-3 sm:gap-4 mb-2">
                 <div
-                  className={`p-3 rounded-xl ${action.iconBg} shadow-lg shadow-black/10`}
+                  className={`p-2 sm:p-3 rounded-xl ${action.iconBg} shadow-lg shadow-black/10 flex-shrink-0`}
                 >
-                  <action.icon className={`h-5 w-5 ${action.iconColor}`} />
+                  <action.icon
+                    className={`h-4 w-4 sm:h-5 sm:w-5 ${action.iconColor}`}
+                  />
                 </div>
-                <div className="flex-1 min-w-0 p-2">
-                  <p className="text-base font-semibold truncate ">
+                <div className="flex-1 min-w-0 p-1 sm:p-2">
+                  <p className="text-sm sm:text-base font-semibold truncate">
                     {action.name}
                   </p>
                   {action.description && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                       {action.description}
                     </p>
                   )}
                 </div>
               </div>
 
-              <div className="mt-3">
+              <div className="mt-2 sm:mt-3">
                 <div
-                  className={`inline-flex items-center gap-2 px-3.5Action Center p-3 bg-gradient-to-r ${action.color} hover:${action.hoverColor} text-white rounded-lg transition-all duration-300 ease-out group-hover:scale-105 shadow-lg shadow-black/10`}
+                  className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2 sm:py-3 bg-gradient-to-r ${action.color} hover:${action.hoverColor} text-white rounded-lg transition-all duration-300 ease-out group-hover:scale-105 shadow-lg shadow-black/10`}
                 >
-                  <span className="text-sm font-medium leading-none">Open</span>
+                  <span className="text-xs sm:text-sm font-medium leading-none">
+                    Open
+                  </span>
                   <div className="w-1 h-1 bg-white rounded-full"></div>
                 </div>
               </div>
@@ -1858,7 +1862,7 @@ export function AdminPipelineWidget() {
       <button
         type="button"
         onClick={handleClick}
-        className={`group relative overflow-hidden rounded-xl border transition-all duration-200 ease-out hover:shadow-md ${style.bgGradient} ${style.border} p-3 text-left focus:outline-none focus:ring-2 focus:ring-primary/20`}
+        className={`cursor-pointer group relative overflow-hidden rounded-xl border transition-all duration-200 ease-out hover:shadow-md ${style.bgGradient} ${style.border} p-3 text-left focus:outline-none focus:ring-2 focus:ring-primary/20`}
         title={`View ${item.label}`}
       >
         <div className="absolute inset-0 opacity-5">
@@ -1902,7 +1906,10 @@ export function AdminPipelineWidget() {
       {loading ? (
         <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2 mt-2">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-16 bg-muted animate-pulse rounded-md" />
+            <div
+              key={i}
+              className="h-16 bg-muted animate-pulse rounded-md cursor-pointer"
+            />
           ))}
         </div>
       ) : (

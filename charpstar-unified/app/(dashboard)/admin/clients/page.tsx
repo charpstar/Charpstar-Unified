@@ -383,28 +383,33 @@ export default function AdminClientsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Building2 className="h-8 w-8 text-blue-600" />
-            Client Management
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <Building2 className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+            <span className="hidden sm:inline">Client Management</span>
+            <span className="sm:hidden">Clients</span>
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
             Manage client information, contracts, and specifications
           </p>
         </div>
-        <Button onClick={handleAddClient} className="flex items-center gap-2">
+        <Button
+          onClick={handleAddClient}
+          className="flex items-center gap-2 w-full sm:w-auto"
+        >
           <Plus className="h-4 w-4" />
-          Add Client
+          <span className="hidden sm:inline">Add Client</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
 
       {/* Search and Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-4">
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="flex gap-3 sm:gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -412,7 +417,7 @@ export default function AdminClientsPage() {
                   placeholder="Search clients by name, company, or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-sm sm:text-base"
                 />
               </div>
             </div>
@@ -422,83 +427,141 @@ export default function AdminClientsPage() {
 
       {/* Clients Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Clients ({filteredClients.length})</CardTitle>
+        <CardHeader className="pb-3 sm:pb-6">
+          <CardTitle className="text-lg sm:text-xl">
+            Clients ({filteredClients.length})
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Contract</TableHead>
-                <TableHead>Value</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredClients.map((client) => (
-                <TableRow key={client.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{client.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {client.email}
-                      </div>
-                      {client.isPlaceholder && (
-                        <div className="text-xs text-amber-700 mt-1">
-                          Please fill in info for this client
+        <CardContent className="p-0 sm:p-6">
+          {/* Desktop Table View */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Contract</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Start Date</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredClients.map((client) => (
+                  <TableRow key={client.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{client.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {client.email}
                         </div>
+                        {client.isPlaceholder && (
+                          <div className="text-xs text-amber-700 mt-1">
+                            Please fill in info for this client
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>{client.company}</TableCell>
+                    <TableCell>
+                      {client.isPlaceholder ? (
+                        "-"
+                      ) : (
+                        <Badge
+                          className={getContractTypeColor(client.contract_type)}
+                        >
+                          {client.contract_type === "standard"
+                            ? "Small"
+                            : client.contract_type === "premium"
+                              ? "Medium"
+                              : client.contract_type === "enterprise"
+                                ? "Big"
+                                : "Custom"}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {client.isPlaceholder
+                        ? "-"
+                        : `€${client.contract_value.toLocaleString()}`}
+                    </TableCell>
+                    <TableCell>
+                      {client.isPlaceholder ? (
+                        "-"
+                      ) : (
+                        <Badge className={getStatusColor(client.status)}>
+                          {client.status.charAt(0).toUpperCase() +
+                            client.status.slice(1)}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {client.start_date
+                        ? new Date(client.start_date).toLocaleDateString()
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        {client.isPlaceholder ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddClientPrefill(client.name)}
+                          >
+                            Add Info
+                          </Button>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewClient(client)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditClient(client)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3 p-4">
+            {filteredClients.map((client) => (
+              <div key={client.id} className="border rounded-lg p-4 space-y-3">
+                {/* Client Info */}
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-medium text-base">{client.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {client.email}
+                      </p>
+                      {client.company && (
+                        <p className="text-sm text-muted-foreground">
+                          {client.company}
+                        </p>
                       )}
                     </div>
-                  </TableCell>
-                  <TableCell>{client.company}</TableCell>
-                  <TableCell>
-                    {client.isPlaceholder ? (
-                      "-"
-                    ) : (
-                      <Badge
-                        className={getContractTypeColor(client.contract_type)}
-                      >
-                        {client.contract_type === "standard"
-                          ? "Small"
-                          : client.contract_type === "premium"
-                            ? "Medium"
-                            : client.contract_type === "enterprise"
-                              ? "Big"
-                              : "Custom"}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {client.isPlaceholder
-                      ? "-"
-                      : `€${client.contract_value.toLocaleString()}`}
-                  </TableCell>
-                  <TableCell>
-                    {client.isPlaceholder ? (
-                      "-"
-                    ) : (
-                      <Badge className={getStatusColor(client.status)}>
-                        {client.status.charAt(0).toUpperCase() +
-                          client.status.slice(1)}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {client.start_date
-                      ? new Date(client.start_date).toLocaleDateString()
-                      : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       {client.isPlaceholder ? (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleAddClientPrefill(client.name)}
+                          className="text-xs px-2 py-1"
                         >
                           Add Info
                         </Button>
@@ -508,6 +571,7 @@ export default function AdminClientsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleViewClient(client)}
+                            className="h-8 w-8 p-0"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -515,27 +579,82 @@ export default function AdminClientsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEditClient(client)}
+                            className="h-8 w-8 p-0"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                         </>
                       )}
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+
+                  {client.isPlaceholder && (
+                    <div className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                      Please fill in info for this client
+                    </div>
+                  )}
+                </div>
+
+                {/* Contract Details */}
+                {!client.isPlaceholder && (
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Contract:</span>
+                      <div className="mt-1">
+                        <Badge
+                          className={`${getContractTypeColor(client.contract_type)} text-xs`}
+                        >
+                          {client.contract_type === "standard"
+                            ? "Small"
+                            : client.contract_type === "premium"
+                              ? "Medium"
+                              : client.contract_type === "enterprise"
+                                ? "Big"
+                                : "Custom"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Value:</span>
+                      <p className="font-medium">
+                        €{client.contract_value.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Status:</span>
+                      <div className="mt-1">
+                        <Badge
+                          className={`${getStatusColor(client.status)} text-xs`}
+                        >
+                          {client.status.charAt(0).toUpperCase() +
+                            client.status.slice(1)}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Start Date:</span>
+                      <p className="font-medium">
+                        {client.start_date
+                          ? new Date(client.start_date).toLocaleDateString()
+                          : "-"}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
       {/* Add Client Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="min-w-4xl w-full max-h-[60vh]  ">
-          <DialogHeader className="pb-4 ">
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Add New Client
+        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Add New Client</span>
+              <span className="sm:hidden">Add Client</span>
             </DialogTitle>
           </DialogHeader>
 
@@ -550,11 +669,14 @@ export default function AdminClientsPage() {
 
       {/* Edit Client Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="min-w-4xl w-full max-h-[60vh]  ">
-          <DialogHeader className="pb-4 ">
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="h-5 w-5" />
-              Edit Client: {selectedClient?.name}
+        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Edit className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">
+                Edit Client: {selectedClient?.name}
+              </span>
+              <span className="sm:hidden">Edit: {selectedClient?.name}</span>
             </DialogTitle>
           </DialogHeader>
 
@@ -569,11 +691,14 @@ export default function AdminClientsPage() {
 
       {/* View Client Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="min-w-4xl w-full max-h-[60vh]  ">
-          <DialogHeader className="pb-4 ">
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
-              Client Details: {selectedClient?.name}
+        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">
+                Client Details: {selectedClient?.name}
+              </span>
+              <span className="sm:hidden">{selectedClient?.name}</span>
             </DialogTitle>
           </DialogHeader>
           {selectedClient && <ClientView client={selectedClient} />}
@@ -599,21 +724,26 @@ function ClientForm({
   const role = (user?.metadata?.role || "").toLowerCase();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Basic Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label htmlFor="name">Client Name *</Label>
+          <Label htmlFor="name" className="text-sm">
+            Client Name *
+          </Label>
           <Input
             id="name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             placeholder="Enter client name"
             required
+            className="text-sm sm:text-base"
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="email">Email *</Label>
+          <Label htmlFor="email" className="text-sm">
+            Email *
+          </Label>
           <Input
             id="email"
             type="email"
@@ -623,10 +753,13 @@ function ClientForm({
             }
             placeholder="Enter email address"
             required
+            className="text-sm sm:text-base"
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="company">Company</Label>
+          <Label htmlFor="company" className="text-sm">
+            Company
+          </Label>
           <Input
             id="company"
             value={formData.company}
@@ -634,17 +767,20 @@ function ClientForm({
               setFormData({ ...formData, company: e.target.value })
             }
             placeholder="Enter company name"
+            className="text-sm sm:text-base"
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="status">Status</Label>
+          <Label htmlFor="status" className="text-sm">
+            Status
+          </Label>
           <Select
             value={formData.status}
             onValueChange={(value: "active" | "inactive") =>
               setFormData({ ...formData, status: value })
             }
           >
-            <SelectTrigger>
+            <SelectTrigger className="text-sm sm:text-base">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -656,23 +792,25 @@ function ClientForm({
       </div>
 
       {/* Contract Information */}
-      <div className="border-t pt-4">
-        <h3 className="text-base font-medium mb-3 flex items-center gap-2">
-          <FileText className="h-4 w-4 text-blue-600" />
+      <div className="border-t pt-3 sm:pt-4">
+        <h3 className="text-sm sm:text-base font-medium mb-3 flex items-center gap-2">
+          <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
           Contract Details
         </h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
           {/* Contract Size and Value */}
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label htmlFor="contract_type">Contract Size</Label>
+              <Label htmlFor="contract_type" className="text-sm">
+                Contract Size
+              </Label>
               <Select
                 value={formData.contract_type}
                 onValueChange={(
                   value: "standard" | "premium" | "enterprise" | "custom"
                 ) => setFormData({ ...formData, contract_type: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-sm sm:text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -683,7 +821,9 @@ function ClientForm({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="contract_value">Contract Value (€)</Label>
+              <Label htmlFor="contract_value" className="text-sm">
+                Contract Value (€)
+              </Label>
               <Input
                 id="contract_value"
                 type="number"
@@ -703,12 +843,14 @@ function ClientForm({
                   })
                 }
                 placeholder="0.00"
+                className="text-sm sm:text-base"
               />
             </div>
           </div>
 
           {/* Start Date */}
           <div className="space-y-1">
+            <Label className="text-sm">Start Date</Label>
             <DatePicker
               value={
                 formData.start_date ? new Date(formData.start_date) : undefined
@@ -728,14 +870,16 @@ function ClientForm({
       </div>
 
       {/* Specifications and Requirements */}
-      <div className="border-t pt-4">
-        <h3 className="text-base font-medium mb-3 flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-green-600" />
+      <div className="border-t pt-3 sm:pt-4">
+        <h3 className="text-sm sm:text-base font-medium mb-3 flex items-center gap-2">
+          <Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
           Project Specifications
         </h3>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label htmlFor="specifications">Client Specifications</Label>
+            <Label htmlFor="specifications" className="text-sm">
+              Client Specifications
+            </Label>
             <Textarea
               id="specifications"
               value={formData.specifications}
@@ -744,11 +888,14 @@ function ClientForm({
               }
               placeholder="Enter detailed client specifications, requirements, and any special instructions..."
               rows={3}
+              className="text-sm sm:text-base"
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="requirements">Project Requirements</Label>
+              <Label htmlFor="requirements" className="text-sm">
+                Project Requirements
+              </Label>
               <Textarea
                 id="requirements"
                 value={formData.requirements}
@@ -757,11 +904,14 @@ function ClientForm({
                 }
                 placeholder="Enter technical requirements, quality standards, and project scope..."
                 rows={3}
+                className="text-sm sm:text-base"
               />
             </div>
             {role === "admin" && (
               <div className="space-y-1">
-                <Label htmlFor="notes">Additional Notes (Admin only)</Label>
+                <Label htmlFor="notes" className="text-sm">
+                  Additional Notes (Admin only)
+                </Label>
                 <Textarea
                   id="notes"
                   value={formData.notes}
@@ -770,14 +920,15 @@ function ClientForm({
                   }
                   placeholder="Any additional notes or comments..."
                   rows={3}
+                  className="text-sm sm:text-base"
                 />
               </div>
             )}
           </div>
           {(role === "admin" || role === "qa") && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Guideline Link (For Modelers)</Label>
+                <Label className="text-sm">Guideline Link (For Modelers)</Label>
                 <Input
                   value={
                     (formData.client_guide_links &&
@@ -791,17 +942,20 @@ function ClientForm({
                     else next[0] = first;
                     setFormData({ ...formData, client_guide_links: next });
                   }}
+                  className="text-sm sm:text-base"
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="viewer_type">Choose Viewer</Label>
+                <Label htmlFor="viewer_type" className="text-sm">
+                  Choose Viewer
+                </Label>
                 <Select
                   value={formData.viewer_type || ""}
                   onValueChange={(
                     value: "v6_aces" | "v5_tester" | "synsam" | "v2" | ""
                   ) => setFormData({ ...formData, viewer_type: value || null })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-sm sm:text-base">
                     <SelectValue placeholder="Select a viewer type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -820,11 +974,20 @@ function ClientForm({
       </div>
 
       {/* Form Actions */}
-      <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-3 sm:pt-4 border-t">
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          className="w-full sm:w-auto text-sm sm:text-base"
+        >
           Cancel
         </Button>
-        <Button onClick={onSubmit}>Save Client</Button>
+        <Button
+          onClick={onSubmit}
+          className="w-full sm:w-auto text-sm sm:text-base"
+        >
+          Save Client
+        </Button>
       </div>
     </div>
   );
@@ -835,42 +998,50 @@ function ClientView({ client }: { client: Client }) {
   const user = useUser();
   const role = (user?.metadata?.role || "").toLowerCase();
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Basic Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+        <div className="space-y-3 sm:space-y-4">
           <div>
-            <h4 className="font-medium text-muted-foreground">Client Name</h4>
-            <p className="text-lg">{client.name}</p>
+            <h4 className="font-medium text-muted-foreground text-sm">
+              Client Name
+            </h4>
+            <p className="text-base sm:text-lg">{client.name}</p>
           </div>
           <div>
-            <h4 className="font-medium text-muted-foreground">Email</h4>
-            <p>{client.email}</p>
+            <h4 className="font-medium text-muted-foreground text-sm">Email</h4>
+            <p className="text-sm sm:text-base break-all">{client.email}</p>
           </div>
           <div>
-            <h4 className="font-medium text-muted-foreground">Company</h4>
-            <p>{client.company || "N/A"}</p>
+            <h4 className="font-medium text-muted-foreground text-sm">
+              Company
+            </h4>
+            <p className="text-sm sm:text-base">{client.company || "N/A"}</p>
           </div>
           <div>
-            <h4 className="font-medium text-muted-foreground">Status</h4>
+            <h4 className="font-medium text-muted-foreground text-sm">
+              Status
+            </h4>
             <Badge
-              className={
+              className={`${
                 client.status === "active"
                   ? "bg-green-100 text-green-800"
                   : client.status === "inactive"
                     ? "bg-red-100 text-red-800"
                     : "bg-yellow-100 text-yellow-800"
-              }
+              } text-xs`}
             >
               {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
             </Badge>
           </div>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div>
-            <h4 className="font-medium text-muted-foreground">Contract Type</h4>
+            <h4 className="font-medium text-muted-foreground text-sm">
+              Contract Type
+            </h4>
             <Badge
-              className={
+              className={`${
                 client.contract_type === "premium"
                   ? "bg-purple-100 text-purple-800"
                   : client.contract_type === "enterprise"
@@ -878,7 +1049,7 @@ function ClientView({ client }: { client: Client }) {
                     : client.contract_type === "custom"
                       ? "bg-orange-100 text-orange-800"
                       : "bg-gray-100 text-gray-800"
-              }
+              } text-xs`}
             >
               {client.contract_type === "standard"
                 ? "Small"
@@ -890,23 +1061,29 @@ function ClientView({ client }: { client: Client }) {
             </Badge>
           </div>
           <div>
-            <h4 className="font-medium text-muted-foreground">
+            <h4 className="font-medium text-muted-foreground text-sm">
               Contract Value
             </h4>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-lg sm:text-2xl font-bold text-green-600">
               €{client.contract_value.toLocaleString()}
             </p>
           </div>
 
           <div>
-            <h4 className="font-medium text-muted-foreground">Start Date</h4>
-            <p>{new Date(client.start_date).toLocaleDateString()}</p>
+            <h4 className="font-medium text-muted-foreground text-sm">
+              Start Date
+            </h4>
+            <p className="text-sm sm:text-base">
+              {new Date(client.start_date).toLocaleDateString()}
+            </p>
           </div>
           {client.viewer_type && (
             <div>
-              <h4 className="font-medium text-muted-foreground">Viewer Type</h4>
+              <h4 className="font-medium text-muted-foreground text-sm">
+                Viewer Type
+              </h4>
               <Badge
-                className={
+                className={`${
                   client.viewer_type === "v6_aces"
                     ? "bg-blue-100 text-blue-800"
                     : client.viewer_type === "v5_tester"
@@ -914,7 +1091,7 @@ function ClientView({ client }: { client: Client }) {
                       : client.viewer_type === "synsam"
                         ? "bg-purple-100 text-purple-800"
                         : "bg-gray-100 text-gray-800"
-                }
+                } text-xs`}
               >
                 {client.viewer_type === "v6_aces"
                   ? "V6 ACES Tester"
@@ -934,16 +1111,20 @@ function ClientView({ client }: { client: Client }) {
         client.requirements ||
         client.client_guide ||
         (role === "admin" && client.notes)) && (
-        <div className="border-t pt-6">
-          <h4 className="text-lg font-medium mb-4">Project Details</h4>
-          <div className="space-y-4">
+        <div className="border-t pt-4 sm:pt-6">
+          <h4 className="text-base sm:text-lg font-medium mb-3 sm:mb-4">
+            Project Details
+          </h4>
+          <div className="space-y-3 sm:space-y-4">
             {client.specifications && (
               <div>
-                <h5 className="font-medium text-muted-foreground mb-2">
+                <h5 className="font-medium text-muted-foreground mb-2 text-sm">
                   Client Specifications
                 </h5>
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="whitespace-pre-wrap">{client.specifications}</p>
+                <div className="p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="whitespace-pre-wrap text-sm sm:text-base">
+                    {client.specifications}
+                  </p>
                 </div>
               </div>
             )}
@@ -951,19 +1132,21 @@ function ClientView({ client }: { client: Client }) {
               (client.client_guide_links &&
                 client.client_guide_links.length > 0)) && (
               <div>
-                <h5 className="font-medium text-muted-foreground mb-2">
+                <h5 className="font-medium text-muted-foreground mb-2 text-sm">
                   Client Guide
                 </h5>
                 {client.client_guide && (
-                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                    <p className="whitespace-pre-wrap">{client.client_guide}</p>
+                  <div className="p-3 sm:p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <p className="whitespace-pre-wrap text-sm sm:text-base">
+                      {client.client_guide}
+                    </p>
                   </div>
                 )}
                 {client.client_guide_links &&
                   client.client_guide_links.length > 0 && (
-                    <ul className="list-disc pl-6 mt-3 space-y-1">
+                    <ul className="list-disc pl-4 sm:pl-6 mt-2 sm:mt-3 space-y-1">
                       {client.client_guide_links.map((url, i) => (
-                        <li key={i}>
+                        <li key={i} className="text-sm sm:text-base">
                           <a
                             href={url}
                             target="_blank"
@@ -980,21 +1163,25 @@ function ClientView({ client }: { client: Client }) {
             )}
             {client.requirements && (
               <div>
-                <h5 className="font-medium text-muted-foreground mb-2">
+                <h5 className="font-medium text-muted-foreground mb-2 text-sm">
                   Project Requirements
                 </h5>
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <p className="whitespace-pre-wrap">{client.requirements}</p>
+                <div className="p-3 sm:p-4 bg-green-50 rounded-lg border border-green-200">
+                  <p className="whitespace-pre-wrap text-sm sm:text-base">
+                    {client.requirements}
+                  </p>
                 </div>
               </div>
             )}
             {role === "admin" && client.notes && (
               <div>
-                <h5 className="font-medium text-muted-foreground mb-2">
+                <h5 className="font-medium text-muted-foreground mb-2 text-sm">
                   Additional Notes
                 </h5>
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="whitespace-pre-wrap">{client.notes}</p>
+                <div className="p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="whitespace-pre-wrap text-sm sm:text-base">
+                    {client.notes}
+                  </p>
                 </div>
               </div>
             )}
@@ -1003,8 +1190,8 @@ function ClientView({ client }: { client: Client }) {
       )}
 
       {/* Timestamps */}
-      <div className="border-t pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+      <div className="border-t pt-4 sm:pt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
           <div>
             <span className="font-medium">Created:</span>{" "}
             {new Date(client.created_at).toLocaleString()}

@@ -803,7 +803,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
   }, [previewQueue, isProcessingQueue]);
 
   return (
-    <div className="w-full space-y-6 p-6 bg-background min-h-screen">
+    <div className="w-full space-y-4 sm:space-y-6 p-3 sm:p-6 bg-background min-h-screen">
       {/* Off-canvas model viewer for high-res preview generation */}
       {modelViewerLoaded && (
         // @ts-expect-error -- model-viewer is a custom element
@@ -832,13 +832,13 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
       )}
 
       {/* Header */}
-      <div className="bg-card rounded-lg border border-border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">
+      <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold text-foreground">
               Batch Asset Upload
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Upload multiple assets at once or import from CSV
             </p>
           </div>
@@ -846,7 +846,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
             variant="outline"
             size="sm"
             onClick={() => setShowInfo(!showInfo)}
-            className="text-muted-foreground"
+            className="text-muted-foreground w-full sm:w-auto"
           >
             <Info className="w-4 h-4 mr-2" />
             Field Info
@@ -854,35 +854,38 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         {/* Status Bar */}
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-muted-foreground">
-            Rows:{" "}
-            <span className="font-medium text-foreground">{rows.length}</span>
-          </span>
-          {errorCount > 0 && (
-            <span className="text-destructive">
-              Errors: <span className="font-medium">{errorCount}</span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <span className="text-muted-foreground">
+              Rows:{" "}
+              <span className="font-medium text-foreground">{rows.length}</span>
             </span>
-          )}
-          {checkingDuplicates && (
-            <div className="flex items-center text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin mr-1" />
-              Checking duplicates...
-            </div>
-          )}
+            {errorCount > 0 && (
+              <span className="text-destructive">
+                Errors: <span className="font-medium">{errorCount}</span>
+              </span>
+            )}
+            {checkingDuplicates && (
+              <div className="flex items-center text-muted-foreground">
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin mr-1" />
+                <span className="hidden sm:inline">Checking duplicates...</span>
+                <span className="sm:hidden">Checking...</span>
+              </div>
+            )}
+          </div>
           {Object.keys(duplicates).length > 0 && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <div className="flex items-center text-warning">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                <span>Duplicates found: {Object.keys(duplicates).length}</span>
+                <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                <span>Duplicates: {Object.keys(duplicates).length}</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleRemoveDuplicateRows}
-                className="text-warning border-warning hover:bg-warning-muted"
+                className="text-warning border-warning hover:bg-warning-muted w-full sm:w-auto"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                 Remove Duplicates
               </Button>
             </div>
@@ -891,8 +894,8 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
 
         {/* Field Information */}
         {showInfo && (
-          <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+          <div className="mt-4 p-3 sm:p-4 bg-muted/50 rounded-lg border border-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
               {columns.slice(0, -2).map((col) => (
                 <div key={col.key} className="space-y-1">
                   <div className="font-medium text-foreground flex items-center gap-1">
@@ -921,8 +924,8 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3 mt-4">
-          <Button onClick={handleAddRow} size="sm">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mt-4">
+          <Button onClick={handleAddRow} size="sm" className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             Add Row
           </Button>
@@ -930,7 +933,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
             variant="outline"
             size="sm"
             onClick={() => fileInputRef.current?.click()}
-            className="border-border hover:bg-muted"
+            className="border-border hover:bg-muted w-full sm:w-auto"
           >
             <FileSpreadsheet className="w-4 h-4 mr-2" />
             Import CSV
@@ -945,17 +948,21 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           <Button
             onClick={handleUploadAll}
             disabled={loading || validRows === 0}
-            className="ml-auto"
+            className="w-full sm:w-auto sm:ml-auto"
           >
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Uploading...
+                <span className="hidden sm:inline">Uploading...</span>
+                <span className="sm:hidden">Uploading...</span>
               </>
             ) : (
               <>
                 <Upload className="w-4 h-4 mr-2" />
-                Upload All ({validRows})
+                <span className="hidden sm:inline">
+                  Upload All ({validRows})
+                </span>
+                <span className="sm:hidden">Upload ({validRows})</span>
               </>
             )}
           </Button>
@@ -968,7 +975,7 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`relative rounded-2xl bg-card border border-border p-4 transition-all duration-200 ${
+        className={`relative rounded-2xl bg-card border border-border p-2 sm:p-4 transition-all duration-200 ${
           dragActive ? "border-primary bg-primary/5" : "border-border"
         }`}
       >
@@ -992,76 +999,166 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         )}
 
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead colSpan={columns.length} className="pb-0">
-                <div className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
-                  <span className="text-destructive">*</span> Required field
-                </div>
-              </TableHead>
-            </TableRow>
-            <TableRow className="hover:bg-transparent">
-              {columns.map((col) => (
-                <TableHead
-                  key={col.key}
-                  className={`${
-                    col.required ? "text-primary" : "text-muted-foreground"
-                  } ${col.key === "actions" ? "w-10" : ""}`}
-                >
-                  <div className="flex items-center gap-1">
-                    {col.label}
-                    {col.required && (
-                      <span className="text-destructive" title="Required">
-                        *
-                      </span>
-                    )}
+        <div className="overflow-x-auto">
+          <Table className="min-w-[800px]">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead colSpan={columns.length} className="pb-0">
+                  <div className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+                    <span className="text-destructive">*</span> Required field
                   </div>
                 </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row, rowIdx) => {
-              const hasErrors = Object.keys(row.errors || {}).length > 0;
-              const isDuplicate = duplicates[row.id];
-              return (
-                <TableRow
-                  key={row.id}
-                  className={`transition-all
+              </TableRow>
+              <TableRow className="hover:bg-transparent">
+                {columns.map((col) => (
+                  <TableHead
+                    key={col.key}
+                    className={`${
+                      col.required ? "text-primary" : "text-muted-foreground"
+                    } ${col.key === "actions" ? "w-10" : ""} ${
+                      col.key === "product_name" || col.key === "glb_file"
+                        ? "min-w-[120px]"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs sm:text-sm">{col.label}</span>
+                      {col.required && (
+                        <span className="text-destructive" title="Required">
+                          *
+                        </span>
+                      )}
+                    </div>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row, rowIdx) => {
+                const hasErrors = Object.keys(row.errors || {}).length > 0;
+                const isDuplicate = duplicates[row.id];
+                return (
+                  <TableRow
+                    key={row.id}
+                    className={`transition-all
                     ${rowIdx % 2 === 0 ? "bg-muted/50" : "bg-card"}
                     ${hasErrors ? "border-l-4 border-l-destructive bg-destructive/5" : ""}
                     ${isDuplicate ? "border-l-4 border-l-yellow-400 bg-yellow-50/60 dark:bg-yellow-950/30" : ""}
                     hover:bg-muted/80
                   `}
-                >
-                  {columns.slice(0, -2).map((col, colIdx) => (
-                    <TableCell key={col.key} className="align-top">
-                      <div className="relative">
-                        {col.key === "glb_file" ? (
-                          <div className="flex items-center gap-2">
-                            <label className="relative cursor-pointer flex items-center group p-2 w-full">
-                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-muted rounded hover:bg-primary/10 transition-colors border border-border w-full justify-center">
-                                <Upload className="w-4 h-4 mr-1" />
-                                {row.glb_file
-                                  ? row.glb_file.name
-                                  : "Upload GLB/OBJ/ZIP"}
-                              </span>
+                  >
+                    {columns.slice(0, -2).map((col, colIdx) => (
+                      <TableCell key={col.key} className="align-top">
+                        <div className="relative">
+                          {col.key === "glb_file" ? (
+                            <div className="flex items-center gap-2">
+                              <label className="relative cursor-pointer flex items-center group p-1 sm:p-2 w-full">
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-muted rounded hover:bg-primary/10 transition-colors border border-border w-full justify-center">
+                                  <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                                  <span className="hidden sm:inline">
+                                    {row.glb_file
+                                      ? row.glb_file.name
+                                      : "Upload GLB/OBJ/ZIP"}
+                                  </span>
+                                  <span className="sm:hidden">
+                                    {row.glb_file
+                                      ? row.glb_file.name.length > 15
+                                        ? row.glb_file.name.substring(0, 15) +
+                                          "..."
+                                        : row.glb_file.name
+                                      : "Upload"}
+                                  </span>
+                                </span>
+                                <Input
+                                  type="file"
+                                  accept=".glb,.obj,.zip"
+                                  onChange={(e) =>
+                                    handleGLBFileChange(
+                                      rowIdx,
+                                      e.target.files?.[0] || null
+                                    )
+                                  }
+                                  className="sr-only"
+                                />
+                              </label>
+                            </div>
+                          ) : col.key === "glb_link" ? (
+                            <div className="flex gap-2">
                               <Input
-                                type="file"
-                                accept=".glb,.obj,.zip"
+                                ref={(el) => {
+                                  if (!cellRefs.current[rowIdx])
+                                    cellRefs.current[rowIdx] = [];
+                                  cellRefs.current[rowIdx][colIdx] = el;
+                                }}
+                                value={String(
+                                  row[col.key as keyof AssetRow] || ""
+                                )}
                                 onChange={(e) =>
-                                  handleGLBFileChange(
+                                  handleChange(
                                     rowIdx,
-                                    e.target.files?.[0] || null
+                                    col.key as EditableField,
+                                    e.target.value
                                   )
                                 }
-                                className="sr-only"
+                                onKeyDown={(e) =>
+                                  handleKeyDown(e, rowIdx, colIdx)
+                                }
+                                className={`rounded-lg border transition-all duration-150 text-xs sm:text-sm shadow-sm focus:ring-2
+                                ${
+                                  row.errors &&
+                                  row.errors[col.key as EditableField]
+                                    ? "border-destructive ring-destructive/20"
+                                    : isDuplicate &&
+                                        ((col.key as string) === "article_id" ||
+                                          (col.key as string) ===
+                                            "product_name")
+                                      ? "border-yellow-400 ring-yellow-100 dark:ring-yellow-900/30"
+                                      : "border-border focus:border-primary ring-primary/20"
+                                }
+                                bg-background
+                              `}
+                                placeholder={col.key.replace("_", " ")}
                               />
-                            </label>
-                          </div>
-                        ) : col.key === "glb_link" ? (
-                          <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() =>
+                                  setPreviewQueue((q) =>
+                                    q.includes(rowIdx) ? q : [...q, rowIdx]
+                                  )
+                                }
+                                disabled={
+                                  !modelViewerLoaded ||
+                                  generatingPreview === rowIdx ||
+                                  previewQueue.includes(rowIdx) ||
+                                  (isProcessingQueue &&
+                                    previewQueue[0] === rowIdx)
+                                }
+                                className="shrink-0"
+                                title={
+                                  previewQueue.includes(rowIdx) ||
+                                  (isProcessingQueue &&
+                                    previewQueue[0] === rowIdx)
+                                    ? "Queued for preview generation"
+                                    : "Generate preview image from GLB"
+                                }
+                              >
+                                {generatingPreview === rowIdx ||
+                                (isProcessingQueue &&
+                                  previewQueue[0] === rowIdx) ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : previewQueue.includes(rowIdx) ? (
+                                  <span className="w-4 h-4 flex items-center justify-center text-xs font-bold">
+                                    Q
+                                  </span>
+                                ) : previewGenerated[rowIdx] ? (
+                                  <CheckCircle className="w-4 h-4 text-success" />
+                                ) : (
+                                  <Camera className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </div>
+                          ) : (
                             <Input
                               ref={(el) => {
                                 if (!cellRefs.current[rowIdx])
@@ -1082,77 +1179,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                                 handleKeyDown(e, rowIdx, colIdx)
                               }
                               className={`rounded-lg border transition-all duration-150 text-sm shadow-sm focus:ring-2
-                                ${
-                                  row.errors &&
-                                  row.errors[col.key as EditableField]
-                                    ? "border-destructive ring-destructive/20"
-                                    : isDuplicate &&
-                                        ((col.key as string) === "article_id" ||
-                                          (col.key as string) ===
-                                            "product_name")
-                                      ? "border-yellow-400 ring-yellow-100 dark:ring-yellow-900/30"
-                                      : "border-border focus:border-primary ring-primary/20"
-                                }
-                                bg-background
-                              `}
-                              placeholder={col.key.replace("_", " ")}
-                            />
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() =>
-                                setPreviewQueue((q) =>
-                                  q.includes(rowIdx) ? q : [...q, rowIdx]
-                                )
-                              }
-                              disabled={
-                                !modelViewerLoaded ||
-                                generatingPreview === rowIdx ||
-                                previewQueue.includes(rowIdx) ||
-                                (isProcessingQueue &&
-                                  previewQueue[0] === rowIdx)
-                              }
-                              className="shrink-0"
-                              title={
-                                previewQueue.includes(rowIdx) ||
-                                (isProcessingQueue &&
-                                  previewQueue[0] === rowIdx)
-                                  ? "Queued for preview generation"
-                                  : "Generate preview image from GLB"
-                              }
-                            >
-                              {generatingPreview === rowIdx ||
-                              (isProcessingQueue &&
-                                previewQueue[0] === rowIdx) ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : previewQueue.includes(rowIdx) ? (
-                                <span className="w-4 h-4 flex items-center justify-center text-xs font-bold">
-                                  Q
-                                </span>
-                              ) : previewGenerated[rowIdx] ? (
-                                <CheckCircle className="w-4 h-4 text-success" />
-                              ) : (
-                                <Camera className="w-4 h-4" />
-                              )}
-                            </Button>
-                          </div>
-                        ) : (
-                          <Input
-                            ref={(el) => {
-                              if (!cellRefs.current[rowIdx])
-                                cellRefs.current[rowIdx] = [];
-                              cellRefs.current[rowIdx][colIdx] = el;
-                            }}
-                            value={String(row[col.key as keyof AssetRow] || "")}
-                            onChange={(e) =>
-                              handleChange(
-                                rowIdx,
-                                col.key as EditableField,
-                                e.target.value
-                              )
-                            }
-                            onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
-                            className={`rounded-lg border transition-all duration-150 text-sm shadow-sm focus:ring-2
                               ${
                                 row.errors &&
                                 row.errors[col.key as EditableField]
@@ -1165,97 +1191,100 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
                               }
                               bg-background
                             `}
-                            placeholder={col.key.replace("_", " ")}
+                              placeholder={col.key.replace("_", " ")}
+                            />
+                          )}
+                          {/* Error Message */}
+                          {row.errors &&
+                            row.errors[col.key as EditableField] && (
+                              <div className="flex items-center mt-1 text-xs text-destructive">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                {row.errors[col.key as EditableField]}
+                              </div>
+                            )}
+                          {/* Duplicate Warning */}
+                          {isDuplicate &&
+                            ((col.key as string) === "article_id" ||
+                              (col.key as string) === "product_name") && (
+                              <div className="flex items-center mt-1 text-xs text-warning">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                {col.key === "article_id"
+                                  ? duplicates[row.id] === "article_id"
+                                    ? "This Article ID already exists"
+                                    : duplicates[row.id] === "both"
+                                      ? "This Article ID and Product Name combination already exists"
+                                      : ""
+                                  : duplicates[row.id] === "product_name"
+                                    ? "This Product Name already exists"
+                                    : duplicates[row.id] === "both"
+                                      ? "This Article ID and Product Name combination already exists"
+                                      : ""}
+                              </div>
+                            )}
+                        </div>
+                      </TableCell>
+                    ))}
+                    {/* Preview Image */}
+                    <TableCell className="align-top">
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <label className="relative cursor-pointer flex items-center group p-1 sm:p-2">
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-muted rounded hover:bg-primary/10 transition-colors border border-border">
+                            <Image
+                              className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
+                              width={16}
+                              height={16}
+                            />
+                            <span className="hidden sm:inline">Upload</span>
+                            <span className="sm:hidden">Img</span>
+                          </span>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) =>
+                              handleFileChange(
+                                rowIdx,
+                                e.target.files?.[0] || null
+                              )
+                            }
+                            className="sr-only"
                           />
-                        )}
-                        {/* Error Message */}
-                        {row.errors && row.errors[col.key as EditableField] && (
-                          <div className="flex items-center mt-1 text-xs text-destructive">
-                            <AlertCircle className="w-3 h-3 mr-1" />
-                            {row.errors[col.key as EditableField]}
+                        </label>
+                        {row.preview_image && (
+                          <div className="flex flex-col items-start">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={row.preview_image}
+                              alt="Preview"
+                              className="w-8 h-8 rounded shadow border border-border object-cover"
+                            />
+                            <span className="text-xs mt-1 text-primary">
+                              {typeof row.preview_image === "string"
+                                ? row.preview_image.split("/").pop() || ""
+                                : ""}
+                            </span>
                           </div>
                         )}
-                        {/* Duplicate Warning */}
-                        {isDuplicate &&
-                          ((col.key as string) === "article_id" ||
-                            (col.key as string) === "product_name") && (
-                            <div className="flex items-center mt-1 text-xs text-warning">
-                              <AlertCircle className="w-3 h-3 mr-1" />
-                              {col.key === "article_id"
-                                ? duplicates[row.id] === "article_id"
-                                  ? "This Article ID already exists"
-                                  : duplicates[row.id] === "both"
-                                    ? "This Article ID and Product Name combination already exists"
-                                    : ""
-                                : duplicates[row.id] === "product_name"
-                                  ? "This Product Name already exists"
-                                  : duplicates[row.id] === "both"
-                                    ? "This Article ID and Product Name combination already exists"
-                                    : ""}
-                            </div>
-                          )}
                       </div>
                     </TableCell>
-                  ))}
-                  {/* Preview Image */}
-                  <TableCell className="align-top">
-                    <div className="flex items-center gap-2">
-                      <label className="relative cursor-pointer flex items-center group p-2">
-                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-muted rounded hover:bg-primary/10 transition-colors border border-border">
-                          <Image
-                            className="w-4 h-4 mr-1"
-                            width={16}
-                            height={16}
-                          />
-                          Upload
-                        </span>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) =>
-                            handleFileChange(
-                              rowIdx,
-                              e.target.files?.[0] || null
-                            )
-                          }
-                          className="sr-only"
-                        />
-                      </label>
-                      {row.preview_image && (
-                        <div className="flex flex-col items-start">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={row.preview_image}
-                            alt="Preview"
-                            className="w-8 h-8 rounded shadow border border-border object-cover"
-                          />
-                          <span className="text-xs mt-1 text-primary">
-                            {typeof row.preview_image === "string"
-                              ? row.preview_image.split("/").pop() || ""
-                              : ""}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  {/* Actions */}
-                  <TableCell className="align-top">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveRow(rowIdx)}
-                      disabled={rows.length === 1}
-                      className="text-destructive hover:bg-destructive/10 transition"
-                      title="Remove Row"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                    {/* Actions */}
+                    <TableCell className="align-top">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveRow(rowIdx)}
+                        disabled={rows.length === 1}
+                        className="text-destructive hover:bg-destructive/10 transition h-8 w-8 sm:h-10 sm:w-10"
+                        title="Remove Row"
+                      >
+                        <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );

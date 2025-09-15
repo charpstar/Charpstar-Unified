@@ -722,13 +722,13 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <Bell className="h-8 w-8 text-muted-foreground" />
-            <h1 className="text-3xl font-semibold text-foreground">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
+            <h1 className="text-xl sm:text-3xl font-semibold text-foreground">
               Notifications
             </h1>
             {unreadCount > 0 && (
@@ -737,77 +737,82 @@ export default function NotificationsPage() {
               </Badge>
             )}
           </div>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
             View and manage all your notifications in one place
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <Button
             onClick={fetchNotifications}
             variant="outline"
             size="sm"
             disabled={refreshing}
-            className="gap-2"
+            className="gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
           >
             <RefreshCw
-              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              className={`h-3 w-3 sm:h-4 sm:w-4 ${refreshing ? "animate-spin" : ""}`}
             />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
+            <span className="sm:hidden">Refresh</span>
           </Button>
           <Button
             onClick={() => setShowPreferences(true)}
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
           >
-            <Settings className="h-4 w-4" />
-            Preferences
+            <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Preferences</span>
+            <span className="sm:hidden">Prefs</span>
           </Button>
           <Button
             onClick={markAllAsRead}
             variant="outline"
             size="sm"
             disabled={unreadCount === 0}
-            className="gap-2"
+            className="gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
           >
-            <CheckCheck className="h-4 w-4" />
-            Mark All Read
+            <CheckCheck className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Mark All Read</span>
+            <span className="sm:hidden">Mark Read</span>
           </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-full bg-blue-100">
-              <Bell className="h-5 w-5 text-blue-600" />
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-full bg-blue-100">
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total</p>
-              <p className="text-2xl font-bold">{totalCount}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Total</p>
+              <p className="text-lg sm:text-2xl font-bold">{totalCount}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-full bg-red-100">
-              <Clock className="h-5 w-5 text-red-600" />
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-full bg-red-100">
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Unread</p>
-              <p className="text-2xl font-bold">{unreadCount}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Unread</p>
+              <p className="text-lg sm:text-2xl font-bold">{unreadCount}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-full bg-green-100">
-              <CheckCircle className="h-5 w-5 text-green-600" />
+          <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-full bg-green-100">
+              <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Read</p>
-              <p className="text-2xl font-bold">{totalCount - unreadCount}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Read</p>
+              <p className="text-lg sm:text-2xl font-bold">
+                {totalCount - unreadCount}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -815,51 +820,53 @@ export default function NotificationsPage() {
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
+        <CardHeader className="pb-3 sm:pb-4">
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             Filters & Search
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               <Input
                 placeholder="Search notifications..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10"
+                className="w-full pl-8 sm:pl-10 text-sm sm:text-base h-8 sm:h-9"
               />
             </div>
-            <div className="w-48">
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {notificationTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type
-                        .replace(/_/g, " ")
-                        .replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-48">
-              <Select value={filterRead} onValueChange={setFilterRead}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All notifications" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Notifications</SelectItem>
-                  <SelectItem value="unread">Unread Only</SelectItem>
-                  <SelectItem value="read">Read Only</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="w-full">
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-full text-sm sm:text-base h-8 sm:h-9">
+                    <SelectValue placeholder="All types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    {notificationTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type
+                          .replace(/_/g, " ")
+                          .replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full">
+                <Select value={filterRead} onValueChange={setFilterRead}>
+                  <SelectTrigger className="w-full text-sm sm:text-base h-8 sm:h-9">
+                    <SelectValue placeholder="All notifications" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Notifications</SelectItem>
+                    <SelectItem value="unread">Unread Only</SelectItem>
+                    <SelectItem value="read">Read Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -868,17 +875,22 @@ export default function NotificationsPage() {
       {/* Bulk Actions */}
       {selectedNotifications.size > 0 && (
         <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <p className="text-sm font-medium">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                <p className="text-xs sm:text-sm font-medium">
                   {selectedNotifications.size} notification(s) selected
                 </p>
-                <Button onClick={handleDeselectAll} variant="ghost" size="sm">
+                <Button
+                  onClick={handleDeselectAll}
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs sm:text-sm h-7 sm:h-8 w-full sm:w-auto"
+                >
                   Deselect All
                 </Button>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <Button
                   onClick={async () => {
                     const ids = Array.from(selectedNotifications);
@@ -895,10 +907,11 @@ export default function NotificationsPage() {
                   }}
                   variant="outline"
                   size="sm"
-                  className="gap-2"
+                  className="gap-2 text-xs sm:text-sm h-7 sm:h-8 w-full sm:w-auto"
                 >
-                  <CheckCheck className="h-4 w-4" />
-                  Mark Read
+                  <CheckCheck className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Mark Read</span>
+                  <span className="sm:hidden">Mark Read</span>
                 </Button>
                 <Button
                   onClick={() =>
@@ -906,10 +919,11 @@ export default function NotificationsPage() {
                   }
                   variant="destructive"
                   size="sm"
-                  className="gap-2"
+                  className="gap-2 text-xs sm:text-sm h-7 sm:h-8 w-full sm:w-auto"
                 >
-                  <Trash2 className="h-4 w-4" />
-                  Delete
+                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Delete</span>
+                  <span className="sm:hidden">Delete</span>
                 </Button>
               </div>
             </div>
@@ -924,25 +938,30 @@ export default function NotificationsPage() {
             onClick={handleSelectAll}
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="gap-2 text-xs sm:text-sm h-7 sm:h-8"
           >
-            <CheckCheck className="h-4 w-4" />
-            Select All ({filteredNotifications.length})
+            <CheckCheck className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">
+              Select All ({filteredNotifications.length})
+            </span>
+            <span className="sm:hidden">
+              Select All ({filteredNotifications.length})
+            </span>
           </Button>
         </div>
       )}
 
       {/* Notifications List */}
       {loading ? (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {[...Array(5)].map((_, i) => (
             <Card key={i}>
-              <CardContent className="p-4">
-                <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 bg-muted animate-pulse rounded-full" />
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 bg-muted animate-pulse rounded-full" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
-                    <div className="h-3 bg-muted animate-pulse rounded w-1/2" />
+                    <div className="h-3 sm:h-4 bg-muted animate-pulse rounded w-3/4" />
+                    <div className="h-2 sm:h-3 bg-muted animate-pulse rounded w-1/2" />
                   </div>
                 </div>
               </CardContent>
@@ -951,12 +970,12 @@ export default function NotificationsPage() {
         </div>
       ) : filteredNotifications.length === 0 ? (
         <Card>
-          <CardContent className="p-12 text-center">
-            <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">
+          <CardContent className="p-8 sm:p-12 text-center">
+            <Bell className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-base sm:text-lg font-semibold mb-2">
               No notifications found
             </h3>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm sm:text-base">
               {searchTerm || filterType !== "all" || filterRead !== "all"
                 ? "No notifications match your current filters."
                 : "You don't have any notifications yet."}
@@ -964,14 +983,14 @@ export default function NotificationsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {Object.entries(groupedNotifications).map(
             ([dateGroup, groupNotifications]) => (
               <div key={dateGroup}>
-                <h3 className="text-lg font-semibold mb-3 text-muted-foreground">
+                <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 text-muted-foreground">
                   {dateGroup}
                 </h3>
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {groupNotifications.map((notification) => (
                     <Card
                       key={notification.id}
@@ -985,9 +1004,9 @@ export default function NotificationsPage() {
                           : ""
                       }`}
                     >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-4">
-                          <div className="flex items-center gap-3">
+                      <CardContent className="p-3 sm:p-4">
+                        <div className="flex items-start gap-3 sm:gap-4">
+                          <div className="flex items-center gap-2 sm:gap-3">
                             <input
                               type="checkbox"
                               checked={selectedNotifications.has(
@@ -997,10 +1016,10 @@ export default function NotificationsPage() {
                                 handleSelectNotification(notification.id!)
                               }
                               onClick={(e) => e.stopPropagation()}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-3 w-3 sm:h-4 sm:w-4"
                             />
                             <div
-                              className={`p-2 rounded-full ${getNotificationColor(notification.type)}`}
+                              className={`p-1.5 sm:p-2 rounded-full ${getNotificationColor(notification.type)}`}
                             >
                               <NotificationIcon type={notification.type} />
                             </div>
@@ -1012,17 +1031,17 @@ export default function NotificationsPage() {
                               handleNavigateForNotification(notification)
                             }
                           >
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
+                            <div className="flex items-start justify-between gap-2 sm:gap-4">
+                              <div className="flex-1 min-w-0">
                                 <h4
-                                  className={`font-medium ${!notification.read ? "font-semibold" : ""}`}
+                                  className={`font-medium text-sm sm:text-base ${!notification.read ? "font-semibold" : ""} line-clamp-2`}
                                 >
                                   {notification.title}
                                 </h4>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">
                                   {notification.message}
                                 </p>
-                                <div className="flex items-center gap-3 mt-2">
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2">
                                   <span className="text-xs text-muted-foreground">
                                     {formatTimeAgo(notification.created_at)}
                                   </span>
@@ -1046,8 +1065,9 @@ export default function NotificationsPage() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={(e) => e.stopPropagation()}
+                                    className="h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0"
                                   >
-                                    <MoreVertical className="h-4 w-4" />
+                                    <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
@@ -1056,8 +1076,9 @@ export default function NotificationsPage() {
                                       onClick={() =>
                                         markAsUnread([notification.id!])
                                       }
+                                      className="text-xs sm:text-sm"
                                     >
-                                      <Clock className="h-4 w-4 mr-2" />
+                                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                                       Mark as Unread
                                     </DropdownMenuItem>
                                   ) : (
@@ -1065,8 +1086,9 @@ export default function NotificationsPage() {
                                       onClick={() =>
                                         markAsRead([notification.id!])
                                       }
+                                      className="text-xs sm:text-sm"
                                     >
-                                      <CheckCheck className="h-4 w-4 mr-2" />
+                                      <CheckCheck className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                                       Mark as Read
                                     </DropdownMenuItem>
                                   )}
@@ -1075,9 +1097,9 @@ export default function NotificationsPage() {
                                     onClick={() =>
                                       deleteNotifications([notification.id!])
                                     }
-                                    className="text-red-600"
+                                    className="text-red-600 text-xs sm:text-sm"
                                   >
-                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                                     Delete
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
@@ -1097,15 +1119,15 @@ export default function NotificationsPage() {
 
       {/* Notification Preferences Dialog */}
       {showPreferences && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-4">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                   Notification Preferences
                 </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                   Choose which types of notifications you want to receive
                 </p>
               </div>
@@ -1113,19 +1135,20 @@ export default function NotificationsPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowPreferences(false)}
+                className="h-7 w-7 sm:h-8 sm:w-8 p-0"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </CardHeader>
-            <CardContent className="overflow-y-auto max-h-[60vh]">
-              <div className="space-y-4">
+            <CardContent className="overflow-y-auto max-h-[70vh] p-3 sm:p-6">
+              <div className="space-y-3 sm:space-y-4">
                 {Object.keys(notificationTypeDescriptions).length === 0 ? (
-                  <div className="text-center py-8">
-                    <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">
+                  <div className="text-center py-6 sm:py-8">
+                    <Bell className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+                    <h3 className="text-base sm:text-lg font-semibold mb-2">
                       No notifications available
                     </h3>
-                    <p className="text-muted-foreground">
+                    <p className="text-muted-foreground text-xs sm:text-sm">
                       Your role doesn&apos;t have access to any notification
                       types.
                     </p>
@@ -1135,27 +1158,27 @@ export default function NotificationsPage() {
                     ([type, description]) => (
                       <div
                         key={type}
-                        className="flex items-center justify-between p-4 border rounded-lg"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg gap-3 sm:gap-0"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <div
-                            className={`p-2 rounded-full ${getNotificationColor(type)}`}
+                            className={`p-1.5 sm:p-2 rounded-full ${getNotificationColor(type)}`}
                           >
                             <NotificationIcon type={type} />
                           </div>
-                          <div>
-                            <h4 className="font-medium">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm sm:text-base">
                               {type
                                 .replace(/_/g, " ")
                                 .replace(/\b\w/g, (l) => l.toUpperCase())}
                             </h4>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                               {description}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">
+                        <div className="flex items-center justify-between sm:justify-end gap-2">
+                          <span className="text-xs sm:text-sm text-muted-foreground">
                             {notificationPreferences[type] !== false
                               ? "On"
                               : "Off"}
@@ -1173,6 +1196,7 @@ export default function NotificationsPage() {
                                 notificationPreferences[type] === false
                               )
                             }
+                            className="text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
                           >
                             {notificationPreferences[type] !== false
                               ? "Disable"

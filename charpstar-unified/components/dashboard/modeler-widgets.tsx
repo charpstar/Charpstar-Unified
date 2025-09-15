@@ -28,14 +28,18 @@ function QAHeader({
   subtitle?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 mb-6">
-      <div className="p-2 bg-muted rounded-lg">
-        <Icon className="h-5 w-5 text-foreground" />
+    <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+      <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
+        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-foreground" />
       </div>
-      <div>
-        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm sm:text-lg font-semibold text-foreground truncate">
+          {title}
+        </h3>
         {subtitle ? (
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
+            {subtitle}
+          </p>
         ) : null}
       </div>
     </div>
@@ -138,11 +142,11 @@ export function ModelerStatsWidget() {
 
   if (!user) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-6 min-h-[320px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 min-h-[320px]">
         {[...Array(5)].map((_, i) => (
           <div
             key={i}
-            className="h-32 bg-gradient-to-br from-muted/50 to-muted animate-pulse rounded-2xl"
+            className="h-24 sm:h-32 bg-gradient-to-br from-muted/50 to-muted animate-pulse rounded-2xl"
           />
         ))}
       </div>
@@ -220,7 +224,7 @@ export function ModelerStatsWidget() {
         subtitle="Track your current workload and progress"
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 flex-1">
         {statCards.map((stat, index: number) => (
           <div
             key={index}
@@ -229,7 +233,7 @@ export function ModelerStatsWidget() {
               hover:scale-102 hover:shadow-xl hover:shadow-black/5
               ${stat.bgColor} ${stat.borderColor}
               ${loading ? "animate-pulse" : ""}
-              ${index === 0 ? "sm:col-span-2 min-h-[72px]" : ""}
+              ${index === 0 ? "sm:col-span-2 lg:col-span-1 xl:col-span-2 min-h-[72px]" : ""}
             `}
           >
             {/* Background Pattern */}
@@ -239,25 +243,25 @@ export function ModelerStatsWidget() {
             </div>
 
             {/* Content */}
-            <div className="relative p-2.5 h-full flex flex-col justify-between">
+            <div className="relative p-2 sm:p-2.5 h-full flex flex-col justify-between">
               {/* Header */}
-              <div className="flex items-start justify-between mb-1.5">
+              <div className="flex items-start justify-between mb-1 sm:mb-1.5">
                 <div
-                  className={`p-0 rounded-xl ${stat.iconBg} shadow-lg shadow-black/10`}
+                  className={`p-1 sm:p-0 rounded-xl ${stat.iconBg} shadow-lg shadow-black/10 flex-shrink-0`}
                 >
-                  <stat.icon className="h-4 w-4 text-white" />
+                  <stat.icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                 </div>
                 {!loading && stat.trend === "positive" && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-emerald-100 rounded-full">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                  <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-emerald-100 rounded-full">
+                    <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-emerald-500 rounded-full"></div>
                     <span className="text-xs font-medium text-emerald-700">
                       +
                     </span>
                   </div>
                 )}
                 {!loading && stat.trend === "attention" && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-rose-100 rounded-full">
-                    <div className="w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
+                  <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-rose-100 rounded-full">
+                    <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-rose-500 rounded-full"></div>
                     <span className="text-xs font-medium text-rose-700">!</span>
                   </div>
                 )}
@@ -265,14 +269,14 @@ export function ModelerStatsWidget() {
 
               {/* Stats */}
               <div className="">
-                <p className={`text-2xl font-bold ${stat.color} `}>
+                <p className={`text-lg sm:text-2xl font-bold ${stat.color} `}>
                   {stat.value}
                 </p>
                 <div>
-                  <p className="text-sm font-semibold text-foreground/80 mb-1">
+                  <p className="text-xs sm:text-sm font-semibold text-foreground/80 mb-0.5 sm:mb-1 truncate">
                     {stat.title}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
                     {stat.description}
                   </p>
                 </div>
@@ -282,7 +286,7 @@ export function ModelerStatsWidget() {
               {!loading &&
                 stat.title === "In Progress" &&
                 stats.inProgress > 0 && (
-                  <div className="mt-2">
+                  <div className="mt-1 sm:mt-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                       <span>Progress</span>
                       <span>
@@ -292,7 +296,7 @@ export function ModelerStatsWidget() {
                         %
                       </span>
                     </div>
-                    <div className="w-full bg-muted/30 dark:bg-muted/20 rounded-full h-2 overflow-hidden">
+                    <div className="w-full bg-muted/30 dark:bg-muted/20 rounded-full h-1.5 sm:h-2 overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-400 dark:to-indigo-500 rounded-full transition-all duration-1000 ease-out"
                         style={{
@@ -317,28 +321,30 @@ export function ModelerStatsWidget() {
 
       {/* Summary Footer */}
       {!loading && (
-        <div className="mt-6 p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-emerald-500 dark:bg-emerald-400 rounded-full"></div>
-                <span className="text-sm text-muted-foreground">Completed</span>
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 dark:bg-emerald-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  Completed
+                </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-indigo-500 dark:bg-indigo-400 rounded-full"></div>
-                <span className="text-sm text-muted-foreground">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-indigo-500 dark:bg-indigo-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
                   In Progress
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-amber-500 dark:bg-amber-400 rounded-full"></div>
-                <span className="text-sm text-muted-foreground">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-amber-500 dark:bg-amber-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
                   Pending Review
                 </span>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm font-medium text-foreground">
+            <div className="text-left sm:text-right">
+              <p className="text-xs sm:text-sm font-medium text-foreground">
                 {stats.totalAssigned > 0
                   ? Math.round((stats.completed / stats.totalAssigned) * 100)
                   : 0}
@@ -758,22 +764,22 @@ export function ModelerEarningsWidget() {
   if (loading) {
     return (
       <div className="h-full flex flex-col min-h-[400px]">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
           <div>
-            <div className="h-6 bg-muted rounded-lg w-48 mb-2 animate-pulse"></div>
-            <div className="h-4 bg-muted rounded-lg w-64 animate-pulse"></div>
+            <div className="h-5 sm:h-6 bg-muted rounded-lg w-32 sm:w-48 mb-2 animate-pulse"></div>
+            <div className="h-3 sm:h-4 bg-muted rounded-lg w-48 sm:w-64 animate-pulse"></div>
           </div>
-          <div className="h-8 bg-muted rounded-full w-24 animate-pulse"></div>
+          <div className="h-6 sm:h-8 bg-muted rounded-full w-20 sm:w-24 animate-pulse"></div>
         </div>
 
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-full h-48 bg-gradient-to-br from-muted/50 to-muted animate-pulse rounded-2xl"></div>
+          <div className="w-full h-32 sm:h-48 bg-gradient-to-br from-muted/50 to-muted animate-pulse rounded-2xl"></div>
         </div>
 
-        <div className="mt-6 p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
-          <div className="space-y-3">
-            <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
-            <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
+        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
+          <div className="space-y-2 sm:space-y-3">
+            <div className="h-3 sm:h-4 bg-muted rounded w-3/4 animate-pulse"></div>
+            <div className="h-3 sm:h-4 bg-muted rounded w-1/2 animate-pulse"></div>
           </div>
         </div>
       </div>
@@ -801,64 +807,79 @@ export function ModelerEarningsWidget() {
       />
 
       {/* Chart Container */}
-      <div className="flex-1 mb-6">
-        <div className="group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 p-6 transition-all duration-300 ease-out hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-white/5">
+      <div className="flex-1 mb-4 sm:mb-6">
+        <div className="group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 p-2 sm:p-6 transition-all duration-300 ease-out hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-white/5">
           <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-          <div className="relative">
+          <div className="relative overflow-x-auto">
             {earningsData.chartData.length > 0 ? (
-              <ChartContainer className="h-68" config={chartConfig}>
+              <ChartContainer
+                className="h-48 sm:h-68 min-w-[280px]"
+                config={chartConfig}
+              >
                 <LineChart
                   accessibilityLayer
                   data={earningsData.chartData}
                   margin={{
-                    left: 12,
-                    right: 12,
+                    left: 8,
+                    right: 8,
+                    top: 8,
+                    bottom: 8,
                   }}
                 >
                   <CartesianGrid
                     vertical={false}
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--muted-foreground) / 0.2)"
+                    strokeDasharray="2 2"
+                    stroke="hsl(var(--muted-foreground) / 0.15)"
                   />
                   <XAxis
                     dataKey="day"
                     tickLine={false}
                     axisLine={false}
-                    tickMargin={8}
+                    tickMargin={4}
+                    interval="preserveStartEnd"
                     tick={{
-                      fontSize: 12,
+                      fontSize: 10,
                       fill: "hsl(var(--muted-foreground))",
                     }}
+                    tickCount={5}
                   />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
-                    tickMargin={8}
+                    tickMargin={4}
                     tick={{
-                      fontSize: 12,
+                      fontSize: 10,
                       fill: "hsl(var(--muted-foreground))",
                     }}
                     tickFormatter={(value) => `€${value}`}
+                    width={40}
+                    tickCount={4}
                   />
                   <Tooltip
                     cursor={{
                       stroke: "hsl(var(--chart-1))",
                       strokeWidth: 2,
-                      strokeDasharray: "5 5",
+                      strokeDasharray: "3 3",
                     }}
                     contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                      color: "#1f2937",
+                      backgroundColor: "hsl(var(--background))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      boxShadow: "0 2px 4px -1px rgb(0 0 0 / 0.1)",
+                      color: "hsl(var(--foreground))",
+                      fontSize: "12px",
+                      padding: "8px 12px",
                     }}
                     labelStyle={{
-                      color: "#6b7280",
+                      color: "hsl(var(--muted-foreground))",
                       fontWeight: "600",
+                      fontSize: "11px",
                     }}
                     formatter={(value: any) => [`€${value}`, "Earnings"]}
+                    wrapperStyle={{
+                      outline: "none",
+                    }}
                   />
                   {/* Reference line for average earnings */}
                   {earningsData.chartData.length > 0 && (
@@ -869,8 +890,8 @@ export function ModelerEarningsWidget() {
                           0
                         ) / earningsData.chartData.length
                       }
-                      stroke="hsl(var(--muted-foreground) / 0.4)"
-                      strokeDasharray="3 3"
+                      stroke="hsl(var(--muted-foreground) / 0.3)"
+                      strokeDasharray="2 2"
                       strokeWidth={1}
                     />
                   )}
@@ -878,23 +899,28 @@ export function ModelerEarningsWidget() {
                     dataKey="earnings"
                     type="monotone"
                     stroke="hsl(var(--chart-1))"
-                    strokeWidth={3}
+                    strokeWidth={2}
                     dot={false}
-                    activeDot={false}
+                    activeDot={{
+                      r: 4,
+                      stroke: "hsl(var(--chart-1))",
+                      strokeWidth: 2,
+                      fill: "hsl(var(--background))",
+                    }}
                     connectNulls={false}
                   />
                 </LineChart>
               </ChartContainer>
             ) : (
-              <div className="h-48 flex items-center justify-center">
+              <div className="h-32 sm:h-48 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">€</span>
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                    <span className="text-lg sm:text-2xl">€</span>
                   </div>
-                  <h4 className="text-lg font-semibold text-foreground mb-2">
+                  <h4 className="text-sm sm:text-lg font-semibold text-foreground mb-1 sm:mb-2">
                     No Earnings Data
                   </h4>
-                  <p className="text-sm text-muted-foreground max-w-sm">
+                  <p className="text-xs sm:text-sm text-muted-foreground max-w-sm">
                     Complete and get approved assignments to see your earnings
                     chart
                   </p>
@@ -909,34 +935,36 @@ export function ModelerEarningsWidget() {
 
       {/* Summary Footer */}
       <div className="mt-auto">
-        <div className="p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className="p-3 sm:p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-emerald-500 dark:bg-emerald-400 rounded-full"></div>
-                <span className="text-sm text-muted-foreground">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 dark:bg-emerald-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
                   This Month
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
-                <span className="text-sm text-muted-foreground">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
                   Last Month
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-amber-500 dark:bg-amber-400 rounded-full"></div>
-                <span className="text-sm text-muted-foreground">Total</span>
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-amber-500 dark:bg-amber-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  Total
+                </span>
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-xs sm:text-sm font-medium text-foreground">
                   {isTrendingUp ? "↗ Trending up" : "↘ Trending down"} by{" "}
                   {trendPercentage}%
                 </span>
                 <div
-                  className={`w-2 h-2 rounded-full ${isTrendingUp ? "bg-emerald-500 dark:bg-emerald-400" : "bg-red-500 dark:bg-red-400"} animate-pulse`}
+                  className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${isTrendingUp ? "bg-emerald-500 dark:bg-emerald-400" : "bg-red-500 dark:bg-red-400"} animate-pulse`}
                 ></div>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -946,21 +974,21 @@ export function ModelerEarningsWidget() {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border/30 dark:border-border/20">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border/30 dark:border-border/20">
             <div className="text-center">
-              <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+              <p className="text-sm sm:text-lg font-bold text-emerald-600 dark:text-emerald-400">
                 €{earningsData.thisMonth.toLocaleString()}
               </p>
               <p className="text-xs text-muted-foreground">This Month</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+              <p className="text-sm sm:text-lg font-bold text-blue-600 dark:text-blue-400">
                 €{earningsData.lastMonth.toLocaleString()}
               </p>
               <p className="text-xs text-muted-foreground">Last Month</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+              <p className="text-sm sm:text-lg font-bold text-amber-600 dark:text-amber-400">
                 {earningsData.approvedThisMonth}
               </p>
               <p className="text-xs text-muted-foreground">Approved Lists</p>
@@ -1017,29 +1045,31 @@ export function ModelerQuickActionsWidget() {
         subtitle="Access your most important tools and workflows"
       />
 
-      <div className="grid grid-cols-2 gap-4 flex-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 flex-1">
         {actions.map((action, index) => (
           <div
             key={index}
-            className={`group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer ${
-              action.title === "Model Viewer" ? "col-span-2" : ""
+            className={`group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 p-4 sm:p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer ${
+              action.title === "Model Viewer" ? "sm:col-span-2" : ""
             }`}
             onClick={action.action}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-current/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
             <div className="relative flex flex-col justify-center h-full">
-              <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
                 <div
-                  className={`p-3 rounded-xl ${action.iconBg} shadow-lg shadow-black/10 dark:shadow-black/20`}
+                  className={`p-2 sm:p-3 rounded-xl ${action.iconBg} shadow-lg shadow-black/10 dark:shadow-black/20 flex-shrink-0`}
                 >
-                  <action.icon className={`h-6 w-6 ${action.iconColor}`} />
+                  <action.icon
+                    className={`h-4 w-4 sm:h-6 sm:w-6 ${action.iconColor}`}
+                  />
                 </div>
-                <div className="flex-1">
-                  <h4 className="text-lg font-semibold text-foreground mb-1">
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm sm:text-lg font-semibold text-foreground mb-1 truncate">
                     {action.title}
                   </h4>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-2">
                     {action.description}
                   </p>
                 </div>
@@ -1047,9 +1077,9 @@ export function ModelerQuickActionsWidget() {
 
               <div className="mt-auto">
                 <div
-                  className={`inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r ${action.color} hover:${action.hoverColor} text-white rounded-lg transition-all duration-300 ease-out group-hover:scale-105 shadow-lg shadow-black/20 dark:shadow-black/40`}
+                  className={`inline-flex items-center gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-gradient-to-r ${action.color} hover:${action.hoverColor} text-white rounded-lg transition-all duration-300 ease-out group-hover:scale-105 shadow-lg shadow-black/20 dark:shadow-black/40`}
                 >
-                  <span className="text-sm font-medium">Open</span>
+                  <span className="text-xs sm:text-sm font-medium">Open</span>
                   <div className="w-1 h-1 bg-white rounded-full"></div>
                 </div>
               </div>

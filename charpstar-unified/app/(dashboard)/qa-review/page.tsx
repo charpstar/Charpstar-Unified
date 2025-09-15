@@ -710,49 +710,52 @@ export default function QAReviewPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header with Back Button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+        <div className="flex items-center gap-2 sm:gap-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/dashboard")}
-            className="gap-2"
+            className="gap-2 h-8 sm:h-9 text-sm"
           >
-            <ChevronLeft className="h-4 w-4" />
-            Back to Dashboard
+            <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1">
+          <Badge variant="outline" className="gap-1 text-xs sm:text-sm">
             <ShieldCheck className="h-3 w-3" />
-            QA Review
+            <span className="hidden sm:inline">QA Review</span>
+            <span className="sm:hidden">QA</span>
           </Badge>
         </div>
       </div>
 
-      <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
+      <Card className="p-3 sm:p-6 flex-1 flex flex-col border-0 shadow-none">
         {/* Status Summary Cards */}
         {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 mb-4 sm:mb-6">
             {/* Total Assigned (no filtering on this card itself) */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters([]);
                 setCurrentPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-info-muted rounded-lg">
-                  <Package className="h-5 w-5 text-info" />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 bg-info-muted rounded-lg">
+                  <Package className="h-4 w-4 sm:h-5 sm:w-5 text-info" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Assigned
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    <span className="hidden sm:inline">Total Assigned</span>
+                    <span className="sm:hidden">Total</span>
                   </p>
-                  <p className="text-2xl font-bold text-info">
+                  <p className="text-lg sm:text-2xl font-bold text-info">
                     {statusTotals.total}
                   </p>
                 </div>
@@ -761,21 +764,22 @@ export default function QAReviewPage() {
 
             {/* In Production */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters(["in_production"]);
                 setCurrentPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning-muted rounded-lg">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 bg-warning-muted rounded-lg">
                   {getStatusIcon("in_production")}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    In Production
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    <span className="hidden sm:inline">In Production</span>
+                    <span className="sm:hidden">Production</span>
                   </p>
-                  <p className="text-2xl font-bold text-warning">
+                  <p className="text-lg sm:text-2xl font-bold text-warning">
                     {statusTotals.in_production}
                   </p>
                 </div>
@@ -784,21 +788,24 @@ export default function QAReviewPage() {
 
             {/* Waiting for Review */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters(["delivered_by_artist"]);
                 setCurrentPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-accent-purple/10 rounded-lg">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 bg-accent-purple/10 rounded-lg">
                   {getStatusIcon("delivered_by_artist")}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Delivered by Artist
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    <span className="hidden sm:inline">
+                      Delivered by Artist
+                    </span>
+                    <span className="sm:hidden">Delivered</span>
                   </p>
-                  <p className="text-2xl font-bold text-accent-purple">
+                  <p className="text-lg sm:text-2xl font-bold text-accent-purple">
                     {statusTotals.delivered_by_artist}
                   </p>
                 </div>
@@ -807,21 +814,21 @@ export default function QAReviewPage() {
 
             {/* Revision */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters(["revisions"]);
                 setCurrentPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-info-muted rounded-lg">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 bg-info-muted rounded-lg">
                   {getStatusIcon("revisions")}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                     Revision
                   </p>
-                  <p className="text-2xl font-bold text-info">
+                  <p className="text-lg sm:text-2xl font-bold text-info">
                     {statusTotals.revisions}
                   </p>
                 </div>
@@ -830,21 +837,21 @@ export default function QAReviewPage() {
 
             {/* Approved */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters(["approved"]);
                 setCurrentPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-success-muted rounded-lg">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 bg-success-muted rounded-lg">
                   {getStatusIcon("approved")}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                     Approved
                   </p>
-                  <p className="text-2xl font-bold text-success">
+                  <p className="text-lg sm:text-2xl font-bold text-success">
                     {statusTotals.approved}
                   </p>
                 </div>
@@ -853,21 +860,22 @@ export default function QAReviewPage() {
 
             {/* Delivered by Client */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters(["approved_by_client"]);
                 setCurrentPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-success-muted rounded-lg">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 bg-success-muted rounded-lg">
                   {getStatusIcon("approved_by_client")}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Approved by Client
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    <span className="hidden sm:inline">Approved by Client</span>
+                    <span className="sm:hidden">Client OK</span>
                   </p>
-                  <p className="text-2xl font-bold text-success">
+                  <p className="text-lg sm:text-2xl font-bold text-success">
                     {statusTotals.approved_by_client || 0}
                   </p>
                 </div>
@@ -877,8 +885,8 @@ export default function QAReviewPage() {
             {/* New Assets */}
           </div>
         )}
-        <div className="flex flex-col md:flex-row md:items-center gap-2 mb-4 space-between">
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-3 sm:gap-2 mb-3 sm:mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
             {/* Client Filter */}
             <Select
               value={clientFilters.length === 1 ? clientFilters[0] : undefined}
@@ -891,7 +899,7 @@ export default function QAReviewPage() {
                 setCurrentPage(1);
               }}
             >
-              <SelectTrigger className="w-40 h-9">
+              <SelectTrigger className="w-full sm:w-40 h-8 sm:h-9 text-sm">
                 <SelectValue
                   placeholder={
                     clientFilters.length === 0
@@ -928,7 +936,7 @@ export default function QAReviewPage() {
                 setCurrentPage(1);
               }}
             >
-              <SelectTrigger className="w-32 h-9">
+              <SelectTrigger className="w-full sm:w-32 h-8 sm:h-9 text-sm">
                 <SelectValue
                   placeholder={
                     batchFilters.length === 0
@@ -957,7 +965,7 @@ export default function QAReviewPage() {
               value={modelerFilter}
               onValueChange={(value) => setModelerFilter(value)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full sm:w-auto h-8 sm:h-9 text-sm">
                 <SelectValue placeholder="Modeler" />
               </SelectTrigger>
               <SelectContent>
@@ -970,228 +978,514 @@ export default function QAReviewPage() {
               </SelectContent>
             </Select>
             <Input
-              className="w-full md:w-64"
+              className="w-full sm:w-48 md:w-64 text-sm"
               placeholder="Search by name, article ID, or client"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 items-stretch sm:items-center">
             <Select value={sort} onValueChange={(value) => setSort(value)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full sm:w-auto h-8 sm:h-9 text-sm">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="status-progress">
-                  Status Progression
+                  <span className="hidden sm:inline">Status Progression</span>
+                  <span className="sm:hidden">Status</span>
                 </SelectItem>
                 <SelectItem value="priority">
-                  Priority (Highest First)
+                  <span className="hidden sm:inline">
+                    Priority (Highest First)
+                  </span>
+                  <span className="sm:hidden">Priority (High)</span>
                 </SelectItem>
                 <SelectItem value="priority-lowest">
-                  Priority (Lowest First)
+                  <span className="hidden sm:inline">
+                    Priority (Lowest First)
+                  </span>
+                  <span className="sm:hidden">Priority (Low)</span>
                 </SelectItem>
-                <SelectItem value="batch">Batch (1, 2, 3...)</SelectItem>
-                <SelectItem value="az"> Name (A-Z)</SelectItem>
-                <SelectItem value="za"> Name (Z-A)</SelectItem>
+                <SelectItem value="batch">
+                  <span className="hidden sm:inline">Batch (1, 2, 3...)</span>
+                  <span className="sm:hidden">Batch</span>
+                </SelectItem>
+                <SelectItem value="az">
+                  <span className="hidden sm:inline">Name (A-Z)</span>
+                  <span className="sm:hidden">A-Z</span>
+                </SelectItem>
+                <SelectItem value="za">
+                  <span className="hidden sm:inline">Name (Z-A)</span>
+                  <span className="sm:hidden">Z-A</span>
+                </SelectItem>
               </SelectContent>
             </Select>
             <Button
               variant="outline"
               size="sm"
               onClick={clearFilters}
-              className="gap-2"
+              className="gap-2 h-8 sm:h-9 text-sm w-full sm:w-auto"
             >
-              <X className="h-4 w-4" />
-              Clear Filters
+              <X className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Clear Filters</span>
+              <span className="sm:hidden">Clear</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               disabled={selectedAssetIds.size === 0}
               onClick={handleDownloadSelectedGLBs}
+              className="h-8 sm:h-9 text-sm w-full sm:w-auto"
             >
-              Download GLBs (Selected {selectedAssetIds.size})
+              <span className="hidden sm:inline">
+                Download GLBs (Selected {selectedAssetIds.size})
+              </span>
+              <span className="sm:hidden">
+                Download ({selectedAssetIds.size})
+              </span>
             </Button>
           </div>
         </div>
 
         {/* Assets Table */}
         <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[64vh]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={
-                      areAllCurrentSelected
-                        ? true
-                        : someCurrentSelected
-                          ? "indeterminate"
-                          : false
-                    }
-                    onCheckedChange={toggleSelectAllCurrent}
-                  />
-                </TableHead>
-                <TableHead>Product Name</TableHead>
-                <TableHead>Article ID</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Modeler</TableHead>
-                <TableHead className="w-20">Created</TableHead>
-                <TableHead className="">Product Link</TableHead>
-                <TableHead className="">GLB</TableHead>
-                <TableHead className="">Files</TableHead>
-                <TableHead className="">View</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                // Loading skeleton
-                Array.from({ length: 10 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {/* Checkbox */}
-                    <TableCell>
-                      <div className="h-4 w-4 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                    {/* Product Name */}
-                    <TableCell>
-                      <div className="h-4 w-24 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                    {/* Article ID */}
-                    <TableCell>
-                      <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                    {/* Client */}
-                    <TableCell>
-                      <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                    {/* Price */}
-                    <TableCell>
-                      <div className="h-4 w-12 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                    {/* Priority */}
-                    <TableCell>
-                      <div className="flex justify-center">
-                        <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+          {/* Desktop Table View */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={
+                        areAllCurrentSelected
+                          ? true
+                          : someCurrentSelected
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={toggleSelectAllCurrent}
+                    />
+                  </TableHead>
+                  <TableHead>Product Name</TableHead>
+                  <TableHead>Article ID</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Modeler</TableHead>
+                  <TableHead className="w-20">Created</TableHead>
+                  <TableHead className="">Product Link</TableHead>
+                  <TableHead className="">GLB</TableHead>
+                  <TableHead className="">Files</TableHead>
+                  <TableHead className="">View</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  // Loading skeleton
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {/* Checkbox */}
+                      <TableCell>
+                        <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      {/* Product Name */}
+                      <TableCell>
+                        <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      {/* Article ID */}
+                      <TableCell>
+                        <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      {/* Client */}
+                      <TableCell>
+                        <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      {/* Price */}
+                      <TableCell>
+                        <div className="h-4 w-12 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      {/* Priority */}
+                      <TableCell>
+                        <div className="flex justify-center">
+                          <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+                        </div>
+                      </TableCell>
+                      {/* Status */}
+                      <TableCell>
+                        <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
+                      </TableCell>
+                      {/* Modeler */}
+                      <TableCell>
+                        <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      {/* Created */}
+                      <TableCell>
+                        <div className="h-4 w-12 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      {/* Product */}
+                      <TableCell>
+                        <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      {/* GLB */}
+                      <TableCell>
+                        <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      {/* Files */}
+                      <TableCell>
+                        <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                      {/* View */}
+                      <TableCell>
+                        <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : currentAssets.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={14} className="text-center py-8">
+                      <div className="flex flex-col items-center gap-2">
+                        <Package className="h-8 w-8 text-muted-foreground" />
+                        {assets.length === 0 ? (
+                          <>
+                            <p className="text-muted-foreground">
+                              No assets assigned
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              You will see assets here once you are allocated to
+                              modelers by production management.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-muted-foreground">
+                              No assets match the current filters
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Try adjusting your search or filter criteria to
+                              see more results.
+                            </p>
+                          </>
+                        )}
                       </div>
-                    </TableCell>
-                    {/* Status */}
-                    <TableCell>
-                      <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
-                    </TableCell>
-                    {/* Modeler */}
-                    <TableCell>
-                      <div className="h-4 w-24 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                    {/* Created */}
-                    <TableCell>
-                      <div className="h-4 w-12 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                    {/* Product */}
-                    <TableCell>
-                      <div className="h-8 w-8 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                    {/* GLB */}
-                    <TableCell>
-                      <div className="h-8 w-8 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                    {/* Files */}
-                    <TableCell>
-                      <div className="h-8 w-8 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                    {/* View */}
-                    <TableCell>
-                      <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                     </TableCell>
                   </TableRow>
-                ))
-              ) : currentAssets.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={14} className="text-center py-8">
-                    <div className="flex flex-col items-center gap-2">
-                      <Package className="h-8 w-8 text-muted-foreground" />
-                      {assets.length === 0 ? (
-                        <>
-                          <p className="text-muted-foreground">
-                            No assets assigned
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            You will see assets here once you are allocated to
-                            modelers by production management.
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-muted-foreground">
-                            No assets match the current filters
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Try adjusting your search or filter criteria to see
-                            more results.
-                          </p>
-                        </>
-                      )}
+                ) : (
+                  currentAssets.map((asset) => (
+                    <TableRow
+                      key={asset.id}
+                      className={`${
+                        asset.status === "in_production"
+                          ? "table-row-status-in-production"
+                          : asset.status === "revisions"
+                            ? "table-row-status-revisions"
+                            : asset.status === "approved" ||
+                                asset.status === "approved_by_client"
+                              ? "table-row-status-approved"
+                              : asset.status === "delivered_by_artist"
+                                ? "table-row-status-delivered-by-artist"
+                                : asset.status === "not_started"
+                                  ? "table-row-status-not-started"
+                                  : "table-row-status-unknown"
+                      } ${
+                        isNewAsset(asset.created_at)
+                          ? "bg-green-50/30 dark:bg-green-900/5 border-l-2 border-l-green-400"
+                          : ""
+                      }`}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          checked={isAssetSelected(asset.id)}
+                          onCheckedChange={() => toggleSelectAsset(asset.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div
+                          className="font-medium truncate max-w-[200px] cursor-help"
+                          title={asset.product_name}
+                        >
+                          {asset.product_name.length > 25
+                            ? asset.product_name.substring(0, 25) + "..."
+                            : asset.product_name}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {asset.category} • {asset.subcategory}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">
+                          {asset.article_id}
+                        </span>
+                      </TableCell>
+                      <TableCell>{asset.client}</TableCell>
+                      <TableCell>
+                        <div className="text-sm font-medium">
+                          €{(asset.price || 0).toFixed(2)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-center items-center">
+                          <Select
+                            value={asset.priority.toString()}
+                            onValueChange={(value) => {
+                              const newPriority = parseInt(value);
+                              handlePriorityChange(asset.id, newPriority);
+                            }}
+                            disabled={updatingAssetId === asset.id}
+                          >
+                            <SelectTrigger
+                              className={`border-0 shadow-none p-0 h-auto w-auto bg-transparent hover:opacity-80 transition-opacity cursor-pointer [&>svg]:hidden`}
+                            >
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                  asset.priority
+                                )}`}
+                              >
+                                {getPriorityLabel(asset.priority)}
+                              </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">High</SelectItem>
+                              <SelectItem value="2">Medium</SelectItem>
+                              <SelectItem value="3">Low</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 justify-center">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${getStatusLabelClass(asset.status)}`}
+                          >
+                            {getStatusLabelText(asset.status)}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {asset.modeler ? (
+                          <div className="text-sm">
+                            <div className="font-medium">
+                              {asset.modeler.title ||
+                                asset.modeler.email.split("@")[0]}
+                            </div>
+                            {asset.modeler.title && (
+                              <div className="text-xs text-muted-foreground">
+                                {asset.modeler.title}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">
+                            -
+                          </span>
+                        )}
+                      </TableCell>
+                      {/* Created Date */}
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <div className="text-xs text-muted-foreground">
+                            {dayjs(asset.created_at).format("MMM DD")}•
+                            {dayjs(asset.created_at).format("YYYY")}
+                          </div>
+                        </div>
+                      </TableCell>
+                      {/* Product */}
+                      <TableCell>
+                        {asset.product_link ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Open Product Link"
+                            onClick={() =>
+                              window.open(
+                                asset.product_link as string,
+                                "_blank"
+                              )
+                            }
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            -
+                          </span>
+                        )}
+                      </TableCell>
+                      {/* GLB */}
+                      <TableCell>
+                        {asset.glb_link ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadGLB(asset)}
+                            title="Download GLB"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            -
+                          </span>
+                        )}
+                      </TableCell>
+                      {/* Files */}
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs px-3 py-1 h-7"
+                            onClick={() => {
+                              setSelectedAssetForView(asset);
+                              setShowViewRefDialog(true);
+                            }}
+                          >
+                            <FileText className="mr-1 h-3 w-3" />
+                            Ref (
+                            {separateReferences(asset.reference || null)
+                              .imageReferences.length +
+                              separateReferences(asset.reference || null)
+                                .glbFiles.length}
+                            )
+                          </Button>
+                        </div>
+                      </TableCell>
+                      {/* View */}
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewAsset(asset.id)}
+                          title="View Asset"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3 p-3">
+            {loading ? (
+              // Loading skeleton for mobile
+              Array.from({ length: 5 }).map((_, i) => (
+                <Card key={i} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+                      <div className="h-6 w-6 bg-muted rounded animate-pulse" />
                     </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                currentAssets.map((asset) => (
-                  <TableRow
-                    key={asset.id}
-                    className={`${
-                      asset.status === "in_production"
-                        ? "table-row-status-in-production"
-                        : asset.status === "revisions"
-                          ? "table-row-status-revisions"
-                          : asset.status === "approved" ||
-                              asset.status === "approved_by_client"
-                            ? "table-row-status-approved"
-                            : asset.status === "delivered_by_artist"
-                              ? "table-row-status-delivered-by-artist"
-                              : asset.status === "not_started"
-                                ? "table-row-status-not-started"
-                                : "table-row-status-unknown"
-                    } ${
-                      isNewAsset(asset.created_at)
-                        ? "bg-green-50/30 dark:bg-green-900/5 border-l-2 border-l-green-400"
-                        : ""
-                    }`}
-                  >
-                    <TableCell>
-                      <Checkbox
-                        checked={isAssetSelected(asset.id)}
-                        onCheckedChange={() => toggleSelectAsset(asset.id)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div
-                        className="font-medium truncate max-w-[200px] cursor-help"
-                        title={asset.product_name}
+                    <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                    <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                    <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+                    <div className="flex gap-2">
+                      <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+                      <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+                    </div>
+                  </div>
+                </Card>
+              ))
+            ) : currentAssets.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="flex flex-col items-center gap-2">
+                  <Package className="h-8 w-8 text-muted-foreground" />
+                  {assets.length === 0 ? (
+                    <>
+                      <p className="text-muted-foreground">
+                        No assets assigned
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        You will see assets here once you are allocated to
+                        modelers by production management.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-muted-foreground">
+                        No assets match the current filters
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Try adjusting your search or filter criteria to see more
+                        results.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              currentAssets.map((asset) => (
+                <Card
+                  key={asset.id}
+                  className={`p-4 transition-all duration-200 ${
+                    asset.status === "in_production"
+                      ? "table-row-status-in-production"
+                      : asset.status === "revisions"
+                        ? "table-row-status-revisions"
+                        : asset.status === "approved" ||
+                            asset.status === "approved_by_client"
+                          ? "table-row-status-approved"
+                          : asset.status === "delivered_by_artist"
+                            ? "table-row-status-delivered-by-artist"
+                            : asset.status === "not_started"
+                              ? "table-row-status-not-started"
+                              : "table-row-status-unknown"
+                  } ${
+                    isNewAsset(asset.created_at)
+                      ? "bg-green-50/30 dark:bg-green-900/5 border-l-2 border-l-green-400"
+                      : ""
+                  }`}
+                >
+                  <div className="space-y-3">
+                    {/* Header with checkbox and product name */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={isAssetSelected(asset.id)}
+                          onCheckedChange={() => toggleSelectAsset(asset.id)}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h3
+                            className="font-medium text-sm truncate"
+                            title={asset.product_name}
+                          >
+                            {asset.product_name.length > 30
+                              ? asset.product_name.substring(0, 30) + "..."
+                              : asset.product_name}
+                          </h3>
+                          <div className="text-xs text-muted-foreground">
+                            {asset.category} • {asset.subcategory}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleViewAsset(asset.id)}
+                        className="h-8 w-8 flex-shrink-0"
                       >
-                        {asset.product_name.length > 25
-                          ? asset.product_name.substring(0, 25) + "..."
-                          : asset.product_name}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {asset.category} • {asset.subcategory}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs text-muted-foreground">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Article ID and Client */}
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-muted-foreground font-mono">
                         {asset.article_id}
-                      </span>
-                    </TableCell>
-                    <TableCell>{asset.client}</TableCell>
-                    <TableCell>
+                      </div>
+                      <div className="text-sm font-medium">{asset.client}</div>
+                    </div>
+
+                    {/* Price and Priority */}
+                    <div className="flex items-center justify-between">
                       <div className="text-sm font-medium">
                         €{(asset.price || 0).toFixed(2)}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-center items-center">
+                      <div className="flex items-center gap-2">
                         <Select
                           value={asset.priority.toString()}
                           onValueChange={(value) => {
@@ -1218,134 +1512,107 @@ export default function QAReviewPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 justify-center">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${getStatusLabelClass(asset.status)}`}
-                        >
-                          {getStatusLabelText(asset.status)}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {asset.modeler ? (
-                        <div className="text-sm">
-                          <div className="font-medium">
+                    </div>
+
+                    {/* Status */}
+                    <div className="flex items-center justify-center">
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${getStatusLabelClass(asset.status)}`}
+                      >
+                        {getStatusLabelText(asset.status)}
+                      </Badge>
+                    </div>
+
+                    {/* Modeler and Created Date */}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div>
+                        {asset.modeler ? (
+                          <div>
                             {asset.modeler.title ||
                               asset.modeler.email.split("@")[0]}
                           </div>
-                          {asset.modeler.title && (
-                            <div className="text-xs text-muted-foreground">
-                              {asset.modeler.title}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
-                    {/* Created Date */}
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <div className="text-xs text-muted-foreground">
-                          {dayjs(asset.created_at).format("MMM DD")}•
-                          {dayjs(asset.created_at).format("YYYY")}
-                        </div>
+                        ) : (
+                          <span>-</span>
+                        )}
                       </div>
-                    </TableCell>
-                    {/* Product */}
-                    <TableCell>
-                      {asset.product_link ? (
+                      <div>
+                        {dayjs(asset.created_at).format("MMM DD")} •{" "}
+                        {dayjs(asset.created_at).format("YYYY")}
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      {asset.product_link && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          title="Open Product Link"
+                          className="flex-1 text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline"
                           onClick={() =>
                             window.open(asset.product_link as string, "_blank")
                           }
                         >
-                          <ExternalLink className="h-4 w-4" />
+                          <ExternalLink className="mr-1 h-3 w-3" />
+                          Product
                         </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
                       )}
-                    </TableCell>
-                    {/* GLB */}
-                    <TableCell>
-                      {asset.glb_link ? (
+                      {asset.glb_link && (
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="flex-1 text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline"
                           onClick={() => handleDownloadGLB(asset)}
-                          title="Download GLB"
                         >
-                          <Download className="h-4 w-4" />
+                          <Download className="mr-1 h-3 w-3" />
+                          GLB
                         </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
                       )}
-                    </TableCell>
-                    {/* Files */}
-                    <TableCell className="text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs px-3 py-1 h-7"
-                          onClick={() => {
-                            setSelectedAssetForView(asset);
-                            setShowViewRefDialog(true);
-                          }}
-                        >
-                          <FileText className="mr-1 h-3 w-3" />
-                          Ref (
-                          {separateReferences(asset.reference || null)
-                            .imageReferences.length +
-                            separateReferences(asset.reference || null).glbFiles
-                              .length}
-                          )
-                        </Button>
-                      </div>
-                    </TableCell>
-                    {/* View */}
-                    <TableCell>
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        onClick={() => handleViewAsset(asset.id)}
-                        title="View Asset"
+                        className="flex-1 text-xs px-3 py-1 h-7"
+                        onClick={() => {
+                          setSelectedAssetForView(asset);
+                          setShowViewRefDialog(true);
+                        }}
                       >
-                        <Eye className="h-4 w-4" />
+                        <FileText className="mr-1 h-3 w-3" />
+                        Files (
+                        {separateReferences(asset.reference || null)
+                          .imageReferences.length +
+                          separateReferences(asset.reference || null).glbFiles
+                            .length}
+                        )
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
         </div>
 
         {/* Pagination */}
         {!loading && totalPages > 1 && (
-          <div className="flex items-center justify-between pt-4 border-t">
-            <div className="text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 pt-3 sm:pt-4 border-t">
+            <div className="text-xs sm:text-sm text-muted-foreground order-1 sm:order-1">
               Showing {startIndex + 1} to{" "}
               {Math.min(endIndex, filteredAssets.length)} of{" "}
               {filteredAssets.length} assets
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-2 order-2 sm:order-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
+                className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3"
               >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
+                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline ml-1">Previous</span>
               </Button>
-              <div className="text-sm">
+              <div className="text-xs sm:text-sm">
                 Page {currentPage} of {totalPages}
               </div>
               <Button
@@ -1353,9 +1620,10 @@ export default function QAReviewPage() {
                 size="sm"
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
+                className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3"
               >
-                Next
-                <ChevronRight className="h-4 w-4" />
+                <span className="hidden sm:inline mr-1">Next</span>
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </div>

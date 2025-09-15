@@ -2622,61 +2622,66 @@ export default function ReviewPage() {
       <div className="h-full flex flex-col bg-muted">
         {/* Enhanced Header */}
         <div className="bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-sm">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 gap-3 sm:gap-0">
+            <div className="flex items-center gap-3 sm:gap-8">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleBackNavigation}
-                className="w-10 h-10 rounded-xl hover:bg-primary/8 transition-colors cursor-pointer"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl hover:bg-primary/8 transition-colors cursor-pointer flex-shrink-0"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              <div className="flex items-center gap-6">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-semibold text-foreground">
+              <div className="flex items-center gap-3 sm:gap-6 min-w-0 flex-1">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                    <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
                       {asset?.product_name || "Review Asset"}
                     </h3>
                     <Badge
                       variant="outline"
-                      className="text-xs font-medium text-muted-foreground border-border bg-yellow-500/20"
+                      className="text-xs font-medium text-muted-foreground border-border bg-yellow-500/20 w-fit"
                     >
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setIsNotesDialogOpen(true)}
-                        className="h-8 px-3 "
+                        className="h-6 sm:h-8 px-2 sm:px-3 text-xs"
                       >
-                        <StickyNote className="h-4 w-4 mr-1" />
-                        Notes ({notes.length})
+                        <StickyNote className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                        <span className="hidden sm:inline">
+                          Notes ({notes.length})
+                        </span>
+                        <span className="sm:hidden">{notes.length}</span>
                       </Button>
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-4 mt-2">
-                    <Badge
-                      variant="outline"
-                      className={`text-xs font-medium ${
-                        getStatusDisplay(asset?.status, user?.metadata?.role)
-                          .className
-                      }`}
-                    >
-                      {
-                        getStatusDisplay(asset?.status, user?.metadata?.role)
-                          .label
-                      }
-                    </Badge>
-                    <span className="text-sm text-muted-foreground font-medium">
-                      {asset?.article_id}
-                    </span>
-                    {revisionCount > 0 && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                       <Badge
                         variant="outline"
-                        className={`text-xs font-semibold ${getRevisionBadgeColors(revisionCount)}`}
+                        className={`text-xs font-medium ${
+                          getStatusDisplay(asset?.status, user?.metadata?.role)
+                            .className
+                        }`}
                       >
-                        R{revisionCount}
+                        {
+                          getStatusDisplay(asset?.status, user?.metadata?.role)
+                            .label
+                        }
                       </Badge>
-                    )}
+                      <span className="text-xs sm:text-sm text-muted-foreground font-medium">
+                        {asset?.article_id}
+                      </span>
+                      {revisionCount > 0 && (
+                        <Badge
+                          variant="outline"
+                          className={`text-xs font-semibold ${getRevisionBadgeColors(revisionCount)}`}
+                        >
+                          R{revisionCount}
+                        </Badge>
+                      )}
+                    </div>
                     {asset?.delivery_date && (
                       <span className="text-xs text-muted-foreground">
                         Due:{" "}
@@ -2687,19 +2692,19 @@ export default function ReviewPage() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <div className="text-center">
-                  <div className="text-lg font-bold text-foreground">
+                  <div className="text-sm sm:text-lg font-bold text-foreground">
                     {annotations.length}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Annotations
                   </div>
                 </div>
-                <div className="w-px h-8 bg-border"></div>
+                <div className="w-px h-6 sm:h-8 bg-border"></div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-foreground">
+                  <div className="text-sm sm:text-lg font-bold text-foreground">
                     {comments.length}
                   </div>
                   <div className="text-xs text-muted-foreground">Comments</div>
@@ -2707,7 +2712,7 @@ export default function ReviewPage() {
               </div>
 
               {/* Status Update Buttons */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {user?.metadata?.role === "client" && (
                   <Button
                     onClick={() => updateAssetStatus("approved_by_client")}
@@ -2720,7 +2725,7 @@ export default function ReviewPage() {
                         : "outline"
                     }
                     size="sm"
-                    className="h-8 px-3 text-xs cursor-pointer"
+                    className="h-7 sm:h-8 px-2 sm:px-3 text-xs cursor-pointer"
                   >
                     {statusUpdating ? (
                       <Loader2 className="h-3 w-3 mr-1 animate-spin" />
@@ -2759,14 +2764,15 @@ export default function ReviewPage() {
                       disabled={statusUpdating}
                       variant="outline"
                       size="sm"
-                      className="h-8 px-3 text-xs cursor-pointer"
+                      className="h-7 sm:h-8 px-2 sm:px-3 text-xs cursor-pointer"
                     >
                       {statusUpdating ? (
                         <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                       ) : (
                         <Clock className="h-3 w-3 mr-1" />
                       )}
-                      In Progress
+                      <span className="hidden sm:inline">In Progress</span>
+                      <span className="sm:hidden">Progress</span>
                     </Button>
                   )}
 
@@ -2777,7 +2783,7 @@ export default function ReviewPage() {
                     asset?.status === "revisions" ? "outline" : "outline"
                   }
                   size="sm"
-                  className={`h-8 px-3 text-xs cursor-pointer ${
+                  className={`h-7 sm:h-8 px-2 sm:px-3 text-xs cursor-pointer ${
                     asset?.status === "revisions"
                       ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
                       : ""
@@ -2788,7 +2794,12 @@ export default function ReviewPage() {
                   ) : (
                     <AlertCircle className="h-3 w-3 mr-1" />
                   )}
-                  Revision {revisionCount > 0 && `(${revisionCount})`}
+                  <span className="hidden sm:inline">
+                    Revision {revisionCount > 0 && `(${revisionCount})`}
+                  </span>
+                  <span className="sm:hidden">
+                    Rev {revisionCount > 0 && revisionCount}
+                  </span>
                 </Button>
 
                 {/* Revision History Button */}
@@ -2797,9 +2808,14 @@ export default function ReviewPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowHistoryDropdown(!showHistoryDropdown)}
-                    className="h-8 px-3 text-xs text-muted-foreground cursor-pointer"
+                    className="h-7 sm:h-8 px-2 sm:px-3 text-xs text-muted-foreground cursor-pointer"
                   >
-                    {showHistoryDropdown ? "Hide" : "Show"} History
+                    <span className="hidden sm:inline">
+                      {showHistoryDropdown ? "Hide" : "Show"} History
+                    </span>
+                    <span className="sm:hidden">
+                      {showHistoryDropdown ? "Hide" : "Show"}
+                    </span>
                   </Button>
                 )}
               </div>
@@ -2951,15 +2967,18 @@ export default function ReviewPage() {
           </div>
         )}
 
-        <div className="flex flex-1 overflow-hidden bg-background">
+        <div className="flex flex-col xl:flex-row flex-1 overflow-y-auto xl:overflow-hidden bg-background">
           {/* Main Content (3D Viewer) */}
-          <div className="flex-1 relative bg-background m-6 rounded-lg shadow-lg border border-border/50">
+          <div className="flex-1 relative bg-background m-3 sm:m-6 rounded-lg shadow-lg border border-border/50 h-[65vh] xl:h-auto">
             {/* Ctrl Key Visual Indicator */}
             {isCtrlPressed && !annotationMode && (
-              <div className="absolute top-4 left-4 z-10 bg-primary/90 text-primary-foreground px-3 py-2 rounded-lg text-sm font-medium shadow-lg border border-primary/20 backdrop-blur-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-primary-foreground rounded-full animate-pulse"></div>
-                  <span>Hold Ctrl + Click to add annotation</span>
+              <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 bg-primary/90 text-primary-foreground px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium shadow-lg border border-primary/20 backdrop-blur-sm">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary-foreground rounded-full animate-pulse"></div>
+                  <span className="hidden sm:inline">
+                    Hold Ctrl + Click to add annotation
+                  </span>
+                  <span className="sm:hidden">Ctrl + Click</span>
                 </div>
               </div>
             )}
@@ -3107,7 +3126,7 @@ export default function ReviewPage() {
 
             {/* Dimensions Toggle Button */}
             {asset.glb_link && (
-              <div className="absolute top-4 right-0 z-20 w-fit min-w-[200px] flex gap-2">
+              <div className="absolute top-2 right-2 sm:top-4 sm:right-0 z-20 w-fit min-w-[120px] sm:min-w-[200px] flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -3119,50 +3138,64 @@ export default function ReviewPage() {
                     a.click();
                     document.body.removeChild(a);
                   }}
-                  className="bg-background/95 backdrop-blur-sm border-border/50 shadow-md cursor-pointer"
+                  className="bg-background/95 backdrop-blur-sm border-border/50 shadow-md cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs"
                   title="Download GLB"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download GLB
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Download GLB</span>
+                  <span className="sm:hidden">Download</span>
                 </Button>
               </div>
             )}
 
             {annotationMode && (
-              <div className="absolute top-4 left-4 bg-primary text-primary-foreground text-sm px-4 py-2 rounded-full z-20 shadow-lg backdrop-blur-sm">
-                Double-click to add hotspot
+              <div className="absolute top-2 left-2 sm:top-4 sm:left-4 bg-primary text-primary-foreground text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2 rounded-full z-20 shadow-lg backdrop-blur-sm">
+                <span className="hidden sm:inline">
+                  Double-click to add hotspot
+                </span>
+                <span className="sm:hidden">Double-click</span>
               </div>
             )}
           </div>
 
           {/* Right Panel - Switchable between Reference Images and Feedback */}
-          <div className="w-[570px] max-w-full flex flex-col bg-background  shadow-lg border border-border/50 p-6 ">
+          <div className="w-full xl:w-[570px] max-w-full flex flex-col bg-background shadow-lg border border-border/50 p-3 sm:p-6 h-[50vh] min-h-[700px] xl:h-auto xl:min-h-0 overflow-y-auto">
             {/* Tab Navigation */}
-            <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
+            <div className="flex items-center gap-1 mb-4 sm:mb-6 bg-muted/50 rounded-lg p-1">
               <button
                 onClick={() => setRightPanelTab("feedback")}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+                className={`flex-1 px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer ${
                   rightPanelTab === "feedback"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4" />
-                  Feedback ({annotations.length + comments.length})
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">
+                    Feedback ({annotations.length + comments.length})
+                  </span>
+                  <span className="sm:hidden">
+                    Feedback ({annotations.length + comments.length})
+                  </span>
                 </div>
               </button>
               <button
                 onClick={() => setRightPanelTab("images")}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+                className={`flex-1 px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer ${
                   rightPanelTab === "images"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <LucideImage className="h-4 w-4" />
-                  Reference Images ({referenceImages.length})
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <LucideImage className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">
+                    Reference Images ({referenceImages.length})
+                  </span>
+                  <span className="sm:hidden">
+                    Images ({referenceImages.length})
+                  </span>
                 </div>
               </button>
             </div>
@@ -3170,11 +3203,8 @@ export default function ReviewPage() {
             {/* Reference Images Tab */}
             {rightPanelTab === "images" && (
               <div className="flex-1 overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h4
-                    className="
-                 text-muted-foreground font-semibold"
-                  >
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <h4 className="text-sm sm:text-base text-muted-foreground font-semibold">
                     Reference Images
                   </h4>
                 </div>
@@ -3183,7 +3213,7 @@ export default function ReviewPage() {
 
                 {/* Large Selected Image - Show selected image */}
                 {referenceImages.length > 0 && (
-                  <div className="relative mb-4">
+                  <div className="relative mb-3 sm:mb-4">
                     <div
                       className="aspect-video bg-muted rounded-lg overflow-hidden border border-border relative cursor-pointer"
                       onMouseMove={handleImageMouseMove}
@@ -3217,12 +3247,14 @@ export default function ReviewPage() {
                         style={{ display: "none" }}
                       >
                         <div className="text-center">
-                          <LucideImage className="h-8 w-8 mx-auto mb-2" />
-                          Invalid image URL
+                          <LucideImage className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2" />
+                          <span className="text-xs sm:text-sm">
+                            Invalid image URL
+                          </span>
                         </div>
                       </div>
                     </div>
-                    <div className="absolute top-2 right-2 flex gap-1">
+                    <div className="absolute top-1 right-1 sm:top-2 sm:right-2 flex gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -3232,21 +3264,24 @@ export default function ReviewPage() {
                             `Reference Image ${(selectedReferenceIndex || 0) + 1}`
                           )
                         }
-                        className="h-10 w-10 p-0 bg-black/50 text-white hover:bg-black/70 cursor-pointer"
+                        className="h-8 w-8 sm:h-10 sm:w-10 p-0 bg-black/50 text-white hover:bg-black/70 cursor-pointer"
                       >
                         <Maximize2 className="h-3 w-3" />
                       </Button>
                     </div>
                     <div className="mt-2 text-xs text-muted-foreground text-center">
-                      Reference {(selectedReferenceIndex || 0) + 1} • Scroll to
-                      zoom (1x-3x)
+                      Reference {(selectedReferenceIndex || 0) + 1} •{" "}
+                      <span className="hidden sm:inline">
+                        Scroll to zoom (1x-3x)
+                      </span>
+                      <span className="sm:hidden">Scroll to zoom</span>
                     </div>
                   </div>
                 )}
                 {referenceImages.length > 0 && (
                   <div className="relative">
                     {/* Carousel Header */}
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-3 sm:mb-4">
                       {referenceImages.length > 4 && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span>
@@ -3264,7 +3299,7 @@ export default function ReviewPage() {
                     {/* Carousel Container */}
                     <div className="relative">
                       {/* Thumbnails Container */}
-                      <div className="flex gap-3 overflow-x-auto p-1 scrollbar-hide relative">
+                      <div className="flex gap-2 sm:gap-3 overflow-x-auto p-1 scrollbar-hide relative">
                         {referenceImages.map((imageUrl, index) => (
                           <div
                             key={index}
@@ -3275,7 +3310,7 @@ export default function ReviewPage() {
                             }`}
                             onClick={() => setSelectedReferenceIndex(index)}
                           >
-                            <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-border/50 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md">
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 border-border/50 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md">
                               <Image
                                 width={80}
                                 height={80}
@@ -3290,7 +3325,7 @@ export default function ReviewPage() {
                                 }}
                               />
                             </div>
-                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-primary text-white text-xs font-medium rounded-full flex items-center justify-center shadow-sm border-2 border-background">
+                            <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-primary text-white text-xs font-medium rounded-full flex items-center justify-center shadow-sm border-2 border-background">
                               {index + 1}
                             </div>
                             <Button
@@ -3352,7 +3387,7 @@ export default function ReviewPage() {
                                   );
                                 }
                               }}
-                              className="absolute -top-1 -left-1 h-5 w-5 p-0 text-black/60 hover:text-black/80 hover:bg-black/5 rounded-full"
+                              className="absolute -top-1 -left-1 h-4 w-4 sm:h-5 sm:w-5 p-0 text-black/60 hover:text-black/80 hover:bg-black/5 rounded-full"
                             >
                               <X className="h-3 w-3" />
                             </Button>
@@ -3408,11 +3443,11 @@ export default function ReviewPage() {
             {rightPanelTab === "feedback" && (
               <div className="flex-1 overflow-y-auto">
                 {/* Sticky Header with controls */}
-                <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 pb-4">
+                <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 pb-3 sm:pb-4">
                   <div className="p-2">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-4">
-                        <h4 className="text-muted-foreground font-semibold">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3 sm:mb-4">
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <h4 className="text-sm sm:text-base text-muted-foreground font-semibold">
                           Feedback
                         </h4>
                         <Button
@@ -3425,7 +3460,7 @@ export default function ReviewPage() {
                               setSelectedAnnotations([]);
                             }
                           }}
-                          className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                          className={`h-7 sm:h-8 px-2 sm:px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
                             deleteMode
                               ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30 shadow-sm"
                               : "border-border hover:bg-accent hover:border-border"
@@ -3435,13 +3470,13 @@ export default function ReviewPage() {
                           {deleteMode ? "Cancel" : "Delete"}
                         </Button>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Button
                           variant={annotationMode ? "default" : "outline"}
                           size="sm"
                           onClick={() => setAnnotationMode(!annotationMode)}
                           disabled={isFunctionalityDisabled()}
-                          className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                          className={`h-7 sm:h-8 px-2 sm:px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
                             annotationMode
                               ? "bg-primary hover:bg-primary/90 shadow-sm"
                               : "border-border hover:bg-accent hover:border-border"
@@ -3452,7 +3487,12 @@ export default function ReviewPage() {
                           }`}
                         >
                           <Plus className="h-3 w-3 mr-1" />
-                          {annotationMode ? "Cancel" : "Add Annotation"}
+                          <span className="hidden sm:inline">
+                            {annotationMode ? "Cancel" : "Add Annotation"}
+                          </span>
+                          <span className="sm:hidden">
+                            {annotationMode ? "Cancel" : "Add"}
+                          </span>
                           {!annotationMode && (
                             <span className="ml-1 text-xs opacity-60"></span>
                           )}
@@ -3462,7 +3502,7 @@ export default function ReviewPage() {
                           size="sm"
                           onClick={() => setShowComments(!showComments)}
                           disabled={isFunctionalityDisabled()}
-                          className={`h-8 px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                          className={`h-7 sm:h-8 px-2 sm:px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
                             showComments
                               ? "bg-primary hover:bg-primary/90 shadow-sm"
                               : "border-border hover:bg-accent hover:border-border"
@@ -3473,18 +3513,28 @@ export default function ReviewPage() {
                           }`}
                         >
                           <MessageCircle className="h-3 w-3 mr-1" />
-                          {showComments ? "Hide Comments" : "Add Comment"}
+                          <span className="hidden sm:inline">
+                            {showComments ? "Hide Comments" : "Add Comment"}
+                          </span>
+                          <span className="sm:hidden">
+                            {showComments ? "Hide" : "Comment"}
+                          </span>
                         </Button>
                       </div>
                     </div>
 
                     {isFunctionalityDisabled() && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30 mb-4">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30 mb-3 sm:mb-4">
                         <div className="flex items-center gap-2">
-                          <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                          <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                            Annotations and comments are disabled - Asset is in
-                            revision mode
+                          <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-600 dark:text-yellow-400" />
+                          <span className="text-xs sm:text-sm font-medium text-yellow-700 dark:text-yellow-300">
+                            <span className="hidden sm:inline">
+                              Annotations and comments are disabled - Asset is
+                              in revision mode
+                            </span>
+                            <span className="sm:hidden">
+                              Comments disabled - in revision mode
+                            </span>
                           </span>
                         </div>
                       </div>
@@ -3492,7 +3542,7 @@ export default function ReviewPage() {
 
                     {/* Add New Comment - Collapsible */}
                     {showComments && (
-                      <div className="space-y-3">
+                      <div className="space-y-2 sm:space-y-3">
                         <Textarea
                           placeholder={
                             isFunctionalityDisabled()
@@ -3577,7 +3627,7 @@ export default function ReviewPage() {
                           <Card
                             key={`annotation-${item.id}`}
                             id={`annotation-${item.id}`}
-                            className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
+                            className={`p-3 sm:p-6 transition-all duration-200 rounded-xl border border-border/50 ${
                               selectedHotspotId === item.id
                                 ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
                                 : highlightedAnnotationId === item.id
@@ -3588,8 +3638,8 @@ export default function ReviewPage() {
                                     : "hover:shadow-md hover:border-border"
                             }`}
                           >
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex items-center gap-3">
+                            <div className="flex items-start justify-between mb-3 sm:mb-4">
+                              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                 {deleteMode && (
                                   <input
                                     type="checkbox"
@@ -3599,39 +3649,44 @@ export default function ReviewPage() {
                                     onChange={() =>
                                       handleAnnotationSelect(item.id)
                                     }
-                                    className="h-4 w-4 text-red-600 border-border rounded focus:ring-red-500 cursor-pointer dark:text-red-400 dark:focus:ring-red-400"
+                                    className="h-4 w-4 text-red-600 border-border rounded focus:ring-red-500 cursor-pointer dark:text-red-400 dark:focus:ring-red-400 flex-shrink-0"
                                   />
                                 )}
-                                <div className="relative">
-                                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                                    <MessageCircle className="h-4 w-4 text-primary" />
+                                <div className="relative flex-shrink-0">
+                                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                    <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                                   </div>
                                   {/* Annotation Number Badge */}
                                   <div
-                                    className={`absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(annotations.findIndex((a) => a.id === item.id))}`}
+                                    className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(annotations.findIndex((a) => a.id === item.id))}`}
                                   >
                                     {annotations.findIndex(
                                       (a) => a.id === item.id
                                     ) + 1}
                                   </div>
                                 </div>
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-foreground">
+                                <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                                    <span className="text-xs sm:text-sm font-medium text-foreground truncate">
                                       {item.profiles?.email || "Unknown"}
                                     </span>
-                                    <Badge
-                                      variant="outline"
-                                      className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(item.created_at))}`}
-                                    >
-                                      R{getRevisionForItem(item.created_at)}
-                                    </Badge>
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      Annotation
-                                    </Badge>
+                                    <div className="flex items-center gap-1 sm:gap-2">
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-xs px-1.5 sm:px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(item.created_at))}`}
+                                      >
+                                        R{getRevisionForItem(item.created_at)}
+                                      </Badge>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs px-1.5 sm:px-2 py-0.5"
+                                      >
+                                        <span className="hidden sm:inline">
+                                          Annotation
+                                        </span>
+                                        <span className="sm:hidden">Ann</span>
+                                      </Badge>
+                                    </div>
                                   </div>
                                   {item.profiles?.title && (
                                     <Badge
@@ -4250,15 +4305,16 @@ export default function ReviewPage() {
                                 </div>
                               </div>
                             )}
-                            <div className="mt-4 flex items-center gap-2">
+                            <div className="mt-3 sm:mt-4 flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">
-                                {new Date(item.created_at).toLocaleDateString()}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                •
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(item.created_at).toLocaleTimeString()}
+                                <span className="hidden sm:inline">
+                                  {new Date(item.created_at).toLocaleString()}
+                                </span>
+                                <span className="sm:hidden">
+                                  {new Date(
+                                    item.created_at
+                                  ).toLocaleDateString()}
+                                </span>
                               </span>
                             </div>
                             {/* Reply actions for comments */}
@@ -4266,7 +4322,7 @@ export default function ReviewPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 px-2 text-xs cursor-pointer"
+                                className="h-6 sm:h-7 px-2 text-xs cursor-pointer"
                                 onClick={() =>
                                   setReplyingTo({
                                     type: "comment",
@@ -4274,7 +4330,9 @@ export default function ReviewPage() {
                                   })
                                 }
                               >
-                                Reply
+                                <MessageSquare className="h-3 w-3 mr-1" />
+                                <span className="hidden sm:inline">Reply</span>
+                                <span className="sm:hidden">R</span>
                               </Button>
                               {replyingTo?.type === "comment" &&
                                 replyingTo.id === item.id && (
@@ -4377,12 +4435,12 @@ export default function ReviewPage() {
               }
             }}
           >
-            <DialogContent className="sm:max-w-[500px] h-fit overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-foreground">
+            <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit overflow-y-auto">
+              <DialogHeader className="pb-3 sm:pb-4">
+                <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">
                   Add New Annotation
                 </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
+                <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                   Add a comment and optional reference image to this hotspot
                 </DialogDescription>
               </DialogHeader>
@@ -4543,12 +4601,12 @@ export default function ReviewPage() {
 
           {/* Delete Warning Dialog */}
           <Dialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
-            <DialogContent className="sm:max-w-[425px] h-fit">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-red-700 dark:text-red-400">
+            <DialogContent className="w-[95vw] sm:w-full sm:max-w-[425px] h-fit">
+              <DialogHeader className="pb-3 sm:pb-4">
+                <DialogTitle className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400">
                   Delete Annotation{selectedAnnotations.length > 0 ? "s" : ""}
                 </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
+                <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                   Are you sure you want to delete{" "}
                   {singleDeleteId
                     ? "this annotation"
@@ -4591,12 +4649,12 @@ export default function ReviewPage() {
 
           {/* Image Preview Dialog */}
           <Dialog open={showImageDialog} onOpenChange={handleDialogClose}>
-            <DialogContent className="sm:max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
-              <DialogHeader className="px-6 py-4 border-b border-border">
-                <DialogTitle className="text-xl font-bold text-foreground">
+            <DialogContent className="w-[95vw] sm:w-full sm:max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
+              <DialogHeader className="px-3 sm:px-6 py-3 sm:py-4 border-b border-border">
+                <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">
                   {selectedImageTitle}
                 </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
+                <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                   Reference image for annotation • Scroll to zoom (1x-5x)
                 </DialogDescription>
               </DialogHeader>
@@ -4652,12 +4710,12 @@ export default function ReviewPage() {
 
           {/* Add Image URL Dialog */}
           <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
-            <DialogContent className="sm:max-w-[500px] h-fit">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-foreground">
+            <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit">
+              <DialogHeader className="pb-3 sm:pb-4">
+                <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">
                   Add Reference Image URL
                 </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
+                <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                   Enter the URL of an image you want to add as a reference
                   image.
                 </DialogDescription>
@@ -4712,12 +4770,12 @@ export default function ReviewPage() {
             open={showRevisionDialog}
             onOpenChange={setShowRevisionDialog}
           >
-            <DialogContent className="sm:max-w-[500px] h-fit">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-foreground">
+            <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit">
+              <DialogHeader className="pb-3 sm:pb-4">
+                <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">
                   Confirm Revision Request
                 </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
+                <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                   Please review all annotations and comments before proceeding.
                 </DialogDescription>
               </DialogHeader>
@@ -4768,12 +4826,12 @@ export default function ReviewPage() {
               open={showSecondRevisionDialog}
               onOpenChange={setShowSecondRevisionDialog}
             >
-              <DialogContent className="sm:max-w-[500px] h-fit">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-bold text-red-700 dark:text-red-400">
+              <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit">
+                <DialogHeader className="pb-3 sm:pb-4">
+                  <DialogTitle className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400">
                     ⚠️ Additional Revision Warning
                   </DialogTitle>
-                  <DialogDescription className="text-muted-foreground">
+                  <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                     This is revision #{revisionCount + 1} for this asset.
                   </DialogDescription>
                 </DialogHeader>
@@ -4832,12 +4890,12 @@ export default function ReviewPage() {
             open={showRevisionDetailsDialog}
             onOpenChange={setShowRevisionDetailsDialog}
           >
-            <DialogContent className="sm:max-w-[800px] h-fit min-h-[500px] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-foreground">
+            <DialogContent className="w-[95vw] sm:w-full sm:max-w-[800px] h-fit min-h-[400px] sm:min-h-[500px] overflow-y-auto">
+              <DialogHeader className="pb-3 sm:pb-4">
+                <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">
                   Revision {selectedRevision?.revision_number} Details
                 </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
+                <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                   {selectedRevision &&
                     new Date(selectedRevision.created_at).toLocaleDateString()}
                 </DialogDescription>
@@ -4938,34 +4996,44 @@ export default function ReviewPage() {
                         <div className="space-y-3 max-h-60 overflow-y-auto">
                           {revisionComments.map(
                             (comment: any, index: number) => (
-                              <Card key={comment.id || index} className="p-4">
-                                <div className="flex items-start justify-between mb-3">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                              <Card
+                                key={comment.id || index}
+                                className="p-3 sm:p-4"
+                              >
+                                <div className="flex items-start justify-between mb-2 sm:mb-3">
+                                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-muted rounded-full flex items-center justify-center flex-shrink-0">
+                                      <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                                     </div>
-                                    <div>
-                                      <div className="text-sm font-medium text-foreground">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-xs sm:text-sm font-medium text-foreground truncate">
                                         {comment.profiles?.email || "Unknown"}
                                       </div>
                                       {comment.profiles?.title && (
                                         <Badge
                                           variant="outline"
-                                          className="text-xs mt-1"
+                                          className="text-xs mt-1 px-1.5 sm:px-2 py-0.5 w-fit"
                                         >
                                           {comment.profiles.title}
                                         </Badge>
                                       )}
                                     </div>
                                   </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {new Date(
-                                      comment.created_at
-                                    ).toLocaleDateString()}
+                                  <div className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                                    <span className="hidden sm:inline">
+                                      {new Date(
+                                        comment.created_at
+                                      ).toLocaleString()}
+                                    </span>
+                                    <span className="sm:hidden">
+                                      {new Date(
+                                        comment.created_at
+                                      ).toLocaleDateString()}
+                                    </span>
                                   </div>
                                 </div>
-                                <div className="text-sm text-foreground break-words overflow-hidden">
-                                  <div className="whitespace-pre-wrap text-sm text-foreground font-normal font-sans">
+                                <div className="text-xs sm:text-sm text-foreground break-words overflow-hidden">
+                                  <div className="whitespace-pre-wrap text-xs sm:text-sm text-foreground font-normal font-sans">
                                     {linkifyText(comment.comment)}
                                   </div>
                                 </div>
@@ -4995,10 +5063,10 @@ export default function ReviewPage() {
 
       {/* Notes Dialog */}
       <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <StickyNote className="h-5 w-5" />
+        <DialogContent className="w-[95vw] sm:w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <StickyNote className="h-4 w-4 sm:h-5 sm:w-5" />
               Notes for {asset?.product_name}
             </DialogTitle>
             <DialogDescription>

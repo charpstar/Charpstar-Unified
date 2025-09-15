@@ -1577,85 +1577,169 @@ export default function ModelerReviewPage() {
       <div className="h-full flex flex-col bg-muted">
         {/* Enhanced Header */}
         <div className="bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-sm">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-8">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleBackNavigation}
-                className="w-10 h-10 rounded-xl hover:bg-primary/8 transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div className="flex items-center gap-6">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      {asset?.product_name || "Review Asset"}
-                    </h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsNotesDialogOpen(true)}
-                      className="gap-2 cursor-pointer bg-yellow-500/20 text-yellow-700 hover:bg-yellow-500/30 hover:text-yellow-700"
-                    >
-                      <StickyNote className="h-4 w-4" />
-                      Notes ({notes.length})
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-4 mt-2">
-                    <Badge
-                      variant="outline"
-                      className={`text-xs font-medium ${getStatusLabelClass(asset?.status || "")}`}
-                    >
-                      {getStatusLabelText(asset?.status || "")}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground font-medium">
-                      {asset?.article_id}
-                    </span>
-                    {asset?.revision_count > 0 && (
+          <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+              <div className="flex items-center gap-3 sm:gap-8">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleBackNavigation}
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl hover:bg-primary/8 transition-colors cursor-pointer flex-shrink-0"
+                >
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                </Button>
+                <div className="flex items-center gap-3 sm:gap-6 min-w-0 flex-1">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                      <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
+                        {asset?.product_name || "Review Asset"}
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsNotesDialogOpen(true)}
+                        className="gap-1 sm:gap-2 cursor-pointer bg-yellow-500/20 text-yellow-700 hover:bg-yellow-500/30 hover:text-yellow-700 text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3 flex-shrink-0"
+                      >
+                        <StickyNote className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">
+                          Notes ({notes.length})
+                        </span>
+                        <span className="sm:hidden">{notes.length}</span>
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
                       <Badge
                         variant="outline"
-                        className="text-xs font-semibold"
+                        className={`text-xs font-medium ${getStatusLabelClass(asset?.status || "")}`}
                       >
-                        R{asset.revision_count}
+                        {getStatusLabelText(asset?.status || "")}
                       </Badge>
-                    )}
-                    {asset?.delivery_date && (
-                      <span className="text-xs text-muted-foreground">
-                        Due:{" "}
-                        {new Date(asset.delivery_date).toLocaleDateString()}
+                      <span className="text-xs sm:text-sm text-muted-foreground font-medium">
+                        {asset?.article_id}
                       </span>
-                    )}
+                      {asset?.revision_count > 0 && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs font-semibold"
+                        >
+                          R{asset.revision_count}
+                        </Badge>
+                      )}
+                      {asset?.delivery_date && (
+                        <span className="text-xs text-muted-foreground">
+                          Due:{" "}
+                          {new Date(asset.delivery_date).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="text-center">
+                    <div className="text-sm sm:text-lg font-bold text-foreground">
+                      {annotations.length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      <span className="hidden sm:inline">Annotations</span>
+                      <span className="sm:hidden">Ann.</span>
+                    </div>
+                  </div>
+                  <div className="w-px h-6 sm:h-8 bg-border"></div>
+                  <div className="text-center">
+                    <div className="text-sm sm:text-lg font-bold text-foreground">
+                      {comments.length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      <span className="hidden sm:inline">Comments</span>
+                      <span className="sm:hidden">Comm.</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-foreground">
-                    {annotations.length}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Annotations
+
+            {/* Asset Status Section - Moved to Header */}
+            <div className="p-3 sm:p-4 bg-muted/30 rounded-lg border border-border/50">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
+                <span className="text-xs text-muted-foreground font-semibold">
+                  Asset Status
+                </span>
+                <div className="flex items-center gap-2">
+                  {/* Freshness indicator */}
+                  <div className="flex items-center gap-2">
+                    {latestExternalFeedbackTime &&
+                    latestGlbTime &&
+                    latestGlbTime < latestExternalFeedbackTime ? (
+                      <Badge variant="destructive" className="text-[10px]">
+                        <span className="hidden sm:inline">
+                          GLB older than feedback, please upload a new GLB to
+                          change status
+                        </span>
+                        <span className="sm:hidden">GLB outdated</span>
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] text-emerald-600 border-emerald-300"
+                      >
+                        Up-to-date
+                      </Badge>
+                    )}
                   </div>
                 </div>
-                <div className="w-px h-8 bg-border"></div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-foreground">
-                    {comments.length}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Comments</div>
-                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <Button
+                  onClick={() => updateAssetStatus("in_production")}
+                  disabled={asset?.status === "in_production" || statusUpdating}
+                  variant={
+                    asset?.status === "in_production" ? "default" : "outline"
+                  }
+                  size="sm"
+                  className="w-full cursor-pointer text-xs sm:text-sm h-8 sm:h-9"
+                >
+                  {statusUpdating ? (
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  )}
+                  <span className="hidden sm:inline">Mark as In Progress</span>
+                  <span className="sm:hidden">In Progress</span>
+                </Button>
+                <Button
+                  onClick={() => updateAssetStatus("delivered_by_artist")}
+                  disabled={
+                    asset?.status === "delivered_by_artist" ||
+                    asset?.status === "approved" ||
+                    asset?.status === "approved_by_client" ||
+                    statusUpdating
+                  }
+                  variant={
+                    asset?.status === "delivered_by_artist"
+                      ? "default"
+                      : "outline"
+                  }
+                  size="sm"
+                  className="w-full cursor-pointer text-xs sm:text-sm h-8 sm:h-9"
+                >
+                  {statusUpdating ? (
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  )}
+                  <span className="hidden sm:inline">Mark as Delivered</span>
+                  <span className="sm:hidden">Delivered</span>
+                </Button>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden bg-background">
+        <div className="flex flex-col xl:flex-row flex-1 overflow-y-auto xl:overflow-hidden bg-background">
           {/* Main Content (3D Viewer) */}
-          <div className="flex-1 relative bg-background m-6 rounded-lg shadow-lg border border-border/50">
+          <div className="flex-1 relative bg-background m-3 sm:m-6 rounded-lg shadow-lg border border-border/50 h-[65vh] xl:h-auto">
             <Script
               type="module"
               src="/model-viewer.js"
@@ -1800,120 +1884,45 @@ export default function ModelerReviewPage() {
           </div>
 
           {/* Right Panel - Switchable between Reference Images and Feedback */}
-          <div className="w-[620px] max-w-full flex flex-col bg-background shadow-lg border border-border/50 p-6">
+          <div className="w-full xl:w-[620px] max-w-full flex flex-col bg-background shadow-lg border border-border/50 p-3 sm:p-6 h-[60vh] min-h-[600px] xl:h-auto xl:min-h-0 overflow-y-auto">
             {/* Tab Navigation */}
-            <div className="flex items-center gap-1 mb-6 bg-muted/50 rounded-lg p-1">
+            <div className="flex items-center gap-1 mb-4 sm:mb-6 bg-muted/50 rounded-lg p-1">
               <button
                 onClick={() => setRightPanelTab("feedback")}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+                className={`flex-1 px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer ${
                   rightPanelTab === "feedback"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4" />
-                  Feedback ({annotations.length + comments.length})
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">
+                    Feedback ({annotations.length + comments.length})
+                  </span>
+                  <span className="sm:hidden">
+                    Feedback ({annotations.length + comments.length})
+                  </span>
                 </div>
               </button>
               <button
                 onClick={() => setRightPanelTab("images")}
-                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+                className={`flex-1 px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer ${
                   rightPanelTab === "images"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <LucideImage className="h-4 w-4" />
-                  Reference Images ({referenceImages.length})
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <LucideImage className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">
+                    Reference Images ({referenceImages.length})
+                  </span>
+                  <span className="sm:hidden">
+                    Images ({referenceImages.length})
+                  </span>
                 </div>
               </button>
-            </div>
-
-            {/* Asset Status Section */}
-            <div className="mb-6 p-4 bg-muted/30 rounded-lg border border-border/50">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-muted-foreground font-semibold">
-                  Asset Status
-                </span>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={
-                      asset?.status === "approved" ? "default" : "secondary"
-                    }
-                    className="text-xs"
-                  >
-                    {getStatusLabelText(asset?.status || "")}
-                  </Badge>
-                  {asset?.revision_count > 0 && (
-                    <Badge variant="outline" className="text-xs">
-                      Revision {asset.revision_count}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              {/* Freshness indicator */}
-              <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-                <div className="flex items-center gap-2">
-                  {latestExternalFeedbackTime &&
-                  latestGlbTime &&
-                  latestGlbTime < latestExternalFeedbackTime ? (
-                    <Badge variant="destructive" className="text-[10px]">
-                      GLB older than feedback, please upload a new GLB to change
-                      status
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] text-emerald-600 border-emerald-300"
-                    >
-                      Up-to-date
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => updateAssetStatus("in_production")}
-                  disabled={asset?.status === "in_production" || statusUpdating}
-                  variant={
-                    asset?.status === "in_production" ? "default" : "outline"
-                  }
-                  size="sm"
-                  className="w-full cursor-pointer"
-                >
-                  {statusUpdating ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Mark as In Progress
-                </Button>
-                <Button
-                  onClick={() => updateAssetStatus("delivered_by_artist")}
-                  disabled={
-                    asset?.status === "delivered_by_artist" ||
-                    asset?.status === "approved" ||
-                    asset?.status === "approved_by_client" ||
-                    statusUpdating
-                  }
-                  variant={
-                    asset?.status === "delivered_by_artist"
-                      ? "default"
-                      : "outline"
-                  }
-                  size="sm"
-                  className="w-full cursor-pointer"
-                >
-                  {statusUpdating ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                  )}
-                  Mark as Delivered
-                </Button>
-              </div>
             </div>
 
             {/* Reference Images Tab */}
@@ -2415,200 +2424,358 @@ export default function ModelerReviewPage() {
             {/* Feedback Tab */}
             {rightPanelTab === "feedback" && (
               <div className="flex-1 overflow-y-auto">
-                {/* Sticky Header */}
-                <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 pb-4">
-                  <div className="p-2">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-muted-foreground font-semibold">
-                        Feedback
-                      </h4>
-                    </div>
+                {/* Header Section */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+                  <h4 className="text-sm sm:text-base font-semibold text-muted-foreground">
+                    Feedback
+                  </h4>
+                </div>
 
-                    {/* Composer: hidden for modelers */}
-                    {user.metadata?.role !== "modeler" && (
-                      <div className="space-y-3">
-                        <Textarea
-                          placeholder="Add a comment about this asset..."
-                          value={newCommentText}
-                          onChange={(e) => setNewCommentText(e.target.value)}
-                          onKeyDown={handleNewCommentKeyDown}
-                          className="min-h-[100px] border-border focus:border-primary focus:ring-primary"
-                          rows={4}
-                        />
-                        <div className="flex gap-2 text-xs text-muted-foreground">
-                          <span>
-                            Press Enter to send, Shift+Enter for new line
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                {/* Status Section */}
+                <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-muted/30 rounded-lg border border-border/50">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
+                    <span className="text-xs text-muted-foreground font-semibold">
+                      Feedback Status
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {annotations.length + comments.length} Total
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {annotations.length} Annotations
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {comments.length} Comments
+                      </Badge>
+                    </div>
                   </div>
                 </div>
 
-                {/* Scrollable Content - Combined Feed */}
-                <div className="p-2">
-                  <div className="space-y-4">
-                    {[
-                      ...annotations
-                        .filter((a: any) => !a.parent_id)
-                        .map((a) => ({
-                          ...a,
-                          type: "annotation" as const,
-                        })),
-                      ...comments
-                        .filter((c: any) => !c.parent_id)
-                        .map((c) => ({
-                          ...c,
-                          type: "comment" as const,
-                        })),
-                    ]
-                      .sort(
-                        (a, b) =>
-                          new Date(a.created_at).getTime() -
-                          new Date(b.created_at).getTime()
-                      )
-                      .map((item) =>
-                        item.type === "annotation" ? (
-                          <Card
-                            key={`annotation-${item.id}`}
-                            className={`p-6 transition-all duration-200 rounded-xl border border-border/50 ${
-                              selectedHotspotId === item.id
-                                ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
-                                : "hover:shadow-md hover:border-border"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex items-center gap-3">
-                                <div className="relative">
-                                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                                    <MessageCircle className="h-4 w-4 text-primary" />
+                {/* Comment Section with Min Height */}
+                <div className="min-h-[300px] sm:min-h-[400px] flex flex-col">
+                  {/* Composer: hidden for modelers */}
+                  {user.metadata?.role !== "modeler" && (
+                    <div className="space-y-3 mb-4 sm:mb-6">
+                      <Textarea
+                        placeholder="Add a comment about this asset..."
+                        value={newCommentText}
+                        onChange={(e) => setNewCommentText(e.target.value)}
+                        onKeyDown={handleNewCommentKeyDown}
+                        className="min-h-[80px] sm:min-h-[100px] border-border focus:border-primary focus:ring-primary text-xs sm:text-sm"
+                        rows={3}
+                      />
+                      <div className="flex gap-2 text-xs text-muted-foreground">
+                        <span>
+                          Press Enter to send, Shift+Enter for new line
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Scrollable Content - Combined Feed */}
+                  <div className="flex-1 overflow-y-auto">
+                    <div className="space-y-3 sm:space-y-4">
+                      {[
+                        ...annotations
+                          .filter((a: any) => !a.parent_id)
+                          .map((a) => ({
+                            ...a,
+                            type: "annotation" as const,
+                          })),
+                        ...comments
+                          .filter((c: any) => !c.parent_id)
+                          .map((c) => ({
+                            ...c,
+                            type: "comment" as const,
+                          })),
+                      ]
+                        .sort(
+                          (a, b) =>
+                            new Date(a.created_at).getTime() -
+                            new Date(b.created_at).getTime()
+                        )
+                        .map((item) =>
+                          item.type === "annotation" ? (
+                            <Card
+                              key={`annotation-${item.id}`}
+                              className={`p-3 sm:p-6 transition-all duration-200 rounded-xl border border-border/50 ${
+                                selectedHotspotId === item.id
+                                  ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
+                                  : "hover:shadow-md hover:border-border"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between mb-3 sm:mb-4">
+                                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                  <div className="relative flex-shrink-0">
+                                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                      <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
+                                    </div>
+                                    <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white text-xs font-bold bg-amber-500">
+                                      {annotations
+                                        .sort(
+                                          (a, b) =>
+                                            new Date(a.created_at).getTime() -
+                                            new Date(b.created_at).getTime()
+                                        )
+                                        .findIndex((a) => a.id === item.id) + 1}
+                                    </div>
                                   </div>
-                                  <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold bg-amber-500">
-                                    {annotations
-                                      .sort(
-                                        (a, b) =>
-                                          new Date(a.created_at).getTime() -
-                                          new Date(b.created_at).getTime()
-                                      )
-                                      .findIndex((a) => a.id === item.id) + 1}
+                                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs sm:text-sm font-medium text-foreground truncate">
+                                        {item.profiles?.email || "Unknown"}
+                                      </span>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs flex-shrink-0"
+                                      >
+                                        Annotation
+                                      </Badge>
+                                    </div>
+                                    {item.profiles?.title && (
+                                      <Badge
+                                        variant={
+                                          getTitleBadgeVariant(
+                                            item.profiles.title
+                                          ) as any
+                                        }
+                                        className="text-xs px-1 sm:px-2 py-0.5 w-fit"
+                                      >
+                                        {item.profiles.title}
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-foreground">
-                                      {item.profiles?.email || "Unknown"}
-                                    </span>
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      Annotation
-                                    </Badge>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="text-xs sm:text-sm text-foreground p-2 rounded-md break-words overflow-hidden whitespace-pre-wrap font-sans">
+                                  {linkifyText(item.comment)}
+                                </div>
+                                {item.image_url && (
+                                  <div className="mt-3 sm:mt-4">
+                                    <div className="relative w-full h-32 sm:h-48 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
+                                      {(() => {
+                                        const fileName =
+                                          item.image_url?.split("/").pop() ||
+                                          "";
+                                        const isGlbFile = fileName
+                                          .toLowerCase()
+                                          .endsWith(".glb");
+                                        if (
+                                          item.image_url.startsWith("file://")
+                                        ) {
+                                          return (
+                                            <div className="w-full h-full bg-muted flex items-center justify-center">
+                                              <div className="text-center">
+                                                <LucideImage className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground mx-auto mb-2" />
+                                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                                  Local file: {fileName}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                  (Cannot display in browser)
+                                                </p>
+                                              </div>
+                                            </div>
+                                          );
+                                        } else if (isGlbFile) {
+                                          return (
+                                            <div
+                                              className="w-full h-full bg-muted flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+                                              onClick={() => {
+                                                if (!item.image_url) return;
+                                                const link =
+                                                  document.createElement("a");
+                                                link.href = item.image_url;
+                                                link.download = fileName;
+                                                link.target = "_blank";
+                                                document.body.appendChild(link);
+                                                link.click();
+                                                document.body.removeChild(link);
+                                              }}
+                                            >
+                                              <div className="text-center">
+                                                <div className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 flex items-center justify-center">
+                                                  <svg
+                                                    className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground"
+                                                    fill="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                  >
+                                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                                                  </svg>
+                                                </div>
+                                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                                  3D Model: {fileName}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                  Click to download
+                                                </p>
+                                              </div>
+                                            </div>
+                                          );
+                                        } else {
+                                          return (
+                                            <Image
+                                              width={320}
+                                              height={192}
+                                              unoptimized
+                                              src={item.image_url}
+                                              alt="Annotation reference"
+                                              className="w-full h-full object-contain"
+                                              onError={(e) => {
+                                                console.error(
+                                                  "Failed to load annotation image:",
+                                                  item.image_url
+                                                );
+                                                (
+                                                  e.currentTarget as HTMLElement
+                                                ).style.display = "none";
+                                              }}
+                                            />
+                                          );
+                                        }
+                                      })()}
+                                    </div>
                                   </div>
-                                  {item.profiles?.title && (
-                                    <Badge
-                                      variant={
-                                        getTitleBadgeVariant(
-                                          item.profiles.title
-                                        ) as any
-                                      }
-                                      className="text-xs px-2 py-0.5 w-fit"
-                                    >
-                                      {item.profiles.title}
-                                    </Badge>
+                                )}
+                                <div className="mt-3 sm:mt-4 flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(
+                                      item.created_at
+                                    ).toLocaleDateString()}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    •
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(
+                                      item.created_at
+                                    ).toLocaleTimeString()}
+                                  </span>
+                                </div>
+                                {/* Reply actions */}
+                                <div className="mt-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 sm:h-7 px-2 text-xs cursor-pointer"
+                                    onClick={() =>
+                                      setReplyingTo({
+                                        type: "annotation",
+                                        id: item.id,
+                                      })
+                                    }
+                                  >
+                                    Reply
+                                  </Button>
+                                  {replyingTo?.type === "annotation" &&
+                                    replyingTo.id === item.id && (
+                                      <div className="mt-2 flex items-center gap-2">
+                                        <Textarea
+                                          placeholder="Write a reply..."
+                                          value={replyText}
+                                          onChange={(e) =>
+                                            setReplyText(e.target.value)
+                                          }
+                                          className="flex-1"
+                                          rows={2}
+                                        />
+                                        <Button
+                                          size="sm"
+                                          onClick={submitReply}
+                                          disabled={
+                                            !replyText.trim() || replySubmitting
+                                          }
+                                          className="cursor-pointer"
+                                        >
+                                          {replySubmitting
+                                            ? "Sending..."
+                                            : "Send"}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => {
+                                            setReplyingTo(null);
+                                            setReplyText("");
+                                          }}
+                                          className="cursor-pointer"
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    )}
+                                  {annotationRepliesMap[item.id]?.length >
+                                    0 && (
+                                    <div className="mt-3 pl-4 border-l border-border space-y-2">
+                                      {annotationRepliesMap[item.id]
+                                        .sort(
+                                          (a: any, b: any) =>
+                                            new Date(b.created_at).getTime() -
+                                            new Date(a.created_at).getTime()
+                                        )
+                                        .map((reply: any) => (
+                                          <div
+                                            key={reply.id}
+                                            className="text-sm text-foreground"
+                                          >
+                                            <div className="text-xs text-muted-foreground mb-1">
+                                              {reply.profiles?.email ||
+                                                "Unknown"}{" "}
+                                              •{" "}
+                                              {new Date(
+                                                reply.created_at
+                                              ).toLocaleString()}
+                                            </div>
+                                            <div className="whitespace-pre-wrap">
+                                              {linkifyText(reply.comment)}
+                                            </div>
+                                          </div>
+                                        ))}
+                                    </div>
                                   )}
                                 </div>
                               </div>
-                            </div>
-                            <div className="space-y-2">
+                            </Card>
+                          ) : (
+                            <Card
+                              key={`comment-${item.id}`}
+                              className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
+                            >
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-foreground">
+                                        {item.profiles?.email || "Unknown"}
+                                      </span>
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
+                                        Comment
+                                      </Badge>
+                                    </div>
+                                    {item.profiles?.title && (
+                                      <Badge
+                                        variant={
+                                          getTitleBadgeVariant(
+                                            item.profiles.title
+                                          ) as any
+                                        }
+                                        className="text-xs px-2 py-0.5 w-fit"
+                                      >
+                                        {item.profiles.title}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                               <div className="text-sm text-foreground p-2 rounded-md break-words overflow-hidden whitespace-pre-wrap font-sans">
                                 {linkifyText(item.comment)}
                               </div>
-                              {item.image_url && (
-                                <div className="mt-4">
-                                  <div className="relative w-full h-48 border rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
-                                    {(() => {
-                                      const fileName =
-                                        item.image_url?.split("/").pop() || "";
-                                      const isGlbFile = fileName
-                                        .toLowerCase()
-                                        .endsWith(".glb");
-                                      if (
-                                        item.image_url.startsWith("file://")
-                                      ) {
-                                        return (
-                                          <div className="w-full h-full bg-muted flex items-center justify-center">
-                                            <div className="text-center">
-                                              <LucideImage className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                                              <p className="text-sm text-muted-foreground">
-                                                Local file: {fileName}
-                                              </p>
-                                              <p className="text-xs text-muted-foreground">
-                                                (Cannot display in browser)
-                                              </p>
-                                            </div>
-                                          </div>
-                                        );
-                                      } else if (isGlbFile) {
-                                        return (
-                                          <div
-                                            className="w-full h-full bg-muted flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
-                                            onClick={() => {
-                                              if (!item.image_url) return;
-                                              const link =
-                                                document.createElement("a");
-                                              link.href = item.image_url;
-                                              link.download = fileName;
-                                              link.target = "_blank";
-                                              document.body.appendChild(link);
-                                              link.click();
-                                              document.body.removeChild(link);
-                                            }}
-                                          >
-                                            <div className="text-center">
-                                              <div className="w-8 h-8 mx-auto mb-2 flex items-center justify-center">
-                                                <svg
-                                                  className="w-8 h-8 text-muted-foreground"
-                                                  fill="currentColor"
-                                                  viewBox="0 0 24 24"
-                                                >
-                                                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                                                </svg>
-                                              </div>
-                                              <p className="text-sm text-muted-foreground">
-                                                3D Model: {fileName}
-                                              </p>
-                                              <p className="text-xs text-muted-foreground">
-                                                Click to download
-                                              </p>
-                                            </div>
-                                          </div>
-                                        );
-                                      } else {
-                                        return (
-                                          <Image
-                                            width={320}
-                                            height={192}
-                                            unoptimized
-                                            src={item.image_url}
-                                            alt="Annotation reference"
-                                            className="w-full h-full object-contain"
-                                            onError={(e) => {
-                                              console.error(
-                                                "Failed to load annotation image:",
-                                                item.image_url
-                                              );
-                                              (
-                                                e.currentTarget as HTMLElement
-                                              ).style.display = "none";
-                                            }}
-                                          />
-                                        );
-                                      }
-                                    })()}
-                                  </div>
-                                </div>
-                              )}
                               <div className="mt-4 flex items-center gap-2">
                                 <span className="text-xs text-muted-foreground">
                                   {new Date(
@@ -2632,53 +2799,55 @@ export default function ModelerReviewPage() {
                                   className="h-7 px-2 text-xs cursor-pointer"
                                   onClick={() =>
                                     setReplyingTo({
-                                      type: "annotation",
+                                      type: "comment",
                                       id: item.id,
                                     })
                                   }
                                 >
                                   Reply
                                 </Button>
-                                {replyingTo?.type === "annotation" &&
+                                {replyingTo?.type === "comment" &&
                                   replyingTo.id === item.id && (
-                                    <div className="mt-2 flex items-center gap-2">
+                                    <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                                       <Textarea
                                         placeholder="Write a reply..."
                                         value={replyText}
                                         onChange={(e) =>
                                           setReplyText(e.target.value)
                                         }
-                                        className="flex-1"
+                                        className="flex-1 text-xs sm:text-sm"
                                         rows={2}
                                       />
-                                      <Button
-                                        size="sm"
-                                        onClick={submitReply}
-                                        disabled={
-                                          !replyText.trim() || replySubmitting
-                                        }
-                                        className="cursor-pointer"
-                                      >
-                                        {replySubmitting
-                                          ? "Sending..."
-                                          : "Send"}
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          setReplyingTo(null);
-                                          setReplyText("");
-                                        }}
-                                        className="cursor-pointer"
-                                      >
-                                        Cancel
-                                      </Button>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          onClick={submitReply}
+                                          disabled={
+                                            !replyText.trim() || replySubmitting
+                                          }
+                                          className="cursor-pointer text-xs h-7 sm:h-8 flex-1 sm:flex-none"
+                                        >
+                                          {replySubmitting
+                                            ? "Sending..."
+                                            : "Send"}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => {
+                                            setReplyingTo(null);
+                                            setReplyText("");
+                                          }}
+                                          className="cursor-pointer text-xs h-7 sm:h-8 flex-1 sm:flex-none"
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
                                     </div>
                                   )}
-                                {annotationRepliesMap[item.id]?.length > 0 && (
+                                {commentRepliesMap[item.id]?.length > 0 && (
                                   <div className="mt-3 pl-4 border-l border-border space-y-2">
-                                    {annotationRepliesMap[item.id]
+                                    {commentRepliesMap[item.id]
                                       .sort(
                                         (a: any, b: any) =>
                                           new Date(b.created_at).getTime() -
@@ -2704,153 +2873,24 @@ export default function ModelerReviewPage() {
                                   </div>
                                 )}
                               </div>
-                            </div>
-                          </Card>
-                        ) : (
-                          <Card
-                            key={`comment-${item.id}`}
-                            className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
-                          >
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-foreground">
-                                      {item.profiles?.email || "Unknown"}
-                                    </span>
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs"
-                                    >
-                                      Comment
-                                    </Badge>
-                                  </div>
-                                  {item.profiles?.title && (
-                                    <Badge
-                                      variant={
-                                        getTitleBadgeVariant(
-                                          item.profiles.title
-                                        ) as any
-                                      }
-                                      className="text-xs px-2 py-0.5 w-fit"
-                                    >
-                                      {item.profiles.title}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-sm text-foreground p-2 rounded-md break-words overflow-hidden whitespace-pre-wrap font-sans">
-                              {linkifyText(item.comment)}
-                            </div>
-                            <div className="mt-4 flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(item.created_at).toLocaleDateString()}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                •
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(item.created_at).toLocaleTimeString()}
-                              </span>
-                            </div>
-                            {/* Reply actions */}
-                            <div className="mt-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs cursor-pointer"
-                                onClick={() =>
-                                  setReplyingTo({
-                                    type: "comment",
-                                    id: item.id,
-                                  })
-                                }
-                              >
-                                Reply
-                              </Button>
-                              {replyingTo?.type === "comment" &&
-                                replyingTo.id === item.id && (
-                                  <div className="mt-2 flex items-center gap-2">
-                                    <Textarea
-                                      placeholder="Write a reply..."
-                                      value={replyText}
-                                      onChange={(e) =>
-                                        setReplyText(e.target.value)
-                                      }
-                                      className="flex-1"
-                                      rows={2}
-                                    />
-                                    <Button
-                                      size="sm"
-                                      onClick={submitReply}
-                                      disabled={
-                                        !replyText.trim() || replySubmitting
-                                      }
-                                      className="cursor-pointer"
-                                    >
-                                      {replySubmitting ? "Sending..." : "Send"}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setReplyingTo(null);
-                                        setReplyText("");
-                                      }}
-                                      className="cursor-pointer"
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                )}
-                              {commentRepliesMap[item.id]?.length > 0 && (
-                                <div className="mt-3 pl-4 border-l border-border space-y-2">
-                                  {commentRepliesMap[item.id]
-                                    .sort(
-                                      (a: any, b: any) =>
-                                        new Date(b.created_at).getTime() -
-                                        new Date(a.created_at).getTime()
-                                    )
-                                    .map((reply: any) => (
-                                      <div
-                                        key={reply.id}
-                                        className="text-sm text-foreground"
-                                      >
-                                        <div className="text-xs text-muted-foreground mb-1">
-                                          {reply.profiles?.email || "Unknown"} •{" "}
-                                          {new Date(
-                                            reply.created_at
-                                          ).toLocaleString()}
-                                        </div>
-                                        <div className="whitespace-pre-wrap">
-                                          {linkifyText(reply.comment)}
-                                        </div>
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                          </Card>
-                        )
-                      )}
+                            </Card>
+                          )
+                        )}
 
-                    {annotations.length + comments.length === 0 && (
-                      <div className="text-center py-12">
-                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                          <MessageCircle className="h-8 w-8 text-muted-foreground" />
+                      {annotations.length + comments.length === 0 && (
+                        <div className="text-center py-12">
+                          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                            <MessageCircle className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-foreground mb-2">
+                            No feedback yet
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            Start by adding an annotation or a comment
+                          </p>
                         </div>
-                        <h3 className="text-lg font-semibold text-foreground mb-2">
-                          No feedback yet
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          Start by adding an annotation or a comment
-                        </p>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

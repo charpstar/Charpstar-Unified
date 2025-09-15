@@ -1279,67 +1279,72 @@ export default function BatchDetailPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/my-assignments")}
-            className="gap-2 text-muted-foreground hover:text-foreground"
+            className="gap-2 text-muted-foreground hover:text-foreground w-full sm:w-auto"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Assignments
+            <span className="hidden sm:inline">Back to Assignments</span>
+            <span className="sm:hidden">Back</span>
           </Button>
-          <Badge variant="outline" className="gap-1">
+          <Badge variant="outline" className="gap-1 w-fit">
             <Building className="h-3 w-3" />
-            Modeler Dashboard
+            <span className="hidden sm:inline">Modeler Dashboard</span>
+            <span className="sm:hidden">Modeler</span>
           </Badge>
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Building className="h-6 w-6 text-primary" />
+          <div className="flex items-start gap-3">
+            <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg flex-shrink-0">
+              <Building className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
             </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-semibold text-foreground">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                <h1 className="text-lg sm:text-2xl font-semibold text-foreground truncate">
                   {client}
                 </h1>
                 {filter === "urgent" && (
-                  <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300 border-orange-200 dark:border-orange-800">
+                  <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300 border-orange-200 dark:border-orange-800 w-fit">
                     <Target className="h-3 w-3 mr-1" />
-                    Urgent Only
+                    <span className="hidden sm:inline">Urgent Only</span>
+                    <span className="sm:hidden">Urgent</span>
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="text-sm">Batch {batch}</span>
-                <span>•</span>
-                <span className="text-sm">Active Assignment</span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-muted-foreground mt-1">
+                <span className="text-xs sm:text-sm">Batch {batch}</span>
+                <span className="hidden sm:inline">•</span>
+                <span className="text-xs sm:text-sm">Active Assignment</span>
                 {clientGuideUrls.length > 0 ? (
                   <>
-                    <span>•</span>
-                    {clientGuideUrls.map((url, idx) => (
-                      <a
-                        key={`guide-header-${idx}`}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline mr-2"
-                      >
-                        {idx === 0
-                          ? `Client Guidelines - ${client}`
-                          : `Guide ${idx + 1} - ${client}`}
-                      </a>
-                    ))}
+                    <span className="hidden sm:inline">•</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                      {clientGuideUrls.map((url, idx) => (
+                        <a
+                          key={`guide-header-${idx}`}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs sm:text-sm text-primary hover:underline break-all"
+                        >
+                          {idx === 0
+                            ? `Client Guidelines - ${client}`
+                            : `Guide ${idx + 1} - ${client}`}
+                        </a>
+                      ))}
+                    </div>
                   </>
                 ) : (
                   <>
-                    <span>•</span>
-                    <span className="text-sm italic">
+                    <span className="hidden sm:inline">•</span>
+                    <span className="text-xs sm:text-sm italic">
                       No guidelines found – contact production team
                     </span>
                   </>
@@ -1352,37 +1357,37 @@ export default function BatchDetailPage() {
 
       {/* Batch Earnings Statistics */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="bg-card border border-border rounded-xl p-6 shadow-sm animate-pulse"
+              className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm animate-pulse"
             >
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-muted rounded-xl">
-                  <div className="h-5 w-5 bg-muted-foreground/20 rounded" />
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="p-2 sm:p-3 bg-muted rounded-xl">
+                  <div className="h-4 w-4 sm:h-5 sm:w-5 bg-muted-foreground/20 rounded" />
                 </div>
-                <div className="flex-1 space-y-3">
-                  <div className="h-4 w-24 bg-muted rounded" />
-                  <div className="h-7 w-20 bg-muted rounded" />
-                  <div className="h-3 w-16 bg-muted rounded" />
+                <div className="flex-1 space-y-2 sm:space-y-3">
+                  <div className="h-3 w-20 sm:w-24 bg-muted rounded" />
+                  <div className="h-5 w-16 sm:w-20 bg-muted rounded" />
+                  <div className="h-2 w-12 sm:w-16 bg-muted rounded" />
                 </div>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-blue-50 rounded-xl">
-                <Euro className="h-5 w-5 text-blue-600" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-blue-50 rounded-xl flex-shrink-0">
+                <Euro className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-muted-foreground mb-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
                   Total Potential
                 </p>
-                <p className="text-2xl font-semibold text-foreground mb-1">
+                <p className="text-lg sm:text-2xl font-semibold text-foreground mb-1">
                   €{batchStats.totalPotentialEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1393,16 +1398,16 @@ export default function BatchDetailPage() {
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-green-50 rounded-xl">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+          <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-green-50 rounded-xl flex-shrink-0">
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-muted-foreground mb-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
                   Completed Earnings
                 </p>
-                <p className="text-2xl font-semibold text-foreground mb-1">
+                <p className="text-lg sm:text-2xl font-semibold text-foreground mb-1">
                   €{batchStats.completedEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1412,16 +1417,16 @@ export default function BatchDetailPage() {
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-amber-50 rounded-xl">
-                <Clock className="h-5 w-5 text-amber-600" />
+          <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-amber-50 rounded-xl flex-shrink-0">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-muted-foreground mb-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
                   Pending Earnings
                 </p>
-                <p className="text-2xl font-semibold text-foreground mb-1">
+                <p className="text-lg sm:text-2xl font-semibold text-foreground mb-1">
                   €{batchStats.pendingEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1432,16 +1437,16 @@ export default function BatchDetailPage() {
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-purple-50 rounded-xl">
-                <Package className="h-5 w-5 text-purple-600" />
+          <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-purple-50 rounded-xl flex-shrink-0">
+                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-muted-foreground mb-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
                   Bonus Earnings
                 </p>
-                <p className="text-2xl font-semibold text-foreground mb-1">
+                <p className="text-lg sm:text-2xl font-semibold text-foreground mb-1">
                   €{batchStats.totalBonusEarnings.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1455,29 +1460,29 @@ export default function BatchDetailPage() {
 
       {/* Filters and Search */}
       {loading ? (
-        <div className="mb-8">
-          <div className="bg-card border border-border rounded-xl p-6 shadow-sm animate-pulse">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1 h-10 bg-muted rounded-lg" />
-              <div className="w-full lg:w-48 h-10 bg-muted rounded-lg" />
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-card border border-border rounded-xl p-4 sm:p-6 shadow-sm animate-pulse">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <div className="flex-1 h-8 sm:h-10 bg-muted rounded-lg" />
+              <div className="w-full sm:w-48 h-8 sm:h-10 bg-muted rounded-lg" />
             </div>
           </div>
         </div>
       ) : (
-        <div className="mb-8">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-3 w-3 sm:h-4 sm:w-4" />
               <Input
                 placeholder="Search by name, article ID, or category..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10"
+                className="pl-8 sm:pl-10 h-8 sm:h-10 text-sm"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full lg:w-48 h-10">
-                <Filter className="h-4 w-4 mr-2" />
+              <SelectTrigger className="w-full sm:w-48 h-8 sm:h-10 text-sm">
+                <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -1507,10 +1512,11 @@ export default function BatchDetailPage() {
                     `/my-assignments/${encodeURIComponent(client)}/${batch}`
                   )
                 }
-                className="h-10 px-4"
+                className="h-8 sm:h-10 px-3 sm:px-4 text-sm w-full sm:w-auto"
               >
-                <X className="h-4 w-4 mr-2" />
-                Clear Urgent Filter
+                <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Clear Urgent Filter</span>
+                <span className="sm:hidden">Clear</span>
               </Button>
             )}
           </div>
@@ -1518,68 +1524,71 @@ export default function BatchDetailPage() {
       )}
 
       {/* Assets Table */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-muted rounded-lg">
-              <Package className="h-5 w-5 text-muted-foreground" />
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base sm:text-lg font-semibold text-foreground">
                 Assets Overview
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Manage your allocated work assignments
               </p>
             </div>
           </div>
-          <Badge variant="outline" className="text-xs px-3 py-1">
+          <Badge variant="outline" className="text-xs px-2 sm:px-3 py-1 w-fit">
             {filteredAssets.length} of{" "}
             {allocationLists.flatMap((list) => list.assets).length} assets
           </Badge>
         </div>
 
         {loading ? (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Skeleton for allocation list cards */}
             {[...Array(2)].map((_, listIndex) => (
               <Card key={listIndex} className="animate-pulse">
-                <CardHeader>
+                <CardHeader className="p-4 sm:p-6">
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="h-5 w-5 bg-gray-200 rounded" />
-                        <div className="h-6 w-32 bg-gray-200 rounded" />
+                        <div className="h-4 w-4 sm:h-5 sm:w-5 bg-gray-200 rounded" />
+                        <div className="h-5 w-24 sm:w-32 bg-gray-200 rounded" />
                       </div>
-                      <div className="flex items-center gap-4 mt-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
                         {[...Array(3)].map((_, i) => (
                           <div key={i} className="flex items-center gap-1">
-                            <div className="h-4 w-4 bg-gray-200 rounded" />
-                            <div className="h-4 w-20 bg-gray-200 rounded" />
+                            <div className="h-3 w-3 sm:h-4 sm:w-4 bg-gray-200 rounded" />
+                            <div className="h-3 w-16 sm:w-20 bg-gray-200 rounded" />
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Table header skeleton */}
-                    <div className="grid grid-cols-7 gap-4 pb-2 ">
+                    <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 sm:gap-4 pb-2">
                       {[...Array(7)].map((_, i) => (
-                        <div key={i} className="h-4 bg-gray-200 rounded" />
+                        <div
+                          key={i}
+                          className="h-3 sm:h-4 bg-gray-200 rounded"
+                        />
                       ))}
                     </div>
                     {/* Table rows skeleton */}
                     {[...Array(3)].map((_, rowIndex) => (
                       <div
                         key={rowIndex}
-                        className="grid grid-cols-7 gap-4 py-3 "
+                        className="grid grid-cols-2 sm:grid-cols-7 gap-2 sm:gap-4 py-2 sm:py-3"
                       >
                         {[...Array(7)].map((_, colIndex) => (
                           <div
                             key={colIndex}
-                            className="h-4 bg-gray-200 rounded"
+                            className="h-3 sm:h-4 bg-gray-200 rounded"
                           />
                         ))}
                       </div>
@@ -1590,27 +1599,34 @@ export default function BatchDetailPage() {
             ))}
           </div>
         ) : allocationLists.length === 0 ? (
-          <Card className="p-8 text-center">
-            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Assets in Batch</h3>
-            <p className="text-muted-foreground mb-4">
+          <Card className="p-6 sm:p-8 text-center">
+            <Package className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-base sm:text-lg font-semibold mb-2">
+              No Assets in Batch
+            </h3>
+            <p className="text-sm sm:text-base text-muted-foreground mb-4">
               This batch doesn&apos;t contain any assets yet.
             </p>
-            <Button onClick={() => router.push("/my-assignments")}>
+            <Button
+              onClick={() => router.push("/my-assignments")}
+              className="text-sm"
+            >
               Back to Assignments
             </Button>
           </Card>
         ) : filteredAssets.length === 0 ? (
-          <Card className="p-8 text-center">
-            <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Assets Found</h3>
-            <p className="text-muted-foreground">
+          <Card className="p-6 sm:p-8 text-center">
+            <Search className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-base sm:text-lg font-semibold mb-2">
+              No Assets Found
+            </h3>
+            <p className="text-sm sm:text-base text-muted-foreground">
               No assets match your current filters. Try adjusting your search or
               filters.
             </p>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <Accordion
               type="multiple"
               value={expandedAllocations}
@@ -1622,7 +1638,7 @@ export default function BatchDetailPage() {
                   window.localStorage.setItem(storageKey, JSON.stringify(next));
                 } catch {}
               }}
-              className="space-y-4"
+              className="space-y-3 sm:space-y-4"
             >
               {allocationLists.map((allocationList) => {
                 const visibleAssets = allocationList.assets.filter((a) =>
@@ -1647,11 +1663,11 @@ export default function BatchDetailPage() {
                       <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
                       <div className="pointer-events-none absolute -bottom-10 -left-10 h-24 w-24 rounded-full bg-accent-purple/10 blur-2xl" />
 
-                      <AccordionTrigger className="relative px-6 py-5 transition-all duration-200 hover:bg-black/3.5 dark:hover:bg-white/5">
+                      <AccordionTrigger className="relative px-4 sm:px-6 py-4 sm:py-5 transition-all duration-200 hover:bg-black/3.5 dark:hover:bg-white/5">
                         <div className="flex items-center justify-between w-full">
-                          <div className="flex items-start gap-4">
+                          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
                             <div
-                              className={`p-3 rounded-xl shadow-sm transition-all ${
+                              className={`p-2 sm:p-3 rounded-xl shadow-sm transition-all flex-shrink-0 ${
                                 isOverdue(allocationList.deadline)
                                   ? "bg-red-100 text-red-600"
                                   : allocationList.status === "approved"
@@ -1659,20 +1675,20 @@ export default function BatchDetailPage() {
                                     : "bg-primary/10 text-primary group-hover:bg-primary/15"
                               }`}
                             >
-                              <Package className="h-5 w-5" />
+                              <Package className="h-4 w-4 sm:h-5 sm:w-5" />
                             </div>
-                            <div className="text-left space-y-2">
-                              <div className="flex items-center gap-3">
-                                <h3 className="text-lg font-semibold text-foreground">
+                            <div className="text-left space-y-1 sm:space-y-2 min-w-0 flex-1">
+                              <div className="flex items-center gap-2 sm:gap-3">
+                                <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
                                   Allocation #{allocationList.number}
                                 </h3>
                               </div>
-                              <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 lg:gap-6 text-xs sm:text-sm text-muted-foreground">
                                 <div className="flex items-center gap-2">
                                   <div className="p-1 bg-muted rounded">
                                     <Building className="h-3 w-3 text-muted-foreground" />
                                   </div>
-                                  <span className="text-muted-foreground">
+                                  <span className="text-muted-foreground truncate">
                                     {client}
                                   </span>
                                 </div>
@@ -1708,18 +1724,23 @@ export default function BatchDetailPage() {
                                   </span>
                                 </div>
                                 {clientGuideUrls.length > 0 ? (
-                                  <div className="flex items-center gap-2">
-                                    <div className="p-1 bg-primary/10 rounded">
-                                      <Link2 className="h-3 w-3 text-primary" />
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className="p-1 bg-primary/10 rounded">
+                                        <Link2 className="h-3 w-3 text-primary" />
+                                      </div>
+                                      <span className="text-xs sm:text-sm">
+                                        Guides:
+                                      </span>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
                                       {clientGuideUrls.map((url, idx) => (
                                         <a
                                           key={`guide-list-${idx}`}
                                           href={url}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="text-primary hover:underline"
+                                          className="text-xs sm:text-sm text-primary hover:underline break-all"
                                         >
                                           {idx === 0
                                             ? `Client Guidelines - ${client}`
@@ -1733,7 +1754,7 @@ export default function BatchDetailPage() {
                                     <div className="p-1 bg-muted rounded">
                                       <Link2 className="h-3 w-3 text-muted-foreground" />
                                     </div>
-                                    <span className="italic text-muted-foreground">
+                                    <span className="italic text-muted-foreground text-xs sm:text-sm">
                                       No guidelines found for client – See
                                       general guidelines page
                                     </span>
@@ -1748,7 +1769,7 @@ export default function BatchDetailPage() {
                                       href="https://cdn2.charpstar.net/3DTester/TransparencyFix/"
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-blue-600 hover:text-blue-700 hover:underline "
+                                      className="text-blue-600 hover:text-blue-700 hover:underline text-xs sm:text-sm"
                                     >
                                       Synsam viewer
                                     </a>
@@ -1762,7 +1783,7 @@ export default function BatchDetailPage() {
                                       href="https://charpstar.se/3DTester-V5/"
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-blue-600 hover:text-blue-700 hover:underline"
+                                      className="text-blue-600 hover:text-blue-700 hover:underline text-xs sm:text-sm"
                                     >
                                       Model viewer
                                     </a>
@@ -1789,7 +1810,7 @@ export default function BatchDetailPage() {
                                     %
                                   </span>
                                 </div>
-                                <div className="h-2 w-full rounded-full bg-muted/70 overflow-hidden">
+                                <div className="h-1.5 sm:h-2 w-full rounded-full bg-muted/70 overflow-hidden">
                                   <div
                                     className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-700"
                                     style={{
@@ -1800,12 +1821,12 @@ export default function BatchDetailPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="text-right space-y-1">
+                          <div className="text-right space-y-1 flex-shrink-0">
                             <div className="flex items-center gap-2 justify-end">
                               <div className="p-1 bg-muted rounded">
                                 <Package className="h-3 w-3 text-muted-foreground" />
                               </div>
-                              <span className="text-lg font-semibold text-foreground">
+                              <span className="text-base sm:text-lg font-semibold text-foreground">
                                 {visibleAssets.length}
                               </span>
                             </div>
@@ -1814,7 +1835,7 @@ export default function BatchDetailPage() {
                             </p>
                             {visibleAssets.length > 0 && (
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <div className="flex gap-1">
+                                <div className="flex flex-wrap gap-1">
                                   {[
                                     "revisions",
                                     "not_started",
@@ -1830,7 +1851,7 @@ export default function BatchDetailPage() {
                                     return (
                                       <div
                                         key={status}
-                                        className={`px-1.5 py-0.5 rounded text-xs font-medium ${getStatusLabelClass(status)}`}
+                                        className={`px-1 sm:px-1.5 py-0.5 rounded text-xs font-medium ${getStatusLabelClass(status)}`}
                                       >
                                         {count}
                                       </div>
@@ -1839,131 +1860,362 @@ export default function BatchDetailPage() {
                                 </div>
                               </div>
                             )}
-                            <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                            <ChevronDown className="ml-auto h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                           </div>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
-                        <div className="px-6 pb-6">
-                          <div className="max-h-96 overflow-y-auto">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="w-12 py-2">
-                                    Status
-                                  </TableHead>
-                                  <TableHead className="w-32 py-2">
-                                    Product Name
-                                  </TableHead>
-                                  <TableHead className="w-32 py-2">
-                                    Article ID
-                                  </TableHead>
-                                  <TableHead className="w-24 py-2">
-                                    Priority
-                                  </TableHead>
-                                  <TableHead className="w-24 py-2">
-                                    Price
-                                  </TableHead>
-                                  <TableHead className="w-32 py-2">
-                                    Category
-                                  </TableHead>
-                                  <TableHead className="w-24 py-2">
-                                    GLB
-                                  </TableHead>
-                                  <TableHead className="w-24 py-2">
-                                    References
-                                  </TableHead>
-                                  <TableHead className="w-20 py-2">
-                                    Feedback
-                                  </TableHead>
-                                  <TableHead className="w-24 py-2">
-                                    Product Link
-                                  </TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {visibleAssets.map((asset) => (
-                                  <TableRow
-                                    key={asset.id}
-                                    className={`${getStatusRowClass(asset.status)} hover:bg-muted/50`}
-                                  >
-                                    <TableCell className="py-2">
-                                      <div className="flex items-center gap-2">
-                                        {getStatusIcon(asset.status)}
+                        <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+                          <div className="max-h-80 sm:max-h-96 overflow-y-auto">
+                            {/* Desktop Table */}
+                            <div className="hidden lg:block">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="w-12 py-2 text-xs">
+                                      Status
+                                    </TableHead>
+                                    <TableHead className="w-32 py-2 text-xs">
+                                      Product Name
+                                    </TableHead>
+                                    <TableHead className="w-32 py-2 text-xs">
+                                      Article ID
+                                    </TableHead>
+                                    <TableHead className="w-24 py-2 text-xs">
+                                      Priority
+                                    </TableHead>
+                                    <TableHead className="w-24 py-2 text-xs">
+                                      Price
+                                    </TableHead>
+                                    <TableHead className="w-32 py-2 text-xs">
+                                      Category
+                                    </TableHead>
+                                    <TableHead className="w-24 py-2 text-xs">
+                                      GLB
+                                    </TableHead>
+                                    <TableHead className="w-24 py-2 text-xs">
+                                      References
+                                    </TableHead>
+                                    <TableHead className="w-20 py-2 text-xs">
+                                      Feedback
+                                    </TableHead>
+                                    <TableHead className="w-24 py-2 text-xs">
+                                      Product Link
+                                    </TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {visibleAssets.map((asset) => (
+                                    <TableRow
+                                      key={asset.id}
+                                      className={`${getStatusRowClass(asset.status)} hover:bg-muted/50`}
+                                    >
+                                      <TableCell className="py-2">
+                                        <div className="flex items-center gap-2">
+                                          {getStatusIcon(asset.status)}
+                                          <Badge
+                                            variant="outline"
+                                            className={`text-xs ${getStatusLabelClass(asset.status)}`}
+                                          >
+                                            {getStatusLabelText(asset.status)}
+                                          </Badge>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        <div
+                                          className="font-medium truncate max-w-[200px] cursor-help"
+                                          title={asset.product_name}
+                                        >
+                                          {highlightMatch(
+                                            asset.product_name.length > 25
+                                              ? asset.product_name.substring(
+                                                  0,
+                                                  25
+                                                ) + "..."
+                                              : asset.product_name,
+                                            searchTerm
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        <span className="text-xs text-muted-foreground font-mono">
+                                          {
+                                            highlightMatch(
+                                              asset.article_id,
+                                              searchTerm
+                                            ) as any
+                                          }
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="py-2">
                                         <Badge
                                           variant="outline"
-                                          className={`text-xs ${getStatusLabelClass(asset.status)}`}
+                                          className={`text-xs ${getPriorityClass(asset.priority)}`}
                                         >
-                                          {getStatusLabelText(asset.status)}
+                                          {getPriorityLabel(asset.priority)}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        {asset.price ? (
+                                          <div className="flex items-center gap-1 align-middle justify-center text-center text-sm ">
+                                            <Euro className="h-3 w-3 text-success" />
+                                            <span className="font-semibold">
+                                              {asset.price.toFixed(2)}
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-muted-foreground text-sm">
+                                            -
+                                          </span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        <div className="text-sm">
+                                          {highlightMatch(
+                                            asset.category,
+                                            searchTerm
+                                          )}
+                                          {asset.subcategory && (
+                                            <div className="text-xs text-muted-foreground">
+                                              {highlightMatch(
+                                                asset.subcategory,
+                                                searchTerm
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        <div className="flex flex-col gap-1">
+                                          {asset.glb_link ? (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() =>
+                                                handleFileDownload(
+                                                  asset.glb_link!,
+                                                  `${asset.article_id}.glb`
+                                                )
+                                              }
+                                              className="text-xs h-6 px-2 w-full hover:text-blue-700 hover:underline"
+                                            >
+                                              <Download className="h-3 w-3 mr-1" />
+                                              Download
+                                            </Button>
+                                          ) : null}
+                                          <Button
+                                            variant={
+                                              asset.glb_link
+                                                ? "ghost"
+                                                : "default"
+                                            }
+                                            size="sm"
+                                            onClick={() =>
+                                              handleOpenUploadDialog(
+                                                asset,
+                                                "glb"
+                                              )
+                                            }
+                                            disabled={uploadingGLB === asset.id}
+                                            className={`text-xs h-6 px-2 w-full ${
+                                              asset.glb_link
+                                                ? "hover:text-blue-700 hover:underline"
+                                                : " text-white"
+                                            }`}
+                                          >
+                                            {uploadingGLB === asset.id ? (
+                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1 dark:border-border dark:text-muted-foreground text-foreground" />
+                                            ) : (
+                                              <Upload className="h-3 w-3 mr-1" />
+                                            )}
+                                            {asset.glb_link
+                                              ? "Update GLB"
+                                              : "Upload GLB"}
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        <div className="flex flex-col gap-1">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              setSelectedAssetForView(asset);
+                                              setShowViewRefDialog(true);
+                                            }}
+                                            className="text-xs h-6 px-2 w-full border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-border dark:hover:bg-muted/50 dark:text-muted-foreground"
+                                          >
+                                            <FileText className="h-3 w-3 mr-1" />
+                                            Ref (
+                                            {separateReferences(
+                                              asset.reference || null
+                                            ).imageReferences.length +
+                                              separateReferences(
+                                                asset.reference || null
+                                              ).glbFiles.length +
+                                              (asset.glb_link ? 1 : 0)}
+                                            )
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        <div className="flex flex-col items-center gap-1">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="w-full h-6 px-2 text-xs hover:text-purple-700 hover:underline"
+                                            onClick={() =>
+                                              window.open(
+                                                `/modeler-review/${asset.id}?from=my-assignments&client=${encodeURIComponent(client)}&batch=${batch}`,
+                                                "_blank",
+                                                "noopener,noreferrer"
+                                              )
+                                            }
+                                          >
+                                            <Eye className="h-4 w-4 mr-1" />
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        <div className="flex justify-center">
+                                          {asset.product_link ? (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                              onClick={() =>
+                                                handleOpenProductLink(
+                                                  asset.product_link || ""
+                                                )
+                                              }
+                                            >
+                                              Product Link
+                                            </Button>
+                                          ) : (
+                                            <span className="text-xs text-muted-foreground">
+                                              -
+                                            </span>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+
+                            {/* Mobile Card View */}
+                            <div className="lg:hidden space-y-3">
+                              {visibleAssets.map((asset) => (
+                                <Card
+                                  key={asset.id}
+                                  className={`${getStatusRowClass(asset.status)} p-3 sm:p-4`}
+                                >
+                                  <div className="space-y-3">
+                                    {/* Header */}
+                                    <div className="flex items-start justify-between">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          {getStatusIcon(asset.status)}
+                                          <Badge
+                                            variant="outline"
+                                            className={`text-xs ${getStatusLabelClass(asset.status)}`}
+                                          >
+                                            {getStatusLabelText(asset.status)}
+                                          </Badge>
+                                        </div>
+                                        <h4
+                                          className="font-medium text-sm truncate"
+                                          title={asset.product_name}
+                                        >
+                                          {highlightMatch(
+                                            asset.product_name.length > 30
+                                              ? asset.product_name.substring(
+                                                  0,
+                                                  30
+                                                ) + "..."
+                                              : asset.product_name,
+                                            searchTerm
+                                          )}
+                                        </h4>
+                                        <p className="text-xs text-muted-foreground font-mono">
+                                          {
+                                            highlightMatch(
+                                              asset.article_id,
+                                              searchTerm
+                                            ) as any
+                                          }
+                                        </p>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 w-7 p-0 hover:text-purple-700"
+                                        onClick={() =>
+                                          window.open(
+                                            `/modeler-review/${asset.id}?from=my-assignments&client=${encodeURIComponent(client)}&batch=${batch}`,
+                                            "_blank",
+                                            "noopener,noreferrer"
+                                          )
+                                        }
+                                      >
+                                        <Eye className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+
+                                    {/* Details */}
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div>
+                                        <span className="text-muted-foreground">
+                                          Priority:
+                                        </span>
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-xs ml-1 ${getPriorityClass(asset.priority)}`}
+                                        >
+                                          {getPriorityLabel(asset.priority)}
                                         </Badge>
                                       </div>
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      <div
-                                        className="font-medium truncate max-w-[200px] cursor-help"
-                                        title={asset.product_name}
-                                      >
-                                        {highlightMatch(
-                                          asset.product_name.length > 25
-                                            ? asset.product_name.substring(
-                                                0,
-                                                25
-                                              ) + "..."
-                                            : asset.product_name,
-                                          searchTerm
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      <span className="text-xs text-muted-foreground font-mono">
-                                        {
-                                          highlightMatch(
-                                            asset.article_id,
-                                            searchTerm
-                                          ) as any
-                                        }
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      <Badge
-                                        variant="outline"
-                                        className={`text-xs ${getPriorityClass(asset.priority)}`}
-                                      >
-                                        {getPriorityLabel(asset.priority)}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      {asset.price ? (
-                                        <div className="flex items-center gap-1 align-middle justify-center text-center text-sm ">
-                                          <Euro className="h-3 w-3 text-success" />
-                                          <span className="font-semibold">
-                                            {asset.price.toFixed(2)}
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <span className="text-muted-foreground text-sm">
-                                          -
+                                      <div>
+                                        <span className="text-muted-foreground">
+                                          Price:
                                         </span>
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      <div className="text-sm">
-                                        {highlightMatch(
-                                          asset.category,
-                                          searchTerm
-                                        )}
-                                        {asset.subcategory && (
-                                          <div className="text-xs text-muted-foreground">
-                                            {highlightMatch(
-                                              asset.subcategory,
-                                              searchTerm
-                                            )}
-                                          </div>
+                                        {asset.price ? (
+                                          <span className="ml-1 font-semibold">
+                                            €{asset.price.toFixed(2)}
+                                          </span>
+                                        ) : (
+                                          <span className="ml-1 text-muted-foreground">
+                                            -
+                                          </span>
                                         )}
                                       </div>
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      <div className="flex flex-col gap-1">
+                                      <div className="col-span-2">
+                                        <span className="text-muted-foreground">
+                                          Category:
+                                        </span>
+                                        <span className="ml-1">
+                                          {highlightMatch(
+                                            asset.category,
+                                            searchTerm
+                                          )}
+                                          {asset.subcategory && (
+                                            <span className="text-muted-foreground">
+                                              {" / "}
+                                              {highlightMatch(
+                                                asset.subcategory,
+                                                searchTerm
+                                              )}
+                                            </span>
+                                          )}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex flex-wrap gap-2">
+                                      {/* GLB Actions */}
+                                      <div className="flex gap-1">
                                         {asset.glb_link ? (
                                           <Button
                                             variant="ghost"
@@ -1974,10 +2226,10 @@ export default function BatchDetailPage() {
                                                 `${asset.article_id}.glb`
                                               )
                                             }
-                                            className="text-xs h-6 px-2 w-full hover:text-blue-700 hover:underline"
+                                            className="text-xs h-6 px-2 hover:text-blue-700"
                                           >
                                             <Download className="h-3 w-3 mr-1" />
-                                            Download
+                                            GLB
                                           </Button>
                                         ) : null}
                                         <Button
@@ -1989,91 +2241,64 @@ export default function BatchDetailPage() {
                                             handleOpenUploadDialog(asset, "glb")
                                           }
                                           disabled={uploadingGLB === asset.id}
-                                          className={`text-xs h-6 px-2 w-full ${
+                                          className={`text-xs h-6 px-2 ${
                                             asset.glb_link
-                                              ? "hover:text-blue-700 hover:underline"
-                                              : " text-white"
+                                              ? "hover:text-blue-700"
+                                              : "text-white"
                                           }`}
                                         >
                                           {uploadingGLB === asset.id ? (
-                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1 dark:border-border dark:text-muted-foreground text-foreground" />
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1" />
                                           ) : (
                                             <Upload className="h-3 w-3 mr-1" />
                                           )}
-                                          {asset.glb_link
-                                            ? "Update GLB"
-                                            : "Upload GLB"}
+                                          {asset.glb_link ? "Update" : "Upload"}
                                         </Button>
                                       </div>
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      <div className="flex flex-col gap-1">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => {
-                                            setSelectedAssetForView(asset);
-                                            setShowViewRefDialog(true);
-                                          }}
-                                          className="text-xs h-6 px-2 w-full border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-border dark:hover:bg-muted/50 dark:text-muted-foreground"
-                                        >
-                                          <FileText className="h-3 w-3 mr-1" />
-                                          Ref (
-                                          {separateReferences(
+
+                                      {/* References */}
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedAssetForView(asset);
+                                          setShowViewRefDialog(true);
+                                        }}
+                                        className="text-xs h-6 px-2"
+                                      >
+                                        <FileText className="h-3 w-3 mr-1" />
+                                        Ref (
+                                        {separateReferences(
+                                          asset.reference || null
+                                        ).imageReferences.length +
+                                          separateReferences(
                                             asset.reference || null
-                                          ).imageReferences.length +
-                                            separateReferences(
-                                              asset.reference || null
-                                            ).glbFiles.length +
-                                            (asset.glb_link ? 1 : 0)}
-                                          )
-                                        </Button>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      <div className="flex flex-col items-center gap-1">
+                                          ).glbFiles.length +
+                                          (asset.glb_link ? 1 : 0)}
+                                        )
+                                      </Button>
+
+                                      {/* Product Link */}
+                                      {asset.product_link && (
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          className="w-full h-6 px-2 text-xs hover:text-purple-700 hover:underline"
+                                          className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
                                           onClick={() =>
-                                            window.open(
-                                              `/modeler-review/${asset.id}?from=my-assignments&client=${encodeURIComponent(client)}&batch=${batch}`,
-                                              "_blank",
-                                              "noopener,noreferrer"
+                                            handleOpenProductLink(
+                                              asset.product_link || ""
                                             )
                                           }
                                         >
-                                          <Eye className="h-4 w-4 mr-1" />
+                                          <Link2 className="h-3 w-3 mr-1" />
+                                          Link
                                         </Button>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="py-2">
-                                      <div className="flex justify-center">
-                                        {asset.product_link ? (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                                            onClick={() =>
-                                              handleOpenProductLink(
-                                                asset.product_link || ""
-                                              )
-                                            }
-                                          >
-                                            Product Link
-                                          </Button>
-                                        ) : (
-                                          <span className="text-xs text-muted-foreground">
-                                            -
-                                          </span>
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                                      )}
+                                    </div>
+                                  </div>
+                                </Card>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </AccordionContent>
@@ -2088,19 +2313,19 @@ export default function BatchDetailPage() {
 
       {/* Previous Modeler Files Section */}
       {assetFileHistory.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-amber-600" />
-            <h3 className="text-lg font-medium">
+            <Package className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
+            <h3 className="text-base sm:text-lg font-medium">
               Previous Modeler Files Available
             </h3>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             These assets have files from previous modelers that you can
             download:
           </p>
 
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {assetFileHistory.map((history) => {
               const asset = allocationLists
                 .flatMap((list) => list.assets)
@@ -2111,12 +2336,12 @@ export default function BatchDetailPage() {
               return (
                 <Card
                   key={history.assetId}
-                  className="p-4 border-amber-200 bg-amber-50/50"
+                  className="p-3 sm:p-4 border-amber-200 bg-amber-50/50"
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium text-sm">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-medium text-xs sm:text-sm truncate">
                           {asset.product_name} ({asset.article_id})
                         </h4>
                         <p className="text-xs text-muted-foreground">
@@ -2127,8 +2352,8 @@ export default function BatchDetailPage() {
 
                     <div className="space-y-2">
                       {history.files.glb_link && (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <Badge variant="outline" className="text-xs w-fit">
                             Current GLB File
                           </Badge>
                           <Button
@@ -2140,7 +2365,7 @@ export default function BatchDetailPage() {
                                 `${asset.product_name}-${asset.article_id}.glb`
                               )
                             }
-                            className="text-xs h-6 px-2"
+                            className="text-xs h-6 px-2 w-full sm:w-auto"
                           >
                             Download
                           </Button>
@@ -2216,24 +2441,24 @@ export default function BatchDetailPage() {
 
       {/* Reference Images Dialog */}
       <Dialog open={referenceDialogOpen} onOpenChange={setReferenceDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
+        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Download className="h-4 w-4 sm:h-5 sm:w-5" />
               Reference Images - {currentAssetName}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {currentReferences.length === 0 ? (
-              <div className="text-center py-8">
-                <Download className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
+              <div className="text-center py-6 sm:py-8">
+                <Download className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+                <p className="text-sm sm:text-base text-muted-foreground">
                   No reference images available
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {currentReferences.map((url, index) => (
                   <div key={index} className="relative group">
                     <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
@@ -2251,19 +2476,19 @@ export default function BatchDetailPage() {
                     </div>
 
                     {/* Download overlay */}
-                    <div className="absolute inset-0  bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 flex items-center justify-center">
                       <Button
                         onClick={() => handleDownloadReference(url)}
                         size="sm"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white text-gray-900 hover:bg-gray-100"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white text-gray-900 hover:bg-gray-100 text-xs sm:text-sm"
                       >
-                        <Download className="h-4 w-4 mr-2" />
+                        <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                         Download
                       </Button>
                     </div>
 
                     {/* Image number badge */}
-                    <div className="absolute top-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
+                    <div className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-black bg-opacity-75 text-white text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
                       {index + 1}
                     </div>
                   </div>
@@ -2280,28 +2505,28 @@ export default function BatchDetailPage() {
         onOpenChange={setGlbUploadDialogOpen}
         modal={false}
       >
-        <DialogContent className="max-w-md h-fit">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 dark:text-muted-foreground dark:text-foreground text-foreground">
-              <Upload className="h-5 w-5" />
+        <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 dark:text-muted-foreground dark:text-foreground text-foreground text-base sm:text-lg">
+              <Upload className="h-4 w-4 sm:h-5 sm:w-5" />
               {currentUploadAsset?.glb_link
                 ? "Update GLB File"
                 : "Upload GLB File"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              <p className="mb-2">
+          <div className="space-y-3 sm:space-y-4">
+            <div className="text-xs sm:text-sm text-muted-foreground">
+              <p className="mb-1 sm:mb-2">
                 <strong>Asset:</strong> {currentUploadAsset?.product_name}
               </p>
-              <p className="mb-2">
+              <p className="mb-1 sm:mb-2">
                 <strong>Article ID:</strong> {currentUploadAsset?.article_id}
               </p>
             </div>
 
             <div
-              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+              className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors ${
                 dragActive
                   ? "border-primary bg-primary/5"
                   : "border-muted-foreground/25 hover:border-muted-foreground/50"
@@ -2311,11 +2536,11 @@ export default function BatchDetailPage() {
               onDragOver={handleDrag}
               onDrop={handleDrop}
             >
-              <Upload className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm font-medium mb-2">
+              <Upload className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-3 sm:mb-4 text-muted-foreground" />
+              <p className="text-xs sm:text-sm font-medium mb-1 sm:mb-2">
                 Drop your GLB file here or click to browse
               </p>
-              <p className="text-xs text-muted-foreground mb-4">
+              <p className="text-xs text-muted-foreground mb-3 sm:mb-4">
                 Only .glb and .gltf files are supported
               </p>
 
@@ -2328,15 +2553,15 @@ export default function BatchDetailPage() {
               />
               <label
                 htmlFor="glb-file-input"
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 cursor-pointer"
+                className="inline-flex items-center justify-center rounded-md text-xs sm:text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-8 sm:h-9 px-3 sm:px-4 py-1.5 sm:py-2 cursor-pointer"
               >
                 Choose File
               </label>
             </div>
 
             {uploadingGLB === currentUploadAsset?.id && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-blue-600" />
                 Uploading GLB file...
               </div>
             )}
@@ -2350,26 +2575,26 @@ export default function BatchDetailPage() {
         onOpenChange={setAssetUploadDialogOpen}
         modal={false}
       >
-        <DialogContent className="max-w-md h-fit">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Image className="h-5 w-5" />
+        <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Image className="h-4 w-4 sm:h-5 sm:w-5" />
               Upload Asset Files
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              <p className="mb-2">
+          <div className="space-y-3 sm:space-y-4">
+            <div className="text-xs sm:text-sm text-muted-foreground">
+              <p className="mb-1 sm:mb-2">
                 <strong>Asset:</strong> {currentUploadAsset?.product_name}
               </p>
-              <p className="mb-2">
+              <p className="mb-1 sm:mb-2">
                 <strong>Article ID:</strong> {currentUploadAsset?.article_id}
               </p>
             </div>
 
             <div
-              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+              className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors ${
                 dragActive
                   ? "border-primary bg-primary/5"
                   : "border-muted-foreground/25 hover:border-muted-foreground/50"
@@ -2379,11 +2604,11 @@ export default function BatchDetailPage() {
               onDragOver={handleDrag}
               onDrop={handleDrop}
             >
-              <Image className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm font-medium mb-2">
+              <Image className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-3 sm:mb-4 text-muted-foreground" />
+              <p className="text-xs sm:text-sm font-medium mb-1 sm:mb-2">
                 Drop your asset files here or click to browse
               </p>
-              <p className="text-xs text-muted-foreground mb-4">
+              <p className="text-xs text-muted-foreground mb-3 sm:mb-4">
                 Supports ZIP archives, 3D files (BLEND, OBJ, FBX, GLB, GLTF,
                 Substance), images, and other asset formats
               </p>
@@ -2398,7 +2623,7 @@ export default function BatchDetailPage() {
               />
               <label
                 htmlFor="asset-file-input"
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 cursor-pointer"
+                className="inline-flex items-center justify-center rounded-md text-xs sm:text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-8 sm:h-9 px-3 sm:px-4 py-1.5 sm:py-2 cursor-pointer"
               >
                 Choose Files
               </label>
@@ -2407,21 +2632,21 @@ export default function BatchDetailPage() {
             {/* Selected Files List */}
             {selectedFiles.length > 0 && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">
+                <p className="text-xs sm:text-sm font-medium">
                   Selected Files ({selectedFiles.length}):
                 </p>
-                <div className="max-h-32 overflow-y-auto space-y-1">
+                <div className="max-h-24 sm:max-h-32 overflow-y-auto space-y-1">
                   {selectedFiles.map((file, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between bg-muted/50 rounded px-2 py-1 text-sm"
+                      className="flex items-center justify-between bg-muted/50 rounded px-2 py-1 text-xs sm:text-sm"
                     >
                       <span className="truncate">{file.name}</span>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => removeSelectedFile(index)}
-                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        className="h-5 w-5 sm:h-6 sm:w-6 p-0 text-destructive hover:text-destructive"
                       >
                         <X className="h-3 w-3" />
                       </Button>
@@ -2436,16 +2661,16 @@ export default function BatchDetailPage() {
               <Button
                 onClick={handleMultipleFileUpload}
                 disabled={uploadingMultiple}
-                className="w-full"
+                className="w-full text-xs sm:text-sm"
               >
                 {uploadingMultiple ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-1 sm:mr-2" />
                     Uploading {selectedFiles.length} files...
                   </>
                 ) : (
                   <>
-                    <Upload className="h-4 w-4 mr-2" />
+                    <Upload className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Upload {selectedFiles.length} Files
                   </>
                 )}
@@ -2453,8 +2678,8 @@ export default function BatchDetailPage() {
             )}
 
             {uploadingFile === currentUploadAsset?.id && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600" />
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-green-600" />
                 Uploading asset file...
               </div>
             )}

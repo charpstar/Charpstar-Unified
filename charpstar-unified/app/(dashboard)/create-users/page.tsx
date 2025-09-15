@@ -385,48 +385,48 @@ export default function CreateUsersPage() {
   }
 
   return (
-    <div className="container mx-auto p-6  space-y-6">
+    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4">
+      <div className="mb-4 sm:mb-6">
+        <div className="flex items-center gap-3 sm:gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.push("/users")}
-            className="hover:bg-primary/8 transition-all duration-200 rounded-lg cursor-pointer"
+            className="hover:bg-primary/8 transition-all duration-200 rounded-lg cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
           >
-            <ArrowLeft className="h-5 w-5 text-slate-600" />
+            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-slate-600" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Create User</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold">Create User</h1>
+            <p className="text-muted-foreground text-sm sm:text-base">
               Create a new user account without invitation
             </p>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex gap-6 overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 overflow-hidden">
         {/* Main Form */}
         <div className="flex-1 overflow-y-auto">
           <Card className="h-fit">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserPlus className="h-5 w-5" />
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
                 User Information
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
               {/* Basic Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <User className="h-4 w-4" />
+              <div className="space-y-3 sm:space-y-4">
+                <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                  <User className="h-3 w-3 sm:h-4 sm:w-4" />
                   Basic Information
                 </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       First Name *
                     </Label>
                     <Input
@@ -435,7 +435,7 @@ export default function CreateUsersPage() {
                         updateFormData("firstName", e.target.value)
                       }
                       placeholder="John"
-                      className={errors.firstName ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.firstName ? "border-red-500" : ""}`}
                     />
                     {errors.firstName && (
                       <p className="text-red-500 text-xs mt-1">
@@ -445,7 +445,7 @@ export default function CreateUsersPage() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       Last Name *
                     </Label>
                     <Input
@@ -454,7 +454,7 @@ export default function CreateUsersPage() {
                         updateFormData("lastName", e.target.value)
                       }
                       placeholder="Doe"
-                      className={errors.lastName ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.lastName ? "border-red-500" : ""}`}
                     />
                     {errors.lastName && (
                       <p className="text-red-500 text-xs mt-1">
@@ -465,7 +465,7 @@ export default function CreateUsersPage() {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                  <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                     Email Address *
                   </Label>
                   <Input
@@ -473,16 +473,16 @@ export default function CreateUsersPage() {
                     value={formData.email}
                     onChange={(e) => updateFormData("email", e.target.value)}
                     placeholder="user@example.com"
-                    className={errors.email ? "border-red-500" : ""}
+                    className={`text-sm sm:text-base ${errors.email ? "border-red-500" : ""}`}
                   />
                   {errors.email && (
                     <p className="text-red-500 text-xs mt-1">{errors.email}</p>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       Password *
                     </Label>
                     <Input
@@ -492,7 +492,7 @@ export default function CreateUsersPage() {
                         updateFormData("password", e.target.value)
                       }
                       placeholder="••••••••"
-                      className={errors.password ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.password ? "border-red-500" : ""}`}
                     />
                     {errors.password && (
                       <p className="text-red-500 text-xs mt-1">
@@ -502,7 +502,7 @@ export default function CreateUsersPage() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       Confirm Password *
                     </Label>
                     <Input
@@ -512,7 +512,7 @@ export default function CreateUsersPage() {
                         updateFormData("confirmPassword", e.target.value)
                       }
                       placeholder="••••••••"
-                      className={errors.confirmPassword ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.confirmPassword ? "border-red-500" : ""}`}
                     />
                     {errors.confirmPassword && (
                       <p className="text-red-500 text-xs mt-1">
@@ -523,7 +523,7 @@ export default function CreateUsersPage() {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                  <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                     Role *
                   </Label>
                   <Select
@@ -532,31 +532,31 @@ export default function CreateUsersPage() {
                       value: "client" | "modeler" | "qa" | "admin"
                     ) => updateFormData("role", value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="text-sm sm:text-base">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="client">
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
+                          <User className="h-3 w-3 sm:h-4 sm:w-4" />
                           Client
                         </div>
                       </SelectItem>
                       <SelectItem value="modeler">
                         <div className="flex items-center gap-2">
-                          <Building className="h-4 w-4" />
+                          <Building className="h-3 w-3 sm:h-4 sm:w-4" />
                           3D Modeler
                         </div>
                       </SelectItem>
                       <SelectItem value="qa">
                         <div className="flex items-center gap-2">
-                          <Shield className="h-4 w-4" />
+                          <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
                           Quality Assurance
                         </div>
                       </SelectItem>
                       <SelectItem value="admin">
                         <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4" />
+                          <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                           Administrator
                         </div>
                       </SelectItem>
@@ -569,10 +569,10 @@ export default function CreateUsersPage() {
 
                 {/* Mock Data Buttons */}
                 <div className="pt-2">
-                  <Label className="text-sm font-medium text-muted-foreground mb-3 block">
+                  <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 sm:mb-3 block">
                     Quick Fill (Testing)
                   </Label>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="grid grid-cols-2 sm:flex gap-2 flex-wrap">
                     <Button
                       type="button"
                       variant="outline"
@@ -581,7 +581,8 @@ export default function CreateUsersPage() {
                       className="text-xs"
                     >
                       <User className="h-3 w-3 mr-1" />
-                      Fill Client
+                      <span className="hidden sm:inline">Fill Client</span>
+                      <span className="sm:hidden">Client</span>
                     </Button>
                     <Button
                       type="button"
@@ -591,7 +592,8 @@ export default function CreateUsersPage() {
                       className="text-xs"
                     >
                       <Building className="h-3 w-3 mr-1" />
-                      Fill Modeler
+                      <span className="hidden sm:inline">Fill Modeler</span>
+                      <span className="sm:hidden">Modeler</span>
                     </Button>
                     <Button
                       type="button"
@@ -601,14 +603,15 @@ export default function CreateUsersPage() {
                       className="text-xs"
                     >
                       <Shield className="h-3 w-3 mr-1" />
-                      Fill QA
+                      <span className="hidden sm:inline">Fill QA</span>
+                      <span className="sm:hidden">QA</span>
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={clearForm}
-                      className="text-xs text-error hover:text-error/80"
+                      className="text-xs text-error hover:text-error/80 col-span-2 sm:col-span-1"
                     >
                       <X className="h-3 w-3 mr-1" />
                       Clear Form
@@ -623,14 +626,14 @@ export default function CreateUsersPage() {
 
               {/* Role-specific fields */}
               {formData.role === "client" && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Briefcase className="h-4 w-4" />
+                <div className="space-y-3 sm:space-y-4">
+                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                    <Briefcase className="h-3 w-3 sm:h-4 sm:w-4" />
                     Client Information
                   </h3>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       Client/Brand Name *
                     </Label>
                     <Input
@@ -639,7 +642,7 @@ export default function CreateUsersPage() {
                         updateFormData("clientName", e.target.value)
                       }
                       placeholder="Company Name"
-                      className={errors.clientName ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.clientName ? "border-red-500" : ""}`}
                     />
                     {errors.clientName && (
                       <p className="text-red-500 text-xs mt-1">
@@ -649,14 +652,14 @@ export default function CreateUsersPage() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       Job Title *
                     </Label>
                     <Input
                       value={formData.title}
                       onChange={(e) => updateFormData("title", e.target.value)}
                       placeholder="e.g., Creative Director, Product Manager"
-                      className={errors.title ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.title ? "border-red-500" : ""}`}
                     />
                     {errors.title && (
                       <p className="text-red-500 text-xs mt-1">
@@ -666,7 +669,7 @@ export default function CreateUsersPage() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       Phone Number *
                     </Label>
                     <PhoneInput
@@ -675,7 +678,7 @@ export default function CreateUsersPage() {
                         updateFormData("phoneNumber", value || "")
                       }
                       defaultCountry="SE"
-                      className={errors.phoneNumber ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.phoneNumber ? "border-red-500" : ""}`}
                       placeholder="(xxx) xxx-xxxx"
                     />
                     {errors.phoneNumber && (
@@ -688,14 +691,14 @@ export default function CreateUsersPage() {
               )}
 
               {formData.role === "qa" && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
+                <div className="space-y-3 sm:space-y-4">
+                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                    <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
                     QA Information
                   </h3>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       Phone Number *
                     </Label>
                     <PhoneInput
@@ -704,7 +707,7 @@ export default function CreateUsersPage() {
                         updateFormData("phoneNumber", value || "")
                       }
                       defaultCountry="SE"
-                      className={errors.phoneNumber ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.phoneNumber ? "border-red-500" : ""}`}
                       placeholder="(xxx) xxx-xxxx"
                     />
                     {errors.phoneNumber && (
@@ -715,7 +718,7 @@ export default function CreateUsersPage() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       Discord Username *
                     </Label>
                     <Input
@@ -724,7 +727,7 @@ export default function CreateUsersPage() {
                         updateFormData("discordName", e.target.value)
                       }
                       placeholder="username#1234"
-                      className={errors.discordName ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.discordName ? "border-red-500" : ""}`}
                     />
                     {errors.discordName && (
                       <p className="text-red-500 text-xs mt-1">
@@ -736,14 +739,14 @@ export default function CreateUsersPage() {
               )}
 
               {formData.role === "modeler" && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Building className="h-4 w-4" />
+                <div className="space-y-3 sm:space-y-4">
+                  <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                    <Building className="h-3 w-3 sm:h-4 sm:w-4" />
                     3D Modeler Information
                   </h3>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       Phone Number *
                     </Label>
                     <PhoneInput
@@ -752,7 +755,7 @@ export default function CreateUsersPage() {
                         updateFormData("phoneNumber", value || "")
                       }
                       defaultCountry="SE"
-                      className={errors.phoneNumber ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.phoneNumber ? "border-red-500" : ""}`}
                       placeholder="(xxx) xxx-xxxx"
                     />
                     {errors.phoneNumber && (
@@ -763,7 +766,7 @@ export default function CreateUsersPage() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                       Country *
                     </Label>
                     <Input
@@ -772,7 +775,7 @@ export default function CreateUsersPage() {
                         updateFormData("country", e.target.value)
                       }
                       placeholder="e.g., United States, Canada, UK"
-                      className={errors.country ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.country ? "border-red-500" : ""}`}
                     />
                     {errors.country && (
                       <p className="text-red-500 text-xs mt-1">
@@ -782,10 +785,10 @@ export default function CreateUsersPage() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 block">
                       Software Experience *
                     </Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       {SOFTWARE_OPTIONS.map((software) => (
                         <div
                           key={software}
@@ -814,7 +817,7 @@ export default function CreateUsersPage() {
                           />
                           <Label
                             htmlFor={software}
-                            className="text-sm cursor-pointer"
+                            className="text-xs sm:text-sm cursor-pointer"
                           >
                             {software}
                           </Label>
@@ -829,10 +832,10 @@ export default function CreateUsersPage() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 block">
                       Model Types *
                     </Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {MODEL_TYPE_OPTIONS.map((type) => (
                         <div key={type} className="flex items-center space-x-2">
                           <Checkbox
@@ -854,7 +857,7 @@ export default function CreateUsersPage() {
                           />
                           <Label
                             htmlFor={type}
-                            className="text-sm cursor-pointer"
+                            className="text-xs sm:text-sm cursor-pointer"
                           >
                             {type}
                           </Label>
@@ -868,9 +871,9 @@ export default function CreateUsersPage() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
                         Daily Hours Available
                       </Label>
                       <Input
@@ -885,6 +888,7 @@ export default function CreateUsersPage() {
                           )
                         }
                         placeholder="8"
+                        className="text-sm sm:text-base"
                       />
                     </div>
 
@@ -896,24 +900,28 @@ export default function CreateUsersPage() {
                           updateFormData("exclusiveWork", !!checked)
                         }
                       />
-                      <Label htmlFor="exclusive" className="text-sm">
+                      <Label htmlFor="exclusive" className="text-xs sm:text-sm">
                         Available for exclusive work
                       </Label>
                     </div>
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 block">
                       Portfolio Links
                     </Label>
                     {formData.portfolioLinks.map((link, index) => (
-                      <div key={index} className="flex gap-2 mb-2">
+                      <div
+                        key={index}
+                        className="flex flex-col sm:flex-row gap-2 mb-2"
+                      >
                         <Input
                           value={link}
                           onChange={(e) =>
                             updatePortfolioLink(index, e.target.value)
                           }
                           placeholder="https://portfolio.example.com"
+                          className="text-sm sm:text-base"
                         />
                         {formData.portfolioLinks.length > 1 && (
                           <Button
@@ -921,7 +929,7 @@ export default function CreateUsersPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => removePortfolioLink(index)}
-                            className="px-3"
+                            className="px-3 text-xs sm:text-sm w-full sm:w-auto"
                           >
                             Remove
                           </Button>
@@ -933,16 +941,16 @@ export default function CreateUsersPage() {
                       variant="outline"
                       size="sm"
                       onClick={addPortfolioLink}
-                      className="mt-2"
+                      className="mt-2 text-xs sm:text-sm"
                     >
-                      <Link className="h-4 w-4 mr-2" />
+                      <Link className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                       Add Portfolio Link
                     </Button>
                   </div>
                 </div>
               )}
 
-              <div className="flex gap-4 pt-6">
+              <div className="flex gap-3 sm:gap-4 pt-4 sm:pt-6">
                 <Button
                   onClick={() => {
                     const isValid = validateForm();
@@ -953,16 +961,17 @@ export default function CreateUsersPage() {
                     }
                   }}
                   disabled={loading}
-                  className="flex-1"
+                  className="flex-1 text-sm sm:text-base"
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Creating User...
+                      <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                      <span className="hidden sm:inline">Creating User...</span>
+                      <span className="sm:hidden">Creating...</span>
                     </>
                   ) : (
                     <>
-                      <UserPlus className="h-4 w-4 mr-2" />
+                      <UserPlus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                       Create User
                     </>
                   )}
@@ -973,11 +982,11 @@ export default function CreateUsersPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="w-80 space-y-6">
+        <div className="w-full lg:w-80 space-y-4 sm:space-y-6">
           {/* Role Information */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 {getRoleIcon(formData.role)}
                 {formData.role === "modeler"
                   ? "3D Modeler"
@@ -987,13 +996,13 @@ export default function CreateUsersPage() {
                       formData.role.slice(1)}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+            <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 {getRoleDescription(formData.role)}
               </p>
 
               <div className="space-y-2">
-                <h4 className="font-medium text-sm">Permissions:</h4>
+                <h4 className="font-medium text-xs sm:text-sm">Permissions:</h4>
                 <ul className="text-xs text-muted-foreground space-y-1">
                   {formData.role === "client" && (
                     <>
@@ -1034,20 +1043,22 @@ export default function CreateUsersPage() {
 
           {/* Instructions */}
           <Card>
-            <CardHeader>
-              <CardTitle>Instructions</CardTitle>
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg">
+                Instructions
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <CardContent className="space-y-3 text-xs sm:text-sm text-muted-foreground p-4 sm:p-6">
               <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                <div className="w-2 h-2 bg-primary rounded-full mt-1.5 sm:mt-2 flex-shrink-0"></div>
                 <p>Fill in all required fields (marked with *)</p>
               </div>
               <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                <div className="w-2 h-2 bg-primary rounded-full mt-1.5 sm:mt-2 flex-shrink-0"></div>
                 <p>User will receive an email with login credentials</p>
               </div>
               <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                <div className="w-2 h-2 bg-primary rounded-full mt-1.5 sm:mt-2 flex-shrink-0"></div>
                 <p>Role-specific fields will be required based on selection</p>
               </div>
             </CardContent>
@@ -1057,34 +1068,34 @@ export default function CreateUsersPage() {
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent className="max-w-md h-fit overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+        <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
               Confirm User Creation
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
+          <div className="space-y-3 sm:space-y-4">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Are you sure you want to create a new user with the following
               details?
             </p>
 
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
+            <div className="space-y-2 text-xs sm:text-sm">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
                 <span className="font-medium">Name:</span>
-                <span>
+                <span className="break-words">
                   {formData.firstName} {formData.lastName}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
                 <span className="font-medium">Email:</span>
-                <span>{formData.email}</span>
+                <span className="break-all">{formData.email}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
                 <span className="font-medium">Role:</span>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs w-fit">
                   {getRoleIcon(formData.role)}
                   {formData.role === "modeler"
                     ? "3D Modeler"
@@ -1095,38 +1106,43 @@ export default function CreateUsersPage() {
                 </Badge>
               </div>
               {formData.role === "client" && formData.clientName && (
-                <div className="flex justify-between">
+                <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
                   <span className="font-medium">Client:</span>
-                  <span>{formData.clientName}</span>
+                  <span className="break-words">{formData.clientName}</span>
                 </div>
               )}
             </div>
 
             <Alert>
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
+              <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
+              <AlertDescription className="text-xs sm:text-sm">
                 The user will be created immediately and can log in with the
                 provided email and password.
               </AlertDescription>
             </Alert>
           </div>
 
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
             <Button
               variant="outline"
               onClick={() => setShowConfirmDialog(false)}
+              className="w-full sm:w-auto text-sm sm:text-base"
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={loading}>
+            <Button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full sm:w-auto text-sm sm:text-base"
+            >
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
                   Creating...
                 </>
               ) : (
                 <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   Create User
                 </>
               )}

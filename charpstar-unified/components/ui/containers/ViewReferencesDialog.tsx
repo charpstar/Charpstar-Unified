@@ -223,46 +223,49 @@ export function ViewReferencesDialog({
   if (!hasAnyFiles) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[600px] h-fit max-h-[80vh] overflow-y-auto dark:bg-background dark:border-border">
-          <DialogHeader>
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-[600px] max-h-[90vh] flex flex-col dark:bg-background dark:border-border">
+          <DialogHeader className="pb-3 sm:pb-4 flex-shrink-0">
             <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <DialogTitle className="text-xl font-bold text-foreground dark:text-foreground">
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="text-lg sm:text-xl font-bold text-foreground dark:text-foreground">
                   References - {asset?.product_name || "Asset"}
                 </DialogTitle>
-                <DialogDescription className="text-muted-foreground dark:text-muted-foreground">
+                <DialogDescription className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">
                   View and manage all reference images for this asset.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <div className="text-center py-8">
-            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-            <p className="text-muted-foreground dark:text-muted-foreground">
-              No files found
-            </p>
-            {onAddReference && !isModeler && (
-              <p className="text-xs text-muted-foreground dark:text-muted-foreground">
-                Click &quot;Add Reference&quot; to upload files
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center py-6 sm:py-8">
+              <FileText className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm sm:text-base text-muted-foreground dark:text-muted-foreground">
+                No files found
               </p>
-            )}
+              {onAddReference && !isModeler && (
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
+                  Click &quot;Add Reference&quot; to upload files
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className="flex gap-3 pt-4 border-t border-border dark:border-border">
+          <div className="flex-shrink-0 flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-border dark:border-border">
             {onAddReference && (
               <Button
                 onClick={onAddReference}
                 variant="outline"
-                className="cursor-pointer dark:border-border dark:hover:bg-muted/50"
+                className="cursor-pointer dark:border-border dark:hover:bg-muted/50 w-full sm:w-auto text-sm h-8 sm:h-9"
               >
-                <FileText className="h-4 w-4 mr-2" />
-                Add Reference
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Add Reference</span>
+                <span className="sm:hidden">Add Ref</span>
               </Button>
             )}
             <Button
               onClick={() => onOpenChange(false)}
-              className="cursor-pointer"
+              className="cursor-pointer w-full sm:w-auto text-sm h-8 sm:h-9"
             >
               Close
             </Button>
@@ -274,31 +277,31 @@ export function ViewReferencesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] h-fit max-h-[80vh] overflow-y-auto dark:bg-background dark:border-border">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] sm:w-full sm:max-w-[600px] max-h-[90vh] flex flex-col dark:bg-background dark:border-border">
+        <DialogHeader className="pb-3 sm:pb-4 flex-shrink-0">
           <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <DialogTitle className="text-xl font-bold text-foreground dark:text-foreground">
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-lg sm:text-xl font-bold text-foreground dark:text-foreground">
                 References - {asset?.product_name || "Asset"}
               </DialogTitle>
-              <DialogDescription className="text-muted-foreground dark:text-muted-foreground">
+              <DialogDescription className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">
                 View and manage all reference images for this asset.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6">
           {/* Header with Download All Button */}
-          <div className="flex items-center justify-between border-b border-border dark:border-border pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-foreground">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border dark:border-border pb-3 sm:pb-4 gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                <span className="font-semibold text-foreground text-sm sm:text-base">
                   Files Available
                 </span>
               </div>
-              <Badge variant="secondary" className="text-sm">
+              <Badge variant="secondary" className="text-xs sm:text-sm">
                 {Object.values(categories).reduce(
                   (sum, cat) => sum + cat.length,
                   0
@@ -309,19 +312,24 @@ export function ViewReferencesDialog({
             <Button
               onClick={downloadAllFiles}
               disabled={isDownloading}
-              className="bg-primary hover:bg-primary/90 text-white dark:text-black px-4 py-2"
+              className="bg-primary hover:bg-primary/90 text-white dark:text-black px-3 sm:px-4 py-2 text-xs sm:text-sm h-8 sm:h-9 w-full sm:w-auto"
             >
-              <Download className="h-4 w-4 mr-2" />
-              {isDownloading ? "Downloading..." : "Download All"}
+              <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">
+                {isDownloading ? "Downloading..." : "Download All"}
+              </span>
+              <span className="sm:hidden">
+                {isDownloading ? "Downloading..." : "Download All"}
+              </span>
             </Button>
           </div>
 
           {/* GLB Files Section */}
           {categories.glb.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               <div className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-foreground">
+                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                <h3 className="font-semibold text-foreground text-sm sm:text-base">
                   3D Models (GLB)
                 </h3>
                 <Badge variant="secondary" className="text-xs">
@@ -332,12 +340,12 @@ export function ViewReferencesDialog({
                 {categories.glb.map((file, index) => (
                   <div
                     key={`glb-${index}`}
-                    className="flex items-center justify-between p-3 border rounded-lg dark:border-border dark:bg-muted/10"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-2 sm:gap-0"
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <Package className="h-4 w-4 text-primary flex-shrink-0" />
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <Package className="h-3 w-3 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate dark:text-foreground">
+                        <p className="text-xs sm:text-sm font-medium truncate dark:text-foreground">
                           {file.name}
                         </p>
                         <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
@@ -354,7 +362,7 @@ export function ViewReferencesDialog({
                       variant="outline"
                       size="sm"
                       onClick={() => downloadGlbFile(file)}
-                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50"
+                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-7 sm:h-8 w-full sm:w-auto"
                     >
                       <Download className="h-3 w-3 mr-1" />
                       Download
@@ -367,10 +375,10 @@ export function ViewReferencesDialog({
 
           {/* Images Section */}
           {categories.images.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               <div className="flex items-center gap-2">
-                <ImageIcon className="h-5 w-5 text-blue-500" />
-                <h3 className="font-semibold text-foreground">
+                <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+                <h3 className="font-semibold text-foreground text-sm sm:text-base">
                   Reference Images
                 </h3>
                 <Badge variant="secondary" className="text-xs">
@@ -381,11 +389,11 @@ export function ViewReferencesDialog({
                 {categories.images.map((file, index) => (
                   <div
                     key={`img-${index}`}
-                    className="flex items-center justify-between p-3 border rounded-lg dark:border-border dark:bg-muted/10"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-2 sm:gap-0"
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                       {/* Image Preview */}
-                      <div className="w-16 h-16 bg-muted rounded-lg border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-lg border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
                         <Image
                           width={64}
                           height={64}
@@ -401,11 +409,11 @@ export function ViewReferencesDialog({
                           }}
                         />
                         <div className="hidden w-full h-full items-center justify-center bg-muted">
-                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                          <ImageIcon className="h-4 w-4 sm:h-6 sm:w-6 text-muted-foreground" />
                         </div>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate dark:text-foreground">
+                        <p className="text-xs sm:text-sm font-medium truncate dark:text-foreground">
                           {file.name}
                         </p>
                       </div>
@@ -414,7 +422,7 @@ export function ViewReferencesDialog({
                       variant="outline"
                       size="sm"
                       onClick={() => window.open(file.url, "_blank")}
-                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50"
+                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-7 sm:h-8 w-full sm:w-auto"
                     >
                       <ExternalLink className="h-3 w-3 mr-1" />
                       View
@@ -427,10 +435,12 @@ export function ViewReferencesDialog({
 
           {/* Documents Section */}
           {categories.documents.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-green-500" />
-                <h3 className="font-semibold text-foreground">Documents</h3>
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+                <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                  Documents
+                </h3>
                 <Badge variant="secondary" className="text-xs">
                   {categories.documents.length}
                 </Badge>
@@ -439,12 +449,12 @@ export function ViewReferencesDialog({
                 {categories.documents.map((file, index) => (
                   <div
                     key={`doc-${index}`}
-                    className="flex items-center justify-between p-3 border rounded-lg dark:border-border dark:bg-muted/10"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-2 sm:gap-0"
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <FileText className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-green-500 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate dark:text-foreground">
+                        <p className="text-xs sm:text-sm font-medium truncate dark:text-foreground">
                           {file.name}
                         </p>
                         <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
@@ -456,7 +466,7 @@ export function ViewReferencesDialog({
                       variant="outline"
                       size="sm"
                       onClick={() => window.open(file.url, "_blank")}
-                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50"
+                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-7 sm:h-8 w-full sm:w-auto"
                     >
                       <ExternalLink className="h-3 w-3 mr-1" />
                       Open
@@ -469,10 +479,10 @@ export function ViewReferencesDialog({
 
           {/* Other Files Section */}
           {categories.other.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               <div className="flex items-center gap-2">
-                <Link2 className="h-5 w-5 text-orange-500" />
-                <h3 className="font-semibold text-foreground">
+                <Link2 className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
+                <h3 className="font-semibold text-foreground text-sm sm:text-base">
                   External Links
                 </h3>
                 <Badge variant="secondary" className="text-xs">
@@ -483,12 +493,12 @@ export function ViewReferencesDialog({
                 {categories.other.map((file, index) => (
                   <div
                     key={`other-${index}`}
-                    className="flex items-center justify-between p-3 border rounded-lg dark:border-border dark:bg-muted/10"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-2 sm:gap-0"
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <Link2 className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <Link2 className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate dark:text-foreground">
+                        <p className="text-xs sm:text-sm font-medium truncate dark:text-foreground">
                           {file.name}
                         </p>
                         <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
@@ -500,7 +510,7 @@ export function ViewReferencesDialog({
                       variant="outline"
                       size="sm"
                       onClick={() => window.open(file.url, "_blank")}
-                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50"
+                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-7 sm:h-8 w-full sm:w-auto"
                     >
                       <ExternalLink className="h-3 w-3 mr-1" />
                       Open
@@ -512,15 +522,16 @@ export function ViewReferencesDialog({
           )}
         </div>
 
-        <div className="flex gap-3 pt-4 border-t border-border dark:border-border">
+        <div className="flex-shrink-0 flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-border dark:border-border">
           {onAddReference && !isModeler && (
             <Button
               onClick={onAddReference}
               variant="outline"
-              className="cursor-pointer dark:border-border dark:hover:bg-muted/50"
+              className="cursor-pointer dark:border-border dark:hover:bg-muted/50 w-full sm:w-auto text-sm h-8 sm:h-9"
             >
-              <FileText className="h-4 w-4 mr-2" />
-              Add Reference
+              <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Add Reference</span>
+              <span className="sm:hidden">Add Ref</span>
             </Button>
           )}
         </div>

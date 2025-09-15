@@ -1714,33 +1714,33 @@ export default function AdminReviewPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <Card className="p-6 flex-1 flex flex-col border-0 shadow-none bg-background  ">
+    <div className="container mx-auto p-2 sm:p-6 space-y-2 sm:space-y-6">
+      <Card className="p-2 sm:p-6 flex-1 flex flex-col border-0 shadow-none bg-background">
         {/* Page Title and Cleanup Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-2 sm:mb-6">
           {/* Cleanup Controls */}
         </div>
 
         {/* Status Summary Cards */}
         {!loading && !showAllocationLists && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-2 sm:mb-6">
             {/* Total Models (no filtering on this card itself) */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters([]);
                 setPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-info-muted rounded-lg">
-                  <Package className="h-5 w-5 text-info" />
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div className="p-1 sm:p-2 bg-info-muted rounded-lg">
+                  <Package className="h-3 w-3 sm:h-5 sm:w-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Total Models
                   </p>
-                  <p className="text-2xl font-bold text-info">
+                  <p className="text-sm sm:text-2xl font-bold text-info">
                     {statusTotals.totals.total}
                   </p>
                 </div>
@@ -1749,7 +1749,7 @@ export default function AdminReviewPage() {
 
             {/* In Production */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters([
                   "in_production",
@@ -1759,15 +1759,15 @@ export default function AdminReviewPage() {
                 setPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning-muted rounded-lg">
-                  <Package className="h-5 w-5 text-warning" />
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div className="p-1 sm:p-2 bg-warning-muted rounded-lg">
+                  <Package className="h-3 w-3 sm:h-5 sm:w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-xs font-medium text-muted-foreground">
                     In Production
                   </p>
-                  <p className="text-2xl font-bold text-warning">
+                  <p className="text-sm sm:text-2xl font-bold text-warning">
                     {statusTotals.totals.in_production +
                       statusTotals.totals.delivered_by_artist +
                       statusTotals.totals.not_started}
@@ -1778,21 +1778,21 @@ export default function AdminReviewPage() {
 
             {/* Approved */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters(["approved"]);
                 setPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-success-muted rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-success" />
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div className="p-1 sm:p-2 bg-success-muted rounded-lg">
+                  <CheckCircle className="h-3 w-3 sm:h-5 sm:w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Approved
                   </p>
-                  <p className="text-2xl font-medium text-success">
+                  <p className="text-sm sm:text-2xl font-medium text-success">
                     {statusTotals.totals.approved}
                   </p>
                 </div>
@@ -1801,21 +1801,21 @@ export default function AdminReviewPage() {
 
             {/* Sent for Revision */}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters(["revisions"]);
                 setPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-50 rounded-lg">
-                  <Eye className="h-5 w-5 text-red-600" />
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div className="p-1 sm:p-2 bg-red-50 rounded-lg">
+                  <Eye className="h-3 w-3 sm:h-5 sm:w-5 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Sent for Revision
                   </p>
-                  <p className="text-2xl font-bold text-red-600">
+                  <p className="text-sm sm:text-2xl font-bold text-red-600">
                     {statusTotals.totals.revisions}
                   </p>
                 </div>
@@ -1824,21 +1824,21 @@ export default function AdminReviewPage() {
 
             {/*    Delivered by Artist*/}
             <Card
-              className="p-4 cursor-pointer hover:shadow-md transition-all"
+              className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
                 setStatusFilters(["delivered_by_artist"]);
                 setPage(1);
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-50 rounded-lg">
-                  <Eye className="h-5 w-5 text-purple-600" />
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div className="p-1 sm:p-2 bg-purple-50 rounded-lg">
+                  <Eye className="h-3 w-3 sm:h-5 sm:w-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Delivered by Artist
                   </p>
-                  <p className="text-2xl font-bold text-purple-600">
+                  <p className="text-sm sm:text-2xl font-bold text-purple-600">
                     {statusTotals.totals.delivered_by_artist}
                   </p>
                 </div>
@@ -1849,9 +1849,7 @@ export default function AdminReviewPage() {
 
         {/* Inline Filter Controls */}
         {!loading && !showAllocationLists && (
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            {/* Client Filter */}
-
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 mb-2 sm:mb-4">
             {/* Status Filter */}
             <Select
               value={
@@ -1873,7 +1871,7 @@ export default function AdminReviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-40 h-9">
+              <SelectTrigger className="w-full sm:w-40 h-8 sm:h-9 text-sm">
                 <SelectValue
                   placeholder={
                     statusFilters.length === 0
@@ -1924,7 +1922,7 @@ export default function AdminReviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-32 h-9">
+              <SelectTrigger className="w-full sm:w-32 h-8 sm:h-9 text-sm">
                 <SelectValue
                   placeholder={
                     batchFilters.length === 0
@@ -1963,7 +1961,7 @@ export default function AdminReviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-40 h-9">
+              <SelectTrigger className="w-full sm:w-40 h-9 text-sm">
                 <SelectValue
                   placeholder={
                     modelerFilters.length === 0
@@ -2002,15 +2000,15 @@ export default function AdminReviewPage() {
                   setStatusFilters([]);
                   setPage(1);
                 }}
-                className="h-9 px-3"
+                className="h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm w-full sm:w-auto"
               >
-                <X className="h-4 w-4 mr-1" />
+                <X className="h-3 w-3 mr-1" />
                 Clear
               </Button>
             )}
 
             {selected.size > 0 && (
-              <div className="">
+              <div className="w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
@@ -2027,10 +2025,13 @@ export default function AdminReviewPage() {
                     // Navigate to allocate page with selected assets
                     router.push(`/production/allocate?${params.toString()}`);
                   }}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                 >
-                  <Users className="h-4 w-4" />
-                  Assign ({selected.size})
+                  <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">
+                    Assign ({selected.size})
+                  </span>
+                  <span className="sm:hidden">Assign {selected.size}</span>
                 </Button>
               </div>
             )}
@@ -2062,9 +2063,9 @@ export default function AdminReviewPage() {
                     className="cursor-pointer transition-all duration-300 ease-in-out hover:shadow-md"
                     onClick={() => toggleListExpansion(list.id)}
                   >
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                    <CardHeader className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                           <div className="flex items-center gap-2">
                             {getStatusIcon(list.status)}
                             <Badge
@@ -2078,22 +2079,26 @@ export default function AdminReviewPage() {
                                   : list.status}
                             </Badge>
                           </div>
-                          <h3 className="text-md font-medium text-foreground">
-                            Allocation {list.number} -{" "}
-                            {new Date(list.deadline).toLocaleDateString()} -{" "}
-                            {stats.totalAssets} assets
+                          <h3 className="text-sm sm:text-md font-medium text-foreground">
+                            <span className="hidden sm:inline">
+                              Allocation {list.number} -{" "}
+                            </span>
+                            <span className="sm:hidden">#{list.number} - </span>
+                            {new Date(
+                              list.deadline
+                            ).toLocaleDateString()} - {stats.totalAssets} assets
                           </h3>
                           <div className="flex items-center gap-1 text-muted-foreground">
                             {isExpanded ? (
-                              <ChevronUp className="h-4 w-4 transition-transform duration-200" />
+                              <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4 transition-transform duration-200" />
                             ) : (
-                              <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                              <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 transition-transform duration-200" />
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
-                            <span>{modelerEmail}</span>
+                            <span className="truncate">{modelerEmail}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <span
@@ -2110,28 +2115,28 @@ export default function AdminReviewPage() {
                       </div>
 
                       {/* Summary stats always visible */}
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pt-3 sm:pt-4">
                         <div className="text-center">
-                          <p className="text-sm font-medium text-muted-foreground">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                             Assets
                           </p>
-                          <p className="text-2xl font-medium">
+                          <p className="text-lg sm:text-2xl font-medium">
                             {stats.approvedAssets}/{stats.totalAssets}
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="text-sm font-medium text-muted-foreground">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                             Progress
                           </p>
-                          <p className="text-2xl font-medium text-info">
+                          <p className="text-lg sm:text-2xl font-medium text-info">
                             {stats.completionPercentage}%
                           </p>
                         </div>
                         <div className="text-center">
-                          <p className="text-sm font-medium text-muted-foreground">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                             Base Price
                           </p>
-                          <p className="text-2xl font-medium  text-success">
+                          <p className="text-lg sm:text-2xl font-medium  text-success">
                             €{stats.totalPrice.toFixed(2)}
                           </p>
                         </div>
@@ -2140,10 +2145,10 @@ export default function AdminReviewPage() {
 
                     {/* Down arrow indicator for collapsed state */}
                     {!isExpanded && (
-                      <div className="flex justify-center ">
-                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <div className="flex justify-center">
+                        <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm">
                           <span>Click to expand</span>
-                          <ChevronDown className="h-4 w-4" />
+                          <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
                         </div>
                       </div>
                     )}
@@ -2156,262 +2161,244 @@ export default function AdminReviewPage() {
                           : "max-h-0 opacity-0"
                       }`}
                     >
-                      <CardContent>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Product Name</TableHead>
-                              <TableHead className="w-32">Article ID</TableHead>
-                              <TableHead className="w-24 text-center">
-                                Priority
-                              </TableHead>
-                              <TableHead className="w-24">Price</TableHead>
-                              <TableHead className="w-32">Status</TableHead>
-                              <TableHead className="w-32">References</TableHead>
-                              <TableHead className="w-40">
-                                Product Link
-                              </TableHead>
-                              <TableHead className="w-12">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {list.asset_assignments.map((assignment: any) => (
-                              <TableRow
-                                key={assignment.asset_id}
-                                className={getStatusRowClass(
-                                  assignment.onboarding_assets.status
-                                )}
-                              >
-                                <TableCell className="text-center">
-                                  <div
-                                    className="font-medium truncate max-w-[200px] cursor-help"
-                                    title={
-                                      assignment.onboarding_assets.product_name
-                                    }
-                                  >
-                                    {assignment.onboarding_assets.product_name
-                                      .length > 25
-                                      ? assignment.onboarding_assets.product_name.substring(
-                                          0,
-                                          25
-                                        ) + "..."
-                                      : assignment.onboarding_assets
-                                          .product_name}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <span className="font-mono text-sm">
-                                    {assignment.onboarding_assets.article_id}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <Select
-                                    value={(
-                                      assignment.onboarding_assets.priority || 2
-                                    ).toString()}
-                                    onValueChange={(value) =>
-                                      handlePriorityUpdate(
-                                        assignment.onboarding_assets.id,
-                                        parseInt(value)
-                                      )
-                                    }
-                                    disabled={updatingPriorities.has(
-                                      assignment.onboarding_assets.id
-                                    )}
-                                  >
-                                    <SelectTrigger className="border-0 bg-transparent shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
-                                      <span
-                                        className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                          assignment.onboarding_assets
-                                            .priority || 2
-                                        )}`}
-                                      >
-                                        {getPriorityLabel(
-                                          assignment.onboarding_assets
-                                            .priority || 2
-                                        )}
-                                      </span>
-                                      {updatingPriorities.has(
-                                        assignment.onboarding_assets.id
-                                      ) ? (
-                                        <div className="ml-2 animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
-                                      ) : null}
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="1">High</SelectItem>
-                                      <SelectItem value="2">Medium</SelectItem>
-                                      <SelectItem value="3">Low</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-1">
-                                    <span className="font-medium">
-                                      €{assignment.price.toFixed(2)}
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-xs ${getStatusLabelClass(assignment.onboarding_assets.status)}`}
-                                  >
-                                    {assignment.onboarding_assets.status ===
-                                    "delivered_by_artist"
-                                      ? "Delivered by Artist"
-                                      : assignment.onboarding_assets.status ===
-                                          "in_production"
-                                        ? "In Progress"
-                                        : assignment.onboarding_assets
-                                              .status === "revisions"
-                                          ? "Sent for Revision"
-                                          : assignment.onboarding_assets.status}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <div className="flex flex-col items-center gap-1">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-xs px-3 py-1 h-7"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedAssetForView(
-                                          assignment.onboarding_assets
-                                        );
-                                        setShowViewDialog(true);
-                                      }}
-                                    >
-                                      <FileText className="mr-1 h-3 w-3" />
-                                      Ref (
-                                      {(() => {
-                                        const allRefs = parseReferences(
-                                          assignment.onboarding_assets.reference
-                                        );
-                                        return (
-                                          allRefs.length +
-                                          (assignment.onboarding_assets.glb_link
-                                            ? 1
-                                            : 0)
-                                        );
-                                      })()}
-                                      )
-                                    </Button>
-                                  </div>
-                                </TableCell>
-
-                                <TableCell>
-                                  {assignment.onboarding_assets.product_link ? (
-                                    <a
-                                      href={
-                                        assignment.onboarding_assets
-                                          .product_link
-                                      }
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-blue-600 underline break-all text-xs"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      Product Link
-                                    </a>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">
-                                      —
-                                    </span>
+                      <CardContent className="p-4 sm:p-6">
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-xs sm:text-sm">
+                                  Product Name
+                                </TableHead>
+                                <TableHead className="w-32 text-xs sm:text-sm">
+                                  Article ID
+                                </TableHead>
+                                <TableHead className="w-24 text-center text-xs sm:text-sm">
+                                  Priority
+                                </TableHead>
+                                <TableHead className="w-24 text-xs sm:text-sm">
+                                  Price
+                                </TableHead>
+                                <TableHead className="w-32 text-xs sm:text-sm">
+                                  Status
+                                </TableHead>
+                                <TableHead className="w-32 text-xs sm:text-sm">
+                                  References
+                                </TableHead>
+                                <TableHead className="w-40 text-xs sm:text-sm">
+                                  Product Link
+                                </TableHead>
+                                <TableHead className="w-12 text-xs sm:text-sm">
+                                  Actions
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {list.asset_assignments.map((assignment: any) => (
+                                <TableRow
+                                  key={assignment.asset_id}
+                                  className={getStatusRowClass(
+                                    assignment.onboarding_assets.status
                                   )}
-                                </TableCell>
-
-                                <TableCell>
-                                  <div className="flex items-center gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="cursor-pointer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        // Preserve current filter parameters when navigating to asset detail
-                                        const params = new URLSearchParams();
-                                        params.set("from", "admin-review");
-                                        if (clientFilters.length > 0) {
-                                          params.set(
-                                            "client",
-                                            clientFilters.join(",")
-                                          );
-                                        }
-                                        if (batchFilters.length > 0) {
-                                          params.set(
-                                            "batch",
-                                            batchFilters.join(",")
-                                          );
-                                        }
-                                        if (modelerFilters.length > 0) {
-                                          params.set(
-                                            "modeler",
-                                            modelerFilters.join(",")
-                                          );
-                                        }
-                                        if (modelerEmail) {
-                                          params.set("email", modelerEmail);
-                                        }
-                                        router.push(
-                                          `/client-review/${assignment.onboarding_assets.id}?${params.toString()}`
-                                        );
-                                      }}
+                                >
+                                  <TableCell className="text-center">
+                                    <div
+                                      className="font-medium truncate cursor-help text-sm sm:text-base"
+                                      title={
+                                        assignment.onboarding_assets
+                                          .product_name
+                                      }
                                     >
-                                      <Eye className="h-5 w-5" />
-                                    </Button>
-                                    <Dialog>
-                                      <DialogTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="cursor-pointer text-error hover:text-error hover:bg-error/10"
-                                          onClick={(e) => e.stopPropagation()}
-                                          disabled={
-                                            deletingAsset ===
-                                            assignment.onboarding_assets.id
-                                          }
+                                      {assignment.onboarding_assets.product_name
+                                        .length > 20
+                                        ? assignment.onboarding_assets.product_name.substring(
+                                            0,
+                                            20
+                                          ) + "..."
+                                        : assignment.onboarding_assets
+                                            .product_name}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="font-mono text-xs sm:text-sm">
+                                      {assignment.onboarding_assets.article_id}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Select
+                                      value={(
+                                        assignment.onboarding_assets.priority ||
+                                        2
+                                      ).toString()}
+                                      onValueChange={(value) =>
+                                        handlePriorityUpdate(
+                                          assignment.onboarding_assets.id,
+                                          parseInt(value)
+                                        )
+                                      }
+                                      disabled={updatingPriorities.has(
+                                        assignment.onboarding_assets.id
+                                      )}
+                                    >
+                                      <SelectTrigger className="border-0 bg-transparent shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
+                                        <span
+                                          className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                            assignment.onboarding_assets
+                                              .priority || 2
+                                          )}`}
                                         >
-                                          {deletingAsset ===
-                                          assignment.onboarding_assets.id ? (
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-error" />
-                                          ) : (
-                                            <Trash2 className="h-4 w-4" />
+                                          {getPriorityLabel(
+                                            assignment.onboarding_assets
+                                              .priority || 2
                                           )}
-                                        </Button>
-                                      </DialogTrigger>
-                                      <DialogContent className="h-fit overflow-y-auto">
-                                        <DialogHeader>
-                                          <DialogTitle>
-                                            Delete Asset
-                                          </DialogTitle>
-                                          <DialogDescription>
-                                            Are you sure you want to delete this
-                                            asset? This action cannot be undone
-                                            and will permanently delete:
-                                            <ul className="list-disc list-inside mt-2 space-y-1">
-                                              <li>The asset itself</li>
-                                              <li>
-                                                All assignments and comments
-                                              </li>
-                                              <li>All revision history</li>
-                                              <li>All QA approvals</li>
-                                              <li>
-                                                Any empty allocation lists (only
-                                                if this was the last asset in
-                                                the list)
-                                              </li>
-                                            </ul>
-                                          </DialogDescription>
-                                        </DialogHeader>
-                                        <DialogFooter>
+                                        </span>
+                                        {updatingPriorities.has(
+                                          assignment.onboarding_assets.id
+                                        ) ? (
+                                          <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600" />
+                                        ) : null}
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="1">High</SelectItem>
+                                        <SelectItem value="2">
+                                          Medium
+                                        </SelectItem>
+                                        <SelectItem value="3">Low</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <span className="font-medium text-sm sm:text-base">
+                                        €{assignment.price.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs ${getStatusLabelClass(assignment.onboarding_assets.status)}`}
+                                    >
+                                      {assignment.onboarding_assets.status ===
+                                      "delivered_by_artist"
+                                        ? "Delivered by Artist"
+                                        : assignment.onboarding_assets
+                                              .status === "in_production"
+                                          ? "In Progress"
+                                          : assignment.onboarding_assets
+                                                .status === "revisions"
+                                            ? "Sent for Revision"
+                                            : assignment.onboarding_assets
+                                                .status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex flex-col items-center gap-1">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedAssetForView(
+                                            assignment.onboarding_assets
+                                          );
+                                          setShowViewDialog(true);
+                                        }}
+                                      >
+                                        <FileText className="mr-1 h-3 w-3" />
+                                        <span className="hidden sm:inline">
+                                          Ref (
+                                        </span>
+                                        <span className="sm:hidden">(</span>
+                                        {(() => {
+                                          const allRefs = parseReferences(
+                                            assignment.onboarding_assets
+                                              .reference
+                                          );
+                                          return (
+                                            allRefs.length +
+                                            (assignment.onboarding_assets
+                                              .glb_link
+                                              ? 1
+                                              : 0)
+                                          );
+                                        })()}
+                                        )
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    {assignment.onboarding_assets
+                                      .product_link ? (
+                                      <a
+                                        href={
+                                          assignment.onboarding_assets
+                                            .product_link
+                                        }
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 underline break-all text-xs sm:text-sm"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <span className="hidden sm:inline">
+                                          Product Link
+                                        </span>
+                                        <span className="sm:hidden">Link</span>
+                                      </a>
+                                    ) : (
+                                      <span className="text-xs sm:text-sm text-muted-foreground">
+                                        —
+                                      </span>
+                                    )}
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // Preserve current filter parameters when navigating to asset detail
+                                          const params = new URLSearchParams();
+                                          params.set("from", "admin-review");
+                                          if (clientFilters.length > 0) {
+                                            params.set(
+                                              "client",
+                                              clientFilters.join(",")
+                                            );
+                                          }
+                                          if (batchFilters.length > 0) {
+                                            params.set(
+                                              "batch",
+                                              batchFilters.join(",")
+                                            );
+                                          }
+                                          if (modelerFilters.length > 0) {
+                                            params.set(
+                                              "modeler",
+                                              modelerFilters.join(",")
+                                            );
+                                          }
+                                          if (modelerEmail) {
+                                            params.set("email", modelerEmail);
+                                          }
+                                          router.push(
+                                            `/client-review/${assignment.onboarding_assets.id}?${params.toString()}`
+                                          );
+                                        }}
+                                      >
+                                        <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                                      </Button>
+                                      <Dialog>
+                                        <DialogTrigger asChild>
                                           <Button
-                                            variant="destructive"
-                                            onClick={() =>
-                                              deleteAsset(
-                                                assignment.onboarding_assets.id
-                                              )
-                                            }
+                                            variant="ghost"
+                                            size="icon"
+                                            className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
+                                            onClick={(e) => e.stopPropagation()}
                                             disabled={
                                               deletingAsset ===
                                               assignment.onboarding_assets.id
@@ -2419,19 +2406,69 @@ export default function AdminReviewPage() {
                                           >
                                             {deletingAsset ===
                                             assignment.onboarding_assets.id ? (
-                                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                                            ) : null}
-                                            Delete Asset
+                                              <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
+                                            ) : (
+                                              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                            )}
                                           </Button>
-                                        </DialogFooter>
-                                      </DialogContent>
-                                    </Dialog>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                                        </DialogTrigger>
+                                        <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
+                                          <DialogHeader className="pb-3 sm:pb-4">
+                                            <DialogTitle className="text-base sm:text-lg">
+                                              Delete Asset
+                                            </DialogTitle>
+                                            <DialogDescription className="text-xs sm:text-sm">
+                                              Are you sure you want to delete
+                                              this asset? This action cannot be
+                                              undone and will permanently
+                                              delete:
+                                              <ul className="list-disc list-inside mt-2 space-y-1">
+                                                <li>The asset itself</li>
+                                                <li>
+                                                  All assignments and comments
+                                                </li>
+                                                <li>All revision history</li>
+                                                <li>All QA approvals</li>
+                                                <li>
+                                                  Any empty allocation lists
+                                                  (only if this was the last
+                                                  asset in the list)
+                                                </li>
+                                              </ul>
+                                            </DialogDescription>
+                                          </DialogHeader>
+                                          <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                            <Button
+                                              variant="destructive"
+                                              className="w-full sm:w-auto text-sm sm:text-base"
+                                              onClick={() =>
+                                                deleteAsset(
+                                                  assignment.onboarding_assets
+                                                    .id
+                                                )
+                                              }
+                                              disabled={
+                                                deletingAsset ===
+                                                assignment.onboarding_assets.id
+                                              }
+                                            >
+                                              {deletingAsset ===
+                                              assignment.onboarding_assets
+                                                .id ? (
+                                                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-1 sm:mr-2" />
+                                              ) : null}
+                                              Delete Asset
+                                            </Button>
+                                          </DialogFooter>
+                                        </DialogContent>
+                                      </Dialog>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </CardContent>
                     </div>
                   </Card>
@@ -2441,20 +2478,30 @@ export default function AdminReviewPage() {
           </div>
         ) : showQAAssets ? (
           // QA Assets View (showing assets reviewed by this QA user)
-          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
+          <div className="overflow-x-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Model Name</TableHead>
-                  <TableHead>Article ID</TableHead>
-                  <TableHead>Modeler</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Batch</TableHead>
-                  <TableHead className="text-center">Priority</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>References</TableHead>
-                  <TableHead>Product Link</TableHead>
-                  <TableHead>Review</TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    Model Name
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    Article ID
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">Modeler</TableHead>
+                  <TableHead className="text-xs sm:text-sm">Client</TableHead>
+                  <TableHead className="text-xs sm:text-sm">Batch</TableHead>
+                  <TableHead className="text-center text-xs sm:text-sm">
+                    Priority
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    References
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    Product Link
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">Review</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2473,16 +2520,18 @@ export default function AdminReviewPage() {
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <span
-                            className="font-medium truncate max-w-[200px] cursor-help"
+                            className="font-medium truncate cursor-help text-sm sm:text-base"
                             title={asset.product_name}
                           >
-                            {asset.product_name.length > 25
-                              ? asset.product_name.substring(0, 25) + "..."
+                            {asset.product_name.length > 20
+                              ? asset.product_name.substring(0, 20) + "..."
                               : asset.product_name}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>{asset.article_id}</TableCell>
+                      <TableCell className="text-xs sm:text-sm font-mono">
+                        {asset.article_id}
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <span className="text-xs text-muted-foreground">
@@ -2497,7 +2546,7 @@ export default function AdminReviewPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-xs text-muted-foreground">
-                          Batch {asset.batch}
+                          B{asset.batch}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -2508,16 +2557,16 @@ export default function AdminReviewPage() {
                           }
                           disabled={updatingPriorities.has(asset.id)}
                         >
-                          <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit  cursor-pointer">
+                          <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit cursor-pointer">
                             <span
-                              className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
+                              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
                                 asset.priority || 2
                               )}`}
                             >
                               {getPriorityLabel(asset.priority || 2)}
                             </span>
                             {updatingPriorities.has(asset.id) ? (
-                              <div className="ml-2 animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 cursor-pointer" />
+                              <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
                             ) : null}
                           </SelectTrigger>
                           <SelectContent className="cursor-pointer">
@@ -2534,9 +2583,9 @@ export default function AdminReviewPage() {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 justify-center">
+                        <div className="flex items-center gap-1 sm:gap-2 justify-center">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
+                            className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
                           >
                             {getStatusLabelText(asset.status)}
                           </span>
@@ -2547,7 +2596,7 @@ export default function AdminReviewPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-xs px-3 py-1 h-7"
+                            className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedAssetForView(asset);
@@ -2555,12 +2604,14 @@ export default function AdminReviewPage() {
                             }}
                           >
                             <FileText className="mr-1 h-3 w-3" />
-                            Ref (
+                            <span className="hidden sm:inline">Ref (</span>
+                            <span className="sm:hidden">(</span>
                             {(() => {
                               const allRefs = parseReferences(asset.reference);
                               return allRefs.length + (asset.glb_link ? 1 : 0);
                             })()}
-                            )
+                            <span className="hidden sm:inline">)</span>
+                            <span className="sm:hidden">)</span>
                           </Button>
                         </div>
                       </TableCell>
@@ -2572,7 +2623,10 @@ export default function AdminReviewPage() {
                             rel="noopener noreferrer"
                             className="text-blue-600 underline break-all text-xs"
                           >
-                            Product Link
+                            <span className="hidden sm:inline">
+                              Product Link
+                            </span>
+                            <span className="sm:hidden">Link</span>
                           </a>
                         ) : (
                           <span className="text-xs text-muted-foreground">
@@ -2584,7 +2638,7 @@ export default function AdminReviewPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="cursor-pointer"
+                          className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
                           onClick={() => {
                             // Navigate to asset detail for QA assets
                             const params = new URLSearchParams();
@@ -2606,7 +2660,7 @@ export default function AdminReviewPage() {
                             );
                           }}
                         >
-                          <Eye className="h-5 w-5" />
+                          <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -2617,11 +2671,11 @@ export default function AdminReviewPage() {
           </div>
         ) : (
           // Regular Assets View
-          <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
+          <div className="overflow-x-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
+                  <TableHead className="w-8 sm:w-12">
                     <div className="flex items-center gap-2">
                       <Checkbox
                         checked={
@@ -2632,15 +2686,24 @@ export default function AdminReviewPage() {
                               : false
                         }
                         onCheckedChange={handleSelectAll}
+                        className="h-4 w-4"
                       />
                     </div>
                   </TableHead>
-                  <TableHead>Model Name</TableHead>
-                  <TableHead>Article ID</TableHead>
-                  <TableHead className="text-center">Priority</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>References</TableHead>
-                  <TableHead>Review</TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    Model Name
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    Article ID
+                  </TableHead>
+                  <TableHead className="text-center text-xs sm:text-sm">
+                    Priority
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    References
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm">Review</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2709,15 +2772,16 @@ export default function AdminReviewPage() {
                       className={getStatusRowClass(asset.status)}
                     >
                       <TableCell className="text-center">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
                           <Checkbox
                             checked={selected.has(asset.id)}
                             onCheckedChange={() => toggleSelect(asset.id)}
+                            className="h-4 w-4"
                           />
                           {assignedAssets.has(asset.id) && (
                             <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-green-500 rounded-full" />
-                              <span className="text-xs text-muted-foreground">
+                              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
+                              <span className="text-xs text-muted-foreground hidden sm:inline">
                                 {assignedAssets.get(asset.id)?.name ||
                                   assignedAssets
                                     .get(asset.id)
@@ -2727,8 +2791,8 @@ export default function AdminReviewPage() {
                           )}
                           {pendingAssets.has(asset.id) && (
                             <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-yellow-500 rounded-full" />
-                              <span className="text-xs text-muted-foreground">
+                              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
+                              <span className="text-xs text-muted-foreground hidden sm:inline">
                                 {pendingAssets.get(asset.id)?.name ||
                                   pendingAssets
                                     .get(asset.id)
@@ -2742,29 +2806,29 @@ export default function AdminReviewPage() {
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           <span
-                            className="font-medium truncate max-w-[200px] cursor-help"
+                            className="font-medium truncate cursor-help text-sm sm:text-base"
                             title={asset.product_name}
                           >
-                            {asset.product_name.length > 25
-                              ? asset.product_name.substring(0, 25) + "..."
+                            {asset.product_name.length > 20
+                              ? asset.product_name.substring(0, 20) + "..."
                               : asset.product_name}
                           </span>
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex items-center justify-center gap-1 sm:gap-2">
                             <span className="text-xs text-muted-foreground">
-                              {annotationCounts[asset.id] || 0} annotation
-                              {(annotationCounts[asset.id] || 0) !== 1
-                                ? "s"
-                                : ""}
+                              {annotationCounts[asset.id] || 0} ann.
                             </span>
-                            <span className="text-xs text-slate-500">•</span>
+                            <span className="text-xs text-slate-500 hidden sm:inline">
+                              •
+                            </span>
                             <Badge variant="outline" className="text-xs">
-                              Batch {asset.batch || 1}
+                              B{asset.batch || 1}
                             </Badge>
-                            {/* Revision number removed */}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{asset.article_id}</TableCell>
+                      <TableCell className="text-xs sm:text-sm font-mono">
+                        {asset.article_id}
+                      </TableCell>
                       <TableCell>
                         <Select
                           value={(asset.priority || 2).toString()}
@@ -2773,16 +2837,16 @@ export default function AdminReviewPage() {
                           }
                           disabled={updatingPriorities.has(asset.id)}
                         >
-                          <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit  cursor-pointer">
+                          <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit cursor-pointer">
                             <span
-                              className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
+                              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
                                 asset.priority || 2
                               )}`}
                             >
                               {getPriorityLabel(asset.priority || 2)}
                             </span>
                             {updatingPriorities.has(asset.id) ? (
-                              <div className="ml-2 animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 cursor-pointer" />
+                              <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
                             ) : null}
                           </SelectTrigger>
                           <SelectContent className="cursor-pointer">
@@ -2800,13 +2864,12 @@ export default function AdminReviewPage() {
                       </TableCell>
 
                       <TableCell>
-                        <div className="flex items-center gap-2 justify-center">
+                        <div className="flex items-center gap-1 sm:gap-2 justify-center">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
+                            className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
                           >
                             {getStatusLabelText(asset.status)}
                           </span>
-                          {/* Revision badge removed */}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
@@ -2814,7 +2877,7 @@ export default function AdminReviewPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-xs px-3 py-1 h-7"
+                            className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedAssetForView(asset);
@@ -2822,92 +2885,99 @@ export default function AdminReviewPage() {
                             }}
                           >
                             <FileText className="mr-1 h-3 w-3" />
-                            Ref (
+                            <span className="hidden sm:inline">Ref (</span>
+                            <span className="sm:hidden">(</span>
                             {(() => {
                               const allRefs = parseReferences(asset.reference);
                               return allRefs.length + (asset.glb_link ? 1 : 0);
                             })()}
-                            )
+                            <span className="hidden sm:inline">)</span>
+                            <span className="sm:hidden">)</span>
                           </Button>
                         </div>
                       </TableCell>
 
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="cursor-pointer"
-                          onClick={() => {
-                            // Preserve current filter parameters when navigating to asset detail
-                            const params = new URLSearchParams();
-                            params.set("from", "admin-review");
-                            if (clientFilters.length > 0) {
-                              params.set("client", clientFilters.join(","));
-                            }
-                            if (batchFilters.length > 0) {
-                              params.set("batch", batchFilters.join(","));
-                            }
-                            if (modelerFilters.length > 0) {
-                              params.set("modeler", modelerFilters.join(","));
-                            }
-                            if (modelerEmail) {
-                              params.set("email", modelerEmail);
-                            }
-                            router.push(
-                              `/client-review/${asset.id}?${params.toString()}`
-                            );
-                          }}
-                        >
-                          <Eye className="h-5 w-5" />
-                        </Button>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="cursor-pointer text-error hover:text-error hover:bg-error/10"
-                              disabled={deletingAsset === asset.id}
-                            >
-                              {deletingAsset === asset.id ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-error" />
-                              ) : (
-                                <Trash2 className="h-3 w-3" />
-                              )}
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="h-fit ">
-                            <DialogHeader>
-                              <DialogTitle>Delete Asset</DialogTitle>
-                              <DialogDescription>
-                                Are you sure you want to delete this asset? This
-                                action cannot be undone and will permanently
-                                delete:
-                                <ul className="list-disc list-inside mt-2 space-y-1">
-                                  <li>The asset itself</li>
-                                  <li>All assignments and comments</li>
-                                  <li>All revision history</li>
-                                  <li>All QA approvals</li>
-                                  <li>
-                                    Any empty allocation lists (only if this was
-                                    the last asset in the list)
-                                  </li>
-                                </ul>
-                              </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
+                            onClick={() => {
+                              // Preserve current filter parameters when navigating to asset detail
+                              const params = new URLSearchParams();
+                              params.set("from", "admin-review");
+                              if (clientFilters.length > 0) {
+                                params.set("client", clientFilters.join(","));
+                              }
+                              if (batchFilters.length > 0) {
+                                params.set("batch", batchFilters.join(","));
+                              }
+                              if (modelerFilters.length > 0) {
+                                params.set("modeler", modelerFilters.join(","));
+                              }
+                              if (modelerEmail) {
+                                params.set("email", modelerEmail);
+                              }
+                              router.push(
+                                `/client-review/${asset.id}?${params.toString()}`
+                              );
+                            }}
+                          >
+                            <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
                               <Button
-                                variant="destructive"
-                                onClick={() => deleteAsset(asset.id)}
+                                variant="ghost"
+                                size="icon"
+                                className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
                                 disabled={deletingAsset === asset.id}
                               >
                                 {deletingAsset === asset.id ? (
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                                ) : null}
-                                Delete Asset
+                                  <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                )}
                               </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
+                            </DialogTrigger>
+                            <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
+                              <DialogHeader className="pb-3 sm:pb-4">
+                                <DialogTitle className="text-base sm:text-lg">
+                                  Delete Asset
+                                </DialogTitle>
+                                <DialogDescription className="text-xs sm:text-sm">
+                                  Are you sure you want to delete this asset?
+                                  This action cannot be undone and will
+                                  permanently delete:
+                                  <ul className="list-disc list-inside mt-2 space-y-1">
+                                    <li>The asset itself</li>
+                                    <li>All assignments and comments</li>
+                                    <li>All revision history</li>
+                                    <li>All QA approvals</li>
+                                    <li>
+                                      Any empty allocation lists (only if this
+                                      was the last asset in the list)
+                                    </li>
+                                  </ul>
+                                </DialogDescription>
+                              </DialogHeader>
+                              <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                <Button
+                                  variant="destructive"
+                                  onClick={() => deleteAsset(asset.id)}
+                                  disabled={deletingAsset === asset.id}
+                                  className="w-full sm:w-auto text-sm"
+                                >
+                                  {deletingAsset === asset.id ? (
+                                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2" />
+                                  ) : null}
+                                  Delete Asset
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -2921,48 +2991,50 @@ export default function AdminReviewPage() {
 
       {/* Cleanup Results Dialog */}
       <Dialog open={showCleanupDialog} onOpenChange={setShowCleanupDialog}>
-        <DialogContent className="max-w-4xl h-fit overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Allocation List Cleanup Results</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="w-[95vw] sm:w-full max-w-4xl h-fit overflow-y-auto">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="text-base sm:text-lg">
+              Allocation List Cleanup Results
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               {cleanupResult?.message || "Cleanup operation completed"}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {cleanupResult && (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-4 bg-info-muted rounded-lg">
-                    <p className="text-sm font-medium text-muted-foreground">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="p-3 sm:p-4 bg-info-muted rounded-lg">
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                       Total Processed
                     </p>
-                    <p className="text-2xl font-bold text-info">
+                    <p className="text-lg sm:text-2xl font-bold text-info">
                       {cleanupResult.totalProcessed || 0}
                     </p>
                   </div>
-                  <div className="p-4 bg-success-muted rounded-lg">
-                    <p className="text-sm font-medium text-muted-foreground">
+                  <div className="p-3 sm:p-4 bg-success-muted rounded-lg">
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                       Deleted
                     </p>
-                    <p className="text-2xl font-bold text-success">
+                    <p className="text-lg sm:text-2xl font-bold text-success">
                       {cleanupResult.deletedCount || 0}
                     </p>
                   </div>
-                  <div className="p-4 bg-warning-muted rounded-lg">
-                    <p className="text-sm font-medium text-muted-foreground">
+                  <div className="p-3 sm:p-4 bg-warning-muted rounded-lg">
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                       Remaining
                     </p>
-                    <p className="text-2xl font-bold text-warning">
+                    <p className="text-lg sm:text-2xl font-bold text-warning">
                       {cleanupResult.remainingCount || 0}
                     </p>
                   </div>
                   {cleanupResult.orphanedCount !== undefined && (
-                    <div className="p-4 bg-error-muted rounded-lg">
-                      <p className="text-sm font-medium text-muted-foreground">
+                    <div className="p-3 sm:p-4 bg-error-muted rounded-lg">
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                         Orphaned
                       </p>
-                      <p className="text-2xl font-bold text-error">
+                      <p className="text-lg sm:text-2xl font-bold text-error">
                         {cleanupResult.orphanedCount}
                       </p>
                     </div>
@@ -3055,8 +3127,13 @@ export default function AdminReviewPage() {
             )}
           </div>
 
-          <DialogFooter>
-            <Button onClick={() => setShowCleanupDialog(false)}>Close</Button>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <Button
+              className="w-full sm:w-auto text-sm sm:text-base"
+              onClick={() => setShowCleanupDialog(false)}
+            >
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

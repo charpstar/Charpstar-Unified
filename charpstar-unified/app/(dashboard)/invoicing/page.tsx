@@ -972,41 +972,49 @@ export default function InvoicingPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
         <div>
-          <h1 className="text-3xl font-semibold text-foreground">Invoicing</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
+            Invoicing
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-2">
             Generate invoices for your approved work by monthly periods
           </p>
         </div>
-        <Badge variant="outline" className="gap-1">
+        <Badge variant="outline" className="gap-1 text-xs sm:text-sm w-fit">
           <FileText className="h-3 w-3" />
-          Modeler Invoicing
+          <span className="hidden sm:inline">Modeler Invoicing</span>
+          <span className="sm:hidden">Modeler</span>
         </Badge>
       </div>
 
       {/* Period Selection */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Select Invoicing Period
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Select Invoicing Period</span>
+              <span className="sm:hidden">Select Period</span>
             </CardTitle>
             {selectedPeriod && filteredAssets.length > 0 && (
-              <Button onClick={handleGenerateInvoice} className="gap-2">
-                <FileText className="h-4 w-4" />
-                Generate Invoice
+              <Button
+                onClick={handleGenerateInvoice}
+                className="gap-2 text-xs sm:text-sm h-8 sm:h-9 w-full sm:w-auto"
+              >
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Generate Invoice</span>
+                <span className="sm:hidden">Generate</span>
               </Button>
             )}
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-64">
+              <SelectTrigger className="w-full sm:w-64 text-sm">
                 <SelectValue placeholder="Select month period" />
               </SelectTrigger>
               <SelectContent>
@@ -1018,7 +1026,7 @@ export default function InvoicingPage() {
               </SelectContent>
             </Select>
             {selectedPeriod && (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs sm:text-sm text-muted-foreground">
                 {(() => {
                   const period = monthlyPeriods.find(
                     (p) => p.value === selectedPeriod
@@ -1035,18 +1043,18 @@ export default function InvoicingPage() {
 
       {/* Monthly Statistics */}
       {selectedPeriod && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-50 rounded-xl">
-                  <Package className="h-5 w-5 text-blue-600" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-2 sm:p-3 bg-blue-50 rounded-xl">
+                  <Package className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                     Total Assets
                   </p>
-                  <p className="text-2xl font-semibold text-foreground">
+                  <p className="text-lg sm:text-2xl font-semibold text-foreground">
                     {monthlyStats.totalAssets}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -1058,16 +1066,16 @@ export default function InvoicingPage() {
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-green-50 rounded-xl">
-                  <Euro className="h-5 w-5 text-green-600" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-2 sm:p-3 bg-green-50 rounded-xl">
+                  <Euro className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                     Base Earnings
                   </p>
-                  <p className="text-2xl font-semibold text-foreground">
+                  <p className="text-lg sm:text-2xl font-semibold text-foreground">
                     €{monthlyStats.totalBaseEarnings.toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -1079,16 +1087,16 @@ export default function InvoicingPage() {
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-amber-50 rounded-xl">
-                  <CheckCircle className="h-5 w-5 text-amber-600" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-2 sm:p-3 bg-amber-50 rounded-xl">
+                  <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                     Bonus Earnings
                   </p>
-                  <p className="text-2xl font-semibold text-foreground">
+                  <p className="text-lg sm:text-2xl font-semibold text-foreground">
                     €{monthlyStats.totalBonusEarnings.toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -1124,16 +1132,16 @@ export default function InvoicingPage() {
           </Card> */}
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-purple-50 rounded-xl">
-                  <FileText className="h-5 w-5 text-purple-600" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-2 sm:p-3 bg-purple-50 rounded-xl">
+                  <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                     Total Invoice
                   </p>
-                  <p className="text-2xl font-semibold text-foreground">
+                  <p className="text-lg sm:text-2xl font-semibold text-foreground">
                     €{monthlyStats.totalPotential.toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -1149,28 +1157,31 @@ export default function InvoicingPage() {
       {/* Retroactive Bonus Information */}
       {selectedPeriod && retroactiveBonuses.length > 0 && (
         <Card className="border-amber-200 bg-amber-50/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-800">
-              <CheckCircle className="h-5 w-5" />
-              Retroactive Bonuses Applied This Month
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-amber-800 text-sm sm:text-base">
+              <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">
+                Retroactive Bonuses Applied This Month
+              </span>
+              <span className="sm:hidden">Retroactive Bonuses</span>
             </CardTitle>
-            <p className="text-sm text-amber-700">
+            <p className="text-xs sm:text-sm text-amber-700">
               Bonuses for allocation lists created in previous months but
               completed this month
             </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6">
             <div className="space-y-3">
               {retroactiveBonuses.map((bonus) => (
                 <div
                   key={bonus.allocationListId}
-                  className="flex items-center justify-between p-3 bg-white rounded-lg border border-amber-200"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-white rounded-lg border border-amber-200 gap-2 sm:gap-0"
                 >
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 text-sm sm:text-base">
                       Allocation List #{bonus.allocationListId.slice(-8)}
                     </p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-xs sm:text-sm text-gray-600">
                       {bonus.assetCount} assets • {bonus.bonusPercentage}% bonus
                       rate
                     </p>
@@ -1179,8 +1190,8 @@ export default function InvoicingPage() {
                       Completed: {bonus.listCompletedDate.toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-amber-700">
+                  <div className="text-left sm:text-right">
+                    <p className="font-semibold text-amber-700 text-sm sm:text-base">
                       +€{bonus.amount.toFixed(2)}
                     </p>
                     <p className="text-xs text-gray-500">retroactive bonus</p>
@@ -1188,11 +1199,11 @@ export default function InvoicingPage() {
                 </div>
               ))}
               <div className="mt-4 p-3 bg-amber-100 rounded-lg border border-amber-300">
-                <div className="flex items-center justify-between">
-                  <p className="font-medium text-amber-800">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                  <p className="font-medium text-amber-800 text-sm sm:text-base">
                     Total Retroactive Bonuses:
                   </p>
-                  <p className="font-bold text-lg text-amber-800">
+                  <p className="font-bold text-base sm:text-lg text-amber-800">
                     +€
                     {retroactiveBonuses
                       .reduce((sum, bonus) => sum + bonus.amount, 0)
@@ -1266,17 +1277,22 @@ export default function InvoicingPage() {
       {/* Bonus Breakdown */}
       {selectedPeriod && monthlyStats.completedLists > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" />
-              Bonus Earnings from Completed Lists
-              <Badge variant="outline" className="ml-auto">
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm sm:text-base">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="hidden sm:inline">
+                  Bonus Earnings from Completed Lists
+                </span>
+                <span className="sm:hidden">Bonus Earnings</span>
+              </div>
+              <Badge variant="outline" className="text-xs w-fit">
                 {monthlyStats.completedLists} lists completed
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
+          <CardContent className="p-4 sm:p-6">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-4">
               <strong>Bonus Calculation:</strong> Bonuses are calculated
               globally on the entire allocation list&apos;s completed subtotal
               when the list is completed before its deadline. Individual assets
@@ -1285,10 +1301,10 @@ export default function InvoicingPage() {
               will have their bonuses credited when the entire list is completed
               in a future month.
             </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 sm:p-4">
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-4 w-4 text-amber-600" />
-                <span className="font-medium text-amber-800">
+                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-amber-600" />
+                <span className="font-medium text-amber-800 text-sm sm:text-base">
                   Bonus Earnings: €{monthlyStats.totalBonusEarnings.toFixed(2)}
                 </span>
               </div>
@@ -1306,22 +1322,31 @@ export default function InvoicingPage() {
 
       {/* Assets Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Assets Approved in{" "}
-            {selectedPeriod &&
-              monthlyPeriods.find((p) => p.value === selectedPeriod)
-                ?.label}{" "}
-            Period
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm sm:text-base">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">
+                Assets Approved in{" "}
+                {selectedPeriod &&
+                  monthlyPeriods.find((p) => p.value === selectedPeriod)
+                    ?.label}{" "}
+                Period
+              </span>
+              <span className="sm:hidden">
+                Assets in{" "}
+                {selectedPeriod &&
+                  monthlyPeriods.find((p) => p.value === selectedPeriod)?.label}
+              </span>
+            </div>
             {selectedPeriod && (
-              <Badge variant="outline" className="ml-auto">
+              <Badge variant="outline" className="text-xs w-fit">
                 {filteredAssets.length} assets
               </Badge>
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="h-4 w-4 text-blue-600" />
@@ -1354,200 +1379,221 @@ export default function InvoicingPage() {
             </div>
           ) : filteredAssets.length === 0 ? (
             <div className="text-center py-8">
-              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Approved Assets</h3>
-              <p className="text-muted-foreground">
+              <Package className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-base sm:text-lg font-semibold mb-2">
+                No Approved Assets
+              </h3>
+              <p className="text-sm text-muted-foreground">
                 {selectedPeriod
                   ? "No approved assets found for the selected period."
                   : "Select a period to view approved assets."}
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Client</TableHead>
-
-                  <TableHead>Base Price</TableHead>
-                  <TableHead>Bonus Status</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Approved</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAssets.map((asset) => (
-                  <TableRow key={asset.id}>
-                    <TableCell>
-                      <div>
-                        <div
-                          className="font-medium truncate max-w-[200px] cursor-help"
-                          title={asset.product_name}
-                        >
-                          {asset.product_name.length > 25
-                            ? asset.product_name.substring(0, 25) + "..."
-                            : asset.product_name}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs sm:text-sm">
+                      Product
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">Client</TableHead>
+                    <TableHead className="text-xs sm:text-sm">
+                      Base Price
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">
+                      Bonus Status
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">Total</TableHead>
+                    <TableHead className="text-xs sm:text-sm">
+                      Approved
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAssets.map((asset) => (
+                    <TableRow key={asset.id}>
+                      <TableCell className="min-w-[200px]">
+                        <div>
+                          <div
+                            className="font-medium truncate max-w-[180px] sm:max-w-[200px] cursor-help text-xs sm:text-sm"
+                            title={asset.product_name}
+                          >
+                            {asset.product_name.length > 20
+                              ? asset.product_name.substring(0, 20) + "..."
+                              : asset.product_name}
+                          </div>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {asset.article_id}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground font-mono">
-                          {asset.article_id}
+                      </TableCell>
+                      <TableCell className="min-w-[120px]">
+                        <div>
+                          <div className="font-medium text-xs sm:text-sm">
+                            {asset.client}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Batch {asset.batch}
+                          </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{asset.client}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Batch {asset.batch}
+                      </TableCell>
+                      <TableCell className="min-w-[100px]">
+                        <div className="flex items-center gap-1 text-right justify-center">
+                          <Euro className="h-3 w-3 text-muted-foreground" />
+                          <span className="font-medium text-xs sm:text-sm">
+                            €{asset.price.toFixed(2)}
+                          </span>
                         </div>
-                      </div>
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-right justify-center">
-                        <Euro className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-medium">
-                          €{asset.price.toFixed(2)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {asset.approved_at ? (
-                          <Badge variant="outline" className="text-xs">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Eligible
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Pending
-                          </Badge>
-                        )}
-                        <div className="text-xs text-muted-foreground mt-1">
+                      </TableCell>
+                      <TableCell className="min-w-[120px]">
+                        <div className="text-xs sm:text-sm">
                           {asset.approved_at ? (
-                            <span className="text-green-600">
-                              ✓ List completed
-                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Eligible
+                            </Badge>
                           ) : (
-                            <span>(Bonus when list completes)</span>
+                            <Badge variant="outline" className="text-xs">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Pending
+                            </Badge>
                           )}
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {asset.approved_at ? (
+                              <span className="text-green-600">
+                                ✓ List completed
+                              </span>
+                            ) : (
+                              <span>(Bonus when list completes)</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-right justify-center">
-                        <Euro className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-medium">
-                          €
-                          {(asset.approved_at
-                            ? asset.price *
-                              (1 + (asset.allocation_lists?.bonus || 0) / 100)
-                            : asset.price
-                          ).toFixed(2)}
-                        </span>
-                        <div className="text-xs text-muted-foreground ml-1">
+                      </TableCell>
+                      <TableCell className="min-w-[100px]">
+                        <div className="flex items-center gap-1 text-right justify-center">
+                          <Euro className="h-3 w-3 text-muted-foreground" />
+                          <span className="font-medium text-xs sm:text-sm">
+                            €
+                            {(asset.approved_at
+                              ? asset.price *
+                                (1 + (asset.allocation_lists?.bonus || 0) / 100)
+                              : asset.price
+                            ).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground text-center mt-1">
                           {asset.approved_at ? (
                             <span>(Base + Bonus)</span>
                           ) : (
                             <span>(Base only)</span>
                           )}
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-muted-foreground">
-                        {asset.approved_at ? (
-                          <div>
+                      </TableCell>
+                      <TableCell className="min-w-[120px]">
+                        <div className="text-xs sm:text-sm text-muted-foreground">
+                          {asset.approved_at ? (
                             <div>
-                              List:{" "}
-                              {new Date(asset.approved_at).toLocaleDateString()}
+                              <div>
+                                List:{" "}
+                                {new Date(
+                                  asset.approved_at
+                                ).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-green-600">
+                                ✓ Complete
+                              </div>
                             </div>
-                            <div className="text-xs text-green-600">
-                              ✓ Complete
+                          ) : (
+                            <div>
+                              <div>Asset: Approved</div>
+                              <div className="text-xs text-amber-600">
+                                List pending
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div>Asset: Approved</div>
-                            <div className="text-xs text-amber-600">
-                              List pending
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Invoice Generation Dialog */}
       <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
-        <DialogContent className="max-w-4xl h-fit overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
+        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="pb-3 sm:pb-4 flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
               Invoice Preview
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">
               Review your invoice details and provide bank information before
               generating the final invoice.
             </DialogDescription>
           </DialogHeader>
 
           {invoicePreview && (
-            <div className="space-y-6">
+            <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6">
               {/* Invoice Preview Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Invoice Summary</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+              <div className="space-y-3 sm:space-y-4">
+                <h3 className="text-base sm:text-lg font-semibold">
+                  Invoice Summary
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">
+                    <div className="text-base sm:text-2xl font-bold text-blue-600">
                       {invoicePreview.assetCount}
                     </div>
-                    <div className="text-sm text-muted-foreground">Assets</div>
+                    <div className="text-xs text-muted-foreground">Assets</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
+                    <div className="text-base sm:text-2xl font-bold text-green-600">
                       €{invoicePreview.subtotal.toFixed(2)}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      Base Earnings
+                    <div className="text-xs text-muted-foreground">
+                      <span className="hidden sm:inline">Base Earnings</span>
+                      <span className="sm:hidden">Base</span>
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-amber-600">
+                    <div className="text-base sm:text-2xl font-bold text-amber-600">
                       €{invoicePreview.bonusEarnings.toFixed(2)}
                     </div>
-                    <div className="text-sm text-muted-foreground">Bonus</div>
+                    <div className="text-xs text-muted-foreground">Bonus</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">
+                    <div className="text-base sm:text-2xl font-bold text-purple-600">
                       €{invoicePreview.total.toFixed(2)}
                     </div>
-                    <div className="text-sm text-muted-foreground">Total</div>
+                    <div className="text-xs text-muted-foreground">Total</div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <h4 className="font-semibold mb-2">Period</h4>
-                    <p className="text-sm text-muted-foreground">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="p-3 sm:p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-semibold mb-2 text-sm sm:text-base">
+                      Period
+                    </h4>
+                    <p className="text-xs sm:text-sm text-muted-foreground break-words">
                       {invoicePreview.period}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground break-words">
                       {invoicePreview.periodDates}
                     </p>
                   </div>
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <h4 className="font-semibold mb-2">Invoice Details</h4>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="p-3 sm:p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-semibold mb-2 text-sm sm:text-base">
+                      Invoice Details
+                    </h4>
+                    <p className="text-xs sm:text-sm text-muted-foreground break-all">
                       Number: {invoicePreview.invoiceNumber}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Date: {invoicePreview.date}
                     </p>
                   </div>
@@ -1555,11 +1601,15 @@ export default function InvoicingPage() {
               </div>
 
               {/* Bank Details Form */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Bank Transfer Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3 sm:space-y-4">
+                <h3 className="text-base sm:text-lg font-semibold">
+                  Bank Transfer Details
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Bank Name</label>
+                    <label className="text-xs sm:text-sm font-medium">
+                      Bank Name
+                    </label>
                     <Input
                       value={bankDetails.bankName}
                       onChange={(e) =>
@@ -1569,10 +1619,11 @@ export default function InvoicingPage() {
                         }))
                       }
                       placeholder="Enter bank name"
+                      className="text-sm h-9 sm:h-10"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">
+                    <label className="text-xs sm:text-sm font-medium">
                       Account Number
                     </label>
                     <Input
@@ -1584,10 +1635,11 @@ export default function InvoicingPage() {
                         }))
                       }
                       placeholder="Enter account number"
+                      className="text-sm h-9 sm:h-10"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">
+                    <label className="text-xs sm:text-sm font-medium">
                       Street Address
                     </label>
                     <Input
@@ -1599,10 +1651,11 @@ export default function InvoicingPage() {
                         }))
                       }
                       placeholder="Enter street address"
+                      className="text-sm h-9 sm:h-10"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">
+                    <label className="text-xs sm:text-sm font-medium">
                       City, State, ZIP
                     </label>
                     <Input
@@ -1614,10 +1667,11 @@ export default function InvoicingPage() {
                         }))
                       }
                       placeholder="Enter city, state, ZIP"
+                      className="text-sm h-9 sm:h-10"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className="text-xs sm:text-sm font-medium">
                       BIC/SWIFT Code
                     </label>
                     <Input
@@ -1629,37 +1683,43 @@ export default function InvoicingPage() {
                         }))
                       }
                       placeholder="Enter BIC/SWIFT code"
+                      className="text-sm h-9 sm:h-10"
                     />
                   </div>
                 </div>
               </div>
+            </div>
+          )}
 
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowInvoiceDialog(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleGenerateFinalInvoice}
-                  disabled={generatingInvoice}
-                  className="min-w-[140px]"
-                >
-                  {generatingInvoice ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4 mr-2" />
-                      Generate Invoice
-                    </>
-                  )}
-                </Button>
-              </div>
+          {/* Action Buttons - Fixed at bottom */}
+          {invoicePreview && (
+            <div className="flex-shrink-0 flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t bg-background">
+              <Button
+                variant="outline"
+                onClick={() => setShowInvoiceDialog(false)}
+                className="w-full sm:w-auto text-sm h-9 sm:h-10"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleGenerateFinalInvoice}
+                disabled={generatingInvoice}
+                className="w-full sm:w-auto text-sm h-9 sm:h-10 min-w-[140px]"
+              >
+                {generatingInvoice ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2" />
+                    <span className="hidden sm:inline">Generating...</span>
+                    <span className="sm:hidden">Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                    <span className="hidden sm:inline">Generate Invoice</span>
+                    <span className="sm:hidden">Generate</span>
+                  </>
+                )}
+              </Button>
             </div>
           )}
         </DialogContent>

@@ -11,18 +11,22 @@ function UploadPageContent() {
   const router = useRouter();
 
   return (
-    <div className="p-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-4">
+    <div className="p-3 sm:p-6">
+      <div className="flex flex-col gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           <Link href="/asset-library">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 sm:h-9 sm:w-9"
+            >
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">Upload Assets</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Upload Assets</h1>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-2 sm:mt-4">
           <BatchUploadSheet
             onSuccess={() => {
               router.push("/asset-library");

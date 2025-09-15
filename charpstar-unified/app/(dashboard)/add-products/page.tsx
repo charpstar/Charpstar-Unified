@@ -1568,7 +1568,7 @@ export default function AddProductsPage() {
                       </TableCell>
                       <TableCell>
                         <div
-                          className="truncate max-w-[200px] cursor-help"
+                          className="truncate  cursor-help"
                           title={product.product_name || "-"}
                         >
                           {product.product_name &&

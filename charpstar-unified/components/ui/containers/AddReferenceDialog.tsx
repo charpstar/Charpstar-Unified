@@ -280,26 +280,26 @@ export function AddReferenceDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-[500px] h-fit dark:bg-background dark:border-border"
+        className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit dark:bg-background dark:border-border"
         onPaste={handlePaste}
         tabIndex={-1}
       >
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-foreground dark:text-foreground">
+        <DialogHeader className="pb-3 sm:pb-4">
+          <DialogTitle className="text-lg sm:text-xl font-bold text-foreground dark:text-foreground">
             Add Reference or GLB File
           </DialogTitle>
-          <DialogDescription className="text-muted-foreground dark:text-muted-foreground">
+          <DialogDescription className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">
             Add a reference image URL or upload a reference/GLB file.
           </DialogDescription>
         </DialogHeader>
 
         {/* Mode Toggle */}
-        <div className="flex gap-2 p-1 bg-muted dark:bg-muted/20 rounded-lg">
+        <div className="flex gap-1 sm:gap-2 p-1 bg-muted dark:bg-muted/20 rounded-lg">
           <Button
             variant={uploadMode === "url" ? "default" : "ghost"}
             size="sm"
             onClick={() => setUploadMode("url")}
-            className="flex-1 dark:hover:bg-muted/50"
+            className="flex-1 dark:hover:bg-muted/50 text-xs sm:text-sm h-7 sm:h-8"
           >
             URL
           </Button>
@@ -307,16 +307,17 @@ export function AddReferenceDialog({
             variant={uploadMode === "file" ? "default" : "ghost"}
             size="sm"
             onClick={() => setUploadMode("file")}
-            className="flex-1 dark:hover:bg-muted/50"
+            className="flex-1 dark:hover:bg-muted/50 text-xs sm:text-sm h-7 sm:h-8"
           >
-            File Upload
+            <span className="hidden sm:inline">File Upload</span>
+            <span className="sm:hidden">Upload</span>
           </Button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {uploadMode === "url" ? (
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground dark:text-foreground">
+              <label className="text-xs sm:text-sm font-semibold text-foreground dark:text-foreground">
                 Image URL *
               </label>
               <Input
@@ -329,16 +330,16 @@ export function AddReferenceDialog({
                     handleAddReferenceUrl();
                   }
                 }}
-                className="border-border focus:border-primary dark:bg-background dark:border-border dark:text-foreground"
+                className="border-border focus:border-primary dark:bg-background dark:border-border dark:text-foreground text-sm sm:text-base h-8 sm:h-9"
               />
             </div>
           ) : (
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground dark:text-foreground">
+              <label className="text-xs sm:text-sm font-semibold text-foreground dark:text-foreground">
                 Upload File *
               </label>
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all duration-200 ${
+                className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center cursor-pointer transition-all duration-200 ${
                   dragOver
                     ? "border-primary bg-primary/10 scale-102"
                     : "border-border dark:border-border hover:border-primary/50 hover:bg-muted/20 hover:scale-101"
@@ -395,8 +396,8 @@ export function AddReferenceDialog({
                   className="hidden"
                 />
                 <div className="flex flex-col items-center justify-center">
-                  <Upload className="h-10 w-10 text-muted-foreground mb-3" />
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  <Upload className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground mb-2 sm:mb-3" />
+                  <p className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">
                     Drag and drop files here or click to select files
                   </p>
                   <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
@@ -408,14 +409,14 @@ export function AddReferenceDialog({
                   </p>
                 </div>
                 {fileError && (
-                  <div className="mt-3 p-2 bg-destructive/10 border border-destructive/20 rounded">
+                  <div className="mt-2 sm:mt-3 p-2 bg-destructive/10 border border-destructive/20 rounded">
                     <p className="text-xs text-destructive font-medium">
                       {fileError}
                     </p>
                   </div>
                 )}
                 {(droppedFiles.length > 0 || pastedImages.length > 0) && (
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-2 sm:mt-3 space-y-2">
                     <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                       {droppedFiles.length + pastedImages.length} file
                       {droppedFiles.length + pastedImages.length > 1
@@ -423,7 +424,7 @@ export function AddReferenceDialog({
                         : ""}{" "}
                       selected:
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -432,7 +433,7 @@ export function AddReferenceDialog({
                           setDroppedFiles([]);
                           setPastedImages([]);
                         }}
-                        className="h-6 text-xs hover:bg-destructive/10 hover:text-destructive"
+                        className="h-6 text-xs hover:bg-destructive/10 hover:text-destructive w-full sm:w-auto"
                       >
                         Clear All
                       </Button>
@@ -519,14 +520,14 @@ export function AddReferenceDialog({
           )}
         </div>
 
-        <div className="flex gap-3 pt-4 border-t border-border dark:border-border">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-border dark:border-border">
           <Button
             onClick={() => {
               resetDialog();
               onOpenChange(false);
             }}
             variant="outline"
-            className="cursor-pointer dark:border-border dark:hover:bg-muted/50"
+            className="cursor-pointer dark:border-border dark:hover:bg-muted/50 w-full sm:w-auto text-sm h-8 sm:h-9"
             disabled={uploading}
           >
             Cancel
@@ -543,14 +544,21 @@ export function AddReferenceDialog({
                 ? !referenceUrl.trim()
                 : droppedFiles.length === 0 && pastedImages.length === 0)
             }
-            className="cursor-pointer"
+            className="cursor-pointer w-full sm:w-auto text-sm h-8 sm:h-9"
           >
             {uploading ? (
               <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                {uploadProgress
-                  ? `Uploading ${uploadProgress.current}/${uploadProgress.total}: ${uploadProgress.fileName}`
-                  : "Uploading..."}
+                <div className="h-3 w-3 sm:h-4 sm:w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">
+                  {uploadProgress
+                    ? `Uploading ${uploadProgress.current}/${uploadProgress.total}: ${uploadProgress.fileName}`
+                    : "Uploading..."}
+                </span>
+                <span className="sm:hidden">
+                  {uploadProgress
+                    ? `Uploading ${uploadProgress.current}/${uploadProgress.total}`
+                    : "Uploading..."}
+                </span>
               </>
             ) : (
               `Add ${uploadMode === "url" ? "URL" : droppedFiles.length + pastedImages.length > 1 ? `${droppedFiles.length + pastedImages.length} Files` : "File"}`
