@@ -1,7 +1,8 @@
 {
-  "buildCommand": "cd charpstar-unified && npm run build",
-  "outputDirectory": "charpstar-unified/.next",
-  "installCommand": "cd charpstar-unified && npm install",
-  "devCommand": "cd charpstar-unified && npm run dev",
-  "framework": "nextjs"
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm run install-deps",
+  "devCommand": "npm run dev",
+  "framework": "nextjs",
+  "rootDirectory": "charpstar-unified"
 }
