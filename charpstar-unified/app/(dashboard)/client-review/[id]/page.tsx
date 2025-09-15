@@ -3085,13 +3085,8 @@ export default function ReviewPage() {
                               );
                             }}
                           >
-                            {hotspot.image_url ? (
-                              <div className="hotspot-icon">
-                                <Camera className="h-4 w-4 text-white" />
-                              </div>
-                            ) : (
-                              <div className="hotspot-dot"></div>
-                            )}
+                            <div className="hotspot-dot"></div>
+
                             <div className="hotspot-number">
                               {annotations
                                 .sort(

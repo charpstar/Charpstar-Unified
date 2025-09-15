@@ -1663,32 +1663,6 @@ export default function AllocateAssetsPage() {
               </div>
 
               {/* Project Specifications & Financial Details */}
-              <div className="border-t pt-6">
-                <h4 className="text-lg font-medium mb-4 flex items-center gap-2">
-                  <Package className="h-5 w-5 text-blue-600" />
-                  Project Specifications & Financial Details
-                </h4>
-
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-blue-800 mb-3">
-                    <strong>Note:</strong> Client specifications and project
-                    requirements are now managed in the dedicated
-                    <a
-                      href="/admin/clients"
-                      className="underline font-medium hover:text-blue-600"
-                    >
-                      {" "}
-                      Clients Management page
-                    </a>
-                    .
-                  </p>
-                  <p className="text-sm text-blue-700">
-                    This allows for better organization and centralized
-                    management of client information, contracts, and
-                    specifications.
-                  </p>
-                </div>
-              </div>
 
               {/* Individual Asset Pricing */}
               <div className="border-t pt-6">
@@ -1959,50 +1933,15 @@ export default function AllocateAssetsPage() {
                     <p className="text-blue-800 text-xs">
                       <strong>Note:</strong> Client specifications and project
                       requirements are now managed in the
-                      <a
-                        href="/admin/clients"
-                        className="underline font-medium hover:text-blue-600"
+                      <button
+                        onClick={() => window.open("/admin/clients", "_blank")}
+                        className="underline font-medium hover:text-blue-600 cursor-pointer bg-transparent border-none p-0"
                       >
                         {" "}
                         Clients Management page
-                      </a>
+                      </button>
                       .
                     </p>
-                  </div>
-
-                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <h5 className="font-medium text-blue-800 mb-2">
-                      Bonus Structure
-                    </h5>
-                    <div className="text-xs text-blue-700 space-y-1">
-                      <p>
-                        • Complete before deadline:{" "}
-                        {pricingTier === "first_list" ? "15%" : "30%"}{" "}
-                        commission on next invoice
-                      </p>
-                      <div className="mt-2 pt-2 border-t border-blue-200">
-                        <p className="font-medium">
-                          Current Pricing Tier:{" "}
-                          {pricingTier === "first_list"
-                            ? "First List"
-                            : pricingTier === "after_first_deadline"
-                              ? "After First Deadline"
-                              : "Premium Tier (After Second Deadline)"}
-                        </p>
-                        <p className="text-blue-600">
-                          {pricingTier === "first_list"
-                            ? "PBR Models: €18, Additional Colors: €1, Textures: €5, Sizes: €4"
-                            : pricingTier === "after_first_deadline"
-                              ? "PBR Models: €18, Additional Colors: €1, Textures: €5, Sizes: €4"
-                              : "PBR Models: €30, Additional Colors: €1.5, Textures: €7, Sizes: €5"}
-                        </p>
-                        <p className="text-blue-600 mt-1">
-                          Commission Rate:{" "}
-                          {pricingTier === "first_list" ? "15%" : "30%"} of
-                          total list value
-                        </p>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

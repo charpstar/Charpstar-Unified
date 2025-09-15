@@ -149,7 +149,7 @@
   --status-delivered-by-artist: #60a5fa; /* blue */
   --status-approved-alt: #059669; /* darker green for charts */
   --status-reviewed: #0891b2; /* cyan for reviewed items */
-  --status-approved-by-client: #1a5442; /* darker green for charts */
+  --status-approved-by-client: #14532d; /* darker green for charts */
   --status-not-started: #6b7280; /* gray */
   /* Priority color variables */
   --priority-high: var(--error-muted);
@@ -256,7 +256,7 @@
   --status-delivered-by-artist: #60a5fa; /* blue */
   --status-approved-alt: #059669; /* darker green for charts */
   --status-reviewed: #0891b2; /* cyan for reviewed items */
-  --status-approved-by-client: #118511; /* darker green for charts */
+  --status-approved-by-client: #14532d; /* darker green for charts */
   --status-not-started: #6b7280; /* gray */
 
   /* Priority color variables */
@@ -652,10 +652,10 @@ model-viewer::part(default-ar-button):focus-visible {
   }
 
   .table-row-status-approved-by-client {
-    background-color: rgb(34 197 94 / 0.2) !important; /* green */
+    background-color: #0d6a3275 !important; /* darker green with 50% opacity */
   }
   .table-row-status-approved-by-client:hover {
-    background-color: rgb(34 197 94 / 0.3) !important;
+    background-color: #0b813a9f !important;
   }
 
   .table-row-status-delivered-by-artist {
@@ -705,10 +705,10 @@ model-viewer::part(default-ar-button):focus-visible {
   }
 
   .status-approved-by-client {
-    background-color: var(--success-muted);
-    color: var(--success);
-    border: 1px solid var(--success);
-    opacity: 0.8;
+    background-color: #dcfce7; /* light green background */
+    color: #14532d; /* darker green text */
+    border: 1px solid #16a34a; /* medium green border */
+    opacity: 0.9;
   }
 
   .status-delivered-by-artist {
@@ -756,10 +756,10 @@ model-viewer::part(default-ar-button):focus-visible {
   }
 
   .dark .status-approved-by-client {
-    background-color: var(--success-muted);
-    color: var(--success);
-    border: 1px solid var(--success);
-    opacity: 0.8;
+    background-color: rgb(22 101 52 / 0.2); /* dark green background */
+    color: #4ade80; /* lighter green text for dark mode */
+    border: 1px solid #16a34a; /* medium green border */
+    opacity: 0.9;
   }
 
   .dark .status-delivered-by-artist {

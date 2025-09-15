@@ -1,5 +1,0 @@
-[33m712ae85[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32masset-api-test[m[33m, [m[1;31morigin/asset-api-test[m[33m)[m Add install-deps script and fix Vercel output directory
-[33m06b893c[m Fix Vercel commands to run directly in charpstar-unified directory
-[33m3fbbc72[m Add charpstar-unified directory with all Next.js application files
-[33meb49993[m Fix vercel.json schema validation - remove invalid rootDirectory property
-[33m76a9c38[m Fix Vercel configuration with rootDirectory setting
