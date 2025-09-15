@@ -100,6 +100,7 @@ export default function AddProductsPage() {
   >([]);
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [editedCsvData, setEditedCsvData] = useState<string[][] | null>(null);
+  const [scrapingImages, setScrapingImages] = useState(false);
 
   // Helper function to reset file input
   const resetFileInput = () => {
@@ -111,6 +112,59 @@ export default function AddProductsPage() {
           fileInputRef.current.value = "";
         }
       }, 10);
+    }
+  };
+
+  // Function to scrape images for the client
+  const scrapeImages = async () => {
+    if (!user?.metadata?.client) {
+      console.warn("Client information not available for image scraping");
+      return;
+    }
+
+    setScrapingImages(true);
+    const loadingToast = toast.loading("Scraping images...", {
+      description:
+        "This may take a few minutes depending on the number of products",
+    });
+
+    try {
+      const clientName = user.metadata.client;
+      const response = await fetch(
+        `http://45.32.156.145:8000/process-client/${encodeURIComponent(clientName)}`,
+        {
+          method: "POST",
+          // Add timeout to prevent hanging
+          signal: AbortSignal.timeout(30000), // 30 second timeout
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      toast.success("Images scraped successfully!", {
+        id: loadingToast,
+        description:
+          result.message ||
+          "Images have been processed and saved to the database",
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error("Error scraping images:", error);
+
+      // Don't show error toast to user since this runs in background
+      // Just log it and silently fail
+      toast.dismiss(loadingToast);
+
+      // Only show a warning in console, not to user
+      console.warn(
+        "Image scraping failed silently - this won't affect your product upload"
+      );
+    } finally {
+      setScrapingImages(false);
     }
   };
 
@@ -247,11 +301,16 @@ export default function AddProductsPage() {
         // Don't fail the product submission if notification fails
       }
 
+      // Automatically scrape images in the background (fire and forget)
+      scrapeImages().catch((error) => {
+        console.warn("Background image scraping failed:", error);
+      });
+
       toast.success(
         ` Successfully added ${validProducts.length} product${validProducts.length === 1 ? "" : "s"} to batch ${currentBatch}!`,
         {
           id: loadingToast,
-          description: `Your products are now ready for review and will appear in the client review dashboard.`,
+          description: `Your products are now ready for review. Image scraping will be attempted in the background.`,
           duration: 5000,
         }
       );
@@ -613,11 +672,16 @@ export default function AddProductsPage() {
         // Don't fail the product submission if notification fails
       }
 
+      // Automatically scrape images in the background (fire and forget)
+      scrapeImages().catch((error) => {
+        console.warn("Background image scraping failed:", error);
+      });
+
       toast.success(
         `🎉 Successfully uploaded ${successCount} product${successCount === 1 ? "" : "s"}!`,
         {
           id: loadingToast,
-          description: `Your products have been added to batch ${currentBatch} and are ready for review.`,
+          description: `Your products have been added to batch ${currentBatch} and are ready for review. Image scraping will be attempted in the background.`,
           duration: 5000,
         }
       );
