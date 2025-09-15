@@ -224,7 +224,7 @@ export function ModelerStatsWidget() {
         subtitle="Track your current workload and progress"
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 flex-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 gap-3 sm:gap-4 flex-1">
         {statCards.map((stat, index: number) => (
           <div
             key={index}
@@ -814,7 +814,7 @@ export function ModelerEarningsWidget() {
           <div className="relative overflow-x-auto">
             {earningsData.chartData.length > 0 ? (
               <ChartContainer
-                className="h-48 sm:h-68 min-w-[280px]"
+                className="h-48 sm:h-68 min-w-[400px]"
                 config={chartConfig}
               >
                 <LineChart

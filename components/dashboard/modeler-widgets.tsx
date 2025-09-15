@@ -220,7 +220,7 @@ export function ModelerStatsWidget() {
         subtitle="Track your current workload and progress"
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-6 flex-1">
         {statCards.map((stat, index: number) => (
           <div
             key={index}
@@ -229,7 +229,6 @@ export function ModelerStatsWidget() {
               hover:scale-102 hover:shadow-xl hover:shadow-black/5
               ${stat.bgColor} ${stat.borderColor}
               ${loading ? "animate-pulse" : ""}
-              ${index === 0 ? "sm:col-span-2 min-h-[72px]" : ""}
             `}
           >
             {/* Background Pattern */}
