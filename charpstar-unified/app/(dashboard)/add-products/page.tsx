@@ -404,11 +404,11 @@ export default function AddProductsPage() {
       // Check for missing required fields
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        if (!row[0] || !row[1] || !row[2] || !row[3]) {
+        if (!row[0] || !row[1] || !row[2]) {
           errors.push({
             row: i + 1,
             message:
-              "Missing required fields (Article ID, Product Name, Product Link, GLB Link)",
+              "Missing required fields (Article ID, Product Name, Product Link)",
           });
         }
       }
@@ -590,8 +590,7 @@ export default function AddProductsPage() {
       if (
         !article_id?.trim() ||
         !product_name?.trim() ||
-        !product_link?.trim() ||
-        !glb_link?.trim()
+        !product_link?.trim()
       ) {
         failCount++;
         continue;
@@ -909,11 +908,10 @@ export default function AddProductsPage() {
 
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground mb-2 block">
-                        Category *
+                        Category
                       </Label>
                       <Input
                         value={product.category}
-                        required={true}
                         onChange={(e) =>
                           updateProduct(index, "category", e.target.value)
                         }

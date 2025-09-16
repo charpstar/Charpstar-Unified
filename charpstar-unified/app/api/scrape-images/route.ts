@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
 
     if (!clientName) {
       return NextResponse.json(
-        { error: 'Client name is required' },
+        { error: "Client name is required" },
         { status: 400 }
       );
     }
@@ -20,12 +20,12 @@ export async function POST(request: NextRequest) {
 
     try {
       const response = await fetch(
-        `http://45.32.156.145:8000/process-client/${encodeURIComponent(clientName)}`,
+        `https://scraper.charpstar.co/process-client/${encodeURIComponent(clientName)}`,
         {
-          method: 'POST',
+          method: "POST",
           signal: controller.signal,
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         }
       );
@@ -33,7 +33,9 @@ export async function POST(request: NextRequest) {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`External API error: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `External API error: ${response.status} ${response.statusText}`
+        );
       }
 
       const result = await response.json();
@@ -43,27 +45,27 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: result.message || 'Images have been processed and saved to the database',
+        message:
+          result.message ||
+          "Images have been processed and saved to the database",
         data: result,
       });
-
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        throw new Error('Request timed out after 30 seconds');
+
+      if (fetchError instanceof Error && fetchError.name === "AbortError") {
+        throw new Error("Request timed out after 30 seconds");
       }
-      
+
       throw fetchError;
     }
-
   } catch (error) {
-    console.error('Error in scrape-images API:', error);
-    
+    console.error("Error in scrape-images API:", error);
+
     return NextResponse.json(
-      { 
-        error: 'Failed to scrape images',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      {
+        error: "Failed to scrape images",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

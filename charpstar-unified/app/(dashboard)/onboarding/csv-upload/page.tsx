@@ -36,7 +36,7 @@ import { useLoading } from "@/contexts/LoadingContext";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/utilities";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+
 import { Alert, AlertDescription } from "@/components/ui/feedback";
 import { notificationService } from "@/lib/notificationService";
 
@@ -198,8 +198,15 @@ export default function CsvUploadPage() {
         subcategory,
       ] = row;
 
-      // All fields are optional - no validation needed
-      // Proceed with insert even if fields are empty
+      // Validate required fields
+      if (
+        !article_id?.trim() ||
+        !product_name?.trim() ||
+        !product_link?.trim() ||
+        !category?.trim()
+      ) {
+        continue; // Skip rows missing required fields
+      }
 
       productsToInsert.push({
         client,
@@ -243,6 +250,29 @@ export default function CsvUploadPage() {
         title: " Upload Success!",
         description: `${successCount} assets successfully uploaded!`,
       });
+
+      // Call the image scraper API
+      try {
+        const scraperResponse = await fetch("/api/scrape-images", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            clientName: user?.metadata?.client || "Unknown Client",
+          }),
+        });
+
+        if (scraperResponse.ok) {
+          const scraperResult = await scraperResponse.json();
+          console.log("Image scraping initiated:", scraperResult);
+        } else {
+          console.warn("Image scraping failed:", await scraperResponse.text());
+        }
+      } catch (scraperError) {
+        console.error("Error calling image scraper:", scraperError);
+        // Don't fail the upload if scraper fails
+      }
 
       // Send notification to admin users about new product submission
       try {
@@ -331,20 +361,12 @@ export default function CsvUploadPage() {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Upload your product data to get started with your 3D asset library.
             The template includes: Article ID, Product Name, Product Link,
-            CAD/File Link, Category, and Subcategory. All fields are optional
-            and can be empty.{" "}
+            CAD/File Link, Category, and Subcategory. Required fields: Article
+            ID, Product Name, Product Link, and Category.{" "}
             <strong>
               Note: Do not add images yet - that&apos;s the next step.
             </strong>
           </p>
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <Link href="/onboarding/manual-upload" className="cursor-pointer">
-              <Button variant="outline" size="sm" className="gap-2">
-                <FileText className="h-4 w-4" />
-                Add products manually
-              </Button>
-            </Link>
-          </div>
         </div>
       </div>
 
@@ -414,74 +436,26 @@ export default function CsvUploadPage() {
               </div>
               <div>
                 <h3 className="text-xl font-semibold">
-                  Step 1: Choose how to add products
+                  Step 1: Download Template
                 </h3>
                 <p className="text-muted-foreground">
-                  Use CSV for larger batches or Manual upload for a few items.
+                  Use CSV to upload your product data efficiently.
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* CSV Path */}
-              <Card className="p-4 border">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h4 className="text-lg font-semibold mb-1">CSV upload</h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Download the template and upload your filled file. Best
-                      for 10+ products.
-                    </p>
-                    <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-                      <li>
-                        Columns: Article ID, Product Name, Product Link,
-                        CAD/File Link, Category, Subcategory
-                      </li>
-                      <li>
-                        All fields optional except Article ID and Product Name
-                        for processing
-                      </li>
-                    </ul>
-                  </div>
-                  <a
-                    href="/csv-template.csv"
-                    download
-                    onClick={() =>
-                      setProgress((p) => ({ ...p, downloaded: true }))
-                    }
-                    className="shrink-0"
-                  >
-                    <Button variant="default" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Template
-                    </Button>
-                  </a>
-                </div>
-              </Card>
-
-              {/* Manual Path */}
-              <Card className="p-4 border">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h4 className="text-lg font-semibold mb-1">
-                      Manual upload
-                    </h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Add multiple rows in a spreadsheet-like table and submit
-                      together.
-                    </p>
-                    <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-                      <li>Great for smaller batches</li>
-                      <li>Requires Article ID and Product Name per row</li>
-                    </ul>
-                  </div>
-                  <Link href="/onboarding/manual-upload" className="shrink-0">
-                    <Button variant="outline" size="sm">
-                      Go to Manual
-                    </Button>
-                  </Link>
-                </div>
-              </Card>
+            <div className="flex justify-center">
+              <a
+                href="/csv-template.csv"
+                download
+                onClick={() => setProgress((p) => ({ ...p, downloaded: true }))}
+                className="cursor-pointer"
+              >
+                <Button variant="default" size="lg" className="gap-2">
+                  <Download className="h-5 w-5" />
+                  Download Template
+                </Button>
+              </a>
             </div>
           </div>
 
@@ -623,7 +597,7 @@ export default function CsvUploadPage() {
 
       {/* Enhanced Preview Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="w-[900px] max-h-[60vh] overflow-hidden">
+        <DialogContent className="w-[95vw] min-w-[1400px]  max-h-[80vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Eye className="h-5 w-5 text-primary" />

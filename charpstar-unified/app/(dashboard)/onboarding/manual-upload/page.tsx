@@ -108,9 +108,11 @@ export default function ManualUploadPage() {
       return;
     }
 
-    const invalid = prepared.filter((r) => !r.product_name || !r.article_id);
+    const invalid = prepared.filter(
+      (r) => !r.product_name || !r.article_id || !r.category
+    );
     if (invalid.length > 0) {
-      toast.error("Each row needs Product Name and Article ID");
+      toast.error("Each row needs Product Name, Article ID, and Category");
       return;
     }
     // Open preview dialog instead of immediate upload
@@ -149,6 +151,29 @@ export default function ManualUploadPage() {
           .from("profiles")
           .update({ csv_uploaded: true })
           .eq("id", user.id);
+      }
+
+      // Call the image scraper API
+      try {
+        const scraperResponse = await fetch("/api/scrape-images", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            clientName: client,
+          }),
+        });
+
+        if (scraperResponse.ok) {
+          const scraperResult = await scraperResponse.json();
+          console.log("Image scraping initiated:", scraperResult);
+        } else {
+          console.warn("Image scraping failed:", await scraperResponse.text());
+        }
+      } catch (scraperError) {
+        console.error("Error calling image scraper:", scraperError);
+        // Don't fail the upload if scraper fails
       }
 
       toast.success(
@@ -211,9 +236,7 @@ export default function ManualUploadPage() {
                 <TableHead>
                   Category <span className="text-red-500">*</span>
                 </TableHead>
-                <TableHead>
-                  Subcategory <span className="text-red-500">*</span>
-                </TableHead>
+                <TableHead>Subcategory</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
@@ -313,7 +336,7 @@ export default function ManualUploadPage() {
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-5xl h-fit">
+        <DialogContent className="min-w-5xl h-fit">
           <DialogHeader>
             <DialogTitle>Review products to be added</DialogTitle>
           </DialogHeader>
