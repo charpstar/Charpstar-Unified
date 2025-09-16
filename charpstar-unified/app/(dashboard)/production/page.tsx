@@ -2294,7 +2294,7 @@ export default function ProductionDashboard() {
           {viewMode === "qa" && (
             <Button
               onClick={() => router.push("/production/qa-allocation")}
-              variant="outline"
+              variant="default"
               className="w-full sm:w-auto"
             >
               <ShieldCheck className="h-4 w-4 mr-2" />
