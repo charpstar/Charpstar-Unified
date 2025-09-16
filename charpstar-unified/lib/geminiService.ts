@@ -64,61 +64,31 @@ ${photorealismChecklist}
 async function callApi(
   ai: GoogleGenAI,
   imageParts: { inlineData: { mimeType: string; data: string } }[],
-  textPart: { text: string },
-  retryCount = 0
+  textPart: { text: string }
 ): Promise<string | null> {
-  const maxRetries = 3;
-  const retryDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash-image-preview",
+    contents: {
+      parts: [...imageParts, textPart],
+    },
+    config: {
+      responseModalities: [Modality.IMAGE, Modality.TEXT],
+    },
+  });
 
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image-preview",
-      contents: {
-        parts: [...imageParts, textPart],
-      },
-      config: {
-        responseModalities: [Modality.IMAGE, Modality.TEXT],
-      },
-    });
-
-    if (response.candidates && response.candidates[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          return part.inlineData.data || null;
-        }
+  if (response.candidates && response.candidates[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return part.inlineData.data || null;
       }
     }
-
-    const textResponse = response.text;
-    console.warn("Gemini returned text instead of an image:", textResponse);
-    throw new Error(
-      `AI processing failed for one of the images. The model responded with: "${textResponse?.substring(0, 100) || "Unknown error"}..."`
-    );
-  } catch (error: any) {
-    // Check if it's a retryable error (5xx server errors)
-    const isRetryable = error.status >= 500 || error.code === 500;
-
-    if (isRetryable && retryCount < maxRetries) {
-      console.warn(
-        `Gemini API error (attempt ${retryCount + 1}/${maxRetries + 1}):`,
-        error.message
-      );
-      console.log(`Retrying in ${retryDelay}ms...`);
-
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
-      return callApi(ai, imageParts, textPart, retryCount + 1);
-    }
-
-    // If it's a 400 error, don't retry
-    if (error.status === 400 || error.code === 400) {
-      throw new Error(
-        "The request was invalid. The uploaded image might be unsupported. Please try another file."
-      );
-    }
-
-    // For other errors or max retries reached
-    throw error;
   }
+
+  const textResponse = response.text;
+  console.warn("Gemini returned text instead of an image:", textResponse);
+  throw new Error(
+    `AI processing failed for one of the images. The model responded with: "${textResponse?.substring(0, 100) || "Unknown error"}..."`
+  );
 }
 
 export async function generateScenes(

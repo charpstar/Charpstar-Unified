@@ -4,12 +4,7 @@ import { useEffect, useState } from "react";
 import { useUser } from "@/contexts/useUser";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
+import { Card, CardContent } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
 import {
@@ -33,12 +28,9 @@ import {
   User,
   Zap,
   Star,
-  Lightbulb,
   Clock,
   CheckCircle,
-  Sparkles,
   Heart,
-  ThumbsUp,
   ArrowRight,
 } from "lucide-react";
 

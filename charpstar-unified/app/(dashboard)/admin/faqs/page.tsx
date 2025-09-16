@@ -28,16 +28,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/containers";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/display";
+
 import { Badge } from "@/components/ui/feedback";
 import {
   Plus,
@@ -48,7 +40,6 @@ import {
   ChevronDown,
   ChevronUp,
   Save,
-  X,
 } from "lucide-react";
 
 interface FAQ {
