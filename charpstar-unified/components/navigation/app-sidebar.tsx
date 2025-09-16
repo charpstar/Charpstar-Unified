@@ -19,6 +19,7 @@ import {
   Building2,
   Palette,
   HelpCircle,
+  Bug,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -145,6 +146,11 @@ export default function AppSidebar({
                 title: "Client Information",
                 url: "/admin/clients",
                 icon: Building2,
+              },
+              {
+                title: "Bug Reports",
+                url: "/admin/bug-reports",
+                icon: Bug,
               },
               {
                 title: "Onboarding",

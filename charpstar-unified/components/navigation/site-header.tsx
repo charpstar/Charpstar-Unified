@@ -8,9 +8,11 @@ import { DateRangePicker } from "@/components/ui/utilities";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsCheck } from "@/lib/analyticsCheck";
 import { NotificationBell } from "@/components/ui/feedback/notification-bell";
+import { Badge } from "@/components/ui/feedback";
 
 import { useState, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
+import { Bug, ExternalLink } from "lucide-react";
 
 const TITLES = {
   "/dashboard": "Dashboard",
@@ -41,7 +43,9 @@ const TITLES = {
   "/qa-review": "QA Review",
   "/production/cost-tracking": "Cost Tracking",
   "/admin/clients": "Client Information",
+  "/admin/bug-reports": "Bug Reports",
   "/my-assignments/[client]/[batch]": "My Assignments",
+  "/bug-report": "Report Bug",
 };
 
 export default function SiteHeader() {
@@ -139,7 +143,31 @@ export default function SiteHeader() {
           {typeof pageTitle === "string" ? pageTitle : pageTitle}
         </h1>
 
+        {/* Beta Badge */}
+        <Badge variant="secondary" className="ml-2 text-xs">
+          Charpstar Platform Beta
+        </Badge>
+
         <div className="ml-auto flex items-center gap-2">
+          {/* Report Bug Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const currentUrl = encodeURIComponent(window.location.href);
+              const currentPage = encodeURIComponent(document.title);
+              window.open(
+                `/bug-report?url=${currentUrl}&page=${currentPage}`,
+                "_blank"
+              );
+            }}
+            className="gap-2 text-xs cursor-pointer"
+          >
+            <Bug className="h-3 w-3" />
+            Report Bug
+            <ExternalLink className="h-3 w-3" />
+          </Button>
+
           {/* Notification Bell - Available for all users */}
           <NotificationBell />
 

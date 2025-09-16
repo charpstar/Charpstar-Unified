@@ -39,7 +39,6 @@ import { TeamInfoTooltip } from "@/components/production/TeamInfoTooltip";
 
 import { supabase } from "@/lib/supabaseClient";
 import {
-  CloudUpload,
   TrendingUp,
   Calendar,
   Package,
@@ -3347,10 +3346,6 @@ export default function ProductionDashboard() {
           <p className="text-muted-foreground mb-4">
             No client data found. Start by uploading client assets.
           </p>
-          <Button className="flex items-center gap-2">
-            <CloudUpload className="h-4 w-4" />
-            Upload Client Data
-          </Button>
         </div>
       )}
 
@@ -3362,10 +3357,6 @@ export default function ProductionDashboard() {
           <p className="text-muted-foreground mb-4">
             No onboarding assets found. Start by uploading client data.
           </p>
-          <Button className="flex items-center gap-2">
-            <CloudUpload className="h-4 w-4" />
-            Upload Client Data
-          </Button>
         </div>
       )}
 
