@@ -1591,7 +1591,7 @@ class NotificationService {
       await this.createNotification({
         recipient_id: clientId,
         recipient_email: clientEmail,
-        type: "client_list_progress",
+        type: "status_change",
         title: `List Progress Update - ${progressText}`,
         message,
         metadata: {

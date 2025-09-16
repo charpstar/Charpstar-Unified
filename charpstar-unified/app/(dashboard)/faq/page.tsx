@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
+import { Textarea } from "@/components/ui/inputs";
 import {
   Select,
   SelectContent,
@@ -15,6 +16,14 @@ import {
   SelectValue,
 } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/containers";
 import {
   Search,
   Filter,
@@ -32,6 +41,11 @@ import {
   CheckCircle,
   Heart,
   ArrowRight,
+  Plus,
+  Edit,
+  Trash2,
+  Save,
+  X,
 } from "lucide-react";
 
 interface FAQ {
@@ -127,6 +141,17 @@ export default function FAQPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [expandedFaqs, setExpandedFaqs] = useState<Set<string>>(new Set());
 
+  // Admin state
+  const [showAdminDialog, setShowAdminDialog] = useState(false);
+  const [editingFaq, setEditingFaq] = useState<FAQ | null>(null);
+  const [adminForm, setAdminForm] = useState({
+    question: "",
+    answer: "",
+    category: "",
+    order_index: 0,
+    is_active: true,
+  });
+
   // Check if user is client and redirect
   useEffect(() => {
     if (user && user.metadata?.role === "client") {
@@ -198,6 +223,98 @@ export default function FAQPage() {
     setExpandedFaqs(new Set());
   };
 
+  // Admin functions
+  const isAdmin = user?.metadata?.role === "admin";
+
+  const openAdminDialog = (faq?: FAQ) => {
+    if (faq) {
+      setEditingFaq(faq);
+      setAdminForm({
+        question: faq.question,
+        answer: faq.answer,
+        category: faq.category,
+        order_index: faq.order_index,
+        is_active: faq.is_active,
+      });
+    } else {
+      setEditingFaq(null);
+      setAdminForm({
+        question: "",
+        answer: "",
+        category: "General",
+        order_index: faqs.length + 1,
+        is_active: true,
+      });
+    }
+    setShowAdminDialog(true);
+  };
+
+  const closeAdminDialog = () => {
+    setShowAdminDialog(false);
+    setEditingFaq(null);
+    setAdminForm({
+      question: "",
+      answer: "",
+      category: "General",
+      order_index: 0,
+      is_active: true,
+    });
+  };
+
+  const handleAdminSubmit = async () => {
+    if (!adminForm.question.trim() || !adminForm.answer.trim()) {
+      toast.error("Please fill in both question and answer");
+      return;
+    }
+
+    try {
+      const url = editingFaq ? `/api/faqs/${editingFaq.id}` : "/api/faqs";
+      const method = editingFaq ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(adminForm),
+      });
+
+      if (response.ok) {
+        toast.success(
+          editingFaq ? "FAQ updated successfully" : "FAQ created successfully"
+        );
+        closeAdminDialog();
+        fetchFAQs();
+      } else {
+        const data = await response.json();
+        toast.error(data.error || "Failed to save FAQ");
+      }
+    } catch (error) {
+      console.error("Error saving FAQ:", error);
+      toast.error("Failed to save FAQ");
+    }
+  };
+
+  const handleDeleteFaq = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this FAQ?")) return;
+
+    try {
+      const response = await fetch(`/api/faqs/${id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        toast.success("FAQ deleted successfully");
+        fetchFAQs();
+      } else {
+        toast.error("Failed to delete FAQ");
+      }
+    } catch (error) {
+      console.error("Error deleting FAQ:", error);
+      toast.error("Failed to delete FAQ");
+    }
+  };
+
   // Show loading or access denied for clients
   if (user && user.metadata?.role === "client") {
     return (
@@ -236,6 +353,17 @@ export default function FAQPage() {
               </span>
             </div>
           </div>
+          {isAdmin && (
+            <div className="flex justify-center">
+              <Button
+                onClick={() => openAdminDialog()}
+                className="gap-2 bg-blue-500 hover:bg-blue-600"
+              >
+                <Plus className="h-4 w-4" />
+                Add New FAQ
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Search and Filters */}
@@ -464,6 +592,32 @@ export default function FAQPage() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
+                                {isAdmin && (
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openAdminDialog(faq);
+                                      }}
+                                      className="h-8 w-8 p-0 hover:bg-blue-100"
+                                    >
+                                      <Edit className="h-3 w-3 text-blue-600" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteFaq(faq.id);
+                                      }}
+                                      className="h-8 w-8 p-0 hover:bg-red-100"
+                                    >
+                                      <Trash2 className="h-3 w-3 text-red-600" />
+                                    </Button>
+                                  </div>
+                                )}
                                 <div
                                   className={`p-1.5 rounded-full ${
                                     expandedFaqs.has(faq.id)
@@ -506,6 +660,122 @@ export default function FAQPage() {
           </div>
         )}
       </div>
+
+      {/* Admin Dialog */}
+      {isAdmin && (
+        <Dialog open={showAdminDialog} onOpenChange={setShowAdminDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {editingFaq ? "Edit FAQ" : "Add New FAQ"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingFaq
+                  ? "Update the FAQ information below."
+                  : "Create a new FAQ entry."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Question
+                </label>
+                <Input
+                  value={adminForm.question}
+                  onChange={(e) =>
+                    setAdminForm((prev) => ({
+                      ...prev,
+                      question: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter the question..."
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Answer</label>
+                <Textarea
+                  value={adminForm.answer}
+                  onChange={(e) =>
+                    setAdminForm((prev) => ({
+                      ...prev,
+                      answer: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter the answer..."
+                  rows={4}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Category
+                  </label>
+                  <Select
+                    value={adminForm.category}
+                    onValueChange={(value) =>
+                      setAdminForm((prev) => ({ ...prev, category: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.slice(1).map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Order Index
+                  </label>
+                  <Input
+                    type="number"
+                    value={adminForm.order_index}
+                    onChange={(e) =>
+                      setAdminForm((prev) => ({
+                        ...prev,
+                        order_index: parseInt(e.target.value) || 0,
+                      }))
+                    }
+                    placeholder="Order number"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={adminForm.is_active}
+                  onChange={(e) =>
+                    setAdminForm((prev) => ({
+                      ...prev,
+                      is_active: e.target.checked,
+                    }))
+                  }
+                  className="rounded"
+                />
+                <label htmlFor="is_active" className="text-sm font-medium">
+                  Active (visible to users)
+                </label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeAdminDialog}>
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button onClick={handleAdminSubmit}>
+                <Save className="h-4 w-4 mr-2" />
+                {editingFaq ? "Update FAQ" : "Create FAQ"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

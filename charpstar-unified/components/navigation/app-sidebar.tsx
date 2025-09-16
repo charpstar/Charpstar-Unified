@@ -103,6 +103,8 @@ export default function AppSidebar({
               },
             ]
           : []),
+        // Bug Reports - available to all users
+
         // Add Products and Review pages for clients only
         ...(role === "client" && user?.metadata?.onboarding === false
           ? [
@@ -147,11 +149,7 @@ export default function AppSidebar({
                 url: "/admin/clients",
                 icon: Building2,
               },
-              {
-                title: "Bug Reports",
-                url: "/admin/bug-reports",
-                icon: Bug,
-              },
+
               {
                 title: "Onboarding",
                 url: "/onboarding",
@@ -172,17 +170,17 @@ export default function AppSidebar({
                 url: "/admin/pending-replies",
                 icon: MessageSquare,
               },
-              {
-                title: "FAQ Management",
-                url: "/admin/faqs",
-                icon: HelpCircle,
-              },
             ],
           },
           {
             title: "Scene Render",
             url: "/scene-render",
             icon: Palette,
+          },
+          {
+            title: "Bug Reports",
+            url: "/admin/bug-reports",
+            icon: Bug,
           },
         ]
       : [];
@@ -233,7 +231,7 @@ export default function AppSidebar({
     Onboarding: 30,
     "Create Users": 40,
     "Cost Tracking": 50,
-    "FAQ Management": 60,
+
     // General
     "3D Editor": 60,
     Analytics: 70,
