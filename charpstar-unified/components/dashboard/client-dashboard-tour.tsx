@@ -11,7 +11,6 @@ import {
   Sparkles,
   Navigation,
   Zap,
-  Settings,
   User,
   Users,
   Rocket,
