@@ -33,8 +33,7 @@ const scenePresets = [
   {
     category: "Lifestyle / Interior",
     label: "Scandinavian Living Room",
-    prompt:
-      "In a bright, airy, modern Scandinavian interior living room on a coffee table.",
+    prompt: "In a bright, airy, modern Scandinavian interior living room.",
   },
   {
     category: "Lifestyle / Interior",
