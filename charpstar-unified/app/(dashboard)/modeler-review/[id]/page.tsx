@@ -32,6 +32,7 @@ import {
   StickyNote,
   Edit,
   Trash2,
+  Star,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -220,6 +221,7 @@ export default function ModelerReviewPage() {
   } | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
+  const [updatingPriority, setUpdatingPriority] = useState<string | null>(null);
 
   // Notes state
   const [notes, setNotes] = useState<any[]>([]);
@@ -1572,6 +1574,52 @@ export default function ModelerReviewPage() {
     }
   };
 
+  // Toggle comment priority (only QAs can do this)
+  const toggleCommentPriority = async (
+    commentId: string,
+    currentPriority: boolean
+  ) => {
+    if (!user || user.metadata?.role !== "qa") {
+      toast.error("Only QAs can prioritize comments");
+      return;
+    }
+
+    try {
+      setUpdatingPriority(commentId);
+
+      const { error } = await supabase
+        .from("asset_comments")
+        .update({ is_priority: !currentPriority })
+        .eq("id", commentId);
+
+      if (error) {
+        console.error("Error updating comment priority:", error);
+        toast.error("Failed to update comment priority");
+        return;
+      }
+
+      // Update local state
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment.id === commentId
+            ? { ...comment, is_priority: !currentPriority }
+            : comment
+        )
+      );
+
+      toast.success(
+        currentPriority
+          ? "Comment unpinned from modeler dashboard"
+          : "Comment pinned to modeler dashboard"
+      );
+    } catch (error) {
+      console.error("Error toggling comment priority:", error);
+      toast.error("Failed to update comment priority");
+    } finally {
+      setUpdatingPriority(null);
+    }
+  };
+
   return (
     <>
       <div className="h-full flex flex-col bg-muted">
@@ -2728,6 +2776,34 @@ export default function ModelerReviewPage() {
                                   </div>
                                 </div>
                               </div>
+                              {/* Star button for QAs */}
+                              {user?.metadata?.role === "qa" && (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      toggleCommentPriority(
+                                        item.id,
+                                        item.is_priority || false
+                                      )
+                                    }
+                                    disabled={updatingPriority === item.id}
+                                    className={`h-8 w-8 p-0 ${
+                                      item.is_priority
+                                        ? "text-yellow-500 hover:text-yellow-600"
+                                        : "text-muted-foreground hover:text-yellow-500"
+                                    }`}
+                                    title={
+                                      item.is_priority
+                                        ? "Unpin from modeler dashboard"
+                                        : "Pin to modeler dashboard"
+                                    }
+                                  >
+                                    <Star className="h-4 w-4 fill-current" />
+                                  </Button>
+                                </div>
+                              )}
                               <div className="text-sm text-foreground p-2 rounded-md break-words overflow-hidden whitespace-pre-wrap font-sans">
                                 {linkifyText(item.comment)}
                               </div>

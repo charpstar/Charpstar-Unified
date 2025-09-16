@@ -42,6 +42,7 @@ import {
   Loader2,
   Clock,
   Download,
+  Star,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -340,6 +341,7 @@ export default function ReviewPage() {
   } | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
+  const [updatingPriority, setUpdatingPriority] = useState<string | null>(null);
 
   // Function to handle back navigation based on where user came from
   const handleBackNavigation = () => {
@@ -686,6 +688,25 @@ export default function ReviewPage() {
       document.removeEventListener("keyup", handleKeyUp);
     };
   }, []);
+
+  // Prevent client from leaving page if they have unconfirmed revisions
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Only show warning for clients who have added comments but haven't confirmed revision
+      if (user?.metadata?.role === "client" && showRevisionDialog) {
+        event.preventDefault();
+        event.returnValue =
+          "You have unconfirmed revision requests. Are you sure you want to leave?";
+        return "You have unconfirmed revision requests. Are you sure you want to leave?";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [user?.metadata?.role, showRevisionDialog]);
 
   // Handle model load
   const handleModelLoaded = () => {
@@ -2118,6 +2139,11 @@ export default function ReviewPage() {
       setComments((prev) => [data, ...prev]);
       setNewCommentText("");
       toast.success("Comment added successfully");
+
+      // If client adds a comment, automatically trigger revision dialog
+      if (user?.metadata?.role === "client") {
+        setShowRevisionDialog(true);
+      }
     } catch (error) {
       console.error("Error adding comment:", error);
       toast.error("Failed to add comment");
@@ -2503,6 +2529,52 @@ export default function ReviewPage() {
     }
   };
 
+  // Toggle comment priority (only QAs can do this)
+  const toggleCommentPriority = async (
+    commentId: string,
+    currentPriority: boolean
+  ) => {
+    if (!user || user.metadata?.role !== "qa") {
+      toast.error("Only QAs can prioritize comments");
+      return;
+    }
+
+    try {
+      setUpdatingPriority(commentId);
+
+      const { error } = await supabase
+        .from("asset_comments")
+        .update({ is_priority: !currentPriority })
+        .eq("id", commentId);
+
+      if (error) {
+        console.error("Error updating comment priority:", error);
+        toast.error("Failed to update comment priority");
+        return;
+      }
+
+      // Update local state
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment.id === commentId
+            ? { ...comment, is_priority: !currentPriority }
+            : comment
+        )
+      );
+
+      toast.success(
+        currentPriority
+          ? "Comment unpinned from modeler dashboard"
+          : "Comment pinned to modeler dashboard"
+      );
+    } catch (error) {
+      console.error("Error toggling comment priority:", error);
+      toast.error("Failed to update comment priority");
+    } finally {
+      setUpdatingPriority(null);
+    }
+  };
+
   // Build a parent->children map for comments and annotations
   const groupByParent = <T extends { id: string; parent_id?: string | null }>(
     items: T[]
@@ -2621,6 +2693,32 @@ export default function ReviewPage() {
       <div className="h-full flex flex-col bg-muted">
         {/* Enhanced Header */}
         <div className="bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-sm">
+          {/* Warning Banner for Unconfirmed Revisions */}
+          {user?.metadata?.role === "client" && showRevisionDialog && (
+            <div className="bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-800 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    You have unconfirmed revision requests
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    Please confirm your revision request before leaving this
+                    page.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowRevisionDialog(true)}
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  Review & Confirm
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 gap-3 sm:gap-0">
             <div className="flex items-center gap-3 sm:gap-8">
               <Button
@@ -4195,6 +4293,34 @@ export default function ReviewPage() {
                                   )}
                                 </div>
                               </div>
+                              {/* Star button for QAs */}
+                              {user?.metadata?.role === "qa" && (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      toggleCommentPriority(
+                                        item.id,
+                                        item.is_priority || false
+                                      )
+                                    }
+                                    disabled={updatingPriority === item.id}
+                                    className={`h-8 w-8 p-0 ${
+                                      item.is_priority
+                                        ? "text-yellow-500 hover:text-yellow-600"
+                                        : "text-muted-foreground hover:text-yellow-500"
+                                    }`}
+                                    title={
+                                      item.is_priority
+                                        ? "Unpin from modeler dashboard"
+                                        : "Pin to modeler dashboard"
+                                    }
+                                  >
+                                    <Star className="h-4 w-4 fill-current" />
+                                  </Button>
+                                </div>
+                              )}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button

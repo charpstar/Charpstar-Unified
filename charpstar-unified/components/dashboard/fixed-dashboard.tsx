@@ -35,6 +35,7 @@ import {
   QAWidgets,
   PersonalMetricsWidget,
   WaitingForApprovalWidget,
+  QACommentsWidget,
 } from "@/components/dashboard";
 
 interface FixedDashboardProps {
@@ -171,7 +172,17 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
           </CardContent>
         </Card>
 
-        {/* Row 3: Pending Assignments card removed for modelers */}
+        {/* Row 3: Priority QA Comments */}
+        <Card
+          className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
+          data-tour="qa-comments"
+        >
+          <CardContent className="h-4/4">
+            <ErrorBoundary>
+              <QACommentsWidget />
+            </ErrorBoundary>
+          </CardContent>
+        </Card>
 
         <Card
           className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"

@@ -47,6 +47,7 @@ import { getPriorityLabel } from "@/lib/constants";
 import dayjs from "@/utils/dayjs";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
+import { SubcategoryEditor } from "@/components/qa/SubcategoryEditor";
 
 // Helper function to get priority CSS class
 const getPriorityClass = (priority: number): string => {
@@ -134,7 +135,7 @@ const getStatusIcon = (status: string) => {
   }
 };
 
-const PAGE_SIZE = 18;
+const PAGE_SIZE = 100;
 
 interface AssignedAsset {
   id: string;
@@ -149,6 +150,7 @@ interface AssignedAsset {
   product_link?: string;
   category: string;
   subcategory: string;
+  subcategory_missing?: boolean;
   created_at: string;
   reference?: string[] | null;
   price: number;
@@ -366,6 +368,7 @@ export default function QAReviewPage() {
             product_link,
             category,
             subcategory,
+            subcategory_missing,
             created_at,
             reference
           )
@@ -1209,8 +1212,31 @@ export default function QAReviewPage() {
                             ? asset.product_name.substring(0, 25) + "..."
                             : asset.product_name}
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          {asset.category} • {asset.subcategory}
+                        <div className="text-sm text-muted-foreground flex items-center gap-2 group">
+                          <span>{asset.category}</span>
+                          <span>•</span>
+                          <SubcategoryEditor
+                            assetId={asset.id}
+                            currentSubcategory={asset.subcategory}
+                            category={asset.category}
+                            isMissing={asset.subcategory_missing || false}
+                            onUpdate={(newSubcategory) => {
+                              // Update the local state to reflect the change
+                              setAssets((prevAssets) =>
+                                prevAssets.map((a) =>
+                                  a.id === asset.id
+                                    ? {
+                                        ...a,
+                                        subcategory: newSubcategory,
+                                        subcategory_missing: false,
+                                      }
+                                    : a
+                                )
+                              );
+                            }}
+                            variant="inline"
+                            className="inline-flex"
+                          />
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1459,8 +1485,31 @@ export default function QAReviewPage() {
                               ? asset.product_name.substring(0, 30) + "..."
                               : asset.product_name}
                           </h3>
-                          <div className="text-xs text-muted-foreground">
-                            {asset.category} • {asset.subcategory}
+                          <div className="text-xs text-muted-foreground flex items-center gap-2 group">
+                            <span>{asset.category}</span>
+                            <span>•</span>
+                            <SubcategoryEditor
+                              assetId={asset.id}
+                              currentSubcategory={asset.subcategory}
+                              category={asset.category}
+                              isMissing={asset.subcategory_missing || false}
+                              onUpdate={(newSubcategory) => {
+                                // Update the local state to reflect the change
+                                setAssets((prevAssets) =>
+                                  prevAssets.map((a) =>
+                                    a.id === asset.id
+                                      ? {
+                                          ...a,
+                                          subcategory: newSubcategory,
+                                          subcategory_missing: false,
+                                        }
+                                      : a
+                                  )
+                                );
+                              }}
+                              variant="inline"
+                              className="inline-flex"
+                            />
                           </div>
                         </div>
                       </div>

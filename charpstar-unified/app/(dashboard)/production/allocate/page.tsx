@@ -242,6 +242,9 @@ export default function AllocateAssetsPage() {
     []
   );
   const [existingAssignments, setExistingAssignments] = useState<any[]>([]);
+  const [modelerQAAssignments, setModelerQAAssignments] = useState<
+    Map<string, { qaId: string; qaEmail: string; qaTitle?: string }[]>
+  >(new Map());
 
   // Ref to prevent infinite loops when updating pricing
   const isUpdatingPricing = useRef(false);
@@ -582,9 +585,64 @@ export default function AllocateAssetsPage() {
     }
   };
 
+  // Fetch QA assignments for modelers
+  const fetchModelerQAAssignments = async () => {
+    try {
+      // First fetch QA allocations
+      const { data: allocationData, error: allocationError } = await supabase
+        .from("qa_allocations")
+        .select("modeler_id, qa_id");
+
+      if (allocationError) throw allocationError;
+
+      if (!allocationData || allocationData.length === 0) {
+        setModelerQAAssignments(new Map());
+        return;
+      }
+
+      // Get unique QA IDs
+      const qaIds = [...new Set(allocationData.map((a) => a.qa_id))];
+
+      // Fetch QA user details
+      const { data: qaDetails, error: qaError } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .in("id", qaIds);
+
+      if (qaError) throw qaError;
+
+      // Create a map of QA details (multiple QAs per modeler)
+      const qaDetailsMap = new Map<
+        string,
+        { qaId: string; qaEmail: string; qaTitle?: string }[]
+      >();
+
+      allocationData.forEach((allocation) => {
+        const qaDetail = qaDetails?.find((qa) => qa.id === allocation.qa_id);
+        if (qaDetail) {
+          const existingQAs = qaDetailsMap.get(allocation.modeler_id) || [];
+          qaDetailsMap.set(allocation.modeler_id, [
+            ...existingQAs,
+            {
+              qaId: allocation.qa_id,
+              qaEmail: qaDetail.email,
+              qaTitle: qaDetail.title,
+            },
+          ]);
+        }
+      });
+
+      setModelerQAAssignments(qaDetailsMap);
+      console.log("QA Assignments loaded:", qaDetailsMap);
+    } catch (error) {
+      console.error("Error fetching QA assignments:", error);
+    }
+  };
+
   useEffect(() => {
     fetchUnallocatedAssets();
     fetchUsers();
+    fetchModelerQAAssignments();
   }, [fetchUnallocatedAssets]);
 
   // Initialize allocation data for selected assets
@@ -957,6 +1015,31 @@ export default function AllocateAssetsPage() {
         return;
       }
 
+      // Check if the selected modeler has a QA assigned
+      const { data: qaAllocations, error: qaError } = await supabase
+        .from("qa_allocations")
+        .select("qa_id")
+        .eq("modeler_id", globalTeamAssignment.modelerId);
+
+      if (qaError) {
+        console.error("Error checking QA allocation:", qaError);
+        toast.error("Failed to verify QA assignment");
+        return;
+      }
+
+      if (!qaAllocations || qaAllocations.length === 0) {
+        toast.error(
+          "Cannot allocate assets: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
+          { duration: 8000 }
+        );
+        return;
+      }
+
+      // Log info about QA allocations
+      console.log(
+        `Modeler ${globalTeamAssignment.modelerId} has ${qaAllocations.length} QA allocation${qaAllocations.length > 1 ? "s" : ""}.`
+      );
+
       // Validate group settings and individual prices
       if (!groupSettings.deadline) {
         toast.error("Please set deadline for the asset group");
@@ -1221,6 +1304,20 @@ export default function AllocateAssetsPage() {
                       );
                       if (!selectedModeler) return null;
 
+                      const qaAssignments =
+                        modelerQAAssignments.get(
+                          globalTeamAssignment.modelerId
+                        ) || [];
+                      console.log(
+                        "Selected modeler ID:",
+                        globalTeamAssignment.modelerId
+                      );
+                      console.log(
+                        "QA Assignments for this modeler:",
+                        qaAssignments
+                      );
+                      console.log("All QA assignments:", modelerQAAssignments);
+
                       return (
                         <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
                           {/* Basic Info */}
@@ -1228,15 +1325,73 @@ export default function AllocateAssetsPage() {
                             <span className="text-sm font-medium">
                               {selectedModeler.email}
                             </span>
-                            {selectedModeler.exclusive_work && (
-                              <Badge
-                                variant="outline"
-                                className="text-xs bg-green-50 text-green-700 border-green-200"
-                              >
-                                Exclusive Work
-                              </Badge>
-                            )}
+                            <div className="flex gap-2">
+                              {selectedModeler.exclusive_work && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-green-50 text-green-700 border-green-200"
+                                >
+                                  Exclusive Work
+                                </Badge>
+                              )}
+                              {qaAssignments.length > 0 ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                                >
+                                  {qaAssignments.length} QA
+                                  {qaAssignments.length > 1 ? "s" : ""} Assigned
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-red-50 text-red-700 border-red-200"
+                                >
+                                  No QA Assigned
+                                </Badge>
+                              )}
+                            </div>
                           </div>
+
+                          {/* QA Assignment Info */}
+                          {qaAssignments.length > 0 ? (
+                            <div className="p-2 bg-blue-50 rounded border border-blue-200">
+                              <div className="text-xs font-medium text-blue-800 mb-1">
+                                Assigned QA{qaAssignments.length > 1 ? "s" : ""}
+                                :
+                              </div>
+                              <div className="space-y-1">
+                                {qaAssignments.map((qa, index) => (
+                                  <div
+                                    key={qa.qaId}
+                                    className="text-sm text-blue-700"
+                                  >
+                                    {qa.qaTitle || qa.qaEmail}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-2 bg-red-50 rounded border border-red-200">
+                              <div className="text-xs font-medium text-red-800 mb-1">
+                                ⚠️ Warning:
+                              </div>
+                              <div className="text-sm text-red-700 mb-2">
+                                This modeler has no QA assigned. Assets cannot
+                                be allocated until a QA is assigned.
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  router.push("/production/qa-allocation")
+                                }
+                                className="text-xs h-6 px-2 bg-red-100 hover:bg-red-200 text-red-800 border-red-300"
+                              >
+                                Assign QA
+                              </Button>
+                            </div>
+                          )}
 
                           {/* Daily Hours */}
                           {selectedModeler.daily_hours && (
@@ -1549,7 +1704,16 @@ export default function AllocateAssetsPage() {
                   {globalTeamAssignment.modelerId ? (
                     <span className="flex items-center gap-2">
                       <User className="h-4 w-4" />
-                      Modeler assigned
+                      {(() => {
+                        const qaAssignments =
+                          modelerQAAssignments.get(
+                            globalTeamAssignment.modelerId
+                          ) || [];
+                        if (qaAssignments.length > 0) {
+                          return `Modeler assigned with ${qaAssignments.length} QA${qaAssignments.length > 1 ? "s" : ""}`;
+                        }
+                        return "Modeler assigned - No QA assigned";
+                      })()}
                     </span>
                   ) : (
                     "Select a modeler to continue"
@@ -1557,7 +1721,14 @@ export default function AllocateAssetsPage() {
                 </div>
                 <Button
                   onClick={handleNextStep}
-                  disabled={!globalTeamAssignment.modelerId}
+                  disabled={
+                    !globalTeamAssignment.modelerId ||
+                    (
+                      modelerQAAssignments.get(
+                        globalTeamAssignment.modelerId
+                      ) || []
+                    ).length === 0
+                  }
                   className="flex items-center gap-2"
                 >
                   <ArrowRight className="h-4 w-4" />
@@ -1976,6 +2147,20 @@ export default function AllocateAssetsPage() {
                       </span>
                     </div>
                   )}
+                  {/* Show QA assignment status */}
+                  {globalTeamAssignment.modelerId &&
+                    (
+                      modelerQAAssignments.get(
+                        globalTeamAssignment.modelerId
+                      ) || []
+                    ).length === 0 && (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <AlertTriangle className="h-3 w-3" />
+                        <span>
+                          Cannot allocate: Selected modeler has no QA assigned
+                        </span>
+                      </div>
+                    )}
                 </div>
                 <Button
                   onClick={handleAllocate}
@@ -1983,6 +2168,11 @@ export default function AllocateAssetsPage() {
                     loading ||
                     allocating ||
                     !globalTeamAssignment.modelerId ||
+                    (
+                      modelerQAAssignments.get(
+                        globalTeamAssignment.modelerId
+                      ) || []
+                    ).length === 0 ||
                     !groupSettings.deadline ||
                     allocationData.some((data) => data.price <= 0) ||
                     allocationData.some((data) => !data.pricingOptionId)

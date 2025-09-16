@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 
 import { cleanupSingleAllocationList } from "@/lib/allocationListCleanup";
 import { logActivityServer } from "@/lib/serverActivityLogger";
+import { notificationService } from "@/lib/notificationService";
 
 export async function POST(request: NextRequest) {
   try {
@@ -228,6 +229,83 @@ export async function POST(request: NextRequest) {
           }
 
           allocationListApproved = false;
+        }
+
+        // Check for progress milestones and send client notifications
+        if (currentList && status === "approved_by_client") {
+          try {
+            // Get all assets in this allocation list
+            const { data: listAssets, error: listAssetsError } =
+              await supabaseAdmin
+                .from("asset_assignments")
+                .select(
+                  `
+                onboarding_assets!inner(
+                  id,
+                  status,
+                  client,
+                  batch
+                )
+              `
+                )
+                .eq("allocation_list_id", allocationListId);
+
+            if (!listAssetsError && listAssets) {
+              const totalAssets = listAssets.length;
+              const completedAssets = listAssets.filter(
+                (assignment: any) =>
+                  assignment.onboarding_assets.status === "approved" ||
+                  assignment.onboarding_assets.status === "approved_by_client"
+              ).length;
+
+              const completionPercentage =
+                totalAssets > 0
+                  ? Math.round((completedAssets / totalAssets) * 100)
+                  : 0;
+
+              // Check if this is a milestone (25%, 50%, 75%, 100%)
+              const milestones = [25, 50, 75, 100];
+              const isMilestone = milestones.includes(completionPercentage);
+
+              if (isMilestone) {
+                // Get client information
+                const firstAsset = listAssets[0] as any;
+                const client =
+                  firstAsset?.onboarding_assets?.client || "Unknown";
+                const batch = firstAsset?.onboarding_assets?.batch || 1;
+
+                // Find client profile
+                const { data: clientProfile, error: clientError } =
+                  await supabaseAdmin
+                    .from("profiles")
+                    .select("id, email")
+                    .eq("client", client)
+                    .eq("role", "client")
+                    .single();
+
+                if (!clientError && clientProfile && allocationListId) {
+                  await notificationService.sendClientListProgressNotification(
+                    clientProfile.id,
+                    clientProfile.email,
+                    allocationListId,
+                    (currentList as any).name ||
+                      `Allocation List #${(currentList as any).number}`,
+                    completionPercentage,
+                    completedAssets,
+                    totalAssets,
+                    client,
+                    batch
+                  );
+                }
+              }
+            }
+          } catch (progressError) {
+            console.error(
+              "Error sending progress notification:",
+              progressError
+            );
+            // Don't fail the main request if progress notification fails
+          }
         }
 
         // Check if the allocation list is now empty and clean it up if necessary

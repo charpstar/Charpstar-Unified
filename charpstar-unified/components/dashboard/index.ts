@@ -17,3 +17,4 @@ export {
   PersonalMetricsWidget,
   WaitingForApprovalWidget,
 } from "./qa-widgets";
+export { default as QACommentsWidget } from "./qa-comments-widget";

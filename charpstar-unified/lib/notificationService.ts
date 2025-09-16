@@ -21,7 +21,10 @@ export interface NotificationData {
     | "annotation_reply"
     | "pending_reply"
     | "reply_approved"
-    | "reply_rejected";
+    | "reply_rejected"
+    | "subcategory_updated"
+    | "invoice_deadline_reminder"
+    | "client_list_progress";
   title: string;
   message: string;
   metadata?: Record<string, any>;
@@ -605,6 +608,134 @@ class NotificationService {
       }
     } catch (error) {
       console.error("Error in deadline reminder process:", error);
+    }
+  }
+
+  /**
+   * Send monthly invoice deadline reminders to modelers
+   * This should be called on the 28th of each month
+   */
+  async sendMonthlyInvoiceDeadlineReminders(): Promise<void> {
+    try {
+      const today = new Date();
+
+      // Check if today is the 28th of the month
+      if (today.getDate() !== 28) {
+        console.log(
+          "Not the 28th of the month, skipping invoice deadline reminders"
+        );
+        return;
+      }
+
+      // Get all active modelers
+      const { data: modelers, error: modelersError } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .eq("role", "modeler");
+
+      if (modelersError) {
+        console.error("Error fetching modelers:", modelersError);
+        return;
+      }
+
+      if (!modelers || modelers.length === 0) {
+        console.log("No modelers found for invoice deadline reminders");
+        return;
+      }
+
+      // Get current month's completed work for each modeler
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      const monthStart = new Date(currentYear, currentMonth, 1);
+      const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+
+      for (const modeler of modelers) {
+        try {
+          // Get completed assets for this modeler in the current month
+          const { data: completedAssets, error: assetsError } = await supabase
+            .from("asset_assignments")
+            .select(
+              `
+              id,
+              price,
+              onboarding_assets!inner(
+                id,
+                product_name,
+                client,
+                status,
+                created_at
+              )
+            `
+            )
+            .eq("user_id", modeler.id)
+            .eq("role", "modeler")
+            .in("onboarding_assets.status", ["approved", "approved_by_client"])
+            .gte("onboarding_assets.created_at", monthStart.toISOString())
+            .lte("onboarding_assets.created_at", monthEnd.toISOString());
+
+          if (assetsError) {
+            console.error(
+              `Error fetching completed assets for modeler ${modeler.id}:`,
+              assetsError
+            );
+            continue;
+          }
+
+          if (!completedAssets || completedAssets.length === 0) {
+            console.log(
+              `No completed assets found for modeler ${modeler.email} this month`
+            );
+            continue;
+          }
+
+          // Calculate total earnings for the month
+          const totalEarnings = completedAssets.reduce((sum, assignment) => {
+            return sum + (assignment.price || 0);
+          }, 0);
+
+          // Group by client for better organization
+          const clientGroups = completedAssets.reduce(
+            (groups, assignment) => {
+              const client = (assignment.onboarding_assets as any).client;
+              if (!groups[client]) {
+                groups[client] = [];
+              }
+              groups[client].push(assignment);
+              return groups;
+            },
+            {} as Record<string, any[]>
+          );
+
+          // Send invoice deadline reminder
+          await this.sendInvoiceDeadlineReminderNotification(
+            modeler.id,
+            modeler.email,
+            totalEarnings,
+            clientGroups,
+            currentMonth,
+            currentYear
+          );
+        } catch (error) {
+          console.error(
+            `❌ Failed to send invoice deadline reminder to modeler ${modeler.id}:`,
+            error
+          );
+        }
+      }
+
+      console.log(
+        `✅ Invoice deadline reminders sent to ${modelers.length} modelers`
+      );
+
+      // Trigger global notification update
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      }
+    } catch (error) {
+      console.error(
+        "Error in monthly invoice deadline reminder process:",
+        error
+      );
     }
   }
 
@@ -1260,6 +1391,223 @@ class NotificationService {
       });
     } catch (error) {
       console.error("Failed to send reply rejected notification:", error);
+      throw error;
+    }
+  }
+
+  async sendSubcategoryUpdatedNotification(
+    assetId: string,
+    productName: string,
+    client: string,
+    updatedBy: string,
+    previousSubcategory: string | null,
+    newSubcategory: string
+  ): Promise<void> {
+    try {
+      // Get all users who should be notified (modeler, QA, admin)
+      const { data: assetAssignment } = await supabase
+        .from("asset_assignments")
+        .select("user_id")
+        .eq("asset_id", assetId)
+        .eq("role", "modeler")
+        .single();
+
+      if (!assetAssignment) {
+        console.warn("No modeler assignment found for asset:", assetId);
+        return;
+      }
+
+      // Get modeler profile
+      const { data: modelerProfile } = await supabase
+        .from("profiles")
+        .select("email, title")
+        .eq("id", assetAssignment.user_id)
+        .single();
+
+      if (!modelerProfile?.email) {
+        console.warn("No modeler profile found for asset:", assetId);
+        return;
+      }
+
+      // Get QA users assigned to this modeler
+      const { data: qaAllocations } = await supabase
+        .from("qa_allocations")
+        .select("qa_id, profiles!qa_allocations_qa_id_fkey(email, title)")
+        .eq("modeler_id", assetAssignment.user_id);
+
+      // Get admin users
+      const { data: adminProfiles } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .eq("role", "admin");
+
+      // Send notification to modeler
+      await this.createNotification({
+        recipient_id: assetAssignment.user_id,
+        recipient_email: modelerProfile.email,
+        type: "subcategory_updated",
+        title: "Subcategory Updated",
+        message: `The subcategory for "${productName}" has been updated from "${previousSubcategory || "empty"}" to "${newSubcategory}" by ${updatedBy}.`,
+        metadata: {
+          assetId,
+          productName,
+          client,
+          updatedBy,
+          previousSubcategory,
+          newSubcategory,
+        },
+        read: false,
+      });
+
+      // Send notification to assigned QA users
+      if (qaAllocations) {
+        for (const allocation of qaAllocations) {
+          const qaProfile = allocation.profiles as any;
+          if (qaProfile?.email) {
+            await this.createNotification({
+              recipient_id: allocation.qa_id,
+              recipient_email: qaProfile.email,
+              type: "subcategory_updated",
+              title: "Subcategory Updated",
+              message: `The subcategory for "${productName}" has been updated from "${previousSubcategory || "empty"}" to "${newSubcategory}" by ${updatedBy}.`,
+              metadata: {
+                assetId,
+                productName,
+                client,
+                updatedBy,
+                previousSubcategory,
+                newSubcategory,
+              },
+              read: false,
+            });
+          }
+        }
+      }
+
+      // Send notification to admin users
+      if (adminProfiles) {
+        for (const admin of adminProfiles) {
+          await this.createNotification({
+            recipient_id: admin.id,
+            recipient_email: admin.email,
+            type: "subcategory_updated",
+            title: "Subcategory Updated",
+            message: `The subcategory for "${productName}" has been updated from "${previousSubcategory || "empty"}" to "${newSubcategory}" by ${updatedBy}.`,
+            metadata: {
+              assetId,
+              productName,
+              client,
+              updatedBy,
+              previousSubcategory,
+              newSubcategory,
+            },
+            read: false,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to send subcategory updated notification:", error);
+      throw error;
+    }
+  }
+
+  async sendInvoiceDeadlineReminderNotification(
+    modelerId: string,
+    modelerEmail: string,
+    totalEarnings: number,
+    clientGroups: Record<string, any[]>,
+    month: number,
+    year: number
+  ): Promise<void> {
+    try {
+      const monthNames = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
+
+      const monthName = monthNames[month];
+      const clientCount = Object.keys(clientGroups).length;
+      const assetCount = Object.values(clientGroups).reduce(
+        (total, assets) => total + assets.length,
+        0
+      );
+
+      const message = `Invoice deadline reminder: You have completed work worth €${totalEarnings.toFixed(2)} in ${monthName} ${year} (${assetCount} assets across ${clientCount} client${clientCount > 1 ? "s" : ""}). Please submit your invoice by the end of the month.`;
+
+      await this.createNotification({
+        recipient_id: modelerId,
+        recipient_email: modelerEmail,
+        type: "invoice_deadline_reminder",
+        title: "Monthly Invoice Deadline Reminder",
+        message,
+        metadata: {
+          totalEarnings,
+          month,
+          year,
+          monthName,
+          clientCount,
+          assetCount,
+          clientGroups: Object.keys(clientGroups),
+        },
+        read: false,
+      });
+    } catch (error) {
+      console.error(
+        "Failed to send invoice deadline reminder notification:",
+        error
+      );
+      throw error;
+    }
+  }
+
+  async sendClientListProgressNotification(
+    clientId: string,
+    clientEmail: string,
+    allocationListId: string,
+    allocationListName: string,
+    completionPercentage: number,
+    completedAssets: number,
+    totalAssets: number,
+    client: string,
+    batch: number
+  ): Promise<void> {
+    try {
+      const progressText =
+        completionPercentage === 100
+          ? "completed"
+          : `${completionPercentage}% complete`;
+      const message = `Your submitted list "${allocationListName}" is now ${progressText} (${completedAssets}/${totalAssets} assets approved) for ${client} batch ${batch}.`;
+
+      await this.createNotification({
+        recipient_id: clientId,
+        recipient_email: clientEmail,
+        type: "client_list_progress",
+        title: `List Progress Update - ${progressText}`,
+        message,
+        metadata: {
+          allocationListId,
+          allocationListName,
+          completionPercentage,
+          completedAssets,
+          totalAssets,
+          client,
+          batch,
+          timestamp: new Date().toISOString(),
+        },
+        read: false,
+      });
+    } catch (error) {
+      console.error("Failed to send client list progress notification:", error);
       throw error;
     }
   }
