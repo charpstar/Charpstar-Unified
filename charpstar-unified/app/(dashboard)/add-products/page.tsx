@@ -353,8 +353,7 @@ export default function AddProductsPage() {
       (product) =>
         product.article_id.trim() &&
         product.product_name.trim() &&
-        product.product_link.trim() &&
-        product.category.trim()
+        product.product_link.trim()
     );
   };
 
@@ -509,11 +508,11 @@ export default function AddProductsPage() {
     // Check for missing required fields
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      if (!row[0] || !row[1] || !row[2] || !row[3]) {
+      if (!row[0] || !row[1] || !row[2]) {
         errors.push({
           row: i + 1,
           message:
-            "Missing required fields (Article ID, Product Name, Product Link, GLB Link)",
+            "Missing required fields (Article ID, Product Name, Product Link)",
         });
       }
     }
@@ -895,19 +894,6 @@ export default function AddProductsPage() {
 
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground mb-2 block">
-                        GLB Link
-                      </Label>
-                      <Input
-                        value={product.glb_link}
-                        onChange={(e) =>
-                          updateProduct(index, "glb_link", e.target.value)
-                        }
-                        placeholder="https://example.com/model.glb"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Category
                       </Label>
                       <Input
@@ -948,14 +934,11 @@ export default function AddProductsPage() {
                         <SelectValue placeholder="Select priority" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 - Highest Priority</SelectItem>
-                        <SelectItem value="2">2 - Medium Priority</SelectItem>
-                        <SelectItem value="3">3 - Lowest Priority</SelectItem>
+                        <SelectItem value="1">Highest Priority</SelectItem>
+                        <SelectItem value="2">Medium Priority</SelectItem>
+                        <SelectItem value="3">Lowest Priority</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      1 = Highest priority, 3 = Lowest priority
-                    </p>
                   </div>
                 </div>
               ))}
@@ -1554,7 +1537,7 @@ export default function AddProductsPage() {
                     <TableHead>Article ID</TableHead>
                     <TableHead>Product Name</TableHead>
                     <TableHead>Product Link</TableHead>
-                    <TableHead>GLB Link</TableHead>
+                    <TableHead>CAD File/Files</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Priority</TableHead>
                   </TableRow>
