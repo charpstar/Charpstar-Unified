@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
-import { Badge } from "@/components/ui/feedback";
 import {
   Select,
   SelectContent,
@@ -18,7 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/containers";
-import { AlertCircle, Edit2, Check, X } from "lucide-react";
+import { Edit2, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface SubcategoryEditorProps {
@@ -143,7 +142,7 @@ export function SubcategoryEditor({
   assetId,
   currentSubcategory,
   category,
-  isMissing,
+
   onUpdate,
   className = "",
   variant = "inline",

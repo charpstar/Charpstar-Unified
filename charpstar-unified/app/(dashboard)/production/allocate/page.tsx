@@ -1361,7 +1361,7 @@ export default function AllocateAssetsPage() {
                                 :
                               </div>
                               <div className="space-y-1">
-                                {qaAssignments.map((qa, index) => (
+                                {qaAssignments.map((qa) => (
                                   <div
                                     key={qa.qaId}
                                     className="text-sm text-blue-700"

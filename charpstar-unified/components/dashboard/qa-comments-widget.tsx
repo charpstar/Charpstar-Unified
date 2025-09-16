@@ -33,7 +33,7 @@ interface PriorityComment {
     title?: string;
     email: string;
     role: string;
-  };
+  } | null;
   onboarding_assets: {
     product_name: string;
     article_id: string;
@@ -91,7 +91,7 @@ export default function QACommentsWidget() {
           created_at,
           asset_id,
           created_by,
-          profiles:created_by (
+          profiles!created_by (
             title,
             email,
             role
@@ -115,7 +115,18 @@ export default function QACommentsWidget() {
         return;
       }
 
-      setPriorityComments(comments || []);
+      // Transform the data to match our interface
+      const transformedComments = (comments || []).map((comment) => ({
+        ...comment,
+        profiles: Array.isArray(comment.profiles)
+          ? comment.profiles[0]
+          : comment.profiles,
+        onboarding_assets: Array.isArray(comment.onboarding_assets)
+          ? comment.onboarding_assets[0]
+          : comment.onboarding_assets,
+      }));
+
+      setPriorityComments(transformedComments);
     } catch (error) {
       console.error("Error fetching priority comments:", error);
     } finally {
@@ -261,7 +272,9 @@ export default function QACommentsWidget() {
                         className={`h-4 w-4 ${urgency.color} flex-shrink-0`}
                       />
                       <span className="text-xs font-medium text-muted-foreground truncate">
-                        {comment.profiles.title || comment.profiles.email}
+                        {comment.profiles?.title ||
+                          comment.profiles?.email ||
+                          "Unknown User"}
                       </span>
                       <Badge
                         variant="outline"
@@ -295,7 +308,7 @@ export default function QACommentsWidget() {
                   </div>
 
                   <p className="text-sm text-foreground line-clamp-3 mb-2">
-                    "{comment.comment}"
+                    {comment.comment}
                   </p>
 
                   <div className="flex items-center justify-between text-xs text-muted-foreground">

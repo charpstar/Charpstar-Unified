@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { notificationService } from "@/lib/notificationService";
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Simple authentication check - you might want to add proper API key authentication
     // For now, allow calls without auth for testing. In production, add proper auth:
