@@ -346,7 +346,7 @@ export default function ProductionDashboard() {
     try {
       setLoadingStates((prev) => ({ ...prev, fetchingData: true }));
 
-      let queries = [];
+      const queries = [];
 
       // Always need basic asset data for all views - with pagination
       const from = (currentPage - 1) * itemsPerPage;
@@ -1410,7 +1410,7 @@ export default function ProductionDashboard() {
   };
 
   // Fetch QA progress data - optimized for performance
-  const fetchQAProgress = async () => {
+  const _fetchQAProgress = async () => {
     try {
       // Get only basic QA user info first
       const { data: qaDetails, error: userError } = await supabase
