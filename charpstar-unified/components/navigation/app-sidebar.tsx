@@ -18,6 +18,7 @@ import {
   Bell,
   Building2,
   Palette,
+  HelpCircle,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -91,6 +92,16 @@ export default function AppSidebar({
                     icon: Folder,
                   },
                 ]),
+        // FAQ - available to all users except clients
+        ...(role !== "client"
+          ? [
+              {
+                title: "FAQ",
+                url: "/faq",
+                icon: HelpCircle,
+              },
+            ]
+          : []),
         // Add Products and Review pages for clients only
         ...(role === "client" && user?.metadata?.onboarding === false
           ? [
@@ -155,6 +166,11 @@ export default function AppSidebar({
                 url: "/admin/pending-replies",
                 icon: MessageSquare,
               },
+              {
+                title: "FAQ Management",
+                url: "/admin/faqs",
+                icon: HelpCircle,
+              },
             ],
           },
           {
@@ -211,11 +227,13 @@ export default function AppSidebar({
     Onboarding: 30,
     "Create Users": 40,
     "Cost Tracking": 50,
+    "FAQ Management": 60,
     // General
     "3D Editor": 60,
     Analytics: 70,
     "Asset Library": 80,
     Notifications: 90,
+    FAQ: 95,
     // Client
     "Add Products": 15,
     "Client Review": 20,

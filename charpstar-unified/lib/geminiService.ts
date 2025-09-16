@@ -64,31 +64,61 @@ ${photorealismChecklist}
 async function callApi(
   ai: GoogleGenAI,
   imageParts: { inlineData: { mimeType: string; data: string } }[],
-  textPart: { text: string }
+  textPart: { text: string },
+  retryCount = 0
 ): Promise<string | null> {
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-image-preview",
-    contents: {
-      parts: [...imageParts, textPart],
-    },
-    config: {
-      responseModalities: [Modality.IMAGE, Modality.TEXT],
-    },
-  });
+  const maxRetries = 3;
+  const retryDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff
 
-  if (response.candidates && response.candidates[0]?.content?.parts) {
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return part.inlineData.data || null;
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-image-preview",
+      contents: {
+        parts: [...imageParts, textPart],
+      },
+      config: {
+        responseModalities: [Modality.IMAGE, Modality.TEXT],
+      },
+    });
+
+    if (response.candidates && response.candidates[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          return part.inlineData.data || null;
+        }
       }
     }
-  }
 
-  const textResponse = response.text;
-  console.warn("Gemini returned text instead of an image:", textResponse);
-  throw new Error(
-    `AI processing failed for one of the images. The model responded with: "${textResponse?.substring(0, 100) || "Unknown error"}..."`
-  );
+    const textResponse = response.text;
+    console.warn("Gemini returned text instead of an image:", textResponse);
+    throw new Error(
+      `AI processing failed for one of the images. The model responded with: "${textResponse?.substring(0, 100) || "Unknown error"}..."`
+    );
+  } catch (error: any) {
+    // Check if it's a retryable error (5xx server errors)
+    const isRetryable = error.status >= 500 || error.code === 500;
+
+    if (isRetryable && retryCount < maxRetries) {
+      console.warn(
+        `Gemini API error (attempt ${retryCount + 1}/${maxRetries + 1}):`,
+        error.message
+      );
+      console.log(`Retrying in ${retryDelay}ms...`);
+
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      return callApi(ai, imageParts, textPart, retryCount + 1);
+    }
+
+    // If it's a 400 error, don't retry
+    if (error.status === 400 || error.code === 400) {
+      throw new Error(
+        "The request was invalid. The uploaded image might be unsupported. Please try another file."
+      );
+    }
+
+    // For other errors or max retries reached
+    throw error;
+  }
 }
 
 export async function generateScenes(
@@ -151,23 +181,41 @@ export async function generateScenes(
     });
 
   try {
-    const promises = textPrompts.map((prompt) =>
-      callApi(ai, imageParts, { text: prompt })
-    );
+    // Process requests sequentially to avoid rate limiting
+    const results: (string | null)[] = [];
 
-    const results = await Promise.all(promises);
+    for (let i = 0; i < textPrompts.length; i++) {
+      try {
+        console.log(`Generating scene ${i + 1}/${textPrompts.length}...`);
+        const result = await callApi(ai, imageParts, { text: textPrompts[i] });
+        results.push(result);
+
+        // Add a small delay between requests to avoid rate limiting
+        if (i < textPrompts.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      } catch (error) {
+        console.error(`Failed to generate scene ${i + 1}:`, error);
+        results.push(null);
+      }
+    }
 
     const successfulResults = results.filter(
       (res): res is string => res !== null
     );
 
     if (successfulResults.length === 0) {
-      throw new Error("The AI failed to generate any images.");
+      throw new Error(
+        "The AI failed to generate any images. This might be due to server issues or invalid input."
+      );
     }
 
+    console.log(
+      `Successfully generated ${successfulResults.length}/${textPrompts.length} scenes`
+    );
     return successfulResults;
   } catch (error) {
-    console.error("Error calling Gemini API in parallel:", error);
+    console.error("Error calling Gemini API:", error);
     if (error instanceof Error && error.message.includes("400")) {
       throw new Error(
         "The request was invalid. The uploaded image might be unsupported. Please try another file."

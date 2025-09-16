@@ -2543,7 +2543,7 @@ export default function AdminReviewPage() {
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
+                    <TableCell colSpan={10} className="text-center">
                       No assets found for this QA reviewer.
                     </TableCell>
                   </TableRow>
@@ -2739,13 +2739,16 @@ export default function AdminReviewPage() {
                   <TableHead className="text-xs sm:text-sm">
                     References
                   </TableHead>
+                  <TableHead className="text-xs sm:text-sm">
+                    Product Link
+                  </TableHead>
                   <TableHead className="text-xs sm:text-sm">Review</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       {statusFilters.length > 0 ||
                       clientFilters.length > 0 ||
                       batchFilters.length > 0 ||
@@ -2931,6 +2934,27 @@ export default function AdminReviewPage() {
                             <span className="sm:hidden">)</span>
                           </Button>
                         </div>
+                      </TableCell>
+
+                      <TableCell>
+                        {asset.product_link ? (
+                          <a
+                            href={asset.product_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 underline break-all text-xs sm:text-sm"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span className="hidden sm:inline">
+                              Product Link
+                            </span>
+                            <span className="sm:hidden">Link</span>
+                          </a>
+                        ) : (
+                          <span className="text-xs sm:text-sm text-muted-foreground">
+                            —
+                          </span>
+                        )}
                       </TableCell>
 
                       <TableCell>

@@ -121,9 +121,9 @@ export default function AdminClientsPage() {
       if (error) throw error;
       const existingClients = data || [];
 
-      // Collect client names referenced elsewhere (profiles and onboarding assets)
+      // Collect client names referenced elsewhere (only from actual clients and onboarding assets)
       const [profilesRes, assetsRes] = await Promise.all([
-        supabase.from("profiles").select("client"),
+        supabase.from("profiles").select("client").eq("role", "client"),
         supabase.from("onboarding_assets").select("client"),
       ]);
 
@@ -669,7 +669,7 @@ export default function AdminClientsPage() {
 
       {/* Edit Client Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full min-w-4xl max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Edit className="h-4 w-4 sm:h-5 sm:w-5" />
