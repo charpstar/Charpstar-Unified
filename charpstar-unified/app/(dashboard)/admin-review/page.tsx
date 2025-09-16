@@ -1760,14 +1760,23 @@ export default function AdminReviewPage() {
               }}
             >
               <div className="flex items-center gap-1.5 sm:gap-3">
-                <div className="p-1 sm:p-2 bg-warning-muted rounded-lg">
-                  <Package className="h-3 w-3 sm:h-5 sm:w-5 text-warning" />
+                <div
+                  className="p-1 sm:p-2 rounded-lg"
+                  style={{ backgroundColor: "rgb(219 234 254)" }}
+                >
+                  <Package
+                    className="h-3 w-3 sm:h-5 sm:w-5"
+                    style={{ color: "rgb(30 64 175)" }}
+                  />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">
                     In Production
                   </p>
-                  <p className="text-sm sm:text-2xl font-bold text-warning">
+                  <p
+                    className="text-sm sm:text-2xl font-bold"
+                    style={{ color: "rgb(30 64 175)" }}
+                  >
                     {statusTotals.totals.in_production +
                       statusTotals.totals.delivered_by_artist +
                       statusTotals.totals.not_started}
@@ -1785,14 +1794,23 @@ export default function AdminReviewPage() {
               }}
             >
               <div className="flex items-center gap-1.5 sm:gap-3">
-                <div className="p-1 sm:p-2 bg-success-muted rounded-lg">
-                  <CheckCircle className="h-3 w-3 sm:h-5 sm:w-5 text-success" />
+                <div
+                  className="p-1 sm:p-2 rounded-lg"
+                  style={{ backgroundColor: "var(--success-muted)" }}
+                >
+                  <CheckCircle
+                    className="h-3 w-3 sm:h-5 sm:w-5"
+                    style={{ color: "var(--success)" }}
+                  />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">
                     Approved
                   </p>
-                  <p className="text-sm sm:text-2xl font-medium text-success">
+                  <p
+                    className="text-sm sm:text-2xl font-bold"
+                    style={{ color: "var(--success)" }}
+                  >
                     {statusTotals.totals.approved}
                   </p>
                 </div>
@@ -1808,21 +1826,30 @@ export default function AdminReviewPage() {
               }}
             >
               <div className="flex items-center gap-1.5 sm:gap-3">
-                <div className="p-1 sm:p-2 bg-red-50 rounded-lg">
-                  <Eye className="h-3 w-3 sm:h-5 sm:w-5 text-red-600" />
+                <div
+                  className="p-1 sm:p-2 rounded-lg"
+                  style={{ backgroundColor: "rgb(254 215 170)" }}
+                >
+                  <Eye
+                    className="h-3 w-3 sm:h-5 sm:w-5"
+                    style={{ color: "rgb(194 65 12)" }}
+                  />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">
                     Sent for Revision
                   </p>
-                  <p className="text-sm sm:text-2xl font-bold text-red-600">
+                  <p
+                    className="text-sm sm:text-2xl font-bold"
+                    style={{ color: "rgb(194 65 12)" }}
+                  >
                     {statusTotals.totals.revisions}
                   </p>
                 </div>
               </div>
             </Card>
 
-            {/*    Delivered by Artist*/}
+            {/* Delivered by Artist */}
             <Card
               className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
@@ -1831,14 +1858,23 @@ export default function AdminReviewPage() {
               }}
             >
               <div className="flex items-center gap-1.5 sm:gap-3">
-                <div className="p-1 sm:p-2 bg-purple-50 rounded-lg">
-                  <Eye className="h-3 w-3 sm:h-5 sm:w-5 text-purple-600" />
+                <div
+                  className="p-1 sm:p-2 rounded-lg"
+                  style={{ backgroundColor: "rgb(220 252 231)" }}
+                >
+                  <Eye
+                    className="h-3 w-3 sm:h-5 sm:w-5"
+                    style={{ color: "rgb(22 101 52)" }}
+                  />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">
                     Delivered by Artist
                   </p>
-                  <p className="text-sm sm:text-2xl font-bold text-purple-600">
+                  <p
+                    className="text-sm sm:text-2xl font-bold"
+                    style={{ color: "rgb(22 101 52)" }}
+                  >
                     {statusTotals.totals.delivered_by_artist}
                   </p>
                 </div>

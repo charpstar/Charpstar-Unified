@@ -255,7 +255,7 @@ export default function QACommentsWidget() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4 max-h-96 overflow-y-auto">
+          <div className="space-y-4 max-h-126 overflow-y-auto">
             {priorityComments.map((comment) => {
               const urgency = getUrgencyLevel(comment.comment);
               const UrgencyIcon = urgency.icon;
