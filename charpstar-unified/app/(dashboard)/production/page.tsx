@@ -347,6 +347,7 @@ export default function ProductionDashboard() {
       setLoadingStates((prev) => ({ ...prev, fetchingData: true }));
 
       const queries = [];
+      // const queries = [];
 
       // Always need basic asset data for all views - with pagination
       const from = (currentPage - 1) * itemsPerPage;

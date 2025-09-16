@@ -132,7 +132,7 @@ export default function AddProductsPage() {
     try {
       const clientName = user.metadata.client;
       const response = await fetch(
-        `http://45.32.156.145:8000/process-client/${encodeURIComponent(clientName)}`,
+        `https://scraper.charpstar.co/process-client/${encodeURIComponent(clientName)}`,
         {
           method: "POST",
           // Add timeout to prevent hanging
