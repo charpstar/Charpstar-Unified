@@ -347,7 +347,35 @@ export default function ReviewPage() {
   const handleBackNavigation = () => {
     const from = searchParams.get("from");
     if (from === "client-review") {
-      // Preserve filter parameters when navigating back to admin-review
+      // Preserve all URL parameters when navigating back to client-review
+      const params = new URLSearchParams();
+
+      // Get all possible parameters that might be in the client-review URL
+      const possibleParams = [
+        "client",
+        "batch",
+        "modeler",
+        "email",
+        "status",
+        "priority",
+        "search",
+        "sort",
+        "page",
+        "view",
+        "filter",
+      ];
+
+      possibleParams.forEach((param) => {
+        const value = searchParams.get(param);
+        if (value) params.set(param, value);
+      });
+
+      const queryString = params.toString();
+      router.push(`/client-review${queryString ? `?${queryString}` : ""}`);
+    } else if (from === "qa-review") {
+      router.push("/qa-review");
+    } else if (from === "admin-review") {
+      // Preserve parameters for admin-review
       const params = new URLSearchParams();
       const client = searchParams.get("client");
       const batch = searchParams.get("batch");
@@ -361,8 +389,6 @@ export default function ReviewPage() {
 
       const queryString = params.toString();
       router.push(`/admin-review${queryString ? `?${queryString}` : ""}`);
-    } else if (from === "qa-review") {
-      router.push("/qa-review");
     } else {
       router.push("/client-review");
     }

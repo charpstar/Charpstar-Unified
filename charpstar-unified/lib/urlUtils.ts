@@ -26,7 +26,7 @@ export function getBaseUrl(): string {
 
   // Fallback based on environment
   if (process.env.NODE_ENV === "production") {
-    return "https://charpstar-unified.vercel.app";
+    return "https://platform.charpstar.co";
   }
 
   // Development fallback

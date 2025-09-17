@@ -1164,9 +1164,15 @@ export default function ReviewDashboardPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() =>
-                                  router.push(`/client-review/${asset.id}`)
-                                }
+                                onClick={() => {
+                                  const currentParams = new URLSearchParams(
+                                    searchParams.toString()
+                                  );
+                                  currentParams.set("from", "client-review");
+                                  router.push(
+                                    `/client-review/${asset.id}?${currentParams.toString()}`
+                                  );
+                                }}
                                 className="h-8 w-8 dark:hover:bg-muted/50"
                               >
                                 <Eye className="h-5 w-5" />
@@ -1272,9 +1278,15 @@ export default function ReviewDashboardPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() =>
-                                router.push(`/client-review/${asset.id}`)
-                              }
+                              onClick={() => {
+                                const currentParams = new URLSearchParams(
+                                  searchParams.toString()
+                                );
+                                currentParams.set("from", "client-review");
+                                router.push(
+                                  `/client-review/${asset.id}?${currentParams.toString()}`
+                                );
+                              }}
                               className="h-8 w-8 dark:hover:bg-muted/50 flex-shrink-0"
                             >
                               <Eye className="h-4 w-4" />

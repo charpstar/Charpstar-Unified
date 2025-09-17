@@ -333,7 +333,10 @@ export default function ProductionDashboard() {
       dataCache.lastFetched &&
       Date.now() - dataCache.lastFetched < CACHE_DURATION &&
       dataCache.viewMode === viewMode &&
-      dataCache.page === currentPage &&
+      // For clients and batches views, don't check page since we fetch all data
+      (viewMode === "clients" ||
+        viewMode === "batches" ||
+        dataCache.page === currentPage) &&
       dataCache.assets &&
       (viewMode === "clients" || dataCache.assetAssignments) &&
       (viewMode === "clients" || viewMode === "batches" || dataCache.profiles)
@@ -348,27 +351,48 @@ export default function ProductionDashboard() {
       const queries = [];
       // const queries = [];
 
-      // Always need basic asset data for all views - with pagination
-      const from = (currentPage - 1) * itemsPerPage;
-      const to = from + itemsPerPage - 1;
-
-      queries.push(
-        supabase
-          .from("onboarding_assets")
-          .select(
+      // For clients and batches views, we need ALL assets to properly group by client/batch
+      // For other views, we can use pagination
+      if (viewMode === "clients" || viewMode === "batches") {
+        queries.push(
+          supabase
+            .from("onboarding_assets")
+            .select(
+              `
+              id,
+              client,
+              batch,
+              status,
+              created_at,
+              delivery_date,
+              revision_count
             `
-            id,
-            client,
-            batch,
-            status,
-            created_at,
-            delivery_date,
-            revision_count
-          `
-          )
-          .range(from, to)
-          .order("created_at", { ascending: false })
-      );
+            )
+            .order("created_at", { ascending: false })
+        );
+      } else {
+        // Use pagination for other views
+        const from = (currentPage - 1) * itemsPerPage;
+        const to = from + itemsPerPage - 1;
+
+        queries.push(
+          supabase
+            .from("onboarding_assets")
+            .select(
+              `
+              id,
+              client,
+              batch,
+              status,
+              created_at,
+              delivery_date,
+              revision_count
+            `
+            )
+            .range(from, to)
+            .order("created_at", { ascending: false })
+        );
+      }
 
       // Only fetch assignments if needed for current view
       if (
@@ -415,7 +439,9 @@ export default function ProductionDashboard() {
         profiles: data.profiles,
         lastFetched: Date.now(),
         viewMode: viewMode,
-        page: currentPage,
+        // For clients and batches views, don't store page since we fetch all data
+        page:
+          viewMode === "clients" || viewMode === "batches" ? 0 : currentPage,
       });
 
       return data;
@@ -462,7 +488,10 @@ export default function ProductionDashboard() {
     };
 
     initializeData();
-  }, [viewMode, currentPage]);
+  }, [
+    viewMode,
+    viewMode === "clients" || viewMode === "batches" ? undefined : currentPage,
+  ]);
 
   // Process cached data for different view modes - only load what's needed
   const processDataForViewMode = async (data: {
@@ -2460,182 +2489,15 @@ export default function ProductionDashboard() {
               </div>
             ))
           : viewMode === "clients"
-            ? // Client Cards
-              filteredClients.map((client) => {
-                // Prepare chart data
-                const chartData = Object.entries(client.statusCounts)
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  .filter(([_, count]) => count > 0)
-                  .map(([status, count]) => ({
-                    name: getStatusLabel(status),
-                    value: count,
-                    color: getStatusColor(status),
-                  }));
-
-                return (
-                  <Card
-                    key={client.name}
-                    className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02] cursor-pointer"
-                    onClick={() => handleClientSelect(client.name)}
-                  >
-                    <CardHeader className="pb-3 space-y-3 p-4 sm:p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg sm:text-xl font-semibold text-foreground mb-2">
-                            {client.name}
-                          </CardTitle>
-
-                          {/* Key Metrics Row */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
-                            <div className="flex items-center gap-1 text-muted-foreground">
-                              <Package className="h-3 w-3 sm:h-4 sm:w-4" />
-                              <span>{client.totalModels} models</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-muted-foreground">
-                              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
-                              <span>{client.totalBatches} batches</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-muted-foreground">
-                              <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                              <span>
-                                {client.assignedUsers.modelers +
-                                  client.assignedUsers.qa}{" "}
-                                team
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Progress Bar */}
-                          <div className="mt-3 space-y-2">
-                            <div className="flex items-center justify-between text-xs sm:text-sm">
-                              <span className="font-medium text-muted-foreground">
-                                Overall Progress
-                              </span>
-                              <span className="font-bold text-base sm:text-lg">
-                                {client.completionPercentage}%
-                              </span>
-                            </div>
-                            <Progress
-                              value={client.completionPercentage}
-                              className="h-2"
-                            />
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>{client.completedModels} completed</span>
-                              <span>
-                                {client.totalModels - client.completedModels}{" "}
-                                remaining
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="pt-0 p-4 sm:p-6">
-                      {/* Main Content Grid */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                        {/* Left Column - Chart */}
-                        <div className="flex items-center justify-center">
-                          <div className="w-24 h-24 sm:w-32 sm:h-32 relative">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={chartData}
-                                  cx="50%"
-                                  cy="50%"
-                                  innerRadius={25}
-                                  outerRadius={40}
-                                  paddingAngle={2}
-                                  dataKey="value"
-                                >
-                                  {chartData.map((entry, index) => (
-                                    <Cell
-                                      key={`cell-${index}`}
-                                      fill={entry.color}
-                                    />
-                                  ))}
-                                </Pie>
-                                <RechartsTooltip
-                                  wrapperStyle={{ zIndex: 99999 }}
-                                  contentStyle={{
-                                    backgroundColor: "var(--background)",
-                                    border: "1px solid var(--border)",
-                                    borderRadius: "8px",
-                                    fontSize: "12px",
-                                    zIndex: 99999,
-                                  }}
-                                />
-                              </PieChart>
-                            </ResponsiveContainer>
-                            {/* Centered fraction label */}
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <div className="text-center">
-                                <div className="text-sm sm:text-lg font-bold text-primary">
-                                  {client.completedModels}
-                                </div>
-                                <div className="text-xs text-muted-foreground font-medium">
-                                  of {client.totalModels}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Right Column - Batches Summary */}
-                        <div className="space-y-3">
-                          <h4 className="font-medium text-xs sm:text-sm text-muted-foreground">
-                            Recent Batches
-                          </h4>
-                          <div className="space-y-2 max-h-20 sm:max-h-24 overflow-y-auto">
-                            {client.batches.slice(0, 3).map((batch) => (
-                              <div
-                                key={batch.batch}
-                                className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs"
-                              >
-                                <span className="font-medium">
-                                  Batch {batch.batch}
-                                </span>
-                                <div className="flex items-center gap-1 sm:gap-2">
-                                  <span className="text-muted-foreground text-xs">
-                                    {batch.totalModels} models
-                                  </span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {batch.completionPercentage}%
-                                  </Badge>
-                                </div>
-                              </div>
-                            ))}
-                            {client.batches.length > 3 && (
-                              <div className="text-xs text-muted-foreground text-center">
-                                +{client.batches.length - 3} more batches
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Fixed Action Button */}
-                      <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-border">
-                        <Separator className="mb-3 sm:mb-4" />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full text-xs sm:text-sm"
-                          onClick={() => handleClientSelect(client.name)}
-                        >
-                          <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                          View Projects
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            : viewMode === "batches"
-              ? // Batch Cards
-                filteredBatches.map((batch) => {
+            ? // Client Cards with pagination
+              filteredClients
+                .slice(
+                  (currentPage - 1) * itemsPerPage,
+                  currentPage * itemsPerPage
+                )
+                .map((client) => {
                   // Prepare chart data
-                  const chartData = Object.entries(batch.statusCounts)
+                  const chartData = Object.entries(client.statusCounts)
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     .filter(([_, count]) => count > 0)
                     .map(([status, count]) => ({
@@ -2644,52 +2506,36 @@ export default function ProductionDashboard() {
                       color: getStatusColor(status),
                     }));
 
-                  const batchKey = `${batch.client}-${batch.batch}`;
-                  const isDeleting = deletingBatch === batchKey;
-
                   return (
                     <Card
-                      key={batch.id}
-                      className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+                      key={client.name}
+                      className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+                      onClick={() => handleClientSelect(client.name)}
                     >
                       <CardHeader className="pb-3 space-y-3 p-4 sm:p-6">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
                             <CardTitle className="text-lg sm:text-xl font-semibold text-foreground mb-2">
-                              {batch.client} - Batch {batch.batch}
+                              {client.name}
                             </CardTitle>
 
                             {/* Key Metrics Row */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
                               <div className="flex items-center gap-1 text-muted-foreground">
                                 <Package className="h-3 w-3 sm:h-4 sm:w-4" />
-                                <span>{batch.totalModels} models</span>
+                                <span>{client.totalModels} models</span>
                               </div>
                               <div className="flex items-center gap-1 text-muted-foreground">
-                                <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                                <span className="hidden sm:inline">
-                                  Started {batch.startDate}
-                                </span>
-                                <span className="sm:hidden">
-                                  {batch.startDate}
-                                </span>
+                                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                                <span>{client.totalBatches} batches</span>
                               </div>
-                              <div className="flex items-center gap-1">
-                                {batch.unassignedAssets > 0 ? (
-                                  <>
-                                    <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600 dark:text-orange-400" />
-                                    <span className="text-orange-600 dark:text-orange-400 text-xs sm:text-sm">
-                                      {batch.unassignedAssets} unassigned
-                                    </span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
-                                    <span className="text-green-600 dark:text-green-400 text-xs sm:text-sm">
-                                      All assigned
-                                    </span>
-                                  </>
-                                )}
+                              <div className="flex items-center gap-1 text-muted-foreground">
+                                <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                                <span>
+                                  {client.assignedUsers.modelers +
+                                    client.assignedUsers.qa}{" "}
+                                  team
+                                </span>
                               </div>
                             </div>
 
@@ -2697,110 +2543,24 @@ export default function ProductionDashboard() {
                             <div className="mt-3 space-y-2">
                               <div className="flex items-center justify-between text-xs sm:text-sm">
                                 <span className="font-medium text-muted-foreground">
-                                  Progress
+                                  Overall Progress
                                 </span>
                                 <span className="font-bold text-base sm:text-lg">
-                                  {batch.completionPercentage}%
+                                  {client.completionPercentage}%
                                 </span>
                               </div>
                               <Progress
-                                value={batch.completionPercentage}
+                                value={client.completionPercentage}
                                 className="h-2"
                               />
                               <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>{client.completedModels} completed</span>
                                 <span>
-                                  {batch.statusCounts.approved} completed
-                                </span>
-                                <span>
-                                  {batch.totalModels -
-                                    batch.statusCounts.approved}{" "}
+                                  {client.totalModels - client.completedModels}{" "}
                                   remaining
                                 </span>
                               </div>
                             </div>
-                          </div>
-
-                          <div className="flex items-start gap-2 ml-2 sm:ml-4">
-                            {/* Delete Button */}
-                            <Dialog
-                              open={
-                                deleteDialogOpen?.client === batch.client &&
-                                deleteDialogOpen?.batch === batch.batch
-                              }
-                              onOpenChange={(open) => {
-                                if (!open) setDeleteDialogOpen(null);
-                              }}
-                            >
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  disabled={isDeleting}
-                                  onClick={() =>
-                                    setDeleteDialogOpen({
-                                      client: batch.client,
-                                      batch: batch.batch,
-                                    })
-                                  }
-                                >
-                                  {isDeleting ? (
-                                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-destructive" />
-                                  ) : (
-                                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                  )}
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="bg-background h-fit">
-                                <DialogHeader>
-                                  <DialogTitle>Delete Batch</DialogTitle>
-                                  <DialogDescription>
-                                    Are you sure you want to delete all assets
-                                    in{" "}
-                                    <strong>
-                                      {batch.client} - Batch {batch.batch}
-                                    </strong>
-                                    ?
-                                    <br />
-                                    <br />
-                                    This will permanently delete:
-                                    <ul className="list-disc list-inside mt-2 space-y-1">
-                                      <li>{batch.totalModels} assets</li>
-                                      <li>All asset assignments</li>
-                                      <li>All comments and revision history</li>
-                                      <li>All QA approvals</li>
-                                      <li>
-                                        All allocation lists containing these
-                                        assets
-                                      </li>
-                                    </ul>
-                                    <br />
-                                    This action cannot be undone.
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <DialogFooter>
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => setDeleteDialogOpen(null)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    onClick={() =>
-                                      deleteBatchAssets(
-                                        batch.client,
-                                        batch.batch
-                                      )
-                                    }
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    {isDeleting
-                                      ? "Deleting..."
-                                      : "Delete Batch"}
-                                  </Button>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
                           </div>
                         </div>
                       </CardHeader>
@@ -2810,15 +2570,15 @@ export default function ProductionDashboard() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                           {/* Left Column - Chart */}
                           <div className="flex items-center justify-center">
-                            <div className="w-32 h-32 sm:w-40 sm:h-40 relative">
+                            <div className="w-24 h-24 sm:w-32 sm:h-32 relative">
                               <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                   <Pie
                                     data={chartData}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius={35}
-                                    outerRadius={50}
+                                    innerRadius={25}
+                                    outerRadius={40}
                                     paddingAngle={2}
                                     dataKey="value"
                                   >
@@ -2844,101 +2604,386 @@ export default function ProductionDashboard() {
                               {/* Centered fraction label */}
                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                 <div className="text-center">
-                                  <div className="text-lg sm:text-2xl font-bold text-primary">
-                                    {batch.statusCounts.approved}
+                                  <div className="text-sm sm:text-lg font-bold text-primary">
+                                    {client.completedModels}
                                   </div>
                                   <div className="text-xs text-muted-foreground font-medium">
-                                    of {batch.totalModels}
+                                    of {client.totalModels}
                                   </div>
                                 </div>
                               </div>
                             </div>
                           </div>
 
-                          {/* Right Column - Compact Status & Team */}
-                          <div className="space-y-3 sm:space-y-4">
-                            {/* Compact Status Grid */}
-                            <div>
-                              <h4 className="font-medium text-xs sm:text-sm text-muted-foreground mb-2">
-                                Status Overview
-                              </h4>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
-                                {Object.entries(batch.statusCounts)
-                                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                  .filter(([_, count]) => count > 0)
-                                  .map(([status, count]) => (
-                                    <div
-                                      key={status}
-                                      className="flex items-center justify-between p-1.5 rounded bg-muted/20"
-                                    >
-                                      <span
-                                        className={`text-xs font-medium ${
-                                          status === "approved"
-                                            ? "text-green-600 dark:text-green-400"
-                                            : status === "in_production"
-                                              ? "text-blue-600 dark:text-blue-400"
-                                              : status === "revisions"
-                                                ? "text-orange-600 dark:text-orange-400"
-                                                : "text-muted-foreground"
-                                        }`}
-                                      >
-                                        {getStatusLabel(status)}
-                                      </span>
-                                      <span className="font-bold text-xs sm:text-sm">
-                                        {count}
-                                      </span>
-                                    </div>
-                                  ))}
-                              </div>
-                            </div>
-
-                            {/* Team Section */}
-                            {(batch.assignedUsers.modelers.length > 0 ||
-                              batch.assignedUsers.qa.length > 0) && (
-                              <div className="bg-muted/30 rounded-lg p-2 sm:p-3">
-                                <TeamInfoTooltip
-                                  modelers={batch.assignedUsers.modelers}
-                                  qa={batch.assignedUsers.qa}
-                                  clientName={batch.client}
-                                  batchNumber={batch.batch}
+                          {/* Right Column - Batches Summary */}
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-xs sm:text-sm text-muted-foreground">
+                              Recent Batches
+                            </h4>
+                            <div className="space-y-2 max-h-20 sm:max-h-24 overflow-y-auto">
+                              {client.batches.slice(0, 3).map((batch) => (
+                                <div
+                                  key={batch.batch}
+                                  className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs"
                                 >
-                                  <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                                    <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                                    <span className="font-medium">
-                                      Team (
-                                      {batch.assignedUsers.modelers.length +
-                                        batch.assignedUsers.qa.length}
-                                      )
+                                  <span className="font-medium">
+                                    Batch {batch.batch}
+                                  </span>
+                                  <div className="flex items-center gap-1 sm:gap-2">
+                                    <span className="text-muted-foreground text-xs">
+                                      {batch.totalModels} models
                                     </span>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {batch.completionPercentage}%
+                                    </Badge>
                                   </div>
-                                </TeamInfoTooltip>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {batch.assignedUsers.modelers.length} modelers
-                                  • {batch.assignedUsers.qa.length} QA
                                 </div>
-                              </div>
-                            )}
+                              ))}
+                              {client.batches.length > 3 && (
+                                <div className="text-xs text-muted-foreground text-center">
+                                  +{client.batches.length - 3} more batches
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
 
                         {/* Fixed Action Button */}
                         <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-border">
+                          <Separator className="mb-3 sm:mb-4" />
                           <Button
                             variant="outline"
                             size="sm"
                             className="w-full text-xs sm:text-sm"
-                            onClick={() =>
-                              handleAdminReview(batch.client, batch.batch)
-                            }
+                            onClick={() => handleClientSelect(client.name)}
                           >
-                            <ShieldCheck className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                            Admin Review
+                            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                            View Projects
                           </Button>
                         </div>
                       </CardContent>
                     </Card>
                   );
                 })
+            : viewMode === "batches"
+              ? // Batch Cards with pagination
+                filteredBatches
+                  .slice(
+                    (currentPage - 1) * itemsPerPage,
+                    currentPage * itemsPerPage
+                  )
+                  .map((batch) => {
+                    // Prepare chart data
+                    const chartData = Object.entries(batch.statusCounts)
+                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                      .filter(([_, count]) => count > 0)
+                      .map(([status, count]) => ({
+                        name: getStatusLabel(status),
+                        value: count,
+                        color: getStatusColor(status),
+                      }));
+
+                    const batchKey = `${batch.client}-${batch.batch}`;
+                    const isDeleting = deletingBatch === batchKey;
+
+                    return (
+                      <Card
+                        key={batch.id}
+                        className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+                      >
+                        <CardHeader className="pb-3 space-y-3 p-4 sm:p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-lg sm:text-xl font-semibold text-foreground mb-2">
+                                {batch.client} - Batch {batch.batch}
+                              </CardTitle>
+
+                              {/* Key Metrics Row */}
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
+                                <div className="flex items-center gap-1 text-muted-foreground">
+                                  <Package className="h-3 w-3 sm:h-4 sm:w-4" />
+                                  <span>{batch.totalModels} models</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-muted-foreground">
+                                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                                  <span className="hidden sm:inline">
+                                    Started {batch.startDate}
+                                  </span>
+                                  <span className="sm:hidden">
+                                    {batch.startDate}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {batch.unassignedAssets > 0 ? (
+                                    <>
+                                      <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600 dark:text-orange-400" />
+                                      <span className="text-orange-600 dark:text-orange-400 text-xs sm:text-sm">
+                                        {batch.unassignedAssets} unassigned
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
+                                      <span className="text-green-600 dark:text-green-400 text-xs sm:text-sm">
+                                        All assigned
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Progress Bar */}
+                              <div className="mt-3 space-y-2">
+                                <div className="flex items-center justify-between text-xs sm:text-sm">
+                                  <span className="font-medium text-muted-foreground">
+                                    Progress
+                                  </span>
+                                  <span className="font-bold text-base sm:text-lg">
+                                    {batch.completionPercentage}%
+                                  </span>
+                                </div>
+                                <Progress
+                                  value={batch.completionPercentage}
+                                  className="h-2"
+                                />
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                  <span>
+                                    {batch.statusCounts.approved} completed
+                                  </span>
+                                  <span>
+                                    {batch.totalModels -
+                                      batch.statusCounts.approved}{" "}
+                                    remaining
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-2 ml-2 sm:ml-4">
+                              {/* Delete Button */}
+                              <Dialog
+                                open={
+                                  deleteDialogOpen?.client === batch.client &&
+                                  deleteDialogOpen?.batch === batch.batch
+                                }
+                                onOpenChange={(open) => {
+                                  if (!open) setDeleteDialogOpen(null);
+                                }}
+                              >
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    disabled={isDeleting}
+                                    onClick={() =>
+                                      setDeleteDialogOpen({
+                                        client: batch.client,
+                                        batch: batch.batch,
+                                      })
+                                    }
+                                  >
+                                    {isDeleting ? (
+                                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-destructive" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                    )}
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="bg-background h-fit">
+                                  <DialogHeader>
+                                    <DialogTitle>Delete Batch</DialogTitle>
+                                    <DialogDescription>
+                                      Are you sure you want to delete all assets
+                                      in{" "}
+                                      <strong>
+                                        {batch.client} - Batch {batch.batch}
+                                      </strong>
+                                      ?
+                                      <br />
+                                      <br />
+                                      This will permanently delete:
+                                      <ul className="list-disc list-inside mt-2 space-y-1">
+                                        <li>{batch.totalModels} assets</li>
+                                        <li>All asset assignments</li>
+                                        <li>
+                                          All comments and revision history
+                                        </li>
+                                        <li>All QA approvals</li>
+                                        <li>
+                                          All allocation lists containing these
+                                          assets
+                                        </li>
+                                      </ul>
+                                      <br />
+                                      This action cannot be undone.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <DialogFooter>
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => setDeleteDialogOpen(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      onClick={() =>
+                                        deleteBatchAssets(
+                                          batch.client,
+                                          batch.batch
+                                        )
+                                      }
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      {isDeleting
+                                        ? "Deleting..."
+                                        : "Delete Batch"}
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent className="pt-0 p-4 sm:p-6">
+                          {/* Main Content Grid */}
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                            {/* Left Column - Chart */}
+                            <div className="flex items-center justify-center">
+                              <div className="w-32 h-32 sm:w-40 sm:h-40 relative">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <PieChart>
+                                    <Pie
+                                      data={chartData}
+                                      cx="50%"
+                                      cy="50%"
+                                      innerRadius={35}
+                                      outerRadius={50}
+                                      paddingAngle={2}
+                                      dataKey="value"
+                                    >
+                                      {chartData.map((entry, index) => (
+                                        <Cell
+                                          key={`cell-${index}`}
+                                          fill={entry.color}
+                                        />
+                                      ))}
+                                    </Pie>
+                                    <RechartsTooltip
+                                      wrapperStyle={{ zIndex: 99999 }}
+                                      contentStyle={{
+                                        backgroundColor: "var(--background)",
+                                        border: "1px solid var(--border)",
+                                        borderRadius: "8px",
+                                        fontSize: "12px",
+                                        zIndex: 99999,
+                                      }}
+                                    />
+                                  </PieChart>
+                                </ResponsiveContainer>
+                                {/* Centered fraction label */}
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                  <div className="text-center">
+                                    <div className="text-lg sm:text-2xl font-bold text-primary">
+                                      {batch.statusCounts.approved}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground font-medium">
+                                      of {batch.totalModels}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Right Column - Compact Status & Team */}
+                            <div className="space-y-3 sm:space-y-4">
+                              {/* Compact Status Grid */}
+                              <div>
+                                <h4 className="font-medium text-xs sm:text-sm text-muted-foreground mb-2">
+                                  Status Overview
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                                  {Object.entries(batch.statusCounts)
+                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                    .filter(([_, count]) => count > 0)
+                                    .map(([status, count]) => (
+                                      <div
+                                        key={status}
+                                        className="flex items-center justify-between p-1.5 rounded bg-muted/20"
+                                      >
+                                        <span
+                                          className={`text-xs font-medium ${
+                                            status === "approved"
+                                              ? "text-green-600 dark:text-green-400"
+                                              : status === "in_production"
+                                                ? "text-blue-600 dark:text-blue-400"
+                                                : status === "revisions"
+                                                  ? "text-orange-600 dark:text-orange-400"
+                                                  : "text-muted-foreground"
+                                          }`}
+                                        >
+                                          {getStatusLabel(status)}
+                                        </span>
+                                        <span className="font-bold text-xs sm:text-sm">
+                                          {count}
+                                        </span>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+
+                              {/* Team Section */}
+                              {(batch.assignedUsers.modelers.length > 0 ||
+                                batch.assignedUsers.qa.length > 0) && (
+                                <div className="bg-muted/30 rounded-lg p-2 sm:p-3">
+                                  <TeamInfoTooltip
+                                    modelers={batch.assignedUsers.modelers}
+                                    qa={batch.assignedUsers.qa}
+                                    clientName={batch.client}
+                                    batchNumber={batch.batch}
+                                  >
+                                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                                      <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                                      <span className="font-medium">
+                                        Team (
+                                        {batch.assignedUsers.modelers.length +
+                                          batch.assignedUsers.qa.length}
+                                        )
+                                      </span>
+                                    </div>
+                                  </TeamInfoTooltip>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {batch.assignedUsers.modelers.length}{" "}
+                                    modelers • {batch.assignedUsers.qa.length}{" "}
+                                    QA
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Fixed Action Button */}
+                          <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-border">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-xs sm:text-sm"
+                              onClick={() =>
+                                handleAdminReview(batch.client, batch.batch)
+                              }
+                            >
+                              <ShieldCheck className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                              Admin Review
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
               : viewMode === "modelers"
                 ? // Modeler Cards
                   filteredModelers.map((modeler) => {
