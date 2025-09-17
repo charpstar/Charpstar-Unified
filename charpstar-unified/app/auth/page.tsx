@@ -183,15 +183,6 @@ export default function AuthPage() {
             setFormType("reset");
             setResetSent(false);
           }}
-          onSwitchToSignup={() => {
-            setError(null);
-            setFormType("signup");
-          }}
-          onSwitchToLogin={() => {
-            setError(null);
-            setFormType("login");
-            setResetSent(false);
-          }}
           resetSent={resetSent}
         />
       </div>

@@ -21,8 +21,7 @@ type LoginFormProps = {
   isLoading?: boolean;
   error?: string | null;
   onSwitchToReset?: () => void;
-  onSwitchToSignup?: () => void;
-  onSwitchToLogin?: () => void;
+
   resetSent?: boolean;
   className?: string;
 };
@@ -36,8 +35,7 @@ export function LoginForm(props: LoginFormProps) {
     isLoading,
     error,
     onSwitchToReset,
-    onSwitchToSignup,
-    onSwitchToLogin,
+
     resetSent,
     className,
     ...rest
