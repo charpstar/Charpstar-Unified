@@ -35,8 +35,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { assetIds, userIds, role, deadline, bonus, allocationName, prices } =
-      await request.json();
+    const {
+      assetIds,
+      userIds,
+      role,
+      deadline,
+      bonus,
+      allocationName,
+      prices,
+      provisionalQA,
+    } = await request.json();
     console.log("[assign] input:", {
       assetIdsCount: Array.isArray(assetIds) ? assetIds.length : 0,
       userIdsCount: Array.isArray(userIds) ? userIds.length : 0,
@@ -176,6 +184,56 @@ export async function POST(request: NextRequest) {
         );
       }
       console.log("[assign] insert: done", { inserted: assignments.length });
+
+      // Handle provisional QA assignment if specified
+      if (provisionalQA?.override && provisionalQA?.qaId) {
+        console.log(
+          "[assign] provisional QA: assigning",
+          provisionalQA.qaId,
+          "to",
+          assetIds.length,
+          "assets"
+        );
+
+        // Remove any existing QA assignments for these assets
+        const { error: deleteQAError } = await supabaseAdmin
+          .from("asset_assignments")
+          .delete()
+          .in("asset_id", assetIds)
+          .eq("role", "qa");
+
+        if (deleteQAError) {
+          console.error(
+            "Error removing existing QA assignments:",
+            deleteQAError
+          );
+          // Don't fail the entire request, just log the error
+        }
+
+        // Create QA assignments for the provisional QA
+        const qaAssignments = assetIds.map((assetId) => ({
+          asset_id: assetId,
+          user_id: provisionalQA.qaId,
+          role: "qa",
+          assigned_by: user.id,
+          start_time: new Date().toISOString(),
+        }));
+
+        const { error: qaError } = await supabaseAdmin
+          .from("asset_assignments")
+          .insert(qaAssignments);
+
+        if (qaError) {
+          console.error("Error creating provisional QA assignments:", qaError);
+          // Don't fail the entire request, just log the error
+        } else {
+          console.log(
+            "[assign] provisional QA: assigned",
+            qaAssignments.length,
+            "assets to provisional QA"
+          );
+        }
+      }
 
       // Send notifications to assigned modelers
       try {

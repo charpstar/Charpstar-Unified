@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/inputs";
 import { Checkbox } from "@/components/ui/inputs/checkbox";
+import { Switch } from "@/components/ui/inputs";
 import {
   Select,
   SelectContent,
@@ -36,6 +37,7 @@ import {
   Package,
   AlertTriangle,
   Clock,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
@@ -214,7 +216,13 @@ const getTaskTypeFromPricingOptionId = (pricingOptionId: string): string => {
 export default function AllocateAssetsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [step, setStep] = useState<1 | 2>(1);
+
+  // Initialize step from URL params or default to 1
+  const [step, setStep] = useState<1 | 2>(() => {
+    const stepParam = searchParams.get("step");
+    if (stepParam === "2") return 2;
+    return 1;
+  });
   const [assets, setAssets] = useState<UnallocatedAsset[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
   const [allocating, setAllocating] = useState(false);
@@ -228,15 +236,25 @@ export default function AllocateAssetsPage() {
       new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       "yyyy-MM-dd"
     ),
-    bonus: 15, // Default to first list bonus (15%)
+    bonus: 30, // Default to premium tier bonus (30%)
   });
   const [pricingTier, setPricingTier] = useState<
-    "first_list" | "after_first_deadline" | "after_second_deadline"
-  >("first_list");
+    "after_first_deadline" | "after_second_deadline" | "first_list"
+  >("after_second_deadline");
+  const hasShownAutoDetectNotification = useRef(false);
   const [globalTeamAssignment, setGlobalTeamAssignment] = useState<{
     modelerId: string;
   }>({
     modelerId: "",
+  });
+
+  // Provisional QA state
+  const [provisionalQA, setProvisionalQA] = useState<{
+    enabled: boolean;
+    qaId: string;
+  }>({
+    enabled: false,
+    qaId: "",
   });
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -662,6 +680,46 @@ export default function AllocateAssetsPage() {
   };
 
   // Allocate QA to modeler
+  // Remove QA allocation
+  const removeQA = async (qaId: string) => {
+    try {
+      setAllocatingQA(true);
+
+      if (!globalTeamAssignment.modelerId) {
+        toast.error("No modeler selected");
+        return;
+      }
+
+      const response = await fetch("/api/qa-allocations/remove", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          modelerId: globalTeamAssignment.modelerId,
+          qaId: qaId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to remove QA allocation");
+      }
+
+      toast.success("QA removed successfully");
+
+      // Refresh the QA assignments
+      await fetchModelerQAAssignments();
+    } catch (error) {
+      console.error("Error removing QA:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove QA"
+      );
+    } finally {
+      setAllocatingQA(false);
+    }
+  };
+
   const allocateQA = async () => {
     if (!selectedQA || !globalTeamAssignment.modelerId) {
       toast.error("Please select a QA and modeler");
@@ -711,8 +769,11 @@ export default function AllocateAssetsPage() {
         ...prev,
         modelerId: defaultModelerId,
       }));
-      // Check pricing tier for the default modeler
-      checkModelerPricingTier(defaultModelerId);
+      // Only check pricing tier for the default modeler if we don't have selected assets
+      // (asset-based pricing will override this)
+      if (selectedAssets.size === 0) {
+        checkModelerPricingTier(defaultModelerId);
+      }
     }
 
     const data: AllocationData[] = Array.from(selectedAssets)
@@ -724,11 +785,7 @@ export default function AllocateAssetsPage() {
         const existingPrice = asset?.price;
 
         // Use existing pricing from admin-review if available
-        if (
-          existingPricingOptionId &&
-          existingPrice !== undefined &&
-          existingPrice > 0
-        ) {
+        if (existingPricingOptionId && existingPrice && existingPrice > 0) {
           return {
             assetId,
             modelerId:
@@ -777,54 +834,88 @@ export default function AllocateAssetsPage() {
     }
   }, [users, selectedAssets, allocationData.length]);
 
-  // Check pricing tier for currently selected modeler when users are loaded
+  // Check pricing tier for currently selected modeler when users are loaded (only if no allocation data exists)
   useEffect(() => {
-    if (users.length > 0 && globalTeamAssignment.modelerId) {
+    if (
+      users.length > 0 &&
+      globalTeamAssignment.modelerId &&
+      allocationData.length === 0
+    ) {
       checkModelerPricingTier(globalTeamAssignment.modelerId);
     }
-  }, [users, globalTeamAssignment.modelerId, checkModelerPricingTier]);
+  }, [
+    users,
+    globalTeamAssignment.modelerId,
+    checkModelerPricingTier,
+    allocationData.length,
+  ]);
 
-  // Auto-detect pricing tier based on loaded assets pricing
+  // Auto-detect pricing tier based on loaded assets pricing (HIGHEST PRIORITY)
+  // This effect runs after allocation data is loaded and overrides any modeler-based pricing
   useEffect(() => {
     if (allocationData.length > 0) {
       const detectedTier = detectPricingTierFromAssets(allocationData);
-      if (detectedTier && detectedTier !== pricingTier) {
+
+      // Always update to the detected tier if we have one
+      if (detectedTier) {
         setPricingTier(detectedTier);
         const bonusPercentage = detectedTier === "first_list" ? 15 : 30;
         setGroupSettings((prev) => ({ ...prev, bonus: bonusPercentage }));
 
-        toast.info(
-          `Pricing tier auto-detected as "${detectedTier.replace(/_/g, " ")}" based on asset pricing.`,
-          { duration: 4000 }
-        );
+        // Only show notification once per session and only if tier changed
+        if (!hasShownAutoDetectNotification.current) {
+          toast.info(
+            `Pricing tier auto-detected as "${detectedTier.replace(/_/g, " ")}" based on asset pricing.`,
+            { duration: 4000 }
+          );
+          hasShownAutoDetectNotification.current = true;
+        }
       }
     }
-  }, [allocationData]);
+  }, [allocationData]); // Removed pricingTier from dependencies to prevent loop
 
   // Helper function to detect pricing tier from asset pricing
   const detectPricingTierFromAssets = (data: AllocationData[]) => {
     if (data.length === 0) return null;
 
-    // Check if any assets have premium pricing (after_second)
-    const hasPremiumPricing = data.some((item) =>
-      item.pricingOptionId.includes("after_second")
-    );
+    // Count each pricing tier type
+    const tierCounts = {
+      after_second: 0,
+      after_first: 0,
+      first_list: 0,
+      other: 0,
+    };
 
-    if (hasPremiumPricing) {
+    data.forEach((item) => {
+      if (item.pricingOptionId.includes("after_second")) {
+        tierCounts.after_second++;
+      } else if (item.pricingOptionId.includes("after_first")) {
+        tierCounts.after_first++;
+      } else if (
+        item.pricingOptionId.includes("_first") ||
+        item.pricingOptionId.includes("first_list")
+      ) {
+        tierCounts.first_list++;
+      } else {
+        tierCounts.other++;
+      }
+    });
+
+    // Return the tier with the highest count (prioritizing premium tiers in case of ties)
+    if (tierCounts.after_second > 0) {
       return "after_second_deadline";
     }
 
-    // Check if any assets have after_first pricing
-    const hasAfterFirstPricing = data.some((item) =>
-      item.pricingOptionId.includes("after_first")
-    );
-
-    if (hasAfterFirstPricing) {
+    if (tierCounts.after_first > 0) {
       return "after_first_deadline";
     }
 
-    // Default to first list
-    return "first_list";
+    if (tierCounts.first_list > 0) {
+      return "first_list";
+    }
+
+    // If we can't clearly determine, return the premium tier as default
+    return "after_second_deadline";
   };
 
   // Check for pre-selected assets from admin-review page
@@ -838,10 +929,26 @@ export default function AllocateAssetsPage() {
     }
   }, [searchParams]);
 
+  // Sync step state with URL params
+  useEffect(() => {
+    const stepParam = searchParams.get("step");
+    if (stepParam === "2" && step !== 2) {
+      setStep(2);
+    } else if (!stepParam && step !== 1) {
+      setStep(1);
+    }
+  }, [searchParams, step]);
+
   // Handle next step
   const handleNextStep = () => {
     if (step < 2) {
       setStep(2);
+      // Update URL to persist step state
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("step", "2");
+      router.replace(`${window.location.pathname}?${params.toString()}`, {
+        scroll: false,
+      });
       // Clear file history when moving to next step
       setAssetFileHistory([]);
       // Clear existing assignments when moving to next step
@@ -853,6 +960,12 @@ export default function AllocateAssetsPage() {
   const handleBackStep = () => {
     if (step > 1) {
       setStep(1);
+      // Update URL to persist step state
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("step"); // Remove step param to default to step 1
+      router.replace(`${window.location.pathname}?${params.toString()}`, {
+        scroll: false,
+      });
       // Clear file history when going back
       setAssetFileHistory([]);
       // Clear existing assignments when going back
@@ -882,8 +995,11 @@ export default function AllocateAssetsPage() {
 
     // If updating modeler, check their pricing tier and handle other modeler-specific logic
     if (field === "modelerId" && value) {
-      // Check pricing tier for the new modeler
-      checkModelerPricingTier(value);
+      // Only check pricing tier for the new modeler if we don't have allocation data
+      // (allocation data-based pricing takes priority)
+      if (allocationData.length === 0) {
+        checkModelerPricingTier(value);
+      }
       // Clear previous file history when modeler changes
       setAssetFileHistory([]);
       // Clear existing assignments when modeler changes
@@ -1093,30 +1209,45 @@ export default function AllocateAssetsPage() {
         return;
       }
 
-      // Check if the selected modeler has a QA assigned
-      const { data: qaAllocations, error: qaError } = await supabase
-        .from("qa_allocations")
-        .select("qa_id")
-        .eq("modeler_id", globalTeamAssignment.modelerId);
+      // Check QA assignment - either provisional or assigned
+      let finalQAId = null;
 
-      if (qaError) {
-        console.error("Error checking QA allocation:", qaError);
-        toast.error("Failed to verify QA assignment");
-        return;
+      if (provisionalQA.enabled && provisionalQA.qaId) {
+        // Use provisional QA
+        finalQAId = provisionalQA.qaId;
+        console.log(`Using provisional QA: ${finalQAId}`);
+      } else {
+        // Check if the selected modeler has a QA assigned
+        const { data: qaAllocations, error: qaError } = await supabase
+          .from("qa_allocations")
+          .select("qa_id")
+          .eq("modeler_id", globalTeamAssignment.modelerId);
+
+        if (qaError) {
+          console.error("Error checking QA allocation:", qaError);
+          toast.error("Failed to verify QA assignment");
+          return;
+        }
+
+        if (!qaAllocations || qaAllocations.length === 0) {
+          toast.error(
+            "Cannot allocate assets: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
+            { duration: 8000 }
+          );
+          return;
+        }
+
+        // Use the first assigned QA (main QA)
+        finalQAId = qaAllocations[0].qa_id;
+        console.log(`Using assigned QA: ${finalQAId}`);
       }
 
-      if (!qaAllocations || qaAllocations.length === 0) {
-        toast.error(
-          "Cannot allocate assets: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
-          { duration: 8000 }
-        );
-        return;
+      // Log info about final QA assignment
+      if (provisionalQA.enabled && provisionalQA.qaId) {
+        console.log(`Using provisional QA override: ${finalQAId}`);
+      } else {
+        console.log(`Using assigned QA: ${finalQAId}`);
       }
-
-      // Log info about QA allocations
-      console.log(
-        `Modeler ${globalTeamAssignment.modelerId} has ${qaAllocations.length} QA allocation${qaAllocations.length > 1 ? "s" : ""}.`
-      );
 
       // Validate group settings and individual prices
       if (!groupSettings.deadline) {
@@ -1188,6 +1319,14 @@ export default function AllocateAssetsPage() {
             },
             {} as Record<string, number>
           ),
+          // Provisional QA override
+          provisionalQA:
+            provisionalQA.enabled && provisionalQA.qaId
+              ? {
+                  qaId: finalQAId,
+                  override: true,
+                }
+              : null,
         }),
       });
 
@@ -1208,9 +1347,21 @@ export default function AllocateAssetsPage() {
       // Check if this was a re-allocation
       const wasReallocation =
         existingAssignmentsData && existingAssignmentsData.length > 0;
-      const message = wasReallocation
+
+      let message = wasReallocation
         ? `Successfully re-allocated ${assetsToAllocate.length} asset(s) to new modeler`
         : `Successfully allocated ${assetsToAllocate.length} asset(s) to modeler`;
+
+      // Add provisional QA info to message
+      if (provisionalQA.enabled && provisionalQA.qaId) {
+        const provisionalQAUser = availableQAs.find(
+          (qa) => qa.id === provisionalQA.qaId
+        );
+        const qaName = provisionalQAUser
+          ? provisionalQAUser.title || provisionalQAUser.email
+          : "Unknown QA";
+        message += ` with provisional QA override (${qaName})`;
+      }
 
       toast.success(message);
 
@@ -1444,9 +1595,18 @@ export default function AllocateAssetsPage() {
                                 {qaAssignments.map((qa) => (
                                   <div
                                     key={qa.qaId}
-                                    className="text-sm text-blue-700"
+                                    className="flex items-center justify-between text-sm text-blue-700 bg-blue-100 px-2 py-1 rounded"
                                   >
-                                    {qa.qaTitle || qa.qaEmail}
+                                    <span>{qa.qaTitle || qa.qaEmail}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeQA(qa.qaId)}
+                                      disabled={allocatingQA}
+                                      className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-600 text-blue-600"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
                                   </div>
                                 ))}
                               </div>
@@ -1516,6 +1676,95 @@ export default function AllocateAssetsPage() {
                                 Manage QA Allocations
                               </Button>
                             </div>
+                          </div>
+
+                          {/* Provisional QA Section */}
+                          <div className="p-3 border rounded-lg bg-amber-50 border-amber-200 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium text-amber-800">
+                                  Provisional QA
+                                </label>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-amber-100 text-amber-700 border-amber-300"
+                                >
+                                  List-Specific
+                                </Badge>
+                              </div>
+                              <Switch
+                                checked={provisionalQA.enabled}
+                                onCheckedChange={(checked) =>
+                                  setProvisionalQA((prev) => ({
+                                    ...prev,
+                                    enabled: checked,
+                                    qaId: checked ? prev.qaId : "",
+                                  }))
+                                }
+                              />
+                            </div>
+
+                            <div className="text-xs text-amber-700 mb-2">
+                              Override the assigned QA for this specific list.
+                              The provisional QA will receive this list instead
+                              of the main QA.
+                            </div>
+
+                            {provisionalQA.enabled && (
+                              <div className="space-y-2">
+                                <Select
+                                  value={provisionalQA.qaId}
+                                  onValueChange={(value) =>
+                                    setProvisionalQA((prev) => ({
+                                      ...prev,
+                                      qaId: value,
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Select Provisional QA" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableQAs.map((qa) => (
+                                      <SelectItem key={qa.id} value={qa.id}>
+                                        {qa.title || qa.email}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+
+                                {provisionalQA.qaId && (
+                                  <div className="p-2 bg-amber-100 rounded border border-amber-300">
+                                    <div className="text-xs font-medium text-amber-800 mb-1">
+                                      QA Assignment:
+                                    </div>
+                                    <div className="text-xs text-amber-700">
+                                      • <strong>Main QA:</strong>{" "}
+                                      {qaAssignments.length > 0
+                                        ? qaAssignments
+                                            .map(
+                                              (qa) => qa.qaTitle || qa.qaEmail
+                                            )
+                                            .join(", ")
+                                        : "None"}{" "}
+                                      (will NOT receive this list)
+                                    </div>
+                                    <div className="text-xs text-amber-700">
+                                      • <strong>Provisional QA:</strong>{" "}
+                                      {(() => {
+                                        const selectedQA = availableQAs.find(
+                                          (qa) => qa.id === provisionalQA.qaId
+                                        );
+                                        return selectedQA
+                                          ? selectedQA.title || selectedQA.email
+                                          : "None selected";
+                                      })()}{" "}
+                                      (will receive this list)
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           {/* Daily Hours */}
@@ -1886,7 +2135,24 @@ export default function AllocateAssetsPage() {
             <div className="space-y-6">
               {/* Pricing Tier Selection */}
               <div className="space-y-3">
-                <label className="text-sm font-medium">Pricing Tier</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Pricing Tier</label>
+                  {(() => {
+                    const detectedTier =
+                      detectPricingTierFromAssets(allocationData);
+                    if (detectedTier && detectedTier === pricingTier) {
+                      return (
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-green-50 text-green-700 border-green-200"
+                        >
+                          Auto-detected
+                        </Badge>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
                 <Select
                   value={pricingTier}
                   onValueChange={(
@@ -1914,6 +2180,19 @@ export default function AllocateAssetsPage() {
                     </SelectItem>
                   </SelectContent>
                 </Select>
+                {(() => {
+                  const detectedTier =
+                    detectPricingTierFromAssets(allocationData);
+                  if (detectedTier && detectedTier === pricingTier) {
+                    return (
+                      <p className="text-xs text-green-600">
+                        ✓ Pricing tier automatically detected based on asset
+                        pricing from admin review
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2040,8 +2319,8 @@ export default function AllocateAssetsPage() {
                     if (assetsWithoutPricing.length === 0) {
                       return (
                         <div className="text-sm text-green-600 bg-green-50 p-3 rounded border border-green-200">
-                          ✓ All assets have pricing set in admin review. No
-                          manual pricing needed.
+                          ✓ All assets have pricing set by admin. No manual
+                          pricing needed.
                         </div>
                       );
                     }
@@ -2333,12 +2612,26 @@ export default function AllocateAssetsPage() {
                                     asset.price > 0;
 
                                   if (hasExistingPricing) {
-                                    // Show price with admin badge for existing pricing
+                                    // Show editable price input with admin badge for existing pricing
                                     return (
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium text-green-600">
-                                          €{data.price.toFixed(2)}
-                                        </span>
+                                      <div className="flex flex-col items-center gap-1">
+                                        <div className="flex items-center gap-2">
+                                          <Input
+                                            type="number"
+                                            value={data.price}
+                                            onChange={(e) =>
+                                              updateAllocationData(
+                                                data.assetId,
+                                                "price",
+                                                parseFloat(e.target.value) || 0
+                                              )
+                                            }
+                                            className="w-20 h-8 text-xs font-medium text-green-600"
+                                            placeholder="0.00"
+                                            step="0.01"
+                                            min="0"
+                                          />
+                                        </div>
                                         <Badge
                                           variant="outline"
                                           className="text-xs bg-blue-50 text-blue-700 border-blue-200"
@@ -2366,11 +2659,33 @@ export default function AllocateAssetsPage() {
                                         }
                                         className="w-20 h-8 text-xs"
                                         placeholder="0.00"
+                                        step="0.01"
+                                        min="0"
                                       />
                                     ) : (
-                                      <span className="font-medium">
-                                        €{data.price.toFixed(2)}
-                                      </span>
+                                      <div className="flex flex-col items-center gap-1">
+                                        <Input
+                                          type="number"
+                                          value={data.price}
+                                          onChange={(e) =>
+                                            updateAllocationData(
+                                              data.assetId,
+                                              "price",
+                                              parseFloat(e.target.value) || 0
+                                            )
+                                          }
+                                          className="w-20 h-8 text-xs font-medium"
+                                          placeholder="0.00"
+                                          step="0.01"
+                                          min="0"
+                                        />
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs bg-gray-50 text-gray-600 border-gray-200"
+                                        >
+                                          Manual
+                                        </Badge>
+                                      </div>
                                     );
                                   }
                                 })()}

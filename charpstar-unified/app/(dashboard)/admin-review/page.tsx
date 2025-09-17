@@ -404,6 +404,7 @@ export default function AdminReviewPage() {
   const [pricingComments, setPricingComments] = useState<
     Record<string, string>
   >({});
+  const [settingPrices, setSettingPrices] = useState<Set<string>>(new Set());
   const [draggedAssetId, setDraggedAssetId] = useState<string | null>(null);
   const [draggedAssets, setDraggedAssets] = useState<Set<string>>(new Set());
   const [isDraggingGroup, setIsDraggingGroup] = useState(false);
@@ -2169,7 +2170,23 @@ export default function AdminReviewPage() {
   const handleCustomPriceSubmit = async (assetId: string) => {
     const customPrice = customPrices[assetId];
     if (customPrice !== undefined && customPrice > 0) {
-      await handlePriceUpdate(assetId, "custom_pricing", customPrice);
+      // Add to loading state
+      setSettingPrices((prev) => new Set(prev).add(assetId));
+
+      try {
+        await handlePriceUpdate(assetId, "custom_pricing", customPrice);
+        toast.success("Custom price set successfully");
+      } catch (error) {
+        console.error("Error setting custom price:", error);
+        toast.error("Failed to set custom price");
+      } finally {
+        // Remove from loading state
+        setSettingPrices((prev) => {
+          const next = new Set(prev);
+          next.delete(assetId);
+          return next;
+        });
+      }
     }
   };
 
@@ -3145,20 +3162,48 @@ export default function AdminReviewPage() {
             {/* Bulk Reallocation Controls */}
             {paged.length > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-2 p-4 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">
-                    Selected: {selectedAssetsForReallocation.size} assets
-                  </span>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">
+                      Selected: {selectedAssetsForReallocation.size} assets
+                    </span>
+                    {selectedAssetsForReallocation.size > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearAssetSelections}
+                        className="h-8 px-2 text-xs"
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Clear
+                      </Button>
+                    )}
+                  </div>
                   {selectedAssetsForReallocation.size > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearAssetSelections}
-                      className="h-8 px-2 text-xs"
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Clear
-                    </Button>
+                    <div className="flex items-center gap-2 text-sm font-medium text-green-700 bg-green-100 px-3 py-1 rounded-lg">
+                      <Euro className="h-4 w-4" />
+                      <span>
+                        Total: €
+                        {(() => {
+                          let total = 0;
+                          allocationLists.forEach((list) => {
+                            list.asset_assignments.forEach(
+                              (assignment: any) => {
+                                if (
+                                  selectedAssetsForReallocation.has(
+                                    assignment.onboarding_assets.id
+                                  )
+                                ) {
+                                  total +=
+                                    assignment.onboarding_assets.price || 0;
+                                }
+                              }
+                            );
+                          });
+                          return total.toFixed(2);
+                        })()}
+                      </span>
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -3972,7 +4017,8 @@ export default function AdminReviewPage() {
                           </Select>
 
                           {assetPrices[asset.id]?.pricingOptionId ===
-                          "custom_pricing" ? (
+                            "custom_pricing" &&
+                          !assetPrices[asset.id]?.price ? (
                             <div className="flex items-center gap-1">
                               <input
                                 type="number"
@@ -3984,11 +4030,15 @@ export default function AdminReviewPage() {
                                   )
                                 }
                                 onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
+                                  if (
+                                    e.key === "Enter" &&
+                                    !settingPrices.has(asset.id)
+                                  ) {
                                     handleCustomPriceSubmit(asset.id);
                                   }
                                 }}
-                                className="w-16 h-8 text-xs px-2 border rounded"
+                                disabled={settingPrices.has(asset.id)}
+                                className="w-16 h-8 text-xs px-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
                                 placeholder="€0"
                                 min="0"
                                 step="0.01"
@@ -4000,65 +4050,70 @@ export default function AdminReviewPage() {
                                 onClick={() =>
                                   handleCustomPriceSubmit(asset.id)
                                 }
+                                disabled={settingPrices.has(asset.id)}
                               >
-                                Set
+                                {settingPrices.has(asset.id) ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
+                                ) : (
+                                  "Set"
+                                )}
                               </Button>
                             </div>
                           ) : (
-                            assetPrices[asset.id] && (
-                              <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1">
+                              {assetPrices[asset.id] && (
                                 <span className="text-xs font-medium">
                                   €{assetPrices[asset.id].price}
                                 </span>
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-4 w-4 p-0 hover:bg-muted"
-                                    >
-                                      <StickyNote
-                                        className={`h-3 w-3 ${
-                                          pricingComments[asset.id]
-                                            ? "text-blue-600 hover:text-blue-700"
-                                            : "text-muted-foreground hover:text-foreground"
-                                        }`}
-                                      />
-                                    </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-80 p-3">
-                                    <div className="space-y-3">
-                                      <h4 className="font-medium text-sm">
-                                        Pricing Note
-                                      </h4>
-                                      <Textarea
-                                        placeholder="Add pricing note..."
-                                        value={pricingComments[asset.id] || ""}
-                                        onChange={(e) => {
-                                          setPricingComments((prev) => ({
-                                            ...prev,
-                                            [asset.id]: e.target.value,
-                                          }));
-                                        }}
-                                        onBlur={() => {
-                                          if (
-                                            pricingComments[asset.id] !==
-                                            undefined
-                                          ) {
-                                            handlePricingCommentUpdate(
-                                              asset.id,
-                                              pricingComments[asset.id]
-                                            );
-                                          }
-                                        }}
-                                        className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                        rows={3}
-                                      />
-                                    </div>
-                                  </PopoverContent>
-                                </Popover>
-                              </div>
-                            )
+                              )}
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-4 w-4 p-0 hover:bg-muted"
+                                  >
+                                    <StickyNote
+                                      className={`h-3 w-3 ${
+                                        pricingComments[asset.id]
+                                          ? "text-blue-600 hover:text-blue-700"
+                                          : "text-muted-foreground hover:text-foreground"
+                                      }`}
+                                    />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-3">
+                                  <div className="space-y-3">
+                                    <h4 className="font-medium text-sm">
+                                      Pricing Note
+                                    </h4>
+                                    <Textarea
+                                      placeholder="Add pricing note..."
+                                      value={pricingComments[asset.id] || ""}
+                                      onChange={(e) => {
+                                        setPricingComments((prev) => ({
+                                          ...prev,
+                                          [asset.id]: e.target.value,
+                                        }));
+                                      }}
+                                      onBlur={() => {
+                                        if (
+                                          pricingComments[asset.id] !==
+                                          undefined
+                                        ) {
+                                          handlePricingCommentUpdate(
+                                            asset.id,
+                                            pricingComments[asset.id]
+                                          );
+                                        }
+                                      }}
+                                      className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                      rows={3}
+                                    />
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                           )}
                         </div>
                       </TableCell>
@@ -4101,26 +4156,6 @@ export default function AdminReviewPage() {
           // Regular Assets View
           <div className="space-y-4">
             {/* Multi-selection helper */}
-            {selected.size > 1 && (
-              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <GripVertical className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                      {selected.size} assets selected
-                    </span>
-                  </div>
-                  <span className="text-xs text-blue-600 dark:text-blue-400">
-                    Drag any selected asset to move all {selected.size} together
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>💡 Hold Ctrl+Click to select individual items</span>
-                  <span>•</span>
-                  <span>Hold Shift+Click to select range</span>
-                </div>
-              </div>
-            )}
 
             {/* Drag preview indicator */}
             {dragPreview.length > 0 && draggedAssets.size > 0 && (
@@ -4517,7 +4552,8 @@ export default function AdminReviewPage() {
                               </Select>
 
                               {assetPrices[asset.id]?.pricingOptionId ===
-                              "custom_pricing" ? (
+                                "custom_pricing" &&
+                              !assetPrices[asset.id]?.price ? (
                                 <div className="flex items-center gap-1">
                                   <input
                                     type="number"
@@ -4529,11 +4565,15 @@ export default function AdminReviewPage() {
                                       )
                                     }
                                     onKeyDown={(e) => {
-                                      if (e.key === "Enter") {
+                                      if (
+                                        e.key === "Enter" &&
+                                        !settingPrices.has(asset.id)
+                                      ) {
                                         handleCustomPriceSubmit(asset.id);
                                       }
                                     }}
-                                    className="w-16 h-8 text-xs px-2 border rounded"
+                                    disabled={settingPrices.has(asset.id)}
+                                    className="w-16 h-8 text-xs px-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
                                     placeholder="€0"
                                     min="0"
                                     step="0.01"
@@ -4545,67 +4585,72 @@ export default function AdminReviewPage() {
                                     onClick={() =>
                                       handleCustomPriceSubmit(asset.id)
                                     }
+                                    disabled={settingPrices.has(asset.id)}
                                   >
-                                    Set
+                                    {settingPrices.has(asset.id) ? (
+                                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
+                                    ) : (
+                                      "Set"
+                                    )}
                                   </Button>
                                 </div>
                               ) : (
-                                assetPrices[asset.id] && (
-                                  <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1">
+                                  {assetPrices[asset.id] && (
                                     <span className="text-xs font-medium">
                                       €{assetPrices[asset.id].price}
                                     </span>
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-4 w-4 p-0 hover:bg-muted"
-                                        >
-                                          <StickyNote
-                                            className={`h-3 w-3 ${
-                                              pricingComments[asset.id]
-                                                ? "text-blue-600 hover:text-blue-700"
-                                                : "text-muted-foreground hover:text-foreground"
-                                            }`}
-                                          />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-80 p-3">
-                                        <div className="space-y-3">
-                                          <h4 className="font-medium text-sm">
-                                            Pricing Note
-                                          </h4>
-                                          <Textarea
-                                            placeholder="Add pricing note..."
-                                            value={
-                                              pricingComments[asset.id] || ""
+                                  )}
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-4 w-4 p-0 hover:bg-muted"
+                                      >
+                                        <StickyNote
+                                          className={`h-3 w-3 ${
+                                            pricingComments[asset.id]
+                                              ? "text-blue-600 hover:text-blue-700"
+                                              : "text-muted-foreground hover:text-foreground"
+                                          }`}
+                                        />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80 p-3">
+                                      <div className="space-y-3">
+                                        <h4 className="font-medium text-sm">
+                                          Pricing Note
+                                        </h4>
+                                        <Textarea
+                                          placeholder="Add pricing note..."
+                                          value={
+                                            pricingComments[asset.id] || ""
+                                          }
+                                          onChange={(e) => {
+                                            setPricingComments((prev) => ({
+                                              ...prev,
+                                              [asset.id]: e.target.value,
+                                            }));
+                                          }}
+                                          onBlur={() => {
+                                            if (
+                                              pricingComments[asset.id] !==
+                                              undefined
+                                            ) {
+                                              handlePricingCommentUpdate(
+                                                asset.id,
+                                                pricingComments[asset.id]
+                                              );
                                             }
-                                            onChange={(e) => {
-                                              setPricingComments((prev) => ({
-                                                ...prev,
-                                                [asset.id]: e.target.value,
-                                              }));
-                                            }}
-                                            onBlur={() => {
-                                              if (
-                                                pricingComments[asset.id] !==
-                                                undefined
-                                              ) {
-                                                handlePricingCommentUpdate(
-                                                  asset.id,
-                                                  pricingComments[asset.id]
-                                                );
-                                              }
-                                            }}
-                                            className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                            rows={3}
-                                          />
-                                        </div>
-                                      </PopoverContent>
-                                    </Popover>
-                                  </div>
-                                )
+                                          }}
+                                          className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                          rows={3}
+                                        />
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
                               )}
                             </div>
                           </TableCell>

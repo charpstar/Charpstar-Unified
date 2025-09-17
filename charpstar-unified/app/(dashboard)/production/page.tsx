@@ -176,6 +176,7 @@ interface QAProgress {
     revisionAssets: number;
     completionPercentage: number;
     clients: string[];
+    assignmentType: "regular" | "provisional" | "both";
   }>;
   totalModelers: number;
   totalModelerAssets: number;
@@ -1581,7 +1582,64 @@ export default function ProductionDashboard() {
           continue;
         }
 
-        if (!qaAllocations || qaAllocations.length === 0) {
+        // Get provisional QA assignments where this QA is the provisional QA
+        const { data: provisionalQAAssignments, error: provisionalError } =
+          await supabase
+            .from("asset_assignments")
+            .select(
+              `
+            asset_id,
+            onboarding_assets!inner(
+              id,
+              client,
+              batch,
+              status,
+              created_at
+            )
+          `
+            )
+            .eq("user_id", qaUser.id)
+            .eq("role", "qa")
+            .not("allocation_list_id", "is", null);
+
+        if (provisionalError) {
+          console.error(
+            "Error fetching provisional QA assignments:",
+            provisionalError
+          );
+        }
+
+        // Get modelers from regular allocations
+        const regularModelerIds =
+          qaAllocations?.map((allocation) => allocation.modeler_id) || [];
+
+        // Get modelers from provisional assignments by finding who the assets were originally assigned to
+        let provisionalModelerIds: string[] = [];
+        if (provisionalQAAssignments && provisionalQAAssignments.length > 0) {
+          const assetIds = provisionalQAAssignments.map(
+            (assignment) => assignment.asset_id
+          );
+
+          const { data: originalAssignments, error: originalError } =
+            await supabase
+              .from("asset_assignments")
+              .select("user_id")
+              .in("asset_id", assetIds)
+              .eq("role", "modeler");
+
+          if (!originalError && originalAssignments) {
+            provisionalModelerIds = [
+              ...new Set(originalAssignments.map((a) => a.user_id)),
+            ];
+          }
+        }
+
+        // Combine both regular and provisional modeler IDs
+        const allModelerIds = [
+          ...new Set([...regularModelerIds, ...provisionalModelerIds]),
+        ];
+
+        if (allModelerIds.length === 0) {
           qaUser.totalModelers = 0;
           qaUser.totalModelerAssets = 0;
           qaUser.totalModelerCompleted = 0;
@@ -1589,15 +1647,11 @@ export default function ProductionDashboard() {
           continue;
         }
 
-        const modelerIds = qaAllocations.map(
-          (allocation) => allocation.modeler_id
-        );
-
         // Get modeler details
         const { data: modelerDetails, error: modelerError } = await supabase
           .from("profiles")
           .select("id, email, title")
-          .in("id", modelerIds);
+          .in("id", allModelerIds);
 
         if (modelerError) {
           console.error("Error fetching modeler details:", modelerError);
@@ -1620,7 +1674,7 @@ export default function ProductionDashboard() {
             )
           `
           )
-          .in("user_id", modelerIds)
+          .in("user_id", allModelerIds)
           .eq("role", "modeler");
 
         if (assetsError) {
@@ -1633,6 +1687,19 @@ export default function ProductionDashboard() {
         const clientSet = new Set<string>();
 
         modelerDetails?.forEach((modeler) => {
+          // Determine assignment type
+          const isRegular = regularModelerIds.includes(modeler.id);
+          const isProvisional = provisionalModelerIds.includes(modeler.id);
+          let assignmentType: "regular" | "provisional" | "both";
+
+          if (isRegular && isProvisional) {
+            assignmentType = "both";
+          } else if (isRegular) {
+            assignmentType = "regular";
+          } else {
+            assignmentType = "provisional";
+          }
+
           modelerStats.set(modeler.id, {
             id: modeler.id,
             email: modeler.email,
@@ -1644,6 +1711,7 @@ export default function ProductionDashboard() {
             revisionAssets: 0,
             completionPercentage: 0,
             clients: [],
+            assignmentType,
           });
         });
 
@@ -3220,8 +3288,23 @@ export default function ProductionDashboard() {
                                   <div className="flex items-center gap-1 text-muted-foreground">
                                     <Users className="h-4 w-4" />
                                     <span>
-                                      {qaUser.connectedModelers?.length || 0}{" "}
-                                      modelers
+                                      {(() => {
+                                        const mainModelers =
+                                          qaUser.connectedModelers?.filter(
+                                            (m) =>
+                                              m.assignmentType === "regular" ||
+                                              m.assignmentType === "both"
+                                          ).length || 0;
+                                        const provisionalModelers =
+                                          qaUser.connectedModelers?.filter(
+                                            (m) =>
+                                              m.assignmentType === "provisional"
+                                          ).length || 0;
+                                        if (provisionalModelers > 0) {
+                                          return `${mainModelers} main + ${provisionalModelers} prov`;
+                                        }
+                                        return `${mainModelers} modelers`;
+                                      })()}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1 text-muted-foreground">
@@ -3326,9 +3409,9 @@ export default function ProductionDashboard() {
                                 <h4 className="text-sm font-semibold text-muted-foreground">
                                   Connected Modelers
                                 </h4>
-                                <div className="space-y-2 max-h-24 overflow-y-auto">
+                                <div className="space-y-2 max-h-32 overflow-y-auto">
                                   {qaUser.connectedModelers
-                                    .slice(0, 3)
+                                    .slice(0, 4)
                                     .map((modeler) => (
                                       <div
                                         key={modeler.id}
@@ -3340,18 +3423,40 @@ export default function ProductionDashboard() {
                                           )
                                         }
                                       >
-                                        <span className="font-medium">
-                                          {modeler.name ||
-                                            modeler.email.split("@")[0]}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium">
+                                            {modeler.name ||
+                                              modeler.email.split("@")[0]}
+                                          </span>
+                                          <Badge
+                                            variant="outline"
+                                            className={`text-xs px-1 py-0 ${
+                                              modeler.assignmentType ===
+                                              "regular"
+                                                ? "bg-blue-100 text-blue-700 border-blue-300"
+                                                : modeler.assignmentType ===
+                                                    "provisional"
+                                                  ? "bg-amber-100 text-amber-700 border-amber-300"
+                                                  : "bg-purple-100 text-purple-700 border-purple-300"
+                                            }`}
+                                          >
+                                            {modeler.assignmentType ===
+                                            "regular"
+                                              ? "Main"
+                                              : modeler.assignmentType ===
+                                                  "provisional"
+                                                ? "Prov"
+                                                : "Both"}
+                                          </Badge>
+                                        </div>
                                         <span className="text-muted-foreground">
                                           {modeler.completionPercentage}%
                                         </span>
                                       </div>
                                     ))}
-                                  {qaUser.connectedModelers.length > 3 && (
+                                  {qaUser.connectedModelers.length > 4 && (
                                     <div className="text-xs text-muted-foreground text-center">
-                                      +{qaUser.connectedModelers.length - 3}{" "}
+                                      +{qaUser.connectedModelers.length - 4}{" "}
                                       more modelers
                                     </div>
                                   )}
