@@ -1935,10 +1935,10 @@ export default function BatchDetailPage() {
                                           title={asset.product_name}
                                         >
                                           {highlightMatch(
-                                            asset.product_name.length > 25
+                                            asset.product_name.length > 35
                                               ? asset.product_name.substring(
                                                   0,
-                                                  25
+                                                  35
                                                 ) + "..."
                                               : asset.product_name,
                                             searchTerm
@@ -2160,10 +2160,10 @@ export default function BatchDetailPage() {
                                           title={asset.product_name}
                                         >
                                           {highlightMatch(
-                                            asset.product_name.length > 30
+                                            asset.product_name.length > 35
                                               ? asset.product_name.substring(
                                                   0,
-                                                  30
+                                                  35
                                                 ) + "..."
                                               : asset.product_name,
                                             searchTerm

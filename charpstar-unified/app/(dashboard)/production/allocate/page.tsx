@@ -715,55 +715,15 @@ export default function AllocateAssetsPage() {
       checkModelerPricingTier(defaultModelerId);
     }
 
-    // Get default pricing based on current pricing tier
-    const getDefaultPricing = (
-      pricingTier:
-        | "first_list"
-        | "after_first_deadline"
-        | "after_second_deadline"
-    ) => {
-      if (pricingTier === "after_second_deadline") {
-        return {
-          pbr_3d_model: "pbr_3d_model_after_second",
-          hard_3d_model: "hard_3d_model_after_second",
-          additional_colors: "additional_colors_after_second",
-          additional_textures: "additional_textures_after_second",
-          additional_sizes: "additional_sizes_after_second",
-        };
-      } else if (pricingTier === "after_first_deadline") {
-        return {
-          pbr_3d_model: "pbr_3d_model_after_first",
-          hard_3d_model: "hard_3d_model_after_first",
-          additional_colors: "additional_colors_after_first",
-          additional_textures: "additional_textures_after_first",
-          additional_sizes: "additional_sizes_after_first",
-        };
-      } else {
-        return {
-          pbr_3d_model: "pbr_3d_model_first",
-          hard_3d_model: "hard_3d_model_first",
-          additional_colors: "additional_colors_first",
-          additional_textures: "additional_textures_first",
-          additional_sizes: "additional_sizes_first",
-        };
-      }
-    };
-
-    const defaultPricingOptions = getDefaultPricing(pricingTier);
-    //eslint-disable-next-line
-    const defaultPricingOption = defaultPricingOptions.pbr_3d_model;
-    //eslint-disable-next-line
-    const defaultPrice = pricingTier === "after_second_deadline" ? 30 : 18; // Premium tier is 30, others are 18
-
     const data: AllocationData[] = Array.from(selectedAssets)
       .map((assetId) => {
         const asset = assets.find((a) => a.id === assetId);
 
-        // Only use existing pricing from onboarding assets
+        // Prioritize existing pricing from admin-review
         const existingPricingOptionId = asset?.pricing_option_id;
         const existingPrice = asset?.price;
 
-        // Use existing pricing if available, otherwise skip this asset
+        // Use existing pricing from admin-review if available
         if (
           existingPricingOptionId &&
           existingPrice !== undefined &&
@@ -786,9 +746,17 @@ export default function AllocateAssetsPage() {
 
     setAllocationData(data);
 
-    // Show warning if some assets don't have existing pricing
+    // Show informative message about pricing source
     const totalAssets = selectedAssets.size;
     const assetsWithPricing = data.length;
+
+    if (assetsWithPricing > 0) {
+      toast.success(
+        `${assetsWithPricing} asset(s) loaded with pricing from admin review.`,
+        { duration: 4000 }
+      );
+    }
+
     if (totalAssets > assetsWithPricing) {
       const missingPricingCount = totalAssets - assetsWithPricing;
       toast.warning(
@@ -816,13 +784,48 @@ export default function AllocateAssetsPage() {
     }
   }, [users, globalTeamAssignment.modelerId, checkModelerPricingTier]);
 
-  // Re-initialize allocation data when pricing tier changes
-  // Note: This will only affect assets that don't have existing pricing
+  // Auto-detect pricing tier based on loaded assets pricing
   useEffect(() => {
-    if (selectedAssets.size > 0 && allocationData.length > 0) {
-      initializeAllocationData();
+    if (allocationData.length > 0) {
+      const detectedTier = detectPricingTierFromAssets(allocationData);
+      if (detectedTier && detectedTier !== pricingTier) {
+        setPricingTier(detectedTier);
+        const bonusPercentage = detectedTier === "first_list" ? 15 : 30;
+        setGroupSettings((prev) => ({ ...prev, bonus: bonusPercentage }));
+
+        toast.info(
+          `Pricing tier auto-detected as "${detectedTier.replace(/_/g, " ")}" based on asset pricing.`,
+          { duration: 4000 }
+        );
+      }
     }
-  }, [pricingTier]);
+  }, [allocationData]);
+
+  // Helper function to detect pricing tier from asset pricing
+  const detectPricingTierFromAssets = (data: AllocationData[]) => {
+    if (data.length === 0) return null;
+
+    // Check if any assets have premium pricing (after_second)
+    const hasPremiumPricing = data.some((item) =>
+      item.pricingOptionId.includes("after_second")
+    );
+
+    if (hasPremiumPricing) {
+      return "after_second_deadline";
+    }
+
+    // Check if any assets have after_first pricing
+    const hasAfterFirstPricing = data.some((item) =>
+      item.pricingOptionId.includes("after_first")
+    );
+
+    if (hasAfterFirstPricing) {
+      return "after_first_deadline";
+    }
+
+    // Default to first list
+    return "first_list";
+  };
 
   // Check for pre-selected assets from admin-review page
   useEffect(() => {
@@ -1059,14 +1062,6 @@ export default function AllocateAssetsPage() {
     );
   };
 
-  const applyBulkCustomPrice = (price: number) => {
-    setAllocationData((prev) =>
-      prev.map((item) =>
-        selectedForPricing.has(item.assetId) ? { ...item, price } : item
-      )
-    );
-  };
-
   // Toggle product selection for pricing
   const togglePricingSelection = (assetId: string) => {
     setSelectedForPricing((prev) => {
@@ -1081,9 +1076,6 @@ export default function AllocateAssetsPage() {
   };
 
   // Select all products for pricing
-  const selectAllForPricing = () => {
-    setSelectedForPricing(new Set(allocationData.map((data) => data.assetId)));
-  };
 
   // Clear all pricing selections
   const clearPricingSelections = () => {
@@ -1653,8 +1645,8 @@ export default function AllocateAssetsPage() {
                                 className="truncate max-w-[200px] cursor-help"
                                 title={asset.product_name}
                               >
-                                {asset.product_name.length > 25
-                                  ? asset.product_name.substring(0, 25) + "..."
+                                {asset.product_name.length > 35
+                                  ? asset.product_name.substring(0, 35) + "..."
                                   : asset.product_name}
                               </div>
                             </td>
@@ -1984,86 +1976,130 @@ export default function AllocateAssetsPage() {
               <div className="border-t pt-6">
                 <h3 className="text-lg font-medium mb-4">Asset Pricing</h3>
 
-                {/* Bulk Pricing Controls */}
+                {/* Pricing Info & Controls */}
                 <div className="mb-4 p-4 bg-muted/50 rounded-lg">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h4 className="font-medium">Bulk Pricing Options</h4>
+                    <h4 className="font-medium">Pricing Information</h4>
                     <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={selectAllForPricing}
-                      >
-                        Select All
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearPricingSelections}
-                      >
-                        Clear Selection
-                      </Button>
+                      {(() => {
+                        const assetsWithAdminPricing = allocationData.filter(
+                          (data) => {
+                            const asset = getAssetById(data.assetId);
+                            return (
+                              asset?.pricing_option_id &&
+                              asset?.price &&
+                              asset.price > 0
+                            );
+                          }
+                        );
+                        const assetsWithoutPricing = allocationData.filter(
+                          (data) => {
+                            const asset = getAssetById(data.assetId);
+                            return !(
+                              asset?.pricing_option_id &&
+                              asset?.price &&
+                              asset.price > 0
+                            );
+                          }
+                        );
+
+                        return (
+                          <div className="flex items-center gap-3 text-sm">
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 bg-green-500 rounded"></div>
+                              <span>
+                                {assetsWithAdminPricing.length} Admin Set
+                              </span>
+                            </div>
+                            {assetsWithoutPricing.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 bg-amber-500 rounded"></div>
+                                <span>
+                                  {assetsWithoutPricing.length} Manual
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
-                  <div className="text-sm text-muted-foreground mb-3">
-                    {selectedForPricing.size > 0
-                      ? `${selectedForPricing.size} product${
-                          selectedForPricing.size > 1 ? "s" : ""
-                        } selected for pricing`
-                      : "Select products below to apply bulk pricing"}
-                  </div>
+                  {(() => {
+                    const assetsWithoutPricing = allocationData.filter(
+                      (data) => {
+                        const asset = getAssetById(data.assetId);
+                        return !(
+                          asset?.pricing_option_id &&
+                          asset?.price &&
+                          asset.price > 0
+                        );
+                      }
+                    );
 
-                  <div className="flex flex-wrap gap-2">
-                    {getCurrentPricingOptions().map((option) => (
-                      <Button
-                        key={option.id}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => applyBulkPricing(option.id)}
-                        disabled={selectedForPricing.size === 0}
-                        className="justify-start"
-                      >
-                        <Euro className="h-4 w-4 mr-2" />
-                        {option.label} - €{option.price}
-                      </Button>
-                    ))}
-                  </div>
+                    if (assetsWithoutPricing.length === 0) {
+                      return (
+                        <div className="text-sm text-green-600 bg-green-50 p-3 rounded border border-green-200">
+                          ✓ All assets have pricing set in admin review. No
+                          manual pricing needed.
+                        </div>
+                      );
+                    }
 
-                  <div className="flex gap-2 mt-3">
-                    <Input
-                      type="number"
-                      placeholder="Custom price"
-                      className="w-28"
-                      disabled={selectedForPricing.size === 0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          const price = parseFloat(e.currentTarget.value);
-                          if (price > 0) {
-                            applyBulkCustomPrice(price);
-                            e.currentTarget.value = "";
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={selectedForPricing.size === 0}
-                      onClick={() => {
-                        const input = document.querySelector(
-                          'input[placeholder="Custom price"]'
-                        ) as HTMLInputElement;
-                        const price = parseFloat(input?.value || "0");
-                        if (price > 0) {
-                          applyBulkCustomPrice(price);
-                          input.value = "";
-                        }
-                      }}
-                    >
-                      Apply
-                    </Button>
-                  </div>
+                    return (
+                      <div className="space-y-3">
+                        <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200">
+                          {assetsWithoutPricing.length} asset(s) need manual
+                          pricing. Select them below to apply bulk pricing.
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const manualAssetIds = assetsWithoutPricing.map(
+                                (data) => data.assetId
+                              );
+                              setSelectedForPricing(new Set(manualAssetIds));
+                            }}
+                          >
+                            Select Manual Assets
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={clearPricingSelections}
+                          >
+                            Clear Selection
+                          </Button>
+                        </div>
+
+                        {selectedForPricing.size > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-xs text-muted-foreground">
+                              {selectedForPricing.size} asset(s) selected for
+                              bulk pricing
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {getCurrentPricingOptions().map((option) => (
+                                <Button
+                                  key={option.id}
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => applyBulkPricing(option.id)}
+                                  className="justify-start text-xs"
+                                >
+                                  <Euro className="h-3 w-3 mr-1" />
+                                  {option.label} - €{option.price}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Assets Table */}
@@ -2072,20 +2108,54 @@ export default function AllocateAssetsPage() {
                     <thead className="bg-muted/70">
                       <tr>
                         <th className="p-2 w-8">
-                          <Checkbox
-                            checked={
-                              selectedForPricing.size ===
-                                allocationData.length &&
-                              allocationData.length > 0
-                            }
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                selectAllForPricing();
-                              } else {
-                                clearPricingSelections();
+                          {(() => {
+                            const manualAssets = allocationData.filter(
+                              (data) => {
+                                const asset = getAssetById(data.assetId);
+                                return !(
+                                  asset?.pricing_option_id &&
+                                  asset?.price &&
+                                  asset.price > 0
+                                );
                               }
-                            }}
-                          />
+                            );
+
+                            if (manualAssets.length === 0) {
+                              return (
+                                <Checkbox
+                                  checked={false}
+                                  disabled={true}
+                                  className="opacity-30"
+                                />
+                              );
+                            }
+
+                            const selectedManualAssets = manualAssets.filter(
+                              (data) => selectedForPricing.has(data.assetId)
+                            );
+
+                            return (
+                              <Checkbox
+                                checked={
+                                  selectedManualAssets.length ===
+                                    manualAssets.length &&
+                                  manualAssets.length > 0
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    const manualAssetIds = manualAssets.map(
+                                      (data) => data.assetId
+                                    );
+                                    setSelectedForPricing(
+                                      new Set(manualAssetIds)
+                                    );
+                                  } else {
+                                    clearPricingSelections();
+                                  }
+                                }}
+                              />
+                            );
+                          })()}
                         </th>
                         <th className="p-2 text-left">Product Name</th>
                         <th className="p-2 text-left">Article ID</th>
@@ -2113,20 +2183,44 @@ export default function AllocateAssetsPage() {
                             }`}
                           >
                             <td className="p-2 text-center">
-                              <Checkbox
-                                checked={isSelectedForPricing}
-                                onCheckedChange={() =>
-                                  togglePricingSelection(data.assetId)
+                              {(() => {
+                                const asset = getAssetById(data.assetId);
+                                const hasExistingPricing =
+                                  asset?.pricing_option_id &&
+                                  asset?.price &&
+                                  asset.price > 0;
+
+                                if (hasExistingPricing) {
+                                  // Show disabled checkbox for admin-set pricing
+                                  return (
+                                    <div className="flex items-center justify-center">
+                                      <Checkbox
+                                        checked={false}
+                                        disabled={true}
+                                        className="opacity-30"
+                                      />
+                                    </div>
+                                  );
+                                } else {
+                                  // Show active checkbox for manual pricing
+                                  return (
+                                    <Checkbox
+                                      checked={isSelectedForPricing}
+                                      onCheckedChange={() =>
+                                        togglePricingSelection(data.assetId)
+                                      }
+                                    />
+                                  );
                                 }
-                              />
+                              })()}
                             </td>
                             <td className="p-2">
                               <div
                                 className="truncate max-w-[200px] cursor-help"
                                 title={asset.product_name}
                               >
-                                {asset.product_name.length > 25
-                                  ? asset.product_name.substring(0, 25) + "..."
+                                {asset.product_name.length > 35
+                                  ? asset.product_name.substring(0, 35) + "..."
                                   : asset.product_name}
                               </div>
                             </td>
@@ -2162,90 +2256,123 @@ export default function AllocateAssetsPage() {
                                 )}
                               </Badge>
                             </td>
-                            <td className="p-2 text-center items-center justify-center flex">
-                              <div className="flex items-center gap-2 w-full">
-                                <Select
-                                  value={data.pricingOptionId}
-                                  onValueChange={(value) => {
-                                    const option = getPricingOptionById(value);
-                                    updateAllocationData(
-                                      data.assetId,
-                                      "pricingOptionId",
-                                      value
-                                    );
-                                    updateAllocationData(
-                                      data.assetId,
-                                      "price",
-                                      option?.price || 0
-                                    );
-                                  }}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select pricing option" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {getCurrentPricingOptions().map(
-                                      (option) => (
-                                        <SelectItem
-                                          key={option.id}
-                                          value={option.id}
-                                        >
-                                          {option.label} - €{option.price}
-                                        </SelectItem>
-                                      )
-                                    )}
-                                  </SelectContent>
-                                </Select>
+                            <td className="p-2 text-center">
+                              <div className="flex flex-col gap-1">
                                 {(() => {
                                   const asset = getAssetById(data.assetId);
                                   const hasExistingPricing =
                                     asset?.pricing_option_id &&
                                     asset?.price &&
                                     asset.price > 0;
-                                  return hasExistingPricing ? (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap"
-                                    >
-                                      From Admin
-                                    </Badge>
-                                  ) : null;
+
+                                  if (hasExistingPricing) {
+                                    // Show read-only info for admin-set pricing
+                                    return (
+                                      <div className="space-y-1">
+                                        <div className="text-xs text-muted-foreground">
+                                          Set in Admin Review
+                                        </div>
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs bg-green-50 text-green-700 border-green-200"
+                                        >
+                                          {getPricingOptionById(
+                                            data.pricingOptionId
+                                          )?.label || data.pricingOptionId}
+                                        </Badge>
+                                      </div>
+                                    );
+                                  } else {
+                                    // Allow manual selection for assets without admin pricing
+                                    return (
+                                      <Select
+                                        value={data.pricingOptionId}
+                                        onValueChange={(value) => {
+                                          const option =
+                                            getPricingOptionById(value);
+                                          updateAllocationData(
+                                            data.assetId,
+                                            "pricingOptionId",
+                                            value
+                                          );
+                                          updateAllocationData(
+                                            data.assetId,
+                                            "price",
+                                            option?.price || 0
+                                          );
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue placeholder="Select pricing" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {getCurrentPricingOptions().map(
+                                            (option) => (
+                                              <SelectItem
+                                                key={option.id}
+                                                value={option.id}
+                                              >
+                                                {option.label} - €{option.price}
+                                              </SelectItem>
+                                            )
+                                          )}
+                                        </SelectContent>
+                                      </Select>
+                                    );
+                                  }
                                 })()}
                               </div>
                             </td>
-                            <td className="p-2 text-center items-center justify-center ">
-                              <div className="flex items-center gap-2">
-                                {data.pricingOptionId.includes(
-                                  "hard_3d_model"
-                                ) ? (
-                                  <Input
-                                    type="number"
-                                    value={data.price}
-                                    onChange={(e) =>
-                                      updateAllocationData(
-                                        data.assetId,
-                                        "price",
-                                        parseFloat(e.target.value) || 0
-                                      )
-                                    }
-                                  />
-                                ) : (
-                                  <span>€{data.price}</span>
-                                )}
+                            <td className="p-2 text-center">
+                              <div className="flex flex-col items-center gap-1">
                                 {(() => {
                                   const asset = getAssetById(data.assetId);
                                   const hasExistingPricing =
                                     asset?.pricing_option_id &&
                                     asset?.price &&
                                     asset.price > 0;
-                                  return hasExistingPricing ? (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs bg-blue-50 text-blue-700 border-blue-200"
-                                    >
-                                      From Admin
-                                    </Badge>
-                                  ) : null;
+
+                                  if (hasExistingPricing) {
+                                    // Show price with admin badge for existing pricing
+                                    return (
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-green-600">
+                                          €{data.price.toFixed(2)}
+                                        </span>
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                                        >
+                                          Admin Set
+                                        </Badge>
+                                      </div>
+                                    );
+                                  } else {
+                                    // Allow manual price input for custom pricing
+                                    return data.pricingOptionId.includes(
+                                      "hard_3d_model"
+                                    ) ||
+                                      data.pricingOptionId ===
+                                        "custom_pricing" ? (
+                                      <Input
+                                        type="number"
+                                        value={data.price}
+                                        onChange={(e) =>
+                                          updateAllocationData(
+                                            data.assetId,
+                                            "price",
+                                            parseFloat(e.target.value) || 0
+                                          )
+                                        }
+                                        className="w-20 h-8 text-xs"
+                                        placeholder="0.00"
+                                      />
+                                    ) : (
+                                      <span className="font-medium">
+                                        €{data.price.toFixed(2)}
+                                      </span>
+                                    );
+                                  }
                                 })()}
                               </div>
                             </td>

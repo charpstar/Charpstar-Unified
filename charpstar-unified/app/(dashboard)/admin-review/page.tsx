@@ -2344,8 +2344,8 @@ export default function AdminReviewPage() {
       setDragInsertPosition(-1);
     }
   };
-  //eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleDragEnd = (e: React.DragEvent) => {
+
+  const handleDragEnd = () => {
     // Clean up all visual feedback for all rows
     const allRows = document.querySelectorAll("tr");
     allRows.forEach((row) => {
@@ -3818,8 +3818,8 @@ export default function AdminReviewPage() {
                               className="font-medium  cursor-help text-sm sm:text-base"
                               title={asset.product_name}
                             >
-                              {asset.product_name.length > 25
-                                ? asset.product_name.substring(0, 25) + "..."
+                              {asset.product_name.length > 35
+                                ? asset.product_name.substring(0, 35) + "..."
                                 : asset.product_name}
                             </span>
                           </div>
@@ -4348,8 +4348,8 @@ export default function AdminReviewPage() {
                                 className="font-medium truncate cursor-help text-sm sm:text-base"
                                 title={asset.product_name}
                               >
-                                {asset.product_name.length > 25
-                                  ? asset.product_name.substring(0, 25) + "..."
+                                {asset.product_name.length > 35
+                                  ? asset.product_name.substring(0, 35) + "..."
                                   : asset.product_name}
                               </span>
                               <div className="flex items-center justify-center gap-1 sm:gap-2">

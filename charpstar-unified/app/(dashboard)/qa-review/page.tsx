@@ -1213,8 +1213,8 @@ export default function QAReviewPage() {
                           className="font-medium truncate max-w-[200px] cursor-help"
                           title={asset.product_name}
                         >
-                          {asset.product_name.length > 25
-                            ? asset.product_name.substring(0, 25) + "..."
+                          {asset.product_name.length > 35
+                            ? asset.product_name.substring(0, 35) + "..."
                             : asset.product_name}
                         </div>
                         <div className="text-sm text-muted-foreground flex items-center gap-2 group">

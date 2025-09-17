@@ -1556,8 +1556,8 @@ export default function AddProductsPage() {
                           title={product.product_name || "-"}
                         >
                           {product.product_name &&
-                          product.product_name.length > 25
-                            ? product.product_name.substring(0, 25) + "..."
+                          product.product_name.length > 35
+                            ? product.product_name.substring(0, 35) + "..."
                             : product.product_name || "-"}
                         </div>
                       </TableCell>

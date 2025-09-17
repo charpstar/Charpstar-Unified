@@ -361,8 +361,8 @@ export default function ManualUploadPage() {
                         className="truncate max-w-[200px] cursor-help"
                         title={r.product_name}
                       >
-                        {r.product_name.length > 25
-                          ? r.product_name.substring(0, 25) + "..."
+                        {r.product_name.length > 35
+                          ? r.product_name.substring(0, 35) + "..."
                           : r.product_name}
                       </div>
                     </TableCell>
