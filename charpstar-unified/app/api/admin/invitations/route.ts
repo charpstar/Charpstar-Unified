@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { cookies } from "next/headers";
+import { getSignupUrl } from "@/lib/urlUtils";
 
 export async function GET() {
   try {
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
         invited_at: new Date().toISOString(),
         expires_at: expiresAt.toISOString(),
         invitation_token: invitationToken,
-        invitation_link: `${process.env.NEXT_PUBLIC_SITE_URL || (process.env.NODE_ENV === "production" ? "https://charpstar-unified.vercel.app" : "http://localhost:3000")}/auth/signup?token=${invitationToken}`,
+        invitation_link: getSignupUrl(invitationToken),
       })
       .select()
       .single();
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
       const adminClient = createAdminClient();
       const { error: inviteError } =
         await adminClient.auth.admin.inviteUserByEmail(email, {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || (process.env.NODE_ENV === "production" ? "https://charpstar-unified.vercel.app" : "http://localhost:3000")}/auth/signup?token=${invitationToken}`,
+          redirectTo: getSignupUrl(invitationToken),
           data: {
             client_name: client_name,
             role: role,

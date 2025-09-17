@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { getBaseUrl } from "@/lib/urlUtils";
 import { AllocationAssignedEmail } from "@/components/emails/AllocationAssignedEmail";
 
 type Payload = {
@@ -194,7 +195,7 @@ const defaultHtml = (data: Partial<Payload>) => {
                 <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
                   <tr>
                     <td style="background-color: #ffffff; border-radius: 6px; text-align: center;">
-                      <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 16px; font-family: 'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; color: #000000; text-decoration: none; border-radius: 6px; border: 1px solid #222222; font-weight: 600;">
+                      <a href="${getBaseUrl()}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 16px; font-family: 'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; color: #000000; text-decoration: none; border-radius: 6px; border: 1px solid #222222; font-weight: 600;">
                         View Dashboard
                       </a>
                     </td>

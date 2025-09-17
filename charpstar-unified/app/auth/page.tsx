@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { LoginForm } from "@/components/ui/utilities";
 import Image from "next/image";
 import { useTheme } from "next-themes";
+import { getResetPasswordUrl } from "@/lib/urlUtils";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -107,10 +108,8 @@ export default function AuthPage() {
     setIsLoading(true);
     setError(null);
     try {
-      // Use environment variable for production URL, fallback to window.location.origin
-      const baseUrl =
-        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-      const redirectUrl = `${baseUrl}/reset-password`;
+      // Use centralized URL utility
+      const redirectUrl = getResetPasswordUrl();
 
       const { error } = await supabase.auth.resetPasswordForEmail(
         resetData.email,

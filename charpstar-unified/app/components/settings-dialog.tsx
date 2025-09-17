@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { getResetPasswordUrl } from "@/lib/urlUtils";
 import {
   Dialog,
   DialogContent,
@@ -433,7 +434,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     setSendingReset(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: getResetPasswordUrl(),
       });
       if (error) throw error;
       toast({

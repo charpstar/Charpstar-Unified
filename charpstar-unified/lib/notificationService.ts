@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { getBaseUrl } from "./urlUtils";
 
 export interface NotificationData {
   id?: string;
@@ -206,13 +207,7 @@ class NotificationService {
 
     // Fire-and-forget email (if provider configured)
     try {
-      const baseUrl =
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        (process.env.VERCEL_URL && process.env.VERCEL_URL.startsWith("http")
-          ? process.env.VERCEL_URL
-          : process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : "http://localhost:3000");
+      const baseUrl = getBaseUrl();
       const payload = {
         to: `${modelerEmail}`,
         client,
