@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/containers";
@@ -36,6 +36,7 @@ import {
   FileText,
   GripVertical,
   Euro,
+  StickyNote,
 } from "lucide-react";
 
 import {
@@ -47,7 +48,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/containers";
-import { Input } from "@/components/ui/inputs";
+import { Input, Textarea } from "@/components/ui/inputs";
 import { Calendar } from "@/components/ui/utilities";
 import {
   Popover,
@@ -66,82 +67,12 @@ interface PricingOption {
 }
 
 const PRICING_OPTIONS: PricingOption[] = [
-  // First List Pricing
-  {
-    id: "pbr_3d_model_first",
-    label: "PBR 3D Model Creation (First List)",
-    price: 18,
-    description: "Standard PBR 3D model creation for first list",
-  },
-  {
-    id: "hard_3d_model_first",
-    label: "Hard 3D Model (First List)",
-    price: 0, // Custom price - decided before commencing
-    description: "Hard surface 3D model for first list - custom pricing",
-  },
-  {
-    id: "additional_colors_first",
-    label: "Additional Colors (First List)",
-    price: 1,
-    description: "Additional colors for already made 3D models",
-  },
-  {
-    id: "additional_textures_first",
-    label: "Additional Textures/Materials (First List)",
-    price: 5,
-    description: "Additional textures/materials for already made 3D models",
-  },
-  {
-    id: "additional_sizes_first",
-    label: "Additional Sizes (First List)",
-    price: 4,
-    description: "Additional sizes for already made 3D models",
-  },
-
-  // After First Deadline Pricing
-  {
-    id: "pbr_3d_model_after_first",
-    label: "PBR 3D Model Creation (After First Deadline)",
-    price: 18,
-    description: "Standard PBR 3D model creation after first deadline",
-  },
-  {
-    id: "hard_3d_model_after_first",
-    label: "Hard 3D Model (After First Deadline)",
-    price: 0, // Custom price - decided before commencing
-    description: "Hard surface 3D model after first deadline - custom pricing",
-  },
-  {
-    id: "additional_colors_after_first",
-    label: "Additional Colors (After First Deadline)",
-    price: 1,
-    description: "Additional colors for already made 3D models",
-  },
-  {
-    id: "additional_textures_after_first",
-    label: "Additional Textures/Materials (After First Deadline)",
-    price: 5,
-    description: "Additional textures/materials for already made 3D models",
-  },
-  {
-    id: "additional_sizes_after_first",
-    label: "Additional Sizes (After First Deadline)",
-    price: 4,
-    description: "Additional sizes for already made 3D models",
-  },
-
-  // After Second Deadline Pricing (Premium Tier)
+  // Premium Tier Options Only
   {
     id: "pbr_3d_model_after_second",
     label: "PBR 3D Model Creation (Premium Tier)",
     price: 30,
     description: "Premium PBR 3D model creation after second deadline",
-  },
-  {
-    id: "hard_3d_model_after_second",
-    label: "Hard 3D Model (Premium Tier)",
-    price: 0, // Custom price - decided before commencing
-    description: "Hard surface 3D model premium tier - custom pricing",
   },
   {
     id: "additional_colors_after_second",
@@ -470,7 +401,16 @@ export default function AdminReviewPage() {
     Record<string, { pricingOptionId: string; price: number }>
   >({});
   const [customPrices, setCustomPrices] = useState<Record<string, number>>({});
+  const [pricingComments, setPricingComments] = useState<
+    Record<string, string>
+  >({});
   const [draggedAssetId, setDraggedAssetId] = useState<string | null>(null);
+  const [draggedAssets, setDraggedAssets] = useState<Set<string>>(new Set());
+  const [isDraggingGroup, setIsDraggingGroup] = useState(false);
+  const [dragPreview, setDragPreview] = useState<any[]>([]);
+  const [dragInsertPosition, setDragInsertPosition] = useState<number>(-1);
+  const [isManuallyReordering, setIsManuallyReordering] = useState(false);
+  const lastManualOrderRef = useRef<string[]>([]);
   const [assignedAssets, setAssignedAssets] = useState<
     Map<string, { id: string; email: string; name?: string }>
   >(new Map());
@@ -572,7 +512,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment"
         )
         .order("upload_order", { ascending: true });
 
@@ -667,9 +607,8 @@ export default function AdminReviewPage() {
       const assetsWithPricing = allAssets.filter(
         (asset) =>
           selectedAssets.includes(asset.id) &&
-          asset.pricing_option_id &&
-          asset.price &&
-          asset.price > 0
+          ((asset.pricing_option_id && asset.price && asset.price > 0) ||
+            (assetPrices[asset.id] && assetPrices[asset.id].price > 0))
       );
 
       if (assetsWithPricing.length === 0) {
@@ -923,9 +862,8 @@ export default function AdminReviewPage() {
       const assetsWithPricing = filtered.filter(
         (asset) =>
           selectedAssets.includes(asset.id) &&
-          asset.pricing_option_id &&
-          asset.price &&
-          asset.price > 0
+          ((asset.pricing_option_id && asset.price && asset.price > 0) ||
+            (assetPrices[asset.id] && assetPrices[asset.id].price > 0))
       );
 
       if (assetsWithPricing.length === 0) {
@@ -1410,7 +1348,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment"
         )
         .order("upload_order", { ascending: true });
 
@@ -1457,6 +1395,7 @@ export default function AdminReviewPage() {
           { pricingOptionId: string; price: number }
         > = {};
         const initialCustomPrices: Record<string, number> = {};
+        const initialPricingComments: Record<string, string> = {};
         data.forEach((asset) => {
           if (asset.pricing_option_id && asset.price !== undefined) {
             initialPrices[asset.id] = {
@@ -1469,9 +1408,15 @@ export default function AdminReviewPage() {
               initialCustomPrices[asset.id] = asset.price;
             }
           }
+
+          // Initialize pricing comments
+          if ((asset as any).pricing_comment) {
+            initialPricingComments[asset.id] = (asset as any).pricing_comment;
+          }
         });
         setAssetPrices(initialPrices);
         setCustomPrices(initialCustomPrices);
+        setPricingComments(initialPricingComments);
 
         // Extract unique clients
         const uniqueClients = [
@@ -1556,7 +1501,7 @@ export default function AdminReviewPage() {
 
   // Apply filters to assets
   useEffect(() => {
-    if (showAllocationLists || showQAAssets) return;
+    if (showAllocationLists || showQAAssets || isManuallyReordering) return;
 
     let filteredAssets = [...assets];
 
@@ -1598,10 +1543,43 @@ export default function AdminReviewPage() {
       approved: 4,
       approved_by_client: 5,
     };
-    filteredAssets.sort(
-      (a, b) =>
-        (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
-    );
+    // If we have a recent manual order, try to preserve it
+    if (lastManualOrderRef.current.length > 0 && !isManuallyReordering) {
+      const manualOrderIds = lastManualOrderRef.current;
+      const manualOrderMap = new Map(
+        manualOrderIds.map((id, index) => [id, index])
+      );
+
+      // Check if all manually ordered items are still present in filtered results
+      const hasAllManualItems = manualOrderIds.every((id) =>
+        filteredAssets.some((asset) => asset.id === id)
+      );
+
+      if (
+        hasAllManualItems &&
+        filteredAssets.length === manualOrderIds.length
+      ) {
+        // Preserve manual order if possible
+        filteredAssets.sort((a, b) => {
+          const aOrder = manualOrderMap.get(a.id) ?? 999;
+          const bOrder = manualOrderMap.get(b.id) ?? 999;
+          return aOrder - bOrder;
+        });
+      } else {
+        // Clear manual order if assets have changed significantly
+        lastManualOrderRef.current = [];
+        filteredAssets.sort(
+          (a, b) =>
+            (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
+        );
+      }
+    } else {
+      // Default sorting by status priority
+      filteredAssets.sort(
+        (a, b) =>
+          (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
+      );
+    }
 
     setFiltered(filteredAssets);
   }, [
@@ -1612,6 +1590,7 @@ export default function AdminReviewPage() {
     statusFilters,
     showAllocationLists,
     assignedAssets,
+    isManuallyReordering,
   ]);
 
   // Fetch and filter QA assets (when viewing a QA user)
@@ -1959,9 +1938,44 @@ export default function AdminReviewPage() {
     }
   };
 
-  const toggleSelect = (id: string) => {
+  const toggleSelect = (id: string, event?: React.MouseEvent) => {
     setSelected((prev) => {
       const next = new Set(prev);
+
+      // Handle Ctrl+Click for individual toggle
+      if (event?.ctrlKey || event?.metaKey) {
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }
+
+      // Handle Shift+Click for range selection
+      if (event?.shiftKey && prev.size > 0) {
+        const currentAssets = paged; // Use paged instead of filtered for visible assets
+        const currentIndex = currentAssets.findIndex(
+          (asset) => asset.id === id
+        );
+        const lastSelectedIndex = Math.max(
+          ...Array.from(prev)
+            .map((selectedId) =>
+              currentAssets.findIndex((asset) => asset.id === selectedId)
+            )
+            .filter((index) => index !== -1)
+        );
+
+        if (currentIndex !== -1 && lastSelectedIndex !== -1) {
+          const start = Math.min(currentIndex, lastSelectedIndex);
+          const end = Math.max(currentIndex, lastSelectedIndex);
+
+          // Select all assets in the range
+          for (let i = start; i <= end; i++) {
+            next.add(currentAssets[i].id);
+          }
+          return next;
+        }
+      }
+
+      // Default behavior - single selection
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
@@ -2159,21 +2173,90 @@ export default function AdminReviewPage() {
     }
   };
 
+  const handlePricingCommentUpdate = async (
+    assetId: string,
+    comment: string
+  ) => {
+    try {
+      const response = await fetch("/api/assets/update-pricing-comment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          comment: comment.trim() || "",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update pricing comment");
+      }
+
+      // Update local state
+      setPricingComments((prev) => ({
+        ...prev,
+        [assetId]: comment.trim() || "",
+      }));
+
+      toast.success("Pricing comment updated successfully");
+    } catch (error) {
+      console.error("Error updating pricing comment:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update pricing comment"
+      );
+    }
+  };
+
   const getPricingOptionById = (id: string) => {
     return PRICING_OPTIONS.find((option) => option.id === id);
   };
 
-  // Drag and drop reordering functions
+  // Enhanced drag and drop reordering functions
   const handleDragStart = (e: React.DragEvent, assetId: string) => {
-    setDraggedAssetId(assetId);
+    // If the asset being dragged is selected, drag all selected assets
+    if (selected.has(assetId) && selected.size > 1) {
+      setDraggedAssets(new Set(selected));
+      setIsDraggingGroup(true);
+      setDraggedAssetId(assetId); // Primary asset being dragged
+    } else {
+      // Single asset drag
+      setDraggedAssetId(assetId);
+      setDraggedAssets(new Set([assetId]));
+      setIsDraggingGroup(false);
+    }
+
     e.dataTransfer.effectAllowed = "move";
 
-    // Add visual feedback to the entire row
-    const target = e.target as HTMLElement;
-    const row = target.closest("tr");
-    if (row) {
-      row.style.transform = "rotate(2deg)";
-      row.style.boxShadow = "0 8px 16px rgba(0,0,0,0.2)";
+    // Initialize drag preview with current order
+    setDragPreview([...filtered]);
+
+    // Add visual feedback to dragged assets
+    if (selected.has(assetId) && selected.size > 1) {
+      // Multi-asset drag - highlight all selected rows
+      const allRows = document.querySelectorAll("tr");
+      allRows.forEach((row) => {
+        const checkbox = row.querySelector(
+          'input[type="checkbox"]'
+        ) as HTMLInputElement;
+        if (checkbox?.checked) {
+          (row as HTMLElement).style.transform = "rotate(1deg) scale(0.98)";
+          (row as HTMLElement).style.boxShadow =
+            "0 8px 16px rgba(59, 130, 246, 0.3)";
+          (row as HTMLElement).style.backgroundColor =
+            "rgba(59, 130, 246, 0.1)";
+        }
+      });
+    } else {
+      // Single asset drag
+      const target = e.target as HTMLElement;
+      const row = target.closest("tr");
+      if (row) {
+        row.style.transform = "rotate(2deg)";
+        row.style.boxShadow = "0 8px 16px rgba(0,0,0,0.2)";
+      }
     }
   };
 
@@ -2181,12 +2264,67 @@ export default function AdminReviewPage() {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
 
-    // Add visual feedback for drop target
+    // Add visual feedback for drop target and generate preview
     const target = e.target as HTMLElement;
     const row = target.closest("tr");
-    if (row && draggedAssetId) {
-      row.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
-      row.style.borderTop = "2px solid #3b82f6";
+    if (row && (draggedAssetId || draggedAssets.size > 0)) {
+      // Don't highlight if it's one of the dragged assets
+      const assetIdElement = row.querySelector(
+        "[data-asset-id]"
+      ) as HTMLElement;
+      const assetId = assetIdElement?.dataset.assetId;
+
+      if (assetId && !draggedAssets.has(assetId)) {
+        // Find the target index for preview
+        const currentAssets = [...filtered];
+        const targetIndex = currentAssets.findIndex(
+          (asset) => asset.id === assetId
+        );
+
+        if (targetIndex !== -1) {
+          // Generate preview of the reordered list
+          let previewAssets: any[];
+
+          if (isDraggingGroup && draggedAssets.size > 1) {
+            // Group movement preview
+            const draggedAssetObjects = currentAssets.filter((asset) =>
+              draggedAssets.has(asset.id)
+            );
+            const nonDraggedAssets = currentAssets.filter(
+              (asset) => !draggedAssets.has(asset.id)
+            );
+
+            previewAssets = [
+              ...nonDraggedAssets.slice(0, targetIndex),
+              ...draggedAssetObjects,
+              ...nonDraggedAssets.slice(targetIndex),
+            ];
+          } else {
+            // Single asset movement preview
+            const draggedIndex = currentAssets.findIndex(
+              (asset) => asset.id === draggedAssetId
+            );
+
+            if (draggedIndex !== -1) {
+              previewAssets = [...currentAssets];
+              const [draggedAsset] = previewAssets.splice(draggedIndex, 1);
+              previewAssets.splice(targetIndex, 0, draggedAsset);
+            } else {
+              previewAssets = currentAssets;
+            }
+          }
+
+          setDragPreview(previewAssets);
+          setDragInsertPosition(targetIndex);
+        }
+
+        row.style.backgroundColor = isDraggingGroup
+          ? "rgba(34, 197, 94, 0.1)"
+          : "rgba(59, 130, 246, 0.1)";
+        row.style.borderTop = isDraggingGroup
+          ? "3px solid #22c55e"
+          : "2px solid #3b82f6";
+      }
     }
   };
 
@@ -2198,61 +2336,125 @@ export default function AdminReviewPage() {
       row.style.backgroundColor = "";
       row.style.borderTop = "";
     }
-  };
 
-  const handleDragEnd = (e: React.DragEvent) => {
-    // Clean up all visual feedback
-    const target = e.target as HTMLElement;
-    const row = target.closest("tr");
-    if (row) {
-      row.style.transform = "";
-      row.style.boxShadow = "";
-      row.style.backgroundColor = "";
-      row.style.borderTop = "";
+    // Clear preview if leaving the table area entirely
+    const table = target.closest("table");
+    if (!table && dragPreview.length > 0) {
+      setDragPreview([]);
+      setDragInsertPosition(-1);
     }
+  };
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleDragEnd = (e: React.DragEvent) => {
+    // Clean up all visual feedback for all rows
+    const allRows = document.querySelectorAll("tr");
+    allRows.forEach((row) => {
+      (row as HTMLElement).style.transform = "";
+      (row as HTMLElement).style.boxShadow = "";
+      (row as HTMLElement).style.backgroundColor = "";
+      (row as HTMLElement).style.borderTop = "";
+    });
 
     setDraggedAssetId(null);
+    setDraggedAssets(new Set());
+    setIsDraggingGroup(false);
+    setDragPreview([]);
+    setDragInsertPosition(-1);
   };
 
   const handleDrop = async (e: React.DragEvent, targetAssetId: string) => {
-    if (!draggedAssetId || draggedAssetId === targetAssetId) return;
+    // Don't allow dropping on a dragged asset
+    if (draggedAssets.has(targetAssetId)) return;
+
+    // For single asset drops, check if we have a dragged asset
+    if (!isDraggingGroup && !draggedAssetId) return;
 
     e.preventDefault();
 
+    // Set flag to prevent filter effects from interfering
+    setIsManuallyReordering(true);
+
     // Clean up visual feedback
-    const target = e.target as HTMLElement;
-    const row = target.closest("tr");
-    if (row) {
-      row.style.backgroundColor = "";
-      row.style.borderTop = "";
-    }
+    const allRows = document.querySelectorAll("tr");
+    allRows.forEach((row) => {
+      (row as HTMLElement).style.backgroundColor = "";
+      (row as HTMLElement).style.borderTop = "";
+    });
 
     try {
-      // Get current assets in order
       const currentAssets = [...filtered];
-      const draggedIndex = currentAssets.findIndex(
-        (asset) => asset.id === draggedAssetId
-      );
       const targetIndex = currentAssets.findIndex(
         (asset) => asset.id === targetAssetId
       );
 
-      if (draggedIndex === -1 || targetIndex === -1) return;
+      if (targetIndex === -1) return;
 
-      // Show immediate visual feedback by updating the filtered assets
-      const reorderedAssets = [...currentAssets];
-      const [draggedAsset] = reorderedAssets.splice(draggedIndex, 1);
-      reorderedAssets.splice(targetIndex, 0, draggedAsset);
+      let reorderedAssets: any[];
+
+      if (isDraggingGroup && draggedAssets.size > 1) {
+        // Group movement - calculate proper insertion point
+        const draggedAssetObjects = currentAssets.filter((asset) =>
+          draggedAssets.has(asset.id)
+        );
+        const nonDraggedAssets = currentAssets.filter(
+          (asset) => !draggedAssets.has(asset.id)
+        );
+
+        // Calculate the correct target index in the non-dragged array
+        let adjustedTargetIndex = 0;
+        for (let i = 0; i < targetIndex; i++) {
+          if (!draggedAssets.has(currentAssets[i].id)) {
+            adjustedTargetIndex++;
+          }
+        }
+
+        // Insert the group at the adjusted target position
+        reorderedAssets = [
+          ...nonDraggedAssets.slice(0, adjustedTargetIndex),
+          ...draggedAssetObjects,
+          ...nonDraggedAssets.slice(adjustedTargetIndex),
+        ];
+
+        toast.success(
+          `Successfully moved ${draggedAssets.size} assets as a group`
+        );
+      } else {
+        // Single asset movement
+        const draggedIndex = currentAssets.findIndex(
+          (asset) => asset.id === draggedAssetId
+        );
+
+        if (draggedIndex === -1) return;
+
+        reorderedAssets = [...currentAssets];
+        const [draggedAsset] = reorderedAssets.splice(draggedIndex, 1);
+        reorderedAssets.splice(targetIndex, 0, draggedAsset);
+
+        toast.success("Asset reordered successfully");
+      }
 
       // Update filtered state immediately for instant visual feedback
       const reorderedWithOrder = reorderedAssets.map((asset, index) => ({
         ...asset,
         upload_order: index + 1,
       }));
-      setFiltered(reorderedWithOrder);
 
-      // Update assets state with new upload_order values
+      // Store the manual order for reference
+      lastManualOrderRef.current = reorderedWithOrder.map((asset) => asset.id);
+
+      // Update both states synchronously to prevent race conditions
+      setFiltered([...reorderedWithOrder]);
+
+      // Update assets state with the same reordered data
       setAssets((prevAssets) => {
+        // Create a completely new assets array with the reordered items
+        const reorderedAssetIds = new Set(reorderedAssets.map((a) => a.id));
+        //eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const nonReorderedAssets = prevAssets.filter(
+          (asset) => !reorderedAssetIds.has(asset.id)
+        );
+
+        // Replace reordered assets with their new positions
         const updatedAssets = [...prevAssets];
         reorderedAssets.forEach((reorderedAsset, index) => {
           const assetIndex = updatedAssets.findIndex(
@@ -2260,12 +2462,13 @@ export default function AdminReviewPage() {
           );
           if (assetIndex !== -1) {
             updatedAssets[assetIndex] = {
-              ...updatedAssets[assetIndex],
+              ...reorderedAsset,
               upload_order: index + 1,
             };
           }
         });
-        return updatedAssets;
+
+        return [...updatedAssets];
       });
 
       // Update upload_order for all affected assets in database (async, no need to wait)
@@ -2285,8 +2488,6 @@ export default function AdminReviewPage() {
         console.error("Error updating database:", error);
         // Silently fail - user already sees the change
       });
-
-      toast.success("Assets reordered successfully");
     } catch (error) {
       console.error("Error reordering assets:", error);
       toast.error(
@@ -2294,6 +2495,13 @@ export default function AdminReviewPage() {
       );
     } finally {
       setDraggedAssetId(null);
+      setDraggedAssets(new Set());
+      setIsDraggingGroup(false);
+      setDragPreview([]);
+      setDragInsertPosition(-1);
+
+      // Reset the manual reordering flag after state updates complete
+      setTimeout(() => setIsManuallyReordering(false), 50);
     }
   };
 
@@ -2905,18 +3113,6 @@ export default function AdminReviewPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowAllocationDialog(true)}
-                  className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
-                >
-                  <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">
-                    Allocate ({selected.size})
-                  </span>
-                  <span className="sm:hidden">Allocate {selected.size}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
                   onClick={() => {
                     // Navigate to the allocate page with selected assets
                     const selectedAssetIds = Array.from(selected);
@@ -2933,7 +3129,7 @@ export default function AdminReviewPage() {
                   className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                 >
                   <Package className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Advanced Allocate</span>
+                  <span className="hidden sm:inline">Allocate</span>
                   <span className="sm:hidden">Advanced</span>
                 </Button>
               </div>
@@ -3284,6 +3480,68 @@ export default function AdminReviewPage() {
                                           2
                                         ) || "0.00"}
                                       </span>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-4 w-4 p-0 hover:bg-muted"
+                                          >
+                                            <StickyNote
+                                              className={`h-3 w-3 ${
+                                                pricingComments[
+                                                  assignment.onboarding_assets
+                                                    .id
+                                                ]
+                                                  ? "text-blue-600 hover:text-blue-700"
+                                                  : "text-muted-foreground hover:text-foreground"
+                                              }`}
+                                            />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-80 p-3">
+                                          <div className="space-y-3">
+                                            <h4 className="font-medium text-sm">
+                                              Pricing Note
+                                            </h4>
+                                            <Textarea
+                                              placeholder="Add pricing note..."
+                                              value={
+                                                pricingComments[
+                                                  assignment.onboarding_assets
+                                                    .id
+                                                ] || ""
+                                              }
+                                              onChange={(e) => {
+                                                setPricingComments((prev) => ({
+                                                  ...prev,
+                                                  [assignment.onboarding_assets
+                                                    .id]: e.target.value,
+                                                }));
+                                              }}
+                                              onBlur={() => {
+                                                if (
+                                                  pricingComments[
+                                                    assignment.onboarding_assets
+                                                      .id
+                                                  ] !== undefined
+                                                ) {
+                                                  handlePricingCommentUpdate(
+                                                    assignment.onboarding_assets
+                                                      .id,
+                                                    pricingComments[
+                                                      assignment
+                                                        .onboarding_assets.id
+                                                    ]
+                                                  );
+                                                }
+                                              }}
+                                              className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                              rows={3}
+                                            />
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
                                     </div>
                                   </TableCell>
                                   <TableCell>
@@ -3748,9 +4006,58 @@ export default function AdminReviewPage() {
                             </div>
                           ) : (
                             assetPrices[asset.id] && (
-                              <span className="text-xs font-medium">
-                                €{assetPrices[asset.id].price}
-                              </span>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs font-medium">
+                                  €{assetPrices[asset.id].price}
+                                </span>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-4 w-4 p-0 hover:bg-muted"
+                                    >
+                                      <StickyNote
+                                        className={`h-3 w-3 ${
+                                          pricingComments[asset.id]
+                                            ? "text-blue-600 hover:text-blue-700"
+                                            : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                      />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-80 p-3">
+                                    <div className="space-y-3">
+                                      <h4 className="font-medium text-sm">
+                                        Pricing Note
+                                      </h4>
+                                      <Textarea
+                                        placeholder="Add pricing note..."
+                                        value={pricingComments[asset.id] || ""}
+                                        onChange={(e) => {
+                                          setPricingComments((prev) => ({
+                                            ...prev,
+                                            [asset.id]: e.target.value,
+                                          }));
+                                        }}
+                                        onBlur={() => {
+                                          if (
+                                            pricingComments[asset.id] !==
+                                            undefined
+                                          ) {
+                                            handlePricingCommentUpdate(
+                                              asset.id,
+                                              pricingComments[asset.id]
+                                            );
+                                          }
+                                        }}
+                                        className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                        rows={3}
+                                      />
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
                             )
                           )}
                         </div>
@@ -3792,452 +4099,612 @@ export default function AdminReviewPage() {
           </div>
         ) : (
           // Regular Assets View
-          <div className="overflow-x-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8 sm:w-12">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={
-                          isAllSelected
-                            ? true
-                            : isSomeSelected
-                              ? "indeterminate"
-                              : false
-                        }
-                        onCheckedChange={handleSelectAll}
-                        className="h-4 w-4"
-                      />
+          <div className="space-y-4">
+            {/* Multi-selection helper */}
+            {selected.size > 1 && (
+              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <GripVertical className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                      {selected.size} assets selected
+                    </span>
+                  </div>
+                  <span className="text-xs text-blue-600 dark:text-blue-400">
+                    Drag any selected asset to move all {selected.size} together
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>💡 Hold Ctrl+Click to select individual items</span>
+                  <span>•</span>
+                  <span>Hold Shift+Click to select range</span>
+                </div>
+              </div>
+            )}
+
+            {/* Drag preview indicator */}
+            {dragPreview.length > 0 && draggedAssets.size > 0 && (
+              <div className="fixed top-20 right-4 z-50 pointer-events-none">
+                <div
+                  className={`p-3 rounded-lg shadow-lg border-2 ${
+                    isDraggingGroup
+                      ? "bg-green-100 border-green-500 text-green-800"
+                      : "bg-blue-100 border-blue-500 text-blue-800"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <GripVertical className="h-4 w-4" />
+                    <span className="font-medium">
+                      {isDraggingGroup
+                        ? `Moving ${draggedAssets.size} assets as group`
+                        : "Moving 1 asset"}
+                    </span>
+                  </div>
+                  {dragInsertPosition !== -1 && (
+                    <div className="text-xs mt-1 opacity-75">
+                      Drop position: {dragInsertPosition + 1}
                     </div>
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    Model Name
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    Article ID
-                  </TableHead>
-                  <TableHead className="text-center text-xs sm:text-sm">
-                    Priority
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">Status</TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    References
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    Product Link
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">Price</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Review</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paged.length === 0 ? (
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-x-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
-                      {statusFilters.length > 0 ||
-                      clientFilters.length > 0 ||
-                      batchFilters.length > 0 ||
-                      modelerFilters.length > 0 ||
-                      search ? (
-                        <div className="space-y-2">
-                          <div className="text-lg font-medium">
-                            No matching assets found
-                          </div>
-                          <div className="text-sm">
-                            {statusFilters.length > 0 && (
-                              <div>
-                                No assets with status:{" "}
-                                {statusFilters.join(", ")}
-                              </div>
-                            )}
-                            {clientFilters.length > 0 && (
-                              <div>
-                                No assets for client: {clientFilters.join(", ")}
-                              </div>
-                            )}
-                            {batchFilters.length > 0 && (
-                              <div>
-                                No assets in batch: {batchFilters.join(", ")}
-                              </div>
-                            )}
-                            {modelerFilters.length > 0 && (
-                              <div>
-                                No assets assigned to modeler:{" "}
-                                {modelerFilters.join(", ")}
-                              </div>
-                            )}
-                            {search && (
-                              <div>
-                                No assets matching: &quot;{search}&quot;
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-3">
-                            Try adjusting your filters or check back later for
-                            new assets.
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="text-lg font-medium">
-                            No products found
-                          </div>
-                          <div className="text-sm">
-                            No assets are available at the moment.
-                          </div>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paged.map((asset) => (
-                    <TableRow
-                      key={asset.id}
-                      className={`${getStatusRowClass(asset.status)} transition-all duration-200 ease-in-out ${draggedAssetId === asset.id ? "opacity-50 scale-105" : ""}`}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, asset.id)}
-                      style={{
-                        transition: "all 0.2s ease-in-out",
-                        transform:
-                          draggedAssetId === asset.id
-                            ? "rotate(2deg) scale(1.02)"
-                            : undefined,
-                        boxShadow:
-                          draggedAssetId === asset.id
-                            ? "0 8px 16px rgba(0,0,0,0.2)"
-                            : undefined,
-                      }}
-                    >
-                      <TableCell className="text-center">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="flex flex-col gap-0.5 cursor-move group"
-                            draggable={true}
-                            onDragStart={(e) => handleDragStart(e, asset.id)}
-                            onDragEnd={handleDragEnd}
-                          >
-                            <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-                          </div>
-                          <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-1">
-                            <Checkbox
-                              checked={selected.has(asset.id)}
-                              onCheckedChange={() => toggleSelect(asset.id)}
-                              className="h-4 w-4"
-                            />
-                            {assignedAssets.has(asset.id) && (
-                              <div className="flex items-center gap-1">
-                                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
-                                <span className="text-xs text-muted-foreground hidden sm:inline">
-                                  {assignedAssets.get(asset.id)?.name ||
-                                    assignedAssets
-                                      .get(asset.id)
-                                      ?.email?.split("@")[0]}
-                                </span>
-                              </div>
-                            )}
-                            {pendingAssets.has(asset.id) && (
-                              <div className="flex items-center gap-1">
-                                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
-                                <span className="text-xs text-muted-foreground hidden sm:inline">
-                                  {pendingAssets.get(asset.id)?.name ||
-                                    pendingAssets
-                                      .get(asset.id)
-                                      ?.email?.split("@")[0]}
-                                  {" (pending)"}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <span
-                            className="font-medium truncate cursor-help text-sm sm:text-base"
-                            title={asset.product_name}
-                          >
-                            {asset.product_name.length > 25
-                              ? asset.product_name.substring(0, 25) + "..."
-                              : asset.product_name}
-                          </span>
-                          <div className="flex items-center justify-center gap-1 sm:gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              {annotationCounts[asset.id] || 0} ann.
-                            </span>
-                            <span className="text-xs text-slate-500 hidden sm:inline">
-                              •
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              B{asset.batch || 1}
-                            </Badge>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs sm:text-sm font-mono">
-                        {asset.article_id}
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={(asset.priority || 2).toString()}
-                          onValueChange={(value) =>
-                            handlePriorityUpdate(asset.id, parseInt(value))
+                    <TableHead className="w-8 sm:w-12">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={
+                            isAllSelected
+                              ? true
+                              : isSomeSelected
+                                ? "indeterminate"
+                                : false
                           }
-                          disabled={updatingPriorities.has(asset.id)}
-                        >
-                          <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit cursor-pointer">
-                            <span
-                              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                asset.priority || 2
-                              )}`}
-                            >
-                              {getPriorityLabel(asset.priority || 2)}
-                            </span>
-                            {updatingPriorities.has(asset.id) ? (
-                              <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
-                            ) : null}
-                          </SelectTrigger>
-                          <SelectContent className="cursor-pointer">
-                            <SelectItem className="cursor-pointer" value="1">
-                              High
-                            </SelectItem>
-                            <SelectItem className="cursor-pointer" value="2">
-                              Medium
-                            </SelectItem>
-                            <SelectItem className="cursor-pointer" value="3">
-                              Low
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="flex items-center gap-1 sm:gap-2 justify-center">
-                          <span
-                            className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
-                          >
-                            {getStatusLabelText(asset.status)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedAssetForView(asset);
-                              setShowViewDialog(true);
-                            }}
-                          >
-                            <FileText className="mr-1 h-3 w-3" />
-                            <span className="hidden sm:inline">Ref (</span>
-                            <span className="sm:hidden">(</span>
-                            {(() => {
-                              const allRefs = parseReferences(asset.reference);
-                              return allRefs.length + (asset.glb_link ? 1 : 0);
-                            })()}
-                            <span className="hidden sm:inline">)</span>
-                            <span className="sm:hidden">)</span>
-                          </Button>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        {asset.product_link ? (
-                          <a
-                            href={asset.product_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 underline break-all text-xs sm:text-sm"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <span className="hidden sm:inline">
-                              Product Link
-                            </span>
-                            <span className="sm:hidden">Link</span>
-                          </a>
+                          onCheckedChange={handleSelectAll}
+                          className="h-4 w-4"
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">
+                      Model Name
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">
+                      Article ID
+                    </TableHead>
+                    <TableHead className="text-center text-xs sm:text-sm">
+                      Priority
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                    <TableHead className="text-xs sm:text-sm">
+                      References
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">
+                      Product Link
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">Price</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Review</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paged.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-8">
+                        {statusFilters.length > 0 ||
+                        clientFilters.length > 0 ||
+                        batchFilters.length > 0 ||
+                        modelerFilters.length > 0 ||
+                        search ? (
+                          <div className="space-y-2">
+                            <div className="text-lg font-medium">
+                              No matching assets found
+                            </div>
+                            <div className="text-sm">
+                              {statusFilters.length > 0 && (
+                                <div>
+                                  No assets with status:{" "}
+                                  {statusFilters.join(", ")}
+                                </div>
+                              )}
+                              {clientFilters.length > 0 && (
+                                <div>
+                                  No assets for client:{" "}
+                                  {clientFilters.join(", ")}
+                                </div>
+                              )}
+                              {batchFilters.length > 0 && (
+                                <div>
+                                  No assets in batch: {batchFilters.join(", ")}
+                                </div>
+                              )}
+                              {modelerFilters.length > 0 && (
+                                <div>
+                                  No assets assigned to modeler:{" "}
+                                  {modelerFilters.join(", ")}
+                                </div>
+                              )}
+                              {search && (
+                                <div>
+                                  No assets matching: &quot;{search}&quot;
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-3">
+                              Try adjusting your filters or check back later for
+                              new assets.
+                            </div>
+                          </div>
                         ) : (
-                          <span className="text-xs sm:text-sm text-muted-foreground">
-                            —
-                          </span>
+                          <div className="space-y-2">
+                            <div className="text-lg font-medium">
+                              No products found
+                            </div>
+                            <div className="text-sm">
+                              No assets are available at the moment.
+                            </div>
+                          </div>
                         )}
                       </TableCell>
-
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={assetPrices[asset.id]?.pricingOptionId || ""}
-                            onValueChange={(value) => {
-                              if (value === "custom_pricing") {
-                                // Don't auto-update for custom pricing, let user set the price
-                                setAssetPrices((prev) => ({
-                                  ...prev,
-                                  [asset.id]: {
-                                    pricingOptionId: value,
-                                    price: 0,
-                                  },
-                                }));
-                              } else {
-                                const option = getPricingOptionById(value);
-                                if (option) {
-                                  handlePriceUpdate(
-                                    asset.id,
-                                    value,
-                                    option.price
-                                  );
+                    </TableRow>
+                  ) : (
+                    (dragPreview.length > 0 ? dragPreview : paged).map(
+                      (asset, index) => (
+                        <TableRow
+                          key={asset.id}
+                          data-asset-id={asset.id}
+                          className={`${getStatusRowClass(asset.status)} transition-all duration-200 ease-in-out ${
+                            draggedAssets.has(asset.id)
+                              ? "opacity-50 scale-98"
+                              : ""
+                          } ${
+                            selected.has(asset.id) && selected.size > 1
+                              ? "ring-2 ring-blue-200 bg-blue-50/50 dark:bg-blue-900/10"
+                              : ""
+                          } ${
+                            dragPreview.length > 0 &&
+                            index === dragInsertPosition
+                              ? isDraggingGroup
+                                ? "border-t-4 border-green-500 bg-green-50/30"
+                                : "border-t-4 border-blue-500 bg-blue-50/30"
+                              : ""
+                          } ${
+                            dragPreview.length > 0 &&
+                            draggedAssets.has(asset.id)
+                              ? isDraggingGroup
+                                ? "bg-green-100/50 border-green-300"
+                                : "bg-blue-100/50 border-blue-300"
+                              : ""
+                          }`}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, asset.id)}
+                          style={{
+                            transition: "all 0.2s ease-in-out",
+                            transform: draggedAssets.has(asset.id)
+                              ? "rotate(1deg) scale(0.98)"
+                              : undefined,
+                            boxShadow: draggedAssets.has(asset.id)
+                              ? "0 8px 16px rgba(59, 130, 246, 0.3)"
+                              : undefined,
+                          }}
+                        >
+                          <TableCell className="text-center">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="flex flex-col gap-0.5 cursor-move group"
+                                draggable={true}
+                                onDragStart={(e) =>
+                                  handleDragStart(e, asset.id)
                                 }
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="w-32 h-8 text-xs">
-                              <SelectValue placeholder="Set price" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PRICING_OPTIONS.map((option) => (
-                                <SelectItem key={option.id} value={option.id}>
-                                  <div className="flex items-center gap-2">
-                                    <Euro className="h-3 w-3" />
-                                    {option.label} - €{option.price}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-
-                          {assetPrices[asset.id]?.pricingOptionId ===
-                          "custom_pricing" ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                value={customPrices[asset.id] || ""}
-                                onChange={(e) =>
-                                  handleCustomPriceChange(
-                                    asset.id,
-                                    parseFloat(e.target.value) || 0
-                                  )
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    handleCustomPriceSubmit(asset.id);
-                                  }
-                                }}
-                                className="w-16 h-8 text-xs px-2 border rounded"
-                                placeholder="€0"
-                                min="0"
-                                step="0.01"
-                              />
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-2 text-xs"
-                                onClick={() =>
-                                  handleCustomPriceSubmit(asset.id)
-                                }
+                                onDragEnd={handleDragEnd}
                               >
-                                Set
+                                <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                              </div>
+                              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-1">
+                                <div
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleSelect(asset.id, event);
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  <Checkbox
+                                    checked={selected.has(asset.id)}
+                                    onCheckedChange={() => {}}
+                                    className="h-4 w-4 pointer-events-none"
+                                  />
+                                </div>
+                                {assignedAssets.has(asset.id) && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
+                                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                                      {assignedAssets.get(asset.id)?.name ||
+                                        assignedAssets
+                                          .get(asset.id)
+                                          ?.email?.split("@")[0]}
+                                    </span>
+                                  </div>
+                                )}
+                                {pendingAssets.has(asset.id) && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
+                                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                                      {pendingAssets.get(asset.id)?.name ||
+                                        pendingAssets
+                                          .get(asset.id)
+                                          ?.email?.split("@")[0]}
+                                      {" (pending)"}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className="font-medium truncate cursor-help text-sm sm:text-base"
+                                title={asset.product_name}
+                              >
+                                {asset.product_name.length > 25
+                                  ? asset.product_name.substring(0, 25) + "..."
+                                  : asset.product_name}
+                              </span>
+                              <div className="flex items-center justify-center gap-1 sm:gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {annotationCounts[asset.id] || 0} ann.
+                                </span>
+                                <span className="text-xs text-slate-500 hidden sm:inline">
+                                  •
+                                </span>
+                                <Badge variant="outline" className="text-xs">
+                                  B{asset.batch || 1}
+                                </Badge>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs sm:text-sm font-mono">
+                            {asset.article_id}
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={(asset.priority || 2).toString()}
+                              onValueChange={(value) =>
+                                handlePriorityUpdate(asset.id, parseInt(value))
+                              }
+                              disabled={updatingPriorities.has(asset.id)}
+                            >
+                              <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit cursor-pointer">
+                                <span
+                                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                    asset.priority || 2
+                                  )}`}
+                                >
+                                  {getPriorityLabel(asset.priority || 2)}
+                                </span>
+                                {updatingPriorities.has(asset.id) ? (
+                                  <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
+                                ) : null}
+                              </SelectTrigger>
+                              <SelectContent className="cursor-pointer">
+                                <SelectItem
+                                  className="cursor-pointer"
+                                  value="1"
+                                >
+                                  High
+                                </SelectItem>
+                                <SelectItem
+                                  className="cursor-pointer"
+                                  value="2"
+                                >
+                                  Medium
+                                </SelectItem>
+                                <SelectItem
+                                  className="cursor-pointer"
+                                  value="3"
+                                >
+                                  Low
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center gap-1 sm:gap-2 justify-center">
+                              <span
+                                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
+                              >
+                                {getStatusLabelText(asset.status)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex flex-col items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedAssetForView(asset);
+                                  setShowViewDialog(true);
+                                }}
+                              >
+                                <FileText className="mr-1 h-3 w-3" />
+                                <span className="hidden sm:inline">Ref (</span>
+                                <span className="sm:hidden">(</span>
+                                {(() => {
+                                  const allRefs = parseReferences(
+                                    asset.reference
+                                  );
+                                  return (
+                                    allRefs.length + (asset.glb_link ? 1 : 0)
+                                  );
+                                })()}
+                                <span className="hidden sm:inline">)</span>
+                                <span className="sm:hidden">)</span>
                               </Button>
                             </div>
-                          ) : (
-                            assetPrices[asset.id] && (
-                              <span className="text-xs font-medium">
-                                €{assetPrices[asset.id].price}
-                              </span>
-                            )
-                          )}
-                        </div>
-                      </TableCell>
+                          </TableCell>
 
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
-                            onClick={() => {
-                              // Preserve current filter parameters when navigating to asset detail
-                              const params = new URLSearchParams();
-                              params.set("from", "admin-review");
-                              if (clientFilters.length > 0) {
-                                params.set("client", clientFilters.join(","));
-                              }
-                              if (batchFilters.length > 0) {
-                                params.set("batch", batchFilters.join(","));
-                              }
-                              if (modelerFilters.length > 0) {
-                                params.set("modeler", modelerFilters.join(","));
-                              }
-                              if (modelerEmail) {
-                                params.set("email", modelerEmail);
-                              }
-                              router.push(
-                                `/client-review/${asset.id}?${params.toString()}`
-                              );
-                            }}
-                          >
-                            <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </Button>
-                          <Dialog>
-                            <DialogTrigger asChild>
+                          <TableCell>
+                            {asset.product_link ? (
+                              <a
+                                href={asset.product_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 underline break-all text-xs sm:text-sm"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <span className="hidden sm:inline">
+                                  Product Link
+                                </span>
+                                <span className="sm:hidden">Link</span>
+                              </a>
+                            ) : (
+                              <span className="text-xs sm:text-sm text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={
+                                  assetPrices[asset.id]?.pricingOptionId || ""
+                                }
+                                onValueChange={(value) => {
+                                  if (value === "custom_pricing") {
+                                    // Don't auto-update for custom pricing, let user set the price
+                                    setAssetPrices((prev) => ({
+                                      ...prev,
+                                      [asset.id]: {
+                                        pricingOptionId: value,
+                                        price: 0,
+                                      },
+                                    }));
+                                  } else {
+                                    const option = getPricingOptionById(value);
+                                    if (option) {
+                                      handlePriceUpdate(
+                                        asset.id,
+                                        value,
+                                        option.price
+                                      );
+                                    }
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="w-32 h-8 text-xs">
+                                  <SelectValue placeholder="Set price" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {PRICING_OPTIONS.map((option) => (
+                                    <SelectItem
+                                      key={option.id}
+                                      value={option.id}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <Euro className="h-3 w-3" />
+                                        {option.label} - €{option.price}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              {assetPrices[asset.id]?.pricingOptionId ===
+                              "custom_pricing" ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    value={customPrices[asset.id] || ""}
+                                    onChange={(e) =>
+                                      handleCustomPriceChange(
+                                        asset.id,
+                                        parseFloat(e.target.value) || 0
+                                      )
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        handleCustomPriceSubmit(asset.id);
+                                      }
+                                    }}
+                                    className="w-16 h-8 text-xs px-2 border rounded"
+                                    placeholder="€0"
+                                    min="0"
+                                    step="0.01"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 px-2 text-xs"
+                                    onClick={() =>
+                                      handleCustomPriceSubmit(asset.id)
+                                    }
+                                  >
+                                    Set
+                                  </Button>
+                                </div>
+                              ) : (
+                                assetPrices[asset.id] && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs font-medium">
+                                      €{assetPrices[asset.id].price}
+                                    </span>
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-4 w-4 p-0 hover:bg-muted"
+                                        >
+                                          <StickyNote
+                                            className={`h-3 w-3 ${
+                                              pricingComments[asset.id]
+                                                ? "text-blue-600 hover:text-blue-700"
+                                                : "text-muted-foreground hover:text-foreground"
+                                            }`}
+                                          />
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-80 p-3">
+                                        <div className="space-y-3">
+                                          <h4 className="font-medium text-sm">
+                                            Pricing Note
+                                          </h4>
+                                          <Textarea
+                                            placeholder="Add pricing note..."
+                                            value={
+                                              pricingComments[asset.id] || ""
+                                            }
+                                            onChange={(e) => {
+                                              setPricingComments((prev) => ({
+                                                ...prev,
+                                                [asset.id]: e.target.value,
+                                              }));
+                                            }}
+                                            onBlur={() => {
+                                              if (
+                                                pricingComments[asset.id] !==
+                                                undefined
+                                              ) {
+                                                handlePricingCommentUpdate(
+                                                  asset.id,
+                                                  pricingComments[asset.id]
+                                                );
+                                              }
+                                            }}
+                                            className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                            rows={3}
+                                          />
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
-                                disabled={deletingAsset === asset.id}
+                                className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
+                                onClick={() => {
+                                  // Preserve current filter parameters when navigating to asset detail
+                                  const params = new URLSearchParams();
+                                  params.set("from", "admin-review");
+                                  if (clientFilters.length > 0) {
+                                    params.set(
+                                      "client",
+                                      clientFilters.join(",")
+                                    );
+                                  }
+                                  if (batchFilters.length > 0) {
+                                    params.set("batch", batchFilters.join(","));
+                                  }
+                                  if (modelerFilters.length > 0) {
+                                    params.set(
+                                      "modeler",
+                                      modelerFilters.join(",")
+                                    );
+                                  }
+                                  if (modelerEmail) {
+                                    params.set("email", modelerEmail);
+                                  }
+                                  router.push(
+                                    `/client-review/${asset.id}?${params.toString()}`
+                                  );
+                                }}
                               >
-                                {deletingAsset === asset.id ? (
-                                  <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
-                                ) : (
-                                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                )}
+                                <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
                               </Button>
-                            </DialogTrigger>
-                            <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
-                              <DialogHeader className="pb-3 sm:pb-4">
-                                <DialogTitle className="text-base sm:text-lg">
-                                  Delete Asset
-                                </DialogTitle>
-                                <DialogDescription className="text-xs sm:text-sm">
-                                  Are you sure you want to delete this asset?
-                                  This action cannot be undone and will
-                                  permanently delete:
-                                  <ul className="list-disc list-inside mt-2 space-y-1">
-                                    <li>The asset itself</li>
-                                    <li>All assignments and comments</li>
-                                    <li>All revision history</li>
-                                    <li>All QA approvals</li>
-                                    <li>
-                                      Any empty allocation lists (only if this
-                                      was the last asset in the list)
-                                    </li>
-                                  </ul>
-                                </DialogDescription>
-                              </DialogHeader>
-                              <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                                <Button
-                                  variant="destructive"
-                                  onClick={() => deleteAsset(asset.id)}
-                                  disabled={deletingAsset === asset.id}
-                                  className="w-full sm:w-auto text-sm"
-                                >
-                                  {deletingAsset === asset.id ? (
-                                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2" />
-                                  ) : null}
-                                  Delete Asset
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
+                                    disabled={deletingAsset === asset.id}
+                                  >
+                                    {deletingAsset === asset.id ? (
+                                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                    )}
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
+                                  <DialogHeader className="pb-3 sm:pb-4">
+                                    <DialogTitle className="text-base sm:text-lg">
+                                      Delete Asset
+                                    </DialogTitle>
+                                    <DialogDescription className="text-xs sm:text-sm">
+                                      Are you sure you want to delete this
+                                      asset? This action cannot be undone and
+                                      will permanently delete:
+                                      <ul className="list-disc list-inside mt-2 space-y-1">
+                                        <li>The asset itself</li>
+                                        <li>All assignments and comments</li>
+                                        <li>All revision history</li>
+                                        <li>All QA approvals</li>
+                                        <li>
+                                          Any empty allocation lists (only if
+                                          this was the last asset in the list)
+                                        </li>
+                                      </ul>
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() => deleteAsset(asset.id)}
+                                      disabled={deletingAsset === asset.id}
+                                      className="w-full sm:w-auto text-sm"
+                                    >
+                                      {deletingAsset === asset.id ? (
+                                        <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2" />
+                                      ) : null}
+                                      Delete Asset
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    )
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
         {/* Pagination - Always at bottom */}

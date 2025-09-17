@@ -58,6 +58,7 @@ import {
   Link2,
   ChevronDown,
   Target,
+  StickyNote,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -66,6 +67,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/containers";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/interactive";
 import { notificationService } from "@/lib/notificationService";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
@@ -90,6 +96,7 @@ interface BatchAsset {
   price?: number;
   bonus?: number;
   allocation_list_id?: string;
+  pricing_comment?: string;
 }
 
 interface AllocationList {
@@ -489,7 +496,8 @@ export default function BatchDetailPage() {
               revision_count,
               glb_link,
               product_link,
-              reference
+              reference,
+              pricing_comment
             )
           )
         `
@@ -1962,6 +1970,29 @@ export default function BatchDetailPage() {
                                             <span className="font-semibold">
                                               {asset.price.toFixed(2)}
                                             </span>
+                                            {asset.pricing_comment && (
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-4 w-4 p-0 hover:bg-muted"
+                                                  >
+                                                    <StickyNote className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                  </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-fit p-3">
+                                                  <div className="space-y-2">
+                                                    <h4 className="font-medium text-sm">
+                                                      Pricing Note
+                                                    </h4>
+                                                    <p className="text-sm text-muted-foreground whitespace-pre-wrap min-w-[200px]">
+                                                      {asset.pricing_comment}
+                                                    </p>
+                                                  </div>
+                                                </PopoverContent>
+                                              </Popover>
+                                            )}
                                           </div>
                                         ) : (
                                           <span className="text-muted-foreground text-sm">
@@ -2181,9 +2212,34 @@ export default function BatchDetailPage() {
                                           Price:
                                         </span>
                                         {asset.price ? (
-                                          <span className="ml-1 font-semibold">
-                                            €{asset.price.toFixed(2)}
-                                          </span>
+                                          <div className="flex items-center gap-1 ml-1">
+                                            <span className="font-semibold">
+                                              €{asset.price.toFixed(2)}
+                                            </span>
+                                            {asset.pricing_comment && (
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-4 w-4 p-0 hover:bg-muted"
+                                                  >
+                                                    <StickyNote className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                  </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-fit ">
+                                                  <div className="space-y-2">
+                                                    <h4 className="font-medium text-sm">
+                                                      Pricing Note
+                                                    </h4>
+                                                    <p className="text-sm text-muted-foreground w-fit whitespace-pre-wrap min-w-[200px]">
+                                                      {asset.pricing_comment}
+                                                    </p>
+                                                  </div>
+                                                </PopoverContent>
+                                              </Popover>
+                                            )}
+                                          </div>
                                         ) : (
                                           <span className="ml-1 text-muted-foreground">
                                             -
