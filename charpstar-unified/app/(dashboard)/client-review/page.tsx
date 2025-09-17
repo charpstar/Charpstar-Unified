@@ -291,9 +291,10 @@ export default function ReviewDashboardPage() {
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order"
         )
-        .eq("client", user.metadata.client);
+        .eq("client", user.metadata.client)
+        .order("upload_order", { ascending: true });
 
       if (error) {
         console.error("Error fetching assets:", error);

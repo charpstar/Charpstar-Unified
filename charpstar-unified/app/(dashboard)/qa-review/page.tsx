@@ -370,12 +370,17 @@ export default function QAReviewPage() {
             subcategory,
             subcategory_missing,
             created_at,
-            reference
+            reference,
+            upload_order
           )
         `
         )
         .in("user_id", allocatedModelerIds)
-        .eq("role", "modeler");
+        .eq("role", "modeler")
+        .order("upload_order", {
+          ascending: true,
+          referencedTable: "onboarding_assets",
+        });
 
       if (assignmentError) {
         console.error("Error fetching asset assignments:", assignmentError);

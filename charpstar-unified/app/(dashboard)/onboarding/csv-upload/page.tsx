@@ -185,7 +185,8 @@ export default function CsvUploadPage() {
     const productsToInsert = [];
     const failCount = 0;
 
-    for (const row of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       // Skip completely empty rows (all fields empty)
       if (row.every((cell) => !cell?.trim())) continue;
 
@@ -219,6 +220,7 @@ export default function CsvUploadPage() {
         reference: null, // No reference column in template
         priority: 2, // Default priority since not in template
         status: "not_started",
+        upload_order: i + 1, // Preserve the order from CSV
       });
     }
 

@@ -128,7 +128,7 @@ export default function ManualUploadPage() {
     }
     setSubmitting(true);
     try {
-      const payload = previewRows.map((r) => ({
+      const payload = previewRows.map((r, index) => ({
         client,
         article_id: r.article_id,
         product_name: r.product_name,
@@ -139,6 +139,7 @@ export default function ManualUploadPage() {
         reference: null,
         priority: 2,
         status: "not_started",
+        upload_order: index + 1, // Preserve the order from manual entry
       }));
 
       const { error } = await supabase

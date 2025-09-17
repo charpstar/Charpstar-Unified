@@ -52,6 +52,8 @@ interface UnallocatedAsset {
   priority: number;
   delivery_date: string;
   status: string;
+  pricing_option_id?: string;
+  price?: number;
 }
 
 interface User {
@@ -245,6 +247,9 @@ export default function AllocateAssetsPage() {
   const [modelerQAAssignments, setModelerQAAssignments] = useState<
     Map<string, { qaId: string; qaEmail: string; qaTitle?: string }[]>
   >(new Map());
+  const [availableQAs, setAvailableQAs] = useState<User[]>([]);
+  const [selectedQA, setSelectedQA] = useState<string>("");
+  const [allocatingQA, setAllocatingQA] = useState(false);
 
   // Ref to prevent infinite loops when updating pricing
   const isUpdatingPricing = useRef(false);
@@ -529,7 +534,7 @@ export default function AllocateAssetsPage() {
         const { data: preSelectedAssets, error: preSelectedError } =
           await supabase
             .from("onboarding_assets")
-            .select("*")
+            .select("*, pricing_option_id, price")
             .in("id", selectedAssetsParam);
 
         if (preSelectedError) throw preSelectedError;
@@ -549,10 +554,10 @@ export default function AllocateAssetsPage() {
 
       const assignedAssetIds = assignedAssets?.map((a) => a.asset_id) || [];
 
-      // Fetch unallocated assets
+      // Fetch unallocated assets with pricing data
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("*")
+        .select("*, pricing_option_id, price")
         .not("id", "in", `(${assignedAssetIds.join(",")})`);
 
       if (error) throw error;
@@ -582,6 +587,23 @@ export default function AllocateAssetsPage() {
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error("Failed to fetch users");
+    }
+  };
+
+  // Fetch available QAs
+  const fetchAvailableQAs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, email, title, role")
+        .eq("role", "qa");
+
+      if (error) throw error;
+
+      setAvailableQAs(data || []);
+    } catch (error) {
+      console.error("Error fetching QAs:", error);
+      toast.error("Failed to fetch QAs");
     }
   };
 
@@ -639,9 +661,42 @@ export default function AllocateAssetsPage() {
     }
   };
 
+  // Allocate QA to modeler
+  const allocateQA = async () => {
+    if (!selectedQA || !globalTeamAssignment.modelerId) {
+      toast.error("Please select a QA and modeler");
+      return;
+    }
+
+    try {
+      setAllocatingQA(true);
+
+      const { error } = await supabase.from("qa_allocations").insert({
+        modeler_id: globalTeamAssignment.modelerId,
+        qa_id: selectedQA,
+      });
+
+      if (error) throw error;
+
+      // Refresh QA assignments
+      await fetchModelerQAAssignments();
+
+      // Clear selection
+      setSelectedQA("");
+
+      toast.success("QA allocated successfully");
+    } catch (error) {
+      console.error("Error allocating QA:", error);
+      toast.error("Failed to allocate QA");
+    } finally {
+      setAllocatingQA(false);
+    }
+  };
+
   useEffect(() => {
     fetchUnallocatedAssets();
     fetchUsers();
+    fetchAvailableQAs();
     fetchModelerQAAssignments();
   }, [fetchUnallocatedAssets]);
 
@@ -695,21 +750,52 @@ export default function AllocateAssetsPage() {
     };
 
     const defaultPricingOptions = getDefaultPricing(pricingTier);
+    //eslint-disable-next-line
     const defaultPricingOption = defaultPricingOptions.pbr_3d_model;
+    //eslint-disable-next-line
     const defaultPrice = pricingTier === "after_second_deadline" ? 30 : 18; // Premium tier is 30, others are 18
 
-    const data: AllocationData[] = Array.from(selectedAssets).map(
-      (assetId) => ({
-        assetId,
-        modelerId:
-          globalTeamAssignment.modelerId ||
-          (modelers.length > 0 ? modelers[0].id : ""),
-        price: defaultPrice,
-        pricingOptionId: defaultPricingOption,
+    const data: AllocationData[] = Array.from(selectedAssets)
+      .map((assetId) => {
+        const asset = assets.find((a) => a.id === assetId);
+
+        // Only use existing pricing from onboarding assets
+        const existingPricingOptionId = asset?.pricing_option_id;
+        const existingPrice = asset?.price;
+
+        // Use existing pricing if available, otherwise skip this asset
+        if (
+          existingPricingOptionId &&
+          existingPrice !== undefined &&
+          existingPrice > 0
+        ) {
+          return {
+            assetId,
+            modelerId:
+              globalTeamAssignment.modelerId ||
+              (modelers.length > 0 ? modelers[0].id : ""),
+            price: existingPrice,
+            pricingOptionId: existingPricingOptionId,
+          };
+        }
+
+        // If no existing pricing, return null to filter out later
+        return null;
       })
-    );
+      .filter((item): item is AllocationData => item !== null);
 
     setAllocationData(data);
+
+    // Show warning if some assets don't have existing pricing
+    const totalAssets = selectedAssets.size;
+    const assetsWithPricing = data.length;
+    if (totalAssets > assetsWithPricing) {
+      const missingPricingCount = totalAssets - assetsWithPricing;
+      toast.warning(
+        `${missingPricingCount} asset(s) excluded - no pricing set in admin review. Only assets with existing pricing can be allocated.`,
+        { duration: 8000 }
+      );
+    }
   };
 
   // Initialize allocation data when users are loaded and we have pre-selected assets
@@ -730,10 +816,10 @@ export default function AllocateAssetsPage() {
     }
   }, [users, globalTeamAssignment.modelerId, checkModelerPricingTier]);
 
-  // Re-initialize allocation data when pricing tier changes to ensure correct pricing
+  // Re-initialize allocation data when pricing tier changes
+  // Note: This will only affect assets that don't have existing pricing
   useEffect(() => {
     if (selectedAssets.size > 0 && allocationData.length > 0) {
-      // Re-initialize with correct pricing when tier changes
       initializeAllocationData();
     }
   }, [pricingTier]);
@@ -1082,7 +1168,9 @@ export default function AllocateAssetsPage() {
       const assetsToAllocate = allocationData;
 
       if (assetsToAllocate.length === 0) {
-        toast.error("No assets selected for allocation");
+        toast.error(
+          "No assets with pricing available for allocation. Please set pricing in admin review first."
+        );
         return;
       }
 
@@ -1354,7 +1442,7 @@ export default function AllocateAssetsPage() {
                           </div>
 
                           {/* QA Assignment Info */}
-                          {qaAssignments.length > 0 ? (
+                          {qaAssignments.length > 0 && (
                             <div className="p-2 bg-blue-50 rounded border border-blue-200">
                               <div className="text-xs font-medium text-blue-800 mb-1">
                                 Assigned QA{qaAssignments.length > 1 ? "s" : ""}
@@ -1371,14 +1459,55 @@ export default function AllocateAssetsPage() {
                                 ))}
                               </div>
                             </div>
-                          ) : (
-                            <div className="p-2 bg-red-50 rounded border border-red-200">
-                              <div className="text-xs font-medium text-red-800 mb-1">
-                                ⚠️ Warning:
-                              </div>
+                          )}
+
+                          {/* QA Assignment Section - Always Visible */}
+                          <div
+                            className={`p-2 rounded border ${qaAssignments.length > 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
+                          >
+                            <div
+                              className={`text-xs font-medium mb-1 ${qaAssignments.length > 0 ? "text-green-800" : "text-red-800"}`}
+                            >
+                              {qaAssignments.length > 0
+                                ? "Add Additional QA:"
+                                : "⚠️ No QA Assigned - Add QA:"}
+                            </div>
+                            {qaAssignments.length === 0 && (
                               <div className="text-sm text-red-700 mb-2">
-                                This modeler has no QA assigned. Assets cannot
-                                be allocated until a QA is assigned.
+                                Assets cannot be allocated until a QA is
+                                assigned.
+                              </div>
+                            )}
+                            <div className="space-y-2">
+                              <div className="flex gap-2">
+                                <Select
+                                  value={selectedQA}
+                                  onValueChange={setSelectedQA}
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Select QA" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableQAs.map((qa) => (
+                                      <SelectItem key={qa.id} value={qa.id}>
+                                        {qa.title || qa.email}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={allocateQA}
+                                  disabled={!selectedQA || allocatingQA}
+                                  className={`text-xs h-8 px-3 ${
+                                    qaAssignments.length > 0
+                                      ? "bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
+                                      : "bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300"
+                                  }`}
+                                >
+                                  {allocatingQA ? "Assigning..." : "Assign QA"}
+                                </Button>
                               </div>
                               <Button
                                 variant="outline"
@@ -1386,12 +1515,16 @@ export default function AllocateAssetsPage() {
                                 onClick={() =>
                                   router.push("/production/qa-allocation")
                                 }
-                                className="text-xs h-6 px-2 bg-red-100 hover:bg-red-200 text-red-800 border-red-300"
+                                className={`text-xs h-6 px-2 w-full ${
+                                  qaAssignments.length > 0
+                                    ? "bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
+                                    : "bg-red-100 hover:bg-red-200 text-red-800 border-red-300"
+                                }`}
                               >
-                                Assign QA
+                                Manage QA Allocations
                               </Button>
                             </div>
-                          )}
+                          </div>
 
                           {/* Daily Hours */}
                           {selectedModeler.daily_hours && (
@@ -1473,8 +1606,20 @@ export default function AllocateAssetsPage() {
 
               <div className="border-t pt-6">
                 <h3 className="text-lg font-medium mb-4">
-                  Assets to be assigned ({selectedAssets.size})
+                  Assets to be assigned ({allocationData.length} of{" "}
+                  {selectedAssets.size})
                 </h3>
+                {allocationData.length < selectedAssets.size && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-800">
+                      <strong>Note:</strong>{" "}
+                      {selectedAssets.size - allocationData.length} asset(s)
+                      excluded because they don&apos;t have pricing set in admin
+                      review. Only assets with existing pricing can be
+                      allocated.
+                    </p>
+                  </div>
+                )}
 
                 <div className="overflow-y-auto max-h-[400px] border rounded-lg">
                   <table className="w-full text-sm">
@@ -2018,55 +2163,91 @@ export default function AllocateAssetsPage() {
                               </Badge>
                             </td>
                             <td className="p-2 text-center items-center justify-center flex">
-                              <Select
-                                value={data.pricingOptionId}
-                                onValueChange={(value) => {
-                                  const option = getPricingOptionById(value);
-                                  updateAllocationData(
-                                    data.assetId,
-                                    "pricingOptionId",
-                                    value
-                                  );
-                                  updateAllocationData(
-                                    data.assetId,
-                                    "price",
-                                    option?.price || 0
-                                  );
-                                }}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select pricing option" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {getCurrentPricingOptions().map((option) => (
-                                    <SelectItem
-                                      key={option.id}
-                                      value={option.id}
-                                    >
-                                      {option.label} - €{option.price}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="p-2 text-center items-center justify-center ">
-                              {data.pricingOptionId.includes(
-                                "hard_3d_model"
-                              ) ? (
-                                <Input
-                                  type="number"
-                                  value={data.price}
-                                  onChange={(e) =>
+                              <div className="flex items-center gap-2 w-full">
+                                <Select
+                                  value={data.pricingOptionId}
+                                  onValueChange={(value) => {
+                                    const option = getPricingOptionById(value);
+                                    updateAllocationData(
+                                      data.assetId,
+                                      "pricingOptionId",
+                                      value
+                                    );
                                     updateAllocationData(
                                       data.assetId,
                                       "price",
-                                      parseFloat(e.target.value) || 0
-                                    )
-                                  }
-                                />
-                              ) : (
-                                <span>€{data.price}</span>
-                              )}
+                                      option?.price || 0
+                                    );
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select pricing option" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {getCurrentPricingOptions().map(
+                                      (option) => (
+                                        <SelectItem
+                                          key={option.id}
+                                          value={option.id}
+                                        >
+                                          {option.label} - €{option.price}
+                                        </SelectItem>
+                                      )
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                                {(() => {
+                                  const asset = getAssetById(data.assetId);
+                                  const hasExistingPricing =
+                                    asset?.pricing_option_id &&
+                                    asset?.price &&
+                                    asset.price > 0;
+                                  return hasExistingPricing ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap"
+                                    >
+                                      From Admin
+                                    </Badge>
+                                  ) : null;
+                                })()}
+                              </div>
+                            </td>
+                            <td className="p-2 text-center items-center justify-center ">
+                              <div className="flex items-center gap-2">
+                                {data.pricingOptionId.includes(
+                                  "hard_3d_model"
+                                ) ? (
+                                  <Input
+                                    type="number"
+                                    value={data.price}
+                                    onChange={(e) =>
+                                      updateAllocationData(
+                                        data.assetId,
+                                        "price",
+                                        parseFloat(e.target.value) || 0
+                                      )
+                                    }
+                                  />
+                                ) : (
+                                  <span>€{data.price}</span>
+                                )}
+                                {(() => {
+                                  const asset = getAssetById(data.assetId);
+                                  const hasExistingPricing =
+                                    asset?.pricing_option_id &&
+                                    asset?.price &&
+                                    asset.price > 0;
+                                  return hasExistingPricing ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                                    >
+                                      From Admin
+                                    </Badge>
+                                  ) : null;
+                                })()}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -2080,20 +2261,30 @@ export default function AllocateAssetsPage() {
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-medium mb-2">Summary</h4>
                 <div className="space-y-1 text-sm">
-                  <p>Total Assets: {selectedAssets.size}</p>
                   <p>
-                    Total Price: €
-                    {allocationData.reduce((sum, data) => sum + data.price, 0)}
+                    Assets with Pricing: {allocationData.length} of{" "}
+                    {selectedAssets.size}
                   </p>
-                  <p>
-                    Average Price: €
-                    {(
-                      allocationData.reduce(
-                        (sum, data) => sum + data.price,
-                        0
-                      ) / selectedAssets.size
-                    ).toFixed(2)}
-                  </p>
+                  {allocationData.length > 0 && (
+                    <>
+                      <p>
+                        Total Price: €
+                        {allocationData.reduce(
+                          (sum, data) => sum + data.price,
+                          0
+                        )}
+                      </p>
+                      <p>
+                        Average Price: €
+                        {(
+                          allocationData.reduce(
+                            (sum, data) => sum + data.price,
+                            0
+                          ) / allocationData.length
+                        ).toFixed(2)}
+                      </p>
+                    </>
+                  )}
                   <p>Bonus: {groupSettings.bonus}%</p>
                   <p>
                     Deadline: {format(new Date(groupSettings.deadline), "PPP")}
@@ -2129,10 +2320,16 @@ export default function AllocateAssetsPage() {
                 </Button>
                 <div className="text-sm text-muted-foreground space-y-1">
                   {groupSettings.deadline &&
+                  allocationData.length > 0 &&
                   allocationData.every((data) => data.price > 0) ? (
                     <span className="flex items-center gap-2">
                       <Euro className="h-4 w-4" />
-                      Ready to allocate
+                      Ready to allocate {allocationData.length} asset(s)
+                    </span>
+                  ) : allocationData.length === 0 ? (
+                    <span className="flex items-center gap-2 text-amber-600">
+                      <AlertTriangle className="h-3 w-3" />
+                      No assets with pricing available
                     </span>
                   ) : (
                     "Complete pricing and deadline to continue"
@@ -2174,6 +2371,7 @@ export default function AllocateAssetsPage() {
                       ) || []
                     ).length === 0 ||
                     !groupSettings.deadline ||
+                    allocationData.length === 0 ||
                     allocationData.some((data) => data.price <= 0) ||
                     allocationData.some((data) => !data.pricingOptionId)
                   }

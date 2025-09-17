@@ -565,7 +565,8 @@ export default function AddProductsPage() {
     const productsToInsert = [];
     let failCount = 0;
 
-    for (const row of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       // Skip empty rows (check first 4 required fields)
       if (
         !row[0]?.trim() &&
@@ -609,6 +610,7 @@ export default function AddProductsPage() {
         priority: 2, // Default priority since not in template
         status: "not_started",
         delivery_date: null,
+        upload_order: i + 1, // Preserve the order from CSV
       });
     }
 

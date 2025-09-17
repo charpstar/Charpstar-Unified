@@ -368,7 +368,7 @@ export default function ProductionDashboard() {
               revision_count
             `
             )
-            .order("created_at", { ascending: false })
+            .order("upload_order", { ascending: true })
         );
       } else {
         // Use pagination for other views
@@ -390,7 +390,7 @@ export default function ProductionDashboard() {
             `
             )
             .range(from, to)
-            .order("created_at", { ascending: false })
+            .order("upload_order", { ascending: true })
         );
       }
 

@@ -72,6 +72,7 @@ function QAHeader({
 // Helper function to get status color CSS variable
 const getStatusColor = (status: StatusKey): string => {
   const statusColorMap = {
+    not_started: "var(--status-not-started)",
     in_production: "var(--status-in-production)",
     revisions: "var(--status-revisions)",
     approved: "var(--status-approved)",
@@ -1308,6 +1309,7 @@ export function ModelStatusWidget() {
   const user = useUser();
   //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
+    not_started: 0,
     in_production: 0,
     revisions: 0,
     approved: 0,
@@ -1326,6 +1328,7 @@ export function ModelStatusWidget() {
         .eq("client", user.metadata.client);
       if (!error && data) {
         const newCounts: Record<StatusKey, number> = {
+          not_started: 0,
           in_production: 0,
           revisions: 0,
           approved: 0,
@@ -1373,6 +1376,7 @@ export function ModelStatusWidget() {
 export function StatusPieChartWidget() {
   const user = useUser();
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
+    not_started: 0,
     in_production: 0,
     revisions: 0,
     approved: 0,
@@ -1392,6 +1396,7 @@ export function StatusPieChartWidget() {
         .eq("client", user.metadata.client);
       if (!error && data) {
         const newCounts: Record<StatusKey, number> = {
+          not_started: 0,
           in_production: 0,
           revisions: 0,
           approved: 0,
@@ -1724,6 +1729,7 @@ export function ClientActionCenterWidget() {
 // Admin widgets
 export function AdminPipelineWidget() {
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
+    not_started: 0,
     in_production: 0,
     revisions: 0,
     approved: 0,
@@ -1744,6 +1750,7 @@ export function AdminPipelineWidget() {
         .select("status");
       if (!error && data) {
         const next: Record<StatusKey, number> = {
+          not_started: 0,
           in_production: 0,
           revisions: 0,
           approved: 0,
@@ -1752,9 +1759,7 @@ export function AdminPipelineWidget() {
         };
         for (const row of data) {
           const raw = (row.status || "") as string;
-          const mapped = (
-            raw === "not_started" ? "in_production" : raw
-          ) as StatusKey;
+          const mapped = raw as StatusKey;
           if (mapped in next) next[mapped]++;
         }
         setCounts(next);
@@ -1770,6 +1775,12 @@ export function AdminPipelineWidget() {
     color: string;
     value: number;
   }> = [
+    {
+      key: "not_started",
+      label: STATUS_LABELS.not_started,
+      color: getStatusColor("not_started"),
+      value: counts.not_started,
+    },
     {
       key: "in_production",
       label: STATUS_LABELS.in_production,
@@ -1806,6 +1817,14 @@ export function AdminPipelineWidget() {
       icon: React.ComponentType<{ className?: string }>;
     }
   > = {
+    not_started: {
+      bgGradient:
+        "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950/50 dark:to-gray-900/50",
+      border: "border-gray-200 dark:border-gray-800",
+      iconBg: "bg-gray-500 dark:bg-gray-600",
+      accentBar: "bg-gray-500 dark:bg-gray-600",
+      icon: Package,
+    },
     in_production: {
       bgGradient:
         "bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50",

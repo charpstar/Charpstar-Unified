@@ -25,7 +25,6 @@ import { Button } from "@/components/ui/display";
 import {
   Users,
   Eye,
-  Package,
   CheckCircle,
   RotateCcw,
   ChevronDown,
@@ -35,6 +34,8 @@ import {
   Trash2,
   X,
   FileText,
+  GripVertical,
+  Euro,
 } from "lucide-react";
 
 import {
@@ -46,12 +47,138 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/containers";
+import { Input } from "@/components/ui/inputs";
+import { Calendar } from "@/components/ui/utilities";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/interactive";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
+
+// Pricing options for admin price management
+interface PricingOption {
+  id: string;
+  label: string;
+  price: number;
+  description?: string;
+}
+
+const PRICING_OPTIONS: PricingOption[] = [
+  // First List Pricing
+  {
+    id: "pbr_3d_model_first",
+    label: "PBR 3D Model Creation (First List)",
+    price: 18,
+    description: "Standard PBR 3D model creation for first list",
+  },
+  {
+    id: "hard_3d_model_first",
+    label: "Hard 3D Model (First List)",
+    price: 0, // Custom price - decided before commencing
+    description: "Hard surface 3D model for first list - custom pricing",
+  },
+  {
+    id: "additional_colors_first",
+    label: "Additional Colors (First List)",
+    price: 1,
+    description: "Additional colors for already made 3D models",
+  },
+  {
+    id: "additional_textures_first",
+    label: "Additional Textures/Materials (First List)",
+    price: 5,
+    description: "Additional textures/materials for already made 3D models",
+  },
+  {
+    id: "additional_sizes_first",
+    label: "Additional Sizes (First List)",
+    price: 4,
+    description: "Additional sizes for already made 3D models",
+  },
+
+  // After First Deadline Pricing
+  {
+    id: "pbr_3d_model_after_first",
+    label: "PBR 3D Model Creation (After First Deadline)",
+    price: 18,
+    description: "Standard PBR 3D model creation after first deadline",
+  },
+  {
+    id: "hard_3d_model_after_first",
+    label: "Hard 3D Model (After First Deadline)",
+    price: 0, // Custom price - decided before commencing
+    description: "Hard surface 3D model after first deadline - custom pricing",
+  },
+  {
+    id: "additional_colors_after_first",
+    label: "Additional Colors (After First Deadline)",
+    price: 1,
+    description: "Additional colors for already made 3D models",
+  },
+  {
+    id: "additional_textures_after_first",
+    label: "Additional Textures/Materials (After First Deadline)",
+    price: 5,
+    description: "Additional textures/materials for already made 3D models",
+  },
+  {
+    id: "additional_sizes_after_first",
+    label: "Additional Sizes (After First Deadline)",
+    price: 4,
+    description: "Additional sizes for already made 3D models",
+  },
+
+  // After Second Deadline Pricing (Premium Tier)
+  {
+    id: "pbr_3d_model_after_second",
+    label: "PBR 3D Model Creation (Premium Tier)",
+    price: 30,
+    description: "Premium PBR 3D model creation after second deadline",
+  },
+  {
+    id: "hard_3d_model_after_second",
+    label: "Hard 3D Model (Premium Tier)",
+    price: 0, // Custom price - decided before commencing
+    description: "Hard surface 3D model premium tier - custom pricing",
+  },
+  {
+    id: "additional_colors_after_second",
+    label: "Additional Colors (Premium Tier)",
+    price: 1.5,
+    description: "Additional colors for already made 3D models",
+  },
+  {
+    id: "additional_textures_after_second",
+    label: "Additional Textures/Materials (Premium Tier)",
+    price: 7,
+    description: "Additional textures/materials for already made 3D models",
+  },
+  {
+    id: "additional_sizes_after_second",
+    label: "Additional Sizes (Premium Tier)",
+    price: 5,
+    description: "Additional sizes for already made 3D models",
+  },
+
+  // Custom pricing option
+  {
+    id: "custom_pricing",
+    label: "Custom Pricing",
+    price: 0, // Will be set by user
+    description: "Set a custom price for this asset",
+  },
+];
+
+// Derive human-readable task type from pricing option id
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import { getPriorityLabel } from "@/lib/constants";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon, User, Package } from "lucide-react";
 
 // Helper function to get priority CSS class
 const getPriorityClass = (priority: number): string => {
@@ -75,6 +202,12 @@ const getStatusRowClass = (status: string): string => {
       return "table-row-status-delivered-by-artist";
     case "not_started":
       return "table-row-status-not-started bg-gray-50 dark:bg-gray-900/30";
+    case "in_progress":
+      return "table-row-status-in-production"; // Same as in_production
+    case "waiting_for_approval":
+      return "table-row-status-delivered-by-artist"; // Same as delivered_by_artist
+    case "pending":
+      return "table-row-status-not-started"; // Same as not_started
     default:
       return "table-row-status-unknown";
   }
@@ -99,6 +232,8 @@ const getStatusLabelClass = (status: string): string => {
       return "status-in-progress";
     case "waiting_for_approval":
       return "status-waiting-for-approval";
+    case "pending":
+      return "status-not-started"; // Same as not_started
     default:
       return "bg-muted text-muted-foreground border-border";
   }
@@ -165,7 +300,8 @@ const calculateListStats = (list: any) => {
 
   // Calculate total price for all assets
   const totalPrice = list.asset_assignments.reduce(
-    (sum: number, assignment: any) => sum + (assignment.price || 0),
+    (sum: number, assignment: any) =>
+      sum + (assignment.onboarding_assets.price || 0),
     0
   );
 
@@ -176,7 +312,11 @@ const calculateListStats = (list: any) => {
         assignment.onboarding_assets.status === "approved" ||
         assignment.onboarding_assets.status === "approved_by_client"
     )
-    .reduce((sum: number, assignment: any) => sum + (assignment.price || 0), 0);
+    .reduce(
+      (sum: number, assignment: any) =>
+        sum + (assignment.onboarding_assets.price || 0),
+      0
+    );
 
   // Calculate potential bonus (what could be earned if everything is completed on time)
   let bonusAmount = 0;
@@ -324,6 +464,13 @@ export default function AdminReviewPage() {
   const [modelers, setModelers] = useState<
     Array<{ id: string; email: string; title?: string }>
   >([]);
+
+  // Price management state
+  const [assetPrices, setAssetPrices] = useState<
+    Record<string, { pricingOptionId: string; price: number }>
+  >({});
+  const [customPrices, setCustomPrices] = useState<Record<string, number>>({});
+  const [draggedAssetId, setDraggedAssetId] = useState<string | null>(null);
   const [assignedAssets, setAssignedAssets] = useState<
     Map<string, { id: string; email: string; name?: string }>
   >(new Map());
@@ -359,6 +506,492 @@ export default function AdminReviewPage() {
   );
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
+
+  // Allocation dialog state
+  const [showAllocationDialog, setShowAllocationDialog] = useState(false);
+  const [selectedModeler, setSelectedModeler] = useState<string>("");
+  const [allocationDeadline, setAllocationDeadline] = useState<string>(
+    format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd")
+  );
+  const [allocationBonus, setAllocationBonus] = useState<number>(15);
+  const [allocating, setAllocating] = useState(false);
+
+  // Reallocation dialog state
+  const [showReallocationDialog, setShowReallocationDialog] = useState(false);
+  const [selectedAssetForReallocation, setSelectedAssetForReallocation] =
+    useState<any>(null);
+  const [reallocationModeler, setReallocationModeler] = useState<string>("");
+  const [reallocationDeadline, setReallocationDeadline] = useState<string>(
+    format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd")
+  );
+  const [reallocationBonus, setReallocationBonus] = useState<number>(15);
+  const [reallocating, setReallocating] = useState(false);
+
+  // Bulk reallocation state
+  const [selectedAssetsForReallocation, setSelectedAssetsForReallocation] =
+    useState<Set<string>>(new Set());
+  const [showBulkReallocationDialog, setShowBulkReallocationDialog] =
+    useState(false);
+  const [bulkReallocationModeler, setBulkReallocationModeler] =
+    useState<string>("");
+  const [bulkReallocationDeadline, setBulkReallocationDeadline] =
+    useState<string>(
+      format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd")
+    );
+  const [bulkReallocationBonus, setBulkReallocationBonus] =
+    useState<number>(15);
+  const [bulkReallocating, setBulkReallocating] = useState(false);
+
+  // Fetch assets function
+  const fetchAssets = async () => {
+    if (
+      !user ||
+      (user.metadata?.role !== "admin" &&
+        user.metadata?.role !== "production") ||
+      showAllocationLists
+    )
+      return;
+    startLoading();
+    setLoading(true);
+
+    // Fetch modelers for the filter
+    try {
+      const { data: modelersData, error: modelersError } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .eq("role", "modeler")
+        .order("email");
+
+      if (modelersError) {
+        console.error("Error fetching modelers:", modelersError);
+      } else {
+        setModelers(modelersData || []);
+      }
+
+      // Build the query
+      let query = supabase
+        .from("onboarding_assets")
+        .select(
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price"
+        )
+        .order("upload_order", { ascending: true });
+
+      // If modeler filters are applied, only fetch assets assigned to those modelers
+      if (modelerFilters && modelerFilters.length > 0) {
+        // First get the asset IDs assigned to this modeler (only accepted assignments)
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from("asset_assignments")
+          .select("asset_id")
+          .in("user_id", modelerFilters)
+          .eq("role", "modeler")
+          .eq("status", "accepted");
+
+        if (assignmentError) {
+          console.error("Error fetching assignments:", assignmentError);
+          setLoading(false);
+          stopLoading();
+          return;
+        }
+
+        const assignedAssetIds = assignmentData?.map((a) => a.asset_id) || [];
+        if (assignedAssetIds.length === 0) {
+          setAssets([]);
+          setFiltered([]);
+          setLoading(false);
+          stopLoading();
+          return;
+        }
+
+        query = query.in("id", assignedAssetIds);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching assets:", error);
+        setLoading(false);
+        stopLoading();
+        return;
+      }
+
+      setAssets(data || []);
+      setFiltered(data || []);
+    } catch (error) {
+      console.error("Error in fetchAssets:", error);
+    } finally {
+      setLoading(false);
+      stopLoading();
+    }
+  };
+
+  // Handle bulk reallocation
+  const handleBulkReallocateAssets = async () => {
+    if (!bulkReallocationModeler || selectedAssetsForReallocation.size === 0) {
+      toast.error("Please select a modeler and assets for reallocation");
+      return;
+    }
+
+    try {
+      setBulkReallocating(true);
+
+      // Check if the selected modeler has a QA assigned
+      const { data: qaAllocations, error: qaError } = await supabase
+        .from("qa_allocations")
+        .select("qa_id")
+        .eq("modeler_id", bulkReallocationModeler);
+
+      if (qaError) {
+        console.error("Error checking QA allocation:", qaError);
+        toast.error("Failed to verify QA assignment");
+        return;
+      }
+
+      if (!qaAllocations || qaAllocations.length === 0) {
+        toast.error(
+          "Cannot reallocate assets: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
+          { duration: 8000 }
+        );
+        return;
+      }
+
+      // Get all assets from all allocation lists
+      const allAssets: any[] = [];
+      allocationLists.forEach((list) => {
+        list.asset_assignments.forEach((assignment: any) => {
+          allAssets.push(assignment.onboarding_assets);
+        });
+      });
+
+      // Filter selected assets with pricing
+      const selectedAssets = Array.from(selectedAssetsForReallocation);
+      const assetsWithPricing = allAssets.filter(
+        (asset) =>
+          selectedAssets.includes(asset.id) &&
+          asset.pricing_option_id &&
+          asset.price &&
+          asset.price > 0
+      );
+
+      if (assetsWithPricing.length === 0) {
+        toast.error(
+          "No selected assets have pricing set. Please set pricing for the assets first."
+        );
+        return;
+      }
+
+      if (assetsWithPricing.length < selectedAssets.length) {
+        toast.warning(
+          `${selectedAssets.length - assetsWithPricing.length} asset(s) excluded - no pricing set. Only assets with pricing will be reallocated.`,
+          { duration: 6000 }
+        );
+      }
+
+      // Create allocation list using the API
+      const response = await fetch("/api/assets/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetIds: assetsWithPricing.map((asset) => asset.id),
+          userIds: [bulkReallocationModeler],
+          role: "modeler",
+          deadline: new Date(
+            bulkReallocationDeadline + "T00:00:00.000Z"
+          ).toISOString(),
+          bonus: bulkReallocationBonus,
+          allocationName: `Bulk Reallocation ${new Date().toISOString().split("T")[0]} - ${assetsWithPricing.length} assets`,
+          prices: assetsWithPricing.reduce(
+            (acc, asset) => {
+              acc[asset.id] = asset.price;
+              return acc;
+            },
+            {} as Record<string, number>
+          ),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || "Failed to create bulk reallocation"
+        );
+      }
+
+      // Close dialog and clear state
+      setShowBulkReallocationDialog(false);
+      setSelectedAssetsForReallocation(new Set());
+      setBulkReallocationModeler("");
+
+      toast.success(
+        `Successfully reallocated ${assetsWithPricing.length} asset(s) to new modeler`
+      );
+
+      // Update local state to remove reallocated assets from current view
+      const reallocatedAssetIds = assetsWithPricing.map((asset) => asset.id);
+      setAllocationLists(
+        (prevLists) =>
+          prevLists
+            .map((list) => ({
+              ...list,
+              asset_assignments: list.asset_assignments.filter(
+                (assignment: any) =>
+                  !reallocatedAssetIds.includes(assignment.onboarding_assets.id)
+              ),
+            }))
+            .filter((list) => list.asset_assignments.length > 0) // Remove empty lists
+      );
+
+      // Refresh the page data
+      await fetchAssets();
+    } catch (error) {
+      console.error("Error bulk reallocating assets:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to bulk reallocate assets"
+      );
+    } finally {
+      setBulkReallocating(false);
+    }
+  };
+
+  // Toggle asset selection for reallocation
+  const toggleAssetSelection = (assetId: string) => {
+    setSelectedAssetsForReallocation((prev) => {
+      const next = new Set(prev);
+      if (next.has(assetId)) {
+        next.delete(assetId);
+      } else {
+        next.add(assetId);
+      }
+      return next;
+    });
+  };
+
+  // Select all assets in current view
+  const selectAllAssetsForReallocation = () => {
+    const allAssetIds: string[] = [];
+    allocationLists.forEach((list) => {
+      list.asset_assignments.forEach((assignment: any) => {
+        allAssetIds.push(assignment.onboarding_assets.id);
+      });
+    });
+    setSelectedAssetsForReallocation(new Set(allAssetIds));
+  };
+
+  // Clear all asset selections
+  const clearAssetSelections = () => {
+    setSelectedAssetsForReallocation(new Set());
+  };
+
+  // Handle asset reallocation
+  const handleReallocateAsset = async () => {
+    if (!reallocationModeler || !selectedAssetForReallocation) {
+      toast.error("Please select a modeler for reallocation");
+      return;
+    }
+
+    try {
+      setReallocating(true);
+
+      // Check if the selected modeler has a QA assigned
+      const { data: qaAllocations, error: qaError } = await supabase
+        .from("qa_allocations")
+        .select("qa_id")
+        .eq("modeler_id", reallocationModeler);
+
+      if (qaError) {
+        console.error("Error checking QA allocation:", qaError);
+        toast.error("Failed to verify QA assignment");
+        return;
+      }
+
+      if (!qaAllocations || qaAllocations.length === 0) {
+        toast.error(
+          "Cannot reallocate asset: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
+          { duration: 8000 }
+        );
+        return;
+      }
+
+      // Check if asset has pricing
+      if (
+        !selectedAssetForReallocation.pricing_option_id ||
+        !selectedAssetForReallocation.price ||
+        selectedAssetForReallocation.price <= 0
+      ) {
+        toast.error(
+          "Cannot reallocate asset: No pricing set. Please set pricing for this asset first."
+        );
+        return;
+      }
+
+      // Create allocation list using the API
+      const response = await fetch("/api/assets/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetIds: [selectedAssetForReallocation.id],
+          userIds: [reallocationModeler],
+          role: "modeler",
+          deadline: new Date(
+            reallocationDeadline + "T00:00:00.000Z"
+          ).toISOString(),
+          bonus: reallocationBonus,
+          allocationName: `Reallocation ${new Date().toISOString().split("T")[0]} - ${selectedAssetForReallocation.product_name}`,
+          prices: {
+            [selectedAssetForReallocation.id]:
+              selectedAssetForReallocation.price,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create reallocation");
+      }
+
+      // Close dialog and clear state
+      setShowReallocationDialog(false);
+      setSelectedAssetForReallocation(null);
+      setReallocationModeler("");
+
+      toast.success(`Successfully reallocated asset to new modeler`);
+
+      // Update local state to remove reallocated asset from current view
+      setAllocationLists(
+        (prevLists) =>
+          prevLists
+            .map((list) => ({
+              ...list,
+              asset_assignments: list.asset_assignments.filter(
+                (assignment: any) =>
+                  assignment.onboarding_assets.id !==
+                  selectedAssetForReallocation.id
+              ),
+            }))
+            .filter((list) => list.asset_assignments.length > 0) // Remove empty lists
+      );
+
+      // Refresh the page data
+      await fetchAssets();
+    } catch (error) {
+      console.error("Error reallocating asset:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to reallocate asset"
+      );
+    } finally {
+      setReallocating(false);
+    }
+  };
+
+  // Handle asset allocation
+  const handleAllocateAssets = async () => {
+    if (!selectedModeler || selected.size === 0) {
+      toast.error("Please select a modeler and assets to allocate");
+      return;
+    }
+
+    try {
+      setAllocating(true);
+
+      // Check if the selected modeler has a QA assigned
+      const { data: qaAllocations, error: qaError } = await supabase
+        .from("qa_allocations")
+        .select("qa_id")
+        .eq("modeler_id", selectedModeler);
+
+      if (qaError) {
+        console.error("Error checking QA allocation:", qaError);
+        toast.error("Failed to verify QA assignment");
+        return;
+      }
+
+      if (!qaAllocations || qaAllocations.length === 0) {
+        toast.error(
+          "Cannot allocate assets: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
+          { duration: 8000 }
+        );
+        return;
+      }
+
+      // Get selected assets with pricing
+      const selectedAssets = Array.from(selected);
+      const assetsWithPricing = filtered.filter(
+        (asset) =>
+          selectedAssets.includes(asset.id) &&
+          asset.pricing_option_id &&
+          asset.price &&
+          asset.price > 0
+      );
+
+      if (assetsWithPricing.length === 0) {
+        toast.error(
+          "No selected assets have pricing set. Please set pricing for the assets first."
+        );
+        return;
+      }
+
+      if (assetsWithPricing.length < selectedAssets.length) {
+        toast.warning(
+          `${selectedAssets.length - assetsWithPricing.length} asset(s) excluded - no pricing set. Only assets with pricing will be allocated.`,
+          { duration: 6000 }
+        );
+      }
+
+      // Create allocation list using the API
+      const response = await fetch("/api/assets/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetIds: assetsWithPricing.map((asset) => asset.id),
+          userIds: [selectedModeler],
+          role: "modeler",
+          deadline: new Date(
+            allocationDeadline + "T00:00:00.000Z"
+          ).toISOString(),
+          bonus: allocationBonus,
+          allocationName: `Allocation ${new Date().toISOString().split("T")[0]} - ${assetsWithPricing.length} assets`,
+          prices: assetsWithPricing.reduce(
+            (acc, asset) => {
+              acc[asset.id] = asset.price;
+              return acc;
+            },
+            {} as Record<string, number>
+          ),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create allocation");
+      }
+
+      // Clear selection and close dialog
+      setSelected(new Set());
+      setShowAllocationDialog(false);
+      setSelectedModeler("");
+
+      toast.success(
+        `Successfully allocated ${assetsWithPricing.length} asset(s) to modeler`
+      );
+
+      // Refresh the page data
+      await fetchAssets();
+    } catch (error) {
+      console.error("Error allocating assets:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to allocate assets"
+      );
+    } finally {
+      setAllocating(false);
+    }
+  };
 
   // Refresh a specific asset's reference/glb data across all relevant views
   const refreshAssetReferenceData = async (assetId: string) => {
@@ -697,7 +1330,6 @@ export default function AdminReviewPage() {
             status,
             asset_assignments(
               asset_id,
-              price,
               status,
               onboarding_assets(
                 id,
@@ -710,7 +1342,9 @@ export default function AdminReviewPage() {
                 batch,
                 reference,
                 glb_link,
-                product_link
+                product_link,
+                pricing_option_id,
+                price
               )
             )
           `
@@ -776,8 +1410,9 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link"
-        );
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price"
+        )
+        .order("upload_order", { ascending: true });
 
       // If modeler filters are applied, only fetch assets assigned to those modelers
       if (modelerFilters && modelerFilters.length > 0) {
@@ -815,6 +1450,29 @@ export default function AdminReviewPage() {
       const { data, error } = await query;
       if (!error && data) {
         setAssets(data);
+
+        // Initialize asset prices from loaded data
+        const initialPrices: Record<
+          string,
+          { pricingOptionId: string; price: number }
+        > = {};
+        const initialCustomPrices: Record<string, number> = {};
+        data.forEach((asset) => {
+          if (asset.pricing_option_id && asset.price !== undefined) {
+            initialPrices[asset.id] = {
+              pricingOptionId: asset.pricing_option_id,
+              price: asset.price,
+            };
+
+            // If it's custom pricing, also set the custom price
+            if (asset.pricing_option_id === "custom_pricing") {
+              initialCustomPrices[asset.id] = asset.price;
+            }
+          }
+        });
+        setAssetPrices(initialPrices);
+        setCustomPrices(initialCustomPrices);
+
         // Extract unique clients
         const uniqueClients = [
           ...new Set(data.map((asset) => asset.client).filter(Boolean)),
@@ -1440,6 +2098,205 @@ export default function AdminReviewPage() {
     }
   };
 
+  // Price management functions
+  const handlePriceUpdate = async (
+    assetId: string,
+    pricingOptionId: string,
+    price: number
+  ) => {
+    try {
+      const response = await fetch("/api/assets/update-price", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          pricingOptionId,
+          price,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update price");
+      }
+
+      // Update local state
+      setAssetPrices((prev) => ({
+        ...prev,
+        [assetId]: { pricingOptionId, price },
+      }));
+
+      // If it's custom pricing, also update the custom price
+      if (pricingOptionId === "custom_pricing") {
+        setCustomPrices((prev) => ({
+          ...prev,
+          [assetId]: price,
+        }));
+      }
+
+      toast.success("Price updated successfully");
+    } catch (error) {
+      console.error("Error updating price:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update price"
+      );
+    }
+  };
+
+  const handleCustomPriceChange = (assetId: string, price: number) => {
+    setCustomPrices((prev) => ({
+      ...prev,
+      [assetId]: price,
+    }));
+  };
+
+  const handleCustomPriceSubmit = async (assetId: string) => {
+    const customPrice = customPrices[assetId];
+    if (customPrice !== undefined && customPrice > 0) {
+      await handlePriceUpdate(assetId, "custom_pricing", customPrice);
+    }
+  };
+
+  const getPricingOptionById = (id: string) => {
+    return PRICING_OPTIONS.find((option) => option.id === id);
+  };
+
+  // Drag and drop reordering functions
+  const handleDragStart = (e: React.DragEvent, assetId: string) => {
+    setDraggedAssetId(assetId);
+    e.dataTransfer.effectAllowed = "move";
+
+    // Add visual feedback to the entire row
+    const target = e.target as HTMLElement;
+    const row = target.closest("tr");
+    if (row) {
+      row.style.transform = "rotate(2deg)";
+      row.style.boxShadow = "0 8px 16px rgba(0,0,0,0.2)";
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+
+    // Add visual feedback for drop target
+    const target = e.target as HTMLElement;
+    const row = target.closest("tr");
+    if (row && draggedAssetId) {
+      row.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
+      row.style.borderTop = "2px solid #3b82f6";
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Remove visual feedback
+    const target = e.target as HTMLElement;
+    const row = target.closest("tr");
+    if (row) {
+      row.style.backgroundColor = "";
+      row.style.borderTop = "";
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    // Clean up all visual feedback
+    const target = e.target as HTMLElement;
+    const row = target.closest("tr");
+    if (row) {
+      row.style.transform = "";
+      row.style.boxShadow = "";
+      row.style.backgroundColor = "";
+      row.style.borderTop = "";
+    }
+
+    setDraggedAssetId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetAssetId: string) => {
+    if (!draggedAssetId || draggedAssetId === targetAssetId) return;
+
+    e.preventDefault();
+
+    // Clean up visual feedback
+    const target = e.target as HTMLElement;
+    const row = target.closest("tr");
+    if (row) {
+      row.style.backgroundColor = "";
+      row.style.borderTop = "";
+    }
+
+    try {
+      // Get current assets in order
+      const currentAssets = [...filtered];
+      const draggedIndex = currentAssets.findIndex(
+        (asset) => asset.id === draggedAssetId
+      );
+      const targetIndex = currentAssets.findIndex(
+        (asset) => asset.id === targetAssetId
+      );
+
+      if (draggedIndex === -1 || targetIndex === -1) return;
+
+      // Show immediate visual feedback by updating the filtered assets
+      const reorderedAssets = [...currentAssets];
+      const [draggedAsset] = reorderedAssets.splice(draggedIndex, 1);
+      reorderedAssets.splice(targetIndex, 0, draggedAsset);
+
+      // Update filtered state immediately for instant visual feedback
+      const reorderedWithOrder = reorderedAssets.map((asset, index) => ({
+        ...asset,
+        upload_order: index + 1,
+      }));
+      setFiltered(reorderedWithOrder);
+
+      // Update assets state with new upload_order values
+      setAssets((prevAssets) => {
+        const updatedAssets = [...prevAssets];
+        reorderedAssets.forEach((reorderedAsset, index) => {
+          const assetIndex = updatedAssets.findIndex(
+            (a) => a.id === reorderedAsset.id
+          );
+          if (assetIndex !== -1) {
+            updatedAssets[assetIndex] = {
+              ...updatedAssets[assetIndex],
+              upload_order: index + 1,
+            };
+          }
+        });
+        return updatedAssets;
+      });
+
+      // Update upload_order for all affected assets in database (async, no need to wait)
+      const updates = reorderedAssets.map((asset, index) => ({
+        id: asset.id,
+        upload_order: index + 1,
+      }));
+
+      // Fire and forget - don't wait for response
+      fetch("/api/assets/reorder", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ updates }),
+      }).catch((error) => {
+        console.error("Error updating database:", error);
+        // Silently fail - user already sees the change
+      });
+
+      toast.success("Assets reordered successfully");
+    } catch (error) {
+      console.error("Error reordering assets:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to reorder assets"
+      );
+    } finally {
+      setDraggedAssetId(null);
+    }
+  };
+
   const deleteAsset = async (assetId: string) => {
     setDeletingAsset(assetId);
 
@@ -2044,7 +2901,19 @@ export default function AdminReviewPage() {
             )}
 
             {selected.size > 0 && (
-              <div className="w-full sm:w-auto">
+              <div className="w-full sm:w-auto flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAllocationDialog(true)}
+                  className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
+                >
+                  <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">
+                    Allocate ({selected.size})
+                  </span>
+                  <span className="sm:hidden">Allocate {selected.size}</span>
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -2063,11 +2932,9 @@ export default function AdminReviewPage() {
                   }}
                   className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                 >
-                  <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">
-                    Assign ({selected.size})
-                  </span>
-                  <span className="sm:hidden">Assign {selected.size}</span>
+                  <Package className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Advanced Allocate</span>
+                  <span className="sm:hidden">Advanced</span>
                 </Button>
               </div>
             )}
@@ -2079,6 +2946,48 @@ export default function AdminReviewPage() {
         ) : showAllocationLists ? (
           // Allocation Lists View
           <div className="space-y-4">
+            {/* Bulk Reallocation Controls */}
+            {paged.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">
+                    Selected: {selectedAssetsForReallocation.size} assets
+                  </span>
+                  {selectedAssetsForReallocation.size > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearAssetSelections}
+                      className="h-8 px-2 text-xs"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllAssetsForReallocation}
+                    className="h-8 px-2 text-xs"
+                  >
+                    Select All
+                  </Button>
+                  {selectedAssetsForReallocation.size > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowBulkReallocationDialog(true)}
+                      className="h-8 px-2 text-xs"
+                    >
+                      <Users className="h-3 w-3 mr-1" />
+                      Reallocate ({selectedAssetsForReallocation.size})
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
             {paged.length === 0 ? (
               <Card className="p-8 text-center">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -2197,11 +3106,63 @@ export default function AdminReviewPage() {
                           : "max-h-0 opacity-0"
                       }`}
                     >
-                      <CardContent className="p-4 sm:p-6">
+                      <CardContent
+                        className="p-4 sm:p-6"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="overflow-x-auto">
                           <Table>
                             <TableHeader>
                               <TableRow>
+                                <TableHead className="w-8 text-xs sm:text-sm">
+                                  <Checkbox
+                                    checked={
+                                      selectedAssetsForReallocation.size > 0 &&
+                                      list.asset_assignments.every(
+                                        (assignment: any) =>
+                                          selectedAssetsForReallocation.has(
+                                            assignment.onboarding_assets.id
+                                          )
+                                      )
+                                    }
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        // Select all assets in this list
+                                        const assetIds =
+                                          list.asset_assignments.map(
+                                            (assignment: any) =>
+                                              assignment.onboarding_assets.id
+                                          );
+                                        setSelectedAssetsForReallocation(
+                                          (prev) => {
+                                            const next = new Set(prev);
+                                            assetIds.forEach((id: string) =>
+                                              next.add(id)
+                                            );
+                                            return next;
+                                          }
+                                        );
+                                      } else {
+                                        // Deselect all assets in this list
+                                        const assetIds =
+                                          list.asset_assignments.map(
+                                            (assignment: any) =>
+                                              assignment.onboarding_assets.id
+                                          );
+                                        setSelectedAssetsForReallocation(
+                                          (prev) => {
+                                            const next = new Set(prev);
+                                            assetIds.forEach((id: string) =>
+                                              next.delete(id)
+                                            );
+                                            return next;
+                                          }
+                                        );
+                                      }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </TableHead>
                                 <TableHead className="text-xs sm:text-sm">
                                   Product Name
                                 </TableHead>
@@ -2237,8 +3198,21 @@ export default function AdminReviewPage() {
                                   )}
                                 >
                                   <TableCell className="text-center">
+                                    <Checkbox
+                                      checked={selectedAssetsForReallocation.has(
+                                        assignment.onboarding_assets.id
+                                      )}
+                                      onCheckedChange={() =>
+                                        toggleAssetSelection(
+                                          assignment.onboarding_assets.id
+                                        )
+                                      }
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-center">
                                     <div
-                                      className="font-medium truncate cursor-help text-sm sm:text-base"
+                                      className="font-medium cursor-help text-sm sm:text-base"
                                       title={
                                         assignment.onboarding_assets
                                           .product_name
@@ -2305,7 +3279,10 @@ export default function AdminReviewPage() {
                                   <TableCell>
                                     <div className="flex items-center gap-1">
                                       <span className="font-medium text-sm sm:text-base">
-                                        €{assignment.price.toFixed(2)}
+                                        €
+                                        {assignment.onboarding_assets.price?.toFixed(
+                                          2
+                                        ) || "0.00"}
                                       </span>
                                     </div>
                                   </TableCell>
@@ -2537,13 +3514,14 @@ export default function AdminReviewPage() {
                   <TableHead className="text-xs sm:text-sm">
                     Product Link
                   </TableHead>
+                  <TableHead className="text-xs sm:text-sm">Price</TableHead>
                   <TableHead className="text-xs sm:text-sm">Review</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center">
+                    <TableCell colSpan={11} className="text-center">
                       No assets found for this QA reviewer.
                     </TableCell>
                   </TableRow>
@@ -2551,18 +3529,42 @@ export default function AdminReviewPage() {
                   paged.map((asset) => (
                     <TableRow
                       key={asset.id}
-                      className={getStatusRowClass(asset.status)}
+                      className={`${getStatusRowClass(asset.status)} transition-all duration-200 ease-in-out ${draggedAssetId === asset.id ? "opacity-50 scale-105" : ""}`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, asset.id)}
+                      style={{
+                        transition: "all 0.2s ease-in-out",
+                        transform:
+                          draggedAssetId === asset.id
+                            ? "rotate(2deg) scale(1.02)"
+                            : undefined,
+                        boxShadow:
+                          draggedAssetId === asset.id
+                            ? "0 8px 16px rgba(0,0,0,0.2)"
+                            : undefined,
+                      }}
                     >
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <span
-                            className="font-medium truncate cursor-help text-sm sm:text-base"
-                            title={asset.product_name}
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="flex flex-col gap-0.5 cursor-move group"
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, asset.id)}
+                            onDragEnd={handleDragEnd}
                           >
-                            {asset.product_name.length > 20
-                              ? asset.product_name.substring(0, 20) + "..."
-                              : asset.product_name}
-                          </span>
+                            <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                          </div>
+                          <div className="flex flex-col gap-1 flex-1">
+                            <span
+                              className="font-medium  cursor-help text-sm sm:text-base"
+                              title={asset.product_name}
+                            >
+                              {asset.product_name.length > 25
+                                ? asset.product_name.substring(0, 25) + "..."
+                                : asset.product_name}
+                            </span>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-xs sm:text-sm font-mono">
@@ -2671,6 +3673,89 @@ export default function AdminReviewPage() {
                         )}
                       </TableCell>
                       <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={assetPrices[asset.id]?.pricingOptionId || ""}
+                            onValueChange={(value) => {
+                              if (value === "custom_pricing") {
+                                // Don't auto-update for custom pricing, let user set the price
+                                setAssetPrices((prev) => ({
+                                  ...prev,
+                                  [asset.id]: {
+                                    pricingOptionId: value,
+                                    price: 0,
+                                  },
+                                }));
+                              } else {
+                                const option = getPricingOptionById(value);
+                                if (option) {
+                                  handlePriceUpdate(
+                                    asset.id,
+                                    value,
+                                    option.price
+                                  );
+                                }
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-32 h-8 text-xs">
+                              <SelectValue placeholder="Set price" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PRICING_OPTIONS.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Euro className="h-3 w-3" />
+                                    {option.label} - €{option.price}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          {assetPrices[asset.id]?.pricingOptionId ===
+                          "custom_pricing" ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={customPrices[asset.id] || ""}
+                                onChange={(e) =>
+                                  handleCustomPriceChange(
+                                    asset.id,
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    handleCustomPriceSubmit(asset.id);
+                                  }
+                                }}
+                                className="w-16 h-8 text-xs px-2 border rounded"
+                                placeholder="€0"
+                                min="0"
+                                step="0.01"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-xs"
+                                onClick={() =>
+                                  handleCustomPriceSubmit(asset.id)
+                                }
+                              >
+                                Set
+                              </Button>
+                            </div>
+                          ) : (
+                            assetPrices[asset.id] && (
+                              <span className="text-xs font-medium">
+                                €{assetPrices[asset.id].price}
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -2742,13 +3827,14 @@ export default function AdminReviewPage() {
                   <TableHead className="text-xs sm:text-sm">
                     Product Link
                   </TableHead>
+                  <TableHead className="text-xs sm:text-sm">Price</TableHead>
                   <TableHead className="text-xs sm:text-sm">Review</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       {statusFilters.length > 0 ||
                       clientFilters.length > 0 ||
                       batchFilters.length > 0 ||
@@ -2808,38 +3894,62 @@ export default function AdminReviewPage() {
                   paged.map((asset) => (
                     <TableRow
                       key={asset.id}
-                      className={getStatusRowClass(asset.status)}
+                      className={`${getStatusRowClass(asset.status)} transition-all duration-200 ease-in-out ${draggedAssetId === asset.id ? "opacity-50 scale-105" : ""}`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, asset.id)}
+                      style={{
+                        transition: "all 0.2s ease-in-out",
+                        transform:
+                          draggedAssetId === asset.id
+                            ? "rotate(2deg) scale(1.02)"
+                            : undefined,
+                        boxShadow:
+                          draggedAssetId === asset.id
+                            ? "0 8px 16px rgba(0,0,0,0.2)"
+                            : undefined,
+                      }}
                     >
                       <TableCell className="text-center">
-                        <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
-                          <Checkbox
-                            checked={selected.has(asset.id)}
-                            onCheckedChange={() => toggleSelect(asset.id)}
-                            className="h-4 w-4"
-                          />
-                          {assignedAssets.has(asset.id) && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
-                              <span className="text-xs text-muted-foreground hidden sm:inline">
-                                {assignedAssets.get(asset.id)?.name ||
-                                  assignedAssets
-                                    .get(asset.id)
-                                    ?.email?.split("@")[0]}
-                              </span>
-                            </div>
-                          )}
-                          {pendingAssets.has(asset.id) && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
-                              <span className="text-xs text-muted-foreground hidden sm:inline">
-                                {pendingAssets.get(asset.id)?.name ||
-                                  pendingAssets
-                                    .get(asset.id)
-                                    ?.email?.split("@")[0]}
-                                {" (pending)"}
-                              </span>
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="flex flex-col gap-0.5 cursor-move group"
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, asset.id)}
+                            onDragEnd={handleDragEnd}
+                          >
+                            <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-1">
+                            <Checkbox
+                              checked={selected.has(asset.id)}
+                              onCheckedChange={() => toggleSelect(asset.id)}
+                              className="h-4 w-4"
+                            />
+                            {assignedAssets.has(asset.id) && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
+                                <span className="text-xs text-muted-foreground hidden sm:inline">
+                                  {assignedAssets.get(asset.id)?.name ||
+                                    assignedAssets
+                                      .get(asset.id)
+                                      ?.email?.split("@")[0]}
+                                </span>
+                              </div>
+                            )}
+                            {pendingAssets.has(asset.id) && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
+                                <span className="text-xs text-muted-foreground hidden sm:inline">
+                                  {pendingAssets.get(asset.id)?.name ||
+                                    pendingAssets
+                                      .get(asset.id)
+                                      ?.email?.split("@")[0]}
+                                  {" (pending)"}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -2848,8 +3958,8 @@ export default function AdminReviewPage() {
                             className="font-medium truncate cursor-help text-sm sm:text-base"
                             title={asset.product_name}
                           >
-                            {asset.product_name.length > 20
-                              ? asset.product_name.substring(0, 20) + "..."
+                            {asset.product_name.length > 25
+                              ? asset.product_name.substring(0, 25) + "..."
                               : asset.product_name}
                           </span>
                           <div className="flex items-center justify-center gap-1 sm:gap-2">
@@ -2955,6 +4065,90 @@ export default function AdminReviewPage() {
                             —
                           </span>
                         )}
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={assetPrices[asset.id]?.pricingOptionId || ""}
+                            onValueChange={(value) => {
+                              if (value === "custom_pricing") {
+                                // Don't auto-update for custom pricing, let user set the price
+                                setAssetPrices((prev) => ({
+                                  ...prev,
+                                  [asset.id]: {
+                                    pricingOptionId: value,
+                                    price: 0,
+                                  },
+                                }));
+                              } else {
+                                const option = getPricingOptionById(value);
+                                if (option) {
+                                  handlePriceUpdate(
+                                    asset.id,
+                                    value,
+                                    option.price
+                                  );
+                                }
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-32 h-8 text-xs">
+                              <SelectValue placeholder="Set price" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PRICING_OPTIONS.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Euro className="h-3 w-3" />
+                                    {option.label} - €{option.price}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          {assetPrices[asset.id]?.pricingOptionId ===
+                          "custom_pricing" ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={customPrices[asset.id] || ""}
+                                onChange={(e) =>
+                                  handleCustomPriceChange(
+                                    asset.id,
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    handleCustomPriceSubmit(asset.id);
+                                  }
+                                }}
+                                className="w-16 h-8 text-xs px-2 border rounded"
+                                placeholder="€0"
+                                min="0"
+                                step="0.01"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-xs"
+                                onClick={() =>
+                                  handleCustomPriceSubmit(asset.id)
+                                }
+                              >
+                                Set
+                              </Button>
+                            </div>
+                          ) : (
+                            assetPrices[asset.id] && (
+                              <span className="text-xs font-medium">
+                                €{assetPrices[asset.id].price}
+                              </span>
+                            )
+                          )}
+                        </div>
                       </TableCell>
 
                       <TableCell>
@@ -3231,6 +4425,491 @@ export default function AdminReviewPage() {
           setShowAddRefDialog(true);
         }}
       />
+
+      {/* Allocation Dialog */}
+      <Dialog
+        open={showAllocationDialog}
+        onOpenChange={setShowAllocationDialog}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Allocate Assets
+            </DialogTitle>
+            <DialogDescription>
+              Allocate {selected.size} selected asset(s) to a modeler
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Modeler Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Modeler
+              </label>
+              <Select
+                value={selectedModeler}
+                onValueChange={setSelectedModeler}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose modeler" />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelers.map((modeler) => (
+                    <SelectItem key={modeler.id} value={modeler.id}>
+                      {modeler.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Deadline */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                Deadline
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(new Date(allocationDeadline), "PPP")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={new Date(allocationDeadline)}
+                    onSelect={(date) => {
+                      setAllocationDeadline(
+                        format(date || new Date(), "yyyy-MM-dd")
+                      );
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Bonus */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Euro className="h-4 w-4" />
+                Bonus (%)
+              </label>
+              <Input
+                type="number"
+                placeholder="15"
+                value={allocationBonus === 0 ? "" : allocationBonus}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setAllocationBonus(value === "" ? 0 : parseInt(value) || 0);
+                }}
+              />
+            </div>
+
+            {/* Selected Assets Summary */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Selected Assets
+              </label>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm space-y-1">
+                  <p>Total Selected: {selected.size}</p>
+                  <p>
+                    Assets with Pricing:{" "}
+                    {
+                      filtered.filter(
+                        (asset) =>
+                          selected.has(asset.id) &&
+                          asset.pricing_option_id &&
+                          asset.price &&
+                          asset.price > 0
+                      ).length
+                    }
+                  </p>
+                  {filtered.filter(
+                    (asset) =>
+                      selected.has(asset.id) &&
+                      (!asset.pricing_option_id ||
+                        !asset.price ||
+                        asset.price <= 0)
+                  ).length > 0 && (
+                    <p className="text-amber-600 text-xs">
+                      ⚠️ Some assets don&apos;t have pricing and will be
+                      excluded
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAllocationDialog(false)}
+              disabled={allocating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAllocateAssets}
+              disabled={!selectedModeler || selected.size === 0 || allocating}
+              className="flex items-center gap-2"
+            >
+              {allocating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Allocating...
+                </>
+              ) : (
+                <>
+                  <Users className="h-4 w-4" />
+                  Allocate Assets
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reallocation Dialog */}
+      <Dialog
+        open={showReallocationDialog}
+        onOpenChange={setShowReallocationDialog}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Reallocate Asset
+            </DialogTitle>
+            <DialogDescription>
+              Reallocate &apos;{selectedAssetForReallocation?.product_name}
+              &apos; to a different modeler
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Current Asset Info */}
+            {selectedAssetForReallocation && (
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm space-y-1">
+                  <p>
+                    <strong>Product:</strong>{" "}
+                    {selectedAssetForReallocation.product_name}
+                  </p>
+                  <p>
+                    <strong>Article ID:</strong>{" "}
+                    {selectedAssetForReallocation.article_id}
+                  </p>
+                  <p>
+                    <strong>Current Price:</strong> €
+                    {selectedAssetForReallocation.price?.toFixed(2) ||
+                      "Not set"}
+                  </p>
+                  {(!selectedAssetForReallocation.pricing_option_id ||
+                    !selectedAssetForReallocation.price ||
+                    selectedAssetForReallocation.price <= 0) && (
+                    <p className="text-amber-600 text-xs">
+                      ⚠️ No pricing set - cannot reallocate
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Modeler Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <User className="h-4 w-4" />
+                New Modeler
+              </label>
+              <Select
+                value={reallocationModeler}
+                onValueChange={setReallocationModeler}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose new modeler" />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelers.map((modeler) => (
+                    <SelectItem key={modeler.id} value={modeler.id}>
+                      {modeler.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Deadline */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                New Deadline
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(new Date(reallocationDeadline), "PPP")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={new Date(reallocationDeadline)}
+                    onSelect={(date) => {
+                      setReallocationDeadline(
+                        format(date || new Date(), "yyyy-MM-dd")
+                      );
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Bonus */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Euro className="h-4 w-4" />
+                Bonus (%)
+              </label>
+              <Input
+                type="number"
+                placeholder="15"
+                value={reallocationBonus === 0 ? "" : reallocationBonus}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setReallocationBonus(value === "" ? 0 : parseInt(value) || 0);
+                }}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowReallocationDialog(false)}
+              disabled={reallocating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReallocateAsset}
+              disabled={
+                !reallocationModeler ||
+                !selectedAssetForReallocation ||
+                !selectedAssetForReallocation.pricing_option_id ||
+                !selectedAssetForReallocation.price ||
+                selectedAssetForReallocation.price <= 0 ||
+                reallocating
+              }
+              className="flex items-center gap-2"
+            >
+              {reallocating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Reallocating...
+                </>
+              ) : (
+                <>
+                  <Users className="h-4 w-4" />
+                  Reallocate Asset
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Reallocation Dialog */}
+      <Dialog
+        open={showBulkReallocationDialog}
+        onOpenChange={setShowBulkReallocationDialog}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Reallocate Assets
+            </DialogTitle>
+            <DialogDescription>
+              Reallocate {selectedAssetsForReallocation.size} selected asset(s)
+              to a different modeler
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Selected Assets Summary */}
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="text-sm space-y-1">
+                <p>
+                  <strong>Selected Assets:</strong>{" "}
+                  {selectedAssetsForReallocation.size}
+                </p>
+                <p>
+                  <strong>Assets with Pricing:</strong>{" "}
+                  {(() => {
+                    const allAssets: any[] = [];
+                    allocationLists.forEach((list) => {
+                      list.asset_assignments.forEach((assignment: any) => {
+                        allAssets.push(assignment.onboarding_assets);
+                      });
+                    });
+                    return allAssets.filter(
+                      (asset) =>
+                        selectedAssetsForReallocation.has(asset.id) &&
+                        asset.pricing_option_id &&
+                        asset.price &&
+                        asset.price > 0
+                    ).length;
+                  })()}
+                </p>
+                {(() => {
+                  const allAssets: any[] = [];
+                  allocationLists.forEach((list) => {
+                    list.asset_assignments.forEach((assignment: any) => {
+                      allAssets.push(assignment.onboarding_assets);
+                    });
+                  });
+                  const assetsWithoutPricing = allAssets.filter(
+                    (asset) =>
+                      selectedAssetsForReallocation.has(asset.id) &&
+                      (!asset.pricing_option_id ||
+                        !asset.price ||
+                        asset.price <= 0)
+                  );
+                  return (
+                    assetsWithoutPricing.length > 0 && (
+                      <p className="text-amber-600 text-xs">
+                        ⚠️ {assetsWithoutPricing.length} asset(s) don&apos;t
+                        have pricing and will be excluded
+                      </p>
+                    )
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Modeler Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <User className="h-4 w-4" />
+                New Modeler
+              </label>
+              <Select
+                value={bulkReallocationModeler}
+                onValueChange={setBulkReallocationModeler}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose new modeler" />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelers.map((modeler) => (
+                    <SelectItem key={modeler.id} value={modeler.id}>
+                      {modeler.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Deadline */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                New Deadline
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(new Date(bulkReallocationDeadline), "PPP")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={new Date(bulkReallocationDeadline)}
+                    onSelect={(date) => {
+                      setBulkReallocationDeadline(
+                        format(date || new Date(), "yyyy-MM-dd")
+                      );
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Bonus */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Euro className="h-4 w-4" />
+                Bonus (%)
+              </label>
+              <Input
+                type="number"
+                placeholder="15"
+                value={bulkReallocationBonus === 0 ? "" : bulkReallocationBonus}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setBulkReallocationBonus(
+                    value === "" ? 0 : parseInt(value) || 0
+                  );
+                }}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkReallocationDialog(false)}
+              disabled={bulkReallocating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkReallocateAssets}
+              disabled={
+                !bulkReallocationModeler ||
+                selectedAssetsForReallocation.size === 0 ||
+                bulkReallocating
+              }
+              className="flex items-center gap-2"
+            >
+              {bulkReallocating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Reallocating...
+                </>
+              ) : (
+                <>
+                  <Users className="h-4 w-4" />
+                  Reallocate {selectedAssetsForReallocation.size} Assets
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

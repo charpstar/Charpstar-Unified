@@ -1,6 +1,7 @@
 // Global constants for status labels
 
 export const STATUS_LABELS = {
+  not_started: "Not Started",
   in_production: "In Production",
   revisions: "Ready for Revision",
   approved: "Waiting for Approval",
