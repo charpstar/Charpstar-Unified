@@ -33,6 +33,7 @@ import {
   CheckCircle,
   RotateCcw,
   ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 
 import { BarChart, XAxis, YAxis, Bar } from "recharts";
@@ -1736,6 +1737,7 @@ export function AdminPipelineWidget() {
     approved_by_client: 0,
     delivered_by_artist: 0,
   });
+  const [unallocatedCount, setUnallocatedCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const fetchedRef = React.useRef(false);
@@ -1745,9 +1747,12 @@ export function AdminPipelineWidget() {
     fetchedRef.current = true;
     const fetchCounts = async () => {
       setLoading(true);
+
+      // Fetch asset statuses
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select("status");
+
       if (!error && data) {
         const next: Record<StatusKey, number> = {
           not_started: 0,
@@ -1764,17 +1769,45 @@ export function AdminPipelineWidget() {
         }
         setCounts(next);
       }
+
+      // Fetch unallocated assets count
+      const { data: assignedAssets, error: assignmentError } = await supabase
+        .from("asset_assignments")
+        .select("asset_id")
+        .eq("role", "modeler");
+
+      if (!assignmentError && assignedAssets) {
+        const assignedAssetIds = assignedAssets.map((a) => a.asset_id);
+
+        const { data: allAssets, error: allAssetsError } = await supabase
+          .from("onboarding_assets")
+          .select("id");
+
+        if (!allAssetsError && allAssets) {
+          const unallocated = allAssets.filter(
+            (asset) => !assignedAssetIds.includes(asset.id)
+          );
+          setUnallocatedCount(unallocated.length);
+        }
+      }
+
       setLoading(false);
     };
     fetchCounts();
   }, []);
 
   const items: Array<{
-    key: StatusKey;
+    key: StatusKey | "unallocated";
     label: string;
     color: string;
     value: number;
   }> = [
+    {
+      key: "unallocated",
+      label: "Not Allocated",
+      color: "#dc2626",
+      value: unallocatedCount,
+    },
     {
       key: "not_started",
       label: STATUS_LABELS.not_started,
@@ -1808,7 +1841,7 @@ export function AdminPipelineWidget() {
   ];
 
   const statusStyles: Record<
-    StatusKey,
+    StatusKey | "unallocated",
     {
       bgGradient: string;
       border: string;
@@ -1817,6 +1850,14 @@ export function AdminPipelineWidget() {
       icon: React.ComponentType<{ className?: string }>;
     }
   > = {
+    unallocated: {
+      bgGradient:
+        "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
+      border: "border-red-200 dark:border-red-800",
+      iconBg: "bg-red-500 dark:bg-red-600",
+      accentBar: "bg-red-500 dark:bg-red-600",
+      icon: AlertTriangle,
+    },
     not_started: {
       bgGradient:
         "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950/50 dark:to-gray-900/50",
@@ -1868,12 +1909,21 @@ export function AdminPipelineWidget() {
   };
 
   const StatusStatCard: React.FC<{
-    item: { key: StatusKey; label: string; color: string; value: number };
+    item: {
+      key: StatusKey | "unallocated";
+      label: string;
+      color: string;
+      value: number;
+    };
   }> = ({ item }) => {
     const animatedValue = useCountUp(item.value);
     const handleClick = () => {
-      const statusParam = item.key;
-      router.push(`/admin-review?status=${encodeURIComponent(statusParam)}`);
+      if (item.key === "unallocated") {
+        router.push("/admin-review?status=unallocated");
+      } else {
+        const statusParam = item.key;
+        router.push(`/admin-review?status=${encodeURIComponent(statusParam)}`);
+      }
     };
     const style = statusStyles[item.key] || statusStyles.in_production;
     const Icon = style.icon;

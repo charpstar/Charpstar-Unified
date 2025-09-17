@@ -38,9 +38,11 @@ import {
   AlertTriangle,
   Clock,
   X,
+  StickyNote,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/inputs";
 
 interface UnallocatedAsset {
   id: string;
@@ -268,6 +270,9 @@ export default function AllocateAssetsPage() {
   const [availableQAs, setAvailableQAs] = useState<User[]>([]);
   const [selectedQA, setSelectedQA] = useState<string>("");
   const [allocatingQA, setAllocatingQA] = useState(false);
+  const [pricingComments, setPricingComments] = useState<
+    Record<string, string>
+  >({});
 
   // Ref to prevent infinite loops when updating pricing
   const isUpdatingPricing = useRef(false);
@@ -552,12 +557,22 @@ export default function AllocateAssetsPage() {
         const { data: preSelectedAssets, error: preSelectedError } =
           await supabase
             .from("onboarding_assets")
-            .select("*, pricing_option_id, price")
+            .select("*, pricing_option_id, price, pricing_comment")
             .in("id", selectedAssetsParam);
 
         if (preSelectedError) throw preSelectedError;
 
         setAssets(preSelectedAssets || []);
+
+        // Initialize pricing comments
+        const initialPricingComments: Record<string, string> = {};
+        preSelectedAssets?.forEach((asset) => {
+          if (asset.pricing_comment) {
+            initialPricingComments[asset.id] = asset.pricing_comment;
+          }
+        });
+        setPricingComments(initialPricingComments);
+
         return;
       }
 
@@ -575,12 +590,21 @@ export default function AllocateAssetsPage() {
       // Fetch unallocated assets with pricing data
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("*, pricing_option_id, price")
+        .select("*, pricing_option_id, price, pricing_comment")
         .not("id", "in", `(${assignedAssetIds.join(",")})`);
 
       if (error) throw error;
 
       setAssets(data || []);
+
+      // Initialize pricing comments for unallocated assets
+      const initialPricingComments: Record<string, string> = {};
+      data?.forEach((asset) => {
+        if (asset.pricing_comment) {
+          initialPricingComments[asset.id] = asset.pricing_comment;
+        }
+      });
+      setPricingComments(initialPricingComments);
     } catch (error) {
       console.error("Error fetching unallocated assets:", error);
       toast.error("Failed to fetch assets");
@@ -873,6 +897,29 @@ export default function AllocateAssetsPage() {
       }
     }
   }, [allocationData]); // Removed pricingTier from dependencies to prevent loop
+
+  // Auto-detect pricing tier when moving to step 2
+  useEffect(() => {
+    if (step === 2 && allocationData.length > 0) {
+      const detectedTier = detectPricingTierFromAssets(allocationData);
+
+      // Always update to the detected tier if we have one
+      if (detectedTier) {
+        setPricingTier(detectedTier);
+        const bonusPercentage = detectedTier === "first_list" ? 15 : 30;
+        setGroupSettings((prev) => ({ ...prev, bonus: bonusPercentage }));
+
+        // Show notification when entering step 2 if not shown before
+        if (!hasShownAutoDetectNotification.current) {
+          toast.info(
+            `Pricing tier auto-detected as "${detectedTier.replace(/_/g, " ")}" based on asset pricing.`,
+            { duration: 4000 }
+          );
+          hasShownAutoDetectNotification.current = true;
+        }
+      }
+    }
+  }, [step, allocationData]);
 
   // Helper function to detect pricing tier from asset pricing
   const detectPricingTierFromAssets = (data: AllocationData[]) => {
@@ -1402,6 +1449,40 @@ export default function AllocateAssetsPage() {
   const getPricingOptionById = (id: string) => {
     const options = getCurrentPricingOptions();
     return options.find((option) => option.id === id);
+  };
+
+  // Handle pricing comment updates
+  const handlePricingCommentUpdate = async (
+    assetId: string,
+    comment: string
+  ) => {
+    try {
+      const response = await fetch("/api/assets/update-pricing-comment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          comment: comment.trim() || "",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update pricing comment");
+      }
+
+      // Update local state
+      setPricingComments((prev) => ({
+        ...prev,
+        [assetId]: comment.trim() || "",
+      }));
+
+      toast.success("Pricing comment updated successfully");
+    } catch (error) {
+      console.error("Error updating pricing comment:", error);
+      toast.error("Failed to update pricing comment");
+    }
   };
 
   return (
@@ -2631,13 +2712,58 @@ export default function AllocateAssetsPage() {
                                             step="0.01"
                                             min="0"
                                           />
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 hover:bg-amber-100"
+                                              >
+                                                <StickyNote className="h-3 w-3 text-amber-600" />
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-80 p-3">
+                                              <div className="space-y-3">
+                                                <h4 className="font-medium text-sm">
+                                                  Pricing Note
+                                                </h4>
+                                                <Textarea
+                                                  placeholder="Add pricing note..."
+                                                  value={
+                                                    pricingComments[
+                                                      data.assetId
+                                                    ] || ""
+                                                  }
+                                                  onChange={(e) => {
+                                                    setPricingComments(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        [data.assetId]:
+                                                          e.target.value,
+                                                      })
+                                                    );
+                                                  }}
+                                                  onBlur={() => {
+                                                    if (
+                                                      pricingComments[
+                                                        data.assetId
+                                                      ] !== undefined
+                                                    ) {
+                                                      handlePricingCommentUpdate(
+                                                        data.assetId,
+                                                        pricingComments[
+                                                          data.assetId
+                                                        ]
+                                                      );
+                                                    }
+                                                  }}
+                                                  className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                  rows={3}
+                                                />
+                                              </div>
+                                            </PopoverContent>
+                                          </Popover>
                                         </div>
-                                        <Badge
-                                          variant="outline"
-                                          className="text-xs bg-blue-50 text-blue-700 border-blue-200"
-                                        >
-                                          Admin Set
-                                        </Badge>
                                       </div>
                                     );
                                   } else {
@@ -2647,23 +2773,7 @@ export default function AllocateAssetsPage() {
                                     ) ||
                                       data.pricingOptionId ===
                                         "custom_pricing" ? (
-                                      <Input
-                                        type="number"
-                                        value={data.price}
-                                        onChange={(e) =>
-                                          updateAllocationData(
-                                            data.assetId,
-                                            "price",
-                                            parseFloat(e.target.value) || 0
-                                          )
-                                        }
-                                        className="w-20 h-8 text-xs"
-                                        placeholder="0.00"
-                                        step="0.01"
-                                        min="0"
-                                      />
-                                    ) : (
-                                      <div className="flex flex-col items-center gap-1">
+                                      <div className="flex items-center gap-2">
                                         <Input
                                           type="number"
                                           value={data.price}
@@ -2674,11 +2784,133 @@ export default function AllocateAssetsPage() {
                                               parseFloat(e.target.value) || 0
                                             )
                                           }
-                                          className="w-20 h-8 text-xs font-medium"
+                                          className="w-20 h-8 text-xs"
                                           placeholder="0.00"
                                           step="0.01"
                                           min="0"
                                         />
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0 hover:bg-amber-100"
+                                            >
+                                              <StickyNote className="h-3 w-3 text-amber-600" />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-80 p-3">
+                                            <div className="space-y-3">
+                                              <h4 className="font-medium text-sm">
+                                                Pricing Note
+                                              </h4>
+                                              <Textarea
+                                                placeholder="Add pricing note..."
+                                                value={
+                                                  pricingComments[
+                                                    data.assetId
+                                                  ] || ""
+                                                }
+                                                onChange={(e) => {
+                                                  setPricingComments(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [data.assetId]:
+                                                        e.target.value,
+                                                    })
+                                                  );
+                                                }}
+                                                onBlur={() => {
+                                                  if (
+                                                    pricingComments[
+                                                      data.assetId
+                                                    ] !== undefined
+                                                  ) {
+                                                    handlePricingCommentUpdate(
+                                                      data.assetId,
+                                                      pricingComments[
+                                                        data.assetId
+                                                      ]
+                                                    );
+                                                  }
+                                                }}
+                                                className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                rows={3}
+                                              />
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center gap-1">
+                                        <div className="flex items-center gap-2">
+                                          <Input
+                                            type="number"
+                                            value={data.price}
+                                            onChange={(e) =>
+                                              updateAllocationData(
+                                                data.assetId,
+                                                "price",
+                                                parseFloat(e.target.value) || 0
+                                              )
+                                            }
+                                            className="w-20 h-8 text-xs font-medium"
+                                            placeholder="0.00"
+                                            step="0.01"
+                                            min="0"
+                                          />
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 hover:bg-amber-100"
+                                              >
+                                                <StickyNote className="h-3 w-3 text-amber-600" />
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-80 p-3">
+                                              <div className="space-y-3">
+                                                <h4 className="font-medium text-sm">
+                                                  Pricing Note
+                                                </h4>
+                                                <Textarea
+                                                  placeholder="Add pricing note..."
+                                                  value={
+                                                    pricingComments[
+                                                      data.assetId
+                                                    ] || ""
+                                                  }
+                                                  onChange={(e) => {
+                                                    setPricingComments(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        [data.assetId]:
+                                                          e.target.value,
+                                                      })
+                                                    );
+                                                  }}
+                                                  onBlur={() => {
+                                                    if (
+                                                      pricingComments[
+                                                        data.assetId
+                                                      ] !== undefined
+                                                    ) {
+                                                      handlePricingCommentUpdate(
+                                                        data.assetId,
+                                                        pricingComments[
+                                                          data.assetId
+                                                        ]
+                                                      );
+                                                    }
+                                                  }}
+                                                  className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                  rows={3}
+                                                />
+                                              </div>
+                                            </PopoverContent>
+                                          </Popover>
+                                        </div>
                                         <Badge
                                           variant="outline"
                                           className="text-xs bg-gray-50 text-gray-600 border-gray-200"

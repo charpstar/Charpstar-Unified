@@ -189,6 +189,8 @@ const getStatusLabelText = (status: string): string => {
       return "In Progress";
     case "waiting_for_approval":
       return "Delivered by Artist";
+    case "unallocated":
+      return "Not Allocated";
     default:
       return status;
   }
@@ -214,6 +216,8 @@ const getStatusIcon = (status: string) => {
       return null;
     case "revisions":
       return <RotateCcw className="h-4 w-4 text-orange-600" />;
+    case "unallocated":
+      return <Users className="h-4 w-4 text-red-600" />;
     default:
       return <Eye className="h-4 w-4 text-gray-600" />;
   }
@@ -1531,9 +1535,21 @@ export default function AdminReviewPage() {
 
     // Apply status filter
     if (statusFilters.length > 0) {
-      filteredAssets = filteredAssets.filter((asset) =>
-        statusFilters.includes(asset.status)
-      );
+      filteredAssets = filteredAssets.filter((asset) => {
+        // Handle special "unallocated" filter
+        if (statusFilters.includes("unallocated")) {
+          // Check if asset is unallocated (not in assignedAssets map)
+          const isUnallocated = !assignedAssets.has(asset.id);
+          // Include unallocated assets OR assets matching other status filters
+          return (
+            isUnallocated ||
+            statusFilters
+              .filter((s) => s !== "unallocated")
+              .includes(asset.status)
+          );
+        }
+        return statusFilters.includes(asset.status);
+      });
     }
 
     // Default sort: status progression like QA Review
@@ -3005,6 +3021,7 @@ export default function AdminReviewPage() {
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 {[
+                  "unallocated",
                   "in_production",
                   "revisions",
                   "approved",
