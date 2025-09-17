@@ -217,6 +217,7 @@ export async function POST(request: NextRequest) {
           role: "qa",
           assigned_by: user.id,
           start_time: new Date().toISOString(),
+          is_provisional: true,
         }));
 
         const { error: qaError } = await supabaseAdmin

@@ -328,127 +328,308 @@ export default function QAReviewPage() {
       setLoading(true);
       startLoading();
 
-      // First, get the modelers allocated to this QA user
-      const { data: qaAllocations, error: allocationError } = await supabase
-        .from("qa_allocations")
-        .select("modeler_id")
-        .eq("qa_id", user?.id);
+      // Fetch both regular and provisional QA assignments
+      const [regularAssets, provisionalAssets] = await Promise.all([
+        fetchRegularQAAssets(),
+        fetchProvisionalQAAssets(),
+      ]);
 
-      if (allocationError) {
-        console.error("Error fetching QA allocations:", allocationError);
-        toast.error("Failed to fetch your modeler allocations");
-        return;
-      }
+      // Combine and deduplicate assets
+      const allAssets = [...regularAssets, ...provisionalAssets];
+      const uniqueAssets = allAssets.filter(
+        (asset, index, self) =>
+          index === self.findIndex((a) => a.id === asset.id)
+      );
 
-      if (!qaAllocations || qaAllocations.length === 0) {
-        setAssets([]);
-        return;
-      }
+      setAssets(uniqueAssets);
 
-      const allocatedModelerIds = qaAllocations.map((a) => a.modeler_id);
+      // Set available modelers for filter dropdown
+      const uniqueModelers = uniqueAssets
+        .map((asset) => asset.modeler)
+        .filter(
+          (modeler, index, self) =>
+            modeler && self.findIndex((m) => m?.id === modeler.id) === index
+        ) as Array<{ id: string; email: string; title?: string }>;
+      setAvailableModelers(uniqueModelers);
 
-      // Get assets assigned to the allocated modelers
-      const { data: assetAssignments, error: assignmentError } = await supabase
+      // Populate clients array for filter dropdown
+      const uniqueClients = Array.from(
+        new Set(uniqueAssets.map((asset) => asset.client).filter(Boolean))
+      ).sort();
+      setClients(uniqueClients);
+    } catch (error) {
+      console.error("Error fetching assigned assets:", error);
+      toast.error("Failed to fetch your assigned assets");
+    } finally {
+      setLoading(false);
+      stopLoading();
+    }
+  };
+
+  const fetchRegularQAAssets = async (): Promise<AssignedAsset[]> => {
+    // First, get the modelers allocated to this QA user
+    const { data: qaAllocations, error: allocationError } = await supabase
+      .from("qa_allocations")
+      .select("modeler_id")
+      .eq("qa_id", user?.id);
+
+    if (allocationError) {
+      console.error("Error fetching QA allocations:", allocationError);
+      return [];
+    }
+
+    if (!qaAllocations || qaAllocations.length === 0) {
+      return [];
+    }
+
+    const allocatedModelerIds = qaAllocations.map((a) => a.modeler_id);
+
+    // Get assets assigned to the allocated modelers
+    const { data: assetAssignments, error: assignmentError } = await supabase
+      .from("asset_assignments")
+      .select(
+        `
+        asset_id,
+        user_id,
+        price,
+        onboarding_assets!inner(
+          id,
+          product_name,
+          article_id,
+          client,
+          batch,
+          priority,
+          delivery_date,
+          status,
+          glb_link,
+          product_link,
+          category,
+          subcategory,
+          subcategory_missing,
+          created_at,
+          reference,
+          upload_order
+        )
+      `
+      )
+      .in("user_id", allocatedModelerIds)
+      .eq("role", "modeler")
+      .order("upload_order", {
+        ascending: true,
+        referencedTable: "onboarding_assets",
+      });
+
+    if (assignmentError) {
+      console.error(
+        "Error fetching regular asset assignments:",
+        assignmentError
+      );
+      return [];
+    }
+
+    return await processAssetAssignments(assetAssignments || []);
+  };
+
+  const fetchProvisionalQAAssets = async (): Promise<AssignedAsset[]> => {
+    // Get assets directly assigned to this QA as provisional
+    const { data: provisionalAssignments, error: provisionalError } =
+      await supabase
         .from("asset_assignments")
         .select(
           `
-          asset_id,
-          user_id,
-          price,
-          onboarding_assets!inner(
-            id,
-            product_name,
-            article_id,
-            client,
-            batch,
-            priority,
-            delivery_date,
-            status,
-            glb_link,
-            product_link,
-            category,
-            subcategory,
-            subcategory_missing,
-            created_at,
-            reference,
-            upload_order
-          )
-        `
+        asset_id,
+        user_id,
+        price,
+        onboarding_assets!inner(
+          id,
+          product_name,
+          article_id,
+          client,
+          batch,
+          priority,
+          delivery_date,
+          status,
+          glb_link,
+          product_link,
+          category,
+          subcategory,
+          subcategory_missing,
+          created_at,
+          reference,
+          upload_order
         )
-        .in("user_id", allocatedModelerIds)
-        .eq("role", "modeler")
+      `
+        )
+        .eq("user_id", user?.id)
+        .eq("role", "qa")
+        .eq("is_provisional", true)
         .order("upload_order", {
           ascending: true,
           referencedTable: "onboarding_assets",
         });
 
-      if (assignmentError) {
-        console.error("Error fetching asset assignments:", assignmentError);
-        toast.error("Failed to fetch your assigned assets");
-        return;
-      }
-
-      // Get modeler details for the allocated modelers
-      const { data: modelerDetails, error: modelerError } = await supabase
-        .from("profiles")
-        .select("id, email, title")
-        .in("id", allocatedModelerIds);
-
-      if (modelerError) {
-        console.error("Error fetching modeler details:", modelerError);
-      }
-
-      // Create a map of modeler info by ID
-      const modelerMap = new Map();
-      modelerDetails?.forEach((modeler) => {
-        modelerMap.set(modeler.id, {
-          id: modeler.id,
-          email: modeler.email,
-          title: modeler.title,
-        });
-      });
-
-      // Set available modelers for filter dropdown
-      setAvailableModelers(modelerDetails || []);
-
-      // Transform the data
-      const transformedAssets: AssignedAsset[] =
-        assetAssignments?.map((assignment) => {
-          const asset = assignment.onboarding_assets as any;
-          return {
-            id: assignment.asset_id,
-            product_name: asset.product_name,
-            article_id: asset.article_id,
-            client: asset.client,
-            batch: asset.batch,
-            priority: asset.priority,
-            delivery_date: asset.delivery_date,
-            status: asset.status,
-            glb_link: asset.glb_link,
-            product_link: asset.product_link,
-            category: asset.category,
-            subcategory: asset.subcategory,
-            created_at: asset.created_at,
-            reference: asset.reference,
-            price: assignment.price || 0,
-            modeler: modelerMap.get(assignment.user_id),
-          };
-        }) || [];
-
-      setAssets(transformedAssets);
-
-      // Populate clients array for filter dropdown
-      const uniqueClients = Array.from(
-        new Set(transformedAssets.map((asset) => asset.client).filter(Boolean))
-      ).sort();
-      setClients(uniqueClients);
-    } catch (error) {
-      console.error("Error fetching assigned assets:", error);
-      toast.error("Failed to fetch assigned assets");
-    } finally {
-      setLoading(false);
-      stopLoading();
+    if (provisionalError) {
+      console.error(
+        "Error fetching provisional QA assignments:",
+        provisionalError
+      );
+      return [];
     }
+
+    // For provisional assets, we need to find the original modeler
+    const provisionalAssets = await processProvisionalAssetAssignments(
+      provisionalAssignments || []
+    );
+    return provisionalAssets;
+  };
+
+  const processAssetAssignments = async (
+    assetAssignments: any[]
+  ): Promise<AssignedAsset[]> => {
+    if (!assetAssignments.length) return [];
+
+    // Get unique modeler IDs from assignments
+    const modelerIds = [...new Set(assetAssignments.map((a) => a.user_id))];
+
+    // Get modeler details
+    const { data: modelerDetails, error: modelerError } = await supabase
+      .from("profiles")
+      .select("id, email, title")
+      .in("id", modelerIds);
+
+    if (modelerError) {
+      console.error("Error fetching modeler details:", modelerError);
+      return [];
+    }
+
+    // Create a map of modeler details
+    const modelerMap = new Map(
+      modelerDetails?.map((modeler) => [modeler.id, modeler]) || []
+    );
+
+    // Transform asset assignments to AssignedAsset format
+    const assets: AssignedAsset[] = assetAssignments.map((assignment) => {
+      const asset = assignment.onboarding_assets;
+      const modeler = modelerMap.get(assignment.user_id);
+
+      return {
+        id: asset.id,
+        product_name: asset.product_name,
+        article_id: asset.article_id,
+        client: asset.client,
+        batch: asset.batch,
+        priority: asset.priority,
+        delivery_date: asset.delivery_date,
+        status: asset.status,
+        glb_link: asset.glb_link,
+        product_link: asset.product_link,
+        category: asset.category,
+        subcategory: asset.subcategory,
+        subcategory_missing: asset.subcategory_missing,
+        created_at: asset.created_at,
+        reference: asset.reference,
+        price: assignment.price || 0,
+        modeler: modeler
+          ? {
+              id: modeler.id,
+              email: modeler.email,
+              title: modeler.title,
+            }
+          : undefined,
+      };
+    });
+
+    return assets;
+  };
+
+  const processProvisionalAssetAssignments = async (
+    provisionalAssignments: any[]
+  ): Promise<AssignedAsset[]> => {
+    if (!provisionalAssignments.length) return [];
+
+    // For provisional assignments, we need to find the original modelers
+    const assetIds = provisionalAssignments.map((a) => a.asset_id);
+
+    // Get the modeler assignments for these assets
+    const { data: modelerAssignments, error: modelerError } = await supabase
+      .from("asset_assignments")
+      .select("asset_id, user_id")
+      .in("asset_id", assetIds)
+      .eq("role", "modeler");
+
+    if (modelerError) {
+      console.error(
+        "Error fetching modeler assignments for provisional assets:",
+        modelerError
+      );
+      return [];
+    }
+
+    // Get unique modeler IDs
+    const modelerIds = [
+      ...new Set(modelerAssignments?.map((a) => a.user_id) || []),
+    ];
+
+    // Get modeler details separately
+    const { data: modelerDetails, error: modelerDetailsError } = await supabase
+      .from("profiles")
+      .select("id, email, title")
+      .in("id", modelerIds);
+
+    if (modelerDetailsError) {
+      console.error(
+        "Error fetching modeler details for provisional assets:",
+        modelerDetailsError
+      );
+      return [];
+    }
+
+    // Create modeler map
+    const modelerMap = new Map(
+      modelerDetails?.map((modeler) => [modeler.id, modeler]) || []
+    );
+
+    // Create a map of asset to modeler
+    const assetToModelerMap = new Map(
+      modelerAssignments?.map((assignment) => [
+        assignment.asset_id,
+        modelerMap.get(assignment.user_id),
+      ]) || []
+    );
+
+    // Transform provisional assignments to AssignedAsset format
+    const assets: AssignedAsset[] = provisionalAssignments.map((assignment) => {
+      const asset = assignment.onboarding_assets;
+      const modeler = assetToModelerMap.get(assignment.asset_id);
+
+      return {
+        id: asset.id,
+        product_name: asset.product_name,
+        article_id: asset.article_id,
+        client: asset.client,
+        batch: asset.batch,
+        priority: asset.priority,
+        delivery_date: asset.delivery_date,
+        status: asset.status,
+        glb_link: asset.glb_link,
+        product_link: asset.product_link,
+        category: asset.category,
+        subcategory: asset.subcategory,
+        subcategory_missing: asset.subcategory_missing,
+        created_at: asset.created_at,
+        reference: asset.reference,
+        price: assignment.price || 0,
+        modeler: modeler
+          ? {
+              id: modeler.id,
+              email: modeler.email,
+              title: modeler.title,
+            }
+          : undefined,
+      };
+    });
+
+    return assets;
   };
 
   const filterAndSortAssets = () => {
