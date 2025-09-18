@@ -574,13 +574,15 @@ const QAStatisticsPage = () => {
                       dataKey="reviews"
                       fill="hsl(var(--chart-1))"
                       name="Reviews"
-                      radius={[4, 4, 0, 0]}
+                      radius={[3, 3, 0, 0]}
+                      barSize={40}
                     />
                     <Bar
                       dataKey="approvals"
                       fill="hsl(var(--chart-2))"
                       name="Approvals"
-                      radius={[4, 4, 0, 0]}
+                      radius={[3, 3, 0, 0]}
+                      barSize={40}
                     />
                   </BarChart>
                 </ChartContainer>

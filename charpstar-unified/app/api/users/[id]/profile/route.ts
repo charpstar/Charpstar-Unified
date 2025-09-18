@@ -89,3 +89,82 @@ export async function GET(
     );
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabaseAuth = createRouteHandlerClient({ cookies });
+    const {
+      data: { user },
+    } = await supabaseAuth.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check if user is admin
+    const { data: profile } = await supabaseAuth
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile || profile.role !== "admin") {
+      return NextResponse.json(
+        { error: "Admin access required" },
+        { status: 403 }
+      );
+    }
+
+    const { id: userId } = await params;
+    const { name } = await request.json();
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return NextResponse.json(
+        { error: "Valid name is required" },
+        { status: 400 }
+      );
+    }
+
+    // Update the user's name in auth user_metadata
+    const { error: updateError } =
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        user_metadata: { name: name.trim() },
+      });
+
+    if (updateError) {
+      console.error("Error updating user name:", updateError);
+      return NextResponse.json(
+        { error: "Failed to update user name" },
+        { status: 500 }
+      );
+    }
+
+    // Also update in profiles table if name field exists
+    const { error: profileUpdateError } = await supabaseAdmin
+      .from("profiles")
+      .update({ name: name.trim() })
+      .eq("id", userId);
+
+    if (profileUpdateError) {
+      console.log(
+        "Note: Could not update name in profiles table:",
+        profileUpdateError
+      );
+      // This is not critical since the primary source is user_metadata
+    }
+
+    return NextResponse.json({
+      message: "User name updated successfully",
+      name: name.trim(),
+    });
+  } catch (error) {
+    console.error("Error updating user name:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

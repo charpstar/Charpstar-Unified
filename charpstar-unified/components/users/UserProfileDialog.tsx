@@ -43,6 +43,9 @@ import {
   Link2,
   Shield,
   Building,
+  Edit3,
+  Save,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -183,6 +186,11 @@ export default function UserProfileDialog({
 
   // Upload dialog state
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+
+  // Name editing state
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -366,6 +374,54 @@ export default function UserProfileDialog({
     }
   }, [newComment, userId, fetchUserProfile]);
 
+  const startEditingName = useCallback(() => {
+    if (user) {
+      setEditedName(user.name);
+      setIsEditingName(true);
+    }
+  }, [user]);
+
+  const cancelEditingName = useCallback(() => {
+    setIsEditingName(false);
+    setEditedName("");
+  }, []);
+
+  const saveUserName = useCallback(async () => {
+    if (!editedName.trim() || !userId || !user) return;
+
+    setSavingName(true);
+    try {
+      const response = await fetch(`/api/users/${userId}/profile`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: editedName.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update user name: ${response.status}`);
+      }
+
+      // Update the user state immediately
+      setUser((prevUser) => ({
+        ...prevUser!,
+        name: editedName.trim(),
+      }));
+
+      toast.success("User name updated successfully");
+      setIsEditingName(false);
+      setEditedName("");
+    } catch (error) {
+      console.error("Error updating user name:", error);
+      toast.error("Failed to update user name");
+    } finally {
+      setSavingName(false);
+    }
+  }, [editedName, userId, user]);
+
   const uploadPortfolioImage = useCallback(
     async (file: File) => {
       if (!userId || !file) return;
@@ -521,7 +577,57 @@ export default function UserProfileDialog({
 
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-semibold">{user.name}</h2>
+                  {isEditingName ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <Input
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        className="text-xl font-semibold h-auto py-1 px-2 flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            saveUserName();
+                          } else if (e.key === "Escape") {
+                            cancelEditingName();
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <Button
+                        onClick={saveUserName}
+                        disabled={savingName || !editedName.trim()}
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                      >
+                        {savingName ? (
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
+                        ) : (
+                          <Save className="h-3 w-3" />
+                        )}
+                      </Button>
+                      <Button
+                        onClick={cancelEditingName}
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <h2 className="text-xl font-semibold">{user.name}</h2>
+                      {currentUserRole === "admin" && (
+                        <Button
+                          onClick={startEditingName}
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-muted"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </>
+                  )}
                   <Badge variant={getRoleBadgeVariant(user.role)}>
                     <Shield className="h-3 w-3 mr-1" />
                     {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
