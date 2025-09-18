@@ -367,7 +367,7 @@ export default function FAQPage() {
         </div>
 
         {/* Search and Filters */}
-        <Card className="border shadow-sm">
+        <Card className="border shadow-sm bg-background border-border max-w-[1000px] mx-auto">
           <CardContent className="p-4">
             <div className="flex flex-col lg:flex-row gap-3">
               <div className="flex-1">
@@ -501,16 +501,16 @@ export default function FAQPage() {
                     {categoryFaqs.map((faq) => (
                       <Card
                         key={faq.id}
-                        className={`hover:shadow-sm transition-all duration-200 border-l-2 ${
+                        className={`transition-all duration-300 ease-in-out border-l-2 ${
                           expandedFaqs.has(faq.id)
-                            ? `${categoryData.color} shadow-sm`
-                            : `${categoryData.color}`
+                            ? `${categoryData.color} shadow-md border-r border-t border-b ${categoryData.color.replace("bg-", "border-")}/20`
+                            : `${categoryData.color} hover:shadow-sm border-transparent`
                         } bg-white max-w-[1000px] mx-auto`}
                       >
                         <CardContent className="p-0">
                           <button
                             onClick={() => toggleExpanded(faq.id)}
-                            className="w-full p-3 text-left hover:bg-slate-50 transition-colors group"
+                            className="w-full p-3 text-left hover:bg-slate-50 transition-all duration-200 ease-in-out group"
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-start gap-2 flex-1">
@@ -572,23 +572,25 @@ export default function FAQPage() {
                                   </div>
                                 )}
                                 <div
-                                  className={`p-1 rounded-full ${
+                                  className={`p-1 rounded-full transition-all duration-300 ease-in-out ${
                                     expandedFaqs.has(faq.id)
-                                      ? "bg-green-100 text-green-600"
-                                      : "bg-slate-100 text-slate-500"
-                                  } group-hover:scale-105 transition-all duration-200`}
+                                      ? "bg-green-100 text-green-600 rotate-180"
+                                      : "bg-slate-100 text-slate-500 rotate-0"
+                                  } group-hover:scale-110 group-hover:bg-blue-100 group-hover:text-blue-600`}
                                 >
-                                  {expandedFaqs.has(faq.id) ? (
-                                    <ChevronUp className="h-3 w-3" />
-                                  ) : (
-                                    <ChevronDown className="h-3 w-3" />
-                                  )}
+                                  <ChevronDown className="h-3 w-3 transition-transform duration-300 ease-in-out" />
                                 </div>
                               </div>
                             </div>
                           </button>
-                          {expandedFaqs.has(faq.id) && (
-                            <div className="px-3 pb-3 pt-0 animate-in slide-in-from-top-2 duration-200">
+                          <div
+                            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                              expandedFaqs.has(faq.id)
+                                ? "max-h-96 opacity-100"
+                                : "max-h-0 opacity-0"
+                            }`}
+                          >
+                            <div className="px-3 pb-3 pt-0">
                               <div className="border-t border-slate-200 pt-2">
                                 <div className="flex items-start gap-2">
                                   <div className="p-1 bg-green-100 rounded">
@@ -600,7 +602,7 @@ export default function FAQPage() {
                                 </div>
                               </div>
                             </div>
-                          )}
+                          </div>
                         </CardContent>
                       </Card>
                     ))}

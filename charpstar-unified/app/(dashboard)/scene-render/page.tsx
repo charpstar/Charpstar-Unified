@@ -5,6 +5,12 @@ import "./scene-render.css";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { Button } from "@/components/ui/display";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/containers";
 import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import FileUploader from "@/components/scene-render/FileUploader";
@@ -98,11 +104,13 @@ export default function SceneRenderPage() {
   // Show loading state while user context is initializing
   if (user === null) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+      <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -113,13 +121,19 @@ export default function SceneRenderPage() {
     (user.metadata?.role !== "client" && user.metadata?.role !== "admin")
   ) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">Access Denied</h1>
-          <p className="text-muted-foreground">
-            This page is only available for clients and administrators.
-          </p>
-        </div>
+      <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-semibold">
+              Access Denied
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-muted-foreground">
+              This page is only available for clients and administrators.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -148,14 +162,16 @@ export default function SceneRenderPage() {
         );
       case "error":
         return (
-          <div className="text-center p-8 glass-card rounded-xl shadow-2xl animate-fade-in">
-            <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
-              An Error Occurred
-            </h2>
-            <p className="text-gray-700 dark:text-gray-300 mb-6">{error}</p>
-            <button onClick={handleReset} className="btn btn-primary">
-              Try Again
-            </button>
+          <div className="text-center p-6">
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg mb-4">
+              <h3 className="text-lg font-semibold text-destructive mb-2">
+                An Error Occurred
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">{error}</p>
+              <Button onClick={handleReset} variant="outline" size="sm">
+                Try Again
+              </Button>
+            </div>
           </div>
         );
       default:
@@ -164,35 +180,125 @@ export default function SceneRenderPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-transparent flex flex-col items-center justify-center p-4">
+    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header with Back Button */}
-      <header className="w-full max-w-4xl mx-auto text-center mb-10">
-        <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+        <div className="flex items-center gap-2 sm:gap-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/dashboard")}
-            className="gap-2"
+            className="gap-2 h-8 sm:h-9 text-sm"
           >
-            <ChevronLeft className="h-4 w-4" />
-            Back to Dashboard
+            <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
           </Button>
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-          3D Product Stager
-        </h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400 mt-3">
-          Instantly create professional e-commerce photoshoots for your 3D
-          models.
-        </p>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="w-full max-w-4xl min-h-[500px] flex items-center justify-center mx-auto">
-        {renderContent()}
-      </main>
+      <Card className="p-3 sm:p-6 flex-1 flex flex-col border-0 shadow-none">
+        {/* Page Title and Description */}
+        <CardHeader className="text-center pb-6">
+          <CardTitle className="text-2xl sm:text-3xl font-bold mb-2">
+            3D Product Stager
+          </CardTitle>
+          <p className="text-muted-foreground text-sm sm:text-base">
+            Instantly create professional e-commerce photoshoots for your 3D
+            models.
+          </p>
+        </CardHeader>
 
-      {/* Footer */}
+        {/* Progress Indicator */}
+        <div className="flex items-center justify-center mb-6">
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Step 1 - Upload */}
+            <div
+              className={`flex items-center gap-2 ${
+                appState === "upload"
+                  ? "text-primary"
+                  : ["preview", "generating", "results"].includes(appState)
+                    ? "text-green-600"
+                    : "text-muted-foreground"
+              }`}
+            >
+              <div
+                className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm ${
+                  appState === "upload"
+                    ? "border-primary bg-primary/10"
+                    : ["preview", "generating", "results"].includes(appState)
+                      ? "border-green-600 bg-green-600/10"
+                      : "border-muted-foreground"
+                }`}
+              >
+                {["preview", "generating", "results"].includes(appState)
+                  ? "✓"
+                  : "1"}
+              </div>
+              <span className="text-xs sm:text-sm font-medium">Upload</span>
+            </div>
+
+            {/* Divider */}
+            <div className="w-8 sm:w-12 h-px bg-border"></div>
+
+            {/* Step 2 - Configure */}
+            <div
+              className={`flex items-center gap-2 ${
+                appState === "preview"
+                  ? "text-primary"
+                  : ["generating", "results"].includes(appState)
+                    ? "text-green-600"
+                    : "text-muted-foreground"
+              }`}
+            >
+              <div
+                className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm ${
+                  appState === "preview"
+                    ? "border-primary bg-primary/10"
+                    : ["generating", "results"].includes(appState)
+                      ? "border-green-600 bg-green-600/10"
+                      : "border-muted-foreground"
+                }`}
+              >
+                {["generating", "results"].includes(appState) ? "✓" : "2"}
+              </div>
+              <span className="text-xs sm:text-sm font-medium">Configure</span>
+            </div>
+
+            {/* Divider */}
+            <div className="w-8 sm:w-12 h-px bg-border"></div>
+
+            {/* Step 3 - Generate */}
+            <div
+              className={`flex items-center gap-2 ${
+                appState === "generating"
+                  ? "text-primary"
+                  : appState === "results"
+                    ? "text-green-600"
+                    : "text-muted-foreground"
+              }`}
+            >
+              <div
+                className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm ${
+                  appState === "generating"
+                    ? "border-primary bg-primary/10"
+                    : appState === "results"
+                      ? "border-green-600 bg-green-600/10"
+                      : "border-muted-foreground"
+                }`}
+              >
+                {appState === "results" ? "✓" : "3"}
+              </div>
+              <span className="text-xs sm:text-sm font-medium">Generate</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <CardContent className="flex-1 flex items-center justify-center min-h-[400px]">
+          {renderContent()}
+        </CardContent>
+      </Card>
     </div>
   );
 }

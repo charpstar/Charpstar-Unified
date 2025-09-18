@@ -44,6 +44,7 @@ import {
   Shield,
   Building,
 } from "lucide-react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -754,10 +755,12 @@ export default function UserProfileDialog({
                     {user.portfolio_images?.map((image) => (
                       <Card key={image.id} className="overflow-hidden">
                         <div className="aspect-square relative">
-                          <img
+                          <Image
                             src={image.url}
                             alt={image.title}
                             className="w-full h-full object-cover"
+                            width={64}
+                            height={64}
                           />
                         </div>
                         <CardContent className="p-3">
@@ -1031,10 +1034,12 @@ export default function UserProfileDialog({
                     {user.portfolio_images?.map((image) => (
                       <Card key={image.id} className="overflow-hidden">
                         <div className="aspect-square relative">
-                          <img
+                          <Image
                             src={image.url}
                             alt={image.title}
                             className="w-full h-full object-cover"
+                            width={64}
+                            height={64}
                           />
                         </div>
                         <CardContent className="p-3">
