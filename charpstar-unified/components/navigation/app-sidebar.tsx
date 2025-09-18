@@ -20,6 +20,7 @@ import {
   Palette,
   HelpCircle,
   Bug,
+  ShieldCheck,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -161,9 +162,19 @@ export default function AppSidebar({
                 icon: DollarSign,
               },
               {
+                title: "QA Statistics",
+                url: "/qa-statistics",
+                icon: ShieldCheck,
+              },
+              {
                 title: "Create Users",
                 url: "/create-users",
                 icon: UserPlus,
+              },
+              {
+                title: "Users",
+                url: "/users",
+                icon: Users,
               },
               {
                 title: "Pending Replies",
@@ -219,6 +230,11 @@ export default function AppSidebar({
             url: "/qa-review",
             icon: MessageSquare,
           },
+          {
+            title: "Users",
+            url: "/users",
+            icon: Users,
+          },
         ]
       : [];
 
@@ -230,6 +246,7 @@ export default function AppSidebar({
     "Client information": 20,
     Onboarding: 30,
     "Create Users": 40,
+    Users: 45,
     "Cost Tracking": 50,
 
     // General

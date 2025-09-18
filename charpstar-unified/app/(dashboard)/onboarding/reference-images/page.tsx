@@ -837,7 +837,7 @@ export default function ReferenceImagesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12">
+                      <TableHead className="w-12 text-left">
                         <Input
                           type="checkbox"
                           checked={selected.size === assets.length}
@@ -848,9 +848,9 @@ export default function ReferenceImagesPage() {
                           aria-invalid="false"
                         />
                       </TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Article ID</TableHead>
-                      <TableHead>References</TableHead>
+                      <TableHead className="text-left">Product</TableHead>
+                      <TableHead className="text-left">Article ID</TableHead>
+                      <TableHead className="text-left">References</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -859,7 +859,7 @@ export default function ReferenceImagesPage() {
 
                       return (
                         <TableRow key={asset.id}>
-                          <TableCell>
+                          <TableCell className="text-left">
                             <Input
                               type="checkbox"
                               checked={selected.has(asset.id)}
@@ -868,7 +868,7 @@ export default function ReferenceImagesPage() {
                               aria-invalid="false"
                             />
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-left">
                             <div>
                               <p
                                 className="font-medium truncate max-w-[200px] cursor-help"
@@ -884,12 +884,12 @@ export default function ReferenceImagesPage() {
                               </p>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-left">
                             <code className="text-sm bg-muted px-2 py-1 rounded">
                               {asset.article_id}
                             </code>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-left">
                             <div className="flex flex-col items-center gap-1">
                               <Button
                                 variant="outline"

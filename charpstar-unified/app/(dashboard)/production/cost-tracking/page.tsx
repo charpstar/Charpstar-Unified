@@ -944,14 +944,16 @@ export default function CostTrackingPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs sm:text-sm">Month</TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Month
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Total Assets
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Completed Cost
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Pending Cost
                     </TableHead>
                   </TableRow>
@@ -965,7 +967,7 @@ export default function CostTrackingPage() {
                     )
                     .map((month) => (
                       <TableRow key={month.monthYear}>
-                        <TableCell>
+                        <TableCell className="text-left">
                           <div>
                             <div className="font-medium text-sm sm:text-base">
                               {month.monthYear}
@@ -976,23 +978,23 @@ export default function CostTrackingPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="text-center">
+                        <TableCell className="text-left">
+                          <div>
                             <span className="font-medium text-sm sm:text-base">
                               {month.assetCount}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 text-right justify-center">
+                        <TableCell className="text-left">
+                          <div className="flex items-center gap-1">
                             <Euro className="h-3 w-3 text-green-600" />
                             <span className="font-medium text-green-700 text-sm sm:text-base">
                               €{month.completedCost.toFixed(2)}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 text-right justify-center">
+                        <TableCell className="text-left">
+                          <div className="flex items-center gap-1">
                             <Euro className="h-3 w-3 text-amber-600" />
                             <span className="font-medium text-amber-700 text-sm sm:text-base">
                               €{month.pendingCost.toFixed(2)}
@@ -1347,31 +1349,31 @@ export default function CostTrackingPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Modeler
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Total Assets
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Base Cost
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Bonus Cost
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Total Cost (Client-Approved)
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Client-Approved Cost
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Pending Cost
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Client-Approved
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Pending
                     </TableHead>
                   </TableRow>
@@ -1379,7 +1381,7 @@ export default function CostTrackingPage() {
                 <TableBody>
                   {filteredModelerCosts.map((modeler) => (
                     <TableRow key={modeler.modelerId}>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div>
                           <div className="font-medium text-sm sm:text-base">
                             {modeler.modelerEmail}
@@ -1389,31 +1391,31 @@ export default function CostTrackingPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-center">
+                      <TableCell className="text-left">
+                        <div>
                           <span className="font-medium text-sm sm:text-base">
                             {modeler.totalAssets}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-right justify-center">
+                      <TableCell className="text-left">
+                        <div className="flex items-center gap-1">
                           <Euro className="h-3 w-3 text-muted-foreground" />
                           <span className="font-medium text-sm sm:text-base">
                             €{modeler.baseCost.toFixed(2)}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-right justify-center">
+                      <TableCell className="text-left">
+                        <div className="flex items-center gap-1">
                           <Euro className="h-3 w-3 text-muted-foreground" />
                           <span className="font-medium text-sm sm:text-base">
                             €{modeler.bonusCost.toFixed(2)}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-right justify-center">
+                      <TableCell className="text-left">
+                        <div className="flex items-center gap-1">
                           <Euro className="h-3 w-3 text-muted-foreground" />
                           <span className="font-bold text-sm sm:text-lg">
                             €{modeler.totalCost.toFixed(2)}
@@ -1423,24 +1425,24 @@ export default function CostTrackingPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-right justify-center">
+                      <TableCell className="text-left">
+                        <div className="flex items-center gap-1">
                           <Euro className="h-3 w-3 text-green-600" />
                           <span className="font-medium text-green-700 text-sm sm:text-base">
                             €{modeler.completedCost.toFixed(2)}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-right justify-center">
+                      <TableCell className="text-left">
+                        <div className="flex items-center gap-1">
                           <Euro className="h-3 w-3 text-amber-600" />
                           <span className="font-medium text-amber-700 text-sm sm:text-base">
                             €{modeler.pendingCost.toFixed(2)}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-center">
+                      <TableCell className="text-left">
+                        <div>
                           <Badge
                             variant="outline"
                             className="bg-green-50 text-green-700 text-xs"
@@ -1449,8 +1451,8 @@ export default function CostTrackingPage() {
                           </Badge>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-center">
+                      <TableCell className="text-left">
+                        <div>
                           <Badge
                             variant="outline"
                             className="bg-amber-50 text-amber-700 text-xs"
@@ -1511,18 +1513,20 @@ export default function CostTrackingPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs sm:text-sm"></TableHead>
-                    <TableHead className="text-xs sm:text-sm">Client</TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left"></TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Client
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Completed Cost
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Pending Cost
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Completed
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Pending
                     </TableHead>
                   </TableRow>
@@ -1531,7 +1535,7 @@ export default function CostTrackingPage() {
                   {filteredClientCosts.map((client) => (
                     <React.Fragment key={client.client}>
                       <TableRow>
-                        <TableCell className="w-8 sm:w-10">
+                        <TableCell className="w-8 sm:w-10 text-left">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1550,7 +1554,7 @@ export default function CostTrackingPage() {
                             )}
                           </Button>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-left">
                           <div className="font-medium text-sm sm:text-base">
                             {client.client}
                           </div>
@@ -1559,23 +1563,23 @@ export default function CostTrackingPage() {
                             {client.pendingAssets} pending
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 justify-center">
+                        <TableCell className="text-left">
+                          <div className="flex items-center gap-1">
                             <Euro className="h-3 w-3 text-green-600" />
                             <span className="font-medium text-green-700 text-sm sm:text-base">
                               €{client.completedCost.toFixed(2)}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 justify-center">
+                        <TableCell className="text-left">
+                          <div className="flex items-center gap-1">
                             <Euro className="h-3 w-3 text-amber-600" />
                             <span className="font-medium text-amber-700 text-sm sm:text-base">
                               €{client.pendingCost.toFixed(2)}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-left">
                           <Badge
                             variant="outline"
                             className="bg-green-50 text-green-700 text-xs"
@@ -1583,7 +1587,7 @@ export default function CostTrackingPage() {
                             {client.completedAssets}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-left">
                           <Badge
                             variant="outline"
                             className="bg-amber-50 text-amber-700 text-xs"
@@ -1603,25 +1607,25 @@ export default function CostTrackingPage() {
                                 <Table>
                                   <TableHeader>
                                     <TableRow>
-                                      <TableHead className="text-xs sm:text-sm">
+                                      <TableHead className="text-xs sm:text-sm text-left">
                                         Modeler
                                       </TableHead>
-                                      <TableHead className="text-xs sm:text-sm">
+                                      <TableHead className="text-xs sm:text-sm text-left">
                                         Assets
                                       </TableHead>
-                                      <TableHead className="text-xs sm:text-sm">
+                                      <TableHead className="text-xs sm:text-sm text-left">
                                         Base
                                       </TableHead>
-                                      <TableHead className="text-xs sm:text-sm">
+                                      <TableHead className="text-xs sm:text-sm text-left">
                                         Bonus
                                       </TableHead>
-                                      <TableHead className="text-xs sm:text-sm">
+                                      <TableHead className="text-xs sm:text-sm text-left">
                                         Completed
                                       </TableHead>
-                                      <TableHead className="text-xs sm:text-sm">
+                                      <TableHead className="text-xs sm:text-sm text-left">
                                         Pending
                                       </TableHead>
-                                      <TableHead className="text-xs sm:text-sm">
+                                      <TableHead className="text-xs sm:text-sm text-left">
                                         Total (Client-Approved)
                                       </TableHead>
                                     </TableRow>
@@ -1629,27 +1633,27 @@ export default function CostTrackingPage() {
                                   <TableBody>
                                     {client.modelers.map((m) => (
                                       <TableRow key={m.modelerEmail}>
-                                        <TableCell>
+                                        <TableCell className="text-left">
                                           <div className="text-xs sm:text-sm">
                                             {m.modelerEmail}
                                           </div>
                                         </TableCell>
-                                        <TableCell className="text-center text-xs sm:text-sm">
+                                        <TableCell className="text-left text-xs sm:text-sm">
                                           {m.totalAssets}
                                         </TableCell>
-                                        <TableCell className="text-center text-xs sm:text-sm">
+                                        <TableCell className="text-left text-xs sm:text-sm">
                                           €{m.baseCost.toFixed(2)}
                                         </TableCell>
-                                        <TableCell className="text-center text-xs sm:text-sm">
+                                        <TableCell className="text-left text-xs sm:text-sm">
                                           €{m.bonusCost.toFixed(2)}
                                         </TableCell>
-                                        <TableCell className="text-center text-green-700 text-xs sm:text-sm">
+                                        <TableCell className="text-left text-green-700 text-xs sm:text-sm">
                                           €{m.completedCost.toFixed(2)}
                                         </TableCell>
-                                        <TableCell className="text-center text-amber-700 text-xs sm:text-sm">
+                                        <TableCell className="text-left text-amber-700 text-xs sm:text-sm">
                                           €{m.pendingCost.toFixed(2)}
                                         </TableCell>
-                                        <TableCell className="text-center font-medium text-xs sm:text-sm">
+                                        <TableCell className="text-left font-medium text-xs sm:text-sm">
                                           €{m.totalCost.toFixed(2)}
                                         </TableCell>
                                       </TableRow>

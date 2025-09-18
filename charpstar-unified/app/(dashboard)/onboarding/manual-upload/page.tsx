@@ -224,27 +224,27 @@ export default function ManualUploadPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>
+                <TableHead className="text-left">
                   Product Name <span className="text-red-500">*</span>
                 </TableHead>
-                <TableHead>
+                <TableHead className="text-left">
                   Article ID <span className="text-red-500">*</span>
                 </TableHead>
-                <TableHead>
+                <TableHead className="text-left">
                   Product Link <span className="text-red-500">*</span>
                 </TableHead>
-                <TableHead>CAD/File Link</TableHead>
-                <TableHead>
+                <TableHead className="text-left">CAD/File Link</TableHead>
+                <TableHead className="text-left">
                   Category <span className="text-red-500">*</span>
                 </TableHead>
-                <TableHead>Subcategory</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="text-left">Subcategory</TableHead>
+                <TableHead className="w-12 text-left"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((row, idx) => (
                 <TableRow key={idx}>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.product_name}
                       onChange={(e) =>
@@ -253,7 +253,7 @@ export default function ManualUploadPage() {
                       placeholder="E.g. Wooden Chair"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.article_id}
                       onChange={(e) =>
@@ -262,7 +262,7 @@ export default function ManualUploadPage() {
                       placeholder="E.g. ABC123"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.product_link}
                       onChange={(e) =>
@@ -271,7 +271,7 @@ export default function ManualUploadPage() {
                       placeholder="https://..."
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.cad_file_link}
                       onChange={(e) =>
@@ -280,7 +280,7 @@ export default function ManualUploadPage() {
                       placeholder="https://..."
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.category}
                       onChange={(e) =>
@@ -289,7 +289,7 @@ export default function ManualUploadPage() {
                       placeholder="E.g. Furniture"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.subcategory}
                       onChange={(e) =>
@@ -298,7 +298,7 @@ export default function ManualUploadPage() {
                       placeholder="E.g. Chair"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Button
                       variant="ghost"
                       size="sm"

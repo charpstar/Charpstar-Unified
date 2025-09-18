@@ -1306,11 +1306,11 @@ export default function AddProductsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Article ID</TableHead>
-                    <TableHead>Product Name</TableHead>
-                    <TableHead>Product Link</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="text-left">Article ID</TableHead>
+                    <TableHead className="text-left">Product Name</TableHead>
+                    <TableHead className="text-left">Product Link</TableHead>
+                    <TableHead className="text-left">Category</TableHead>
+                    <TableHead className="text-left">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1335,7 +1335,7 @@ export default function AddProductsPage() {
 
                     return (
                       <TableRow key={index} className={rowClassName}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium text-left">
                           {isEditing ? (
                             <Input
                               value={
@@ -1353,7 +1353,7 @@ export default function AddProductsPage() {
                             articleId || "-"
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-left">
                           {isEditing ? (
                             <Input
                               value={
@@ -1371,7 +1371,7 @@ export default function AddProductsPage() {
                             productName || "-"
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-left">
                           {isEditing ? (
                             <Input
                               value={

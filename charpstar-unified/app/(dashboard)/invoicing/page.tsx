@@ -1394,18 +1394,22 @@ export default function InvoicingPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Product
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">Client</TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Client
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Base Price
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Bonus Status
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm">Total</TableHead>
-                    <TableHead className="text-xs sm:text-sm">
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Total
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
                       Approved
                     </TableHead>
                   </TableRow>
@@ -1413,7 +1417,7 @@ export default function InvoicingPage() {
                 <TableBody>
                   {filteredAssets.map((asset) => (
                     <TableRow key={asset.id}>
-                      <TableCell className="min-w-[200px]">
+                      <TableCell className="min-w-[200px] text-left">
                         <div>
                           <div
                             className="font-medium truncate max-w-[180px] sm:max-w-[200px] cursor-help text-xs sm:text-sm"
@@ -1428,7 +1432,7 @@ export default function InvoicingPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="min-w-[120px]">
+                      <TableCell className="min-w-[120px] text-left">
                         <div>
                           <div className="font-medium text-xs sm:text-sm">
                             {asset.client}
@@ -1438,15 +1442,15 @@ export default function InvoicingPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="min-w-[100px]">
-                        <div className="flex items-center gap-1 text-right justify-center">
+                      <TableCell className="min-w-[100px] text-left">
+                        <div className="flex items-center gap-1">
                           <Euro className="h-3 w-3 text-muted-foreground" />
                           <span className="font-medium text-xs sm:text-sm">
                             €{asset.price.toFixed(2)}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="min-w-[120px]">
+                      <TableCell className="min-w-[120px] text-left">
                         <div className="text-xs sm:text-sm">
                           {asset.approved_at ? (
                             <Badge variant="outline" className="text-xs">
@@ -1470,8 +1474,8 @@ export default function InvoicingPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="min-w-[100px]">
-                        <div className="flex items-center gap-1 text-right justify-center">
+                      <TableCell className="min-w-[100px] text-left">
+                        <div className="flex items-center gap-1">
                           <Euro className="h-3 w-3 text-muted-foreground" />
                           <span className="font-medium text-xs sm:text-sm">
                             €
@@ -1490,7 +1494,7 @@ export default function InvoicingPage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="min-w-[120px]">
+                      <TableCell className="min-w-[120px] text-left">
                         <div className="text-xs sm:text-sm text-muted-foreground">
                           {asset.approved_at ? (
                             <div>

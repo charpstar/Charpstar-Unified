@@ -145,7 +145,7 @@ interface User {
   role: string;
   name: string;
   analytics_profile_id?: string;
-  avatar?: string;
+  avatar?: string | null;
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
@@ -1121,7 +1121,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                           <TableCell className="align-middle text-left px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                             <div className="flex items-center gap-3">
                                               {renderAvatar(
-                                                user.avatar_url,
+                                                user.avatar,
                                                 user.name
                                               )}
                                               <div>
@@ -1170,7 +1170,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                           </TableCell>
 
                                           {hasActionPermissions && (
-                                            <TableCell className="text-right align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                            <TableCell className="text-left align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                               <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                   <Button
@@ -1255,7 +1255,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                         <CardContent className="p-4 space-y-2">
                                           <div className="flex items-center gap-3">
                                             {renderAvatar(
-                                              user.avatar_url,
+                                              user.avatar,
                                               user.name
                                             )}
                                             <div className="flex flex-col flex-1">
@@ -1635,7 +1635,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                         client.created_at
                                       ).toLocaleDateString()}
                                     </TableCell>
-                                    <TableCell className="text-right align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
+                                    <TableCell className="text-left align-middle px-2 py-2 text-xs sm:text-sm sm:px-4 sm:py-3">
                                       <Button
                                         size="sm"
                                         variant="outline"

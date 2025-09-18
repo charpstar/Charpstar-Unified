@@ -48,6 +48,8 @@ export async function GET(request: Request) {
           name: user.user_metadata?.name || "",
           role: profile?.role || "user",
           created_at: user.created_at,
+          country: profile?.country || null,
+          avatar: user.user_metadata?.avatar_url || null,
         };
       })
       .filter(Boolean);

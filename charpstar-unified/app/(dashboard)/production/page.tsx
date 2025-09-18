@@ -36,6 +36,8 @@ import {
 } from "@/components/ui/containers";
 
 import { TeamInfoTooltip } from "@/components/production/TeamInfoTooltip";
+import UserProfileDialog from "@/components/users/UserProfileDialog";
+import { useUser } from "@/contexts/useUser";
 
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -197,6 +199,7 @@ interface QAProgress {
 export default function ProductionDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const user = useUser();
   const [clients, setClients] = useState<ClientSummary[]>([]);
   const [filteredClients, setFilteredClients] = useState<ClientSummary[]>([]);
   const [batches, setBatches] = useState<BatchProgress[]>([]);
@@ -216,6 +219,11 @@ export default function ProductionDashboard() {
     qa: false,
     fetchingData: false,
   });
+
+  // Profile dialog state
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [chartLoadingStates, setChartLoadingStates] = useState<
     Record<string, boolean>
@@ -324,8 +332,32 @@ export default function ProductionDashboard() {
     router.push(`/production?${params.toString()}`);
   };
 
+  // Profile dialog functions
+  const handleViewProfile = (userId: string) => {
+    setSelectedUserId(userId);
+    setIsProfileDialogOpen(true);
+  };
+
+  const handleCloseProfile = () => {
+    setIsProfileDialogOpen(false);
+    setSelectedUserId(null);
+  };
+
   useEffect(() => {
     document.title = "CharpstAR Platform - Production Dashboard";
+  }, []);
+
+  // Get current user ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    getCurrentUser();
   }, []);
 
   // Check if cached data is still valid for current view and page
@@ -3106,6 +3138,14 @@ export default function ProductionDashboard() {
                             </div>
 
                             <div className="flex items-start gap-2 ml-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewProfile(modeler.id)}
+                                className="h-8 px-3 text-xs"
+                              >
+                                View Profile
+                              </Button>
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -3545,6 +3585,15 @@ export default function ProductionDashboard() {
             </Button>
           </div>
         )}
+
+      {/* User Profile Dialog */}
+      <UserProfileDialog
+        isOpen={isProfileDialogOpen}
+        onClose={handleCloseProfile}
+        userId={selectedUserId}
+        currentUserRole={user?.metadata?.role || "user"}
+        currentUserId={currentUserId}
+      />
     </div>
   );
 }

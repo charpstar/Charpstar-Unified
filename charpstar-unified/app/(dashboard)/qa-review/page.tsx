@@ -1243,7 +1243,7 @@ export default function QAReviewPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
+                  <TableHead className="w-12 text-left">
                     <Checkbox
                       checked={
                         areAllCurrentSelected
@@ -1255,18 +1255,18 @@ export default function QAReviewPage() {
                       onCheckedChange={toggleSelectAllCurrent}
                     />
                   </TableHead>
-                  <TableHead>Product Name</TableHead>
-                  <TableHead>Article ID</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Modeler</TableHead>
-                  <TableHead className="w-20">Created</TableHead>
-                  <TableHead className="">Product Link</TableHead>
-                  <TableHead className="">GLB</TableHead>
-                  <TableHead className="">Files</TableHead>
-                  <TableHead className="">View</TableHead>
+                  <TableHead className="text-left">Product Name</TableHead>
+                  <TableHead className="text-left">Article ID</TableHead>
+                  <TableHead className="text-left">Client</TableHead>
+                  <TableHead className="text-left">Price</TableHead>
+                  <TableHead className="text-left">Priority</TableHead>
+                  <TableHead className="text-left">Status</TableHead>
+                  <TableHead className="text-left">Modeler</TableHead>
+                  <TableHead className="w-20 text-left">Created</TableHead>
+                  <TableHead className="text-left">Product Link</TableHead>
+                  <TableHead className="text-left">GLB</TableHead>
+                  <TableHead className="text-left">Files</TableHead>
+                  <TableHead className="text-left">View</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1275,57 +1275,57 @@ export default function QAReviewPage() {
                   Array.from({ length: 10 }).map((_, i) => (
                     <TableRow key={i}>
                       {/* Checkbox */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-4 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Product Name */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Article ID */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Client */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-16 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Price */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-12 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Priority */}
-                      <TableCell>
-                        <div className="flex justify-center">
+                      <TableCell className="text-left">
+                        <div className="flex">
                           <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
                         </div>
                       </TableCell>
                       {/* Status */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
                       </TableCell>
                       {/* Modeler */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Created */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-12 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Product */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* GLB */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Files */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* View */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                       </TableCell>
                     </TableRow>
@@ -1383,19 +1383,19 @@ export default function QAReviewPage() {
                           : ""
                       }`}
                     >
-                      <TableCell>
+                      <TableCell className="text-left">
                         <Checkbox
                           checked={isAssetSelected(asset.id)}
                           onCheckedChange={() => toggleSelectAsset(asset.id)}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div
-                          className="font-medium truncate max-w-[200px] cursor-help"
+                          className="font-medium max-w-[200px] cursor-help"
                           title={asset.product_name}
                         >
-                          {asset.product_name.length > 35
-                            ? asset.product_name.substring(0, 35) + "..."
+                          {asset.product_name.length > 45
+                            ? asset.product_name.substring(0, 45) + "..."
                             : asset.product_name}
                         </div>
                         <div className="text-sm text-muted-foreground flex items-center gap-2 group">
@@ -1425,19 +1425,21 @@ export default function QAReviewPage() {
                           />
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <span className="text-xs text-muted-foreground">
                           {asset.article_id}
                         </span>
                       </TableCell>
-                      <TableCell>{asset.client}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
+                        {asset.client}
+                      </TableCell>
+                      <TableCell className="text-left">
                         <div className="text-sm font-medium">
                           €{(asset.price || 0).toFixed(2)}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex justify-center items-center">
+                      <TableCell className="text-left">
+                        <div className="flex items-center">
                           <Select
                             value={asset.priority.toString()}
                             onValueChange={(value) => {
@@ -1465,8 +1467,8 @@ export default function QAReviewPage() {
                           </Select>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 justify-center">
+                      <TableCell className="text-left">
+                        <div className="flex items-center gap-2">
                           <Badge
                             variant="outline"
                             className={`text-xs ${getStatusLabelClass(asset.status)}`}
@@ -1475,7 +1477,7 @@ export default function QAReviewPage() {
                           </Badge>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         {asset.modeler ? (
                           <div className="text-sm">
                             <div className="font-medium">
@@ -1495,7 +1497,7 @@ export default function QAReviewPage() {
                         )}
                       </TableCell>
                       {/* Created Date */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="flex items-center gap-1">
                           <div className="text-xs text-muted-foreground">
                             {dayjs(asset.created_at).format("MMM DD")}•
@@ -1504,7 +1506,7 @@ export default function QAReviewPage() {
                         </div>
                       </TableCell>
                       {/* Product */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         {asset.product_link ? (
                           <Button
                             variant="ghost"
@@ -1526,7 +1528,7 @@ export default function QAReviewPage() {
                         )}
                       </TableCell>
                       {/* GLB */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         {asset.glb_link ? (
                           <Button
                             variant="ghost"
@@ -1543,7 +1545,7 @@ export default function QAReviewPage() {
                         )}
                       </TableCell>
                       {/* Files */}
-                      <TableCell className="text-center">
+                      <TableCell className="text-left">
                         <div className="flex flex-col items-center gap-1">
                           <Button
                             variant="outline"
@@ -1565,7 +1567,7 @@ export default function QAReviewPage() {
                         </div>
                       </TableCell>
                       {/* View */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <Button
                           variant="ghost"
                           size="sm"

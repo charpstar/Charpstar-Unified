@@ -10,6 +10,9 @@ import {
   Shield,
   Mail,
   UserCog,
+  Eye,
+  MapPin,
+  Globe,
 } from "lucide-react";
 import {
   Table,
@@ -52,6 +55,13 @@ import { usePagePermission } from "@/lib/usePagePermission";
 import { useUsers } from "@/lib/useUsers";
 import { useFeaturePermissions } from "@/lib/useFeaturePermissions";
 import {
+  getTimezoneFromCountry,
+  getCurrentTimeInTimezone,
+  getTimezoneDisplayName,
+} from "@/lib/timezoneUtils";
+import { getCountryNameByCode } from "@/lib/helpers";
+import UserProfileDialog from "@/components/users/UserProfileDialog";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -63,10 +73,12 @@ import { EditUserDialogContent } from "@/components/ui/containers";
 
 interface User {
   id: string;
-  email: string;
   name: string;
+  email: string;
   role: string;
   created_at: string;
+  country?: string | null;
+  avatar?: string | null;
 }
 
 const roleOptions = ["all", "admin", "client", "user"] as const;
@@ -81,6 +93,7 @@ interface FeaturePermissions {
 export default function UsersPage() {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | undefined>();
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const { users, loading: usersLoading, error, fetchUsers } = useUsers(true);
 
   // Add feature permissions check
@@ -114,7 +127,6 @@ export default function UsersPage() {
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
@@ -123,6 +135,10 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] =
     useState<(typeof roleOptions)[number]>("all");
+
+  // Profile dialog state
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -142,6 +158,7 @@ export default function UsersPage() {
 
       if (profile) {
         setUserRole(profile.role);
+        setCurrentUserId(user.id);
       }
     };
 
@@ -197,12 +214,16 @@ export default function UsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="font-medium">User</TableHead>
-                    <TableHead className="font-medium">Role</TableHead>
-                    <TableHead className="font-medium hidden md:table-cell">
+                    <TableHead className="font-medium text-left">
+                      User
+                    </TableHead>
+                    <TableHead className="font-medium text-left">
+                      Role
+                    </TableHead>
+                    <TableHead className="font-medium hidden md:table-cell text-left">
                       Created
                     </TableHead>
-                    <TableHead className="w-[80px] text-right">
+                    <TableHead className="w-[80px] text-left">
                       Actions
                     </TableHead>
                   </TableRow>
@@ -213,7 +234,7 @@ export default function UsersPage() {
                       key={i}
                       className="group transition-colors hover:bg-accent/30"
                     >
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="flex items-center gap-3">
                           <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
                           <div>
@@ -225,15 +246,15 @@ export default function UsersPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="inline-flex h-6 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-muted text-muted-foreground">
                           <div className="w-12 animate-pulse" />
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                      <TableCell className="hidden md:table-cell text-muted-foreground text-left">
                         <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-left">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -438,6 +459,17 @@ export default function UsersPage() {
     }
   };
 
+  // Profile dialog functions
+  const handleViewProfile = (userId: string) => {
+    setSelectedUserId(userId);
+    setIsProfileDialogOpen(true);
+  };
+
+  const handleCloseProfile = () => {
+    setSelectedUserId(null);
+    setIsProfileDialogOpen(false);
+  };
+
   // Filter users based on search term and selected role
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -487,7 +519,7 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex justify-between items-center ">
         <h1 className="text-2xl font-bold">Users</h1>
 
@@ -597,7 +629,10 @@ export default function UsersPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9 border border-border">
-                            <AvatarImage src={user.avatar} alt={user.name} />
+                            <AvatarImage
+                              src={user.avatar || undefined}
+                              alt={user.name}
+                            />
                             <AvatarFallback className="bg-primary/10 text-muted-foreground">
                               {getInitials(user.name)}
                             </AvatarFallback>
@@ -608,6 +643,26 @@ export default function UsersPage() {
                               <Mail className="mr-1 h-3 w-3" />
                               {user.email}
                             </p>
+                            {user.country && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <MapPin className="h-3 w-3" />
+                                  {getCountryNameByCode(user.country)}
+                                </div>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Globe className="h-3 w-3" />
+                                  <span
+                                    title={getTimezoneDisplayName(
+                                      getTimezoneFromCountry(user.country)
+                                    )}
+                                  >
+                                    {getCurrentTimeInTimezone(
+                                      getTimezoneFromCountry(user.country)
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </TableCell>
@@ -635,7 +690,8 @@ export default function UsersPage() {
                       <TableCell className="hidden md:table-cell text-muted-foreground">
                         {formatDate(user.created_at)}
                       </TableCell>
-                      {hasActionPermissions && (
+                      {(hasActionPermissions ||
+                        userPermissions.view_user_details) && (
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -652,6 +708,21 @@ export default function UsersPage() {
                               align="end"
                               className="bg-white dark:bg-background"
                             >
+                              {userPermissions.view_user_details && (
+                                <DropdownMenuItem
+                                  className="cursor-pointer flex items-center"
+                                  onClick={() => handleViewProfile(user.id)}
+                                >
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Profile
+                                </DropdownMenuItem>
+                              )}
+
+                              {userPermissions.view_user_details &&
+                                userPermissions.edit_user && (
+                                  <DropdownMenuSeparator />
+                                )}
+
                               {userPermissions.edit_user && (
                                 <DropdownMenuItem
                                   className="cursor-pointer flex items-center"
@@ -694,24 +765,38 @@ export default function UsersPage() {
 
       {/* Edit User Dialog */}
       {userPermissions.edit_user && (
-        <EditUserDialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-          </DialogHeader>
-          {editingUser && (
-            <UserForm
-              onSubmit={handleEditUser}
-              isLoading={isProcessing}
-              initialData={{
-                name: editingUser.name,
-                email: editingUser.email,
-                role: editingUser.role as "admin" | "client" | "user",
-                password: "",
-              }}
-            />
-          )}
-        </EditUserDialogContent>
+        <Dialog
+          open={isEditUserDialogOpen}
+          onOpenChange={setIsEditUserDialogOpen}
+        >
+          <EditUserDialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+            </DialogHeader>
+            {editingUser && (
+              <UserForm
+                onSubmit={handleEditUser}
+                isLoading={isProcessing}
+                initialData={{
+                  name: editingUser.name,
+                  email: editingUser.email,
+                  role: editingUser.role as "admin" | "client" | "user",
+                  password: "",
+                }}
+              />
+            )}
+          </EditUserDialogContent>
+        </Dialog>
       )}
+
+      {/* User Profile Dialog */}
+      <UserProfileDialog
+        isOpen={isProfileDialogOpen}
+        onClose={handleCloseProfile}
+        userId={selectedUserId}
+        currentUserRole={userRole}
+        currentUserId={currentUserId || ""}
+      />
 
       <Toaster />
     </div>

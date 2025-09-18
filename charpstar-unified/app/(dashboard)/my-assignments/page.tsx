@@ -17,7 +17,6 @@ import {
   ArrowRight,
   ArrowLeft,
   DollarSign,
-  Calendar,
   TrendingUp,
   Target,
   Building,
@@ -118,15 +117,22 @@ export default function MyAssignmentsPage() {
         return;
       }
 
-      // Group assets by client and batch
-      const batchMap = new Map<string, BatchSummary>();
+      // Group assets by client first, then by batch within each client
+      const clientMap = new Map<string, Map<number, BatchSummary>>();
 
       assetAssignments.forEach((assignment: any) => {
         const asset = assignment.onboarding_assets;
-        const key = `${asset.client}-${asset.batch}`;
+        const clientKey = asset.client;
+        const batchNumber = asset.batch;
 
-        if (!batchMap.has(key)) {
-          batchMap.set(key, {
+        if (!clientMap.has(clientKey)) {
+          clientMap.set(clientKey, new Map());
+        }
+
+        const batchMap = clientMap.get(clientKey)!;
+
+        if (!batchMap.has(batchNumber)) {
+          batchMap.set(batchNumber, {
             client: asset.client,
             batch: asset.batch,
             totalAssets: 0,
@@ -147,7 +153,7 @@ export default function MyAssignmentsPage() {
           });
         }
 
-        const batch = batchMap.get(key)!;
+        const batch = batchMap.get(batchNumber)!;
         batch.totalAssets++;
         batch.assetIds.push(asset.id); // Add asset ID to the list
 
@@ -205,14 +211,20 @@ export default function MyAssignmentsPage() {
         }
       });
 
-      // Calculate completion percentages
-      const processedSummaries = Array.from(batchMap.values()).map((batch) => ({
-        ...batch,
-        completionPercentage:
-          batch.totalAssets > 0
-            ? Math.round((batch.completedAssets / batch.totalAssets) * 100)
-            : 0,
-      }));
+      // Flatten the client-batch structure and calculate completion percentages
+      const processedSummaries: BatchSummary[] = [];
+
+      clientMap.forEach((batchMap) => {
+        batchMap.forEach((batch) => {
+          processedSummaries.push({
+            ...batch,
+            completionPercentage:
+              batch.totalAssets > 0
+                ? Math.round((batch.completedAssets / batch.totalAssets) * 100)
+                : 0,
+          });
+        });
+      });
 
       setBatchSummaries(processedSummaries);
     } catch (error) {
@@ -591,154 +603,229 @@ export default function MyAssignmentsPage() {
         </div>
       ) : batchSummaries.length > 0 ? (
         <div className="mb-6 " data-tour="assignments-batch-list">
-          <h2 className="text-xl font-semibold mb-4">Batch Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {batchSummaries.map((summary) => (
-              <div
-                key={`${summary.client}-${summary.batch}`}
-                className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-muted/40 to-muted/70 p-4 transition-all duration-300 hover:shadow-xl hover:shadow-black/5 cursor-pointer"
-                data-tour={
-                  summary.client === batchSummaries[0]?.client &&
-                  summary.batch === batchSummaries[0]?.batch
-                    ? "assignments-first-batch"
-                    : undefined
+          <h2 className="text-xl font-semibold mb-4">Client Assignments</h2>
+          <div className="space-y-6">
+            {(() => {
+              // Group summaries by client
+              const clientGroups = new Map<string, BatchSummary[]>();
+              batchSummaries.forEach((summary) => {
+                if (!clientGroups.has(summary.client)) {
+                  clientGroups.set(summary.client, []);
                 }
-                onClick={() => handleViewBatch(summary.client, summary.batch)}
-              >
-                {/* Accents */}
-                <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 blur-2xl" />
-                <div className="pointer-events-none absolute -bottom-10 -left-10 h-24 w-24 rounded-full bg-gradient-to-br from-accent-purple/10 to-accent-purple/5 blur-2xl" />
+                clientGroups.get(summary.client)!.push(summary);
+              });
 
-                {/* Header */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                      <Building className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">
-                        Client
+              return Array.from(clientGroups.entries()).map(
+                ([clientName, batches]) => {
+                  // Calculate combined stats for all batches of this client
+                  const combinedStats = batches.reduce(
+                    (acc, batch) => ({
+                      totalAssets: acc.totalAssets + batch.totalAssets,
+                      completedAssets:
+                        acc.completedAssets + batch.completedAssets,
+                      inProgressAssets:
+                        acc.inProgressAssets + batch.inProgressAssets,
+                      pendingAssets: acc.pendingAssets + batch.pendingAssets,
+                      revisionAssets: acc.revisionAssets + batch.revisionAssets,
+                      waitingOnApprovalAssets:
+                        acc.waitingOnApprovalAssets +
+                        batch.waitingOnApprovalAssets,
+                      notStartedAssets:
+                        acc.notStartedAssets + batch.notStartedAssets,
+                      totalEarnings: acc.totalEarnings + batch.totalEarnings,
+                      completedEarnings:
+                        acc.completedEarnings + batch.completedEarnings,
+                      pendingEarnings:
+                        acc.pendingEarnings + batch.pendingEarnings,
+                      urgentAssets: acc.urgentAssets + batch.urgentAssets,
+                    }),
+                    {
+                      totalAssets: 0,
+                      completedAssets: 0,
+                      inProgressAssets: 0,
+                      pendingAssets: 0,
+                      revisionAssets: 0,
+                      waitingOnApprovalAssets: 0,
+                      notStartedAssets: 0,
+                      totalEarnings: 0,
+                      completedEarnings: 0,
+                      pendingEarnings: 0,
+                      urgentAssets: 0,
+                    }
+                  );
+
+                  const combinedCompletionPercentage =
+                    combinedStats.totalAssets > 0
+                      ? Math.round(
+                          (combinedStats.completedAssets /
+                            combinedStats.totalAssets) *
+                            100
+                        )
+                      : 0;
+
+                  return (
+                    <div key={clientName} className="space-y-4">
+                      {/* Single Client Card with Combined Stats */}
+                      <div
+                        className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-muted/40 to-muted/70 p-4 transition-all duration-300 hover:shadow-xl hover:shadow-black/5 cursor-pointer"
+                        data-tour={
+                          clientName === batchSummaries[0]?.client
+                            ? "assignments-first-batch"
+                            : undefined
+                        }
+                        onClick={() =>
+                          handleViewBatch(clientName, batches[0].batch)
+                        }
+                      >
+                        {/* Accents */}
+                        <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 blur-2xl" />
+                        <div className="pointer-events-none absolute -bottom-10 -left-10 h-24 w-24 rounded-full bg-gradient-to-br from-accent-purple/10 to-accent-purple/5 blur-2xl" />
+
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                              <Building className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground">
+                                Client
+                              </div>
+                              <div className="text-lg font-semibold tracking-tight">
+                                {clientName}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap gap-1">
+                              {batches.map((batch) => (
+                                <Badge
+                                  key={batch.batch}
+                                  className="bg-background/60 text-muted-foreground border-border/60"
+                                >
+                                  Batch {batch.batch}
+                                </Badge>
+                              ))}
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                          </div>
+                        </div>
+
+                        {/* Progress */}
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                            <span>Overall Progress</span>
+                            <span className="font-medium">
+                              {combinedCompletionPercentage}%
+                            </span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-700"
+                              style={{
+                                width: `${combinedCompletionPercentage}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Stats Row */}
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className="rounded-lg bg-background/60 border border-border/60 p-2 text-center">
+                            <div className="text-xs text-muted-foreground">
+                              Total Assets
+                            </div>
+                            <div className="text-sm font-semibold">
+                              {combinedStats.totalAssets}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-emerald-50/60 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-800/60 p-2 text-center">
+                            <div className="text-xs text-emerald-700 dark:text-emerald-300">
+                              Completed
+                            </div>
+                            <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                              {combinedStats.completedAssets}
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-amber-50/60 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/60 p-2 text-center">
+                            <div className="text-xs text-amber-700 dark:text-amber-300">
+                              In Progress
+                            </div>
+                            <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                              {combinedStats.inProgressAssets}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Earnings and Batch Info */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-xs text-muted-foreground">
+                              Total Earnings
+                            </div>
+                            <div className="text-sm font-semibold text-success">
+                              €{combinedStats.totalEarnings.toFixed(2)}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              €{combinedStats.completedEarnings.toFixed(2)}{" "}
+                              completed
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground">
+                              {batches.length} batch
+                              {batches.length > 1 ? "es" : ""}
+                            </div>
+                            <div className="text-sm font-medium">
+                              {batches.map((b) => b.batch).join(", ")}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer chips */}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {combinedStats.revisionAssets > 0 && (
+                            <Badge className="inline-flex items-center gap-1 rounded-full bg-error-muted px-2 py-1 text-[11px] font-medium text-error">
+                              <AlertCircle className="h-3 w-3" />{" "}
+                              {combinedStats.revisionAssets} revisions
+                            </Badge>
+                          )}
+                          {combinedStats.waitingOnApprovalAssets > 0 && (
+                            <Badge className="inline-flex items-center gap-1 rounded-full bg-purple-100 dark:bg-purple-900/20 px-2 py-1 text-[11px] font-medium text-purple-700 dark:text-purple-300">
+                              <Clock className="h-3 w-3" />{" "}
+                              {combinedStats.waitingOnApprovalAssets} waiting on
+                              approval
+                            </Badge>
+                          )}
+                          {combinedStats.notStartedAssets > 0 && (
+                            <Badge className="inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-900/20 px-2 py-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
+                              <AlertCircle className="h-3 w-3" />{" "}
+                              {combinedStats.notStartedAssets} not started
+                            </Badge>
+                          )}
+                          {combinedStats.urgentAssets > 0 && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/20 px-2 py-1 text-[11px] font-medium text-orange-700 dark:text-orange-300 cursor-pointer hover:bg-orange-200 dark:hover:bg-orange-800/30 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewBatch(
+                                  clientName,
+                                  batches[0].batch,
+                                  "urgent"
+                                );
+                              }}
+                            >
+                              <Target className="h-3 w-3" />{" "}
+                              {combinedStats.urgentAssets} urgent
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-lg font-semibold tracking-tight">
-                        {summary.client}
-                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-background/60 text-muted-foreground border-border/60">
-                      Batch {summary.batch}
-                    </Badge>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                  </div>
-                </div>
-
-                {/* Progress */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                    <span>Progress</span>
-                    <span className="font-medium">
-                      {summary.completionPercentage}%
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-700"
-                      style={{ width: `${summary.completionPercentage}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Stats Row */}
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div className="rounded-lg bg-background/60 border border-border/60 p-2 text-center">
-                    <div className="text-xs text-muted-foreground">Total</div>
-                    <div className="text-sm font-semibold">
-                      {summary.totalAssets}
-                    </div>
-                  </div>
-                  <div className="rounded-lg bg-emerald-50/60 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-800/60 p-2 text-center">
-                    <div className="text-xs text-emerald-700 dark:text-emerald-300">
-                      Done
-                    </div>
-                    <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                      {summary.completedAssets}
-                    </div>
-                  </div>
-                  <div className="rounded-lg bg-amber-50/60 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/60 p-2 text-center">
-                    <div className="text-xs text-amber-700 dark:text-amber-300">
-                      In Progress
-                    </div>
-                    <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                      {summary.inProgressAssets}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Earnings and Deadline */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-xs text-muted-foreground">
-                      Earnings
-                    </div>
-                    <div className="text-sm font-semibold text-success">
-                      €{summary.totalEarnings.toFixed(2)}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      €{summary.completedEarnings.toFixed(2)} completed
-                    </div>
-                  </div>
-                  {summary.deliveryDate && (
-                    <div className="text-right">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground justify-end">
-                        <Calendar className="h-3 w-3" />
-                        <span>Delivery</span>
-                      </div>
-                      <div className="text-sm font-medium">
-                        {new Date(summary.deliveryDate).toLocaleDateString()}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer chips */}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {summary.revisionAssets > 0 && (
-                    <Badge className="inline-flex items-center gap-1 rounded-full bg-error-muted px-2 py-1 text-[11px] font-medium text-error">
-                      <AlertCircle className="h-3 w-3" />{" "}
-                      {summary.revisionAssets} revisions
-                    </Badge>
-                  )}
-                  {summary.waitingOnApprovalAssets > 0 && (
-                    <Badge className="inline-flex items-center gap-1 rounded-full bg-purple-100 dark:bg-purple-900/20 px-2 py-1 text-[11px] font-medium text-purple-700 dark:text-purple-300">
-                      <Clock className="h-3 w-3" />{" "}
-                      {summary.waitingOnApprovalAssets} waiting on approval
-                    </Badge>
-                  )}
-                  {summary.notStartedAssets < 0 && (
-                    <Badge className="inline-flex items-center gap-1 rounded-full bg-white-100 dark:bg-white-900/20 px-2 py-1 text-[11px] font-medium text-white-700 dark:text-white-300">
-                      <AlertCircle className="h-3 w-3" />{" "}
-                      {summary.notStartedAssets} Not started
-                    </Badge>
-                  )}
-                  {summary.urgentAssets > 0 && (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/20 px-2 py-1 text-[11px] font-medium text-orange-700 dark:text-orange-300 cursor-pointer hover:bg-orange-200 dark:hover:bg-orange-800/30 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleViewBatch(
-                          summary.client,
-                          summary.batch,
-                          "urgent"
-                        );
-                      }}
-                    >
-                      <Target className="h-3 w-3" /> {summary.urgentAssets}{" "}
-                      urgent
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+                  );
+                }
+              );
+            })()}
           </div>
         </div>
       ) : (

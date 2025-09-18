@@ -381,27 +381,27 @@ export default function AdminBugReportsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="text-left">Title</TableHead>
+                    <TableHead className="text-left">Category</TableHead>
+                    <TableHead className="text-left">Status</TableHead>
+                    <TableHead className="text-left">Priority</TableHead>
+                    <TableHead className="text-left">User</TableHead>
+                    <TableHead className="text-left">Created</TableHead>
+                    <TableHead className="text-left">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredReports.map((report) => (
                     <TableRow key={report.id}>
-                      <TableCell className="font-medium max-w-xs">
+                      <TableCell className="font-medium max-w-xs text-left">
                         <div className="truncate" title={report.title}>
                           {report.title}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <Badge variant="outline">{report.category}</Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <Select
                           value={report.status}
                           onValueChange={(value) =>
@@ -423,14 +423,16 @@ export default function AdminBugReportsPage() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>{getPriorityBadge(report.priority)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-left">
+                        {getPriorityBadge(report.priority)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground text-left">
                         {report.user_email || "Anonymous"}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-sm text-muted-foreground text-left">
                         {new Date(report.created_at).toLocaleDateString()}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"

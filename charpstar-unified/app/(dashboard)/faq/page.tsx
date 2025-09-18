@@ -36,8 +36,6 @@ import {
   CreditCard,
   User,
   Zap,
-  Star,
-  Clock,
   CheckCircle,
   Heart,
   ArrowRight,
@@ -347,8 +345,10 @@ export default function FAQPage() {
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">FAQ Center</h1>
-              <span className="text-sm text-muted-foreground">
+              <h1 className="text-2xl font-semibold text-slate-800">
+                FAQ Center
+              </h1>
+              <span className="text-base text-muted-foreground">
                 Your questions, answered!
               </span>
             </div>
@@ -434,45 +434,6 @@ export default function FAQPage() {
           </CardContent>
         </Card>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Card className="text-center p-4 bg-blue-50 border-blue-200">
-            <div className="p-2 bg-blue-500 rounded-lg w-12 h-12 mx-auto mb-2 flex items-center justify-center">
-              <BookOpen className="h-6 w-6 text-white" />
-            </div>
-            <div className="text-2xl font-bold text-blue-700 mb-1">
-              {faqs.length}
-            </div>
-            <div className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
-              Total FAQs
-            </div>
-          </Card>
-
-          <Card className="text-center p-4 bg-slate-50 border-slate-200">
-            <div className="p-2 bg-slate-500 rounded-lg w-12 h-12 mx-auto mb-2 flex items-center justify-center">
-              <Settings className="h-6 w-6 text-white" />
-            </div>
-            <div className="text-2xl font-bold text-slate-700 mb-1">
-              {Object.keys(groupedFaqs).length}
-            </div>
-            <div className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-              Categories
-            </div>
-          </Card>
-
-          <Card className="text-center p-4 bg-blue-50 border-blue-200">
-            <div className="p-2 bg-blue-500 rounded-lg w-12 h-12 mx-auto mb-2 flex items-center justify-center">
-              <Search className="h-6 w-6 text-white" />
-            </div>
-            <div className="text-2xl font-bold text-blue-700 mb-1">
-              {filteredFaqs.length}
-            </div>
-            <div className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
-              Filtered Results
-            </div>
-          </Card>
-        </div>
-
         {/* FAQs Content */}
         {loading ? (
           <div className="space-y-3">
@@ -487,13 +448,13 @@ export default function FAQPage() {
           </div>
         ) : filteredFaqs.length === 0 ? (
           <Card className="text-center p-4 bg-slate-50 border-slate-200">
-            <div className="p-3 bg-slate-400 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <div className=" bg-slate-400 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
               <HelpCircle className="h-8 w-8 text-white" />
             </div>
-            <h3 className="text-lg font-bold text-slate-700 mb-2">
+            <h3 className="text-lg font-medium text-slate-700 mb-2">
               No FAQs found
             </h3>
-            <p className="text-slate-600 mb-4 text-sm">
+            <p className="text-slate-600 mb-4 text-base">
               {searchTerm || selectedCategory !== "all"
                 ? "Try adjusting your search or filter criteria."
                 : "No FAQs are available at the moment."}
@@ -505,7 +466,7 @@ export default function FAQPage() {
                   setSearchTerm("");
                   setSelectedCategory("all");
                 }}
-                className="border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 text-sm rounded-md"
+                className="border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 text-base rounded-md"
               >
                 <ArrowRight className="h-3 w-3 mr-1" />
                 Clear Filters
@@ -513,73 +474,65 @@ export default function FAQPage() {
             )}
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {Object.entries(groupedFaqs).map(([category, categoryFaqs]) => {
               const categoryData = getCategoryData(category);
               const IconComponent = categoryData.icon;
               return (
-                <div key={category} className="space-y-3">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-2 ${categoryData.color} rounded-lg`}>
-                      <IconComponent className="h-5 w-5 text-white" />
+                <div
+                  key={category}
+                  className="space-y-2 max-w-[1000px] mx-auto"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className={`p-1.5 ${categoryData.color} rounded-md`}>
+                      <IconComponent className="h-4 w-4 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-slate-800">
+                      <h2 className="text-lg font-medium text-slate-800">
                         {category}
                       </h2>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <Star className="h-3 w-3 text-yellow-500" />
-                        <span className="text-xs text-muted-foreground">
-                          {categoryFaqs.length} helpful{" "}
-                          {categoryFaqs.length !== 1 ? "answers" : "answer"}
-                        </span>
-                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {categoryFaqs.length} FAQ
+                        {categoryFaqs.length !== 1 ? "s" : ""}
+                      </span>
                     </div>
-                    <Badge
-                      variant="secondary"
-                      className={`ml-auto px-2 py-1 text-xs font-semibold ${categoryData.bgColor} ${categoryData.textColor} border-0`}
-                    >
-                      {categoryFaqs.length} FAQ
-                      {categoryFaqs.length !== 1 ? "s" : ""}
-                    </Badge>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {categoryFaqs.map((faq) => (
                       <Card
                         key={faq.id}
-                        className={`hover:shadow-md transition-all duration-200 border-l-4 ${
+                        className={`hover:shadow-sm transition-all duration-200 border-l-2 ${
                           expandedFaqs.has(faq.id)
-                            ? `border-l-${categoryData.color.split("-")[1]}-500 shadow-sm`
-                            : `border-l-${categoryData.color.split("-")[1]}-300`
-                        } bg-white`}
+                            ? `${categoryData.color} shadow-sm`
+                            : `${categoryData.color}`
+                        } bg-white max-w-[1000px] mx-auto`}
                       >
                         <CardContent className="p-0">
                           <button
                             onClick={() => toggleExpanded(faq.id)}
-                            className="w-full p-4 text-left hover:bg-slate-50 transition-colors group"
+                            className="w-full p-3 text-left hover:bg-slate-50 transition-colors group"
                           >
                             <div className="flex items-center justify-between">
-                              <div className="flex items-start gap-3 flex-1">
+                              <div className="flex items-start gap-2 flex-1">
                                 <div
-                                  className={`p-1.5 rounded-md ${categoryData.bgColor} group-hover:scale-105 transition-transform duration-200`}
+                                  className={`p-1 rounded-md ${categoryData.bgColor} flex-shrink-0`}
                                 >
                                   <IconComponent
-                                    className={`h-4 w-4 ${categoryData.textColor}`}
+                                    className={`h-3 w-3 ${categoryData.textColor}`}
                                   />
                                 </div>
-                                <div className="flex-1">
-                                  <h3 className="font-semibold text-sm text-slate-800 group-hover:text-slate-900 pr-3 leading-relaxed">
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-normal text-base text-slate-800 leading-relaxed">
                                     {faq.question}
                                   </h3>
-                                  <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex items-center gap-2 mt-2">
                                     <Badge
                                       variant="outline"
-                                      className={`text-xs ${categoryData.bgColor} ${categoryData.textColor} border-0`}
+                                      className={`text-sm ${categoryData.bgColor} ${categoryData.textColor} border-0`}
                                     >
                                       #{faq.order_index}
                                     </Badge>
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <Clock className="h-3 w-3" />
+                                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                       <span>
                                         Click to{" "}
                                         {expandedFaqs.has(faq.id)
@@ -601,7 +554,7 @@ export default function FAQPage() {
                                         e.stopPropagation();
                                         openAdminDialog(faq);
                                       }}
-                                      className="h-8 w-8 p-0 hover:bg-blue-100"
+                                      className="h-6 w-6 p-0 hover:bg-blue-100"
                                     >
                                       <Edit className="h-3 w-3 text-blue-600" />
                                     </Button>
@@ -612,40 +565,38 @@ export default function FAQPage() {
                                         e.stopPropagation();
                                         handleDeleteFaq(faq.id);
                                       }}
-                                      className="h-8 w-8 p-0 hover:bg-red-100"
+                                      className="h-6 w-6 p-0 hover:bg-red-100"
                                     >
                                       <Trash2 className="h-3 w-3 text-red-600" />
                                     </Button>
                                   </div>
                                 )}
                                 <div
-                                  className={`p-1.5 rounded-full ${
+                                  className={`p-1 rounded-full ${
                                     expandedFaqs.has(faq.id)
                                       ? "bg-green-100 text-green-600"
                                       : "bg-slate-100 text-slate-500"
                                   } group-hover:scale-105 transition-all duration-200`}
                                 >
                                   {expandedFaqs.has(faq.id) ? (
-                                    <ChevronUp className="h-4 w-4" />
+                                    <ChevronUp className="h-3 w-3" />
                                   ) : (
-                                    <ChevronDown className="h-4 w-4" />
+                                    <ChevronDown className="h-3 w-3" />
                                   )}
                                 </div>
                               </div>
                             </div>
                           </button>
                           {expandedFaqs.has(faq.id) && (
-                            <div className="px-4 pb-4 pt-0 animate-in slide-in-from-top-2 duration-200">
-                              <div className="border-t border-slate-200 pt-3">
+                            <div className="px-3 pb-3 pt-0 animate-in slide-in-from-top-2 duration-200">
+                              <div className="border-t border-slate-200 pt-2">
                                 <div className="flex items-start gap-2">
-                                  <div className="p-1.5 bg-green-100 rounded-md">
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                  <div className="p-1 bg-green-100 rounded">
+                                    <CheckCircle className="h-3 w-3 text-green-600" />
                                   </div>
-                                  <div className="flex-1">
-                                    <p className="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm">
-                                      {faq.answer}
-                                    </p>
-                                  </div>
+                                  <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">
+                                    {faq.answer}
+                                  </p>
                                 </div>
                               </div>
                             </div>
@@ -677,7 +628,7 @@ export default function FAQPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">
+                <label className="text-base font-medium mb-2 block">
                   Question
                 </label>
                 <Input
@@ -692,7 +643,9 @@ export default function FAQPage() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">Answer</label>
+                <label className="text-base font-medium mb-2 block">
+                  Answer
+                </label>
                 <Textarea
                   value={adminForm.answer}
                   onChange={(e) =>
@@ -707,7 +660,7 @@ export default function FAQPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">
+                  <label className="text-base font-medium mb-2 block">
                     Category
                   </label>
                   <Select
@@ -729,7 +682,7 @@ export default function FAQPage() {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-2 block">
+                  <label className="text-base font-medium mb-2 block">
                     Order Index
                   </label>
                   <Input
@@ -758,7 +711,7 @@ export default function FAQPage() {
                   }
                   className="rounded"
                 />
-                <label htmlFor="is_active" className="text-sm font-medium">
+                <label htmlFor="is_active" className="text-base font-medium">
                   Active (visible to users)
                 </label>
               </div>

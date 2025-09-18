@@ -31,7 +31,6 @@ import {
   Shield,
   Building,
   Clock,
-  MapPin,
   Link,
   Phone,
 } from "lucide-react";
@@ -48,9 +47,9 @@ interface User {
   model_types?: string[];
   daily_hours?: number;
   exclusive_work?: boolean;
-  country?: string;
   portfolio_links?: string[];
   created_at: string;
+  country?: string;
 }
 
 interface UserSelectionDialogProps {
@@ -123,7 +122,6 @@ export function UserSelectionDialog({
             (user: User) =>
               user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
               user.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              user.country?.toLowerCase().includes(searchTerm.toLowerCase()) ||
               user.software_experience?.some((exp) =>
                 exp.toLowerCase().includes(searchTerm.toLowerCase())
               ) ||
@@ -136,7 +134,6 @@ export function UserSelectionDialog({
             (user: User) =>
               user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
               user.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              user.country?.toLowerCase().includes(searchTerm.toLowerCase()) ||
               user.software_experience?.some((exp) =>
                 exp.toLowerCase().includes(searchTerm.toLowerCase())
               ) ||
@@ -149,7 +146,6 @@ export function UserSelectionDialog({
             (user: User) =>
               user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
               user.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              user.country?.toLowerCase().includes(searchTerm.toLowerCase()) ||
               user.software_experience?.some((exp) =>
                 exp.toLowerCase().includes(searchTerm.toLowerCase())
               ) ||
@@ -313,12 +309,6 @@ export function UserSelectionDialog({
                 <div className="flex items-center gap-1 text-sm">
                   <Clock className="h-3 w-3" />
                   <span className="font-medium">{user.daily_hours}h/day</span>
-                </div>
-              )}
-              {user.country && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  {user.country}
                 </div>
               )}
               {user.exclusive_work && (

@@ -438,19 +438,19 @@ export default function AdminClientsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Contract</TableHead>
-                  <TableHead>Value</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Start Date</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-left">Client</TableHead>
+                  <TableHead className="text-left">Company</TableHead>
+                  <TableHead className="text-left">Contract</TableHead>
+                  <TableHead className="text-left">Value</TableHead>
+                  <TableHead className="text-left">Status</TableHead>
+                  <TableHead className="text-left">Start Date</TableHead>
+                  <TableHead className="text-left">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredClients.map((client) => (
                   <TableRow key={client.id}>
-                    <TableCell>
+                    <TableCell className="text-left">
                       <div>
                         <div className="font-medium">{client.name}</div>
                         <div className="text-sm text-muted-foreground">
@@ -463,8 +463,10 @@ export default function AdminClientsPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{client.company}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
+                      {client.company}
+                    </TableCell>
+                    <TableCell className="text-left">
                       {client.isPlaceholder ? (
                         "-"
                       ) : (
@@ -481,12 +483,12 @@ export default function AdminClientsPage() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
                       {client.isPlaceholder
                         ? "-"
                         : `€${client.contract_value.toLocaleString()}`}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
                       {client.isPlaceholder ? (
                         "-"
                       ) : (
@@ -496,12 +498,12 @@ export default function AdminClientsPage() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
                       {client.start_date
                         ? new Date(client.start_date).toLocaleDateString()
                         : "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
                       <div className="flex gap-2">
                         {client.isPlaceholder ? (
                           <Button

@@ -2,12 +2,13 @@ import { useState, useCallback } from "react";
 import { toast } from "@/components/ui/utilities";
 
 export interface User {
-  [x: string]: string | Blob | undefined;
   id: string;
   name: string;
   email: string;
   role: string;
   created_at: string;
+  country?: string | null;
+  avatar?: string | null;
 }
 
 type NewUser = {

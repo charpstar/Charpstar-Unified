@@ -674,29 +674,37 @@ export default function OnboardingPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Invited</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-left">Email</TableHead>
+                  <TableHead className="text-left">Client</TableHead>
+                  <TableHead className="text-left">Role</TableHead>
+                  <TableHead className="text-left">Status</TableHead>
+                  <TableHead className="text-left">Invited</TableHead>
+                  <TableHead className="text-left">Expires</TableHead>
+                  <TableHead className="text-left">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {invitations.map((invitation) => (
                   <TableRow key={invitation.id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium text-left">
                       {invitation.email}
                     </TableCell>
-                    <TableCell>{invitation.client_name}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
+                      {invitation.client_name}
+                    </TableCell>
+                    <TableCell className="text-left">
                       <Badge variant="outline">{invitation.role}</Badge>
                     </TableCell>
-                    <TableCell>{getStatusBadge(invitation.status)}</TableCell>
-                    <TableCell>{formatDate(invitation.invited_at)}</TableCell>
-                    <TableCell>{formatDate(invitation.expires_at)}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
+                      {getStatusBadge(invitation.status)}
+                    </TableCell>
+                    <TableCell className="text-left">
+                      {formatDate(invitation.invited_at)}
+                    </TableCell>
+                    <TableCell className="text-left">
+                      {formatDate(invitation.expires_at)}
+                    </TableCell>
+                    <TableCell className="text-left">
                       <div className=" gap-2">
                         <Button
                           variant="ghost"

@@ -43,6 +43,8 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/inputs";
+import UserProfileDialog from "@/components/users/UserProfileDialog";
+import { useUser } from "@/contexts/useUser";
 
 interface UnallocatedAsset {
   id: string;
@@ -218,6 +220,7 @@ const getTaskTypeFromPricingOptionId = (pricingOptionId: string): string => {
 export default function AllocateAssetsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const user = useUser();
 
   // Initialize step from URL params or default to 1
   const [step, setStep] = useState<1 | 2>(() => {
@@ -273,6 +276,11 @@ export default function AllocateAssetsPage() {
   const [pricingComments, setPricingComments] = useState<
     Record<string, string>
   >({});
+
+  // Profile dialog state
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
   // Ref to prevent infinite loops when updating pricing
   const isUpdatingPricing = useRef(false);
@@ -781,6 +789,30 @@ export default function AllocateAssetsPage() {
     fetchAvailableQAs();
     fetchModelerQAAssignments();
   }, [fetchUnallocatedAssets]);
+
+  // Get current user ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    getCurrentUser();
+  }, []);
+
+  // Profile dialog functions
+  const handleViewProfile = (userId: string) => {
+    setSelectedUserId(userId);
+    setIsProfileDialogOpen(true);
+  };
+
+  const handleCloseProfile = () => {
+    setIsProfileDialogOpen(false);
+    setSelectedUserId(null);
+  };
 
   // Initialize allocation data for selected assets
   const initializeAllocationData = () => {
@@ -1638,6 +1670,16 @@ export default function AllocateAssetsPage() {
                               {selectedModeler.email}
                             </span>
                             <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleViewProfile(selectedModeler.id)
+                                }
+                                className="h-7 px-2 text-xs"
+                              >
+                                View Profile
+                              </Button>
                               {selectedModeler.exclusive_work && (
                                 <Badge
                                   variant="outline"
@@ -3068,6 +3110,15 @@ export default function AllocateAssetsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* User Profile Dialog */}
+      <UserProfileDialog
+        isOpen={isProfileDialogOpen}
+        onClose={handleCloseProfile}
+        userId={selectedUserId}
+        currentUserRole={user?.metadata?.role || "user"}
+        currentUserId={currentUserId}
+      />
     </div>
   );
 }

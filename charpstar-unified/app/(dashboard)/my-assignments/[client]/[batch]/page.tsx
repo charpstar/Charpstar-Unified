@@ -213,7 +213,7 @@ export default function BatchDetailPage() {
   const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
 
   useEffect(() => {
-    document.title = `CharpstAR Platform - ${client} Batch ${batch}`;
+    document.title = `CharpstAR Platform - ${client} All Batches`;
   }, [client, batch]);
 
   // Load persisted expanded accordion state
@@ -465,7 +465,7 @@ export default function BatchDetailPage() {
       setLoading(true);
       startLoading();
 
-      // Get user's allocation lists for this specific client and batch (only accepted assignments)
+      // Get user's allocation lists for this specific client across ALL batches (only accepted assignments)
       const { data: allocationListsData } = await supabase
         .from("allocation_lists")
         .select(
@@ -505,11 +505,10 @@ export default function BatchDetailPage() {
         .eq("user_id", user?.id)
         .eq("role", "modeler")
         .eq("asset_assignments.status", "accepted")
-        .eq("asset_assignments.onboarding_assets.client", client)
-        .eq("asset_assignments.onboarding_assets.batch", batch);
+        .eq("asset_assignments.onboarding_assets.client", client);
 
       if (!allocationListsData || allocationListsData.length === 0) {
-        toast.error("You don't have any assigned assets in this batch");
+        toast.error("You don't have any assigned assets for this client");
         router.push("/my-assignments");
         return;
       }
@@ -1327,7 +1326,7 @@ export default function BatchDetailPage() {
                 )}
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-muted-foreground mt-1">
-                <span className="text-xs sm:text-sm">Batch {batch}</span>
+                <span className="text-xs sm:text-sm">All Batches</span>
                 <span className="hidden sm:inline">•</span>
                 <span className="text-xs sm:text-sm">Active Assignment</span>
                 {clientGuideUrls.length > 0 ? (
@@ -1610,10 +1609,10 @@ export default function BatchDetailPage() {
           <Card className="p-6 sm:p-8 text-center">
             <Package className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
             <h3 className="text-base sm:text-lg font-semibold mb-2">
-              No Assets in Batch
+              No Assets for Client
             </h3>
             <p className="text-sm sm:text-base text-muted-foreground mb-4">
-              This batch doesn&apos;t contain any assets yet.
+              This client doesn&apos;t have any assigned assets yet.
             </p>
             <Button
               onClick={() => router.push("/my-assignments")}
@@ -1880,34 +1879,34 @@ export default function BatchDetailPage() {
                               <Table>
                                 <TableHeader>
                                   <TableRow>
-                                    <TableHead className="w-12 py-2 text-xs">
+                                    <TableHead className="w-12 py-2 text-xs text-left">
                                       Status
                                     </TableHead>
-                                    <TableHead className="w-32 py-2 text-xs">
+                                    <TableHead className="w-32 py-2 text-xs text-left">
                                       Product Name
                                     </TableHead>
-                                    <TableHead className="w-32 py-2 text-xs">
+                                    <TableHead className="w-32 py-2 text-xs text-left">
                                       Article ID
                                     </TableHead>
-                                    <TableHead className="w-24 py-2 text-xs">
+                                    <TableHead className="w-24 py-2 text-xs text-left">
                                       Priority
                                     </TableHead>
-                                    <TableHead className="w-24 py-2 text-xs">
+                                    <TableHead className="w-24 py-2 text-xs text-left">
                                       Price
                                     </TableHead>
-                                    <TableHead className="w-32 py-2 text-xs">
+                                    <TableHead className="w-32 py-2 text-xs text-left">
                                       Category
                                     </TableHead>
-                                    <TableHead className="w-24 py-2 text-xs">
+                                    <TableHead className="w-24 py-2 text-xs text-left">
                                       GLB
                                     </TableHead>
-                                    <TableHead className="w-24 py-2 text-xs">
+                                    <TableHead className="w-24 py-2 text-xs text-left">
                                       References
                                     </TableHead>
-                                    <TableHead className="w-20 py-2 text-xs">
+                                    <TableHead className="w-20 py-2 text-xs text-left">
                                       Feedback
                                     </TableHead>
-                                    <TableHead className="w-24 py-2 text-xs">
+                                    <TableHead className="w-24 py-2 text-xs text-left">
                                       Product Link
                                     </TableHead>
                                   </TableRow>
@@ -1918,7 +1917,7 @@ export default function BatchDetailPage() {
                                       key={asset.id}
                                       className={`${getStatusRowClass(asset.status)} hover:bg-muted/50`}
                                     >
-                                      <TableCell className="py-2">
+                                      <TableCell className="py-2 text-left">
                                         <div className="flex items-center gap-2">
                                           {getStatusIcon(asset.status)}
                                           <Badge
@@ -1929,7 +1928,7 @@ export default function BatchDetailPage() {
                                           </Badge>
                                         </div>
                                       </TableCell>
-                                      <TableCell className="py-2">
+                                      <TableCell className="py-2 text-left">
                                         <div
                                           className="font-medium truncate max-w-[200px] cursor-help"
                                           title={asset.product_name}
@@ -1945,7 +1944,7 @@ export default function BatchDetailPage() {
                                           )}
                                         </div>
                                       </TableCell>
-                                      <TableCell className="py-2">
+                                      <TableCell className="py-2 text-left">
                                         <span className="text-xs text-muted-foreground font-mono">
                                           {
                                             highlightMatch(
@@ -1955,7 +1954,7 @@ export default function BatchDetailPage() {
                                           }
                                         </span>
                                       </TableCell>
-                                      <TableCell className="py-2">
+                                      <TableCell className="py-2 text-left">
                                         <Badge
                                           variant="outline"
                                           className={`text-xs ${getPriorityClass(asset.priority)}`}
@@ -1963,7 +1962,7 @@ export default function BatchDetailPage() {
                                           {getPriorityLabel(asset.priority)}
                                         </Badge>
                                       </TableCell>
-                                      <TableCell className="py-2">
+                                      <TableCell className="py-2 text-left">
                                         {asset.price ? (
                                           <div className="flex items-center gap-1 align-middle justify-center text-center text-sm ">
                                             <Euro className="h-3 w-3 text-success" />
@@ -2000,7 +1999,7 @@ export default function BatchDetailPage() {
                                           </span>
                                         )}
                                       </TableCell>
-                                      <TableCell className="py-2">
+                                      <TableCell className="py-2 text-left">
                                         <div className="text-sm">
                                           {highlightMatch(
                                             asset.category,
@@ -2016,7 +2015,7 @@ export default function BatchDetailPage() {
                                           )}
                                         </div>
                                       </TableCell>
-                                      <TableCell className="py-2">
+                                      <TableCell className="py-2 text-left">
                                         <div className="flex flex-col gap-1">
                                           {asset.glb_link ? (
                                             <Button
@@ -2065,7 +2064,7 @@ export default function BatchDetailPage() {
                                           </Button>
                                         </div>
                                       </TableCell>
-                                      <TableCell className="py-2">
+                                      <TableCell className="py-2 text-left">
                                         <div className="flex flex-col gap-1">
                                           <Button
                                             variant="outline"
@@ -2089,7 +2088,7 @@ export default function BatchDetailPage() {
                                           </Button>
                                         </div>
                                       </TableCell>
-                                      <TableCell className="py-2">
+                                      <TableCell className="py-2 text-left">
                                         <div className="flex flex-col items-center gap-1">
                                           <Button
                                             variant="ghost"
@@ -2107,7 +2106,7 @@ export default function BatchDetailPage() {
                                           </Button>
                                         </div>
                                       </TableCell>
-                                      <TableCell className="py-2">
+                                      <TableCell className="py-2 text-left">
                                         <div className="flex justify-center">
                                           {asset.product_link ? (
                                             <Button

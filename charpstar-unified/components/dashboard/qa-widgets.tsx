@@ -385,7 +385,7 @@ export default function QAWidgets() {
         subtitle="Your allocated project teams"
       />
       <div className="flex-1 min-h-0">
-        <div className="max-h-[60vh] overflow-y-auto space-y-4">
+        <div className="max-h-[30vh] overflow-y-auto space-y-4">
           {projects.map((p) => {
             const value = `${p.client}-${p.batch}`;
             return (

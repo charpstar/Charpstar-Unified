@@ -128,22 +128,22 @@ const ReviewTableSkeleton = () => (
     <Table>
       <TableHeader>
         <TableRow className="dark:border-border">
-          <TableHead className="w-12">
+          <TableHead className="w-12 text-left">
             <div className="h-4 w-4 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-24 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-20 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-20 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted dark:bg-muted/50 rounded animate-pulse" />
           </TableHead>
         </TableRow>
@@ -151,10 +151,10 @@ const ReviewTableSkeleton = () => (
       <TableBody>
         {Array.from({ length: 8 }).map((_, i) => (
           <TableRow key={i} className="dark:border-border">
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-4 w-4 bg-muted dark:bg-muted/50 rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="space-y-2">
                 <div className="h-4 w-32 bg-muted dark:bg-muted/50 rounded animate-pulse" />
                 <div className="flex items-center gap-2">
@@ -163,19 +163,19 @@ const ReviewTableSkeleton = () => (
                 </div>
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-4 w-20 bg-muted dark:bg-muted/50 rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="flex items-center gap-2">
                 <div className="h-6 w-16 bg-muted dark:bg-muted/50 rounded animate-pulse" />
                 <div className="h-3 w-8 bg-muted dark:bg-muted/50 rounded animate-pulse" />
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-4 w-24 bg-muted dark:bg-muted/50 rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-6 w-20 bg-muted dark:bg-muted/50 rounded animate-pulse" />
             </TableCell>
           </TableRow>
@@ -868,7 +868,7 @@ export default function ReviewDashboardPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="dark:border-border">
-                      <TableHead className="w-12 dark:text-foreground">
+                      <TableHead className="w-12 dark:text-foreground text-left">
                         <div className="flex items-center gap-2">
                           <Checkbox
                             checked={
@@ -883,28 +883,28 @@ export default function ReviewDashboardPage() {
                           />
                         </div>
                       </TableHead>
-                      <TableHead className="dark:text-foreground">
+                      <TableHead className="dark:text-foreground text-left">
                         Model Name
                       </TableHead>
-                      <TableHead className="dark:text-foreground">
+                      <TableHead className="dark:text-foreground text-left">
                         Article ID
                       </TableHead>
-                      <TableHead className="dark:text-foreground">
+                      <TableHead className="dark:text-foreground text-left">
                         Priority
                       </TableHead>
-                      <TableHead className="dark:text-foreground">
+                      <TableHead className="dark:text-foreground text-left">
                         Status
                       </TableHead>
-                      <TableHead className="dark:text-foreground">
+                      <TableHead className="dark:text-foreground text-left">
                         Product Link
                       </TableHead>
-                      <TableHead className="text-center dark:text-foreground">
+                      <TableHead className="dark:text-foreground text-left">
                         References
                       </TableHead>
-                      <TableHead className="dark:text-foreground">
+                      <TableHead className="dark:text-foreground text-left">
                         GLB File
                       </TableHead>
-                      <TableHead className="w-12 text-center dark:text-foreground">
+                      <TableHead className="w-12 dark:text-foreground text-left">
                         View
                       </TableHead>
                     </TableRow>
@@ -968,25 +968,25 @@ export default function ReviewDashboardPage() {
                             key={asset.id}
                             className={`${rowStyling.base} transition-all duration-200 dark:border-border dark:hover:bg-muted/20`}
                           >
-                            <TableCell>
+                            <TableCell className="text-left">
                               <Checkbox
                                 checked={selected.has(asset.id)}
                                 onCheckedChange={() => toggleSelect(asset.id)}
                                 className="bg-background dark:bg-background dark:border-border"
                               />
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-left">
                               <div className="flex flex-col gap-1">
                                 <span
-                                  className="font-medium dark:text-foreground truncate max-w-[200px] cursor-help"
+                                  className="font-medium dark:text-foreground max-w-[200px] cursor-help"
                                   title={asset.product_name}
                                 >
-                                  {asset.product_name.length > 35
-                                    ? asset.product_name.substring(0, 35) +
+                                  {asset.product_name.length > 45
+                                    ? asset.product_name.substring(0, 45) +
                                       "..."
                                     : asset.product_name}
                                 </span>
-                                <div className="flex items-center justify-center gap-2">
+                                <div className="flex items-center gap-2">
                                   <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                                     {annotationCounts[asset.id] || 0} annotation
                                     {(annotationCounts[asset.id] || 0) !== 1
@@ -1005,11 +1005,11 @@ export default function ReviewDashboardPage() {
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell className="dark:text-foreground">
+                            <TableCell className="dark:text-foreground text-left">
                               {asset.article_id}
                             </TableCell>
-                            <TableCell>
-                              <div className="flex items-center justify-center">
+                            <TableCell className="text-left">
+                              <div className="flex items-center">
                                 <Select
                                   value={(asset.priority || 2).toString()}
                                   onValueChange={(value) => {
@@ -1088,8 +1088,8 @@ export default function ReviewDashboardPage() {
                               </div>
                             </TableCell>
 
-                            <TableCell>
-                              <div className="flex items-center justify-center">
+                            <TableCell className="text-left">
+                              <div className="flex items-center">
                                 <span
                                   className={`px-2 py-1 rounded text-xs font-semibold ${getStatusLabelClass(asset.status)}`}
                                 >
@@ -1097,7 +1097,7 @@ export default function ReviewDashboardPage() {
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-center w-12">
+                            <TableCell className="text-left w-12">
                               {asset.product_link ? (
                                 <Button
                                   variant="ghost"
@@ -1117,7 +1117,7 @@ export default function ReviewDashboardPage() {
                               )}
                             </TableCell>
 
-                            <TableCell className="text-center">
+                            <TableCell className="text-left">
                               <div className="flex flex-col items-center gap-1">
                                 <Button
                                   variant="outline"
@@ -1142,7 +1142,7 @@ export default function ReviewDashboardPage() {
                                 </Button>
                               </div>
                             </TableCell>
-                            <TableCell className="text-center w-12">
+                            <TableCell className="text-left w-12">
                               {asset.glb_link ? (
                                 <Button
                                   variant="ghost"
@@ -1161,7 +1161,7 @@ export default function ReviewDashboardPage() {
                                 </span>
                               )}
                             </TableCell>
-                            <TableCell className="text-center w-12">
+                            <TableCell className="text-left w-12">
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -1252,8 +1252,8 @@ export default function ReviewDashboardPage() {
                                   className="font-medium text-sm dark:text-foreground truncate"
                                   title={asset.product_name}
                                 >
-                                  {asset.product_name.length > 30
-                                    ? asset.product_name.substring(0, 30) +
+                                  {asset.product_name.length > 45
+                                    ? asset.product_name.substring(0, 45) +
                                       "..."
                                     : asset.product_name}
                                 </h3>
