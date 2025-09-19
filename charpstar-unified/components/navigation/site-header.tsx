@@ -35,7 +35,6 @@ const TITLES = {
   "/my-assignments": "My Assignments",
   "/modeler-review": "Modeler Review",
   "/3d-editor": "3D Editor",
-  "/create-users": "Create Users",
   "/add-models": "Add Models",
   "/admin-review": "Admin Review",
   "/invoicing": "Invoicing",

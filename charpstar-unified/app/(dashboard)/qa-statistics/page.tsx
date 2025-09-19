@@ -133,33 +133,7 @@ const QAStatisticsPage = () => {
         throw revisionError;
       }
 
-      // 3. Get comments made by QAs
-      const { data: qaComments, error: commentError } = await supabase
-        .from("asset_comments")
-        .select("created_at, created_by")
-        .in("created_by", qaIds)
-        .gte("created_at", startDate.toISOString())
-        .lte("created_at", endDate.toISOString());
-
-      if (commentError) {
-        console.error("Error fetching QA comments:", commentError);
-        throw commentError;
-      }
-
-      // 4. Get annotations made by QAs
-      const { data: qaAnnotations, error: annotationError } = await supabase
-        .from("asset_annotations")
-        .select("created_at, created_by")
-        .in("created_by", qaIds)
-        .gte("created_at", startDate.toISOString())
-        .lte("created_at", endDate.toISOString());
-
-      if (annotationError) {
-        console.error("Error fetching QA annotations:", annotationError);
-        throw annotationError;
-      }
-
-      // 5. Get approval activities from activity log
+      // 3. Get approval activities from activity log
       const { data: approvalActivities, error: approvalError } = await supabase
         .from("activity_log")
         .select("created_at, user_id, metadata")
@@ -202,42 +176,35 @@ const QAStatisticsPage = () => {
         }
       });
 
-      // Count comments (review actions)
-      qaComments?.forEach((comment) => {
-        const qaStats = qaStatsMap.get(comment.created_by);
-        if (qaStats) {
-          qaStats.totalReviews++;
-        }
-      });
+      // Comments and annotations are no longer counted as review actions
+      // Only status changes (revisions and approvals) count as reviews
 
-      // Count annotations (review actions)
-      qaAnnotations?.forEach((annotation) => {
-        const qaStats = qaStatsMap.get(annotation.created_by);
-        if (qaStats) {
-          qaStats.totalReviews++;
-        }
-      });
-
-      // Count approvals from activity log
+      // Count reviews and approvals from activity log
       approvalActivities?.forEach((activity: any) => {
         const newStatus = activity?.metadata?.new_status;
-        if (
+        const qaStats = qaStatsMap.get(activity.user_id);
+        if (!qaStats) return;
+
+        // Count as review when QA sets status to "revisions"
+        if (newStatus === "revisions") {
+          qaStats.totalReviews++;
+          qaStats.statusBreakdown.needs_revision++;
+        }
+        // Count as both review and approval when QA approves
+        else if (
           newStatus === "approved" ||
           newStatus === "client_approved" ||
           newStatus === "delivered_by_artist"
         ) {
-          const qaStats = qaStatsMap.get(activity.user_id);
-          if (qaStats) {
-            qaStats.totalReviews++;
-            qaStats.totalApprovals++;
+          qaStats.totalReviews++;
+          qaStats.totalApprovals++;
 
-            if (newStatus === "approved") {
-              qaStats.statusBreakdown.approved++;
-            } else if (newStatus === "client_approved") {
-              qaStats.statusBreakdown.client_approved++;
-            } else if (newStatus === "delivered_by_artist") {
-              qaStats.statusBreakdown.delivered_by_artist++;
-            }
+          if (newStatus === "approved") {
+            qaStats.statusBreakdown.approved++;
+          } else if (newStatus === "client_approved") {
+            qaStats.statusBreakdown.client_approved++;
+          } else if (newStatus === "delivered_by_artist") {
+            qaStats.statusBreakdown.delivered_by_artist++;
           }
         }
       });
@@ -271,15 +238,11 @@ const QAStatisticsPage = () => {
         date.setDate(date.getDate() - i);
         const dateStr = date.toISOString().split("T")[0];
 
-        // Count reviews for this day
+        // Count reviews for this day (only from status changes)
         const dayReviews = [
           ...(revisionHistory?.filter((r) =>
             r.created_at.startsWith(dateStr)
           ) || []),
-          ...(qaComments?.filter((c) => c.created_at.startsWith(dateStr)) ||
-            []),
-          ...(qaAnnotations?.filter((a) => a.created_at.startsWith(dateStr)) ||
-            []),
           ...(approvalActivities?.filter((a) =>
             a.created_at.startsWith(dateStr)
           ) || []),
@@ -499,8 +462,8 @@ const QAStatisticsPage = () => {
         <Card className="bg-muted/50">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Eye className="h-4 w-4 text-blue-600" />
+              <div className="p-2 bg-info-muted rounded-lg">
+                <Eye className="h-4 w-4 text-info" />
               </div>
               <div className="space-y-1">
                 <h3 className="font-medium text-sm">
@@ -728,11 +691,9 @@ const QAStatisticsPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-left">QA Specialist</TableHead>
-                  <TableHead className="text-left">Title</TableHead>
                   <TableHead className="text-left">Reviews</TableHead>
                   <TableHead className="text-left">Approvals</TableHead>
                   <TableHead className="text-left">Approval Rate</TableHead>
-                  <TableHead className="text-left">Status Breakdown</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -741,7 +702,6 @@ const QAStatisticsPage = () => {
                     <TableCell className="text-left font-medium">
                       {qa.email}
                     </TableCell>
-                    <TableCell className="text-left">{qa.title}</TableCell>
                     <TableCell className="text-left">
                       {qa.totalReviews}
                     </TableCell>
@@ -760,22 +720,6 @@ const QAStatisticsPage = () => {
                       >
                         {qa.approvalRate}%
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-left">
-                      <div className="flex flex-wrap gap-1">
-                        <Badge variant="outline" className="text-xs">
-                          A: {qa.statusBreakdown.approved}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          CA: {qa.statusBreakdown.client_approved}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          D: {qa.statusBreakdown.delivered_by_artist}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          R: {qa.statusBreakdown.needs_revision}
-                        </Badge>
-                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

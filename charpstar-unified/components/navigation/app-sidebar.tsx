@@ -11,7 +11,6 @@ import {
   ClipboardList,
   Eye,
   Factory,
-  UserPlus,
   Package,
   MessageSquare,
   DollarSign,
@@ -165,11 +164,6 @@ export default function AppSidebar({
                 title: "QA Statistics",
                 url: "/qa-statistics",
                 icon: ShieldCheck,
-              },
-              {
-                title: "Create Users",
-                url: "/create-users",
-                icon: UserPlus,
               },
               {
                 title: "Users",

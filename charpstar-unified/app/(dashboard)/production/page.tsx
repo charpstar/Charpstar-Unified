@@ -2761,7 +2761,7 @@ export default function ProductionDashboard() {
                             onClick={() => handleClientSelect(client.name)}
                           >
                             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                            View Projects
+                            View Batches
                           </Button>
                         </div>
                       </CardContent>
@@ -3077,7 +3077,7 @@ export default function ProductionDashboard() {
                               }
                             >
                               <ShieldCheck className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                              Admin Review
+                              See Lists
                             </Button>
                           </div>
                         </CardContent>
@@ -3266,7 +3266,7 @@ export default function ProductionDashboard() {
                               }
                             >
                               <ShieldCheck className="h-4 w-4 mr-2" />
-                              Admin Review
+                              See Lists
                             </Button>
                           </div>
                         </CardContent>
@@ -3518,7 +3518,7 @@ export default function ProductionDashboard() {
                                 }
                               >
                                 <ShieldCheck className="h-4 w-4 mr-2" />
-                                Admin Review
+                                See Lists
                               </Button>
                             </div>
                           </CardContent>

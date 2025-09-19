@@ -399,7 +399,9 @@ export default function AdminReviewPage() {
   const [modelers, setModelers] = useState<
     Array<{ id: string; email: string; title?: string }>
   >([]);
-
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
+    {}
+  );
   // Price management state
   const [assetPrices, setAssetPrices] = useState<
     Record<string, { pricingOptionId: string; price: number }>
@@ -1473,6 +1475,30 @@ export default function AdminReviewPage() {
     }
 
     fetchAnnotationCounts();
+  }, [assets]);
+
+  // Fetch comment counts for assets
+  useEffect(() => {
+    async function fetchCommentCounts() {
+      if (assets.length === 0) return;
+      try {
+        const assetIds = assets.map((asset) => asset.id);
+        const { data, error } = await supabase
+          .from("asset_comments")
+          .select("asset_id")
+          .in("asset_id", assetIds);
+        if (!error && data) {
+          const counts: Record<string, number> = {};
+          data.forEach((comment) => {
+            counts[comment.asset_id] = (counts[comment.asset_id] || 0) + 1;
+          });
+          setCommentCounts(counts);
+        }
+      } catch (error) {
+        console.error("Error fetching comment counts:", error);
+      }
+    }
+    fetchCommentCounts();
   }, [assets]);
 
   // Apply filters to allocation lists
@@ -4423,7 +4449,13 @@ export default function AdminReviewPage() {
                               </span>
                               <div className="flex items-center gap-1 sm:gap-2">
                                 <span className="text-xs text-muted-foreground">
-                                  {annotationCounts[asset.id] || 0} ann.
+                                  {annotationCounts[asset.id] || 0} annotations
+                                </span>
+                                <span className="text-xs text-slate-500 hidden sm:inline">
+                                  •
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {commentCounts[asset.id] || 0} comments
                                 </span>
                                 <span className="text-xs text-slate-500 hidden sm:inline">
                                   •

@@ -920,15 +920,16 @@ export default function BatchDetailPage() {
         }
       }
 
-      // Upload to Supabase Storage with clean filename
-      const fileNameForUpload = `${asset?.article_id || assetId}.glb`;
+      // Upload to Supabase Storage with unique filename to preserve history
+      const timestamp = Date.now();
+      const fileNameForUpload = `${asset?.article_id || assetId}_${timestamp}.glb`;
       const filePath = `models/${fileNameForUpload}`;
 
       const { error: uploadError } = await supabase.storage
         .from("assets")
         .upload(filePath, file, {
           cacheControl: "3600",
-          upsert: true, // Allow overwrites for same article_id
+          upsert: false, // Don't overwrite, use unique filename
         });
 
       if (uploadError) {
@@ -941,12 +942,12 @@ export default function BatchDetailPage() {
         .from("assets")
         .getPublicUrl(filePath);
 
-      // Update the asset with the new GLB link
+      // Update the asset with the new GLB link and change status to delivered_by_artist
       const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
           glb_link: urlData.publicUrl,
-          status: "in_production",
+          status: "delivered_by_artist",
         })
         .eq("id", assetId);
 
@@ -955,13 +956,13 @@ export default function BatchDetailPage() {
         throw updateError;
       }
 
-      // Record GLB upload history with clean filename
+      // Record GLB upload history with unique filename
       const { error: newHistoryError } = await supabase
         .from("glb_upload_history")
         .insert({
           asset_id: assetId,
           glb_url: urlData.publicUrl,
-          file_name: `${asset?.article_id || assetId}.glb`,
+          file_name: fileNameForUpload,
           file_size: file.size,
           uploaded_by: user?.id,
           uploaded_at: new Date().toISOString(),
@@ -978,7 +979,11 @@ export default function BatchDetailPage() {
           ...list,
           assets: list.assets.map((a) =>
             a.id === assetId
-              ? { ...a, glb_link: urlData.publicUrl, status: "in_production" }
+              ? {
+                  ...a,
+                  glb_link: urlData.publicUrl,
+                  status: "delivered_by_artist",
+                }
               : a
           ),
         }));
@@ -2021,12 +2026,17 @@ export default function BatchDetailPage() {
                                             <Button
                                               variant="ghost"
                                               size="sm"
-                                              onClick={() =>
+                                              onClick={() => {
+                                                const fileName =
+                                                  asset.glb_link
+                                                    ?.split("/")
+                                                    .pop() ||
+                                                  `${asset.article_id}.glb`;
                                                 handleFileDownload(
                                                   asset.glb_link!,
-                                                  `${asset.article_id}.glb`
-                                                )
-                                              }
+                                                  fileName
+                                                );
+                                              }}
                                               className="text-xs h-6 px-2 w-full hover:text-blue-700 hover:underline"
                                             >
                                               <Download className="h-3 w-3 mr-1" />
@@ -2275,12 +2285,17 @@ export default function BatchDetailPage() {
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() =>
+                                            onClick={() => {
+                                              const fileName =
+                                                asset.glb_link
+                                                  ?.split("/")
+                                                  .pop() ||
+                                                `${asset.article_id}.glb`;
                                               handleFileDownload(
                                                 asset.glb_link!,
-                                                `${asset.article_id}.glb`
-                                              )
-                                            }
+                                                fileName
+                                              );
+                                            }}
                                             className="text-xs h-6 px-2 hover:text-blue-700"
                                           >
                                             <Download className="h-3 w-3 mr-1" />

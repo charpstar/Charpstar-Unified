@@ -924,24 +924,40 @@ export default function ModelerReviewPage() {
   };
 
   // Handle GLB upload
-  // Note: We no longer save the previous GLB to history to avoid confusion.
-  // Only the new GLB is saved to history, and the current version is determined
-  // by matching the asset's glb_link with the history item's glb_url.
   const handleUpload = async () => {
     if (!selectedFile || !asset) return;
 
     setUploading(true);
 
     try {
-      // Upload to Supabase Storage with clean filename
-      const fileName = `${asset.article_id}.glb`;
+      // Save current GLB to history before uploading new one
+      if (asset.glb_link) {
+        const { error: historyError } = await supabase
+          .from("glb_upload_history")
+          .insert({
+            asset_id: asset.id,
+            glb_url: asset.glb_link,
+            file_name: `${asset.article_id}.glb`,
+            file_size: 0, // We don't have the original file size
+            uploaded_by: user?.id,
+            uploaded_at: new Date().toISOString(),
+          });
+
+        if (historyError) {
+          console.error("Error saving current GLB to history:", historyError);
+        }
+      }
+
+      // Upload to Supabase Storage with unique filename to preserve history
+      const timestamp = Date.now();
+      const fileName = `${asset.article_id}_${timestamp}.glb`;
       const filePath = `models/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("assets")
         .upload(filePath, selectedFile, {
           cacheControl: "3600",
-          upsert: true, // Allow overwrites for same article_id
+          upsert: false, // Don't overwrite, use unique filename
         });
 
       if (uploadError) {
@@ -953,12 +969,12 @@ export default function ModelerReviewPage() {
         .from("assets")
         .getPublicUrl(filePath);
 
-      // Update the asset with the new GLB link
+      // Update the asset with the new GLB link and change status to delivered_by_artist
       const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
           glb_link: urlData.publicUrl,
-          status: "in_production",
+          status: "delivered_by_artist",
         })
         .eq("id", asset.id);
 
@@ -967,7 +983,7 @@ export default function ModelerReviewPage() {
       }
 
       // Record GLB upload history for the new file
-      const { error: historyError } = await supabase
+      const { error: newHistoryError } = await supabase
         .from("glb_upload_history")
         .insert({
           asset_id: asset.id,
@@ -978,8 +994,8 @@ export default function ModelerReviewPage() {
           uploaded_at: new Date().toISOString(),
         });
 
-      if (historyError) {
-        console.error("Error recording GLB history:", historyError);
+      if (newHistoryError) {
+        console.error("Error recording new GLB history:", newHistoryError);
       }
 
       // Update local state
@@ -988,7 +1004,7 @@ export default function ModelerReviewPage() {
           ? {
               ...prev,
               glb_link: urlData.publicUrl,
-              status: "in_production",
+              status: "delivered_by_artist",
             }
           : null
       );

@@ -2308,7 +2308,7 @@ export function QAStatisticsWidget() {
         <WidgetHeader title="QA Statistics" icon={ShieldCheck} />
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
+            <div key={i} className="h-12 bg-muted rounded animate-pulse" />
           ))}
         </div>
       </WidgetContainer>
@@ -2320,8 +2320,8 @@ export function QAStatisticsWidget() {
       title: "Total QAs",
       count: stats.totalQAs,
       animatedCount: animatedTotalQAs,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      color: "text-info",
+      bg: "bg-info-muted",
       icon: Users,
       action: () => router.push("/qa-statistics"),
     },
@@ -2329,8 +2329,8 @@ export function QAStatisticsWidget() {
       title: "Total Reviews",
       count: stats.totalReviews,
       animatedCount: animatedTotalReviews,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
+      color: "text-accent-purple",
+      bg: "bg-purple-500/20",
       icon: Eye,
       action: () => router.push("/qa-statistics"),
     },
@@ -2338,8 +2338,8 @@ export function QAStatisticsWidget() {
       title: "Total Approvals",
       count: stats.totalApprovals,
       animatedCount: animatedTotalApprovals,
-      color: "text-green-600",
-      bg: "bg-green-50",
+      color: "text-success",
+      bg: "bg-success-muted",
       icon: CheckCircle,
       action: () => router.push("/qa-statistics"),
     },
@@ -2347,8 +2347,8 @@ export function QAStatisticsWidget() {
       title: "Avg Reviews/QA",
       count: stats.averageReviewsPerQA,
       animatedCount: animatedAverageReviews,
-      color: "text-orange-600",
-      bg: "bg-orange-50",
+      color: "text-warning",
+      bg: "bg-warning-muted",
       icon: TrendingUp,
       action: () => router.push("/qa-statistics"),
     },
@@ -2362,7 +2362,7 @@ export function QAStatisticsWidget() {
           <div
             key={item.title}
             onClick={item.action}
-            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+            className="flex items-center justify-between p-3 rounded-lg bg-background hover:bg-accent border border-border cursor-pointer transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded ${item.bg}`}>
@@ -2374,19 +2374,19 @@ export function QAStatisticsWidget() {
               <span className={`text-lg font-bold ${item.color}`}>
                 {item.animatedCount}
               </span>
-              <ArrowRight className="h-4 w-4 text-gray-400" />
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         ))}
         {stats.topQA.email && stats.topQA.email !== "No QAs" && (
-          <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+          <div className="mt-3 p-3 bg-info-muted rounded-lg border border-info">
             <div className="flex items-center gap-2 mb-1">
-              <ShieldCheck className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">
+              <ShieldCheck className="h-4 w-4 text-info" />
+              <span className="text-sm font-medium text-foreground">
                 Top Performer
               </span>
             </div>
-            <p className="text-xs text-blue-700">
+            <p className="text-xs text-info">
               {stats.topQA.email} • {stats.topQA.reviews} reviews •{" "}
               {stats.topQA.approvals} approvals
             </p>
@@ -2585,7 +2585,7 @@ export function CostSummaryWidget() {
       count: stats.totalCost,
       animatedCount: animatedTotalCost,
       color: "text-red-600",
-      bg: "bg-red-50",
+      bg: "bg-red-500/20",
       icon: DollarSign,
       action: () => router.push("/production/cost-tracking"),
       prefix: "€",
@@ -2595,7 +2595,7 @@ export function CostSummaryWidget() {
       count: stats.monthlyAverage,
       animatedCount: animatedMonthlyAverage,
       color: "text-blue-600",
-      bg: "bg-blue-50",
+      bg: "bg-blue-500/20",
       icon: TrendingUp,
       action: () => router.push("/production/cost-tracking"),
       prefix: "€",
@@ -2605,7 +2605,7 @@ export function CostSummaryWidget() {
       count: stats.totalCompletedAssets,
       animatedCount: animatedCompletedAssets,
       color: "text-green-600",
-      bg: "bg-green-50",
+      bg: "bg-green-500/20",
       icon: CheckCircle,
       action: () => router.push("/production/cost-tracking"),
     },
@@ -2614,7 +2614,7 @@ export function CostSummaryWidget() {
       count: stats.costEfficiency,
       animatedCount: animatedCostEfficiency,
       color: "text-purple-600",
-      bg: "bg-purple-50",
+      bg: "bg-purple-500/20",
       icon: BarChart3,
       action: () => router.push("/production/cost-tracking"),
       prefix: "€",
@@ -2629,7 +2629,7 @@ export function CostSummaryWidget() {
           <div
             key={item.title}
             onClick={item.action}
-            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+            className="flex items-center justify-between p-3 rounded-lg bg-background hover:bg-accent border border-border cursor-pointer transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded ${item.bg}`}>
@@ -2642,19 +2642,19 @@ export function CostSummaryWidget() {
                 {item.prefix || ""}
                 {item.animatedCount}
               </span>
-              <ArrowRight className="h-4 w-4 text-gray-400" />
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         ))}
         {stats.topModelerEmail && (
-          <div className="mt-3 p-3 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200">
+          <div className="mt-3 p-3 bg-error-muted rounded-lg border border-error">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="h-4 w-4 text-red-600" />
-              <span className="text-sm font-medium text-red-800">
+              <DollarSign className="h-4 w-4 text-error" />
+              <span className="text-sm font-medium text-foreground">
                 Highest Cost
               </span>
             </div>
-            <p className="text-xs text-red-700">
+            <p className="text-xs text-error">
               {stats.topModelerEmail} • €{stats.topModelerCost} total cost
             </p>
           </div>
