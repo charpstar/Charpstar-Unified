@@ -175,16 +175,15 @@ export async function generateScenes(
   try {
     // Process requests sequentially to avoid rate limiting
     const results: (string | null)[] = [];
-    
     for (let i = 0; i < textPrompts.length; i++) {
-      console.log(`Generating scene ${i + 1}/${textPrompts.length}...`);
       try {
+        console.log(`Generating scene ${i + 1}/${textPrompts.length}...`);
         const result = await callApi(ai, imageParts, { text: textPrompts[i] });
         results.push(result);
-        
-        // Add a small delay between requests to be respectful to the API
+
+        // Add a small delay between requests to avoid rate limiting
         if (i < textPrompts.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       } catch (error) {
         console.error(`Failed to generate scene ${i + 1}:`, error);
@@ -197,10 +196,14 @@ export async function generateScenes(
     );
 
     if (successfulResults.length === 0) {
-      throw new Error("The AI failed to generate any images.");
+      throw new Error(
+        "The AI failed to generate any images. This might be due to server issues or invalid input."
+      );
     }
 
-    console.log(`Successfully generated ${successfulResults.length}/${textPrompts.length} scenes`);
+    console.log(
+      `Successfully generated ${successfulResults.length}/${textPrompts.length} scenes`
+    );
     return successfulResults;
   } catch (error) {
     console.error("Error calling Gemini API:", error);

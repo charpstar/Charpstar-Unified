@@ -33,6 +33,9 @@ import {
   CheckCircle,
   RotateCcw,
   ShieldCheck,
+  AlertTriangle,
+  DollarSign,
+  BarChart3,
 } from "lucide-react";
 
 import { BarChart, XAxis, YAxis, Bar } from "recharts";
@@ -72,6 +75,7 @@ function QAHeader({
 // Helper function to get status color CSS variable
 const getStatusColor = (status: StatusKey): string => {
   const statusColorMap = {
+    not_started: "var(--status-not-started)",
     in_production: "var(--status-in-production)",
     revisions: "var(--status-revisions)",
     approved: "var(--status-approved)",
@@ -1308,6 +1312,7 @@ export function ModelStatusWidget() {
   const user = useUser();
   //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
+    not_started: 0,
     in_production: 0,
     revisions: 0,
     approved: 0,
@@ -1326,6 +1331,7 @@ export function ModelStatusWidget() {
         .eq("client", user.metadata.client);
       if (!error && data) {
         const newCounts: Record<StatusKey, number> = {
+          not_started: 0,
           in_production: 0,
           revisions: 0,
           approved: 0,
@@ -1373,6 +1379,7 @@ export function ModelStatusWidget() {
 export function StatusPieChartWidget() {
   const user = useUser();
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
+    not_started: 0,
     in_production: 0,
     revisions: 0,
     approved: 0,
@@ -1392,6 +1399,7 @@ export function StatusPieChartWidget() {
         .eq("client", user.metadata.client);
       if (!error && data) {
         const newCounts: Record<StatusKey, number> = {
+          not_started: 0,
           in_production: 0,
           revisions: 0,
           approved: 0,
@@ -1724,12 +1732,14 @@ export function ClientActionCenterWidget() {
 // Admin widgets
 export function AdminPipelineWidget() {
   const [counts, setCounts] = useState<Record<StatusKey, number>>({
+    not_started: 0,
     in_production: 0,
     revisions: 0,
     approved: 0,
     approved_by_client: 0,
     delivered_by_artist: 0,
   });
+  const [unallocatedCount, setUnallocatedCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const fetchedRef = React.useRef(false);
@@ -1739,11 +1749,15 @@ export function AdminPipelineWidget() {
     fetchedRef.current = true;
     const fetchCounts = async () => {
       setLoading(true);
+
+      // Fetch asset statuses
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select("status");
+
       if (!error && data) {
         const next: Record<StatusKey, number> = {
+          not_started: 0,
           in_production: 0,
           revisions: 0,
           approved: 0,
@@ -1752,24 +1766,56 @@ export function AdminPipelineWidget() {
         };
         for (const row of data) {
           const raw = (row.status || "") as string;
-          const mapped = (
-            raw === "not_started" ? "in_production" : raw
-          ) as StatusKey;
+          const mapped = raw as StatusKey;
           if (mapped in next) next[mapped]++;
         }
         setCounts(next);
       }
+
+      // Fetch unallocated assets count
+      const { data: assignedAssets, error: assignmentError } = await supabase
+        .from("asset_assignments")
+        .select("asset_id")
+        .eq("role", "modeler");
+
+      if (!assignmentError && assignedAssets) {
+        const assignedAssetIds = assignedAssets.map((a) => a.asset_id);
+
+        const { data: allAssets, error: allAssetsError } = await supabase
+          .from("onboarding_assets")
+          .select("id");
+
+        if (!allAssetsError && allAssets) {
+          const unallocated = allAssets.filter(
+            (asset) => !assignedAssetIds.includes(asset.id)
+          );
+          setUnallocatedCount(unallocated.length);
+        }
+      }
+
       setLoading(false);
     };
     fetchCounts();
   }, []);
 
   const items: Array<{
-    key: StatusKey;
+    key: StatusKey | "unallocated";
     label: string;
     color: string;
     value: number;
   }> = [
+    {
+      key: "unallocated",
+      label: "Not Allocated",
+      color: "#dc2626",
+      value: unallocatedCount,
+    },
+    {
+      key: "not_started",
+      label: STATUS_LABELS.not_started,
+      color: getStatusColor("not_started"),
+      value: counts.not_started,
+    },
     {
       key: "in_production",
       label: STATUS_LABELS.in_production,
@@ -1797,7 +1843,7 @@ export function AdminPipelineWidget() {
   ];
 
   const statusStyles: Record<
-    StatusKey,
+    StatusKey | "unallocated",
     {
       bgGradient: string;
       border: string;
@@ -1806,6 +1852,22 @@ export function AdminPipelineWidget() {
       icon: React.ComponentType<{ className?: string }>;
     }
   > = {
+    unallocated: {
+      bgGradient:
+        "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
+      border: "border-red-200 dark:border-red-800",
+      iconBg: "bg-red-500 dark:bg-red-600",
+      accentBar: "bg-red-500 dark:bg-red-600",
+      icon: AlertTriangle,
+    },
+    not_started: {
+      bgGradient:
+        "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950/50 dark:to-gray-900/50",
+      border: "border-gray-200 dark:border-gray-800",
+      iconBg: "bg-gray-500 dark:bg-gray-600",
+      accentBar: "bg-gray-500 dark:bg-gray-600",
+      icon: Package,
+    },
     in_production: {
       bgGradient:
         "bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50",
@@ -1849,12 +1911,21 @@ export function AdminPipelineWidget() {
   };
 
   const StatusStatCard: React.FC<{
-    item: { key: StatusKey; label: string; color: string; value: number };
+    item: {
+      key: StatusKey | "unallocated";
+      label: string;
+      color: string;
+      value: number;
+    };
   }> = ({ item }) => {
     const animatedValue = useCountUp(item.value);
     const handleClick = () => {
-      const statusParam = item.key;
-      router.push(`/admin-review?status=${encodeURIComponent(statusParam)}`);
+      if (item.key === "unallocated") {
+        router.push("/admin-review?status=unallocated");
+      } else {
+        const statusParam = item.key;
+        router.push(`/admin-review?status=${encodeURIComponent(statusParam)}`);
+      }
     };
     const style = statusStyles[item.key] || statusStyles.in_production;
     const Icon = style.icon;
@@ -1862,30 +1933,31 @@ export function AdminPipelineWidget() {
       <button
         type="button"
         onClick={handleClick}
-        className={`cursor-pointer group relative overflow-hidden rounded-xl border transition-all duration-200 ease-out hover:shadow-md ${style.bgGradient} ${style.border} p-3 text-left focus:outline-none focus:ring-2 focus:ring-primary/20`}
+        className={`cursor-pointer group relative overflow-hidden rounded-lg border transition-all duration-200 ease-out hover:shadow-md ${style.bgGradient} ${style.border} p-2 text-left focus:outline-none focus:ring-2 focus:ring-primary/20 h-16`}
         title={`View ${item.label}`}
       >
         <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-20 h-20 transform rotate-45 translate-x-8 -translate-y-8 bg-current rounded-full"></div>
-          <div className="absolute bottom-0 left-0 w-16 h-16 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
+          <div className="absolute top-0 right-0 w-12 h-12 transform rotate-45 translate-x-4 -translate-y-4 bg-current rounded-full"></div>
+          <div className="absolute bottom-0 left-0 w-8 h-8 transform -rotate-45 -translate-x-3 translate-y-3 bg-current rounded-full"></div>
         </div>
 
-        <div className="relative flex items-start justify-between mb-1">
-          <div
-            className={`p-2 rounded-lg ${style.iconBg} shadow-md shadow-black/10`}
-          >
-            <Icon className="h-3.5 w-3.5 text-white" />
+        <div className="relative flex items-center justify-between h-full">
+          <div className="flex items-center gap-2">
+            <div
+              className={`p-1 rounded ${style.iconBg} shadow-sm shadow-black/10`}
+            >
+              <Icon className="h-3 w-3 text-white" />
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground leading-tight">
+                {item.label}
+              </div>
+              <div className="text-lg font-bold text-foreground leading-tight">
+                {animatedValue}
+              </div>
+            </div>
           </div>
-          <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-        </div>
-
-        <div className="relative">
-          <div className="text-xs text-muted-foreground mb-0.5">
-            {item.label}
-          </div>
-          <div className="text-2xl font-bold text-foreground">
-            {animatedValue}
-          </div>
+          <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         </div>
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -1904,8 +1976,8 @@ export function AdminPipelineWidget() {
         subtitle="Overview of asset statuses"
       />
       {loading ? (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2 mt-2">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          {[...Array(6)].map((_, i) => (
             <div
               key={i}
               className="h-16 bg-muted animate-pulse rounded-md cursor-pointer"
@@ -1913,7 +1985,7 @@ export function AdminPipelineWidget() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2 mt-2">
+        <div className="grid grid-cols-2 gap-2 mt-2">
           {items.map((item) => (
             <StatusStatCard key={item.key} item={item} />
           ))}
@@ -2049,5 +2121,545 @@ export function AdminQueuesWidget() {
         <List />
       </div>
     </Card>
+  );
+}
+
+export function QAStatisticsWidget() {
+  const [stats, setStats] = useState({
+    totalQAs: 0,
+    totalReviews: 0,
+    totalApprovals: 0,
+    averageReviewsPerQA: 0,
+    averageApprovalsPerQA: 0,
+    topQA: { email: "", reviews: 0, approvals: 0 },
+  });
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  // Use hooks at the top level to avoid Rules of Hooks violations
+  const animatedTotalQAs = useCountUp(stats.totalQAs);
+  const animatedTotalReviews = useCountUp(stats.totalReviews);
+  const animatedTotalApprovals = useCountUp(stats.totalApprovals);
+  const animatedAverageReviews = useCountUp(stats.averageReviewsPerQA);
+
+  useEffect(() => {
+    const fetchQAStats = async () => {
+      try {
+        // Calculate date range for last 30 days
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 30);
+
+        // 1. Get all QA users
+        const { data: qaUsers, error: qaError } = await supabase
+          .from("profiles")
+          .select("id, email, title")
+          .eq("role", "qa");
+
+        if (qaError) throw qaError;
+
+        if (!qaUsers || qaUsers.length === 0) {
+          setStats({
+            totalQAs: 0,
+            totalReviews: 0,
+            totalApprovals: 0,
+            averageReviewsPerQA: 0,
+            averageApprovalsPerQA: 0,
+            topQA: { email: "No QAs", reviews: 0, approvals: 0 },
+          });
+          setLoading(false);
+          return;
+        }
+
+        const qaIds = qaUsers.map((qa) => qa.id);
+
+        // 2. Get revision history (QA sends for revision) for all QAs
+        const { data: revisionHistory, error: revisionError } = await supabase
+          .from("revision_history")
+          .select("created_at, created_by")
+          .in("created_by", qaIds)
+          .gte("created_at", startDate.toISOString())
+          .lte("created_at", endDate.toISOString());
+
+        if (revisionError) throw revisionError;
+
+        // 3. Get comments made by QAs
+        const { data: qaComments, error: commentError } = await supabase
+          .from("asset_comments")
+          .select("created_at, created_by")
+          .in("created_by", qaIds)
+          .gte("created_at", startDate.toISOString())
+          .lte("created_at", endDate.toISOString());
+
+        if (commentError) throw commentError;
+
+        // 4. Get annotations made by QAs
+        const { data: qaAnnotations, error: annotationError } = await supabase
+          .from("asset_annotations")
+          .select("created_at, created_by")
+          .in("created_by", qaIds)
+          .gte("created_at", startDate.toISOString())
+          .lte("created_at", endDate.toISOString());
+
+        if (annotationError) throw annotationError;
+
+        // 5. Get approval activities from activity log
+        const { data: approvalActivities, error: approvalError } =
+          await supabase
+            .from("activity_log")
+            .select("created_at, user_id, metadata")
+            .in("user_id", qaIds)
+            .eq("resource_type", "asset")
+            .eq("type", "update")
+            .gte("created_at", startDate.toISOString())
+            .lte("created_at", endDate.toISOString());
+
+        if (approvalError) throw approvalError;
+
+        // Process data for each QA
+        const qaStatsMap = new Map();
+        qaUsers.forEach((qa) => {
+          qaStatsMap.set(qa.id, {
+            email: qa.email,
+            reviews: 0,
+            approvals: 0,
+          });
+        });
+
+        // Count revision actions (reviews that resulted in revisions)
+        revisionHistory?.forEach((revision) => {
+          const qaStats = qaStatsMap.get(revision.created_by);
+          if (qaStats) {
+            qaStats.reviews += 1;
+          }
+        });
+
+        // Count comments (review actions)
+        qaComments?.forEach((comment) => {
+          const qaStats = qaStatsMap.get(comment.created_by);
+          if (qaStats) {
+            qaStats.reviews += 1;
+          }
+        });
+
+        // Count annotations (review actions)
+        qaAnnotations?.forEach((annotation) => {
+          const qaStats = qaStatsMap.get(annotation.created_by);
+          if (qaStats) {
+            qaStats.reviews += 1;
+          }
+        });
+
+        // Count approvals from activity log
+        approvalActivities?.forEach((activity: any) => {
+          const newStatus = activity?.metadata?.new_status;
+          if (
+            newStatus === "approved" ||
+            newStatus === "client_approved" ||
+            newStatus === "delivered_by_artist"
+          ) {
+            const qaStats = qaStatsMap.get(activity.user_id);
+            if (qaStats) {
+              qaStats.reviews += 1;
+              qaStats.approvals += 1;
+            }
+          }
+        });
+
+        // Calculate totals and find top QA
+        let totalReviews = 0;
+        let totalApprovals = 0;
+        let topQA = { email: "", reviews: 0, approvals: 0 };
+
+        qaStatsMap.forEach((qaStats) => {
+          totalReviews += qaStats.reviews;
+          totalApprovals += qaStats.approvals;
+
+          if (qaStats.reviews > topQA.reviews) {
+            topQA = qaStats;
+          }
+        });
+
+        setStats({
+          totalQAs: qaUsers.length,
+          totalReviews,
+          totalApprovals,
+          averageReviewsPerQA:
+            qaUsers.length > 0 ? Math.round(totalReviews / qaUsers.length) : 0,
+          averageApprovalsPerQA:
+            qaUsers.length > 0
+              ? Math.round(totalApprovals / qaUsers.length)
+              : 0,
+          topQA,
+        });
+      } catch (error) {
+        console.error("Error fetching QA stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQAStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <WidgetContainer>
+        <WidgetHeader title="QA Statistics" icon={ShieldCheck} />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
+          ))}
+        </div>
+      </WidgetContainer>
+    );
+  }
+
+  const qaStatsItems = [
+    {
+      title: "Total QAs",
+      count: stats.totalQAs,
+      animatedCount: animatedTotalQAs,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      icon: Users,
+      action: () => router.push("/qa-statistics"),
+    },
+    {
+      title: "Total Reviews",
+      count: stats.totalReviews,
+      animatedCount: animatedTotalReviews,
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+      icon: Eye,
+      action: () => router.push("/qa-statistics"),
+    },
+    {
+      title: "Total Approvals",
+      count: stats.totalApprovals,
+      animatedCount: animatedTotalApprovals,
+      color: "text-green-600",
+      bg: "bg-green-50",
+      icon: CheckCircle,
+      action: () => router.push("/qa-statistics"),
+    },
+    {
+      title: "Avg Reviews/QA",
+      count: stats.averageReviewsPerQA,
+      animatedCount: animatedAverageReviews,
+      color: "text-orange-600",
+      bg: "bg-orange-50",
+      icon: TrendingUp,
+      action: () => router.push("/qa-statistics"),
+    },
+  ];
+
+  return (
+    <WidgetContainer>
+      <WidgetHeader title="QA Statistics" icon={ShieldCheck} />
+      <div className="space-y-3">
+        {qaStatsItems.map((item) => (
+          <div
+            key={item.title}
+            onClick={item.action}
+            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded ${item.bg}`}>
+                <item.icon className={`h-4 w-4 ${item.color}`} />
+              </div>
+              <span className="text-sm font-medium">{item.title}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-lg font-bold ${item.color}`}>
+                {item.animatedCount}
+              </span>
+              <ArrowRight className="h-4 w-4 text-gray-400" />
+            </div>
+          </div>
+        ))}
+        {stats.topQA.email && stats.topQA.email !== "No QAs" && (
+          <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">
+                Top Performer
+              </span>
+            </div>
+            <p className="text-xs text-blue-700">
+              {stats.topQA.email} • {stats.topQA.reviews} reviews •{" "}
+              {stats.topQA.approvals} approvals
+            </p>
+          </div>
+        )}
+      </div>
+    </WidgetContainer>
+  );
+}
+
+export function CostSummaryWidget() {
+  const [stats, setStats] = useState({
+    totalCost: 0,
+    monthlyAverage: 0,
+    topModelerCost: 0,
+    topModelerEmail: "",
+    totalCompletedAssets: 0,
+    totalPendingAssets: 0,
+    costEfficiency: 0, // cost per completed asset
+  });
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  // Use hooks at the top level to avoid Rules of Hooks violations
+  const animatedTotalCost = useCountUp(stats.totalCost);
+  const animatedMonthlyAverage = useCountUp(stats.monthlyAverage);
+  const animatedCompletedAssets = useCountUp(stats.totalCompletedAssets);
+  const animatedCostEfficiency = useCountUp(stats.costEfficiency);
+
+  useEffect(() => {
+    const fetchCostStats = async () => {
+      try {
+        // Get all asset assignments for modelers
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from("asset_assignments")
+          .select("user_id, asset_id, price, allocation_list_id")
+          .eq("role", "modeler");
+
+        if (assignmentsError) throw assignmentsError;
+
+        // Get modeler profiles
+        const modelerIds = [
+          ...new Set(assignments?.map((a) => a.user_id) || []),
+        ];
+        const { data: modelerProfiles, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, email")
+          .in("id", modelerIds)
+          .eq("role", "modeler");
+
+        if (profilesError) throw profilesError;
+
+        // Create a map of modeler IDs to emails
+        const modelerEmailMap = new Map(
+          modelerProfiles?.map((profile) => [profile.id, profile.email]) || []
+        );
+
+        // Get allocation lists for bonus information
+        const allocationListIds = [
+          ...new Set(
+            assignments
+              ?.map((a) => a.allocation_list_id)
+              .filter((id) => id !== null) || []
+          ),
+        ];
+        const { data: allocationLists, error: listsError } = await supabase
+          .from("allocation_lists")
+          .select("id, bonus")
+          .in("id", allocationListIds);
+
+        if (listsError) throw listsError;
+
+        // Create a map of allocation list IDs to bonus percentages
+        const allocationBonusMap = new Map(
+          allocationLists?.map((list) => [list.id, list.bonus || 0]) || []
+        );
+
+        // Get asset statuses to determine completed vs pending
+        const assetIds = assignments?.map((a) => a.asset_id) || [];
+        const { data: assets, error: assetsError } = await supabase
+          .from("onboarding_assets")
+          .select("id, status, created_at")
+          .in("id", assetIds);
+
+        if (assetsError) throw assetsError;
+
+        // Calculate costs and stats
+        let totalCost = 0;
+        let totalCompletedAssets = 0;
+        let totalPendingAssets = 0;
+        const modelerCosts = new Map<string, { email: string; cost: number }>();
+        const monthlyCosts = new Map<string, number>();
+
+        assignments?.forEach((assignment) => {
+          const asset = assets?.find((a) => a.id === assignment.asset_id);
+          if (!asset) return;
+
+          const basePrice = assignment.price || 0;
+          const bonusPercentage =
+            allocationBonusMap.get(assignment.allocation_list_id) || 0;
+          const bonusAmount = (basePrice * bonusPercentage) / 100;
+          const totalAssignmentCost = basePrice + bonusAmount;
+
+          totalCost += totalAssignmentCost;
+
+          // Track modeler costs
+          const modelerKey = assignment.user_id;
+          const modelerEmail =
+            modelerEmailMap.get(assignment.user_id) || "Unknown";
+          if (!modelerCosts.has(modelerKey)) {
+            modelerCosts.set(modelerKey, { email: modelerEmail, cost: 0 });
+          }
+          modelerCosts.get(modelerKey)!.cost += totalAssignmentCost;
+
+          // Track monthly costs
+          if (asset.created_at) {
+            const monthKey = new Date(asset.created_at)
+              .toISOString()
+              .substring(0, 7); // YYYY-MM
+            monthlyCosts.set(
+              monthKey,
+              (monthlyCosts.get(monthKey) || 0) + totalAssignmentCost
+            );
+          }
+
+          // Count completed vs pending assets
+          if (
+            asset.status === "approved" ||
+            asset.status === "approved_by_client" ||
+            asset.status === "delivered_by_artist"
+          ) {
+            totalCompletedAssets++;
+          } else {
+            totalPendingAssets++;
+          }
+        });
+
+        // Find top modeler by cost
+        let topModelerCost = 0;
+        let topModelerEmail = "";
+        modelerCosts.forEach((modeler) => {
+          if (modeler.cost > topModelerCost) {
+            topModelerCost = modeler.cost;
+            topModelerEmail = modeler.email;
+          }
+        });
+
+        // Calculate monthly average
+        const monthlyAverage =
+          monthlyCosts.size > 0
+            ? Array.from(monthlyCosts.values()).reduce(
+                (sum, cost) => sum + cost,
+                0
+              ) / monthlyCosts.size
+            : 0;
+
+        // Calculate cost efficiency (cost per completed asset)
+        const costEfficiency =
+          totalCompletedAssets > 0 ? totalCost / totalCompletedAssets : 0;
+
+        setStats({
+          totalCost: Math.round(totalCost),
+          monthlyAverage: Math.round(monthlyAverage),
+          topModelerCost: Math.round(topModelerCost),
+          topModelerEmail,
+          totalCompletedAssets,
+          totalPendingAssets,
+          costEfficiency: Math.round(costEfficiency * 100) / 100, // Round to 2 decimal places
+        });
+      } catch (error) {
+        console.error("Error fetching cost stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCostStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <WidgetContainer>
+        <WidgetHeader title="Cost Summary" icon={DollarSign} />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
+          ))}
+        </div>
+      </WidgetContainer>
+    );
+  }
+
+  const costStatsItems = [
+    {
+      title: "Total Cost",
+      count: stats.totalCost,
+      animatedCount: animatedTotalCost,
+      color: "text-red-600",
+      bg: "bg-red-50",
+      icon: DollarSign,
+      action: () => router.push("/production/cost-tracking"),
+      prefix: "€",
+    },
+    {
+      title: "Monthly Avg",
+      count: stats.monthlyAverage,
+      animatedCount: animatedMonthlyAverage,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      icon: TrendingUp,
+      action: () => router.push("/production/cost-tracking"),
+      prefix: "€",
+    },
+    {
+      title: "Completed Assets",
+      count: stats.totalCompletedAssets,
+      animatedCount: animatedCompletedAssets,
+      color: "text-green-600",
+      bg: "bg-green-50",
+      icon: CheckCircle,
+      action: () => router.push("/production/cost-tracking"),
+    },
+    {
+      title: "Cost/Asset",
+      count: stats.costEfficiency,
+      animatedCount: animatedCostEfficiency,
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+      icon: BarChart3,
+      action: () => router.push("/production/cost-tracking"),
+      prefix: "€",
+    },
+  ];
+
+  return (
+    <WidgetContainer>
+      <WidgetHeader title="Cost Summary" icon={DollarSign} />
+      <div className="space-y-3">
+        {costStatsItems.map((item) => (
+          <div
+            key={item.title}
+            onClick={item.action}
+            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded ${item.bg}`}>
+                <item.icon className={`h-4 w-4 ${item.color}`} />
+              </div>
+              <span className="text-sm font-medium">{item.title}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-lg font-bold ${item.color}`}>
+                {item.prefix || ""}
+                {item.animatedCount}
+              </span>
+              <ArrowRight className="h-4 w-4 text-gray-400" />
+            </div>
+          </div>
+        ))}
+        {stats.topModelerEmail && (
+          <div className="mt-3 p-3 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200">
+            <div className="flex items-center gap-2 mb-1">
+              <DollarSign className="h-4 w-4 text-red-600" />
+              <span className="text-sm font-medium text-red-800">
+                Highest Cost
+              </span>
+            </div>
+            <p className="text-xs text-red-700">
+              {stats.topModelerEmail} • €{stats.topModelerCost} total cost
+            </p>
+          </div>
+        )}
+      </div>
+    </WidgetContainer>
   );
 }

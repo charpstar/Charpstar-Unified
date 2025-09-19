@@ -353,8 +353,7 @@ export default function AddProductsPage() {
       (product) =>
         product.article_id.trim() &&
         product.product_name.trim() &&
-        product.product_link.trim() &&
-        product.category.trim()
+        product.product_link.trim()
     );
   };
 
@@ -509,11 +508,11 @@ export default function AddProductsPage() {
     // Check for missing required fields
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      if (!row[0] || !row[1] || !row[2] || !row[3]) {
+      if (!row[0] || !row[1] || !row[2]) {
         errors.push({
           row: i + 1,
           message:
-            "Missing required fields (Article ID, Product Name, Product Link, GLB Link)",
+            "Missing required fields (Article ID, Product Name, Product Link)",
         });
       }
     }
@@ -566,7 +565,8 @@ export default function AddProductsPage() {
     const productsToInsert = [];
     let failCount = 0;
 
-    for (const row of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       // Skip empty rows (check first 4 required fields)
       if (
         !row[0]?.trim() &&
@@ -610,6 +610,7 @@ export default function AddProductsPage() {
         priority: 2, // Default priority since not in template
         status: "not_started",
         delivery_date: null,
+        upload_order: i + 1, // Preserve the order from CSV
       });
     }
 
@@ -895,19 +896,6 @@ export default function AddProductsPage() {
 
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground mb-2 block">
-                        GLB Link
-                      </Label>
-                      <Input
-                        value={product.glb_link}
-                        onChange={(e) =>
-                          updateProduct(index, "glb_link", e.target.value)
-                        }
-                        placeholder="https://example.com/model.glb"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Category
                       </Label>
                       <Input
@@ -948,14 +936,11 @@ export default function AddProductsPage() {
                         <SelectValue placeholder="Select priority" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 - Highest Priority</SelectItem>
-                        <SelectItem value="2">2 - Medium Priority</SelectItem>
-                        <SelectItem value="3">3 - Lowest Priority</SelectItem>
+                        <SelectItem value="1">Highest Priority</SelectItem>
+                        <SelectItem value="2">Medium Priority</SelectItem>
+                        <SelectItem value="3">Lowest Priority</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      1 = Highest priority, 3 = Lowest priority
-                    </p>
                   </div>
                 </div>
               ))}
@@ -1321,11 +1306,11 @@ export default function AddProductsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Article ID</TableHead>
-                    <TableHead>Product Name</TableHead>
-                    <TableHead>Product Link</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="text-left">Article ID</TableHead>
+                    <TableHead className="text-left">Product Name</TableHead>
+                    <TableHead className="text-left">Product Link</TableHead>
+                    <TableHead className="text-left">Category</TableHead>
+                    <TableHead className="text-left">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1350,7 +1335,7 @@ export default function AddProductsPage() {
 
                     return (
                       <TableRow key={index} className={rowClassName}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium text-left">
                           {isEditing ? (
                             <Input
                               value={
@@ -1368,7 +1353,7 @@ export default function AddProductsPage() {
                             articleId || "-"
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-left">
                           {isEditing ? (
                             <Input
                               value={
@@ -1386,7 +1371,7 @@ export default function AddProductsPage() {
                             productName || "-"
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-left">
                           {isEditing ? (
                             <Input
                               value={
@@ -1554,7 +1539,7 @@ export default function AddProductsPage() {
                     <TableHead>Article ID</TableHead>
                     <TableHead>Product Name</TableHead>
                     <TableHead>Product Link</TableHead>
-                    <TableHead>GLB Link</TableHead>
+                    <TableHead>CAD File/Files</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Priority</TableHead>
                   </TableRow>
@@ -1571,8 +1556,8 @@ export default function AddProductsPage() {
                           title={product.product_name || "-"}
                         >
                           {product.product_name &&
-                          product.product_name.length > 25
-                            ? product.product_name.substring(0, 25) + "..."
+                          product.product_name.length > 35
+                            ? product.product_name.substring(0, 35) + "..."
                             : product.product_name || "-"}
                         </div>
                       </TableCell>

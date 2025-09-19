@@ -48,3 +48,8 @@ export {
   CarouselPrevious,
 } from "./carousel";
 export { ScrollArea, ScrollBar } from "./scroll-area";
+export {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "./collapsible";

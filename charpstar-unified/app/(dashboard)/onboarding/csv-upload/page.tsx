@@ -185,7 +185,8 @@ export default function CsvUploadPage() {
     const productsToInsert = [];
     const failCount = 0;
 
-    for (const row of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       // Skip completely empty rows (all fields empty)
       if (row.every((cell) => !cell?.trim())) continue;
 
@@ -219,6 +220,7 @@ export default function CsvUploadPage() {
         reference: null, // No reference column in template
         priority: 2, // Default priority since not in template
         status: "not_started",
+        upload_order: i + 1, // Preserve the order from CSV
       });
     }
 
@@ -630,12 +632,12 @@ export default function CsvUploadPage() {
                           {csvPreview[0].map((cell, j) => (
                             <TableHead
                               key={j}
-                              className="font-semibold text-primary bg-primary/5"
+                              className="font-semibold text-primary bg-primary/5 text-left"
                             >
                               {cell}
                             </TableHead>
                           ))}
-                          <TableHead className="font-semibold text-primary bg-primary/5">
+                          <TableHead className="font-semibold text-primary bg-primary/5 text-left">
                             Preview
                           </TableHead>
                         </TableRow>
@@ -647,7 +649,10 @@ export default function CsvUploadPage() {
                         return (
                           <TableRow key={i} className="p-2">
                             {row.map((cell, j) => (
-                              <TableCell key={j} className="text-sm p-4">
+                              <TableCell
+                                key={j}
+                                className="text-sm p-4 text-left"
+                              >
                                 {cell || (
                                   <span className="text-muted-foreground italic">
                                     empty
@@ -655,7 +660,7 @@ export default function CsvUploadPage() {
                                 )}
                               </TableCell>
                             ))}
-                            <TableCell className="text-sm p-4">
+                            <TableCell className="text-sm p-4 text-left">
                               {cadFileLink ? (
                                 <div className="flex items-center space-x-2">
                                   <div className="flex flex-col">

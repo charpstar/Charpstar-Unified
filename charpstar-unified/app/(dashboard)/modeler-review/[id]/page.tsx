@@ -1139,7 +1139,7 @@ export default function ModelerReviewPage() {
           (asset.glb_link || "").split("/").pop() || ""
         );
         const baseName = fileName.replace(/\.(glb|gltf)$/i, "");
-        const expectedPrefix = `${String(asset.article_id).toLowerCase()}_`;
+        const expectedPrefix = `${String(asset.article_id).toLowerCase()}`;
         const matches = baseName.toLowerCase().startsWith(expectedPrefix);
         if (!matches) {
           setShowDeliverBlockDialog(true);
@@ -3441,7 +3441,7 @@ export default function ModelerReviewPage() {
                   <div>
                     Expected prefix:{" "}
                     <span className="font-mono">
-                      {String(asset?.article_id).toLowerCase()}_
+                      {String(asset?.article_id).toLowerCase()}
                     </span>
                   </div>
                   <div>

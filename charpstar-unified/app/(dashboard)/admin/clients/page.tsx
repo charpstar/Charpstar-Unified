@@ -121,9 +121,9 @@ export default function AdminClientsPage() {
       if (error) throw error;
       const existingClients = data || [];
 
-      // Collect client names referenced elsewhere (profiles and onboarding assets)
+      // Collect client names referenced elsewhere (only from actual clients and onboarding assets)
       const [profilesRes, assetsRes] = await Promise.all([
-        supabase.from("profiles").select("client"),
+        supabase.from("profiles").select("client").eq("role", "client"),
         supabase.from("onboarding_assets").select("client"),
       ]);
 
@@ -438,19 +438,19 @@ export default function AdminClientsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Contract</TableHead>
-                  <TableHead>Value</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Start Date</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-left">Client</TableHead>
+                  <TableHead className="text-left">Company</TableHead>
+                  <TableHead className="text-left">Contract</TableHead>
+                  <TableHead className="text-left">Value</TableHead>
+                  <TableHead className="text-left">Status</TableHead>
+                  <TableHead className="text-left">Start Date</TableHead>
+                  <TableHead className="text-left">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredClients.map((client) => (
                   <TableRow key={client.id}>
-                    <TableCell>
+                    <TableCell className="text-left">
                       <div>
                         <div className="font-medium">{client.name}</div>
                         <div className="text-sm text-muted-foreground">
@@ -463,8 +463,10 @@ export default function AdminClientsPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{client.company}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
+                      {client.company}
+                    </TableCell>
+                    <TableCell className="text-left">
                       {client.isPlaceholder ? (
                         "-"
                       ) : (
@@ -481,12 +483,12 @@ export default function AdminClientsPage() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
                       {client.isPlaceholder
                         ? "-"
                         : `€${client.contract_value.toLocaleString()}`}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
                       {client.isPlaceholder ? (
                         "-"
                       ) : (
@@ -496,12 +498,12 @@ export default function AdminClientsPage() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
                       {client.start_date
                         ? new Date(client.start_date).toLocaleDateString()
                         : "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-left">
                       <div className="flex gap-2">
                         {client.isPlaceholder ? (
                           <Button
@@ -649,7 +651,7 @@ export default function AdminClientsPage() {
 
       {/* Add Client Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full min-w-4xl max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -669,7 +671,7 @@ export default function AdminClientsPage() {
 
       {/* Edit Client Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full min-w-4xl max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Edit className="h-4 w-4 sm:h-5 sm:w-5" />

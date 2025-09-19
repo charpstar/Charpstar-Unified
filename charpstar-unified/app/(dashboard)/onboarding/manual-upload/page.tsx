@@ -128,7 +128,7 @@ export default function ManualUploadPage() {
     }
     setSubmitting(true);
     try {
-      const payload = previewRows.map((r) => ({
+      const payload = previewRows.map((r, index) => ({
         client,
         article_id: r.article_id,
         product_name: r.product_name,
@@ -139,6 +139,7 @@ export default function ManualUploadPage() {
         reference: null,
         priority: 2,
         status: "not_started",
+        upload_order: index + 1, // Preserve the order from manual entry
       }));
 
       const { error } = await supabase
@@ -223,27 +224,27 @@ export default function ManualUploadPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>
+                <TableHead className="text-left">
                   Product Name <span className="text-red-500">*</span>
                 </TableHead>
-                <TableHead>
+                <TableHead className="text-left">
                   Article ID <span className="text-red-500">*</span>
                 </TableHead>
-                <TableHead>
+                <TableHead className="text-left">
                   Product Link <span className="text-red-500">*</span>
                 </TableHead>
-                <TableHead>CAD/File Link</TableHead>
-                <TableHead>
+                <TableHead className="text-left">CAD/File Link</TableHead>
+                <TableHead className="text-left">
                   Category <span className="text-red-500">*</span>
                 </TableHead>
-                <TableHead>Subcategory</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="text-left">Subcategory</TableHead>
+                <TableHead className="w-12 text-left"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((row, idx) => (
                 <TableRow key={idx}>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.product_name}
                       onChange={(e) =>
@@ -252,7 +253,7 @@ export default function ManualUploadPage() {
                       placeholder="E.g. Wooden Chair"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.article_id}
                       onChange={(e) =>
@@ -261,7 +262,7 @@ export default function ManualUploadPage() {
                       placeholder="E.g. ABC123"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.product_link}
                       onChange={(e) =>
@@ -270,7 +271,7 @@ export default function ManualUploadPage() {
                       placeholder="https://..."
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.cad_file_link}
                       onChange={(e) =>
@@ -279,7 +280,7 @@ export default function ManualUploadPage() {
                       placeholder="https://..."
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.category}
                       onChange={(e) =>
@@ -288,7 +289,7 @@ export default function ManualUploadPage() {
                       placeholder="E.g. Furniture"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Input
                       value={row.subcategory}
                       onChange={(e) =>
@@ -297,7 +298,7 @@ export default function ManualUploadPage() {
                       placeholder="E.g. Chair"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-left">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -360,8 +361,8 @@ export default function ManualUploadPage() {
                         className="truncate max-w-[200px] cursor-help"
                         title={r.product_name}
                       >
-                        {r.product_name.length > 25
-                          ? r.product_name.substring(0, 25) + "..."
+                        {r.product_name.length > 35
+                          ? r.product_name.substring(0, 35) + "..."
                           : r.product_name}
                       </div>
                     </TableCell>

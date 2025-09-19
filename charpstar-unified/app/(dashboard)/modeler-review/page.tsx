@@ -80,28 +80,28 @@ const ReviewTableSkeleton = () => (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-12">
+          <TableHead className="w-12 text-left">
             <div className="h-4 w-4 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-24 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-20 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-20 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
         </TableRow>
@@ -109,10 +109,10 @@ const ReviewTableSkeleton = () => (
       <TableBody>
         {Array.from({ length: 8 }).map((_, i) => (
           <TableRow key={i}>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-4 w-4 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="space-y-2">
                 <div className="h-4 w-32 bg-muted rounded animate-pulse" />
                 <div className="flex items-center gap-2">
@@ -121,25 +121,25 @@ const ReviewTableSkeleton = () => (
                 </div>
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-4 w-20 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="flex items-center gap-2">
                 <div className="h-6 w-16 bg-muted rounded animate-pulse" />
                 <div className="h-3 w-8 bg-muted rounded animate-pulse" />
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-4 w-24 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-6 w-20 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-8 w-8 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-8 w-8 bg-muted rounded animate-pulse" />
             </TableCell>
           </TableRow>
@@ -575,8 +575,8 @@ export default function ModelerReviewPage() {
                             className="font-medium truncate max-w-[200px] cursor-help"
                             title={asset.product_name}
                           >
-                            {asset.product_name.length > 25
-                              ? asset.product_name.substring(0, 25) + "..."
+                            {asset.product_name.length > 35
+                              ? asset.product_name.substring(0, 35) + "..."
                               : asset.product_name}
                           </span>
                           <div className="flex items-center justify-center gap-2">

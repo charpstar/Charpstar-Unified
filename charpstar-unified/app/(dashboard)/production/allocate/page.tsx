@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/inputs";
 import { Checkbox } from "@/components/ui/inputs/checkbox";
+import { Switch } from "@/components/ui/inputs";
 import {
   Select,
   SelectContent,
@@ -36,9 +37,14 @@ import {
   Package,
   AlertTriangle,
   Clock,
+  X,
+  StickyNote,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/inputs";
+import UserProfileDialog from "@/components/users/UserProfileDialog";
+import { useUser } from "@/contexts/useUser";
 
 interface UnallocatedAsset {
   id: string;
@@ -52,6 +58,8 @@ interface UnallocatedAsset {
   priority: number;
   delivery_date: string;
   status: string;
+  pricing_option_id?: string;
+  price?: number;
 }
 
 interface User {
@@ -212,7 +220,14 @@ const getTaskTypeFromPricingOptionId = (pricingOptionId: string): string => {
 export default function AllocateAssetsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [step, setStep] = useState<1 | 2>(1);
+  const user = useUser();
+
+  // Initialize step from URL params or default to 1
+  const [step, setStep] = useState<1 | 2>(() => {
+    const stepParam = searchParams.get("step");
+    if (stepParam === "2") return 2;
+    return 1;
+  });
   const [assets, setAssets] = useState<UnallocatedAsset[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
   const [allocating, setAllocating] = useState(false);
@@ -226,15 +241,25 @@ export default function AllocateAssetsPage() {
       new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       "yyyy-MM-dd"
     ),
-    bonus: 15, // Default to first list bonus (15%)
+    bonus: 30, // Default to premium tier bonus (30%)
   });
   const [pricingTier, setPricingTier] = useState<
-    "first_list" | "after_first_deadline" | "after_second_deadline"
-  >("first_list");
+    "after_first_deadline" | "after_second_deadline" | "first_list"
+  >("after_second_deadline");
+  const hasShownAutoDetectNotification = useRef(false);
   const [globalTeamAssignment, setGlobalTeamAssignment] = useState<{
     modelerId: string;
   }>({
     modelerId: "",
+  });
+
+  // Provisional QA state
+  const [provisionalQA, setProvisionalQA] = useState<{
+    enabled: boolean;
+    qaId: string;
+  }>({
+    enabled: false,
+    qaId: "",
   });
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -245,6 +270,17 @@ export default function AllocateAssetsPage() {
   const [modelerQAAssignments, setModelerQAAssignments] = useState<
     Map<string, { qaId: string; qaEmail: string; qaTitle?: string }[]>
   >(new Map());
+  const [availableQAs, setAvailableQAs] = useState<User[]>([]);
+  const [selectedQA, setSelectedQA] = useState<string>("");
+  const [allocatingQA, setAllocatingQA] = useState(false);
+  const [pricingComments, setPricingComments] = useState<
+    Record<string, string>
+  >({});
+
+  // Profile dialog state
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
   // Ref to prevent infinite loops when updating pricing
   const isUpdatingPricing = useRef(false);
@@ -529,12 +565,22 @@ export default function AllocateAssetsPage() {
         const { data: preSelectedAssets, error: preSelectedError } =
           await supabase
             .from("onboarding_assets")
-            .select("*")
+            .select("*, pricing_option_id, price, pricing_comment")
             .in("id", selectedAssetsParam);
 
         if (preSelectedError) throw preSelectedError;
 
         setAssets(preSelectedAssets || []);
+
+        // Initialize pricing comments
+        const initialPricingComments: Record<string, string> = {};
+        preSelectedAssets?.forEach((asset) => {
+          if (asset.pricing_comment) {
+            initialPricingComments[asset.id] = asset.pricing_comment;
+          }
+        });
+        setPricingComments(initialPricingComments);
+
         return;
       }
 
@@ -549,15 +595,24 @@ export default function AllocateAssetsPage() {
 
       const assignedAssetIds = assignedAssets?.map((a) => a.asset_id) || [];
 
-      // Fetch unallocated assets
+      // Fetch unallocated assets with pricing data
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("*")
+        .select("*, pricing_option_id, price, pricing_comment")
         .not("id", "in", `(${assignedAssetIds.join(",")})`);
 
       if (error) throw error;
 
       setAssets(data || []);
+
+      // Initialize pricing comments for unallocated assets
+      const initialPricingComments: Record<string, string> = {};
+      data?.forEach((asset) => {
+        if (asset.pricing_comment) {
+          initialPricingComments[asset.id] = asset.pricing_comment;
+        }
+      });
+      setPricingComments(initialPricingComments);
     } catch (error) {
       console.error("Error fetching unallocated assets:", error);
       toast.error("Failed to fetch assets");
@@ -582,6 +637,23 @@ export default function AllocateAssetsPage() {
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error("Failed to fetch users");
+    }
+  };
+
+  // Fetch available QAs
+  const fetchAvailableQAs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, email, title, role")
+        .eq("role", "qa");
+
+      if (error) throw error;
+
+      setAvailableQAs(data || []);
+    } catch (error) {
+      console.error("Error fetching QAs:", error);
+      toast.error("Failed to fetch QAs");
     }
   };
 
@@ -639,11 +711,108 @@ export default function AllocateAssetsPage() {
     }
   };
 
+  // Allocate QA to modeler
+  // Remove QA allocation
+  const removeQA = async (qaId: string) => {
+    try {
+      setAllocatingQA(true);
+
+      if (!globalTeamAssignment.modelerId) {
+        toast.error("No modeler selected");
+        return;
+      }
+
+      const response = await fetch("/api/qa-allocations/remove", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          modelerId: globalTeamAssignment.modelerId,
+          qaId: qaId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to remove QA allocation");
+      }
+
+      toast.success("QA removed successfully");
+
+      // Refresh the QA assignments
+      await fetchModelerQAAssignments();
+    } catch (error) {
+      console.error("Error removing QA:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove QA"
+      );
+    } finally {
+      setAllocatingQA(false);
+    }
+  };
+
+  const allocateQA = async () => {
+    if (!selectedQA || !globalTeamAssignment.modelerId) {
+      toast.error("Please select a QA and modeler");
+      return;
+    }
+
+    try {
+      setAllocatingQA(true);
+
+      const { error } = await supabase.from("qa_allocations").insert({
+        modeler_id: globalTeamAssignment.modelerId,
+        qa_id: selectedQA,
+      });
+
+      if (error) throw error;
+
+      // Refresh QA assignments
+      await fetchModelerQAAssignments();
+
+      // Clear selection
+      setSelectedQA("");
+
+      toast.success("QA allocated successfully");
+    } catch (error) {
+      console.error("Error allocating QA:", error);
+      toast.error("Failed to allocate QA");
+    } finally {
+      setAllocatingQA(false);
+    }
+  };
+
   useEffect(() => {
     fetchUnallocatedAssets();
     fetchUsers();
+    fetchAvailableQAs();
     fetchModelerQAAssignments();
   }, [fetchUnallocatedAssets]);
+
+  // Get current user ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    getCurrentUser();
+  }, []);
+
+  // Profile dialog functions
+  const handleViewProfile = (userId: string) => {
+    setSelectedUserId(userId);
+    setIsProfileDialogOpen(true);
+  };
+
+  const handleCloseProfile = () => {
+    setIsProfileDialogOpen(false);
+    setSelectedUserId(null);
+  };
 
   // Initialize allocation data for selected assets
   const initializeAllocationData = () => {
@@ -656,60 +825,58 @@ export default function AllocateAssetsPage() {
         ...prev,
         modelerId: defaultModelerId,
       }));
-      // Check pricing tier for the default modeler
-      checkModelerPricingTier(defaultModelerId);
+      // Only check pricing tier for the default modeler if we don't have selected assets
+      // (asset-based pricing will override this)
+      if (selectedAssets.size === 0) {
+        checkModelerPricingTier(defaultModelerId);
+      }
     }
 
-    // Get default pricing based on current pricing tier
-    const getDefaultPricing = (
-      pricingTier:
-        | "first_list"
-        | "after_first_deadline"
-        | "after_second_deadline"
-    ) => {
-      if (pricingTier === "after_second_deadline") {
-        return {
-          pbr_3d_model: "pbr_3d_model_after_second",
-          hard_3d_model: "hard_3d_model_after_second",
-          additional_colors: "additional_colors_after_second",
-          additional_textures: "additional_textures_after_second",
-          additional_sizes: "additional_sizes_after_second",
-        };
-      } else if (pricingTier === "after_first_deadline") {
-        return {
-          pbr_3d_model: "pbr_3d_model_after_first",
-          hard_3d_model: "hard_3d_model_after_first",
-          additional_colors: "additional_colors_after_first",
-          additional_textures: "additional_textures_after_first",
-          additional_sizes: "additional_sizes_after_first",
-        };
-      } else {
-        return {
-          pbr_3d_model: "pbr_3d_model_first",
-          hard_3d_model: "hard_3d_model_first",
-          additional_colors: "additional_colors_first",
-          additional_textures: "additional_textures_first",
-          additional_sizes: "additional_sizes_first",
-        };
-      }
-    };
+    const data: AllocationData[] = Array.from(selectedAssets)
+      .map((assetId) => {
+        const asset = assets.find((a) => a.id === assetId);
 
-    const defaultPricingOptions = getDefaultPricing(pricingTier);
-    const defaultPricingOption = defaultPricingOptions.pbr_3d_model;
-    const defaultPrice = pricingTier === "after_second_deadline" ? 30 : 18; // Premium tier is 30, others are 18
+        // Prioritize existing pricing from admin-review
+        const existingPricingOptionId = asset?.pricing_option_id;
+        const existingPrice = asset?.price;
 
-    const data: AllocationData[] = Array.from(selectedAssets).map(
-      (assetId) => ({
-        assetId,
-        modelerId:
-          globalTeamAssignment.modelerId ||
-          (modelers.length > 0 ? modelers[0].id : ""),
-        price: defaultPrice,
-        pricingOptionId: defaultPricingOption,
+        // Use existing pricing from admin-review if available
+        if (existingPricingOptionId && existingPrice && existingPrice > 0) {
+          return {
+            assetId,
+            modelerId:
+              globalTeamAssignment.modelerId ||
+              (modelers.length > 0 ? modelers[0].id : ""),
+            price: existingPrice,
+            pricingOptionId: existingPricingOptionId,
+          };
+        }
+
+        // If no existing pricing, return null to filter out later
+        return null;
       })
-    );
+      .filter((item): item is AllocationData => item !== null);
 
     setAllocationData(data);
+
+    // Show informative message about pricing source
+    const totalAssets = selectedAssets.size;
+    const assetsWithPricing = data.length;
+
+    if (assetsWithPricing > 0) {
+      toast.success(
+        `${assetsWithPricing} asset(s) loaded with pricing from admin review.`,
+        { duration: 4000 }
+      );
+    }
+
+    if (totalAssets > assetsWithPricing) {
+      const missingPricingCount = totalAssets - assetsWithPricing;
+      toast.warning(
+        `${missingPricingCount} asset(s) excluded - no pricing set in admin review. Only assets with existing pricing can be allocated.`,
+        { duration: 8000 }
+      );
+    }
   };
 
   // Initialize allocation data when users are loaded and we have pre-selected assets
@@ -723,20 +890,112 @@ export default function AllocateAssetsPage() {
     }
   }, [users, selectedAssets, allocationData.length]);
 
-  // Check pricing tier for currently selected modeler when users are loaded
+  // Check pricing tier for currently selected modeler when users are loaded (only if no allocation data exists)
   useEffect(() => {
-    if (users.length > 0 && globalTeamAssignment.modelerId) {
+    if (
+      users.length > 0 &&
+      globalTeamAssignment.modelerId &&
+      allocationData.length === 0
+    ) {
       checkModelerPricingTier(globalTeamAssignment.modelerId);
     }
-  }, [users, globalTeamAssignment.modelerId, checkModelerPricingTier]);
+  }, [
+    users,
+    globalTeamAssignment.modelerId,
+    checkModelerPricingTier,
+    allocationData.length,
+  ]);
 
-  // Re-initialize allocation data when pricing tier changes to ensure correct pricing
+  // Auto-detect pricing tier based on loaded assets pricing (HIGHEST PRIORITY)
+  // This effect runs after allocation data is loaded and overrides any modeler-based pricing
   useEffect(() => {
-    if (selectedAssets.size > 0 && allocationData.length > 0) {
-      // Re-initialize with correct pricing when tier changes
-      initializeAllocationData();
+    if (allocationData.length > 0) {
+      const detectedTier = detectPricingTierFromAssets(allocationData);
+
+      // Always update to the detected tier if we have one
+      if (detectedTier) {
+        setPricingTier(detectedTier);
+        const bonusPercentage = detectedTier === "first_list" ? 15 : 30;
+        setGroupSettings((prev) => ({ ...prev, bonus: bonusPercentage }));
+
+        // Only show notification once per session and only if tier changed
+        if (!hasShownAutoDetectNotification.current) {
+          toast.info(
+            `Pricing tier auto-detected as "${detectedTier.replace(/_/g, " ")}" based on asset pricing.`,
+            { duration: 4000 }
+          );
+          hasShownAutoDetectNotification.current = true;
+        }
+      }
     }
-  }, [pricingTier]);
+  }, [allocationData]); // Removed pricingTier from dependencies to prevent loop
+
+  // Auto-detect pricing tier when moving to step 2
+  useEffect(() => {
+    if (step === 2 && allocationData.length > 0) {
+      const detectedTier = detectPricingTierFromAssets(allocationData);
+
+      // Always update to the detected tier if we have one
+      if (detectedTier) {
+        setPricingTier(detectedTier);
+        const bonusPercentage = detectedTier === "first_list" ? 15 : 30;
+        setGroupSettings((prev) => ({ ...prev, bonus: bonusPercentage }));
+
+        // Show notification when entering step 2 if not shown before
+        if (!hasShownAutoDetectNotification.current) {
+          toast.info(
+            `Pricing tier auto-detected as "${detectedTier.replace(/_/g, " ")}" based on asset pricing.`,
+            { duration: 4000 }
+          );
+          hasShownAutoDetectNotification.current = true;
+        }
+      }
+    }
+  }, [step, allocationData]);
+
+  // Helper function to detect pricing tier from asset pricing
+  const detectPricingTierFromAssets = (data: AllocationData[]) => {
+    if (data.length === 0) return null;
+
+    // Count each pricing tier type
+    const tierCounts = {
+      after_second: 0,
+      after_first: 0,
+      first_list: 0,
+      other: 0,
+    };
+
+    data.forEach((item) => {
+      if (item.pricingOptionId.includes("after_second")) {
+        tierCounts.after_second++;
+      } else if (item.pricingOptionId.includes("after_first")) {
+        tierCounts.after_first++;
+      } else if (
+        item.pricingOptionId.includes("_first") ||
+        item.pricingOptionId.includes("first_list")
+      ) {
+        tierCounts.first_list++;
+      } else {
+        tierCounts.other++;
+      }
+    });
+
+    // Return the tier with the highest count (prioritizing premium tiers in case of ties)
+    if (tierCounts.after_second > 0) {
+      return "after_second_deadline";
+    }
+
+    if (tierCounts.after_first > 0) {
+      return "after_first_deadline";
+    }
+
+    if (tierCounts.first_list > 0) {
+      return "first_list";
+    }
+
+    // If we can't clearly determine, return the premium tier as default
+    return "after_second_deadline";
+  };
 
   // Check for pre-selected assets from admin-review page
   useEffect(() => {
@@ -749,10 +1008,26 @@ export default function AllocateAssetsPage() {
     }
   }, [searchParams]);
 
+  // Sync step state with URL params
+  useEffect(() => {
+    const stepParam = searchParams.get("step");
+    if (stepParam === "2" && step !== 2) {
+      setStep(2);
+    } else if (!stepParam && step !== 1) {
+      setStep(1);
+    }
+  }, [searchParams, step]);
+
   // Handle next step
   const handleNextStep = () => {
     if (step < 2) {
       setStep(2);
+      // Update URL to persist step state
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("step", "2");
+      router.replace(`${window.location.pathname}?${params.toString()}`, {
+        scroll: false,
+      });
       // Clear file history when moving to next step
       setAssetFileHistory([]);
       // Clear existing assignments when moving to next step
@@ -764,6 +1039,12 @@ export default function AllocateAssetsPage() {
   const handleBackStep = () => {
     if (step > 1) {
       setStep(1);
+      // Update URL to persist step state
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("step"); // Remove step param to default to step 1
+      router.replace(`${window.location.pathname}?${params.toString()}`, {
+        scroll: false,
+      });
       // Clear file history when going back
       setAssetFileHistory([]);
       // Clear existing assignments when going back
@@ -793,8 +1074,11 @@ export default function AllocateAssetsPage() {
 
     // If updating modeler, check their pricing tier and handle other modeler-specific logic
     if (field === "modelerId" && value) {
-      // Check pricing tier for the new modeler
-      checkModelerPricingTier(value);
+      // Only check pricing tier for the new modeler if we don't have allocation data
+      // (allocation data-based pricing takes priority)
+      if (allocationData.length === 0) {
+        checkModelerPricingTier(value);
+      }
       // Clear previous file history when modeler changes
       setAssetFileHistory([]);
       // Clear existing assignments when modeler changes
@@ -973,14 +1257,6 @@ export default function AllocateAssetsPage() {
     );
   };
 
-  const applyBulkCustomPrice = (price: number) => {
-    setAllocationData((prev) =>
-      prev.map((item) =>
-        selectedForPricing.has(item.assetId) ? { ...item, price } : item
-      )
-    );
-  };
-
   // Toggle product selection for pricing
   const togglePricingSelection = (assetId: string) => {
     setSelectedForPricing((prev) => {
@@ -995,9 +1271,6 @@ export default function AllocateAssetsPage() {
   };
 
   // Select all products for pricing
-  const selectAllForPricing = () => {
-    setSelectedForPricing(new Set(allocationData.map((data) => data.assetId)));
-  };
 
   // Clear all pricing selections
   const clearPricingSelections = () => {
@@ -1015,30 +1288,45 @@ export default function AllocateAssetsPage() {
         return;
       }
 
-      // Check if the selected modeler has a QA assigned
-      const { data: qaAllocations, error: qaError } = await supabase
-        .from("qa_allocations")
-        .select("qa_id")
-        .eq("modeler_id", globalTeamAssignment.modelerId);
+      // Check QA assignment - either provisional or assigned
+      let finalQAId = null;
 
-      if (qaError) {
-        console.error("Error checking QA allocation:", qaError);
-        toast.error("Failed to verify QA assignment");
-        return;
+      if (provisionalQA.enabled && provisionalQA.qaId) {
+        // Use provisional QA
+        finalQAId = provisionalQA.qaId;
+        console.log(`Using provisional QA: ${finalQAId}`);
+      } else {
+        // Check if the selected modeler has a QA assigned
+        const { data: qaAllocations, error: qaError } = await supabase
+          .from("qa_allocations")
+          .select("qa_id")
+          .eq("modeler_id", globalTeamAssignment.modelerId);
+
+        if (qaError) {
+          console.error("Error checking QA allocation:", qaError);
+          toast.error("Failed to verify QA assignment");
+          return;
+        }
+
+        if (!qaAllocations || qaAllocations.length === 0) {
+          toast.error(
+            "Cannot allocate assets: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
+            { duration: 8000 }
+          );
+          return;
+        }
+
+        // Use the first assigned QA (main QA)
+        finalQAId = qaAllocations[0].qa_id;
+        console.log(`Using assigned QA: ${finalQAId}`);
       }
 
-      if (!qaAllocations || qaAllocations.length === 0) {
-        toast.error(
-          "Cannot allocate assets: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
-          { duration: 8000 }
-        );
-        return;
+      // Log info about final QA assignment
+      if (provisionalQA.enabled && provisionalQA.qaId) {
+        console.log(`Using provisional QA override: ${finalQAId}`);
+      } else {
+        console.log(`Using assigned QA: ${finalQAId}`);
       }
-
-      // Log info about QA allocations
-      console.log(
-        `Modeler ${globalTeamAssignment.modelerId} has ${qaAllocations.length} QA allocation${qaAllocations.length > 1 ? "s" : ""}.`
-      );
 
       // Validate group settings and individual prices
       if (!groupSettings.deadline) {
@@ -1082,7 +1370,9 @@ export default function AllocateAssetsPage() {
       const assetsToAllocate = allocationData;
 
       if (assetsToAllocate.length === 0) {
-        toast.error("No assets selected for allocation");
+        toast.error(
+          "No assets with pricing available for allocation. Please set pricing in admin review first."
+        );
         return;
       }
 
@@ -1108,6 +1398,14 @@ export default function AllocateAssetsPage() {
             },
             {} as Record<string, number>
           ),
+          // Provisional QA override
+          provisionalQA:
+            provisionalQA.enabled && provisionalQA.qaId
+              ? {
+                  qaId: finalQAId,
+                  override: true,
+                }
+              : null,
         }),
       });
 
@@ -1128,9 +1426,21 @@ export default function AllocateAssetsPage() {
       // Check if this was a re-allocation
       const wasReallocation =
         existingAssignmentsData && existingAssignmentsData.length > 0;
-      const message = wasReallocation
+
+      let message = wasReallocation
         ? `Successfully re-allocated ${assetsToAllocate.length} asset(s) to new modeler`
         : `Successfully allocated ${assetsToAllocate.length} asset(s) to modeler`;
+
+      // Add provisional QA info to message
+      if (provisionalQA.enabled && provisionalQA.qaId) {
+        const provisionalQAUser = availableQAs.find(
+          (qa) => qa.id === provisionalQA.qaId
+        );
+        const qaName = provisionalQAUser
+          ? provisionalQAUser.title || provisionalQAUser.email
+          : "Unknown QA";
+        message += ` with provisional QA override (${qaName})`;
+      }
 
       toast.success(message);
 
@@ -1171,6 +1481,40 @@ export default function AllocateAssetsPage() {
   const getPricingOptionById = (id: string) => {
     const options = getCurrentPricingOptions();
     return options.find((option) => option.id === id);
+  };
+
+  // Handle pricing comment updates
+  const handlePricingCommentUpdate = async (
+    assetId: string,
+    comment: string
+  ) => {
+    try {
+      const response = await fetch("/api/assets/update-pricing-comment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          comment: comment.trim() || "",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update pricing comment");
+      }
+
+      // Update local state
+      setPricingComments((prev) => ({
+        ...prev,
+        [assetId]: comment.trim() || "",
+      }));
+
+      toast.success("Pricing comment updated successfully");
+    } catch (error) {
+      console.error("Error updating pricing comment:", error);
+      toast.error("Failed to update pricing comment");
+    }
   };
 
   return (
@@ -1326,6 +1670,16 @@ export default function AllocateAssetsPage() {
                               {selectedModeler.email}
                             </span>
                             <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleViewProfile(selectedModeler.id)
+                                }
+                                className="h-7 px-2 text-xs"
+                              >
+                                View Profile
+                              </Button>
                               {selectedModeler.exclusive_work && (
                                 <Badge
                                   variant="outline"
@@ -1354,7 +1708,7 @@ export default function AllocateAssetsPage() {
                           </div>
 
                           {/* QA Assignment Info */}
-                          {qaAssignments.length > 0 ? (
+                          {qaAssignments.length > 0 && (
                             <div className="p-2 bg-blue-50 rounded border border-blue-200">
                               <div className="text-xs font-medium text-blue-800 mb-1">
                                 Assigned QA{qaAssignments.length > 1 ? "s" : ""}
@@ -1364,21 +1718,71 @@ export default function AllocateAssetsPage() {
                                 {qaAssignments.map((qa) => (
                                   <div
                                     key={qa.qaId}
-                                    className="text-sm text-blue-700"
+                                    className="flex items-center justify-between text-sm text-blue-700 bg-blue-100 px-2 py-1 rounded"
                                   >
-                                    {qa.qaTitle || qa.qaEmail}
+                                    <span>{qa.qaTitle || qa.qaEmail}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeQA(qa.qaId)}
+                                      disabled={allocatingQA}
+                                      className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-600 text-blue-600"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
                                   </div>
                                 ))}
                               </div>
                             </div>
-                          ) : (
-                            <div className="p-2 bg-red-50 rounded border border-red-200">
-                              <div className="text-xs font-medium text-red-800 mb-1">
-                                ⚠️ Warning:
-                              </div>
+                          )}
+
+                          {/* QA Assignment Section - Always Visible */}
+                          <div
+                            className={`p-2 rounded border ${qaAssignments.length > 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
+                          >
+                            <div
+                              className={`text-xs font-medium mb-1 ${qaAssignments.length > 0 ? "text-green-800" : "text-red-800"}`}
+                            >
+                              {qaAssignments.length > 0
+                                ? "Add Additional QA:"
+                                : "⚠️ No QA Assigned - Add QA:"}
+                            </div>
+                            {qaAssignments.length === 0 && (
                               <div className="text-sm text-red-700 mb-2">
-                                This modeler has no QA assigned. Assets cannot
-                                be allocated until a QA is assigned.
+                                Assets cannot be allocated until a QA is
+                                assigned.
+                              </div>
+                            )}
+                            <div className="space-y-2">
+                              <div className="flex gap-2">
+                                <Select
+                                  value={selectedQA}
+                                  onValueChange={setSelectedQA}
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Select QA" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableQAs.map((qa) => (
+                                      <SelectItem key={qa.id} value={qa.id}>
+                                        {qa.title || qa.email}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={allocateQA}
+                                  disabled={!selectedQA || allocatingQA}
+                                  className={`text-xs h-8 px-3 ${
+                                    qaAssignments.length > 0
+                                      ? "bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
+                                      : "bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300"
+                                  }`}
+                                >
+                                  {allocatingQA ? "Assigning..." : "Assign QA"}
+                                </Button>
                               </div>
                               <Button
                                 variant="outline"
@@ -1386,12 +1790,105 @@ export default function AllocateAssetsPage() {
                                 onClick={() =>
                                   router.push("/production/qa-allocation")
                                 }
-                                className="text-xs h-6 px-2 bg-red-100 hover:bg-red-200 text-red-800 border-red-300"
+                                className={`text-xs h-6 px-2 w-full ${
+                                  qaAssignments.length > 0
+                                    ? "bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
+                                    : "bg-red-100 hover:bg-red-200 text-red-800 border-red-300"
+                                }`}
                               >
-                                Assign QA
+                                Manage QA Allocations
                               </Button>
                             </div>
-                          )}
+                          </div>
+
+                          {/* Provisional QA Section */}
+                          <div className="p-3 border rounded-lg bg-amber-50 border-amber-200 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium text-amber-800">
+                                  Provisional QA
+                                </label>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-amber-100 text-amber-700 border-amber-300"
+                                >
+                                  List-Specific
+                                </Badge>
+                              </div>
+                              <Switch
+                                checked={provisionalQA.enabled}
+                                onCheckedChange={(checked) =>
+                                  setProvisionalQA((prev) => ({
+                                    ...prev,
+                                    enabled: checked,
+                                    qaId: checked ? prev.qaId : "",
+                                  }))
+                                }
+                              />
+                            </div>
+
+                            <div className="text-xs text-amber-700 mb-2">
+                              Override the assigned QA for this specific list.
+                              The provisional QA will receive this list instead
+                              of the main QA.
+                            </div>
+
+                            {provisionalQA.enabled && (
+                              <div className="space-y-2">
+                                <Select
+                                  value={provisionalQA.qaId}
+                                  onValueChange={(value) =>
+                                    setProvisionalQA((prev) => ({
+                                      ...prev,
+                                      qaId: value,
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Select Provisional QA" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableQAs.map((qa) => (
+                                      <SelectItem key={qa.id} value={qa.id}>
+                                        {qa.title || qa.email}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+
+                                {provisionalQA.qaId && (
+                                  <div className="p-2 bg-amber-100 rounded border border-amber-300">
+                                    <div className="text-xs font-medium text-amber-800 mb-1">
+                                      QA Assignment:
+                                    </div>
+                                    <div className="text-xs text-amber-700">
+                                      • <strong>Main QA:</strong>{" "}
+                                      {qaAssignments.length > 0
+                                        ? qaAssignments
+                                            .map(
+                                              (qa) => qa.qaTitle || qa.qaEmail
+                                            )
+                                            .join(", ")
+                                        : "None"}{" "}
+                                      (will NOT receive this list)
+                                    </div>
+                                    <div className="text-xs text-amber-700">
+                                      • <strong>Provisional QA:</strong>{" "}
+                                      {(() => {
+                                        const selectedQA = availableQAs.find(
+                                          (qa) => qa.id === provisionalQA.qaId
+                                        );
+                                        return selectedQA
+                                          ? selectedQA.title || selectedQA.email
+                                          : "None selected";
+                                      })()}{" "}
+                                      (will receive this list)
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
 
                           {/* Daily Hours */}
                           {selectedModeler.daily_hours && (
@@ -1473,8 +1970,20 @@ export default function AllocateAssetsPage() {
 
               <div className="border-t pt-6">
                 <h3 className="text-lg font-medium mb-4">
-                  Assets to be assigned ({selectedAssets.size})
+                  Assets to be assigned ({allocationData.length} of{" "}
+                  {selectedAssets.size})
                 </h3>
+                {allocationData.length < selectedAssets.size && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-800">
+                      <strong>Note:</strong>{" "}
+                      {selectedAssets.size - allocationData.length} asset(s)
+                      excluded because they don&apos;t have pricing set in admin
+                      review. Only assets with existing pricing can be
+                      allocated.
+                    </p>
+                  </div>
+                )}
 
                 <div className="overflow-y-auto max-h-[400px] border rounded-lg">
                   <table className="w-full text-sm">
@@ -1508,8 +2017,8 @@ export default function AllocateAssetsPage() {
                                 className="truncate max-w-[200px] cursor-help"
                                 title={asset.product_name}
                               >
-                                {asset.product_name.length > 25
-                                  ? asset.product_name.substring(0, 25) + "..."
+                                {asset.product_name.length > 35
+                                  ? asset.product_name.substring(0, 35) + "..."
                                   : asset.product_name}
                               </div>
                             </td>
@@ -1749,7 +2258,24 @@ export default function AllocateAssetsPage() {
             <div className="space-y-6">
               {/* Pricing Tier Selection */}
               <div className="space-y-3">
-                <label className="text-sm font-medium">Pricing Tier</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Pricing Tier</label>
+                  {(() => {
+                    const detectedTier =
+                      detectPricingTierFromAssets(allocationData);
+                    if (detectedTier && detectedTier === pricingTier) {
+                      return (
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-green-50 text-green-700 border-green-200"
+                        >
+                          Auto-detected
+                        </Badge>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
                 <Select
                   value={pricingTier}
                   onValueChange={(
@@ -1777,6 +2303,19 @@ export default function AllocateAssetsPage() {
                     </SelectItem>
                   </SelectContent>
                 </Select>
+                {(() => {
+                  const detectedTier =
+                    detectPricingTierFromAssets(allocationData);
+                  if (detectedTier && detectedTier === pricingTier) {
+                    return (
+                      <p className="text-xs text-green-600">
+                        ✓ Pricing tier automatically detected based on asset
+                        pricing from admin review
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1839,86 +2378,130 @@ export default function AllocateAssetsPage() {
               <div className="border-t pt-6">
                 <h3 className="text-lg font-medium mb-4">Asset Pricing</h3>
 
-                {/* Bulk Pricing Controls */}
+                {/* Pricing Info & Controls */}
                 <div className="mb-4 p-4 bg-muted/50 rounded-lg">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h4 className="font-medium">Bulk Pricing Options</h4>
+                    <h4 className="font-medium">Pricing Information</h4>
                     <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={selectAllForPricing}
-                      >
-                        Select All
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearPricingSelections}
-                      >
-                        Clear Selection
-                      </Button>
+                      {(() => {
+                        const assetsWithAdminPricing = allocationData.filter(
+                          (data) => {
+                            const asset = getAssetById(data.assetId);
+                            return (
+                              asset?.pricing_option_id &&
+                              asset?.price &&
+                              asset.price > 0
+                            );
+                          }
+                        );
+                        const assetsWithoutPricing = allocationData.filter(
+                          (data) => {
+                            const asset = getAssetById(data.assetId);
+                            return !(
+                              asset?.pricing_option_id &&
+                              asset?.price &&
+                              asset.price > 0
+                            );
+                          }
+                        );
+
+                        return (
+                          <div className="flex items-center gap-3 text-sm">
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 bg-green-500 rounded"></div>
+                              <span>
+                                {assetsWithAdminPricing.length} Admin Set
+                              </span>
+                            </div>
+                            {assetsWithoutPricing.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 bg-amber-500 rounded"></div>
+                                <span>
+                                  {assetsWithoutPricing.length} Manual
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
-                  <div className="text-sm text-muted-foreground mb-3">
-                    {selectedForPricing.size > 0
-                      ? `${selectedForPricing.size} product${
-                          selectedForPricing.size > 1 ? "s" : ""
-                        } selected for pricing`
-                      : "Select products below to apply bulk pricing"}
-                  </div>
+                  {(() => {
+                    const assetsWithoutPricing = allocationData.filter(
+                      (data) => {
+                        const asset = getAssetById(data.assetId);
+                        return !(
+                          asset?.pricing_option_id &&
+                          asset?.price &&
+                          asset.price > 0
+                        );
+                      }
+                    );
 
-                  <div className="flex flex-wrap gap-2">
-                    {getCurrentPricingOptions().map((option) => (
-                      <Button
-                        key={option.id}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => applyBulkPricing(option.id)}
-                        disabled={selectedForPricing.size === 0}
-                        className="justify-start"
-                      >
-                        <Euro className="h-4 w-4 mr-2" />
-                        {option.label} - €{option.price}
-                      </Button>
-                    ))}
-                  </div>
+                    if (assetsWithoutPricing.length === 0) {
+                      return (
+                        <div className="text-sm text-green-600 bg-green-50 p-3 rounded border border-green-200">
+                          ✓ All assets have pricing set by admin. No manual
+                          pricing needed.
+                        </div>
+                      );
+                    }
 
-                  <div className="flex gap-2 mt-3">
-                    <Input
-                      type="number"
-                      placeholder="Custom price"
-                      className="w-28"
-                      disabled={selectedForPricing.size === 0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          const price = parseFloat(e.currentTarget.value);
-                          if (price > 0) {
-                            applyBulkCustomPrice(price);
-                            e.currentTarget.value = "";
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={selectedForPricing.size === 0}
-                      onClick={() => {
-                        const input = document.querySelector(
-                          'input[placeholder="Custom price"]'
-                        ) as HTMLInputElement;
-                        const price = parseFloat(input?.value || "0");
-                        if (price > 0) {
-                          applyBulkCustomPrice(price);
-                          input.value = "";
-                        }
-                      }}
-                    >
-                      Apply
-                    </Button>
-                  </div>
+                    return (
+                      <div className="space-y-3">
+                        <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200">
+                          {assetsWithoutPricing.length} asset(s) need manual
+                          pricing. Select them below to apply bulk pricing.
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const manualAssetIds = assetsWithoutPricing.map(
+                                (data) => data.assetId
+                              );
+                              setSelectedForPricing(new Set(manualAssetIds));
+                            }}
+                          >
+                            Select Manual Assets
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={clearPricingSelections}
+                          >
+                            Clear Selection
+                          </Button>
+                        </div>
+
+                        {selectedForPricing.size > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-xs text-muted-foreground">
+                              {selectedForPricing.size} asset(s) selected for
+                              bulk pricing
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {getCurrentPricingOptions().map((option) => (
+                                <Button
+                                  key={option.id}
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => applyBulkPricing(option.id)}
+                                  className="justify-start text-xs"
+                                >
+                                  <Euro className="h-3 w-3 mr-1" />
+                                  {option.label} - €{option.price}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Assets Table */}
@@ -1927,20 +2510,54 @@ export default function AllocateAssetsPage() {
                     <thead className="bg-muted/70">
                       <tr>
                         <th className="p-2 w-8">
-                          <Checkbox
-                            checked={
-                              selectedForPricing.size ===
-                                allocationData.length &&
-                              allocationData.length > 0
-                            }
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                selectAllForPricing();
-                              } else {
-                                clearPricingSelections();
+                          {(() => {
+                            const manualAssets = allocationData.filter(
+                              (data) => {
+                                const asset = getAssetById(data.assetId);
+                                return !(
+                                  asset?.pricing_option_id &&
+                                  asset?.price &&
+                                  asset.price > 0
+                                );
                               }
-                            }}
-                          />
+                            );
+
+                            if (manualAssets.length === 0) {
+                              return (
+                                <Checkbox
+                                  checked={false}
+                                  disabled={true}
+                                  className="opacity-30"
+                                />
+                              );
+                            }
+
+                            const selectedManualAssets = manualAssets.filter(
+                              (data) => selectedForPricing.has(data.assetId)
+                            );
+
+                            return (
+                              <Checkbox
+                                checked={
+                                  selectedManualAssets.length ===
+                                    manualAssets.length &&
+                                  manualAssets.length > 0
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    const manualAssetIds = manualAssets.map(
+                                      (data) => data.assetId
+                                    );
+                                    setSelectedForPricing(
+                                      new Set(manualAssetIds)
+                                    );
+                                  } else {
+                                    clearPricingSelections();
+                                  }
+                                }}
+                              />
+                            );
+                          })()}
                         </th>
                         <th className="p-2 text-left">Product Name</th>
                         <th className="p-2 text-left">Article ID</th>
@@ -1968,20 +2585,44 @@ export default function AllocateAssetsPage() {
                             }`}
                           >
                             <td className="p-2 text-center">
-                              <Checkbox
-                                checked={isSelectedForPricing}
-                                onCheckedChange={() =>
-                                  togglePricingSelection(data.assetId)
+                              {(() => {
+                                const asset = getAssetById(data.assetId);
+                                const hasExistingPricing =
+                                  asset?.pricing_option_id &&
+                                  asset?.price &&
+                                  asset.price > 0;
+
+                                if (hasExistingPricing) {
+                                  // Show disabled checkbox for admin-set pricing
+                                  return (
+                                    <div className="flex items-center justify-center">
+                                      <Checkbox
+                                        checked={false}
+                                        disabled={true}
+                                        className="opacity-30"
+                                      />
+                                    </div>
+                                  );
+                                } else {
+                                  // Show active checkbox for manual pricing
+                                  return (
+                                    <Checkbox
+                                      checked={isSelectedForPricing}
+                                      onCheckedChange={() =>
+                                        togglePricingSelection(data.assetId)
+                                      }
+                                    />
+                                  );
                                 }
-                              />
+                              })()}
                             </td>
                             <td className="p-2">
                               <div
                                 className="truncate max-w-[200px] cursor-help"
                                 title={asset.product_name}
                               >
-                                {asset.product_name.length > 25
-                                  ? asset.product_name.substring(0, 25) + "..."
+                                {asset.product_name.length > 35
+                                  ? asset.product_name.substring(0, 35) + "..."
                                   : asset.product_name}
                               </div>
                             </td>
@@ -2017,56 +2658,312 @@ export default function AllocateAssetsPage() {
                                 )}
                               </Badge>
                             </td>
-                            <td className="p-2 text-center items-center justify-center flex">
-                              <Select
-                                value={data.pricingOptionId}
-                                onValueChange={(value) => {
-                                  const option = getPricingOptionById(value);
-                                  updateAllocationData(
-                                    data.assetId,
-                                    "pricingOptionId",
-                                    value
-                                  );
-                                  updateAllocationData(
-                                    data.assetId,
-                                    "price",
-                                    option?.price || 0
-                                  );
-                                }}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select pricing option" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {getCurrentPricingOptions().map((option) => (
-                                    <SelectItem
-                                      key={option.id}
-                                      value={option.id}
-                                    >
-                                      {option.label} - €{option.price}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="p-2 text-center items-center justify-center ">
-                              {data.pricingOptionId.includes(
-                                "hard_3d_model"
-                              ) ? (
-                                <Input
-                                  type="number"
-                                  value={data.price}
-                                  onChange={(e) =>
-                                    updateAllocationData(
-                                      data.assetId,
-                                      "price",
-                                      parseFloat(e.target.value) || 0
-                                    )
+                            <td className="p-2 text-center">
+                              <div className="flex flex-col gap-1">
+                                {(() => {
+                                  const asset = getAssetById(data.assetId);
+                                  const hasExistingPricing =
+                                    asset?.pricing_option_id &&
+                                    asset?.price &&
+                                    asset.price > 0;
+
+                                  if (hasExistingPricing) {
+                                    // Show read-only info for admin-set pricing
+                                    return (
+                                      <div className="space-y-1">
+                                        <div className="text-xs text-muted-foreground">
+                                          Set in Admin Review
+                                        </div>
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs bg-green-50 text-green-700 border-green-200"
+                                        >
+                                          {getPricingOptionById(
+                                            data.pricingOptionId
+                                          )?.label || data.pricingOptionId}
+                                        </Badge>
+                                      </div>
+                                    );
+                                  } else {
+                                    // Allow manual selection for assets without admin pricing
+                                    return (
+                                      <Select
+                                        value={data.pricingOptionId}
+                                        onValueChange={(value) => {
+                                          const option =
+                                            getPricingOptionById(value);
+                                          updateAllocationData(
+                                            data.assetId,
+                                            "pricingOptionId",
+                                            value
+                                          );
+                                          updateAllocationData(
+                                            data.assetId,
+                                            "price",
+                                            option?.price || 0
+                                          );
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue placeholder="Select pricing" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {getCurrentPricingOptions().map(
+                                            (option) => (
+                                              <SelectItem
+                                                key={option.id}
+                                                value={option.id}
+                                              >
+                                                {option.label} - €{option.price}
+                                              </SelectItem>
+                                            )
+                                          )}
+                                        </SelectContent>
+                                      </Select>
+                                    );
                                   }
-                                />
-                              ) : (
-                                <span>€{data.price}</span>
-                              )}
+                                })()}
+                              </div>
+                            </td>
+                            <td className="p-2 text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                {(() => {
+                                  const asset = getAssetById(data.assetId);
+                                  const hasExistingPricing =
+                                    asset?.pricing_option_id &&
+                                    asset?.price &&
+                                    asset.price > 0;
+
+                                  if (hasExistingPricing) {
+                                    // Show editable price input with admin badge for existing pricing
+                                    return (
+                                      <div className="flex flex-col items-center gap-1">
+                                        <div className="flex items-center gap-2">
+                                          <Input
+                                            type="number"
+                                            value={data.price}
+                                            onChange={(e) =>
+                                              updateAllocationData(
+                                                data.assetId,
+                                                "price",
+                                                parseFloat(e.target.value) || 0
+                                              )
+                                            }
+                                            className="w-20 h-8 text-xs font-medium text-green-600"
+                                            placeholder="0.00"
+                                            step="0.01"
+                                            min="0"
+                                          />
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 hover:bg-amber-100"
+                                              >
+                                                <StickyNote className="h-3 w-3 text-amber-600" />
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-80 p-3">
+                                              <div className="space-y-3">
+                                                <h4 className="font-medium text-sm">
+                                                  Pricing Note
+                                                </h4>
+                                                <Textarea
+                                                  placeholder="Add pricing note..."
+                                                  value={
+                                                    pricingComments[
+                                                      data.assetId
+                                                    ] || ""
+                                                  }
+                                                  onChange={(e) => {
+                                                    setPricingComments(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        [data.assetId]:
+                                                          e.target.value,
+                                                      })
+                                                    );
+                                                  }}
+                                                  onBlur={() => {
+                                                    if (
+                                                      pricingComments[
+                                                        data.assetId
+                                                      ] !== undefined
+                                                    ) {
+                                                      handlePricingCommentUpdate(
+                                                        data.assetId,
+                                                        pricingComments[
+                                                          data.assetId
+                                                        ]
+                                                      );
+                                                    }
+                                                  }}
+                                                  className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                  rows={3}
+                                                />
+                                              </div>
+                                            </PopoverContent>
+                                          </Popover>
+                                        </div>
+                                      </div>
+                                    );
+                                  } else {
+                                    // Allow manual price input for custom pricing
+                                    return data.pricingOptionId.includes(
+                                      "hard_3d_model"
+                                    ) ||
+                                      data.pricingOptionId ===
+                                        "custom_pricing" ? (
+                                      <div className="flex items-center gap-2">
+                                        <Input
+                                          type="number"
+                                          value={data.price}
+                                          onChange={(e) =>
+                                            updateAllocationData(
+                                              data.assetId,
+                                              "price",
+                                              parseFloat(e.target.value) || 0
+                                            )
+                                          }
+                                          className="w-20 h-8 text-xs"
+                                          placeholder="0.00"
+                                          step="0.01"
+                                          min="0"
+                                        />
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0 hover:bg-amber-100"
+                                            >
+                                              <StickyNote className="h-3 w-3 text-amber-600" />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-80 p-3">
+                                            <div className="space-y-3">
+                                              <h4 className="font-medium text-sm">
+                                                Pricing Note
+                                              </h4>
+                                              <Textarea
+                                                placeholder="Add pricing note..."
+                                                value={
+                                                  pricingComments[
+                                                    data.assetId
+                                                  ] || ""
+                                                }
+                                                onChange={(e) => {
+                                                  setPricingComments(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [data.assetId]:
+                                                        e.target.value,
+                                                    })
+                                                  );
+                                                }}
+                                                onBlur={() => {
+                                                  if (
+                                                    pricingComments[
+                                                      data.assetId
+                                                    ] !== undefined
+                                                  ) {
+                                                    handlePricingCommentUpdate(
+                                                      data.assetId,
+                                                      pricingComments[
+                                                        data.assetId
+                                                      ]
+                                                    );
+                                                  }
+                                                }}
+                                                className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                rows={3}
+                                              />
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center gap-1">
+                                        <div className="flex items-center gap-2">
+                                          <Input
+                                            type="number"
+                                            value={data.price}
+                                            onChange={(e) =>
+                                              updateAllocationData(
+                                                data.assetId,
+                                                "price",
+                                                parseFloat(e.target.value) || 0
+                                              )
+                                            }
+                                            className="w-20 h-8 text-xs font-medium"
+                                            placeholder="0.00"
+                                            step="0.01"
+                                            min="0"
+                                          />
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 hover:bg-amber-100"
+                                              >
+                                                <StickyNote className="h-3 w-3 text-amber-600" />
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-80 p-3">
+                                              <div className="space-y-3">
+                                                <h4 className="font-medium text-sm">
+                                                  Pricing Note
+                                                </h4>
+                                                <Textarea
+                                                  placeholder="Add pricing note..."
+                                                  value={
+                                                    pricingComments[
+                                                      data.assetId
+                                                    ] || ""
+                                                  }
+                                                  onChange={(e) => {
+                                                    setPricingComments(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        [data.assetId]:
+                                                          e.target.value,
+                                                      })
+                                                    );
+                                                  }}
+                                                  onBlur={() => {
+                                                    if (
+                                                      pricingComments[
+                                                        data.assetId
+                                                      ] !== undefined
+                                                    ) {
+                                                      handlePricingCommentUpdate(
+                                                        data.assetId,
+                                                        pricingComments[
+                                                          data.assetId
+                                                        ]
+                                                      );
+                                                    }
+                                                  }}
+                                                  className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                  rows={3}
+                                                />
+                                              </div>
+                                            </PopoverContent>
+                                          </Popover>
+                                        </div>
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs bg-gray-50 text-gray-600 border-gray-200"
+                                        >
+                                          Manual
+                                        </Badge>
+                                      </div>
+                                    );
+                                  }
+                                })()}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -2080,20 +2977,30 @@ export default function AllocateAssetsPage() {
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-medium mb-2">Summary</h4>
                 <div className="space-y-1 text-sm">
-                  <p>Total Assets: {selectedAssets.size}</p>
                   <p>
-                    Total Price: €
-                    {allocationData.reduce((sum, data) => sum + data.price, 0)}
+                    Assets with Pricing: {allocationData.length} of{" "}
+                    {selectedAssets.size}
                   </p>
-                  <p>
-                    Average Price: €
-                    {(
-                      allocationData.reduce(
-                        (sum, data) => sum + data.price,
-                        0
-                      ) / selectedAssets.size
-                    ).toFixed(2)}
-                  </p>
+                  {allocationData.length > 0 && (
+                    <>
+                      <p>
+                        Total Price: €
+                        {allocationData.reduce(
+                          (sum, data) => sum + data.price,
+                          0
+                        )}
+                      </p>
+                      <p>
+                        Average Price: €
+                        {(
+                          allocationData.reduce(
+                            (sum, data) => sum + data.price,
+                            0
+                          ) / allocationData.length
+                        ).toFixed(2)}
+                      </p>
+                    </>
+                  )}
                   <p>Bonus: {groupSettings.bonus}%</p>
                   <p>
                     Deadline: {format(new Date(groupSettings.deadline), "PPP")}
@@ -2129,10 +3036,16 @@ export default function AllocateAssetsPage() {
                 </Button>
                 <div className="text-sm text-muted-foreground space-y-1">
                   {groupSettings.deadline &&
+                  allocationData.length > 0 &&
                   allocationData.every((data) => data.price > 0) ? (
                     <span className="flex items-center gap-2">
                       <Euro className="h-4 w-4" />
-                      Ready to allocate
+                      Ready to allocate {allocationData.length} asset(s)
+                    </span>
+                  ) : allocationData.length === 0 ? (
+                    <span className="flex items-center gap-2 text-amber-600">
+                      <AlertTriangle className="h-3 w-3" />
+                      No assets with pricing available
                     </span>
                   ) : (
                     "Complete pricing and deadline to continue"
@@ -2174,6 +3087,7 @@ export default function AllocateAssetsPage() {
                       ) || []
                     ).length === 0 ||
                     !groupSettings.deadline ||
+                    allocationData.length === 0 ||
                     allocationData.some((data) => data.price <= 0) ||
                     allocationData.some((data) => !data.pricingOptionId)
                   }
@@ -2196,6 +3110,15 @@ export default function AllocateAssetsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* User Profile Dialog */}
+      <UserProfileDialog
+        isOpen={isProfileDialogOpen}
+        onClose={handleCloseProfile}
+        userId={selectedUserId}
+        currentUserRole={user?.metadata?.role || "user"}
+        currentUserId={currentUserId}
+      />
     </div>
   );
 }

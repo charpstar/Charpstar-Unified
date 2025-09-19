@@ -1,4 +1,5 @@
 import * as React from "react";
+import { getBaseUrl } from "@/lib/urlUtils";
 
 export interface AllocationAssignedEmailProps {
   modelerName?: string;
@@ -180,10 +181,7 @@ export function AllocationAssignedEmail(props: AllocationAssignedEmailProps) {
                         }}
                       >
                         <a
-                          href={
-                            process.env.NEXT_PUBLIC_BASE_URL ||
-                            "http://localhost:3000"
-                          }
+                          href={getBaseUrl()}
                           target="_blank"
                           style={{
                             display: "inline-block",

@@ -328,122 +328,308 @@ export default function QAReviewPage() {
       setLoading(true);
       startLoading();
 
-      // First, get the modelers allocated to this QA user
-      const { data: qaAllocations, error: allocationError } = await supabase
-        .from("qa_allocations")
-        .select("modeler_id")
-        .eq("qa_id", user?.id);
+      // Fetch both regular and provisional QA assignments
+      const [regularAssets, provisionalAssets] = await Promise.all([
+        fetchRegularQAAssets(),
+        fetchProvisionalQAAssets(),
+      ]);
 
-      if (allocationError) {
-        console.error("Error fetching QA allocations:", allocationError);
-        toast.error("Failed to fetch your modeler allocations");
-        return;
-      }
+      // Combine and deduplicate assets
+      const allAssets = [...regularAssets, ...provisionalAssets];
+      const uniqueAssets = allAssets.filter(
+        (asset, index, self) =>
+          index === self.findIndex((a) => a.id === asset.id)
+      );
 
-      if (!qaAllocations || qaAllocations.length === 0) {
-        setAssets([]);
-        return;
-      }
-
-      const allocatedModelerIds = qaAllocations.map((a) => a.modeler_id);
-
-      // Get assets assigned to the allocated modelers
-      const { data: assetAssignments, error: assignmentError } = await supabase
-        .from("asset_assignments")
-        .select(
-          `
-          asset_id,
-          user_id,
-          price,
-          onboarding_assets!inner(
-            id,
-            product_name,
-            article_id,
-            client,
-            batch,
-            priority,
-            delivery_date,
-            status,
-            glb_link,
-            product_link,
-            category,
-            subcategory,
-            subcategory_missing,
-            created_at,
-            reference
-          )
-        `
-        )
-        .in("user_id", allocatedModelerIds)
-        .eq("role", "modeler");
-
-      if (assignmentError) {
-        console.error("Error fetching asset assignments:", assignmentError);
-        toast.error("Failed to fetch your assigned assets");
-        return;
-      }
-
-      // Get modeler details for the allocated modelers
-      const { data: modelerDetails, error: modelerError } = await supabase
-        .from("profiles")
-        .select("id, email, title")
-        .in("id", allocatedModelerIds);
-
-      if (modelerError) {
-        console.error("Error fetching modeler details:", modelerError);
-      }
-
-      // Create a map of modeler info by ID
-      const modelerMap = new Map();
-      modelerDetails?.forEach((modeler) => {
-        modelerMap.set(modeler.id, {
-          id: modeler.id,
-          email: modeler.email,
-          title: modeler.title,
-        });
-      });
+      setAssets(uniqueAssets);
 
       // Set available modelers for filter dropdown
-      setAvailableModelers(modelerDetails || []);
-
-      // Transform the data
-      const transformedAssets: AssignedAsset[] =
-        assetAssignments?.map((assignment) => {
-          const asset = assignment.onboarding_assets as any;
-          return {
-            id: assignment.asset_id,
-            product_name: asset.product_name,
-            article_id: asset.article_id,
-            client: asset.client,
-            batch: asset.batch,
-            priority: asset.priority,
-            delivery_date: asset.delivery_date,
-            status: asset.status,
-            glb_link: asset.glb_link,
-            product_link: asset.product_link,
-            category: asset.category,
-            subcategory: asset.subcategory,
-            created_at: asset.created_at,
-            reference: asset.reference,
-            price: assignment.price || 0,
-            modeler: modelerMap.get(assignment.user_id),
-          };
-        }) || [];
-
-      setAssets(transformedAssets);
+      const uniqueModelers = uniqueAssets
+        .map((asset) => asset.modeler)
+        .filter(
+          (modeler, index, self) =>
+            modeler && self.findIndex((m) => m?.id === modeler.id) === index
+        ) as Array<{ id: string; email: string; title?: string }>;
+      setAvailableModelers(uniqueModelers);
 
       // Populate clients array for filter dropdown
       const uniqueClients = Array.from(
-        new Set(transformedAssets.map((asset) => asset.client).filter(Boolean))
+        new Set(uniqueAssets.map((asset) => asset.client).filter(Boolean))
       ).sort();
       setClients(uniqueClients);
     } catch (error) {
       console.error("Error fetching assigned assets:", error);
-      toast.error("Failed to fetch assigned assets");
+      toast.error("Failed to fetch your assigned assets");
     } finally {
       setLoading(false);
       stopLoading();
     }
+  };
+
+  const fetchRegularQAAssets = async (): Promise<AssignedAsset[]> => {
+    // First, get the modelers allocated to this QA user
+    const { data: qaAllocations, error: allocationError } = await supabase
+      .from("qa_allocations")
+      .select("modeler_id")
+      .eq("qa_id", user?.id);
+
+    if (allocationError) {
+      console.error("Error fetching QA allocations:", allocationError);
+      return [];
+    }
+
+    if (!qaAllocations || qaAllocations.length === 0) {
+      return [];
+    }
+
+    const allocatedModelerIds = qaAllocations.map((a) => a.modeler_id);
+
+    // Get assets assigned to the allocated modelers
+    const { data: assetAssignments, error: assignmentError } = await supabase
+      .from("asset_assignments")
+      .select(
+        `
+        asset_id,
+        user_id,
+        price,
+        onboarding_assets!inner(
+          id,
+          product_name,
+          article_id,
+          client,
+          batch,
+          priority,
+          delivery_date,
+          status,
+          glb_link,
+          product_link,
+          category,
+          subcategory,
+          subcategory_missing,
+          created_at,
+          reference,
+          upload_order
+        )
+      `
+      )
+      .in("user_id", allocatedModelerIds)
+      .eq("role", "modeler")
+      .order("upload_order", {
+        ascending: true,
+        referencedTable: "onboarding_assets",
+      });
+
+    if (assignmentError) {
+      console.error(
+        "Error fetching regular asset assignments:",
+        assignmentError
+      );
+      return [];
+    }
+
+    return await processAssetAssignments(assetAssignments || []);
+  };
+
+  const fetchProvisionalQAAssets = async (): Promise<AssignedAsset[]> => {
+    // Get assets directly assigned to this QA as provisional
+    const { data: provisionalAssignments, error: provisionalError } =
+      await supabase
+        .from("asset_assignments")
+        .select(
+          `
+        asset_id,
+        user_id,
+        price,
+        onboarding_assets!inner(
+          id,
+          product_name,
+          article_id,
+          client,
+          batch,
+          priority,
+          delivery_date,
+          status,
+          glb_link,
+          product_link,
+          category,
+          subcategory,
+          subcategory_missing,
+          created_at,
+          reference,
+          upload_order
+        )
+      `
+        )
+        .eq("user_id", user?.id)
+        .eq("role", "qa")
+        .eq("is_provisional", true)
+        .order("upload_order", {
+          ascending: true,
+          referencedTable: "onboarding_assets",
+        });
+
+    if (provisionalError) {
+      console.error(
+        "Error fetching provisional QA assignments:",
+        provisionalError
+      );
+      return [];
+    }
+
+    // For provisional assets, we need to find the original modeler
+    const provisionalAssets = await processProvisionalAssetAssignments(
+      provisionalAssignments || []
+    );
+    return provisionalAssets;
+  };
+
+  const processAssetAssignments = async (
+    assetAssignments: any[]
+  ): Promise<AssignedAsset[]> => {
+    if (!assetAssignments.length) return [];
+
+    // Get unique modeler IDs from assignments
+    const modelerIds = [...new Set(assetAssignments.map((a) => a.user_id))];
+
+    // Get modeler details
+    const { data: modelerDetails, error: modelerError } = await supabase
+      .from("profiles")
+      .select("id, email, title")
+      .in("id", modelerIds);
+
+    if (modelerError) {
+      console.error("Error fetching modeler details:", modelerError);
+      return [];
+    }
+
+    // Create a map of modeler details
+    const modelerMap = new Map(
+      modelerDetails?.map((modeler) => [modeler.id, modeler]) || []
+    );
+
+    // Transform asset assignments to AssignedAsset format
+    const assets: AssignedAsset[] = assetAssignments.map((assignment) => {
+      const asset = assignment.onboarding_assets;
+      const modeler = modelerMap.get(assignment.user_id);
+
+      return {
+        id: asset.id,
+        product_name: asset.product_name,
+        article_id: asset.article_id,
+        client: asset.client,
+        batch: asset.batch,
+        priority: asset.priority,
+        delivery_date: asset.delivery_date,
+        status: asset.status,
+        glb_link: asset.glb_link,
+        product_link: asset.product_link,
+        category: asset.category,
+        subcategory: asset.subcategory,
+        subcategory_missing: asset.subcategory_missing,
+        created_at: asset.created_at,
+        reference: asset.reference,
+        price: assignment.price || 0,
+        modeler: modeler
+          ? {
+              id: modeler.id,
+              email: modeler.email,
+              title: modeler.title,
+            }
+          : undefined,
+      };
+    });
+
+    return assets;
+  };
+
+  const processProvisionalAssetAssignments = async (
+    provisionalAssignments: any[]
+  ): Promise<AssignedAsset[]> => {
+    if (!provisionalAssignments.length) return [];
+
+    // For provisional assignments, we need to find the original modelers
+    const assetIds = provisionalAssignments.map((a) => a.asset_id);
+
+    // Get the modeler assignments for these assets
+    const { data: modelerAssignments, error: modelerError } = await supabase
+      .from("asset_assignments")
+      .select("asset_id, user_id")
+      .in("asset_id", assetIds)
+      .eq("role", "modeler");
+
+    if (modelerError) {
+      console.error(
+        "Error fetching modeler assignments for provisional assets:",
+        modelerError
+      );
+      return [];
+    }
+
+    // Get unique modeler IDs
+    const modelerIds = [
+      ...new Set(modelerAssignments?.map((a) => a.user_id) || []),
+    ];
+
+    // Get modeler details separately
+    const { data: modelerDetails, error: modelerDetailsError } = await supabase
+      .from("profiles")
+      .select("id, email, title")
+      .in("id", modelerIds);
+
+    if (modelerDetailsError) {
+      console.error(
+        "Error fetching modeler details for provisional assets:",
+        modelerDetailsError
+      );
+      return [];
+    }
+
+    // Create modeler map
+    const modelerMap = new Map(
+      modelerDetails?.map((modeler) => [modeler.id, modeler]) || []
+    );
+
+    // Create a map of asset to modeler
+    const assetToModelerMap = new Map(
+      modelerAssignments?.map((assignment) => [
+        assignment.asset_id,
+        modelerMap.get(assignment.user_id),
+      ]) || []
+    );
+
+    // Transform provisional assignments to AssignedAsset format
+    const assets: AssignedAsset[] = provisionalAssignments.map((assignment) => {
+      const asset = assignment.onboarding_assets;
+      const modeler = assetToModelerMap.get(assignment.asset_id);
+
+      return {
+        id: asset.id,
+        product_name: asset.product_name,
+        article_id: asset.article_id,
+        client: asset.client,
+        batch: asset.batch,
+        priority: asset.priority,
+        delivery_date: asset.delivery_date,
+        status: asset.status,
+        glb_link: asset.glb_link,
+        product_link: asset.product_link,
+        category: asset.category,
+        subcategory: asset.subcategory,
+        subcategory_missing: asset.subcategory_missing,
+        created_at: asset.created_at,
+        reference: asset.reference,
+        price: assignment.price || 0,
+        modeler: modeler
+          ? {
+              id: modeler.id,
+              email: modeler.email,
+              title: modeler.title,
+            }
+          : undefined,
+      };
+    });
+
+    return assets;
   };
 
   const filterAndSortAssets = () => {
@@ -1057,7 +1243,7 @@ export default function QAReviewPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
+                  <TableHead className="w-12 text-left">
                     <Checkbox
                       checked={
                         areAllCurrentSelected
@@ -1069,18 +1255,18 @@ export default function QAReviewPage() {
                       onCheckedChange={toggleSelectAllCurrent}
                     />
                   </TableHead>
-                  <TableHead>Product Name</TableHead>
-                  <TableHead>Article ID</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Modeler</TableHead>
-                  <TableHead className="w-20">Created</TableHead>
-                  <TableHead className="">Product Link</TableHead>
-                  <TableHead className="">GLB</TableHead>
-                  <TableHead className="">Files</TableHead>
-                  <TableHead className="">View</TableHead>
+                  <TableHead className="text-left">Product Name</TableHead>
+                  <TableHead className="text-left">Article ID</TableHead>
+                  <TableHead className="text-left">Client</TableHead>
+                  <TableHead className="text-left">Price</TableHead>
+                  <TableHead className="text-left">Priority</TableHead>
+                  <TableHead className="text-left">Status</TableHead>
+                  <TableHead className="text-left">Modeler</TableHead>
+                  <TableHead className="w-20 text-left">Created</TableHead>
+                  <TableHead className="text-left">Product Link</TableHead>
+                  <TableHead className="text-left">GLB</TableHead>
+                  <TableHead className="text-left">Files</TableHead>
+                  <TableHead className="text-left">View</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1089,57 +1275,57 @@ export default function QAReviewPage() {
                   Array.from({ length: 10 }).map((_, i) => (
                     <TableRow key={i}>
                       {/* Checkbox */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-4 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Product Name */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Article ID */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-20 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Client */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-16 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Price */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-12 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Priority */}
-                      <TableCell>
-                        <div className="flex justify-center">
+                      <TableCell className="text-left">
+                        <div className="flex">
                           <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
                         </div>
                       </TableCell>
                       {/* Status */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
                       </TableCell>
                       {/* Modeler */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Created */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-4 w-12 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Product */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* GLB */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* Files */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                       </TableCell>
                       {/* View */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="h-8 w-8 bg-muted rounded animate-pulse" />
                       </TableCell>
                     </TableRow>
@@ -1197,19 +1383,19 @@ export default function QAReviewPage() {
                           : ""
                       }`}
                     >
-                      <TableCell>
+                      <TableCell className="text-left">
                         <Checkbox
                           checked={isAssetSelected(asset.id)}
                           onCheckedChange={() => toggleSelectAsset(asset.id)}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div
-                          className="font-medium truncate max-w-[200px] cursor-help"
+                          className="font-medium max-w-[200px] cursor-help"
                           title={asset.product_name}
                         >
-                          {asset.product_name.length > 25
-                            ? asset.product_name.substring(0, 25) + "..."
+                          {asset.product_name.length > 45
+                            ? asset.product_name.substring(0, 45) + "..."
                             : asset.product_name}
                         </div>
                         <div className="text-sm text-muted-foreground flex items-center gap-2 group">
@@ -1239,19 +1425,21 @@ export default function QAReviewPage() {
                           />
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <span className="text-xs text-muted-foreground">
                           {asset.article_id}
                         </span>
                       </TableCell>
-                      <TableCell>{asset.client}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
+                        {asset.client}
+                      </TableCell>
+                      <TableCell className="text-left">
                         <div className="text-sm font-medium">
                           €{(asset.price || 0).toFixed(2)}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex justify-center items-center">
+                      <TableCell className="text-left">
+                        <div className="flex items-center">
                           <Select
                             value={asset.priority.toString()}
                             onValueChange={(value) => {
@@ -1279,8 +1467,8 @@ export default function QAReviewPage() {
                           </Select>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 justify-center">
+                      <TableCell className="text-left">
+                        <div className="flex items-center gap-2">
                           <Badge
                             variant="outline"
                             className={`text-xs ${getStatusLabelClass(asset.status)}`}
@@ -1289,7 +1477,7 @@ export default function QAReviewPage() {
                           </Badge>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         {asset.modeler ? (
                           <div className="text-sm">
                             <div className="font-medium">
@@ -1309,7 +1497,7 @@ export default function QAReviewPage() {
                         )}
                       </TableCell>
                       {/* Created Date */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="flex items-center gap-1">
                           <div className="text-xs text-muted-foreground">
                             {dayjs(asset.created_at).format("MMM DD")}•
@@ -1318,7 +1506,7 @@ export default function QAReviewPage() {
                         </div>
                       </TableCell>
                       {/* Product */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         {asset.product_link ? (
                           <Button
                             variant="ghost"
@@ -1340,7 +1528,7 @@ export default function QAReviewPage() {
                         )}
                       </TableCell>
                       {/* GLB */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         {asset.glb_link ? (
                           <Button
                             variant="ghost"
@@ -1357,7 +1545,7 @@ export default function QAReviewPage() {
                         )}
                       </TableCell>
                       {/* Files */}
-                      <TableCell className="text-center">
+                      <TableCell className="text-left">
                         <div className="flex flex-col items-center gap-1">
                           <Button
                             variant="outline"
@@ -1379,7 +1567,7 @@ export default function QAReviewPage() {
                         </div>
                       </TableCell>
                       {/* View */}
-                      <TableCell>
+                      <TableCell className="text-left">
                         <Button
                           variant="ghost"
                           size="sm"

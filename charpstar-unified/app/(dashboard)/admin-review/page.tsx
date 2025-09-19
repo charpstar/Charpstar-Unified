@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/containers";
@@ -25,7 +25,6 @@ import { Button } from "@/components/ui/display";
 import {
   Users,
   Eye,
-  Package,
   CheckCircle,
   RotateCcw,
   ChevronDown,
@@ -35,6 +34,9 @@ import {
   Trash2,
   X,
   FileText,
+  GripVertical,
+  Euro,
+  StickyNote,
 } from "lucide-react";
 
 import {
@@ -46,12 +48,68 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/containers";
+import { Input, Textarea } from "@/components/ui/inputs";
+import { Calendar } from "@/components/ui/utilities";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/interactive";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
+
+// Pricing options for admin price management
+interface PricingOption {
+  id: string;
+  label: string;
+  price: number;
+  description?: string;
+}
+
+const PRICING_OPTIONS: PricingOption[] = [
+  // Premium Tier Options Only
+  {
+    id: "pbr_3d_model_after_second",
+    label: "PBR 3D Model Creation (Premium Tier)",
+    price: 30,
+    description: "Premium PBR 3D model creation after second deadline",
+  },
+  {
+    id: "additional_colors_after_second",
+    label: "Additional Colors (Premium Tier)",
+    price: 1.5,
+    description: "Additional colors for already made 3D models",
+  },
+  {
+    id: "additional_textures_after_second",
+    label: "Additional Textures/Materials (Premium Tier)",
+    price: 7,
+    description: "Additional textures/materials for already made 3D models",
+  },
+  {
+    id: "additional_sizes_after_second",
+    label: "Additional Sizes (Premium Tier)",
+    price: 5,
+    description: "Additional sizes for already made 3D models",
+  },
+
+  // Custom pricing option
+  {
+    id: "custom_pricing",
+    label: "Custom Pricing",
+    price: 0, // Will be set by user
+    description: "Set a custom price for this asset",
+  },
+];
+
+// Derive human-readable task type from pricing option id
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import { getPriorityLabel } from "@/lib/constants";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon, User, Package } from "lucide-react";
 
 // Helper function to get priority CSS class
 const getPriorityClass = (priority: number): string => {
@@ -75,6 +133,12 @@ const getStatusRowClass = (status: string): string => {
       return "table-row-status-delivered-by-artist";
     case "not_started":
       return "table-row-status-not-started bg-gray-50 dark:bg-gray-900/30";
+    case "in_progress":
+      return "table-row-status-in-production"; // Same as in_production
+    case "waiting_for_approval":
+      return "table-row-status-delivered-by-artist"; // Same as delivered_by_artist
+    case "pending":
+      return "table-row-status-not-started"; // Same as not_started
     default:
       return "table-row-status-unknown";
   }
@@ -99,6 +163,8 @@ const getStatusLabelClass = (status: string): string => {
       return "status-in-progress";
     case "waiting_for_approval":
       return "status-waiting-for-approval";
+    case "pending":
+      return "status-not-started"; // Same as not_started
     default:
       return "bg-muted text-muted-foreground border-border";
   }
@@ -123,6 +189,8 @@ const getStatusLabelText = (status: string): string => {
       return "In Progress";
     case "waiting_for_approval":
       return "Delivered by Artist";
+    case "unallocated":
+      return "Not Allocated";
     default:
       return status;
   }
@@ -148,6 +216,8 @@ const getStatusIcon = (status: string) => {
       return null;
     case "revisions":
       return <RotateCcw className="h-4 w-4 text-orange-600" />;
+    case "unallocated":
+      return <Users className="h-4 w-4 text-red-600" />;
     default:
       return <Eye className="h-4 w-4 text-gray-600" />;
   }
@@ -165,7 +235,8 @@ const calculateListStats = (list: any) => {
 
   // Calculate total price for all assets
   const totalPrice = list.asset_assignments.reduce(
-    (sum: number, assignment: any) => sum + (assignment.price || 0),
+    (sum: number, assignment: any) =>
+      sum + (assignment.onboarding_assets.price || 0),
     0
   );
 
@@ -176,7 +247,11 @@ const calculateListStats = (list: any) => {
         assignment.onboarding_assets.status === "approved" ||
         assignment.onboarding_assets.status === "approved_by_client"
     )
-    .reduce((sum: number, assignment: any) => sum + (assignment.price || 0), 0);
+    .reduce(
+      (sum: number, assignment: any) =>
+        sum + (assignment.onboarding_assets.price || 0),
+      0
+    );
 
   // Calculate potential bonus (what could be earned if everything is completed on time)
   let bonusAmount = 0;
@@ -224,31 +299,31 @@ const AdminReviewTableSkeleton = () => (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-12">
+          <TableHead className="w-12 text-left">
             <div className="h-4 w-4 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-24 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-20 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-20 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
-          <TableHead>
+          <TableHead className="text-left">
             <div className="h-4 w-16 bg-muted rounded animate-pulse" />
           </TableHead>
         </TableRow>
@@ -256,10 +331,10 @@ const AdminReviewTableSkeleton = () => (
       <TableBody>
         {Array.from({ length: 8 }).map((_, i) => (
           <TableRow key={i}>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-4 w-4 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="space-y-2">
                 <div className="h-4 w-32 bg-muted rounded animate-pulse" />
                 <div className="flex items-center gap-2">
@@ -268,28 +343,28 @@ const AdminReviewTableSkeleton = () => (
                 </div>
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-4 w-20 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-4 w-16 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="flex items-center gap-2">
                 <div className="h-6 w-16 bg-muted rounded animate-pulse" />
                 <div className="h-3 w-8 bg-muted rounded animate-pulse" />
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-4 w-24 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-6 w-20 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-8 w-8 bg-muted rounded animate-pulse" />
             </TableCell>
-            <TableCell>
+            <TableCell className="text-left">
               <div className="h-8 w-8 bg-muted rounded animate-pulse" />
             </TableCell>
           </TableRow>
@@ -324,6 +399,23 @@ export default function AdminReviewPage() {
   const [modelers, setModelers] = useState<
     Array<{ id: string; email: string; title?: string }>
   >([]);
+
+  // Price management state
+  const [assetPrices, setAssetPrices] = useState<
+    Record<string, { pricingOptionId: string; price: number }>
+  >({});
+  const [customPrices, setCustomPrices] = useState<Record<string, number>>({});
+  const [pricingComments, setPricingComments] = useState<
+    Record<string, string>
+  >({});
+  const [settingPrices, setSettingPrices] = useState<Set<string>>(new Set());
+  const [draggedAssetId, setDraggedAssetId] = useState<string | null>(null);
+  const [draggedAssets, setDraggedAssets] = useState<Set<string>>(new Set());
+  const [isDraggingGroup, setIsDraggingGroup] = useState(false);
+  const [dragPreview, setDragPreview] = useState<any[]>([]);
+  const [dragInsertPosition, setDragInsertPosition] = useState<number>(-1);
+  const [isManuallyReordering, setIsManuallyReordering] = useState(false);
+  const lastManualOrderRef = useRef<string[]>([]);
   const [assignedAssets, setAssignedAssets] = useState<
     Map<string, { id: string; email: string; name?: string }>
   >(new Map());
@@ -359,6 +451,490 @@ export default function AdminReviewPage() {
   );
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
+
+  // Allocation dialog state
+  const [showAllocationDialog, setShowAllocationDialog] = useState(false);
+  const [selectedModeler, setSelectedModeler] = useState<string>("");
+  const [allocationDeadline, setAllocationDeadline] = useState<string>(
+    format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd")
+  );
+  const [allocationBonus, setAllocationBonus] = useState<number>(15);
+  const [allocating, setAllocating] = useState(false);
+
+  // Reallocation dialog state
+  const [showReallocationDialog, setShowReallocationDialog] = useState(false);
+  const [selectedAssetForReallocation, setSelectedAssetForReallocation] =
+    useState<any>(null);
+  const [reallocationModeler, setReallocationModeler] = useState<string>("");
+  const [reallocationDeadline, setReallocationDeadline] = useState<string>(
+    format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd")
+  );
+  const [reallocationBonus, setReallocationBonus] = useState<number>(15);
+  const [reallocating, setReallocating] = useState(false);
+
+  // Bulk reallocation state
+  const [selectedAssetsForReallocation, setSelectedAssetsForReallocation] =
+    useState<Set<string>>(new Set());
+  const [showBulkReallocationDialog, setShowBulkReallocationDialog] =
+    useState(false);
+  const [bulkReallocationModeler, setBulkReallocationModeler] =
+    useState<string>("");
+  const [bulkReallocationDeadline, setBulkReallocationDeadline] =
+    useState<string>(
+      format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd")
+    );
+  const [bulkReallocationBonus, setBulkReallocationBonus] =
+    useState<number>(15);
+  const [bulkReallocating, setBulkReallocating] = useState(false);
+
+  // Fetch assets function
+  const fetchAssets = async () => {
+    if (
+      !user ||
+      (user.metadata?.role !== "admin" &&
+        user.metadata?.role !== "production") ||
+      showAllocationLists
+    )
+      return;
+    startLoading();
+    setLoading(true);
+
+    // Fetch modelers for the filter
+    try {
+      const { data: modelersData, error: modelersError } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .eq("role", "modeler")
+        .order("email");
+
+      if (modelersError) {
+        console.error("Error fetching modelers:", modelersError);
+      } else {
+        setModelers(modelersData || []);
+      }
+
+      // Build the query
+      let query = supabase
+        .from("onboarding_assets")
+        .select(
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment"
+        )
+        .order("upload_order", { ascending: true });
+
+      // If modeler filters are applied, only fetch assets assigned to those modelers
+      if (modelerFilters && modelerFilters.length > 0) {
+        // First get the asset IDs assigned to this modeler (only accepted assignments)
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from("asset_assignments")
+          .select("asset_id")
+          .in("user_id", modelerFilters)
+          .eq("role", "modeler")
+          .eq("status", "accepted");
+
+        if (assignmentError) {
+          console.error("Error fetching assignments:", assignmentError);
+          setLoading(false);
+          stopLoading();
+          return;
+        }
+
+        const assignedAssetIds = assignmentData?.map((a) => a.asset_id) || [];
+        if (assignedAssetIds.length === 0) {
+          setAssets([]);
+          setFiltered([]);
+          setLoading(false);
+          stopLoading();
+          return;
+        }
+
+        query = query.in("id", assignedAssetIds);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching assets:", error);
+        setLoading(false);
+        stopLoading();
+        return;
+      }
+
+      setAssets(data || []);
+      setFiltered(data || []);
+    } catch (error) {
+      console.error("Error in fetchAssets:", error);
+    } finally {
+      setLoading(false);
+      stopLoading();
+    }
+  };
+
+  // Handle bulk reallocation
+  const handleBulkReallocateAssets = async () => {
+    if (!bulkReallocationModeler || selectedAssetsForReallocation.size === 0) {
+      toast.error("Please select a modeler and assets for reallocation");
+      return;
+    }
+
+    try {
+      setBulkReallocating(true);
+
+      // Check if the selected modeler has a QA assigned
+      const { data: qaAllocations, error: qaError } = await supabase
+        .from("qa_allocations")
+        .select("qa_id")
+        .eq("modeler_id", bulkReallocationModeler);
+
+      if (qaError) {
+        console.error("Error checking QA allocation:", qaError);
+        toast.error("Failed to verify QA assignment");
+        return;
+      }
+
+      if (!qaAllocations || qaAllocations.length === 0) {
+        toast.error(
+          "Cannot reallocate assets: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
+          { duration: 8000 }
+        );
+        return;
+      }
+
+      // Get all assets from all allocation lists
+      const allAssets: any[] = [];
+      allocationLists.forEach((list) => {
+        list.asset_assignments.forEach((assignment: any) => {
+          allAssets.push(assignment.onboarding_assets);
+        });
+      });
+
+      // Filter selected assets with pricing
+      const selectedAssets = Array.from(selectedAssetsForReallocation);
+      const assetsWithPricing = allAssets.filter(
+        (asset) =>
+          selectedAssets.includes(asset.id) &&
+          ((asset.pricing_option_id && asset.price && asset.price > 0) ||
+            (assetPrices[asset.id] && assetPrices[asset.id].price > 0))
+      );
+
+      if (assetsWithPricing.length === 0) {
+        toast.error(
+          "No selected assets have pricing set. Please set pricing for the assets first."
+        );
+        return;
+      }
+
+      if (assetsWithPricing.length < selectedAssets.length) {
+        toast.warning(
+          `${selectedAssets.length - assetsWithPricing.length} asset(s) excluded - no pricing set. Only assets with pricing will be reallocated.`,
+          { duration: 6000 }
+        );
+      }
+
+      // Create allocation list using the API
+      const response = await fetch("/api/assets/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetIds: assetsWithPricing.map((asset) => asset.id),
+          userIds: [bulkReallocationModeler],
+          role: "modeler",
+          deadline: new Date(
+            bulkReallocationDeadline + "T00:00:00.000Z"
+          ).toISOString(),
+          bonus: bulkReallocationBonus,
+          allocationName: `Bulk Reallocation ${new Date().toISOString().split("T")[0]} - ${assetsWithPricing.length} assets`,
+          prices: assetsWithPricing.reduce(
+            (acc, asset) => {
+              acc[asset.id] = asset.price;
+              return acc;
+            },
+            {} as Record<string, number>
+          ),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || "Failed to create bulk reallocation"
+        );
+      }
+
+      // Close dialog and clear state
+      setShowBulkReallocationDialog(false);
+      setSelectedAssetsForReallocation(new Set());
+      setBulkReallocationModeler("");
+
+      toast.success(
+        `Successfully reallocated ${assetsWithPricing.length} asset(s) to new modeler`
+      );
+
+      // Update local state to remove reallocated assets from current view
+      const reallocatedAssetIds = assetsWithPricing.map((asset) => asset.id);
+      setAllocationLists(
+        (prevLists) =>
+          prevLists
+            .map((list) => ({
+              ...list,
+              asset_assignments: list.asset_assignments.filter(
+                (assignment: any) =>
+                  !reallocatedAssetIds.includes(assignment.onboarding_assets.id)
+              ),
+            }))
+            .filter((list) => list.asset_assignments.length > 0) // Remove empty lists
+      );
+
+      // Refresh the page data
+      await fetchAssets();
+    } catch (error) {
+      console.error("Error bulk reallocating assets:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to bulk reallocate assets"
+      );
+    } finally {
+      setBulkReallocating(false);
+    }
+  };
+
+  // Toggle asset selection for reallocation
+  const toggleAssetSelection = (assetId: string) => {
+    setSelectedAssetsForReallocation((prev) => {
+      const next = new Set(prev);
+      if (next.has(assetId)) {
+        next.delete(assetId);
+      } else {
+        next.add(assetId);
+      }
+      return next;
+    });
+  };
+
+  // Select all assets in current view
+  const selectAllAssetsForReallocation = () => {
+    const allAssetIds: string[] = [];
+    allocationLists.forEach((list) => {
+      list.asset_assignments.forEach((assignment: any) => {
+        allAssetIds.push(assignment.onboarding_assets.id);
+      });
+    });
+    setSelectedAssetsForReallocation(new Set(allAssetIds));
+  };
+
+  // Clear all asset selections
+  const clearAssetSelections = () => {
+    setSelectedAssetsForReallocation(new Set());
+  };
+
+  // Handle asset reallocation
+  const handleReallocateAsset = async () => {
+    if (!reallocationModeler || !selectedAssetForReallocation) {
+      toast.error("Please select a modeler for reallocation");
+      return;
+    }
+
+    try {
+      setReallocating(true);
+
+      // Check if the selected modeler has a QA assigned
+      const { data: qaAllocations, error: qaError } = await supabase
+        .from("qa_allocations")
+        .select("qa_id")
+        .eq("modeler_id", reallocationModeler);
+
+      if (qaError) {
+        console.error("Error checking QA allocation:", qaError);
+        toast.error("Failed to verify QA assignment");
+        return;
+      }
+
+      if (!qaAllocations || qaAllocations.length === 0) {
+        toast.error(
+          "Cannot reallocate asset: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
+          { duration: 8000 }
+        );
+        return;
+      }
+
+      // Check if asset has pricing
+      if (
+        !selectedAssetForReallocation.pricing_option_id ||
+        !selectedAssetForReallocation.price ||
+        selectedAssetForReallocation.price <= 0
+      ) {
+        toast.error(
+          "Cannot reallocate asset: No pricing set. Please set pricing for this asset first."
+        );
+        return;
+      }
+
+      // Create allocation list using the API
+      const response = await fetch("/api/assets/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetIds: [selectedAssetForReallocation.id],
+          userIds: [reallocationModeler],
+          role: "modeler",
+          deadline: new Date(
+            reallocationDeadline + "T00:00:00.000Z"
+          ).toISOString(),
+          bonus: reallocationBonus,
+          allocationName: `Reallocation ${new Date().toISOString().split("T")[0]} - ${selectedAssetForReallocation.product_name}`,
+          prices: {
+            [selectedAssetForReallocation.id]:
+              selectedAssetForReallocation.price,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create reallocation");
+      }
+
+      // Close dialog and clear state
+      setShowReallocationDialog(false);
+      setSelectedAssetForReallocation(null);
+      setReallocationModeler("");
+
+      toast.success(`Successfully reallocated asset to new modeler`);
+
+      // Update local state to remove reallocated asset from current view
+      setAllocationLists(
+        (prevLists) =>
+          prevLists
+            .map((list) => ({
+              ...list,
+              asset_assignments: list.asset_assignments.filter(
+                (assignment: any) =>
+                  assignment.onboarding_assets.id !==
+                  selectedAssetForReallocation.id
+              ),
+            }))
+            .filter((list) => list.asset_assignments.length > 0) // Remove empty lists
+      );
+
+      // Refresh the page data
+      await fetchAssets();
+    } catch (error) {
+      console.error("Error reallocating asset:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to reallocate asset"
+      );
+    } finally {
+      setReallocating(false);
+    }
+  };
+
+  // Handle asset allocation
+  const handleAllocateAssets = async () => {
+    if (!selectedModeler || selected.size === 0) {
+      toast.error("Please select a modeler and assets to allocate");
+      return;
+    }
+
+    try {
+      setAllocating(true);
+
+      // Check if the selected modeler has a QA assigned
+      const { data: qaAllocations, error: qaError } = await supabase
+        .from("qa_allocations")
+        .select("qa_id")
+        .eq("modeler_id", selectedModeler);
+
+      if (qaError) {
+        console.error("Error checking QA allocation:", qaError);
+        toast.error("Failed to verify QA assignment");
+        return;
+      }
+
+      if (!qaAllocations || qaAllocations.length === 0) {
+        toast.error(
+          "Cannot allocate assets: The selected modeler does not have a QA assigned. Please assign a QA to this modeler first.",
+          { duration: 8000 }
+        );
+        return;
+      }
+
+      // Get selected assets with pricing
+      const selectedAssets = Array.from(selected);
+      const assetsWithPricing = filtered.filter(
+        (asset) =>
+          selectedAssets.includes(asset.id) &&
+          ((asset.pricing_option_id && asset.price && asset.price > 0) ||
+            (assetPrices[asset.id] && assetPrices[asset.id].price > 0))
+      );
+
+      if (assetsWithPricing.length === 0) {
+        toast.error(
+          "No selected assets have pricing set. Please set pricing for the assets first."
+        );
+        return;
+      }
+
+      if (assetsWithPricing.length < selectedAssets.length) {
+        toast.warning(
+          `${selectedAssets.length - assetsWithPricing.length} asset(s) excluded - no pricing set. Only assets with pricing will be allocated.`,
+          { duration: 6000 }
+        );
+      }
+
+      // Create allocation list using the API
+      const response = await fetch("/api/assets/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetIds: assetsWithPricing.map((asset) => asset.id),
+          userIds: [selectedModeler],
+          role: "modeler",
+          deadline: new Date(
+            allocationDeadline + "T00:00:00.000Z"
+          ).toISOString(),
+          bonus: allocationBonus,
+          allocationName: `Allocation ${new Date().toISOString().split("T")[0]} - ${assetsWithPricing.length} assets`,
+          prices: assetsWithPricing.reduce(
+            (acc, asset) => {
+              acc[asset.id] = asset.price;
+              return acc;
+            },
+            {} as Record<string, number>
+          ),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create allocation");
+      }
+
+      // Clear selection and close dialog
+      setSelected(new Set());
+      setShowAllocationDialog(false);
+      setSelectedModeler("");
+
+      toast.success(
+        `Successfully allocated ${assetsWithPricing.length} asset(s) to modeler`
+      );
+
+      // Refresh the page data
+      await fetchAssets();
+    } catch (error) {
+      console.error("Error allocating assets:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to allocate assets"
+      );
+    } finally {
+      setAllocating(false);
+    }
+  };
 
   // Refresh a specific asset's reference/glb data across all relevant views
   const refreshAssetReferenceData = async (assetId: string) => {
@@ -697,7 +1273,6 @@ export default function AdminReviewPage() {
             status,
             asset_assignments(
               asset_id,
-              price,
               status,
               onboarding_assets(
                 id,
@@ -710,7 +1285,9 @@ export default function AdminReviewPage() {
                 batch,
                 reference,
                 glb_link,
-                product_link
+                product_link,
+                pricing_option_id,
+                price
               )
             )
           `
@@ -776,8 +1353,9 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link"
-        );
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment"
+        )
+        .order("upload_order", { ascending: true });
 
       // If modeler filters are applied, only fetch assets assigned to those modelers
       if (modelerFilters && modelerFilters.length > 0) {
@@ -815,6 +1393,36 @@ export default function AdminReviewPage() {
       const { data, error } = await query;
       if (!error && data) {
         setAssets(data);
+
+        // Initialize asset prices from loaded data
+        const initialPrices: Record<
+          string,
+          { pricingOptionId: string; price: number }
+        > = {};
+        const initialCustomPrices: Record<string, number> = {};
+        const initialPricingComments: Record<string, string> = {};
+        data.forEach((asset) => {
+          if (asset.pricing_option_id && asset.price !== undefined) {
+            initialPrices[asset.id] = {
+              pricingOptionId: asset.pricing_option_id,
+              price: asset.price,
+            };
+
+            // If it's custom pricing, also set the custom price
+            if (asset.pricing_option_id === "custom_pricing") {
+              initialCustomPrices[asset.id] = asset.price;
+            }
+          }
+
+          // Initialize pricing comments
+          if ((asset as any).pricing_comment) {
+            initialPricingComments[asset.id] = (asset as any).pricing_comment;
+          }
+        });
+        setAssetPrices(initialPrices);
+        setCustomPrices(initialCustomPrices);
+        setPricingComments(initialPricingComments);
+
         // Extract unique clients
         const uniqueClients = [
           ...new Set(data.map((asset) => asset.client).filter(Boolean)),
@@ -898,7 +1506,7 @@ export default function AdminReviewPage() {
 
   // Apply filters to assets
   useEffect(() => {
-    if (showAllocationLists || showQAAssets) return;
+    if (showAllocationLists || showQAAssets || isManuallyReordering) return;
 
     let filteredAssets = [...assets];
 
@@ -927,9 +1535,21 @@ export default function AdminReviewPage() {
 
     // Apply status filter
     if (statusFilters.length > 0) {
-      filteredAssets = filteredAssets.filter((asset) =>
-        statusFilters.includes(asset.status)
-      );
+      filteredAssets = filteredAssets.filter((asset) => {
+        // Handle special "unallocated" filter
+        if (statusFilters.includes("unallocated")) {
+          // Check if asset is unallocated (not in assignedAssets map)
+          const isUnallocated = !assignedAssets.has(asset.id);
+          // Include unallocated assets OR assets matching other status filters
+          return (
+            isUnallocated ||
+            statusFilters
+              .filter((s) => s !== "unallocated")
+              .includes(asset.status)
+          );
+        }
+        return statusFilters.includes(asset.status);
+      });
     }
 
     // Default sort: status progression like QA Review
@@ -940,10 +1560,43 @@ export default function AdminReviewPage() {
       approved: 4,
       approved_by_client: 5,
     };
-    filteredAssets.sort(
-      (a, b) =>
-        (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
-    );
+    // If we have a recent manual order, try to preserve it
+    if (lastManualOrderRef.current.length > 0 && !isManuallyReordering) {
+      const manualOrderIds = lastManualOrderRef.current;
+      const manualOrderMap = new Map(
+        manualOrderIds.map((id, index) => [id, index])
+      );
+
+      // Check if all manually ordered items are still present in filtered results
+      const hasAllManualItems = manualOrderIds.every((id) =>
+        filteredAssets.some((asset) => asset.id === id)
+      );
+
+      if (
+        hasAllManualItems &&
+        filteredAssets.length === manualOrderIds.length
+      ) {
+        // Preserve manual order if possible
+        filteredAssets.sort((a, b) => {
+          const aOrder = manualOrderMap.get(a.id) ?? 999;
+          const bOrder = manualOrderMap.get(b.id) ?? 999;
+          return aOrder - bOrder;
+        });
+      } else {
+        // Clear manual order if assets have changed significantly
+        lastManualOrderRef.current = [];
+        filteredAssets.sort(
+          (a, b) =>
+            (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
+        );
+      }
+    } else {
+      // Default sorting by status priority
+      filteredAssets.sort(
+        (a, b) =>
+          (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
+      );
+    }
 
     setFiltered(filteredAssets);
   }, [
@@ -954,6 +1607,7 @@ export default function AdminReviewPage() {
     statusFilters,
     showAllocationLists,
     assignedAssets,
+    isManuallyReordering,
   ]);
 
   // Fetch and filter QA assets (when viewing a QA user)
@@ -1301,9 +1955,44 @@ export default function AdminReviewPage() {
     }
   };
 
-  const toggleSelect = (id: string) => {
+  const toggleSelect = (id: string, event?: React.MouseEvent) => {
     setSelected((prev) => {
       const next = new Set(prev);
+
+      // Handle Ctrl+Click for individual toggle
+      if (event?.ctrlKey || event?.metaKey) {
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }
+
+      // Handle Shift+Click for range selection
+      if (event?.shiftKey && prev.size > 0) {
+        const currentAssets = paged; // Use paged instead of filtered for visible assets
+        const currentIndex = currentAssets.findIndex(
+          (asset) => asset.id === id
+        );
+        const lastSelectedIndex = Math.max(
+          ...Array.from(prev)
+            .map((selectedId) =>
+              currentAssets.findIndex((asset) => asset.id === selectedId)
+            )
+            .filter((index) => index !== -1)
+        );
+
+        if (currentIndex !== -1 && lastSelectedIndex !== -1) {
+          const start = Math.min(currentIndex, lastSelectedIndex);
+          const end = Math.max(currentIndex, lastSelectedIndex);
+
+          // Select all assets in the range
+          for (let i = start; i <= end; i++) {
+            next.add(currentAssets[i].id);
+          }
+          return next;
+        }
+      }
+
+      // Default behavior - single selection
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
@@ -1437,6 +2126,415 @@ export default function AdminReviewPage() {
         newSet.delete(assetId);
         return newSet;
       });
+    }
+  };
+
+  // Price management functions
+  const handlePriceUpdate = async (
+    assetId: string,
+    pricingOptionId: string,
+    price: number
+  ) => {
+    try {
+      const response = await fetch("/api/assets/update-price", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          pricingOptionId,
+          price,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update price");
+      }
+
+      // Update local state
+      setAssetPrices((prev) => ({
+        ...prev,
+        [assetId]: { pricingOptionId, price },
+      }));
+
+      // If it's custom pricing, also update the custom price
+      if (pricingOptionId === "custom_pricing") {
+        setCustomPrices((prev) => ({
+          ...prev,
+          [assetId]: price,
+        }));
+      }
+
+      toast.success("Price updated successfully");
+    } catch (error) {
+      console.error("Error updating price:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update price"
+      );
+    }
+  };
+
+  const handleCustomPriceChange = (assetId: string, price: number) => {
+    setCustomPrices((prev) => ({
+      ...prev,
+      [assetId]: price,
+    }));
+  };
+
+  const handleCustomPriceSubmit = async (assetId: string) => {
+    const customPrice = customPrices[assetId];
+    if (customPrice !== undefined && customPrice > 0) {
+      // Add to loading state
+      setSettingPrices((prev) => new Set(prev).add(assetId));
+
+      try {
+        await handlePriceUpdate(assetId, "custom_pricing", customPrice);
+        toast.success("Custom price set successfully");
+      } catch (error) {
+        console.error("Error setting custom price:", error);
+        toast.error("Failed to set custom price");
+      } finally {
+        // Remove from loading state
+        setSettingPrices((prev) => {
+          const next = new Set(prev);
+          next.delete(assetId);
+          return next;
+        });
+      }
+    }
+  };
+
+  const handlePricingCommentUpdate = async (
+    assetId: string,
+    comment: string
+  ) => {
+    try {
+      const response = await fetch("/api/assets/update-pricing-comment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          comment: comment.trim() || "",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update pricing comment");
+      }
+
+      // Update local state
+      setPricingComments((prev) => ({
+        ...prev,
+        [assetId]: comment.trim() || "",
+      }));
+
+      toast.success("Pricing comment updated successfully");
+    } catch (error) {
+      console.error("Error updating pricing comment:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update pricing comment"
+      );
+    }
+  };
+
+  const getPricingOptionById = (id: string) => {
+    return PRICING_OPTIONS.find((option) => option.id === id);
+  };
+
+  // Enhanced drag and drop reordering functions
+  const handleDragStart = (e: React.DragEvent, assetId: string) => {
+    // If the asset being dragged is selected, drag all selected assets
+    if (selected.has(assetId) && selected.size > 1) {
+      setDraggedAssets(new Set(selected));
+      setIsDraggingGroup(true);
+      setDraggedAssetId(assetId); // Primary asset being dragged
+    } else {
+      // Single asset drag
+      setDraggedAssetId(assetId);
+      setDraggedAssets(new Set([assetId]));
+      setIsDraggingGroup(false);
+    }
+
+    e.dataTransfer.effectAllowed = "move";
+
+    // Initialize drag preview with current order
+    setDragPreview([...filtered]);
+
+    // Add visual feedback to dragged assets
+    if (selected.has(assetId) && selected.size > 1) {
+      // Multi-asset drag - highlight all selected rows
+      const allRows = document.querySelectorAll("tr");
+      allRows.forEach((row) => {
+        const checkbox = row.querySelector(
+          'input[type="checkbox"]'
+        ) as HTMLInputElement;
+        if (checkbox?.checked) {
+          (row as HTMLElement).style.transform = "rotate(1deg) scale(0.98)";
+          (row as HTMLElement).style.boxShadow =
+            "0 8px 16px rgba(59, 130, 246, 0.3)";
+          (row as HTMLElement).style.backgroundColor =
+            "rgba(59, 130, 246, 0.1)";
+        }
+      });
+    } else {
+      // Single asset drag
+      const target = e.target as HTMLElement;
+      const row = target.closest("tr");
+      if (row) {
+        row.style.transform = "rotate(2deg)";
+        row.style.boxShadow = "0 8px 16px rgba(0,0,0,0.2)";
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+
+    // Add visual feedback for drop target and generate preview
+    const target = e.target as HTMLElement;
+    const row = target.closest("tr");
+    if (row && (draggedAssetId || draggedAssets.size > 0)) {
+      // Don't highlight if it's one of the dragged assets
+      const assetIdElement = row.querySelector(
+        "[data-asset-id]"
+      ) as HTMLElement;
+      const assetId = assetIdElement?.dataset.assetId;
+
+      if (assetId && !draggedAssets.has(assetId)) {
+        // Find the target index for preview
+        const currentAssets = [...filtered];
+        const targetIndex = currentAssets.findIndex(
+          (asset) => asset.id === assetId
+        );
+
+        if (targetIndex !== -1) {
+          // Generate preview of the reordered list
+          let previewAssets: any[];
+
+          if (isDraggingGroup && draggedAssets.size > 1) {
+            // Group movement preview
+            const draggedAssetObjects = currentAssets.filter((asset) =>
+              draggedAssets.has(asset.id)
+            );
+            const nonDraggedAssets = currentAssets.filter(
+              (asset) => !draggedAssets.has(asset.id)
+            );
+
+            previewAssets = [
+              ...nonDraggedAssets.slice(0, targetIndex),
+              ...draggedAssetObjects,
+              ...nonDraggedAssets.slice(targetIndex),
+            ];
+          } else {
+            // Single asset movement preview
+            const draggedIndex = currentAssets.findIndex(
+              (asset) => asset.id === draggedAssetId
+            );
+
+            if (draggedIndex !== -1) {
+              previewAssets = [...currentAssets];
+              const [draggedAsset] = previewAssets.splice(draggedIndex, 1);
+              previewAssets.splice(targetIndex, 0, draggedAsset);
+            } else {
+              previewAssets = currentAssets;
+            }
+          }
+
+          setDragPreview(previewAssets);
+          setDragInsertPosition(targetIndex);
+        }
+
+        row.style.backgroundColor = isDraggingGroup
+          ? "rgba(34, 197, 94, 0.1)"
+          : "rgba(59, 130, 246, 0.1)";
+        row.style.borderTop = isDraggingGroup
+          ? "3px solid #22c55e"
+          : "2px solid #3b82f6";
+      }
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Remove visual feedback
+    const target = e.target as HTMLElement;
+    const row = target.closest("tr");
+    if (row) {
+      row.style.backgroundColor = "";
+      row.style.borderTop = "";
+    }
+
+    // Clear preview if leaving the table area entirely
+    const table = target.closest("table");
+    if (!table && dragPreview.length > 0) {
+      setDragPreview([]);
+      setDragInsertPosition(-1);
+    }
+  };
+
+  const handleDragEnd = () => {
+    // Clean up all visual feedback for all rows
+    const allRows = document.querySelectorAll("tr");
+    allRows.forEach((row) => {
+      (row as HTMLElement).style.transform = "";
+      (row as HTMLElement).style.boxShadow = "";
+      (row as HTMLElement).style.backgroundColor = "";
+      (row as HTMLElement).style.borderTop = "";
+    });
+
+    setDraggedAssetId(null);
+    setDraggedAssets(new Set());
+    setIsDraggingGroup(false);
+    setDragPreview([]);
+    setDragInsertPosition(-1);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetAssetId: string) => {
+    // Don't allow dropping on a dragged asset
+    if (draggedAssets.has(targetAssetId)) return;
+
+    // For single asset drops, check if we have a dragged asset
+    if (!isDraggingGroup && !draggedAssetId) return;
+
+    e.preventDefault();
+
+    // Set flag to prevent filter effects from interfering
+    setIsManuallyReordering(true);
+
+    // Clean up visual feedback
+    const allRows = document.querySelectorAll("tr");
+    allRows.forEach((row) => {
+      (row as HTMLElement).style.backgroundColor = "";
+      (row as HTMLElement).style.borderTop = "";
+    });
+
+    try {
+      const currentAssets = [...filtered];
+      const targetIndex = currentAssets.findIndex(
+        (asset) => asset.id === targetAssetId
+      );
+
+      if (targetIndex === -1) return;
+
+      let reorderedAssets: any[];
+
+      if (isDraggingGroup && draggedAssets.size > 1) {
+        // Group movement - calculate proper insertion point
+        const draggedAssetObjects = currentAssets.filter((asset) =>
+          draggedAssets.has(asset.id)
+        );
+        const nonDraggedAssets = currentAssets.filter(
+          (asset) => !draggedAssets.has(asset.id)
+        );
+
+        // Calculate the correct target index in the non-dragged array
+        let adjustedTargetIndex = 0;
+        for (let i = 0; i < targetIndex; i++) {
+          if (!draggedAssets.has(currentAssets[i].id)) {
+            adjustedTargetIndex++;
+          }
+        }
+
+        // Insert the group at the adjusted target position
+        reorderedAssets = [
+          ...nonDraggedAssets.slice(0, adjustedTargetIndex),
+          ...draggedAssetObjects,
+          ...nonDraggedAssets.slice(adjustedTargetIndex),
+        ];
+
+        toast.success(
+          `Successfully moved ${draggedAssets.size} assets as a group`
+        );
+      } else {
+        // Single asset movement
+        const draggedIndex = currentAssets.findIndex(
+          (asset) => asset.id === draggedAssetId
+        );
+
+        if (draggedIndex === -1) return;
+
+        reorderedAssets = [...currentAssets];
+        const [draggedAsset] = reorderedAssets.splice(draggedIndex, 1);
+        reorderedAssets.splice(targetIndex, 0, draggedAsset);
+
+        toast.success("Asset reordered successfully");
+      }
+
+      // Update filtered state immediately for instant visual feedback
+      const reorderedWithOrder = reorderedAssets.map((asset, index) => ({
+        ...asset,
+        upload_order: index + 1,
+      }));
+
+      // Store the manual order for reference
+      lastManualOrderRef.current = reorderedWithOrder.map((asset) => asset.id);
+
+      // Update both states synchronously to prevent race conditions
+      setFiltered([...reorderedWithOrder]);
+
+      // Update assets state with the same reordered data
+      setAssets((prevAssets) => {
+        // Create a completely new assets array with the reordered items
+        const reorderedAssetIds = new Set(reorderedAssets.map((a) => a.id));
+        //eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const nonReorderedAssets = prevAssets.filter(
+          (asset) => !reorderedAssetIds.has(asset.id)
+        );
+
+        // Replace reordered assets with their new positions
+        const updatedAssets = [...prevAssets];
+        reorderedAssets.forEach((reorderedAsset, index) => {
+          const assetIndex = updatedAssets.findIndex(
+            (a) => a.id === reorderedAsset.id
+          );
+          if (assetIndex !== -1) {
+            updatedAssets[assetIndex] = {
+              ...reorderedAsset,
+              upload_order: index + 1,
+            };
+          }
+        });
+
+        return [...updatedAssets];
+      });
+
+      // Update upload_order for all affected assets in database (async, no need to wait)
+      const updates = reorderedAssets.map((asset, index) => ({
+        id: asset.id,
+        upload_order: index + 1,
+      }));
+
+      // Fire and forget - don't wait for response
+      fetch("/api/assets/reorder", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ updates }),
+      }).catch((error) => {
+        console.error("Error updating database:", error);
+        // Silently fail - user already sees the change
+      });
+    } catch (error) {
+      console.error("Error reordering assets:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to reorder assets"
+      );
+    } finally {
+      setDraggedAssetId(null);
+      setDraggedAssets(new Set());
+      setIsDraggingGroup(false);
+      setDragPreview([]);
+      setDragInsertPosition(-1);
+
+      // Reset the manual reordering flag after state updates complete
+      setTimeout(() => setIsManuallyReordering(false), 50);
     }
   };
 
@@ -1923,6 +3021,7 @@ export default function AdminReviewPage() {
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 {[
+                  "unallocated",
                   "in_production",
                   "revisions",
                   "approved",
@@ -2044,7 +3143,7 @@ export default function AdminReviewPage() {
             )}
 
             {selected.size > 0 && (
-              <div className="w-full sm:w-auto">
+              <div className="w-full sm:w-auto flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -2063,11 +3162,9 @@ export default function AdminReviewPage() {
                   }}
                   className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                 >
-                  <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">
-                    Assign ({selected.size})
-                  </span>
-                  <span className="sm:hidden">Assign {selected.size}</span>
+                  <Package className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Allocate</span>
+                  <span className="sm:hidden">Advanced</span>
                 </Button>
               </div>
             )}
@@ -2079,6 +3176,76 @@ export default function AdminReviewPage() {
         ) : showAllocationLists ? (
           // Allocation Lists View
           <div className="space-y-4">
+            {/* Bulk Reallocation Controls */}
+            {paged.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">
+                      Selected: {selectedAssetsForReallocation.size} assets
+                    </span>
+                    {selectedAssetsForReallocation.size > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearAssetSelections}
+                        className="h-8 px-2 text-xs"
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  {selectedAssetsForReallocation.size > 0 && (
+                    <div className="flex items-center gap-2 text-sm font-medium text-green-700 bg-green-100 px-3 py-1 rounded-lg">
+                      <Euro className="h-4 w-4" />
+                      <span>
+                        Total: €
+                        {(() => {
+                          let total = 0;
+                          allocationLists.forEach((list) => {
+                            list.asset_assignments.forEach(
+                              (assignment: any) => {
+                                if (
+                                  selectedAssetsForReallocation.has(
+                                    assignment.onboarding_assets.id
+                                  )
+                                ) {
+                                  total +=
+                                    assignment.onboarding_assets.price || 0;
+                                }
+                              }
+                            );
+                          });
+                          return total.toFixed(2);
+                        })()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllAssetsForReallocation}
+                    className="h-8 px-2 text-xs"
+                  >
+                    Select All
+                  </Button>
+                  {selectedAssetsForReallocation.size > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowBulkReallocationDialog(true)}
+                      className="h-8 px-2 text-xs"
+                    >
+                      <Users className="h-3 w-3 mr-1" />
+                      Reallocate ({selectedAssetsForReallocation.size})
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
             {paged.length === 0 ? (
               <Card className="p-8 text-center">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -2197,33 +3364,85 @@ export default function AdminReviewPage() {
                           : "max-h-0 opacity-0"
                       }`}
                     >
-                      <CardContent className="p-4 sm:p-6">
+                      <CardContent
+                        className="p-4 sm:p-6"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="overflow-x-auto">
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead className="text-xs sm:text-sm">
+                                <TableHead className="w-8 text-xs sm:text-sm text-left">
+                                  <Checkbox
+                                    checked={
+                                      selectedAssetsForReallocation.size > 0 &&
+                                      list.asset_assignments.every(
+                                        (assignment: any) =>
+                                          selectedAssetsForReallocation.has(
+                                            assignment.onboarding_assets.id
+                                          )
+                                      )
+                                    }
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        // Select all assets in this list
+                                        const assetIds =
+                                          list.asset_assignments.map(
+                                            (assignment: any) =>
+                                              assignment.onboarding_assets.id
+                                          );
+                                        setSelectedAssetsForReallocation(
+                                          (prev) => {
+                                            const next = new Set(prev);
+                                            assetIds.forEach((id: string) =>
+                                              next.add(id)
+                                            );
+                                            return next;
+                                          }
+                                        );
+                                      } else {
+                                        // Deselect all assets in this list
+                                        const assetIds =
+                                          list.asset_assignments.map(
+                                            (assignment: any) =>
+                                              assignment.onboarding_assets.id
+                                          );
+                                        setSelectedAssetsForReallocation(
+                                          (prev) => {
+                                            const next = new Set(prev);
+                                            assetIds.forEach((id: string) =>
+                                              next.delete(id)
+                                            );
+                                            return next;
+                                          }
+                                        );
+                                      }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </TableHead>
+                                <TableHead className="text-xs sm:text-sm text-left">
                                   Product Name
                                 </TableHead>
-                                <TableHead className="w-32 text-xs sm:text-sm">
+                                <TableHead className="w-32 text-xs sm:text-sm text-left">
                                   Article ID
                                 </TableHead>
-                                <TableHead className="w-24 text-center text-xs sm:text-sm">
+                                <TableHead className="w-24 text-xs sm:text-sm text-left">
                                   Priority
                                 </TableHead>
-                                <TableHead className="w-24 text-xs sm:text-sm">
+                                <TableHead className="w-24 text-xs sm:text-sm text-left">
                                   Price
                                 </TableHead>
-                                <TableHead className="w-32 text-xs sm:text-sm">
+                                <TableHead className="w-32 text-xs sm:text-sm text-left">
                                   Status
                                 </TableHead>
-                                <TableHead className="w-32 text-xs sm:text-sm">
+                                <TableHead className="w-32 text-xs sm:text-sm text-left">
                                   References
                                 </TableHead>
-                                <TableHead className="w-40 text-xs sm:text-sm">
+                                <TableHead className="w-40 text-xs sm:text-sm text-left">
                                   Product Link
                                 </TableHead>
-                                <TableHead className="w-12 text-xs sm:text-sm">
+                                <TableHead className="w-12 text-xs sm:text-sm text-left">
                                   Actions
                                 </TableHead>
                               </TableRow>
@@ -2236,9 +3455,22 @@ export default function AdminReviewPage() {
                                     assignment.onboarding_assets.status
                                   )}
                                 >
-                                  <TableCell className="text-center">
+                                  <TableCell className="text-left">
+                                    <Checkbox
+                                      checked={selectedAssetsForReallocation.has(
+                                        assignment.onboarding_assets.id
+                                      )}
+                                      onCheckedChange={() =>
+                                        toggleAssetSelection(
+                                          assignment.onboarding_assets.id
+                                        )
+                                      }
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-left">
                                     <div
-                                      className="font-medium truncate cursor-help text-sm sm:text-base"
+                                      className="font-medium cursor-help text-sm sm:text-base"
                                       title={
                                         assignment.onboarding_assets
                                           .product_name
@@ -2254,12 +3486,12 @@ export default function AdminReviewPage() {
                                             .product_name}
                                     </div>
                                   </TableCell>
-                                  <TableCell>
+                                  <TableCell className="text-left">
                                     <span className="font-mono text-xs sm:text-sm">
                                       {assignment.onboarding_assets.article_id}
                                     </span>
                                   </TableCell>
-                                  <TableCell>
+                                  <TableCell className="text-left">
                                     <Select
                                       value={(
                                         assignment.onboarding_assets.priority ||
@@ -2302,14 +3534,79 @@ export default function AdminReviewPage() {
                                       </SelectContent>
                                     </Select>
                                   </TableCell>
-                                  <TableCell>
+                                  <TableCell className="text-left">
                                     <div className="flex items-center gap-1">
                                       <span className="font-medium text-sm sm:text-base">
-                                        €{assignment.price.toFixed(2)}
+                                        €
+                                        {assignment.onboarding_assets.price?.toFixed(
+                                          2
+                                        ) || "0.00"}
                                       </span>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-4 w-4 p-0 hover:bg-muted"
+                                          >
+                                            <StickyNote
+                                              className={`h-3 w-3 ${
+                                                pricingComments[
+                                                  assignment.onboarding_assets
+                                                    .id
+                                                ]
+                                                  ? "text-blue-600 hover:text-blue-700"
+                                                  : "text-muted-foreground hover:text-foreground"
+                                              }`}
+                                            />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-80 p-3">
+                                          <div className="space-y-3">
+                                            <h4 className="font-medium text-sm">
+                                              Pricing Note
+                                            </h4>
+                                            <Textarea
+                                              placeholder="Add pricing note..."
+                                              value={
+                                                pricingComments[
+                                                  assignment.onboarding_assets
+                                                    .id
+                                                ] || ""
+                                              }
+                                              onChange={(e) => {
+                                                setPricingComments((prev) => ({
+                                                  ...prev,
+                                                  [assignment.onboarding_assets
+                                                    .id]: e.target.value,
+                                                }));
+                                              }}
+                                              onBlur={() => {
+                                                if (
+                                                  pricingComments[
+                                                    assignment.onboarding_assets
+                                                      .id
+                                                  ] !== undefined
+                                                ) {
+                                                  handlePricingCommentUpdate(
+                                                    assignment.onboarding_assets
+                                                      .id,
+                                                    pricingComments[
+                                                      assignment
+                                                        .onboarding_assets.id
+                                                    ]
+                                                  );
+                                                }
+                                              }}
+                                              className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                              rows={3}
+                                            />
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
                                     </div>
                                   </TableCell>
-                                  <TableCell>
+                                  <TableCell className="text-left">
                                     <Badge
                                       variant="outline"
                                       className={`text-xs ${getStatusLabelClass(assignment.onboarding_assets.status)}`}
@@ -2327,7 +3624,7 @@ export default function AdminReviewPage() {
                                                 .status}
                                     </Badge>
                                   </TableCell>
-                                  <TableCell className="text-center">
+                                  <TableCell className="text-left">
                                     <div className="flex flex-col items-center gap-1">
                                       <Button
                                         variant="outline"
@@ -2343,9 +3640,9 @@ export default function AdminReviewPage() {
                                       >
                                         <FileText className="mr-1 h-3 w-3" />
                                         <span className="hidden sm:inline">
-                                          Ref (
+                                          Ref
                                         </span>
-                                        <span className="sm:hidden">(</span>
+                                        <span className="sm:hidden"> </span>
                                         {(() => {
                                           const allRefs = parseReferences(
                                             assignment.onboarding_assets
@@ -2359,12 +3656,11 @@ export default function AdminReviewPage() {
                                               : 0)
                                           );
                                         })()}
-                                        )
                                       </Button>
                                     </div>
                                   </TableCell>
 
-                                  <TableCell>
+                                  <TableCell className="text-left">
                                     {assignment.onboarding_assets
                                       .product_link ? (
                                       <a
@@ -2389,7 +3685,7 @@ export default function AdminReviewPage() {
                                     )}
                                   </TableCell>
 
-                                  <TableCell>
+                                  <TableCell className="text-left">
                                     <div className="flex items-center gap-1">
                                       <Button
                                         variant="ghost"
@@ -2518,32 +3814,45 @@ export default function AdminReviewPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs sm:text-sm">
+                  <TableHead className="text-xs sm:text-sm text-left">
                     Model Name
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
+                  <TableHead className="text-xs sm:text-sm text-left">
                     Article ID
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm">Modeler</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Client</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Batch</TableHead>
-                  <TableHead className="text-center text-xs sm:text-sm">
+                  <TableHead className="text-xs sm:text-sm text-left">
+                    Modeler
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm text-left">
+                    Client
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm text-left">
+                    Batch
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm text-left">
                     Priority
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm">Status</TableHead>
-                  <TableHead className="text-xs sm:text-sm">
+                  <TableHead className="text-xs sm:text-sm text-left">
+                    Status
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm text-left">
                     References
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
+                  <TableHead className="text-xs sm:text-sm text-left">
                     Product Link
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm">Review</TableHead>
+                  <TableHead className="text-xs sm:text-sm text-left">
+                    Price
+                  </TableHead>
+                  <TableHead className="text-xs sm:text-sm text-left">
+                    Review
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
+                    <TableCell colSpan={11} className="text-center">
                       No assets found for this QA reviewer.
                     </TableCell>
                   </TableRow>
@@ -2551,41 +3860,65 @@ export default function AdminReviewPage() {
                   paged.map((asset) => (
                     <TableRow
                       key={asset.id}
-                      className={getStatusRowClass(asset.status)}
+                      className={`${getStatusRowClass(asset.status)} transition-all duration-200 ease-in-out ${draggedAssetId === asset.id ? "opacity-50 scale-105" : ""}`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, asset.id)}
+                      style={{
+                        transition: "all 0.2s ease-in-out",
+                        transform:
+                          draggedAssetId === asset.id
+                            ? "rotate(2deg) scale(1.02)"
+                            : undefined,
+                        boxShadow:
+                          draggedAssetId === asset.id
+                            ? "0 8px 16px rgba(0,0,0,0.2)"
+                            : undefined,
+                      }}
                     >
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <span
-                            className="font-medium truncate cursor-help text-sm sm:text-base"
-                            title={asset.product_name}
+                      <TableCell className="text-left">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="flex flex-col gap-0.5 cursor-move group"
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, asset.id)}
+                            onDragEnd={handleDragEnd}
                           >
-                            {asset.product_name.length > 20
-                              ? asset.product_name.substring(0, 20) + "..."
-                              : asset.product_name}
-                          </span>
+                            <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                          </div>
+                          <div className="flex flex-col gap-1 flex-1">
+                            <span
+                              className="font-medium  cursor-help text-sm sm:text-base"
+                              title={asset.product_name}
+                            >
+                              {asset.product_name.length > 35
+                                ? asset.product_name.substring(0, 35) + "..."
+                                : asset.product_name}
+                            </span>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs sm:text-sm font-mono">
+                      <TableCell className="text-left text-xs sm:text-sm font-mono">
                         {asset.article_id}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <div className="flex flex-col gap-1">
                           <span className="text-xs text-muted-foreground">
                             {asset.modeler_email?.split("@")[0] || "Unknown"}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <span className="text-xs text-muted-foreground">
                           {asset.client}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <span className="text-xs text-muted-foreground">
                           B{asset.batch}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         <Select
                           value={(asset.priority || 2).toString()}
                           onValueChange={(value) =>
@@ -2618,8 +3951,8 @@ export default function AdminReviewPage() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 sm:gap-2 justify-center">
+                      <TableCell className="text-left">
+                        <div className="flex items-center gap-1 sm:gap-2">
                           <span
                             className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
                           >
@@ -2627,7 +3960,7 @@ export default function AdminReviewPage() {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-left">
                         <div className="flex flex-col items-center gap-1">
                           <Button
                             variant="outline"
@@ -2651,7 +3984,7 @@ export default function AdminReviewPage() {
                           </Button>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
                         {asset.product_link ? (
                           <a
                             href={asset.product_link}
@@ -2670,7 +4003,149 @@ export default function AdminReviewPage() {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-left">
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={assetPrices[asset.id]?.pricingOptionId || ""}
+                            onValueChange={(value) => {
+                              if (value === "custom_pricing") {
+                                // Don't auto-update for custom pricing, let user set the price
+                                setAssetPrices((prev) => ({
+                                  ...prev,
+                                  [asset.id]: {
+                                    pricingOptionId: value,
+                                    price: 0,
+                                  },
+                                }));
+                              } else {
+                                const option = getPricingOptionById(value);
+                                if (option) {
+                                  handlePriceUpdate(
+                                    asset.id,
+                                    value,
+                                    option.price
+                                  );
+                                }
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-32 h-8 text-xs ">
+                              <SelectValue placeholder="Set price" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PRICING_OPTIONS.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                  <div className="flex items-center gap-2 text-left">
+                                    <Euro className="h-3 w-3" />
+                                    {option.label} - €{option.price}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          {assetPrices[asset.id]?.pricingOptionId ===
+                            "custom_pricing" &&
+                          !assetPrices[asset.id]?.price ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={customPrices[asset.id] || ""}
+                                onChange={(e) =>
+                                  handleCustomPriceChange(
+                                    asset.id,
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "Enter" &&
+                                    !settingPrices.has(asset.id)
+                                  ) {
+                                    handleCustomPriceSubmit(asset.id);
+                                  }
+                                }}
+                                disabled={settingPrices.has(asset.id)}
+                                className="w-16 h-8 text-xs px-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                placeholder="€0"
+                                min="0"
+                                step="0.01"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-xs"
+                                onClick={() =>
+                                  handleCustomPriceSubmit(asset.id)
+                                }
+                                disabled={settingPrices.has(asset.id)}
+                              >
+                                {settingPrices.has(asset.id) ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
+                                ) : (
+                                  "Set"
+                                )}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              {assetPrices[asset.id] && (
+                                <span className="text-xs font-medium">
+                                  €{assetPrices[asset.id].price}
+                                </span>
+                              )}
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-4 w-4 p-0 hover:bg-muted"
+                                  >
+                                    <StickyNote
+                                      className={`h-3 w-3 ${
+                                        pricingComments[asset.id]
+                                          ? "text-blue-600 hover:text-blue-700"
+                                          : "text-muted-foreground hover:text-foreground"
+                                      }`}
+                                    />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-3">
+                                  <div className="space-y-3">
+                                    <h4 className="font-medium text-sm">
+                                      Pricing Note
+                                    </h4>
+                                    <Textarea
+                                      placeholder="Add pricing note..."
+                                      value={pricingComments[asset.id] || ""}
+                                      onChange={(e) => {
+                                        setPricingComments((prev) => ({
+                                          ...prev,
+                                          [asset.id]: e.target.value,
+                                        }));
+                                      }}
+                                      onBlur={() => {
+                                        if (
+                                          pricingComments[asset.id] !==
+                                          undefined
+                                        ) {
+                                          handlePricingCommentUpdate(
+                                            asset.id,
+                                            pricingComments[asset.id]
+                                          );
+                                        }
+                                      }}
+                                      className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                      rows={3}
+                                    />
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-left">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -2707,319 +4182,608 @@ export default function AdminReviewPage() {
           </div>
         ) : (
           // Regular Assets View
-          <div className="overflow-x-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8 sm:w-12">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={
-                          isAllSelected
-                            ? true
-                            : isSomeSelected
-                              ? "indeterminate"
-                              : false
-                        }
-                        onCheckedChange={handleSelectAll}
-                        className="h-4 w-4"
-                      />
+          <div className="space-y-4">
+            {/* Multi-selection helper */}
+
+            {/* Drag preview indicator */}
+            {dragPreview.length > 0 && draggedAssets.size > 0 && (
+              <div className="fixed top-20 right-4 z-50 pointer-events-none">
+                <div
+                  className={`p-3 rounded-lg shadow-lg border-2 ${
+                    isDraggingGroup
+                      ? "bg-green-100 border-green-500 text-green-800"
+                      : "bg-blue-100 border-blue-500 text-blue-800"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <GripVertical className="h-4 w-4" />
+                    <span className="font-medium">
+                      {isDraggingGroup
+                        ? `Moving ${draggedAssets.size} assets as group`
+                        : "Moving 1 asset"}
+                    </span>
+                  </div>
+                  {dragInsertPosition !== -1 && (
+                    <div className="text-xs mt-1 opacity-75">
+                      Drop position: {dragInsertPosition + 1}
                     </div>
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    Model Name
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    Article ID
-                  </TableHead>
-                  <TableHead className="text-center text-xs sm:text-sm">
-                    Priority
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">Status</TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    References
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">Review</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paged.length === 0 ? (
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-x-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
-                      {statusFilters.length > 0 ||
-                      clientFilters.length > 0 ||
-                      batchFilters.length > 0 ||
-                      modelerFilters.length > 0 ||
-                      search ? (
-                        <div className="space-y-2">
-                          <div className="text-lg font-medium">
-                            No matching assets found
-                          </div>
-                          <div className="text-sm">
-                            {statusFilters.length > 0 && (
-                              <div>
-                                No assets with status:{" "}
-                                {statusFilters.join(", ")}
-                              </div>
-                            )}
-                            {clientFilters.length > 0 && (
-                              <div>
-                                No assets for client: {clientFilters.join(", ")}
-                              </div>
-                            )}
-                            {batchFilters.length > 0 && (
-                              <div>
-                                No assets in batch: {batchFilters.join(", ")}
-                              </div>
-                            )}
-                            {modelerFilters.length > 0 && (
-                              <div>
-                                No assets assigned to modeler:{" "}
-                                {modelerFilters.join(", ")}
-                              </div>
-                            )}
-                            {search && (
-                              <div>
-                                No assets matching: &quot;{search}&quot;
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-3">
-                            Try adjusting your filters or check back later for
-                            new assets.
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="text-lg font-medium">
-                            No products found
-                          </div>
-                          <div className="text-sm">
-                            No assets are available at the moment.
-                          </div>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paged.map((asset) => (
-                    <TableRow
-                      key={asset.id}
-                      className={getStatusRowClass(asset.status)}
-                    >
-                      <TableCell className="text-center">
-                        <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
-                          <Checkbox
-                            checked={selected.has(asset.id)}
-                            onCheckedChange={() => toggleSelect(asset.id)}
-                            className="h-4 w-4"
-                          />
-                          {assignedAssets.has(asset.id) && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
-                              <span className="text-xs text-muted-foreground hidden sm:inline">
-                                {assignedAssets.get(asset.id)?.name ||
-                                  assignedAssets
-                                    .get(asset.id)
-                                    ?.email?.split("@")[0]}
-                              </span>
-                            </div>
-                          )}
-                          {pendingAssets.has(asset.id) && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
-                              <span className="text-xs text-muted-foreground hidden sm:inline">
-                                {pendingAssets.get(asset.id)?.name ||
-                                  pendingAssets
-                                    .get(asset.id)
-                                    ?.email?.split("@")[0]}
-                                {" (pending)"}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <span
-                            className="font-medium truncate cursor-help text-sm sm:text-base"
-                            title={asset.product_name}
-                          >
-                            {asset.product_name.length > 20
-                              ? asset.product_name.substring(0, 20) + "..."
-                              : asset.product_name}
-                          </span>
-                          <div className="flex items-center justify-center gap-1 sm:gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              {annotationCounts[asset.id] || 0} ann.
-                            </span>
-                            <span className="text-xs text-slate-500 hidden sm:inline">
-                              •
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              B{asset.batch || 1}
-                            </Badge>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs sm:text-sm font-mono">
-                        {asset.article_id}
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={(asset.priority || 2).toString()}
-                          onValueChange={(value) =>
-                            handlePriorityUpdate(asset.id, parseInt(value))
+                    <TableHead className="w-8 sm:w-12 text-left">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={
+                            isAllSelected
+                              ? true
+                              : isSomeSelected
+                                ? "indeterminate"
+                                : false
                           }
-                          disabled={updatingPriorities.has(asset.id)}
+                          onCheckedChange={handleSelectAll}
+                          className="h-4 w-4"
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Model Name
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Article ID
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Priority
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Status
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      References
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Product Link
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Price
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm text-left">
+                      Review
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paged.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-8">
+                        {statusFilters.length > 0 ||
+                        clientFilters.length > 0 ||
+                        batchFilters.length > 0 ||
+                        modelerFilters.length > 0 ||
+                        search ? (
+                          <div className="space-y-2">
+                            <div className="text-lg font-medium">
+                              No matching assets found
+                            </div>
+                            <div className="text-sm">
+                              {statusFilters.length > 0 && (
+                                <div>
+                                  No assets with status:{" "}
+                                  {statusFilters.join(", ")}
+                                </div>
+                              )}
+                              {clientFilters.length > 0 && (
+                                <div>
+                                  No assets for client:{" "}
+                                  {clientFilters.join(", ")}
+                                </div>
+                              )}
+                              {batchFilters.length > 0 && (
+                                <div>
+                                  No assets in batch: {batchFilters.join(", ")}
+                                </div>
+                              )}
+                              {modelerFilters.length > 0 && (
+                                <div>
+                                  No assets assigned to modeler:{" "}
+                                  {modelerFilters.join(", ")}
+                                </div>
+                              )}
+                              {search && (
+                                <div>
+                                  No assets matching: &quot;{search}&quot;
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-3">
+                              Try adjusting your filters or check back later for
+                              new assets.
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="text-lg font-medium">
+                              No products found
+                            </div>
+                            <div className="text-sm">
+                              No assets are available at the moment.
+                            </div>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    (dragPreview.length > 0 ? dragPreview : paged).map(
+                      (asset, index) => (
+                        <TableRow
+                          key={asset.id}
+                          data-asset-id={asset.id}
+                          className={`${getStatusRowClass(asset.status)} transition-all duration-200 ease-in-out ${
+                            draggedAssets.has(asset.id)
+                              ? "opacity-50 scale-98"
+                              : ""
+                          } ${
+                            selected.has(asset.id) && selected.size > 1
+                              ? "ring-2 ring-blue-200 bg-blue-50/50 dark:bg-blue-900/10"
+                              : ""
+                          } ${
+                            dragPreview.length > 0 &&
+                            index === dragInsertPosition
+                              ? isDraggingGroup
+                                ? "border-t-4 border-green-500 bg-green-50/30"
+                                : "border-t-4 border-blue-500 bg-blue-50/30"
+                              : ""
+                          } ${
+                            dragPreview.length > 0 &&
+                            draggedAssets.has(asset.id)
+                              ? isDraggingGroup
+                                ? "bg-green-100/50 border-green-300"
+                                : "bg-blue-100/50 border-blue-300"
+                              : ""
+                          }`}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, asset.id)}
+                          style={{
+                            transition: "all 0.2s ease-in-out",
+                            transform: draggedAssets.has(asset.id)
+                              ? "rotate(1deg) scale(0.98)"
+                              : undefined,
+                            boxShadow: draggedAssets.has(asset.id)
+                              ? "0 8px 16px rgba(59, 130, 246, 0.3)"
+                              : undefined,
+                          }}
                         >
-                          <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit cursor-pointer">
-                            <span
-                              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                asset.priority || 2
-                              )}`}
+                          <TableCell className="text-left">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="flex flex-col gap-0.5 cursor-move group"
+                                draggable={true}
+                                onDragStart={(e) =>
+                                  handleDragStart(e, asset.id)
+                                }
+                                onDragEnd={handleDragEnd}
+                              >
+                                <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                              </div>
+                              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-1">
+                                <div
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleSelect(asset.id, event);
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  <Checkbox
+                                    checked={selected.has(asset.id)}
+                                    onCheckedChange={() => {}}
+                                    className="h-4 w-4 pointer-events-none"
+                                  />
+                                </div>
+                                {assignedAssets.has(asset.id) && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
+                                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                                      {assignedAssets.get(asset.id)?.name ||
+                                        assignedAssets
+                                          .get(asset.id)
+                                          ?.email?.split("@")[0]}
+                                    </span>
+                                  </div>
+                                )}
+                                {pendingAssets.has(asset.id) && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
+                                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                                      {pendingAssets.get(asset.id)?.name ||
+                                        pendingAssets
+                                          .get(asset.id)
+                                          ?.email?.split("@")[0]}
+                                      {" (pending)"}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className="font-medium truncate cursor-help text-sm sm:text-base"
+                                title={asset.product_name}
+                              >
+                                {asset.product_name.length > 35
+                                  ? asset.product_name.substring(0, 35) + "..."
+                                  : asset.product_name}
+                              </span>
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {annotationCounts[asset.id] || 0} ann.
+                                </span>
+                                <span className="text-xs text-slate-500 hidden sm:inline">
+                                  •
+                                </span>
+                                <Badge variant="outline" className="text-xs">
+                                  B{asset.batch || 1}
+                                </Badge>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-left text-xs sm:text-sm font-mono">
+                            {asset.article_id}
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <Select
+                              value={(asset.priority || 2).toString()}
+                              onValueChange={(value) =>
+                                handlePriorityUpdate(asset.id, parseInt(value))
+                              }
+                              disabled={updatingPriorities.has(asset.id)}
                             >
-                              {getPriorityLabel(asset.priority || 2)}
-                            </span>
-                            {updatingPriorities.has(asset.id) ? (
-                              <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
-                            ) : null}
-                          </SelectTrigger>
-                          <SelectContent className="cursor-pointer">
-                            <SelectItem className="cursor-pointer" value="1">
-                              High
-                            </SelectItem>
-                            <SelectItem className="cursor-pointer" value="2">
-                              Medium
-                            </SelectItem>
-                            <SelectItem className="cursor-pointer" value="3">
-                              Low
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
+                              <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit cursor-pointer">
+                                <span
+                                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                    asset.priority || 2
+                                  )}`}
+                                >
+                                  {getPriorityLabel(asset.priority || 2)}
+                                </span>
+                                {updatingPriorities.has(asset.id) ? (
+                                  <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
+                                ) : null}
+                              </SelectTrigger>
+                              <SelectContent className="cursor-pointer">
+                                <SelectItem
+                                  className="cursor-pointer"
+                                  value="1"
+                                >
+                                  High
+                                </SelectItem>
+                                <SelectItem
+                                  className="cursor-pointer"
+                                  value="2"
+                                >
+                                  Medium
+                                </SelectItem>
+                                <SelectItem
+                                  className="cursor-pointer"
+                                  value="3"
+                                >
+                                  Low
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
 
-                      <TableCell>
-                        <div className="flex items-center gap-1 sm:gap-2 justify-center">
-                          <span
-                            className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
-                          >
-                            {getStatusLabelText(asset.status)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedAssetForView(asset);
-                              setShowViewDialog(true);
-                            }}
-                          >
-                            <FileText className="mr-1 h-3 w-3" />
-                            <span className="hidden sm:inline">Ref (</span>
-                            <span className="sm:hidden">(</span>
-                            {(() => {
-                              const allRefs = parseReferences(asset.reference);
-                              return allRefs.length + (asset.glb_link ? 1 : 0);
-                            })()}
-                            <span className="hidden sm:inline">)</span>
-                            <span className="sm:hidden">)</span>
-                          </Button>
-                        </div>
-                      </TableCell>
+                          <TableCell className="text-left">
+                            <div className="flex items-center gap-1 sm:gap-2">
+                              <span
+                                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
+                              >
+                                {getStatusLabelText(asset.status)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <div className="flex flex-col items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedAssetForView(asset);
+                                  setShowViewDialog(true);
+                                }}
+                              >
+                                <FileText className="mr-1 h-3 w-3" />
+                                <span className="hidden sm:inline">Ref (</span>
+                                <span className="sm:hidden">(</span>
+                                {(() => {
+                                  const allRefs = parseReferences(
+                                    asset.reference
+                                  );
+                                  return (
+                                    allRefs.length + (asset.glb_link ? 1 : 0)
+                                  );
+                                })()}
+                                <span className="hidden sm:inline">)</span>
+                                <span className="sm:hidden">)</span>
+                              </Button>
+                            </div>
+                          </TableCell>
 
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
-                            onClick={() => {
-                              // Preserve current filter parameters when navigating to asset detail
-                              const params = new URLSearchParams();
-                              params.set("from", "admin-review");
-                              if (clientFilters.length > 0) {
-                                params.set("client", clientFilters.join(","));
-                              }
-                              if (batchFilters.length > 0) {
-                                params.set("batch", batchFilters.join(","));
-                              }
-                              if (modelerFilters.length > 0) {
-                                params.set("modeler", modelerFilters.join(","));
-                              }
-                              if (modelerEmail) {
-                                params.set("email", modelerEmail);
-                              }
-                              router.push(
-                                `/client-review/${asset.id}?${params.toString()}`
-                              );
-                            }}
-                          >
-                            <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </Button>
-                          <Dialog>
-                            <DialogTrigger asChild>
+                          <TableCell className="text-left">
+                            {asset.product_link ? (
+                              <a
+                                href={asset.product_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 underline break-all text-xs sm:text-sm"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <span className="hidden sm:inline">
+                                  Product Link
+                                </span>
+                                <span className="sm:hidden">Link</span>
+                              </a>
+                            ) : (
+                              <span className="text-xs sm:text-sm text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+
+                          <TableCell className="text-left">
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={
+                                  assetPrices[asset.id]?.pricingOptionId || ""
+                                }
+                                onValueChange={(value) => {
+                                  if (value === "custom_pricing") {
+                                    // Don't auto-update for custom pricing, let user set the price
+                                    setAssetPrices((prev) => ({
+                                      ...prev,
+                                      [asset.id]: {
+                                        pricingOptionId: value,
+                                        price: 0,
+                                      },
+                                    }));
+                                  } else {
+                                    const option = getPricingOptionById(value);
+                                    if (option) {
+                                      handlePriceUpdate(
+                                        asset.id,
+                                        value,
+                                        option.price
+                                      );
+                                    }
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="w-32 h-8 text-xs border-none shadow-none hover:bg-muted cursor-pointer">
+                                  <SelectValue placeholder="Set price" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {PRICING_OPTIONS.map((option) => (
+                                    <SelectItem
+                                      key={option.id}
+                                      value={option.id}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <Euro className="h-3 w-3" />
+                                        {option.label} - €{option.price}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              {assetPrices[asset.id]?.pricingOptionId ===
+                                "custom_pricing" &&
+                              !assetPrices[asset.id]?.price ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    value={customPrices[asset.id] || ""}
+                                    onChange={(e) =>
+                                      handleCustomPriceChange(
+                                        asset.id,
+                                        parseFloat(e.target.value) || 0
+                                      )
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (
+                                        e.key === "Enter" &&
+                                        !settingPrices.has(asset.id)
+                                      ) {
+                                        handleCustomPriceSubmit(asset.id);
+                                      }
+                                    }}
+                                    disabled={settingPrices.has(asset.id)}
+                                    className="w-16 h-8 text-xs px-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                    placeholder="€0"
+                                    min="0"
+                                    step="0.01"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 px-2 text-xs"
+                                    onClick={() =>
+                                      handleCustomPriceSubmit(asset.id)
+                                    }
+                                    disabled={settingPrices.has(asset.id)}
+                                  >
+                                    {settingPrices.has(asset.id) ? (
+                                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
+                                    ) : (
+                                      "Set"
+                                    )}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  {assetPrices[asset.id] && (
+                                    <span className="text-xs font-medium">
+                                      €{assetPrices[asset.id].price}
+                                    </span>
+                                  )}
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-4 w-4 p-0 hover:bg-muted"
+                                      >
+                                        <StickyNote
+                                          className={`h-3 w-3 ${
+                                            pricingComments[asset.id]
+                                              ? "text-blue-600 hover:text-blue-700"
+                                              : "text-muted-foreground hover:text-foreground"
+                                          }`}
+                                        />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80 p-3">
+                                      <div className="space-y-3">
+                                        <h4 className="font-medium text-sm">
+                                          Pricing Note
+                                        </h4>
+                                        <Textarea
+                                          placeholder="Add pricing note..."
+                                          value={
+                                            pricingComments[asset.id] || ""
+                                          }
+                                          onChange={(e) => {
+                                            setPricingComments((prev) => ({
+                                              ...prev,
+                                              [asset.id]: e.target.value,
+                                            }));
+                                          }}
+                                          onBlur={() => {
+                                            if (
+                                              pricingComments[asset.id] !==
+                                              undefined
+                                            ) {
+                                              handlePricingCommentUpdate(
+                                                asset.id,
+                                                pricingComments[asset.id]
+                                              );
+                                            }
+                                          }}
+                                          className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                          rows={3}
+                                        />
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-left">
+                            <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
-                                disabled={deletingAsset === asset.id}
+                                className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
+                                onClick={() => {
+                                  // Preserve current filter parameters when navigating to asset detail
+                                  const params = new URLSearchParams();
+                                  params.set("from", "admin-review");
+                                  if (clientFilters.length > 0) {
+                                    params.set(
+                                      "client",
+                                      clientFilters.join(",")
+                                    );
+                                  }
+                                  if (batchFilters.length > 0) {
+                                    params.set("batch", batchFilters.join(","));
+                                  }
+                                  if (modelerFilters.length > 0) {
+                                    params.set(
+                                      "modeler",
+                                      modelerFilters.join(",")
+                                    );
+                                  }
+                                  if (modelerEmail) {
+                                    params.set("email", modelerEmail);
+                                  }
+                                  router.push(
+                                    `/client-review/${asset.id}?${params.toString()}`
+                                  );
+                                }}
                               >
-                                {deletingAsset === asset.id ? (
-                                  <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
-                                ) : (
-                                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                )}
+                                <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
                               </Button>
-                            </DialogTrigger>
-                            <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
-                              <DialogHeader className="pb-3 sm:pb-4">
-                                <DialogTitle className="text-base sm:text-lg">
-                                  Delete Asset
-                                </DialogTitle>
-                                <DialogDescription className="text-xs sm:text-sm">
-                                  Are you sure you want to delete this asset?
-                                  This action cannot be undone and will
-                                  permanently delete:
-                                  <ul className="list-disc list-inside mt-2 space-y-1">
-                                    <li>The asset itself</li>
-                                    <li>All assignments and comments</li>
-                                    <li>All revision history</li>
-                                    <li>All QA approvals</li>
-                                    <li>
-                                      Any empty allocation lists (only if this
-                                      was the last asset in the list)
-                                    </li>
-                                  </ul>
-                                </DialogDescription>
-                              </DialogHeader>
-                              <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                                <Button
-                                  variant="destructive"
-                                  onClick={() => deleteAsset(asset.id)}
-                                  disabled={deletingAsset === asset.id}
-                                  className="w-full sm:w-auto text-sm"
-                                >
-                                  {deletingAsset === asset.id ? (
-                                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2" />
-                                  ) : null}
-                                  Delete Asset
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
+                                    disabled={deletingAsset === asset.id}
+                                  >
+                                    {deletingAsset === asset.id ? (
+                                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                    )}
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
+                                  <DialogHeader className="pb-3 sm:pb-4">
+                                    <DialogTitle className="text-base sm:text-lg">
+                                      Delete Asset
+                                    </DialogTitle>
+                                    <DialogDescription className="text-xs sm:text-sm">
+                                      Are you sure you want to delete this
+                                      asset? This action cannot be undone and
+                                      will permanently delete:
+                                      <ul className="list-disc list-inside mt-2 space-y-1">
+                                        <li>The asset itself</li>
+                                        <li>All assignments and comments</li>
+                                        <li>All revision history</li>
+                                        <li>All QA approvals</li>
+                                        <li>
+                                          Any empty allocation lists (only if
+                                          this was the last asset in the list)
+                                        </li>
+                                      </ul>
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() => deleteAsset(asset.id)}
+                                      disabled={deletingAsset === asset.id}
+                                      className="w-full sm:w-auto text-sm"
+                                    >
+                                      {deletingAsset === asset.id ? (
+                                        <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2" />
+                                      ) : null}
+                                      Delete Asset
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    )
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
         {/* Pagination - Always at bottom */}
@@ -3207,6 +4971,491 @@ export default function AdminReviewPage() {
           setShowAddRefDialog(true);
         }}
       />
+
+      {/* Allocation Dialog */}
+      <Dialog
+        open={showAllocationDialog}
+        onOpenChange={setShowAllocationDialog}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Allocate Assets
+            </DialogTitle>
+            <DialogDescription>
+              Allocate {selected.size} selected asset(s) to a modeler
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Modeler Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Modeler
+              </label>
+              <Select
+                value={selectedModeler}
+                onValueChange={setSelectedModeler}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose modeler" />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelers.map((modeler) => (
+                    <SelectItem key={modeler.id} value={modeler.id}>
+                      {modeler.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Deadline */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                Deadline
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(new Date(allocationDeadline), "PPP")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={new Date(allocationDeadline)}
+                    onSelect={(date) => {
+                      setAllocationDeadline(
+                        format(date || new Date(), "yyyy-MM-dd")
+                      );
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Bonus */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Euro className="h-4 w-4" />
+                Bonus (%)
+              </label>
+              <Input
+                type="number"
+                placeholder="15"
+                value={allocationBonus === 0 ? "" : allocationBonus}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setAllocationBonus(value === "" ? 0 : parseInt(value) || 0);
+                }}
+              />
+            </div>
+
+            {/* Selected Assets Summary */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Selected Assets
+              </label>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm space-y-1">
+                  <p>Total Selected: {selected.size}</p>
+                  <p>
+                    Assets with Pricing:{" "}
+                    {
+                      filtered.filter(
+                        (asset) =>
+                          selected.has(asset.id) &&
+                          asset.pricing_option_id &&
+                          asset.price &&
+                          asset.price > 0
+                      ).length
+                    }
+                  </p>
+                  {filtered.filter(
+                    (asset) =>
+                      selected.has(asset.id) &&
+                      (!asset.pricing_option_id ||
+                        !asset.price ||
+                        asset.price <= 0)
+                  ).length > 0 && (
+                    <p className="text-amber-600 text-xs">
+                      ⚠️ Some assets don&apos;t have pricing and will be
+                      excluded
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAllocationDialog(false)}
+              disabled={allocating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAllocateAssets}
+              disabled={!selectedModeler || selected.size === 0 || allocating}
+              className="flex items-center gap-2"
+            >
+              {allocating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Allocating...
+                </>
+              ) : (
+                <>
+                  <Users className="h-4 w-4" />
+                  Allocate Assets
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reallocation Dialog */}
+      <Dialog
+        open={showReallocationDialog}
+        onOpenChange={setShowReallocationDialog}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Reallocate Asset
+            </DialogTitle>
+            <DialogDescription>
+              Reallocate &apos;{selectedAssetForReallocation?.product_name}
+              &apos; to a different modeler
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Current Asset Info */}
+            {selectedAssetForReallocation && (
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm space-y-1">
+                  <p>
+                    <strong>Product:</strong>{" "}
+                    {selectedAssetForReallocation.product_name}
+                  </p>
+                  <p>
+                    <strong>Article ID:</strong>{" "}
+                    {selectedAssetForReallocation.article_id}
+                  </p>
+                  <p>
+                    <strong>Current Price:</strong> €
+                    {selectedAssetForReallocation.price?.toFixed(2) ||
+                      "Not set"}
+                  </p>
+                  {(!selectedAssetForReallocation.pricing_option_id ||
+                    !selectedAssetForReallocation.price ||
+                    selectedAssetForReallocation.price <= 0) && (
+                    <p className="text-amber-600 text-xs">
+                      ⚠️ No pricing set - cannot reallocate
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Modeler Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <User className="h-4 w-4" />
+                New Modeler
+              </label>
+              <Select
+                value={reallocationModeler}
+                onValueChange={setReallocationModeler}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose new modeler" />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelers.map((modeler) => (
+                    <SelectItem key={modeler.id} value={modeler.id}>
+                      {modeler.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Deadline */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                New Deadline
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(new Date(reallocationDeadline), "PPP")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={new Date(reallocationDeadline)}
+                    onSelect={(date) => {
+                      setReallocationDeadline(
+                        format(date || new Date(), "yyyy-MM-dd")
+                      );
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Bonus */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Euro className="h-4 w-4" />
+                Bonus (%)
+              </label>
+              <Input
+                type="number"
+                placeholder="15"
+                value={reallocationBonus === 0 ? "" : reallocationBonus}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setReallocationBonus(value === "" ? 0 : parseInt(value) || 0);
+                }}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowReallocationDialog(false)}
+              disabled={reallocating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReallocateAsset}
+              disabled={
+                !reallocationModeler ||
+                !selectedAssetForReallocation ||
+                !selectedAssetForReallocation.pricing_option_id ||
+                !selectedAssetForReallocation.price ||
+                selectedAssetForReallocation.price <= 0 ||
+                reallocating
+              }
+              className="flex items-center gap-2"
+            >
+              {reallocating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Reallocating...
+                </>
+              ) : (
+                <>
+                  <Users className="h-4 w-4" />
+                  Reallocate Asset
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Reallocation Dialog */}
+      <Dialog
+        open={showBulkReallocationDialog}
+        onOpenChange={setShowBulkReallocationDialog}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Reallocate Assets
+            </DialogTitle>
+            <DialogDescription>
+              Reallocate {selectedAssetsForReallocation.size} selected asset(s)
+              to a different modeler
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Selected Assets Summary */}
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="text-sm space-y-1">
+                <p>
+                  <strong>Selected Assets:</strong>{" "}
+                  {selectedAssetsForReallocation.size}
+                </p>
+                <p>
+                  <strong>Assets with Pricing:</strong>{" "}
+                  {(() => {
+                    const allAssets: any[] = [];
+                    allocationLists.forEach((list) => {
+                      list.asset_assignments.forEach((assignment: any) => {
+                        allAssets.push(assignment.onboarding_assets);
+                      });
+                    });
+                    return allAssets.filter(
+                      (asset) =>
+                        selectedAssetsForReallocation.has(asset.id) &&
+                        asset.pricing_option_id &&
+                        asset.price &&
+                        asset.price > 0
+                    ).length;
+                  })()}
+                </p>
+                {(() => {
+                  const allAssets: any[] = [];
+                  allocationLists.forEach((list) => {
+                    list.asset_assignments.forEach((assignment: any) => {
+                      allAssets.push(assignment.onboarding_assets);
+                    });
+                  });
+                  const assetsWithoutPricing = allAssets.filter(
+                    (asset) =>
+                      selectedAssetsForReallocation.has(asset.id) &&
+                      (!asset.pricing_option_id ||
+                        !asset.price ||
+                        asset.price <= 0)
+                  );
+                  return (
+                    assetsWithoutPricing.length > 0 && (
+                      <p className="text-amber-600 text-xs">
+                        ⚠️ {assetsWithoutPricing.length} asset(s) don&apos;t
+                        have pricing and will be excluded
+                      </p>
+                    )
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Modeler Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <User className="h-4 w-4" />
+                New Modeler
+              </label>
+              <Select
+                value={bulkReallocationModeler}
+                onValueChange={setBulkReallocationModeler}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose new modeler" />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelers.map((modeler) => (
+                    <SelectItem key={modeler.id} value={modeler.id}>
+                      {modeler.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Deadline */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                New Deadline
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(new Date(bulkReallocationDeadline), "PPP")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={new Date(bulkReallocationDeadline)}
+                    onSelect={(date) => {
+                      setBulkReallocationDeadline(
+                        format(date || new Date(), "yyyy-MM-dd")
+                      );
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Bonus */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Euro className="h-4 w-4" />
+                Bonus (%)
+              </label>
+              <Input
+                type="number"
+                placeholder="15"
+                value={bulkReallocationBonus === 0 ? "" : bulkReallocationBonus}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setBulkReallocationBonus(
+                    value === "" ? 0 : parseInt(value) || 0
+                  );
+                }}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkReallocationDialog(false)}
+              disabled={bulkReallocating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkReallocateAssets}
+              disabled={
+                !bulkReallocationModeler ||
+                selectedAssetsForReallocation.size === 0 ||
+                bulkReallocating
+              }
+              className="flex items-center gap-2"
+            >
+              {bulkReallocating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Reallocating...
+                </>
+              ) : (
+                <>
+                  <Users className="h-4 w-4" />
+                  Reallocate {selectedAssetsForReallocation.size} Assets
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

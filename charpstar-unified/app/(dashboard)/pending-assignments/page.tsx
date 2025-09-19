@@ -922,18 +922,22 @@ export default function PendingAssignmentsPage() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-32">Article ID</TableHead>
-                            <TableHead>Product Name</TableHead>
-                            <TableHead className="w-24 text-center">
+                            <TableHead className="w-32 text-left">
+                              Article ID
+                            </TableHead>
+                            <TableHead className="text-left">
+                              Product Name
+                            </TableHead>
+                            <TableHead className="w-24 text-left">
                               Price
                             </TableHead>
-                            <TableHead className="w-32 text-center">
+                            <TableHead className="w-32 text-left">
                               Task Type
                             </TableHead>
-                            <TableHead className="w-32 text-center">
+                            <TableHead className="w-32 text-left">
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div className="flex items-center gap-1 justify-center cursor-help">
+                                  <div className="flex items-center gap-1 cursor-help">
                                     References
                                     <Info className="h-3 w-3" />
                                   </div>
@@ -945,7 +949,7 @@ export default function PendingAssignmentsPage() {
                                 </TooltipContent>
                               </Tooltip>
                             </TableHead>
-                            <TableHead className="w-24 text-center">
+                            <TableHead className="w-24 text-left">
                               Links
                             </TableHead>
                           </TableRow>
@@ -957,34 +961,34 @@ export default function PendingAssignmentsPage() {
 
                             return (
                               <TableRow key={assignment.asset_id}>
-                                <TableCell className="font-mono text-sm w-32">
+                                <TableCell className="font-mono text-sm w-32 text-left">
                                   {asset.article_id}
                                 </TableCell>
-                                <TableCell className="font-medium">
+                                <TableCell className="font-medium text-left">
                                   <div
                                     className="truncate max-w-[200px] cursor-help"
                                     title={asset.product_name}
                                   >
-                                    {asset.product_name.length > 25
-                                      ? asset.product_name.substring(0, 25) +
+                                    {asset.product_name.length > 35
+                                      ? asset.product_name.substring(0, 35) +
                                         "..."
                                       : asset.product_name}
                                   </div>
                                 </TableCell>
-                                <TableCell className="text-center w-24">
-                                  <div className="flex items-center justify-center gap-1">
+                                <TableCell className="w-24 text-left">
+                                  <div className="flex items-center gap-1">
                                     <Euro className="h-4 w-4 text-success" />
                                     <span className="font-semibold">
                                       €{assignment.price?.toFixed(2)}
                                     </span>
                                   </div>
                                 </TableCell>
-                                <TableCell className="text-center w-32">
+                                <TableCell className="w-32 text-left">
                                   <span className="inline-flex items-center rounded-full border px-2 py-1 text-xs">
                                     {getTaskTypeFromPrice(assignment.price)}
                                   </span>
                                 </TableCell>
-                                <TableCell className="text-center w-32">
+                                <TableCell className="w-32 text-left">
                                   <div className="flex flex-col items-center gap-1">
                                     <Button
                                       variant="outline"
@@ -1013,8 +1017,8 @@ export default function PendingAssignmentsPage() {
                                     </Button>
                                   </div>
                                 </TableCell>
-                                <TableCell className="text-center w-24">
-                                  <div className="flex items-center justify-center space-x-1">
+                                <TableCell className="w-24 text-left">
+                                  <div className="flex items-center space-x-1">
                                     {asset.product_link && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>

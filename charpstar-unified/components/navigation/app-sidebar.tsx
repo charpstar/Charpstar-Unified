@@ -18,6 +18,9 @@ import {
   Bell,
   Building2,
   Palette,
+  HelpCircle,
+  Bug,
+  ShieldCheck,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -91,6 +94,18 @@ export default function AppSidebar({
                     icon: Folder,
                   },
                 ]),
+        // FAQ - available to all users except clients
+        ...(role !== "client"
+          ? [
+              {
+                title: "FAQ",
+                url: "/faq",
+                icon: HelpCircle,
+              },
+            ]
+          : []),
+        // Bug Reports - available to all users
+
         // Add Products and Review pages for clients only
         ...(role === "client" && user?.metadata?.onboarding === false
           ? [
@@ -135,6 +150,7 @@ export default function AppSidebar({
                 url: "/admin/clients",
                 icon: Building2,
               },
+
               {
                 title: "Onboarding",
                 url: "/onboarding",
@@ -146,9 +162,19 @@ export default function AppSidebar({
                 icon: DollarSign,
               },
               {
+                title: "QA Statistics",
+                url: "/qa-statistics",
+                icon: ShieldCheck,
+              },
+              {
                 title: "Create Users",
                 url: "/create-users",
                 icon: UserPlus,
+              },
+              {
+                title: "Users",
+                url: "/users",
+                icon: Users,
               },
               {
                 title: "Pending Replies",
@@ -161,6 +187,11 @@ export default function AppSidebar({
             title: "Scene Render",
             url: "/scene-render",
             icon: Palette,
+          },
+          {
+            title: "Bug Reports",
+            url: "/admin/bug-reports",
+            icon: Bug,
           },
         ]
       : [];
@@ -199,6 +230,11 @@ export default function AppSidebar({
             url: "/qa-review",
             icon: MessageSquare,
           },
+          {
+            title: "Users",
+            url: "/users",
+            icon: Users,
+          },
         ]
       : [];
 
@@ -210,12 +246,15 @@ export default function AppSidebar({
     "Client information": 20,
     Onboarding: 30,
     "Create Users": 40,
+    Users: 45,
     "Cost Tracking": 50,
+
     // General
     "3D Editor": 60,
     Analytics: 70,
     "Asset Library": 80,
     Notifications: 90,
+    FAQ: 95,
     // Client
     "Add Products": 15,
     "Client Review": 20,

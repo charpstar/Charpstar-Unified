@@ -11,7 +11,6 @@ import {
   Sparkles,
   Navigation,
   Zap,
-  Settings,
   User,
   Users,
   Rocket,
@@ -58,14 +57,6 @@ const tourSteps: TourStep[] = [
       "Access the most important features quickly without navigating through menus. Add products, review models, and more.",
     position: "left",
   },
-  {
-    id: "dashboard-controls",
-    title: "Dashboard Layout Controls",
-    description:
-      "Customize your dashboard layout with View Mode and Edit Mode. Switch to Edit Mode to drag and reorganize widgets.",
-    position: "bottom",
-  },
-
   {
     id: "complete",
     title: "You're All Set!",
@@ -174,25 +165,6 @@ export function ClientDashboardTour() {
           document.body.appendChild(element);
         }
         break;
-      case "dashboard-controls":
-        element = document.querySelector(
-          '[data-tour="dashboard-controls"]'
-        ) as HTMLElement;
-        if (!element) {
-          // Create a virtual element in the dashboard area
-          element = document.createElement("div");
-          element.setAttribute("data-tour-virtual", "true");
-          element.style.position = "absolute";
-          element.style.top = "20px";
-          element.style.left = "300px";
-          element.style.width = "400px";
-          element.style.height = "60px";
-          element.style.opacity = "0";
-          element.style.pointerEvents = "none";
-          document.body.appendChild(element);
-        }
-        break;
-
       case "complete":
         // Create a virtual element at the center of the screen (like welcome step)
         element = document.createElement("div");
@@ -329,8 +301,6 @@ export function ClientDashboardTour() {
 
       case "quick-actions":
         return <Zap className="h-5 w-5 text-primary" />;
-      case "dashboard-controls":
-        return <Settings className="h-5 w-5 text-primary" />;
       case "user-profile":
         return <User className="h-5 w-5 text-primary" />;
       case "complete":

@@ -21,8 +21,7 @@ type LoginFormProps = {
   isLoading?: boolean;
   error?: string | null;
   onSwitchToReset?: () => void;
-  onSwitchToSignup?: () => void;
-  onSwitchToLogin?: () => void;
+
   resetSent?: boolean;
   className?: string;
 };
@@ -36,8 +35,7 @@ export function LoginForm(props: LoginFormProps) {
     isLoading,
     error,
     onSwitchToReset,
-    onSwitchToSignup,
-    onSwitchToLogin,
+
     resetSent,
     className,
     ...rest
@@ -153,40 +151,8 @@ export function LoginForm(props: LoginFormProps) {
                 </Button>
               </div>
               <div className="text-center text-sm">
-                {type === "login" ? (
-                  <>
-                    Don&apos;t have an account?{" "}
-                    <button
-                      type="button"
-                      className="underline underline-offset-4"
-                      onClick={onSwitchToSignup}
-                    >
-                      Sign up
-                    </button>
-                  </>
-                ) : type === "signup" ? (
-                  <>
-                    Already have an account?{" "}
-                    <button
-                      type="button"
-                      className="underline underline-offset-4"
-                      onClick={onSwitchToLogin}
-                    >
-                      Log in
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    Back to{" "}
-                    <button
-                      type="button"
-                      className="underline underline-offset-4"
-                      onClick={onSwitchToLogin}
-                    >
-                      Login
-                    </button>
-                  </>
-                )}
+                {" "}
+                Invitation only access. Please contact us to get access.{" "}
               </div>
             </div>
           </form>

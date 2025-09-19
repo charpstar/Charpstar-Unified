@@ -585,6 +585,9 @@ model-viewer::part(default-ar-button):focus-visible {
   .text-status-reviewed {
     color: var(--status-reviewed);
   }
+  .text-status-not-started {
+    color: var(--status-not-started);
+  }
 
   .bg-status-in-production {
     background-color: var(--status-in-production);
@@ -603,6 +606,9 @@ model-viewer::part(default-ar-button):focus-visible {
   }
   .bg-status-reviewed {
     background-color: var(--status-reviewed);
+  }
+  .bg-status-not-started {
+    background-color: var(--status-not-started);
   }
 
   /* Priority color utility classes */

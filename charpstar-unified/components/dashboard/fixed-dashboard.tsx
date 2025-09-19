@@ -25,6 +25,8 @@ import {
   ClientActionCenterWidget,
   AdminPipelineWidget,
   AdminQueuesWidget,
+  QAStatisticsWidget,
+  CostSummaryWidget,
 } from "@/components/dashboard/dashboard-widgets";
 import {
   ModelerStatsWidget,
@@ -57,7 +59,7 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
   // Admin Dashboard Layout
   if (isAdmin) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 ">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6 ">
         <Card className="p-6 rounded-2xl border-none bg-background  shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
           <CardContent className="">{profileContent}</CardContent>
         </Card>
@@ -86,6 +88,22 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
           <CardContent className="">
             <ErrorBoundary>
               <AdminQueuesWidget />
+            </ErrorBoundary>
+          </CardContent>
+        </Card>
+
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
+            <ErrorBoundary>
+              <QAStatisticsWidget />
+            </ErrorBoundary>
+          </CardContent>
+        </Card>
+
+        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
+          <CardContent className="">
+            <ErrorBoundary>
+              <CostSummaryWidget />
             </ErrorBoundary>
           </CardContent>
         </Card>

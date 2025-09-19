@@ -6,6 +6,7 @@ import { useUser } from "@/contexts/useUser";
 import { useLoading } from "@/contexts/LoadingContext";
 import { Button } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
+import CountrySelect from "@/components/ui/inputs/country-select";
 import { Card } from "@/components/ui/containers";
 import { Badge } from "@/components/ui/feedback";
 import {
@@ -58,8 +59,8 @@ export default function SignupPage() {
     modelTypes: [] as string[],
     dailyHours: 8,
     exclusiveWork: false,
-    country: "",
     portfolioLinks: [] as string[],
+    country: "",
   });
 
   const token = searchParams.get("token");
@@ -198,7 +199,7 @@ export default function SignupPage() {
         if (!formData.country.trim()) {
           toast({
             title: "Missing Information",
-            description: "Please enter your country.",
+            description: "Please select your country.",
             variant: "destructive",
           });
           return false;
@@ -640,17 +641,15 @@ export default function SignupPage() {
 
               <div>
                 <label className="text-sm font-medium">Country</label>
-                <Input
-                  type="text"
-                  placeholder="e.g., United States, Canada, UK"
+                <CountrySelect
                   value={formData.country}
-                  onChange={(e) =>
+                  onValueChange={(value: string) =>
                     setFormData((prev) => ({
                       ...prev,
-                      country: e.target.value,
+                      country: value,
                     }))
                   }
-                  required
+                  placeholder="Select your country"
                 />
               </div>
 

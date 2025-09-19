@@ -29,10 +29,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ images, onReset }) => {
   return (
     <>
       <div className="w-full max-w-3xl flex flex-col items-center glass-card p-6 rounded-2xl shadow-2xl animate-fade-in">
-        <h2 className="text-3xl font-bold text-gray-100 mb-4">
+        <h2 className="text-3xl font-bold text-foreground mb-4">
           Your Scene Gallery is Ready!
         </h2>
-        <p className="text-gray-400 mb-6">
+        <p className="text-muted-foreground mb-6">
           Click a thumbnail below to view, fullscreen, or download.
         </p>
 
