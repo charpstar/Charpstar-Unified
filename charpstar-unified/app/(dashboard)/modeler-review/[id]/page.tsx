@@ -37,6 +37,7 @@ import {
 import Script from "next/script";
 import { toast } from "sonner";
 import Image from "next/image";
+import { AutomatedQA, QAWorkflowModal } from "@/components/qa";
 
 import "./annotation-styles.css";
 
@@ -239,6 +240,12 @@ export default function ModelerReviewPage() {
   const [latestExternalFeedbackTime, setLatestExternalFeedbackTime] = useState<
     number | null
   >(null);
+
+  // QA state
+  const [showQADialog, setShowQADialog] = useState(false);
+  const [qaResults, setQaResults] = useState<any>(null);
+  const [qaApproved, setQaApproved] = useState<boolean | null>(null);
+  const [uploadedGlbUrl, setUploadedGlbUrl] = useState<string | null>(null);
   const [showStaleGlbDialog, setShowStaleGlbDialog] = useState(false);
   const [isDialogDragOver, setIsDialogDragOver] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
@@ -622,6 +629,57 @@ export default function ModelerReviewPage() {
     }
   };
 
+  // Fetch reference images for QA
+  const fetchReferenceImages = async () => {
+    if (!assetId) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("reference")
+        .eq("id", assetId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching reference images:", error);
+        return [];
+      }
+
+      if (!data?.reference) {
+        console.log("No reference images found for asset:", assetId);
+        return [];
+      }
+
+      let refs: string[] = [];
+      if (Array.isArray(data.reference)) {
+        refs = data.reference;
+      } else if (typeof data.reference === "string" && data.reference.startsWith("[")) {
+        try {
+          refs = JSON.parse(data.reference);
+        } catch {
+          refs = [data.reference];
+        }
+      } else if (data.reference) {
+        refs = [data.reference];
+      }
+
+      // Filter to only show image files
+      const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"];
+      const imageUrls = refs.filter((url) => {
+        if (!url) return false;
+        const lowerUrl = url.toLowerCase();
+        return imageExtensions.some((ext) => lowerUrl.includes(ext));
+      });
+
+      console.log("Found reference images:", imageUrls);
+      setReferenceImages(imageUrls);
+      return imageUrls;
+    } catch (error) {
+      console.error("Error fetching reference images:", error);
+      return [];
+    }
+  };
+
   // Clean up problematic GLB history entries
   // This function removes entries with the old naming convention (Current_ prefix)
   // and handles duplicate URLs by keeping only the most recent entry for each unique URL.
@@ -996,7 +1054,22 @@ export default function ModelerReviewPage() {
       // Refresh GLB history to show the new version
       await fetchGlbHistory();
 
-      toast.success("GLB file uploaded successfully!");
+      // Fetch reference images and trigger QA
+      console.log("Fetching reference images for asset:", assetId);
+      const refImages = await fetchReferenceImages();
+      console.log("Reference images found:", refImages.length);
+      
+      if (refImages.length > 0) {
+        console.log("Triggering QA dialog with images:", refImages);
+        setUploadedGlbUrl(urlData.publicUrl);
+        setShowQADialog(true);
+        console.log("QA dialog state set to true");
+        toast.success("GLB file uploaded successfully! Starting automated QA...");
+      } else {
+        console.log("No reference images found, skipping QA");
+        toast.success("GLB file uploaded successfully!");
+      }
+      
       setShowUploadDialog(false);
       setSelectedFile(null);
     } catch (error) {
@@ -1036,6 +1109,16 @@ export default function ModelerReviewPage() {
 
     // Warn and block if trying to deliver without correct GLB naming
     if (newStatus === "delivered_by_artist") {
+      // Block delivery if QA is not approved
+      if (qaApproved === false) {
+        toast.error("Cannot deliver: Model not approved by QA. Please run QA analysis and address any issues.");
+        return;
+      }
+      
+      if (qaApproved === null) {
+        toast.error("Cannot deliver: Please run QA analysis first to ensure model quality.");
+        return;
+      }
       // Block if GLB is older than latest external feedback
       try {
         if (
@@ -1731,28 +1814,91 @@ export default function ModelerReviewPage() {
                       <span className="hidden sm:inline ml-1">In Progress</span>
                     </Button>
                     <Button
-                      onClick={() => updateAssetStatus("delivered_by_artist")}
+                      onClick={async () => {
+                        if (qaApproved === null) {
+                          // Run QA analysis
+                          console.log("QA button clicked - starting QA analysis");
+                          try {
+                            const refImages = await fetchReferenceImages();
+                            console.log("Reference images found:", refImages);
+                            if (refImages.length > 0 && (uploadedGlbUrl || asset?.glb_link)) {
+                              setUploadedGlbUrl(uploadedGlbUrl || asset?.glb_link || "");
+                              setShowQADialog(true);
+                              console.log("QA dialog opened");
+                            } else {
+                              alert(`No reference images (${refImages.length}) or GLB file found`);
+                            }
+                          } catch (error) {
+                            console.error("Error starting QA:", error);
+                            toast.error("Failed to start QA analysis");
+                          }
+                        } else if (qaApproved === true) {
+                          // Deliver the model
+                          console.log("Delivery button clicked. QA Approved:", qaApproved);
+                          updateAssetStatus("delivered_by_artist");
+                        }
+                      }}
                       disabled={
                         asset?.status === "delivered_by_artist" ||
                         asset?.status === "approved" ||
                         asset?.status === "approved_by_client" ||
-                        statusUpdating
+                        statusUpdating ||
+                        (qaApproved === false) // Block if QA failed
                       }
                       variant={
                         asset?.status === "delivered_by_artist"
                           ? "default"
-                          : "outline"
+                          : qaApproved === true
+                            ? "default"
+                            : "outline"
                       }
                       size="sm"
-                      className="h-6 sm:h-7 px-2 text-xs cursor-pointer"
+                      className={`h-6 sm:h-7 px-2 text-xs ${
+                        qaApproved === false 
+                          ? "cursor-not-allowed opacity-50" 
+                          : "cursor-pointer"
+                      }`}
+                      title={
+                        qaApproved === false 
+                          ? "Cannot deliver: Model not approved by QA" 
+                          : qaApproved === null 
+                            ? "Run automated QA analysis to test model quality"
+                            : qaApproved === true
+                              ? "Model approved by QA - ready to deliver"
+                              : undefined
+                      }
                     >
                       {statusUpdating ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : qaApproved === null ? (
+                        <Camera className="h-3 w-3" />
                       ) : (
                         <CheckCircle className="h-3 w-3" />
                       )}
-                      <span className="hidden sm:inline ml-1">Delivered</span>
+                      <span className="hidden sm:inline ml-1">
+                        {qaApproved === null ? "Run Auto QA" : "Delivered"}
+                      </span>
                     </Button>
+                    
+                    {/* QA Status Indicator */}
+                    <div className="flex items-center gap-1 text-xs">
+                      {qaApproved === null ? (
+                        <Badge variant="outline" className="bg-yellow-50 text-yellow-800 border-yellow-200">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Run QA
+                        </Badge>
+                      ) : qaApproved ? (
+                        <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          QA Approved
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          QA Not Approved
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1780,6 +1926,7 @@ export default function ModelerReviewPage() {
                   src={asset.glb_link}
                   alt={asset.product_name}
                   camera-controls={true}
+                  interaction-prompt="none"
                   shadow-intensity="0.5"
                   environment-image={
                     getViewerParameters(clientViewerType).environmentImage
@@ -1792,7 +1939,11 @@ export default function ModelerReviewPage() {
                   min-field-of-view="5deg"
                   max-field-of-view="35deg"
                   style={{ width: "100%", height: "100%" }}
-                  onLoad={() => {}}
+                  onLoad={() => {
+                    if (modelViewerRef.current) {
+                      modelViewerRef.current.autoRotate = false;
+                    }
+                  }}
                 >
                   {hotspots.map(
                     (hotspot) =>
@@ -1903,6 +2054,7 @@ export default function ModelerReviewPage() {
                 <Upload className="h-4 w-4 mr-2" />
                 {asset.glb_link ? "Update GLB" : "Upload GLB"}
               </Button>
+              
             </div>
           </div>
 
@@ -3006,37 +3158,54 @@ export default function ModelerReviewPage() {
                 )}
               </div>
 
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  Select File
-                </Button>
-                <Button
-                  onClick={handleUpload}
-                  disabled={
-                    !selectedFile ||
-                    uploading ||
-                    Boolean(selectedFileNameMismatch) ||
-                    selectedFileSizeWarning
-                  }
-                  className="flex-1"
-                >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Uploading...
-                    </>
-                  ) : (
-                    "Upload"
-                  )}
-                </Button>
-              </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                variant="outline"
+                className="flex-1"
+              >
+                Select File
+              </Button>
+              <Button
+                onClick={handleUpload}
+                disabled={
+                  !selectedFile ||
+                  uploading ||
+                  Boolean(selectedFileNameMismatch) ||
+                  selectedFileSizeWarning
+                }
+                className="flex-1"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Uploading...
+                  </>
+                ) : (
+                  "Upload"
+                )}
+              </Button>
+            </div>
+            
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Automated QA Modal */}
+        <QAWorkflowModal
+          isOpen={showQADialog}
+          onClose={() => setShowQADialog(false)}
+          glbUrl={uploadedGlbUrl || asset?.glb_link || ""}
+          assetId={assetId}
+          referenceImages={referenceImages}
+          modelViewerRef={modelViewerRef}
+          onComplete={(results) => {
+            console.log("QA completed:", results);
+            setQaResults(results);
+            setQaApproved(results?.status === "Approved");
+            setShowQADialog(false);
+          }}
+        />
 
         {/* GLB Version History Dialog */}
         <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>

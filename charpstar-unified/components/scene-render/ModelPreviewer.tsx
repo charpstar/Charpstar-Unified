@@ -453,7 +453,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             </Suspense>
             <OrbitControls
               makeDefault
-              autoRotate
+              autoRotate={false}
               autoRotateSpeed={1.0}
               minDistance={1}
               maxDistance={20}

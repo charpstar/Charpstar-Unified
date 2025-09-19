@@ -64,31 +64,53 @@ ${photorealismChecklist}
 async function callApi(
   ai: GoogleGenAI,
   imageParts: { inlineData: { mimeType: string; data: string } }[],
-  textPart: { text: string }
+  textPart: { text: string },
+  retryCount = 0
 ): Promise<string | null> {
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-image-preview",
-    contents: {
-      parts: [...imageParts, textPart],
-    },
-    config: {
-      responseModalities: [Modality.IMAGE, Modality.TEXT],
-    },
-  });
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second base delay
 
-  if (response.candidates && response.candidates[0]?.content?.parts) {
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return part.inlineData.data || null;
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-image-preview",
+      contents: {
+        parts: [...imageParts, textPart],
+      },
+      config: {
+        responseModalities: [Modality.IMAGE, Modality.TEXT],
+      },
+    });
+
+    if (response.candidates && response.candidates[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          return part.inlineData.data || null;
+        }
       }
     }
-  }
 
-  const textResponse = response.text;
-  console.warn("Gemini returned text instead of an image:", textResponse);
-  throw new Error(
-    `AI processing failed for one of the images. The model responded with: "${textResponse?.substring(0, 100) || "Unknown error"}..."`
-  );
+    const textResponse = response.text;
+    console.warn("Gemini returned text instead of an image:", textResponse);
+    throw new Error(
+      `AI processing failed for one of the images. The model responded with: "${textResponse?.substring(0, 100) || "Unknown error"}..."`
+    );
+  } catch (error: any) {
+    // Handle rate limiting (429) and other retryable errors
+    if (retryCount < maxRetries && (
+      error.status === 429 || 
+      error.message?.includes('429') ||
+      error.message?.includes('rate limit') ||
+      error.message?.includes('quota')
+    )) {
+      const delay = baseDelay * Math.pow(2, retryCount) + Math.random() * 1000; // Exponential backoff with jitter
+      console.warn(`Rate limit hit, retrying in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return callApi(ai, imageParts, textPart, retryCount + 1);
+    }
+    
+    // Re-throw non-retryable errors
+    throw error;
+  }
 }
 
 export async function generateScenes(
@@ -151,11 +173,24 @@ export async function generateScenes(
     });
 
   try {
-    const promises = textPrompts.map((prompt) =>
-      callApi(ai, imageParts, { text: prompt })
-    );
-
-    const results = await Promise.all(promises);
+    // Process requests sequentially to avoid rate limiting
+    const results: (string | null)[] = [];
+    
+    for (let i = 0; i < textPrompts.length; i++) {
+      console.log(`Generating scene ${i + 1}/${textPrompts.length}...`);
+      try {
+        const result = await callApi(ai, imageParts, { text: textPrompts[i] });
+        results.push(result);
+        
+        // Add a small delay between requests to be respectful to the API
+        if (i < textPrompts.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error(`Failed to generate scene ${i + 1}:`, error);
+        results.push(null);
+      }
+    }
 
     const successfulResults = results.filter(
       (res): res is string => res !== null
@@ -165,12 +200,18 @@ export async function generateScenes(
       throw new Error("The AI failed to generate any images.");
     }
 
+    console.log(`Successfully generated ${successfulResults.length}/${textPrompts.length} scenes`);
     return successfulResults;
   } catch (error) {
-    console.error("Error calling Gemini API in parallel:", error);
+    console.error("Error calling Gemini API:", error);
     if (error instanceof Error && error.message.includes("400")) {
       throw new Error(
         "The request was invalid. The uploaded image might be unsupported. Please try another file."
+      );
+    }
+    if (error instanceof Error && (error.message.includes("429") || error.message.includes("rate limit"))) {
+      throw new Error(
+        "Rate limit exceeded. Please wait a moment and try again."
       );
     }
     throw new Error(

@@ -3107,8 +3107,14 @@ export default function ReviewPage() {
                   shadow-softness="1"
                   min-field-of-view="5deg"
                   max-field-of-view="35deg"
+                  auto-rotate="false"
                   style={{ width: "100%", height: "100%" }}
-                  onLoad={handleModelLoaded}
+                  onLoad={() => {
+                    handleModelLoaded();
+                    if (modelViewerRef.current) {
+                      modelViewerRef.current.autoRotate = false;
+                    }
+                  }}
                   onClick={(event: any) => {
                     // Check if Ctrl key is held down for hotkey shortcut
                     const isCtrlPressed = event.ctrlKey || event.metaKey; // metaKey for Mac

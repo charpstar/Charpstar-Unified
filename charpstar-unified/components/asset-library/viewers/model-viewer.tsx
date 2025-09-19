@@ -197,10 +197,16 @@ export function ModelViewer({
         max-camera-orbit="auto 100deg auto"
         shadow-intensity="1"
         touch-action="pan-y"
+        auto-rotate="false"
         src={modelUrl}
         alt={alt}
         className="w-full h-[300px] sm:h-[200px] md:h-[500px] lg:h-[1000px]"
         {...(cameraControls ? { "camera-controls": true } : {})}
+        onLoad={() => {
+          if (modelViewerRef.current) {
+            (modelViewerRef.current as any).autoRotate = false;
+          }
+        }}
         {...props}
       >
         {children}

@@ -82,6 +82,7 @@
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.176.0",
+    "uuid": "^13.0.0",
     "vaul": "^1.1.2",
     "zod": "^3.25.13"
   },
@@ -94,6 +95,7 @@
     "@types/node": "^20.17.47",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
     "tailwindcss": "^4",
