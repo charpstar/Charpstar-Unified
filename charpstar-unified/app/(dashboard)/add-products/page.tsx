@@ -132,12 +132,9 @@ export default function AddProductsPage() {
     try {
       const clientName = user.metadata.client;
       const response = await fetch(
-        `http://45.32.156.145:9000/process-client/${encodeURIComponent(clientName)}`,
+        `https://scraper.charpstar.co/process-client/${encodeURIComponent(clientName)}`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           // Add timeout to prevent hanging
           signal: AbortSignal.timeout(30000), // 30 second timeout
         }
