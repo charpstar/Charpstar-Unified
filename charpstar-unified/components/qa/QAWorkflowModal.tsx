@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/containers";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/containers";
@@ -202,7 +202,9 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
               </div>
               <div>
                 <DialogTitle className="text-xl font-bold">Automated QA Analysis</DialogTitle>
-                <p className="text-sm text-muted-foreground">AI-powered quality assurance for your 3D model</p>
+                <DialogDescription className="text-sm text-muted-foreground">
+                  AI-powered quality assurance for your 3D model
+                </DialogDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
