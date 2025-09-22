@@ -91,6 +91,76 @@ async function callApi(
   );
 }
 
+export async function generateSingleScene(
+  base64Image: string,
+  objectSize: string,
+  objectType: string,
+  sceneDescription: string,
+  inspirationImage: string | null
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable not set.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const imagePart = {
+    inlineData: {
+      mimeType: "image/png",
+      data: base64Image,
+    },
+  };
+
+  const imageParts = [imagePart];
+  if (inspirationImage) {
+    imageParts.push({
+      inlineData: {
+        mimeType: "image/jpeg",
+        data: inspirationImage,
+      },
+    });
+  }
+
+  const shotTypeModifier = `**Shot Type:** Generate a classic, eye-level hero shot. The product should be perfectly centered and well-lit, with the background subtly complementing it.`;
+
+  let scene;
+  if (sceneDescription.trim() !== "") {
+    scene = `**Scene Description:** The user wants the following scene: "${sceneDescription}".\n${shotTypeModifier}`;
+  } else {
+    scene = `**Scene Description:** Place the object in a bright, airy, modern Scandinavian interior.\n${shotTypeModifier}`;
+  }
+
+  const textPrompt = createPrompt(
+    objectSize,
+    objectType,
+    scene,
+    !!inspirationImage
+  );
+
+  try {
+    console.log("Generating single scene...");
+    const result = await callApi(ai, imageParts, { text: textPrompt });
+
+    if (!result) {
+      throw new Error(
+        "The AI failed to generate an image. This might be due to server issues or invalid input."
+      );
+    }
+
+    console.log("Successfully generated single scene");
+    return result;
+  } catch (error) {
+    console.error("Error calling Gemini API:", error);
+    if (error instanceof Error && error.message.includes("400")) {
+      throw new Error(
+        "The request was invalid. The uploaded image might be unsupported. Please try another file."
+      );
+    }
+    throw error;
+  }
+}
+
 export async function generateScenes(
   base64Image: string,
   objectSize: string,

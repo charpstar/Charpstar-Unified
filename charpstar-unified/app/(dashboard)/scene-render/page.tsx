@@ -40,7 +40,7 @@ export default function SceneRenderPage() {
   };
 
   const handleGenerate = async (
-    snapshot: string,
+    snapshots: string[],
     objectSize: string,
     objectType: string,
     sceneDescription: string,
@@ -57,7 +57,7 @@ export default function SceneRenderPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          base64Image: snapshot,
+          base64Images: snapshots,
           objectSize,
           objectType,
           sceneDescription,

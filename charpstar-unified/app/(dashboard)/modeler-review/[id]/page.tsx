@@ -71,6 +71,7 @@ interface Annotation {
     email?: string;
   };
   parent_id?: string;
+  is_old_annotation?: boolean;
 }
 
 interface Hotspot {
@@ -356,8 +357,15 @@ export default function ModelerReviewPage() {
     }
   };
 
-  // Convert annotations to hotspots format
-  const hotspots: Hotspot[] = annotations
+  // Filter annotations for different display contexts
+  const filteredAnnotations = annotations.filter(
+    (annotation: any) => !annotation.is_old_annotation
+  );
+
+  const allAnnotations = annotations; // All annotations for comment sections
+
+  // Convert annotations to hotspots format (exclude old annotations from model viewer)
+  const hotspots: Hotspot[] = filteredAnnotations
     .filter((annotation: any) => !annotation.parent_id)
     .map((annotation) => ({
       id: annotation.id,
@@ -782,7 +790,7 @@ export default function ModelerReviewPage() {
     setSelectedHotspotId(hotspotId);
     if (!hotspotId) return;
 
-    const annotation = annotations.find((ann) => ann.id === hotspotId);
+    const annotation = filteredAnnotations.find((ann) => ann.id === hotspotId);
     if (!annotation) return;
     setSelectedAnnotation(annotation);
 
@@ -902,6 +910,47 @@ export default function ModelerReviewPage() {
         throw updateError;
       }
 
+      // Mark all current annotations as old
+      const { error: markOldError } = await supabase
+        .from("asset_annotations")
+        .update({ is_old_annotation: true })
+        .eq("asset_id", asset.id);
+
+      if (markOldError) {
+        console.error(
+          "Error marking current annotations as old:",
+          markOldError
+        );
+      }
+
+      // Find and restore annotations that were created before this GLB upload
+      const glbUploadTime = new Date(historyItem.uploaded_at);
+
+      // Get all annotations for this asset that were created before the GLB upload
+      const { data: oldAnnotations, error: fetchOldError } = await supabase
+        .from("asset_annotations")
+        .select("*")
+        .eq("asset_id", asset.id)
+        .lt("created_at", glbUploadTime.toISOString())
+        .order("created_at", { ascending: true });
+
+      if (fetchOldError) {
+        console.error("Error fetching old annotations:", fetchOldError);
+      } else if (oldAnnotations && oldAnnotations.length > 0) {
+        // Restore the old annotations by setting them as not old
+        const { error: restoreError } = await supabase
+          .from("asset_annotations")
+          .update({ is_old_annotation: false })
+          .in(
+            "id",
+            oldAnnotations.map((a) => a.id)
+          );
+
+        if (restoreError) {
+          console.error("Error restoring old annotations:", restoreError);
+        }
+      }
+
       // Update local state
       setAsset((prev) =>
         prev
@@ -913,7 +962,18 @@ export default function ModelerReviewPage() {
           : null
       );
 
-      toast.success("GLB version restored successfully!");
+      // Refresh annotations to reflect the changes
+      try {
+        const response = await fetch(`/api/annotations?asset_id=${asset.id}`);
+        const data = await response.json();
+        if (response.ok) {
+          setAnnotations(data.annotations || []);
+        }
+      } catch (error) {
+        console.error("Error refreshing annotations:", error);
+      }
+
+      toast.success("GLB version and annotations restored successfully!");
       setShowHistoryDialog(false);
     } catch (error) {
       console.error("Error restoring GLB version:", error);
@@ -980,6 +1040,27 @@ export default function ModelerReviewPage() {
 
       if (updateError) {
         throw updateError;
+      }
+
+      // Mark all existing annotations as "old" when uploading new GLB
+      const { error: markOldError } = await supabase
+        .from("asset_annotations")
+        .update({ is_old_annotation: true })
+        .eq("asset_id", asset.id);
+
+      if (markOldError) {
+        console.error("Error marking old annotations:", markOldError);
+      } else {
+        // Refresh annotations to reflect the updated is_old_annotation status
+        try {
+          const response = await fetch(`/api/annotations?asset_id=${asset.id}`);
+          const data = await response.json();
+          if (response.ok) {
+            setAnnotations(data.annotations || []);
+          }
+        } catch (error) {
+          console.error("Error refreshing annotations:", error);
+        }
       }
 
       // Record GLB upload history for the new file
@@ -1126,6 +1207,19 @@ export default function ModelerReviewPage() {
       }
 
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
+
+      // Refresh annotations if status changed to revisions (annotations marked as old)
+      if (newStatus === "revisions") {
+        try {
+          const response = await fetch(`/api/annotations?asset_id=${asset.id}`);
+          const data = await response.json();
+          if (response.ok) {
+            setAnnotations(data.annotations || []);
+          }
+        } catch (error) {
+          console.error("Error refreshing annotations:", error);
+        }
+      }
 
       // Show success message and trigger earnings widget refresh
       if (result.allocationListApproved) {
@@ -1703,7 +1797,7 @@ export default function ModelerReviewPage() {
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div className="text-center">
                     <div className="text-sm sm:text-lg font-bold text-foreground">
-                      {annotations.length}
+                      {filteredAnnotations.length}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       <span className="hidden sm:inline">Annotations</span>
@@ -1807,7 +1901,11 @@ export default function ModelerReviewPage() {
                   shadow-softness="1"
                   min-field-of-view="5deg"
                   max-field-of-view="35deg"
-                  style={{ width: "100%", height: "100%" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: "#fafafa",
+                  }}
                   onLoad={() => {}}
                 >
                   {hotspots.map(
@@ -1835,7 +1933,7 @@ export default function ModelerReviewPage() {
                               selectedHotspotId === hotspot.id ? "selected" : ""
                             }`}
                             data-annotation={
-                              annotations
+                              filteredAnnotations
                                 .sort(
                                   (a, b) =>
                                     new Date(a.created_at).getTime() -
@@ -1860,7 +1958,7 @@ export default function ModelerReviewPage() {
                               <div className="hotspot-dot"></div>
                             )}
                             <div className="hotspot-number">
-                              {annotations
+                              {filteredAnnotations
                                 .sort(
                                   (a, b) =>
                                     new Date(a.created_at).getTime() -
@@ -1937,10 +2035,10 @@ export default function ModelerReviewPage() {
                 <div className="flex items-center gap-1 sm:gap-2">
                   <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">
-                    Feedback ({annotations.length + comments.length})
+                    Feedback ({allAnnotations.length + comments.length})
                   </span>
                   <span className="sm:hidden">
-                    Feedback ({annotations.length + comments.length})
+                    Feedback ({allAnnotations.length + comments.length})
                   </span>
                 </div>
               </button>
@@ -2495,7 +2593,7 @@ export default function ModelerReviewPage() {
                   <div className="flex-1 overflow-y-auto">
                     <div className="space-y-3 sm:space-y-4">
                       {[
-                        ...annotations
+                        ...allAnnotations
                           .filter((a: any) => !a.parent_id)
                           .map((a) => ({
                             ...a,
@@ -2520,7 +2618,9 @@ export default function ModelerReviewPage() {
                               className={`p-3 sm:p-6 transition-all duration-200 rounded-xl border border-border/50 ${
                                 selectedHotspotId === item.id
                                   ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
-                                  : "hover:shadow-md hover:border-border"
+                                  : item.is_old_annotation
+                                    ? "opacity-60 bg-muted/30 border-muted-foreground/20"
+                                    : "hover:shadow-md hover:border-border"
                               }`}
                             >
                               <div className="flex items-start justify-between mb-3 sm:mb-4">
@@ -2530,7 +2630,7 @@ export default function ModelerReviewPage() {
                                       <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                                     </div>
                                     <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white text-xs font-bold bg-amber-500">
-                                      {annotations
+                                      {allAnnotations
                                         .sort(
                                           (a, b) =>
                                             new Date(a.created_at).getTime() -
@@ -2546,10 +2646,24 @@ export default function ModelerReviewPage() {
                                       </span>
                                       <Badge
                                         variant="outline"
-                                        className="text-xs flex-shrink-0"
+                                        className={`text-xs flex-shrink-0 ${
+                                          item.is_old_annotation
+                                            ? "bg-muted text-muted-foreground border-muted-foreground/30"
+                                            : ""
+                                        }`}
                                       >
-                                        Annotation
+                                        {item.is_old_annotation
+                                          ? "Old Annotation"
+                                          : "Annotation"}
                                       </Badge>
+                                      {item.is_old_annotation && (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs bg-orange-100 text-orange-700 border-orange-200"
+                                        >
+                                          Old
+                                        </Badge>
+                                      )}
                                     </div>
                                     {item.profiles?.title && (
                                       <Badge
@@ -2924,7 +3038,7 @@ export default function ModelerReviewPage() {
                           )
                         )}
 
-                      {annotations.length + comments.length === 0 && (
+                      {allAnnotations.length + comments.length === 0 && (
                         <div className="text-center py-12">
                           <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                             <MessageCircle className="h-8 w-8 text-muted-foreground" />

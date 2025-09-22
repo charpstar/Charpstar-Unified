@@ -956,6 +956,16 @@ export default function BatchDetailPage() {
         throw updateError;
       }
 
+      // Mark all existing annotations as "old" when uploading new GLB
+      const { error: markOldError } = await supabase
+        .from("asset_annotations")
+        .update({ is_old_annotation: true })
+        .eq("asset_id", assetId);
+
+      if (markOldError) {
+        console.error("Error marking old annotations:", markOldError);
+      }
+
       // Record GLB upload history with unique filename
       const { error: newHistoryError } = await supabase
         .from("glb_upload_history")

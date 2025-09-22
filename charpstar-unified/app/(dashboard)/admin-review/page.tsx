@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/containers";
@@ -104,7 +105,7 @@ const PRICING_OPTIONS: PricingOption[] = [
 
 // Derive human-readable task type from pricing option id
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import { getPriorityLabel } from "@/lib/constants";
@@ -394,6 +395,13 @@ export default function AdminReviewPage() {
   const [annotationCounts, setAnnotationCounts] = useState<
     Record<string, number>
   >({});
+
+  // Get URL parameters for client and batch filtering
+  const urlClient = searchParams.get("client");
+  const urlBatch = searchParams.get("batch");
+
+  // Debug URL parameters
+  console.log("URL parameters on render:", { urlClient, urlBatch });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [clients, setClients] = useState<string[]>([]);
   const [modelers, setModelers] = useState<
@@ -523,6 +531,19 @@ export default function AdminReviewPage() {
         )
         .order("upload_order", { ascending: true });
 
+      // Apply URL parameter filters
+      console.log("URL parameters:", { urlClient, urlBatch });
+      if (urlClient) {
+        query = query.eq("client", urlClient);
+        console.log("Applied client filter:", urlClient);
+      }
+      if (urlBatch) {
+        query = query.eq("batch", parseInt(urlBatch));
+        console.log("Applied batch filter:", urlBatch);
+      }
+
+      console.log("Query after URL filters applied");
+
       // If modeler filters are applied, only fetch assets assigned to those modelers
       if (modelerFilters && modelerFilters.length > 0) {
         // First get the asset IDs assigned to this modeler (only accepted assignments)
@@ -561,6 +582,13 @@ export default function AdminReviewPage() {
         return;
       }
 
+      console.log("Fetched assets count:", (data || []).length);
+      console.log(
+        "Sample assets:",
+        (data || [])
+          .slice(0, 3)
+          .map((a) => ({ client: a.client, batch: a.batch, status: a.status }))
+      );
       setAssets(data || []);
       setFiltered(data || []);
     } catch (error) {
@@ -1002,7 +1030,7 @@ export default function AdminReviewPage() {
     }
   };
 
-  // Calculate status totals based on unfiltered data (always show overall totals)
+  // Calculate status totals - use filtered data when URL parameters are present
   const statusTotals = useMemo(() => {
     if (showAllocationLists) {
       // Aggregate asset statuses from all assets across all allocation lists (unfiltered)
@@ -1096,8 +1124,13 @@ export default function AdminReviewPage() {
 
       return { totals, percentages } as const;
     } else {
+      // Use the assets array which is already filtered by URL parameters in fetchAssets
+      const dataLength = assets.length;
+      console.log("Status totals calculation - assets count:", dataLength);
+      console.log("URL params in status totals:", { urlClient, urlBatch });
+
       const totals = {
-        total: assets.length,
+        total: dataLength,
         in_production: 0,
         revisions: 0,
         approved: 0,
@@ -1117,30 +1150,36 @@ export default function AdminReviewPage() {
       const percentages = {
         total: 100,
         in_production:
-          assets.length > 0
-            ? Math.round((totals.in_production / assets.length) * 100)
+          dataLength > 0
+            ? Math.round((totals.in_production / dataLength) * 100)
             : 0,
         revisions:
-          assets.length > 0
-            ? Math.round((totals.revisions / assets.length) * 100)
+          dataLength > 0
+            ? Math.round((totals.revisions / dataLength) * 100)
             : 0,
         approved:
-          assets.length > 0
-            ? Math.round((totals.approved / assets.length) * 100)
-            : 0,
+          dataLength > 0 ? Math.round((totals.approved / dataLength) * 100) : 0,
         delivered_by_artist:
-          assets.length > 0
-            ? Math.round((totals.delivered_by_artist / assets.length) * 100)
+          dataLength > 0
+            ? Math.round((totals.delivered_by_artist / dataLength) * 100)
             : 0,
         not_started:
-          assets.length > 0
-            ? Math.round((totals.not_started / assets.length) * 100)
+          dataLength > 0
+            ? Math.round((totals.not_started / dataLength) * 100)
             : 0,
       };
 
       return { totals, percentages } as const;
     }
-  }, [assets, allocationLists, showAllocationLists, showQAAssets, filtered]);
+  }, [
+    assets,
+    allocationLists,
+    showAllocationLists,
+    showQAAssets,
+    filtered,
+    urlClient,
+    urlBatch,
+  ]);
 
   // Handle URL parameters for client, batch, modeler, and status filters
   useEffect(() => {
@@ -1334,6 +1373,17 @@ export default function AdminReviewPage() {
         showAllocationLists
       )
         return;
+
+      // Wait for searchParams to be available
+      if (!searchParams) {
+        console.log("SearchParams not available yet, skipping fetchAssets");
+        return;
+      }
+
+      console.log("fetchAssets called with URL params:", {
+        urlClient,
+        urlBatch,
+      });
       startLoading();
       setLoading(true);
 
@@ -1447,6 +1497,9 @@ export default function AdminReviewPage() {
     batchFilters,
     showAllocationLists,
     refreshTrigger,
+    urlClient,
+    urlBatch,
+    searchParams,
   ]);
 
   // Fetch annotation counts for assets

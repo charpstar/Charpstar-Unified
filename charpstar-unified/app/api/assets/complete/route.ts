@@ -28,11 +28,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get user's role from profiles table
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError) {
+      console.error("Error fetching user profile:", profileError);
+      return NextResponse.json(
+        { error: "Failed to fetch user profile" },
+        { status: 500 }
+      );
+    }
+
     // Enforce role on client approval
-    if (
-      status === "approved_by_client" &&
-      user.user_metadata?.role !== "client"
-    ) {
+    if (status === "approved_by_client" && profile?.role !== "client") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -82,6 +94,19 @@ export async function POST(request: NextRequest) {
         { error: "Failed to update asset status" },
         { status: 500 }
       );
+    }
+
+    // Mark all existing annotations as old when setting status to revisions
+    if (status === "revisions") {
+      const { error: markOldError } = await supabase
+        .from("asset_annotations")
+        .update({ is_old_annotation: true })
+        .eq("asset_id", assetId);
+
+      if (markOldError) {
+        console.error("Error marking old annotations:", markOldError);
+        // Don't fail the main request if annotation marking fails
+      }
     }
 
     // Log activity for status change (used by QA metrics for approvals)

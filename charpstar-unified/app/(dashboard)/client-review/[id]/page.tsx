@@ -77,6 +77,7 @@ interface Annotation {
     email?: string;
   };
   parent_id?: string;
+  is_old_annotation?: boolean;
 }
 
 interface Hotspot {
@@ -298,6 +299,15 @@ export default function ReviewPage() {
   const [rightPanelTab, setRightPanelTab] = useState<"images" | "feedback">(
     "feedback"
   );
+
+  // Filter out old annotations for 3D viewer hotspots only
+  const filteredAnnotations = annotations.filter(
+    (annotation) => !annotation.is_old_annotation
+  );
+
+  // Keep all annotations for comment sections (including old ones for context)
+  const allAnnotations = annotations;
+
   const [imageZoom, setImageZoom] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -409,7 +419,7 @@ export default function ReviewPage() {
   };
 
   // Convert annotations to hotspots format
-  const hotspots: Hotspot[] = annotations
+  const hotspots: Hotspot[] = filteredAnnotations
     .filter((annotation: any) => !annotation.parent_id)
     .map((annotation) => ({
       id: annotation.id,
@@ -772,7 +782,9 @@ export default function ReviewPage() {
   const handleHotspotSelect = (hotspotId: string | null) => {
     setSelectedHotspotId(hotspotId);
     if (hotspotId) {
-      const annotation = annotations.find((ann) => ann.id === hotspotId);
+      const annotation = filteredAnnotations.find(
+        (ann) => ann.id === hotspotId
+      );
       if (annotation) {
         setSelectedAnnotation(annotation);
         setHighlightedAnnotationId(hotspotId);
@@ -1003,7 +1015,9 @@ export default function ReviewPage() {
   };
 
   const handleAnnotationSelect = (annotationId: string) => {
-    const annotation = annotations.find((ann) => ann.id === annotationId);
+    const annotation = filteredAnnotations.find(
+      (ann) => ann.id === annotationId
+    );
     if (!isAdmin && annotation && annotation.created_by !== user?.id) {
       return;
     }
@@ -1264,6 +1278,19 @@ export default function ReviewPage() {
       // Update local state
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
       setRevisionCount(revisionNumber);
+
+      // Refresh annotations when status changes to revisions (annotations marked as old)
+      if (newStatus === "revisions") {
+        try {
+          const response = await fetch(`/api/annotations?asset_id=${assetId}`);
+          const data = await response.json();
+          if (response.ok) {
+            setAnnotations(data.annotations || []);
+          }
+        } catch (error) {
+          console.error("Error refreshing annotations:", error);
+        }
+      }
 
       // Dispatch custom event to notify other components to refresh
       window.dispatchEvent(
@@ -1583,6 +1610,17 @@ export default function ReviewPage() {
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
       if (newStatus === "revisions") {
         setRevisionCount((prev) => prev + 1);
+
+        // Refresh annotations when status changes to revisions (annotations marked as old)
+        try {
+          const response = await fetch(`/api/annotations?asset_id=${assetId}`);
+          const data = await response.json();
+          if (response.ok) {
+            setAnnotations(data.annotations || []);
+          }
+        } catch (error) {
+          console.error("Error refreshing annotations:", error);
+        }
       }
 
       // Dispatch custom event to notify other components to refresh
@@ -1932,6 +1970,116 @@ export default function ReviewPage() {
     setShowRevisionDetailsDialog(true);
   };
 
+  // Function to restore a revision (restore annotations and comments from that revision)
+  const restoreRevision = async (revisionNumber: number) => {
+    if (!assetId || !user) return;
+
+    const revision = revisionHistory.find(
+      (r) => r.revision_number === revisionNumber
+    );
+
+    if (!revision) {
+      toast.error("Revision not found");
+      return;
+    }
+
+    try {
+      // Get the stored annotations and comments from the revision
+      const revisionAnnotations = revision.annotations || [];
+      const revisionComments = revision.comments || [];
+
+      // First, mark all current annotations as old
+      const { error: markOldError } = await supabase
+        .from("asset_annotations")
+        .update({ is_old_annotation: true })
+        .eq("asset_id", assetId);
+
+      if (markOldError) {
+        console.error(
+          "Error marking current annotations as old:",
+          markOldError
+        );
+        toast.error("Failed to prepare for restoration");
+        return;
+      }
+
+      // Delete all current comments
+      const { error: deleteCommentsError } = await supabase
+        .from("asset_comments")
+        .delete()
+        .eq("asset_id", assetId);
+
+      if (deleteCommentsError) {
+        console.error("Error deleting current comments:", deleteCommentsError);
+        toast.error("Failed to clear current comments");
+        return;
+      }
+
+      // Restore annotations from the revision snapshot
+      for (const annotation of revisionAnnotations) {
+        const { error: restoreAnnotationError } = await supabase
+          .from("asset_annotations")
+          .insert({
+            asset_id: assetId,
+            position: annotation.position,
+            normal: annotation.normal,
+            surface: annotation.surface,
+            comment: annotation.comment,
+            image_url: annotation.image_url,
+            parent_id: annotation.parent_id,
+            created_by: annotation.created_by,
+            created_at: annotation.created_at,
+            is_old_annotation: false, // Restored annotations are not old
+          });
+
+        if (restoreAnnotationError) {
+          console.error("Error restoring annotation:", restoreAnnotationError);
+        }
+      }
+
+      // Restore comments from the revision snapshot
+      for (const comment of revisionComments) {
+        const { error: restoreCommentError } = await supabase
+          .from("asset_comments")
+          .insert({
+            asset_id: assetId,
+            content: comment.content,
+            created_by: comment.created_by,
+            created_at: comment.created_at,
+            parent_id: comment.parent_id,
+            priority: comment.priority,
+          });
+
+        if (restoreCommentError) {
+          console.error("Error restoring comment:", restoreCommentError);
+        }
+      }
+
+      // Refresh the data by refetching
+      const annotationResponse = await fetch(
+        `/api/annotations?asset_id=${assetId}`
+      );
+      const annotationData = await annotationResponse.json();
+      if (annotationResponse.ok) {
+        setAnnotations(annotationData.annotations || []);
+      }
+
+      const commentResponse = await fetch(`/api/comments?asset_id=${assetId}`);
+      const commentData = await commentResponse.json();
+      if (commentResponse.ok) {
+        setComments(commentData.comments || []);
+      }
+
+      await fetchRevisionHistory();
+
+      toast.success(`Revision ${revisionNumber} restored successfully`);
+      setShowRevisionDetailsDialog(false);
+    } catch (error) {
+      console.error("Error restoring revision:", error);
+      toast.error("Failed to restore revision");
+    }
+  };
+
   // Function to get color classes for revision badges
   const getRevisionBadgeColors = (revisionNumber: number) => {
     const colors = [
@@ -2003,58 +2151,32 @@ export default function ReviewPage() {
     return comments;
   };
 
-  // Filter annotations and comments for a specific revision
+  // Filter annotations and comments for a specific revision using stored snapshots
   const getRevisionItems = (revisionNumber: number) => {
     if (revisionNumber === 0) {
       // For revision 0 (original), get items created before the first revision was requested
       if (revisionHistory.length === 0) {
         // If no revisions exist, all items belong to revision 0
-        return { annotations, comments };
+        return { annotations: allAnnotations, comments };
       }
 
-      const firstRevisionDate = new Date(revisionHistory[0].created_at);
-
-      const revisionAnnotations = annotations.filter(
-        (annotation) => new Date(annotation.created_at) < firstRevisionDate
-      );
-
-      const revisionComments = comments.filter(
-        (comment) => new Date(comment.created_at) < firstRevisionDate
-      );
+      // Use the snapshot from the first revision to get the state before any revisions
+      const firstRevision = revisionHistory[0];
+      const revisionAnnotations = firstRevision.annotations || [];
+      const revisionComments = firstRevision.comments || [];
 
       return { annotations: revisionAnnotations, comments: revisionComments };
     } else {
-      // For revision N, get items created after revision N-1 and before revision N+1
+      // For revision N, use the stored snapshot from that revision
       const currentRevision = revisionHistory.find(
         (r) => r.revision_number === revisionNumber
       );
 
       if (!currentRevision) return { annotations: [], comments: [] };
 
-      const currentRevisionDate = new Date(currentRevision.created_at);
-
-      // Find the next revision date (or use far future date for latest revision)
-      const nextRevision = revisionHistory.find(
-        (r) => r.revision_number === revisionNumber + 1
-      );
-      const nextRevisionDate = nextRevision
-        ? new Date(nextRevision.created_at)
-        : new Date(Date.now() + 86400000); // Far future date
-
-      const revisionAnnotations = annotations.filter((annotation) => {
-        const annotationDate = new Date(annotation.created_at);
-        return (
-          annotationDate >= currentRevisionDate &&
-          annotationDate < nextRevisionDate
-        );
-      });
-
-      const revisionComments = comments.filter((comment) => {
-        const commentDate = new Date(comment.created_at);
-        return (
-          commentDate >= currentRevisionDate && commentDate < nextRevisionDate
-        );
-      });
+      // Use the stored snapshots from the revision
+      const revisionAnnotations = currentRevision.annotations || [];
+      const revisionComments = currentRevision.comments || [];
 
       return { annotations: revisionAnnotations, comments: revisionComments };
     }
@@ -2819,7 +2941,7 @@ export default function ReviewPage() {
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="text-center">
                   <div className="text-sm sm:text-lg font-bold text-foreground">
-                    {annotations.length}
+                    {filteredAnnotations.length}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Annotations
@@ -3000,8 +3122,13 @@ export default function ReviewPage() {
                                   key={annotation.id || index}
                                   className="text-xs p-2 bg-background rounded border"
                                 >
-                                  <div className="font-medium text-muted-foreground mb-1">
+                                  <div className="font-medium text-muted-foreground mb-1 flex items-center gap-2">
                                     Annotation {index + 1}
+                                    {annotation.is_old_annotation && (
+                                      <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-800 rounded border border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/50">
+                                        Old
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-foreground">
                                     <span className="break-words whitespace-pre-wrap">
@@ -3090,9 +3217,9 @@ export default function ReviewPage() {
           </div>
         )}
 
-        <div className="flex flex-col xl:flex-row flex-1 overflow-y-auto xl:overflow-hidden bg-background">
+        <div className="flex flex-col xl:flex-row flex-1 overflow-y-auto xl:overflow-hidden ">
           {/* Main Content (3D Viewer) */}
-          <div className="flex-1 relative bg-background m-3 sm:m-6 rounded-lg shadow-lg border border-border/50 h-[65vh] xl:h-auto">
+          <div className="flex-1 relative  m-3 sm:m-6 rounded-lg shadow-lg border border-border/50 h-[65vh] xl:h-auto">
             {/* Ctrl Key Visual Indicator */}
             {isCtrlPressed && !annotationMode && (
               <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 bg-primary/90 text-primary-foreground px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium shadow-lg border border-primary/20 backdrop-blur-sm">
@@ -3133,7 +3260,11 @@ export default function ReviewPage() {
                   shadow-softness="1"
                   min-field-of-view="5deg"
                   max-field-of-view="35deg"
-                  style={{ width: "100%", height: "100%" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: "#fafafa",
+                  }}
                   onLoad={handleModelLoaded}
                   onClick={(event: any) => {
                     // Check if Ctrl key is held down for hotkey shortcut
@@ -3191,7 +3322,7 @@ export default function ReviewPage() {
                               selectedHotspotId === hotspot.id ? "selected" : ""
                             }`}
                             data-annotation={
-                              annotations
+                              filteredAnnotations
                                 .sort(
                                   (a, b) =>
                                     new Date(a.created_at).getTime() -
@@ -3291,10 +3422,10 @@ export default function ReviewPage() {
                 <div className="flex items-center gap-1 sm:gap-2">
                   <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">
-                    Feedback ({annotations.length + comments.length})
+                    Feedback ({allAnnotations.length + comments.length})
                   </span>
                   <span className="sm:hidden">
-                    Feedback ({annotations.length + comments.length})
+                    Feedback ({allAnnotations.length + comments.length})
                   </span>
                 </div>
               </button>
@@ -3666,7 +3797,7 @@ export default function ReviewPage() {
                             isFunctionalityDisabled()
                               ? "Comments disabled during revision"
                               : selectedHotspotId
-                                ? `Add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
+                                ? `Add a comment about annotation ${allAnnotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
                                 : "Add a comment about this asset..."
                           }
                           value={newCommentText}
@@ -3722,7 +3853,7 @@ export default function ReviewPage() {
                 <div className="p-2">
                   <div className="space-y-4">
                     {[
-                      ...annotations
+                      ...allAnnotations
                         .filter((a: any) => !a.parent_id)
                         .map((a) => ({
                           ...a,
@@ -3776,9 +3907,9 @@ export default function ReviewPage() {
                                   </div>
                                   {/* Annotation Number Badge */}
                                   <div
-                                    className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(annotations.findIndex((a) => a.id === item.id))}`}
+                                    className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(allAnnotations.findIndex((a) => a.id === item.id))}`}
                                   >
-                                    {annotations.findIndex(
+                                    {allAnnotations.findIndex(
                                       (a) => a.id === item.id
                                     ) + 1}
                                   </div>
@@ -3804,6 +3935,14 @@ export default function ReviewPage() {
                                         </span>
                                         <span className="sm:hidden">Ann</span>
                                       </Badge>
+                                      {item.is_old_annotation && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs px-1.5 sm:px-2 py-0.5 bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/50"
+                                        >
+                                          Old
+                                        </Badge>
+                                      )}
                                     </div>
                                   </div>
                                   {item.profiles?.title && (
@@ -4545,7 +4684,7 @@ export default function ReviewPage() {
                         )
                       )}
 
-                    {annotations.length + getAllComments().length === 0 && (
+                    {allAnnotations.length + getAllComments().length === 0 && (
                       <div className="text-center py-12">
                         <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                           <MessageCircle className="h-8 w-8 text-muted-foreground" />
@@ -5077,14 +5216,24 @@ export default function ReviewPage() {
                                         {annotation.profiles?.email ||
                                           "Unknown"}
                                       </div>
-                                      {annotation.profiles?.title && (
-                                        <Badge
-                                          variant="outline"
-                                          className="text-xs mt-1"
-                                        >
-                                          {annotation.profiles.title}
-                                        </Badge>
-                                      )}
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {annotation.profiles?.title && (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
+                                            {annotation.profiles.title}
+                                          </Badge>
+                                        )}
+                                        {annotation.is_old_annotation && (
+                                          <Badge
+                                            variant="secondary"
+                                            className="text-xs bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/50"
+                                          >
+                                            Old
+                                          </Badge>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                   <div className="text-xs text-muted-foreground">
@@ -5193,7 +5342,19 @@ export default function ReviewPage() {
                 </div>
               )}
 
-              <div className="flex justify-end pt-4 border-t border-border">
+              <div className="flex justify-between pt-4 border-t border-border">
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (selectedRevision) {
+                      restoreRevision(selectedRevision.revision_number);
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  Restore This Revision
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setShowRevisionDetailsDialog(false)}
