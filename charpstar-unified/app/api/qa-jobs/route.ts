@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { supabase } from "@/lib/supabaseClient";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { GoogleGenAI } from "@google/genai";
 
@@ -32,6 +31,7 @@ type ModelStats = {
   requirements?: {
     maxTriangles: number;
     maxMaterials: number;
+    maxMeshes: number;
     maxFileSize: number;
   };
 };
@@ -318,6 +318,12 @@ async function processQAJob(
         );
       }
 
+      if (modelStats.meshCount > modelStats.requirements.maxMeshes) {
+        issues.push(
+          `Mesh count: ${modelStats.meshCount} exceeds maximum ${modelStats.requirements.maxMeshes}`
+        );
+      }
+
       if (modelStats.fileSize > modelStats.requirements.maxFileSize) {
         const actualMB = (modelStats.fileSize / (1024 * 1024)).toFixed(1);
         const maxMB = (
@@ -534,7 +540,7 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
       let qaResults: QAResults;
       try {
         qaResults = JSON.parse(raw);
-      } catch (parseError) {
+      } catch {
         // Attempt to extract JSON from markdown code blocks
         let jsonText = raw;
         
@@ -757,7 +763,7 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
     let qaResults: QAResults;
     try {
       qaResults = JSON.parse(raw);
-    } catch (parseError) {
+    } catch {
       // Attempt to extract JSON from markdown code blocks
       let jsonText = raw;
       
@@ -860,7 +866,7 @@ export async function POST(request: NextRequest) {
     }
 
     const jobId = uuidv4();
-    const { data: insertData, error: insertError } = await supabaseAdmin
+    const { error: insertError } = await supabaseAdmin
       .from("qa_jobs")
       .insert([
         {

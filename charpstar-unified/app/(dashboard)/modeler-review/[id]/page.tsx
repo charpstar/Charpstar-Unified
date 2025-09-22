@@ -37,7 +37,7 @@ import {
 import Script from "next/script";
 import { toast } from "sonner";
 import Image from "next/image";
-import { AutomatedQA, QAWorkflowModal } from "@/components/qa";
+import { QAWorkflowModal } from "@/components/qa";
 
 import "./annotation-styles.css";
 
@@ -243,7 +243,6 @@ export default function ModelerReviewPage() {
 
   // QA state
   const [showQADialog, setShowQADialog] = useState(false);
-  const [qaResults, setQaResults] = useState<any>(null);
   const [qaApproved, setQaApproved] = useState<boolean | null>(null);
   const [uploadedGlbUrl, setUploadedGlbUrl] = useState<string | null>(null);
   const [showStaleGlbDialog, setShowStaleGlbDialog] = useState(false);
@@ -3201,7 +3200,6 @@ export default function ModelerReviewPage() {
           modelViewerRef={modelViewerRef}
           onComplete={(results) => {
             console.log("QA completed:", results);
-            setQaResults(results);
             setQaApproved(results?.status === "Approved");
             setShowQADialog(false);
           }}

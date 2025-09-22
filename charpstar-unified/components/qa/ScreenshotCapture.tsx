@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/display/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/containers/card";
 import { Badge } from "@/components/ui/feedback/badge";
 import { Progress } from "@/components/ui/feedback/progress";
-import { Camera, Download, RotateCcw, CheckCircle, AlertCircle } from "lucide-react";
+import { Camera, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -25,6 +25,12 @@ interface ModelStats {
   doubleSidedCount: number;
   doubleSidedMaterials: string[];
   fileSize: number;
+  requirements?: {
+    maxTriangles: number;
+    maxMaterials: number;
+    maxMeshes: number;
+    maxFileSize: number;
+  };
 }
 
 interface ValidationResult {
@@ -67,26 +73,34 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
   const validateModelRequirements = (stats: ModelStats): ValidationResult => {
     const issues: string[] = [];
     
-    // Polycount check: Under 150K triangles
-    if (stats.triangles > 150000) {
-      issues.push(`Polycount: ${stats.triangles.toLocaleString()} triangles exceeds maximum 150,000`);
+    // Use requirements from stats if available, otherwise use defaults
+    const requirements = stats.requirements || {
+      maxTriangles: 150000,
+      maxMaterials: 8,
+      maxMeshes: 8,
+      maxFileSize: 15 * 1024 * 1024 // 15MB in bytes
+    };
+    
+    // Polycount check
+    if (stats.triangles > requirements.maxTriangles) {
+      issues.push(`Polycount: ${stats.triangles.toLocaleString()} triangles exceeds maximum ${requirements.maxTriangles.toLocaleString()}`);
     }
     
-    // Material count check: Maximum 10 materials (relaxed for testing)
-    if (stats.materialCount > 5) {
-      issues.push(`Material count: ${stats.materialCount} exceeds maximum 10`);
+    // Material count check
+    if (stats.materialCount > requirements.maxMaterials) {
+      issues.push(`Material count: ${stats.materialCount} exceeds maximum ${requirements.maxMaterials}`);
     }
     
-    // Mesh count check: Maximum 10 meshes (relaxed for testing)
-    if (stats.meshCount > 5) {
-      issues.push(`Mesh count: ${stats.meshCount} exceeds maximum 10`);
+    // Mesh count check
+    if (stats.meshCount > requirements.maxMeshes) {
+      issues.push(`Mesh count: ${stats.meshCount} exceeds maximum ${requirements.maxMeshes}`);
     }
     
-    // File size check: 15MB or less
-    const maxFileSize = 15 * 1024 * 1024; // 15MB in bytes
-    if (stats.fileSize > maxFileSize) {
+    // File size check
+    if (stats.fileSize > requirements.maxFileSize) {
       const actualMB = (stats.fileSize / (1024 * 1024)).toFixed(1);
-      issues.push(`File size: ${actualMB}MB exceeds maximum 15MB`);
+      const maxMB = (requirements.maxFileSize / (1024 * 1024)).toFixed(0);
+      issues.push(`File size: ${actualMB}MB exceeds maximum ${maxMB}MB`);
     }
     
     return {
@@ -180,7 +194,7 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
           
           // Upload directly
           const fileName = `qa-screenshots/${assetId}/${index + 1}-${angle.name.toLowerCase().replace(/\s+/g, '-')}.png`;
-          const { data, error } = await supabase.storage
+          const { error } = await supabase.storage
             .from('assets')
             .upload(fileName, blob, {
               cacheControl: '3600',
@@ -222,7 +236,7 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
       
       // Upload to Supabase storage
       const fileName = `qa-screenshots/${assetId}/${index + 1}-${angle.name.toLowerCase().replace(/\s+/g, '-')}.png`;
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('assets')
         .upload(fileName, blob, {
           cacheControl: '3600',
@@ -349,6 +363,12 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
         doubleSidedCount: modelStats.doubleSidedCount || 0,
         doubleSidedMaterials: modelStats.doubleSidedMaterials || [],
         fileSize,
+        requirements: {
+          maxTriangles: 150000,
+          maxMaterials: 8,
+          maxMeshes: 8,
+          maxFileSize: 15 * 1024 * 1024 // 15MB in bytes
+        }
       };
     } catch (error) {
       console.error('Error getting model stats:', error);

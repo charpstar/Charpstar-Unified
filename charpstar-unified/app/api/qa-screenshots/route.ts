@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(request: NextRequest) {
@@ -79,7 +78,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update the QA job with screenshot URLs and model stats
-    const { data: updatedJob, error: updateError } = await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from("qa_jobs")
       .update({
         status: "screenshots_captured",

@@ -5,18 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/contai
 import { Badge } from "@/components/ui/feedback/badge";
 import { Button } from "@/components/ui/display/button";
 import { Progress } from "@/components/ui/feedback/progress";
-import { Separator } from "@/components/ui/containers/separator";
 import { 
   CheckCircle, 
   XCircle, 
   Clock, 
-  AlertTriangle, 
-  Eye, 
-  RefreshCw,
-  Download,
-  ExternalLink
+  RefreshCw
 } from "lucide-react";
-import { toast } from "sonner";
 
 interface QAResultsProps {
   jobId: string;
@@ -138,18 +132,6 @@ const QAResults: React.FC<QAResultsProps> = ({ jobId, onRetry, onClose }) => {
     }
   };
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity.toLowerCase()) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   const formatTime = (timeString?: string) => {
     if (!timeString) return 'N/A';

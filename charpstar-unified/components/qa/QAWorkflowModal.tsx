@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/containers";
 import { 
   Bot, 
   Camera, 
@@ -12,11 +11,8 @@ import {
   AlertTriangle,
   RefreshCw,
   X,
-  Download,
   Play,
-  Sparkles,
-  Target,
-  Zap
+  Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import ScreenshotCapture from "./ScreenshotCapture";
@@ -46,8 +42,6 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
   const [qaState, setQaState] = useState<QAState>('idle');
   const [qaJobId, setQaJobId] = useState<string | null>(null);
   const [qaResults, setQaResults] = useState<any>(null);
-  const [capturedScreenshots, setCapturedScreenshots] = useState<string[]>([]);
-  const [modelStats, setModelStats] = useState<any>(null);
 
   const startQA = async () => {
     if (!glbUrl) {
@@ -56,7 +50,6 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
     }
 
     setQaState('capturing');
-    setCapturedScreenshots([]);
     setQaJobId(null);
     setQaResults(null);
 
@@ -71,8 +64,6 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
   };
 
   const handleScreenshotsCaptured = async (screenshots: string[], stats: any, failedResult?: any) => {
-    setCapturedScreenshots(screenshots);
-    setModelStats(stats);
     
     // If there's a failed result from validation, handle it immediately
     if (failedResult) {
@@ -154,8 +145,6 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
   const resetQA = () => {
     setQaState('idle');
     setQaJobId(null);
-    setCapturedScreenshots([]);
-    setModelStats(null);
   };
 
   const getStateIcon = () => {

@@ -8,9 +8,7 @@ import {
   Bot, 
   Camera, 
   CheckCircle, 
-  Clock, 
   AlertTriangle,
-  Eye,
   RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,13 +29,10 @@ const AutomatedQA: React.FC<AutomatedQAProps> = ({
   glbUrl,
   assetId,
   referenceImages,
-  onComplete,
   onCancel,
 }) => {
   const [qaState, setQaState] = useState<QAState>('idle');
   const [qaJobId, setQaJobId] = useState<string | null>(null);
-  const [capturedScreenshots, setCapturedScreenshots] = useState<string[]>([]);
-  const [modelStats, setModelStats] = useState<any>(null);
 
   // Debug logging
   console.log("AutomatedQA component rendered with:", {
@@ -52,8 +47,6 @@ const AutomatedQA: React.FC<AutomatedQAProps> = ({
   };
 
   const handleScreenshotsCaptured = async (screenshots: string[], stats: any) => {
-    setCapturedScreenshots(screenshots);
-    setModelStats(stats);
     setQaState('analyzing');
 
     try {
@@ -102,16 +95,10 @@ const AutomatedQA: React.FC<AutomatedQAProps> = ({
     }
   };
 
-  const handleQAResultsComplete = (results: any) => {
-    setQaState('complete');
-    onComplete?.(results);
-  };
 
   const handleRetry = () => {
     setQaState('idle');
     setQaJobId(null);
-    setCapturedScreenshots([]);
-    setModelStats(null);
   };
 
   const getStateIcon = () => {
