@@ -161,6 +161,202 @@ export async function generateSingleScene(
   }
 }
 
+export async function generateMultiAngleScenes(
+  base64Images: string[],
+  objectSize: string,
+  objectType: string,
+  sceneDescription: string,
+  inspirationImage: string | null
+): Promise<string[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable not set.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  const angleNames = ["Front", "Front Right", "Front Left"];
+  const allScenes: string[] = [];
+
+  // First, send all images together to get context and consistency guidelines
+  const contextPrompt = `You are analyzing ${base64Images.length} different camera angles of the same product: ${angleNames.slice(0, base64Images.length).join(", ")}. 
+
+Please provide detailed analysis of:
+1. **SHAPE ANALYSIS (CRITICAL):** 
+   - **Frame Shape:** Exact frame outline, curves, and geometric proportions
+   - **Lens Details:** Precise lens shape, size, positioning, and curvature
+   - **Bridge Geometry:** Exact bridge width, height, curvature, and angle
+   - **Temple Design:** Precise temple length, angle, design, and attachment points
+   - **Edge Details:** Frame thickness, beveled edges, and transition points
+   - **Symmetry/Asymmetry:** Any unique geometric features or asymmetries
+   - **Proportional Ratios:** Precise measurements and ratios between all elements
+   - **3D Structure:** How the frame curves and sits in 3D space
+
+2. **VISUAL CHARACTERISTICS:**
+   - Exact colors, materials, and textures
+   - Surface finishes (matte, glossy, metallic, etc.)
+   - Transparency levels and reflections
+   - Edge details and transitions
+
+3. **CONSISTENCY REQUIREMENTS:**
+   - Recommended background environment and lighting setup
+   - Key details that MUST remain identical across all angles
+   - Critical shape elements that cannot vary
+   - Material properties that must be consistent
+
+This detailed analysis will be used to generate perfectly consistent scenes for each angle.`;
+
+  const contextImageParts = base64Images.map((base64Image) => ({
+    inlineData: {
+      mimeType: "image/png",
+      data: base64Image,
+    },
+  }));
+
+  if (inspirationImage) {
+    contextImageParts.push({
+      inlineData: {
+        mimeType: "image/jpeg",
+        data: inspirationImage,
+      },
+    });
+  }
+
+  let contextAnalysis = "";
+  try {
+    console.log(
+      `🔍 Analyzing product consistency across ${base64Images.length} angles...`
+    );
+    const contextResult = await callApi(ai, contextImageParts, {
+      text: contextPrompt,
+    });
+    contextAnalysis = contextResult || "";
+    console.log(`✅ Context analysis completed`);
+  } catch (error) {
+    console.warn(
+      "Context analysis failed, proceeding with individual generation:",
+      error
+    );
+  }
+
+  // Now generate each scene individually with enhanced consistency prompts
+  for (let i = 0; i < base64Images.length; i++) {
+    const base64Image = base64Images[i];
+    const angleName = angleNames[i] || `Angle ${i + 1}`;
+
+    console.log(
+      `🎨 Generating scene for ${angleName} (${i + 1}/${base64Images.length}) with consistency context`
+    );
+
+    const imagePart = {
+      inlineData: {
+        mimeType: "image/png",
+        data: base64Image,
+      },
+    };
+
+    const imageParts = [imagePart];
+    if (inspirationImage) {
+      imageParts.push({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: inspirationImage,
+        },
+      });
+    }
+
+    const shotTypeModifier = `**Shot Type:** Generate a classic, eye-level hero shot. The product should be perfectly centered and well-lit, with the background subtly complementing it.`;
+
+    let scene;
+    if (sceneDescription.trim() !== "") {
+      scene = `**Scene Description:** The user wants the following scene: "${sceneDescription}".\n${shotTypeModifier}`;
+    } else {
+      scene = `**Scene Description:** Place the object in a bright, airy, modern Scandinavian interior.\n${shotTypeModifier}`;
+    }
+
+    // Enhanced prompt with consistency context
+    const enhancedPrompt = `You are an elite virtual product photographer, an expert in photorealistic compositing.
+
+**CORE DIRECTIVES (NON-NEGOTIABLE):**
+1. **MODEL INTEGRITY (ABSOLUTE PRIORITY):** You are forbidden from altering the primary product image. Do not redraw, re-render, distort, warp, or change its shape, color, texture, or proportions in any way. Treat it as a perfect, untouchable photograph that you are compositing into a background. Your ONLY job is to create the background scene *behind* it. This is the most important rule; violating it results in failure.
+
+2. **MULTI-ANGLE CONSISTENCY (CRITICAL):** This is angle ${i + 1} of ${base64Images.length} (${angleName}). You must maintain PERFECT consistency with the other angles:
+   - **SHAPE PRECISION:** The product's exact shape, curves, proportions, and geometric features must be IDENTICAL to other angles
+   - **DETAILED CONSISTENCY:** Every frame detail, lens curve, bridge shape, temple angle must match exactly
+   - **PROPORTIONAL ACCURACY:** All measurements, ratios, and spatial relationships must be consistent
+   - **MATERIAL FIDELITY:** Colors, textures, finishes, and material properties must be identical
+   - **SCENE CONSISTENCY:** Use the same background environment and lighting setup as other angles
+   - **QUALITY STANDARD:** This image must have the same professional quality and style as other angles
+   - **ANGLE-SPECIFIC VIEW:** Show the product from this unique perspective while maintaining perfect consistency
+
+${contextAnalysis ? `**CONSISTENCY CONTEXT:** ${contextAnalysis}` : ""}
+
+3. **PHYSICAL ACCURACY:**
+   - **Scaling Reference:** The product's real-world dimensions are: ${objectSize}. Use this data to render the scene to a perfectly realistic scale.
+   - **CRITICAL: Do NOT Render Dimensions:** Under no circumstances should you draw or write these dimensions, measurement lines, or any related text onto the final image. This data is for your internal scaling calculations ONLY.
+   - **Object Context:** The object is a "${objectType}". This context is CRITICAL for realistic placement. A "${objectType}" belongs in a logical location (e.g., a chair on the floor, a lamp on a table). Ensure the placement is physically plausible and respects gravity.
+
+**CREATIVE TASK:**
+Your task is to create a photorealistic background scene and composite the provided product image into it, following all directives. This scene should be consistent with the other angles while showcasing the product from this unique perspective.
+
+${scene}
+
+${
+  inspirationImage
+    ? `
+**Inspiration Photo Guidance:**
+You have an additional "inspiration" image.
+- **Analyze:** Study its style, mood, lighting, and color palette.
+- **Synthesize:** Create a NEW, UNIQUE scene that captures the *essence* of the inspiration.
+- **Constraint:** DO NOT copy the inspiration photo. Your task is to be *inspired* by it, not to replicate it.
+`
+    : ""
+}
+
+**PHOTOREALISM CHECKLIST:**
+Apply these techniques to achieve a flawless, professional result:
+
+- **SHAPE FIDELITY (CRITICAL):** Pay extreme attention to the product's exact shape details:
+  - **Frame Geometry:** Preserve every curve, angle, and proportion exactly as shown
+  - **Lens Shape:** Maintain precise lens curves, size, and positioning
+  - **Bridge Details:** Keep exact bridge width, height, and curvature
+  - **Temple Design:** Preserve temple length, angle, and design elements
+  - **Edge Transitions:** Maintain smooth, consistent edge details and transitions
+  - **Proportional Accuracy:** Ensure all elements maintain their exact size relationships
+
+- **Integrated Lighting:** The product must be lit by the scene's light sources. The direction, color, and softness of the light must match the environment perfectly and be consistent with other angles.
+- **Accurate Shadows:** Generate soft, realistic shadows cast by the product onto the environment. Include subtle contact shadows where it touches a surface to ground it.
+- **Material Interaction:** This is crucial for realism. Light must interact believably with the product's surfaces.
+  - **Shiny/Metallic:** Must show clear, distorted reflections of the new scene.
+  - **Matte/Diffuse:** Must absorb light with soft, non-reflective highlights.
+  - **Transparent/Glass:** Must realistically refract and distort the background seen through it.
+- **Subtle Depth of Field:** Use a shallow depth of field to keep the product sharp while gently blurring the distant background, enhancing focus.
+- **Ambient Occlusion:** Ensure soft, subtle shading appears in crevices and where objects meet, adding depth and realism.
+
+**Final Output:** Your output must be ONLY the final composited image. No text, no watermarks, no additional content.`;
+
+    try {
+      const result = await callApi(ai, imageParts, { text: enhancedPrompt });
+
+      if (!result) {
+        throw new Error(
+          "The AI failed to generate an image. This might be due to server issues or invalid input."
+        );
+      }
+
+      allScenes.push(result);
+      console.log(`✅ Successfully generated scene for ${angleName}`);
+    } catch (error) {
+      console.error(`Error generating scene for ${angleName}:`, error);
+      throw error;
+    }
+  }
+
+  console.log(
+    `🎉 Completed generation of ${allScenes.length} consistent scenes`
+  );
+  return allScenes;
+}
+
 export async function generateScenes(
   base64Image: string,
   objectSize: string,

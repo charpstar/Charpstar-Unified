@@ -54,7 +54,7 @@ const getStatusLabelClass = (status: string): string => {
     case "approved_by_client":
       return "status-approved-by-client";
     case "delivered_by_artist":
-      return "status-delivered-by-artist";
+      return "status-in-progress"; // Use in-progress styling for client view
     case "not_started":
       return "status-in-production"; // Use same styling as in_production
     case "in_progress":
@@ -109,7 +109,7 @@ const getRowStyling = (status: string): { base: string; hover: string } => {
     case "approved_by_client":
       return { base: "table-row-status-approved-by-client", hover: "" };
     case "delivered_by_artist":
-      return { base: "table-row-status-delivered-by-artist", hover: "" };
+      return { base: "table-row-status-in-production", hover: "" }; // Use in-production styling for client view
     case "not_started":
       return { base: "table-row-status-in-production", hover: "" }; // Use same styling as in_production
     case "in_progress":
@@ -1162,22 +1162,25 @@ export default function ReviewDashboardPage() {
                               )}
                             </TableCell>
                             <TableCell className="text-left w-12">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  const currentParams = new URLSearchParams(
-                                    searchParams.toString()
-                                  );
-                                  currentParams.set("from", "client-review");
-                                  router.push(
-                                    `/client-review/${asset.id}?${currentParams.toString()}`
-                                  );
-                                }}
-                                className="h-8 w-8 dark:hover:bg-muted/50"
-                              >
-                                <Eye className="h-5 w-5" />
-                              </Button>
+                              {(asset.status === "approved" ||
+                                asset.status === "approved_by_client") && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    const currentParams = new URLSearchParams(
+                                      searchParams.toString()
+                                    );
+                                    currentParams.set("from", "client-review");
+                                    router.push(
+                                      `/client-review/${asset.id}?${currentParams.toString()}`
+                                    );
+                                  }}
+                                  className="h-8 w-8 dark:hover:bg-muted/50"
+                                >
+                                  <Eye className="h-5 w-5" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         );
@@ -1276,22 +1279,25 @@ export default function ReviewDashboardPage() {
                                 </div>
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                const currentParams = new URLSearchParams(
-                                  searchParams.toString()
-                                );
-                                currentParams.set("from", "client-review");
-                                router.push(
-                                  `/client-review/${asset.id}?${currentParams.toString()}`
-                                );
-                              }}
-                              className="h-8 w-8 dark:hover:bg-muted/50 flex-shrink-0"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            {(asset.status === "approved" ||
+                              asset.status === "approved_by_client") && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const currentParams = new URLSearchParams(
+                                    searchParams.toString()
+                                  );
+                                  currentParams.set("from", "client-review");
+                                  router.push(
+                                    `/client-review/${asset.id}?${currentParams.toString()}`
+                                  );
+                                }}
+                                className="h-8 w-8 dark:hover:bg-muted/50 flex-shrink-0"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
 
                           {/* Article ID and Priority */}

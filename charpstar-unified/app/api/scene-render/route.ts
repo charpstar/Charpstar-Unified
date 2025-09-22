@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateSingleScene } from "@/lib/geminiService";
+import { generateMultiAngleScenes } from "@/lib/geminiService";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,23 +27,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate scenes for each angle
-    const allScenes: string[] = [];
+    // Generate scenes using all angles together for consistency
+    const angleNames = ["Front", "Front Right", "Front Left"];
 
-    for (let i = 0; i < base64Images.length; i++) {
-      const base64Image = base64Images[i];
-      console.log(`Generating scene for angle ${i + 1}/${base64Images.length}`);
+    console.log(
+      `🎬 Starting multi-angle scene generation for ${base64Images.length} camera angles`
+    );
+    console.log(
+      `📸 Angles: ${angleNames.slice(0, base64Images.length).join(", ")}`
+    );
 
-      const scene = await generateSingleScene(
-        base64Image,
-        objectSize || "Unknown dimensions",
-        objectType,
-        sceneDescription || "",
-        inspirationImage || null
+    // Log image sizes for verification
+    base64Images.forEach((img, i) => {
+      console.log(
+        `   ${angleNames[i] || `Angle ${i + 1}`}: ${img.length} characters (base64)`
       );
+    });
 
-      allScenes.push(scene);
-    }
+    const allScenes = await generateMultiAngleScenes(
+      base64Images,
+      objectSize || "Unknown dimensions",
+      objectType,
+      sceneDescription || "",
+      inspirationImage || null
+    );
+
+    console.log(
+      `🎉 Completed generation of ${allScenes.length} scenes from ${base64Images.length} camera angles`
+    );
 
     return NextResponse.json({ scenes: allScenes });
   } catch (error) {

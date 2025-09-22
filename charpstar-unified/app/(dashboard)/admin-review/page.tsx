@@ -1132,6 +1132,7 @@ export default function AdminReviewPage() {
       const totals = {
         total: dataLength,
         in_production: 0,
+        in_progress: 0, // Add in_progress status
         revisions: 0,
         approved: 0,
         delivered_by_artist: 0,
@@ -1152,6 +1153,10 @@ export default function AdminReviewPage() {
         in_production:
           dataLength > 0
             ? Math.round((totals.in_production / dataLength) * 100)
+            : 0,
+        in_progress:
+          dataLength > 0
+            ? Math.round((totals.in_progress / dataLength) * 100)
             : 0,
         revisions:
           dataLength > 0
@@ -1408,6 +1413,16 @@ export default function AdminReviewPage() {
           "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment"
         )
         .order("upload_order", { ascending: true });
+
+      // Apply URL parameter filters
+      if (urlClient) {
+        query = query.eq("client", urlClient);
+        console.log("Applied client filter:", urlClient);
+      }
+      if (urlBatch) {
+        query = query.eq("batch", parseInt(urlBatch));
+        console.log("Applied batch filter:", urlBatch);
+      }
 
       // If modeler filters are applied, only fetch assets assigned to those modelers
       if (modelerFilters && modelerFilters.length > 0) {
@@ -2900,7 +2915,7 @@ export default function AdminReviewPage() {
 
         {/* Status Summary Cards */}
         {!loading && !showAllocationLists && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-2 sm:mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 mb-2 sm:mb-6">
             {/* Total Models (no filtering on this card itself) */}
             <Card
               className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
@@ -2928,11 +2943,7 @@ export default function AdminReviewPage() {
             <Card
               className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
-                setStatusFilters([
-                  "in_production",
-                  "delivered_by_artist",
-                  "not_started",
-                ]);
+                setStatusFilters(["in_progress"]);
                 setPage(1);
               }}
             >
@@ -2954,9 +2965,7 @@ export default function AdminReviewPage() {
                     className="text-sm sm:text-2xl font-bold"
                     style={{ color: "rgb(30 64 175)" }}
                   >
-                    {statusTotals.totals.in_production +
-                      statusTotals.totals.delivered_by_artist +
-                      statusTotals.totals.not_started}
+                    {statusTotals.totals.in_production}
                   </p>
                 </div>
               </div>
@@ -3053,6 +3062,38 @@ export default function AdminReviewPage() {
                     style={{ color: "rgb(22 101 52)" }}
                   >
                     {statusTotals.totals.delivered_by_artist}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Not Started */}
+            <Card
+              className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["not_started"]);
+                setPage(1);
+              }}
+            >
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div
+                  className="p-1 sm:p-2 rounded-lg"
+                  style={{ backgroundColor: "rgb(243 244 246)" }}
+                >
+                  <Clock
+                    className="h-3 w-3 sm:h-5 sm:w-5"
+                    style={{ color: "rgb(107 114 128)" }}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Not Started
+                  </p>
+                  <p
+                    className="text-sm sm:text-2xl font-bold"
+                    style={{ color: "rgb(107 114 128)" }}
+                  >
+                    {statusTotals.totals.not_started}
                   </p>
                 </div>
               </div>
@@ -3397,7 +3438,7 @@ export default function AdminReviewPage() {
                       </div>
 
                       {/* Summary stats always visible */}
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pt-3 sm:pt-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 pt-3 sm:pt-4">
                         <div className="text-center">
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                             Assets
@@ -3418,8 +3459,16 @@ export default function AdminReviewPage() {
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                             Base Price
                           </p>
-                          <p className="text-lg sm:text-2xl font-medium  text-success">
+                          <p className="text-lg sm:text-2xl font-medium text-success">
                             €{stats.totalPrice.toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                            Total w/ Bonus
+                          </p>
+                          <p className="text-lg sm:text-2xl font-medium text-primary">
+                            €{stats.potentialEarnings.toFixed(2)}
                           </p>
                         </div>
                       </div>

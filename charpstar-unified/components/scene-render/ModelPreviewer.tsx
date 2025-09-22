@@ -177,8 +177,11 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureProgress, setCaptureProgress] = useState({
     current: 0,
-    total: 5,
+    total: 3,
   });
+  const [currentAngle, setCurrentAngle] = useState<string | null>(null);
+  const [isTestingAngles, setIsTestingAngles] = useState(false);
+  const [testAngleIndex, setTestAngleIndex] = useState(0);
 
   // Create blob URL only once when file changes
   useEffect(() => {
@@ -283,6 +286,55 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     }
   }, [fileUrl, modelViewerLoaded]);
 
+  const testCameraAngles = async () => {
+    const modelViewer = modelViewerRef.current as any;
+    if (!modelViewer) return;
+
+    const cameraAngles = [
+      { orbit: "0deg 75deg 0deg", name: "Front" },
+      { orbit: "45deg 75deg 0deg", name: "Front Right" },
+      { orbit: "-45deg 75deg 0deg", name: "Front Left" },
+    ];
+
+    setIsTestingAngles(true);
+    setTestAngleIndex(0);
+
+    try {
+      for (let i = 0; i < cameraAngles.length; i++) {
+        const angle = cameraAngles[i];
+        setTestAngleIndex(i);
+        setCurrentAngle(angle.name);
+
+        // Set camera position
+        modelViewer.cameraOrbit = angle.orbit;
+
+        // Force a re-render
+        modelViewer.dispatchEvent(new CustomEvent("camera-change"));
+
+        // Wait for camera to settle
+        await new Promise((resolve) => {
+          const checkCamera = () => {
+            const currentOrbit = modelViewer.cameraOrbit;
+            if (currentOrbit === angle.orbit) {
+              resolve(undefined);
+            } else {
+              setTimeout(checkCamera, 100);
+            }
+          };
+          setTimeout(checkCamera, 200);
+          setTimeout(resolve, 2000);
+        });
+
+        // Wait between angles for better visibility
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    } finally {
+      setIsTestingAngles(false);
+      setCurrentAngle(null);
+      setTestAngleIndex(0);
+    }
+  };
+
   const handleCapture = async () => {
     if (!objectType.trim()) return;
 
@@ -297,13 +349,11 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
       const finalObjectSize =
         objectSize || "The object's scale is unknown. Use common sense.";
 
-      // Define 5 different camera angles
+      // Define 3 different camera angles
       const cameraAngles = [
-        { orbit: "0deg 0deg 0deg", name: "Front" },
-        { orbit: "45deg 0deg 0deg", name: "Front Right" },
-        { orbit: "90deg 0deg 0deg", name: "Right" },
-        { orbit: "135deg 0deg 0deg", name: "Back Right" },
-        { orbit: "180deg 0deg 0deg", name: "Back" },
+        { orbit: "0deg 75deg 0deg", name: "Front" },
+        { orbit: "45deg 75deg 0deg", name: "Front Right" },
+        { orbit: "-45deg 75deg 0deg", name: "Front Left" },
       ];
 
       const snapshots: string[] = [];
@@ -313,13 +363,34 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
         for (let i = 0; i < cameraAngles.length; i++) {
           const angle = cameraAngles[i];
 
-          // Update progress
+          // Update progress and current angle
           setCaptureProgress({ current: i + 1, total: cameraAngles.length });
+          setCurrentAngle(angle.name);
 
           // Set camera position
           modelViewer.cameraOrbit = angle.orbit;
 
-          // Wait for camera to settle
+          // Force a re-render by updating the model-viewer element
+          modelViewer.dispatchEvent(new CustomEvent("camera-change"));
+
+          // Wait for the camera to actually move to the new position
+          await new Promise((resolve) => {
+            // Check if camera has moved by comparing current orbit
+            const checkCamera = () => {
+              const currentOrbit = modelViewer.cameraOrbit;
+              if (currentOrbit === angle.orbit) {
+                resolve(undefined);
+              } else {
+                setTimeout(checkCamera, 100);
+              }
+            };
+            // Start checking after a short delay
+            setTimeout(checkCamera, 200);
+            // Fallback timeout
+            setTimeout(resolve, 2000);
+          });
+
+          // Additional wait to ensure rendering is complete
           await new Promise((resolve) => setTimeout(resolve, 500));
 
           // Capture screenshot
@@ -345,6 +416,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
       } finally {
         setIsCapturing(false);
         setCaptureProgress({ current: 0, total: 5 });
+        setCurrentAngle(null);
       }
     }
   };
@@ -423,6 +495,31 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
       />
 
       <div className="w-full h-96 rounded-lg overflow-hidden bg-gray-900/50 mb-6 relative cursor-grab active:cursor-grabbing border border-white/10">
+        {/* Capture Progress Overlay */}
+        {(isCapturing || isTestingAngles) && (
+          <div className="absolute top-4 left-4 right-4 z-10 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm font-medium">
+                  {isTestingAngles
+                    ? "Testing angles..."
+                    : "Capturing angles..."}
+                </span>
+              </div>
+              <div className="text-sm text-gray-300">
+                {isTestingAngles
+                  ? `${testAngleIndex + 1} of 3`
+                  : `${captureProgress.current} of ${captureProgress.total}`}
+              </div>
+            </div>
+            {currentAngle && (
+              <div className="text-center text-lg font-semibold text-blue-400">
+                Current: {currentAngle}
+              </div>
+            )}
+          </div>
+        )}
         {modelError ? (
           <div className="flex items-center justify-center h-full text-center p-4">
             <div>
@@ -485,19 +582,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
               </div>
             </div>
           </div>
-        ) : isCapturing ? (
-          <div className="flex items-center justify-center h-full text-center p-4">
-            <div>
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <div className="text-gray-600 dark:text-gray-400 mb-2">
-                Capturing angles...
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {captureProgress.current} of {captureProgress.total} angles
-                captured
-              </div>
-            </div>
-          </div>
         ) : (
           // @ts-expect-error -- model-viewer is a custom element
           <model-viewer
@@ -512,7 +596,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             shadow-softness="1"
             min-field-of-view="5deg"
             max-field-of-view="35deg"
-            camera-orbit="-30deg auto auto"
+            camera-orbit="0deg 75deg 0deg"
             max-camera-orbit="auto 100deg auto"
             touch-action="pan-y"
             style={{
@@ -539,8 +623,8 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           </h3>
           <p className="text-gray-600 dark:text-gray-400">
             Left-click to rotate, middle-click to pan, and scroll to zoom. The
-            system will automatically capture 5 different angles (Front, Front
-            Right, Right, Back Right, Back) when you generate scenes.
+            system will automatically capture 3 different angles (Front, Front
+            Right, Front Left) when you generate scenes.
           </p>
         </div>
         <div>
@@ -712,15 +796,27 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           Cancel
         </button>
         <button
+          onClick={testCameraAngles}
+          className="btn btn-outline"
+          disabled={isCapturing || isTestingAngles}
+          title="Test camera angles without generating scenes"
+        >
+          {isTestingAngles
+            ? `Testing... (${testAngleIndex + 1}/3)`
+            : "Test Angles"}
+        </button>
+        <button
           onClick={handleCapture}
           className="btn btn-primary"
-          disabled={!objectType.trim() || isCapturing}
+          disabled={!objectType.trim() || isCapturing || isTestingAngles}
           title={
             !objectType.trim()
               ? "Please describe the object first"
               : isCapturing
                 ? "Capturing angles..."
-                : "Generate scenes from 5 different angles"
+                : isTestingAngles
+                  ? "Please wait for angle testing to complete"
+                  : "Generate scenes from 3 different angles"
           }
         >
           {isCapturing
