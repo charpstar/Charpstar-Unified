@@ -1883,7 +1883,7 @@ export default function ModelerReviewPage() {
             />
 
             {asset.glb_link ? (
-              <div className="w-full h-full rounded-lg overflow-hidden">
+              <div className="w-full h-full  overflow-hidden">
                 {/* @ts-expect-error -- model-viewer is a custom element */}
                 <model-viewer
                   ref={modelViewerRef}

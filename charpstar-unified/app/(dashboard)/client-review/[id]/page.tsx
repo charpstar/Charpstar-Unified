@@ -235,9 +235,7 @@ export default function ReviewPage() {
     null
   );
   const [selectedAnnotations, setSelectedAnnotations] = useState<string[]>([]);
-  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
-  const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null);
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string>("");
   const [selectedImageTitle, setSelectedImageTitle] = useState<string>("");
@@ -924,12 +922,17 @@ export default function ReviewPage() {
         setAnnotations((prev) =>
           prev.map((ann) =>
             ann.id === annotationId
-              ? { ...ann, comment: editComment.trim() }
+              ? {
+                  ...ann,
+                  comment: editComment.trim(),
+                  image_url: editImageUrl.trim() || undefined,
+                }
               : ann
           )
         );
         setEditingAnnotation(null);
         setEditComment("");
+        setEditImageUrl("");
         toast.success("Annotation updated successfully");
       } else {
         toast.error(data.error || "Failed to update annotation");
@@ -964,13 +967,6 @@ export default function ReviewPage() {
     } catch (error) {
       console.error("Error deleting annotation:", error);
       toast.error("Failed to delete annotation");
-    }
-  };
-
-  const handleSingleDelete = async () => {
-    if (singleDeleteId) {
-      await deleteAnnotation(singleDeleteId);
-      setSingleDeleteId(null);
     }
   };
 
@@ -1224,6 +1220,42 @@ export default function ReviewPage() {
     }
   };
 
+  // Handle paste image for edit mode
+  const handleEditPasteImage = async (e: React.ClipboardEvent) => {
+    try {
+      const items = e.clipboardData?.items || [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file && file.type.startsWith("image/")) {
+            e.preventDefault();
+            setIsUploadingPastedImage(true);
+            const formData = new FormData();
+            formData.append("file", file);
+            try {
+              const response = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+              });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Upload failed");
+              setEditImageUrl(data.url);
+              toast.success("Image pasted and uploaded");
+              return;
+            } finally {
+              setIsUploadingPastedImage(false);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error handling pasted image:", error);
+      toast.error("Failed to paste image");
+      setIsUploadingPastedImage(false);
+    }
+  };
+
   // Helper function to update modeler's end time when asset is approved
   const updateModelerEndTime = async (assetId: string) => {
     try {
@@ -1365,6 +1397,21 @@ export default function ReviewPage() {
     }
   };
 
+  // Helper function to check if client has provided any feedback
+  const hasClientFeedback = () => {
+    // Check if there are any annotations created by the current client
+    const clientAnnotations = annotations.filter(
+      (annotation) => annotation.created_by === user?.id
+    );
+
+    // Check if there are any comments created by the current client
+    const clientComments = comments.filter(
+      (comment) => comment.created_by === user?.id
+    );
+
+    return clientAnnotations.length > 0 || clientComments.length > 0;
+  };
+
   const updateAssetStatus = async (newStatus: string, skipDialog = false) => {
     if (!assetId) return;
 
@@ -1374,6 +1421,14 @@ export default function ReviewPage() {
       const isClient = user?.metadata?.role === "client";
 
       if (isClient) {
+        // Check if client has provided any feedback before allowing revision
+        if (!hasClientFeedback()) {
+          toast.error(
+            "Please add annotations or comments before requesting a revision"
+          );
+          return;
+        }
+
         if (currentRevisionCount === 1 || currentRevisionCount === 2) {
           setShowRevisionDialog(true);
           return;
@@ -2139,11 +2194,11 @@ export default function ReviewPage() {
 
   // Permissions: Admins can edit/delete all annotations and comments, users can edit/delete their own annotations
   const isAdmin = user?.metadata?.role === "admin";
-  const isQA = user?.metadata?.role === "qa";
+
   const canEditOrDeleteAnnotation = (annotation: Annotation) =>
     isAdmin || annotation.created_by === user?.id;
   const canEditOrDeleteComment = (comment?: any) =>
-    isAdmin || (isQA && comment && comment.created_by === user?.id);
+    isAdmin || (comment && comment.created_by === user?.id);
 
   // Function to get comments for selected annotation
   // Comments should be independent of annotations - show all comments for the asset
@@ -2287,11 +2342,6 @@ export default function ReviewPage() {
       setComments((prev) => [data, ...prev]);
       setNewCommentText("");
       toast.success("Comment added successfully");
-
-      // If client adds a comment, automatically trigger revision dialog
-      if (user?.metadata?.role === "client") {
-        setShowRevisionDialog(true);
-      }
     } catch (error) {
       console.error("Error adding comment:", error);
       toast.error("Failed to add comment");
@@ -2768,8 +2818,8 @@ export default function ReviewPage() {
 
         <div className="flex-1 flex overflow-hidden">
           {/* Skeleton Model Viewer */}
-          <div className="flex-1 relative bg-background rounded-2xl m-6 shadow-xl border border-border/50">
-            <div className="w-full h-full bg-muted rounded-2xl animate-pulse flex items-center justify-center">
+          <div className="flex-1 relative bg-background ">
+            <div className="w-full h-full bg-muted   flex items-center justify-center">
               <div className="text-center">
                 <div className="w-16 h-16 bg-muted rounded-full animate-pulse mx-auto mb-4"></div>
                 <div className="h-4 w-32 bg-muted rounded animate-pulse mx-auto"></div>
@@ -2778,7 +2828,7 @@ export default function ReviewPage() {
           </div>
 
           {/* Skeleton Annotations Panel */}
-          <div className="w-96 bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-xl overflow-y-auto">
+          <div className="w-143 bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-xl overflow-y-auto">
             <div className="p-8">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
@@ -2937,6 +2987,21 @@ export default function ReviewPage() {
                 </div>
               </div>
             </div>
+
+            {/* Client Feedback Notice */}
+            {user?.metadata?.role === "client" &&
+              asset?.status !== "revisions" &&
+              hasClientFeedback() && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded px-2 py-1 mt-2">
+                  <div className="flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 text-yellow-600" />
+                    <p className="text-xs text-yellow-800">
+                      Remember to click &quot;Revision&quot; button when ready
+                    </p>
+                  </div>
+                </div>
+              )}
+
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="text-center">
@@ -3031,8 +3096,16 @@ export default function ReviewPage() {
                   className={`h-7 sm:h-8 px-2 sm:px-3 text-xs cursor-pointer ${
                     asset?.status === "revisions"
                       ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
-                      : ""
+                      : user?.metadata?.role === "client" &&
+                          !hasClientFeedback()
+                        ? "bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-950/20 dark:border-yellow-800/50 dark:text-yellow-400 dark:hover:bg-yellow-950/30"
+                        : ""
                   }`}
+                  title={
+                    user?.metadata?.role === "client" && !hasClientFeedback()
+                      ? "Add annotations or comments before requesting a revision"
+                      : undefined
+                  }
                 >
                   {statusUpdating ? (
                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
@@ -3219,7 +3292,7 @@ export default function ReviewPage() {
 
         <div className="flex flex-col xl:flex-row flex-1 overflow-y-auto xl:overflow-hidden ">
           {/* Main Content (3D Viewer) */}
-          <div className="flex-1 relative  m-3 sm:m-6 rounded-lg shadow-lg border border-border/50 h-[65vh] xl:h-auto">
+          <div className="flex-1 relative  h-[65vh] xl:h-auto">
             {/* Ctrl Key Visual Indicator */}
             {isCtrlPressed && !annotationMode && (
               <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 bg-primary/90 text-primary-foreground px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium shadow-lg border border-primary/20 backdrop-blur-sm">
@@ -3242,7 +3315,7 @@ export default function ReviewPage() {
             />
 
             {asset.glb_link ? (
-              <div className="w-full h-full rounded-lg overflow-hidden">
+              <div className="w-full h-full overflow-hidden">
                 {/* @ts-expect-error cant really fix viewer errors */}
                 <model-viewer
                   ref={modelViewerRef}
@@ -3374,7 +3447,7 @@ export default function ReviewPage() {
             )}
 
             {/* Dimensions Toggle Button */}
-            {asset.glb_link && (
+            {asset.glb_link && user?.metadata?.role !== "client" && (
               <div className="absolute top-2 right-2 sm:top-4 sm:right-0 z-20 w-fit min-w-[120px] sm:min-w-[200px] flex gap-2">
                 <Button
                   variant="outline"
@@ -3400,15 +3473,15 @@ export default function ReviewPage() {
             {annotationMode && (
               <div className="absolute top-2 left-2 sm:top-4 sm:left-4 bg-primary text-primary-foreground text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2 rounded-full z-20 shadow-lg backdrop-blur-sm">
                 <span className="hidden sm:inline">
-                  Double-click to add hotspot
+                  Click to add annotation
                 </span>
-                <span className="sm:hidden">Double-click</span>
+                <span className="sm:hidden">Click to add</span>
               </div>
             )}
           </div>
 
           {/* Right Panel - Switchable between Reference Images and Feedback */}
-          <div className="w-full xl:w-[570px] max-w-full flex flex-col bg-background shadow-lg border border-border/50 p-3 sm:p-6 h-[50vh] min-h-[700px] xl:h-auto xl:min-h-0 overflow-y-auto">
+          <div className="w-full xl:w-[570px] max-w-full flex flex-col bg-background border border-border/50 p-3 sm:p-6 h-[50vh] min-h-[700px] xl:h-auto xl:min-h-0 overflow-y-auto">
             {/* Tab Navigation */}
             <div className="flex items-center gap-1 mb-4 sm:mb-6 bg-muted/50 rounded-lg p-1">
               <button
@@ -3837,7 +3910,13 @@ export default function ReviewPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setShowDeleteWarning(true)}
+                            onClick={async () => {
+                              await deleteMultipleAnnotations(
+                                selectedAnnotations
+                              );
+                              setSelectedAnnotations([]);
+                              setDeleteMode(false);
+                            }}
                             className="shadow-sm cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -4008,6 +4087,26 @@ export default function ReviewPage() {
                                     <Edit3 className="h-3 w-3 mr-2" />
                                     Edit Annotation
                                   </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      if (!canEditOrDeleteAnnotation(item)) {
+                                        toast.error(
+                                          "You can only delete your own annotations"
+                                        );
+                                        return;
+                                      }
+                                      await deleteAnnotation(item.id);
+                                    }}
+                                    disabled={
+                                      isFunctionalityDisabled() ||
+                                      !canEditOrDeleteAnnotation(item)
+                                    }
+                                    className={`${isFunctionalityDisabled() || !canEditOrDeleteAnnotation(item) ? "opacity-50 cursor-not-allowed" : "text-destructive hover:text-destructive"}`}
+                                  >
+                                    <Trash2 className="h-3 w-3 mr-2" />
+                                    Delete Annotation
+                                  </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -4019,8 +4118,12 @@ export default function ReviewPage() {
                                   onChange={(e) =>
                                     setEditComment(e.target.value)
                                   }
+                                  onPaste={handleEditPasteImage}
                                   rows={3}
                                 />
+                                <div className="text-[11px] text-muted-foreground">
+                                  Tip: Paste screenshots directly here (Ctrl+V)
+                                </div>
                                 <div>
                                   <label className="text-sm font-medium text-muted-foreground mb-2 block">
                                     Reference Image (optional)
@@ -4706,6 +4809,7 @@ export default function ReviewPage() {
           {/* New Annotation Dialog */}
           <Dialog
             open={selectedAnnotation?.id.startsWith("temp-") || false}
+            modal={true}
             onOpenChange={(open) => {
               if (!open) {
                 // Remove temporary annotation if canceling
@@ -4884,56 +4988,12 @@ export default function ReviewPage() {
             </DialogContent>
           </Dialog>
 
-          {/* Delete Warning Dialog */}
-          <Dialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
-            <DialogContent className="w-[95vw] sm:w-full sm:max-w-[425px] h-fit">
-              <DialogHeader className="pb-3 sm:pb-4">
-                <DialogTitle className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400">
-                  Delete Annotation{selectedAnnotations.length > 0 ? "s" : ""}
-                </DialogTitle>
-                <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
-                  Are you sure you want to delete{" "}
-                  {singleDeleteId
-                    ? "this annotation"
-                    : `${selectedAnnotations.length} annotation(s)`}
-                  ? This action cannot be undone.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex gap-3 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    if (singleDeleteId) {
-                      await handleSingleDelete();
-                    } else {
-                      await deleteMultipleAnnotations(selectedAnnotations);
-                    }
-                    setShowDeleteWarning(false);
-                  }}
-                  className="flex-1 cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete{" "}
-                  {singleDeleteId
-                    ? "Annotation"
-                    : `${selectedAnnotations.length} Annotation(s)`}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowDeleteWarning(false);
-                    setSingleDeleteId(null);
-                  }}
-                  className="flex-1 cursor-pointer"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
           {/* Image Preview Dialog */}
-          <Dialog open={showImageDialog} onOpenChange={handleDialogClose}>
+          <Dialog
+            open={showImageDialog}
+            onOpenChange={handleDialogClose}
+            modal={true}
+          >
             <DialogContent className="w-[95vw] sm:w-full sm:max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
               <DialogHeader className="px-3 sm:px-6 py-3 sm:py-4 border-b border-border">
                 <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">
@@ -4994,7 +5054,11 @@ export default function ReviewPage() {
           </Dialog>
 
           {/* Add Image URL Dialog */}
-          <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
+          <Dialog
+            open={showUrlDialog}
+            onOpenChange={setShowUrlDialog}
+            modal={true}
+          >
             <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit">
               <DialogHeader className="pb-3 sm:pb-4">
                 <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">
@@ -5054,6 +5118,7 @@ export default function ReviewPage() {
           <Dialog
             open={showRevisionDialog}
             onOpenChange={setShowRevisionDialog}
+            modal={true}
           >
             <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit">
               <DialogHeader className="pb-3 sm:pb-4">
@@ -5110,6 +5175,7 @@ export default function ReviewPage() {
             <Dialog
               open={showSecondRevisionDialog}
               onOpenChange={setShowSecondRevisionDialog}
+              modal={true}
             >
               <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit">
                 <DialogHeader className="pb-3 sm:pb-4">
@@ -5174,6 +5240,7 @@ export default function ReviewPage() {
           <Dialog
             open={showRevisionDetailsDialog}
             onOpenChange={setShowRevisionDetailsDialog}
+            modal={true}
           >
             <DialogContent className="w-[95vw] sm:w-full sm:max-w-[800px] h-fit min-h-[400px] sm:min-h-[500px] overflow-y-auto">
               <DialogHeader className="pb-3 sm:pb-4">
@@ -5369,7 +5436,11 @@ export default function ReviewPage() {
       </div>
 
       {/* Notes Dialog */}
-      <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
+      <Dialog
+        open={isNotesDialogOpen}
+        onOpenChange={setIsNotesDialogOpen}
+        modal={true}
+      >
         <DialogContent className="w-[95vw] sm:w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">

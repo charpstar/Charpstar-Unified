@@ -804,7 +804,7 @@ export default function ReviewDashboardPage() {
           </div>
 
           {/* Bulk Actions Row - Fixed height to prevent layout shifts */}
-          <div className="min-h-[60px]">
+          <div className="min-h-[30px]">
             {selected.size > 0 && (
               <div className="flex flex-col gap-3 sm:gap-4 p-3 bg-muted/50 dark:bg-muted/20 rounded-lg border dark:border-border">
                 <div className="flex items-center justify-between gap-2">
@@ -858,7 +858,7 @@ export default function ReviewDashboardPage() {
           </div>
         </div>
 
-        <div className="overflow-auto rounded-lg border dark:border-border bg-background dark:bg-background flex-1 max-h-[62vh] min-h-[62vh]">
+        <div className="overflow-auto rounded-lg border dark:border-border bg-background dark:bg-background flex-1 max-h-[62vh] min-h-[62vh] relative">
           {loading ? (
             <ReviewTableSkeleton />
           ) : (
@@ -866,7 +866,7 @@ export default function ReviewDashboardPage() {
               {/* Desktop Table View */}
               <div className="hidden md:block min-w-[1200px]">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 bg-white dark:bg-slate-950 z-20 border-b border-border dark:border-border shadow-sm">
                     <TableRow className="dark:border-border">
                       <TableHead className="w-12 dark:text-foreground text-left">
                         <div className="flex items-center gap-2">
@@ -895,21 +895,19 @@ export default function ReviewDashboardPage() {
                       <TableHead className="dark:text-foreground text-left">
                         Status
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-left">
+                      <TableHead className="dark:text-foreground text-left pr-4">
                         Product Link
                       </TableHead>
                       <TableHead className="dark:text-foreground text-left">
                         References
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-left">
-                        GLB File
-                      </TableHead>
-                      <TableHead className="w-12 dark:text-foreground text-left">
+
+                      <TableHead className=" dark:text-foreground text-left pr-16">
                         View
                       </TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody className="pt-16">
                     {paged.length === 0 ? (
                       <TableRow className="dark:border-border">
                         <TableCell
@@ -1054,7 +1052,7 @@ export default function ReviewDashboardPage() {
                                   }}
                                 >
                                   <SelectTrigger
-                                    className={`border-0 shadow-none p-0 h-auto w-auto bg-transparent hover:opacity-80 transition-opacity cursor-pointer [&>svg]:hidden`}
+                                    className={`border-0 shadow-none dark:shadow-none dark:border-none dark:bg-transparent hover:bg-transparent dark:hover:bg-transparent p-0 h-auto w-auto bg-transparent hover:opacity-80 transition-opacity cursor-pointer [&>svg]:hidden`}
                                   >
                                     <span
                                       className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
@@ -1064,7 +1062,7 @@ export default function ReviewDashboardPage() {
                                       {getPriorityLabel(asset.priority || 2)}
                                     </span>
                                   </SelectTrigger>
-                                  <SelectContent className="dark:bg-background dark:border-border">
+                                  <SelectContent>
                                     <SelectItem
                                       value="1"
                                       className="dark:text-foreground"
@@ -1088,26 +1086,25 @@ export default function ReviewDashboardPage() {
                               </div>
                             </TableCell>
 
-                            <TableCell className="text-left">
+                            <TableCell className="text-left w-32">
                               <div className="flex items-center">
                                 <span
-                                  className={`px-2 py-1 rounded text-xs font-semibold ${getStatusLabelClass(asset.status)}`}
+                                  className={`px-2 py-1 rounded text-xs font-semibold  shadow-none border-none bg-transparent ${getStatusLabelClass(asset.status)}`}
                                 >
                                   {getStatusLabelText(asset.status)}
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-left w-12">
+                            <TableCell className="text-left w-12 justify-start">
                               {asset.product_link ? (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="w-full justify-start text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
+                                  className="w-full justify-start p-0 text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
                                   onClick={() =>
                                     window.open(asset.product_link, "_blank")
                                   }
                                 >
-                                  <ExternalLink className="mr-2 h-3 w-3" />
                                   Open Link
                                 </Button>
                               ) : (
@@ -1117,12 +1114,12 @@ export default function ReviewDashboardPage() {
                               )}
                             </TableCell>
 
-                            <TableCell className="text-left">
-                              <div className="flex flex-col items-center gap-1">
+                            <TableCell className="text-left w-12 pr-4">
+                              <div className="flex flex-col items-start gap-1">
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50"
+                                  className="text-xs px-3 py-1 h-7  dark:border-border dark:hover:bg-muted/50"
                                   onClick={() => {
                                     setSelectedAssetForView(asset);
                                     setShowViewRefDialog(true);
@@ -1142,26 +1139,8 @@ export default function ReviewDashboardPage() {
                                 </Button>
                               </div>
                             </TableCell>
-                            <TableCell className="text-left w-12">
-                              {asset.glb_link ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-full justify-start text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
-                                  onClick={() =>
-                                    window.open(asset.glb_link, "_blank")
-                                  }
-                                >
-                                  <Download className="mr-2 h-3 w-3" />
-                                  Download
-                                </Button>
-                              ) : (
-                                <span className="text-xs text-muted-foreground dark:text-muted-foreground">
-                                  No GLB
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-left w-12">
+
+                            <TableCell className="text-left w-16 pr-6">
                               {(asset.status === "approved" ||
                                 asset.status === "approved_by_client") && (
                                 <Button
@@ -1384,7 +1363,7 @@ export default function ReviewDashboardPage() {
                           </div>
 
                           {/* Status */}
-                          <div className="flex items-center justify-center">
+                          <div className="flex items-center justify-start">
                             <span
                               className={`px-2 py-1 rounded text-xs font-semibold ${getStatusLabelClass(asset.status)}`}
                             >
@@ -1410,7 +1389,7 @@ export default function ReviewDashboardPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1 text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50"
+                              className="flex-1 text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50 "
                               onClick={() => {
                                 setSelectedAssetForView(asset);
                                 setShowViewRefDialog(true);
@@ -1452,7 +1431,7 @@ export default function ReviewDashboardPage() {
           )}
         </div>
         {/* Pagination - Always at bottom */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-2">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-2 mt-4">
           {selected.size > 0 && (
             <div className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground order-2 sm:order-1 sm:mr-4">
               {selected.size} of {paged.length} on this page selected

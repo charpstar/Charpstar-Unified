@@ -59,6 +59,7 @@ import {
   ChevronDown,
   Target,
   StickyNote,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -2601,7 +2602,22 @@ export default function BatchDetailPage() {
                 <strong>Asset:</strong> {currentUploadAsset?.product_name}
               </p>
               <p className="mb-1 sm:mb-2">
-                <strong>Article ID:</strong> {currentUploadAsset?.article_id}
+                <strong>Article ID:</strong>{" "}
+                <span
+                  className="inline-flex items-center gap-1 font-mono cursor-pointer hover:text-foreground hover:bg-muted rounded px-1 py-0.5 transition-colors"
+                  onClick={() => {
+                    if (currentUploadAsset?.article_id) {
+                      navigator.clipboard.writeText(
+                        currentUploadAsset.article_id
+                      );
+                      toast.success("Article ID copied to clipboard");
+                    }
+                  }}
+                  title="Click to copy Article ID"
+                >
+                  {currentUploadAsset?.article_id}
+                  <Copy className="h-3 w-3 " />
+                </span>
               </p>
             </div>
 

@@ -1391,7 +1391,7 @@ export default function QAReviewPage() {
                       </TableCell>
                       <TableCell className="text-left">
                         <div
-                          className="font-medium max-w-[200px] cursor-help"
+                          className="font-medium max-w-[200px] cursor-help truncate"
                           title={asset.product_name}
                         >
                           {asset.product_name.length > 45
@@ -1430,7 +1430,7 @@ export default function QAReviewPage() {
                           {asset.article_id}
                         </span>
                       </TableCell>
-                      <TableCell className="text-left">
+                      <TableCell className="text-left text-xs">
                         {asset.client}
                       </TableCell>
                       <TableCell className="text-left">
@@ -1716,7 +1716,7 @@ export default function QAReviewPage() {
                       <div className="text-xs text-muted-foreground font-mono">
                         {asset.article_id}
                       </div>
-                      <div className="text-sm font-medium">{asset.client}</div>
+                      <div className="text-xs font-medium">{asset.client}</div>
                     </div>
 
                     {/* Price and Priority */}
