@@ -70,6 +70,8 @@ const getStatusLabelClass = (status: string): string => {
       return "status-in-production";
     case "revisions":
       return "status-revisions";
+    case "client_revision":
+      return "status-client-revision";
     case "approved":
       return "status-approved";
     case "approved_by_client":
@@ -94,6 +96,8 @@ const getStatusLabelText = (status: string): string => {
       return "In Production";
     case "revisions":
       return "Sent for Revision";
+    case "client_revision":
+      return "Client Revision";
     case "approved":
       return "Approved";
     case "approved_by_client":
@@ -130,6 +134,8 @@ const getStatusIcon = (status: string) => {
       return null;
     case "revisions":
       return <AlertCircle className="h-4 w-4 text-orange-600" />;
+    case "client_revision":
+      return <AlertCircle className="h-4 w-4 text-red-600" />;
     default:
       return <Eye className="h-4 w-4 text-gray-600" />;
   }
@@ -866,7 +872,9 @@ export default function QAReviewPage() {
     delivered_by_artist: assets.filter(
       (a) => a.status === "delivered_by_artist"
     ).length,
-    revisions: assets.filter((a) => a.status === "revisions").length,
+    revisions: assets.filter(
+      (a) => a.status === "revisions" || a.status === "client_revision"
+    ).length,
     approved: assets.filter((a) => a.status === "approved").length,
     approved_by_client: assets.filter((a) => a.status === "approved_by_client")
       .length,
@@ -1368,15 +1376,17 @@ export default function QAReviewPage() {
                           ? "table-row-status-in-production"
                           : asset.status === "revisions"
                             ? "table-row-status-revisions"
-                            : asset.status === "approved"
-                              ? "table-row-status-approved"
-                              : asset.status === "approved_by_client"
-                                ? "table-row-status-approved-by-client"
-                                : asset.status === "delivered_by_artist"
-                                  ? "table-row-status-delivered-by-artist"
-                                  : asset.status === "not_started"
-                                    ? "table-row-status-not-started"
-                                    : "table-row-status-unknown"
+                            : asset.status === "client_revision"
+                              ? "table-row-status-client-revision"
+                              : asset.status === "approved"
+                                ? "table-row-status-approved"
+                                : asset.status === "approved_by_client"
+                                  ? "table-row-status-approved-by-client"
+                                  : asset.status === "delivered_by_artist"
+                                    ? "table-row-status-delivered-by-artist"
+                                    : asset.status === "not_started"
+                                      ? "table-row-status-not-started"
+                                      : "table-row-status-unknown"
                       } ${
                         isNewAsset(asset.created_at)
                           ? "bg-green-50/30 dark:bg-green-900/5 border-l-2 border-l-green-400"
@@ -1641,15 +1651,17 @@ export default function QAReviewPage() {
                       ? "table-row-status-in-production"
                       : asset.status === "revisions"
                         ? "table-row-status-revisions"
-                        : asset.status === "approved"
-                          ? "table-row-status-approved"
-                          : asset.status === "approved_by_client"
-                            ? "table-row-status-approved-by-client"
-                            : asset.status === "delivered_by_artist"
-                              ? "table-row-status-delivered-by-artist"
-                              : asset.status === "not_started"
-                                ? "table-row-status-not-started"
-                                : "table-row-status-unknown"
+                        : asset.status === "client_revision"
+                          ? "table-row-status-client-revision"
+                          : asset.status === "approved"
+                            ? "table-row-status-approved"
+                            : asset.status === "approved_by_client"
+                              ? "table-row-status-approved-by-client"
+                              : asset.status === "delivered_by_artist"
+                                ? "table-row-status-delivered-by-artist"
+                                : asset.status === "not_started"
+                                  ? "table-row-status-not-started"
+                                  : "table-row-status-unknown"
                   } ${
                     isNewAsset(asset.created_at)
                       ? "bg-green-50/30 dark:bg-green-900/5 border-l-2 border-l-green-400"

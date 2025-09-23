@@ -95,6 +95,8 @@ const getStatusLabelClass = (status: string): string => {
       return "status-in-production";
     case "revisions":
       return "status-revisions";
+    case "client_revision":
+      return "status-client-revision";
     case "approved":
       return "status-approved";
     case "approved_by_client":
@@ -119,6 +121,8 @@ const getStatusLabelText = (status: string): string => {
       return "In Production";
     case "revisions":
       return "Sent for Revision";
+    case "client_revision":
+      return "Client Revision";
     case "approved":
       return "Approved";
     case "approved_by_client":
@@ -158,6 +162,11 @@ const getStatusDisplay = (
         return { label: "In Production", className: "status-in-production" };
       case "revisions":
         return { label: "Feedback Given", className: "status-revisions" };
+      case "client_revision":
+        return {
+          label: "Client Revision",
+          className: "status-client-revision",
+        };
       case "approved_by_client":
         return { label: "Approved", className: "status-approved-by-client" };
       case "approved":
@@ -1416,7 +1425,10 @@ export default function ReviewPage() {
     if (!assetId) return;
 
     // Handle revision workflow
-    if (newStatus === "revisions" && !skipDialog) {
+    if (
+      (newStatus === "revisions" || newStatus === "client_revision") &&
+      !skipDialog
+    ) {
       const currentRevisionCount = revisionCount + 1;
       const isClient = user?.metadata?.role === "client";
 
@@ -1451,7 +1463,10 @@ export default function ReviewPage() {
         body: JSON.stringify({
           assetId,
           status: newStatus,
-          revisionCount: newStatus === "revisions" ? revisionCount : undefined,
+          revisionCount:
+            newStatus === "revisions" || newStatus === "client_revision"
+              ? revisionCount
+              : undefined,
         }),
       });
 
@@ -1463,7 +1478,7 @@ export default function ReviewPage() {
       const result = await response.json();
 
       // Handle notification sending based on status changes
-      if (newStatus === "revisions") {
+      if (newStatus === "revisions" || newStatus === "client_revision") {
         // Send revision notification to modeler
         try {
           // Get modeler assignment info
@@ -1663,7 +1678,7 @@ export default function ReviewPage() {
 
       // Update local state
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
-      if (newStatus === "revisions") {
+      if (newStatus === "revisions" || newStatus === "client_revision") {
         setRevisionCount((prev) => prev + 1);
 
         // Refresh annotations when status changes to revisions (annotations marked as old)
@@ -1771,7 +1786,14 @@ export default function ReviewPage() {
       setRevisionCount(nextRevisionNumber);
       setAsset((prev) =>
         prev
-          ? { ...prev, revision_count: nextRevisionNumber, status: "revisions" }
+          ? {
+              ...prev,
+              revision_count: nextRevisionNumber,
+              status:
+                user?.metadata?.role === "client"
+                  ? "client_revision"
+                  : "revisions",
+            }
           : null
       );
 
@@ -1806,7 +1828,10 @@ export default function ReviewPage() {
       // Now update the asset status to revisions with the correct revision number
 
       try {
-        await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
+        await updateAssetStatusWithRevision(
+          user?.metadata?.role === "client" ? "client_revision" : "revisions",
+          nextRevisionNumber
+        );
 
         toast.success("Revision submitted. Awaiting production review.");
       } catch (statusError) {
@@ -1880,14 +1905,24 @@ export default function ReviewPage() {
       setRevisionCount(nextRevisionNumber);
       setAsset((prev) =>
         prev
-          ? { ...prev, revision_count: nextRevisionNumber, status: "revisions" }
+          ? {
+              ...prev,
+              revision_count: nextRevisionNumber,
+              status:
+                user?.metadata?.role === "client"
+                  ? "client_revision"
+                  : "revisions",
+            }
           : null
       );
 
       // Now update the asset status to revisions with the correct revision number
 
       try {
-        await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
+        await updateAssetStatusWithRevision(
+          user?.metadata?.role === "client" ? "client_revision" : "revisions",
+          nextRevisionNumber
+        );
 
         toast.success("Revision submitted. Awaiting production review.");
       } catch (statusError) {
@@ -1961,14 +1996,24 @@ export default function ReviewPage() {
       setRevisionCount(nextRevisionNumber);
       setAsset((prev) =>
         prev
-          ? { ...prev, revision_count: nextRevisionNumber, status: "revisions" }
+          ? {
+              ...prev,
+              revision_count: nextRevisionNumber,
+              status:
+                user?.metadata?.role === "client"
+                  ? "client_revision"
+                  : "revisions",
+            }
           : null
       );
 
       // Now update the asset status to revisions with the correct revision number
 
       try {
-        await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
+        await updateAssetStatusWithRevision(
+          user?.metadata?.role === "client" ? "client_revision" : "revisions",
+          nextRevisionNumber
+        );
 
         toast.success("Revision submitted. Awaiting production review.");
       } catch (statusError) {
@@ -1986,7 +2031,10 @@ export default function ReviewPage() {
 
   // Check if functionality should be disabled
   const isFunctionalityDisabled = () => {
-    return asset?.status === "revisions" && revisionCount >= 1;
+    return (
+      (asset?.status === "revisions" || asset?.status === "client_revision") &&
+      revisionCount >= 1
+    );
   };
 
   // Function to determine which revision an item was added in
@@ -2991,6 +3039,7 @@ export default function ReviewPage() {
             {/* Client Feedback Notice */}
             {user?.metadata?.role === "client" &&
               asset?.status !== "revisions" &&
+              asset?.status !== "client_revision" &&
               hasClientFeedback() && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded px-2 py-1 mt-2">
                   <div className="flex items-center gap-1">
@@ -3087,14 +3136,33 @@ export default function ReviewPage() {
                   )}
 
                 <Button
-                  onClick={() => updateAssetStatus("revisions")}
-                  disabled={asset?.status === "revisions" || statusUpdating}
+                  onClick={() => {
+                    const newStatus =
+                      user?.metadata?.role === "client"
+                        ? "client_revision"
+                        : "revisions";
+                    console.log("Frontend sending status:", {
+                      userRole: user?.metadata?.role,
+                      newStatus,
+                      userId: user?.id,
+                    });
+                    updateAssetStatus(newStatus);
+                  }}
+                  disabled={
+                    asset?.status === "revisions" ||
+                    asset?.status === "client_revision" ||
+                    statusUpdating
+                  }
                   variant={
-                    asset?.status === "revisions" ? "outline" : "outline"
+                    asset?.status === "revisions" ||
+                    asset?.status === "client_revision"
+                      ? "outline"
+                      : "outline"
                   }
                   size="sm"
                   className={`h-7 sm:h-8 px-2 sm:px-3 text-xs cursor-pointer ${
-                    asset?.status === "revisions"
+                    asset?.status === "revisions" ||
+                    asset?.status === "client_revision"
                       ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
                       : user?.metadata?.role === "client" &&
                           !hasClientFeedback()

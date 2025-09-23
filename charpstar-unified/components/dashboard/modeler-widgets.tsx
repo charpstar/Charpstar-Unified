@@ -62,6 +62,8 @@ export function ModelerStatsWidget() {
     waitingForApproval: 0,
     inProgress: 0,
     pending: 0,
+    revisions: 0,
+    clientRevisions: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -100,6 +102,8 @@ export function ModelerStatsWidget() {
           waitingForApproval: 0,
           inProgress: 0,
           pending: 0,
+          revisions: 0,
+          clientRevisions: 0,
         });
         return;
       }
@@ -125,6 +129,12 @@ export function ModelerStatsWidget() {
       const pending = acceptedAssets.filter(
         (asset) => asset.status === "not_started"
       ).length;
+      const revisions = acceptedAssets.filter(
+        (asset) => asset.status === "revisions"
+      ).length;
+      const clientRevisions = acceptedAssets.filter(
+        (asset) => asset.status === "client_revision"
+      ).length;
 
       setStats({
         totalAssigned,
@@ -132,6 +142,8 @@ export function ModelerStatsWidget() {
         waitingForApproval,
         inProgress,
         pending,
+        revisions,
+        clientRevisions,
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -142,8 +154,8 @@ export function ModelerStatsWidget() {
 
   if (!user) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 min-h-[320px]">
-        {[...Array(5)].map((_, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 min-h-[320px]">
+        {[...Array(7)].map((_, i) => (
           <div
             key={i}
             className="h-24 sm:h-32 bg-gradient-to-br from-muted/50 to-muted animate-pulse rounded-2xl"
@@ -170,11 +182,11 @@ export function ModelerStatsWidget() {
       title: "In Progress",
       value: stats.inProgress,
       icon: Clock,
-      color: "text-indigo-600 dark:text-indigo-400",
+      color: "text-blue-600 dark:text-blue-400",
       bgColor:
-        "bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50",
-      borderColor: "border-indigo-200 dark:border-indigo-800",
-      iconBg: "bg-indigo-500 dark:bg-indigo-600",
+        "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50",
+      borderColor: "border-blue-200 dark:border-blue-800",
+      iconBg: "bg-blue-500 dark:bg-blue-600",
       description: "Currently working on",
       trend: "attention" as const,
     },
@@ -182,11 +194,11 @@ export function ModelerStatsWidget() {
       title: "Waiting for Approval",
       value: stats.waitingForApproval,
       icon: AlertCircle,
-      color: "text-amber-600 dark:text-amber-400",
+      color: "text-green-600 dark:text-green-400",
       bgColor:
-        "bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/50",
-      borderColor: "border-amber-200 dark:border-amber-800",
-      iconBg: "bg-amber-500 dark:bg-amber-600",
+        "bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/50",
+      borderColor: "border-green-200 dark:border-green-800",
+      iconBg: "bg-green-500 dark:bg-green-600",
       description: "Awaiting feedback",
       trend: "attention" as const,
     },
@@ -205,13 +217,37 @@ export function ModelerStatsWidget() {
     {
       title: "Pending",
       value: stats.pending,
+      icon: Clock,
+      color: "text-gray-600 dark:text-gray-400",
+      bgColor:
+        "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950/50 dark:to-gray-900/50",
+      borderColor: "border-gray-200 dark:border-gray-800",
+      iconBg: "bg-gray-500 dark:bg-gray-600",
+      description: "Not started yet",
+      trend: "attention" as const,
+    },
+    {
+      title: "Revisions",
+      value: stats.revisions,
+      icon: RotateCcw,
+      color: "text-orange-600 dark:text-orange-400",
+      bgColor:
+        "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/50 dark:to-orange-900/50",
+      borderColor: "border-orange-200 dark:border-orange-800",
+      iconBg: "bg-orange-500 dark:bg-orange-600",
+      description: "QA requested changes",
+      trend: "attention" as const,
+    },
+    {
+      title: "Client Revisions",
+      value: stats.clientRevisions,
       icon: RotateCcw,
       color: "text-red-600 dark:text-red-400",
       bgColor:
         "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
       borderColor: "border-red-200 dark:border-red-800",
       iconBg: "bg-red-500 dark:bg-red-600",
-      description: "Not started yet",
+      description: "Client requested changes",
       trend: "attention" as const,
     },
   ];
@@ -224,7 +260,7 @@ export function ModelerStatsWidget() {
         subtitle="Track your current workload and progress"
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 gap-3 sm:gap-4 flex-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 flex-1">
         {statCards.map((stat, index: number) => (
           <div
             key={index}

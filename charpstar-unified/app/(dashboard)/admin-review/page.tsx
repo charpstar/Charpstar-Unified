@@ -126,6 +126,8 @@ const getStatusRowClass = (status: string): string => {
       return "table-row-status-in-production";
     case "revisions":
       return "table-row-status-revisions";
+    case "client_revision":
+      return "table-row-status-client-revision";
     case "approved":
       return "table-row-status-approved";
     case "approved_by_client":
@@ -152,6 +154,8 @@ const getStatusLabelClass = (status: string): string => {
       return "status-in-production";
     case "revisions":
       return "status-revisions";
+    case "client_revision":
+      return "status-client-revision";
     case "approved":
       return "status-approved";
     case "approved_by_client":
@@ -178,6 +182,8 @@ const getStatusLabelText = (status: string): string => {
       return "In Production";
     case "revisions":
       return "Sent for Revision";
+    case "client_revision":
+      return "Client Revision";
     case "approved":
       return "Approved";
     case "approved_by_client":
@@ -217,6 +223,8 @@ const getStatusIcon = (status: string) => {
       return null;
     case "revisions":
       return <RotateCcw className="h-4 w-4 text-orange-600" />;
+    case "client_revision":
+      return <RotateCcw className="h-4 w-4 text-red-600" />;
     case "unallocated":
       return <Users className="h-4 w-4 text-red-600" />;
     default:
@@ -1038,6 +1046,7 @@ export default function AdminReviewPage() {
         total: 0, // Total assets across all lists
         in_production: 0,
         revisions: 0,
+        client_revision: 0,
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0,
@@ -1068,6 +1077,10 @@ export default function AdminReviewPage() {
           totals.total > 0
             ? Math.round((totals.approved / totals.total) * 100)
             : 0,
+        client_revision:
+          totals.total > 0
+            ? Math.round((totals.client_revision / totals.total) * 100)
+            : 0,
         delivered_by_artist:
           totals.total > 0
             ? Math.round((totals.delivered_by_artist / totals.total) * 100)
@@ -1085,6 +1098,7 @@ export default function AdminReviewPage() {
         total: filtered.length,
         in_production: 0,
         revisions: 0,
+        client_revision: 0,
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0,
@@ -1134,6 +1148,7 @@ export default function AdminReviewPage() {
         in_production: 0,
         in_progress: 0, // Add in_progress status
         revisions: 0,
+        client_revision: 0,
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0, // Include not_started for consistency
@@ -1164,6 +1179,10 @@ export default function AdminReviewPage() {
             : 0,
         approved:
           dataLength > 0 ? Math.round((totals.approved / dataLength) * 100) : 0,
+        client_revision:
+          dataLength > 0
+            ? Math.round((totals.client_revision / dataLength) * 100)
+            : 0,
         delivered_by_artist:
           dataLength > 0
             ? Math.round((totals.delivered_by_artist / dataLength) * 100)
@@ -2915,7 +2934,7 @@ export default function AdminReviewPage() {
 
         {/* Status Summary Cards */}
         {!loading && !showAllocationLists && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 mb-2 sm:mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-4 mb-2 sm:mb-6">
             {/* Total Models (no filtering on this card itself) */}
             <Card
               className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
@@ -3030,6 +3049,38 @@ export default function AdminReviewPage() {
                     style={{ color: "rgb(194 65 12)" }}
                   >
                     {statusTotals.totals.revisions}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Client Revision */}
+            <Card
+              className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["client_revision"]);
+                setPage(1);
+              }}
+            >
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div
+                  className="p-1 sm:p-2 rounded-lg"
+                  style={{ backgroundColor: "rgb(254 226 226)" }}
+                >
+                  <RotateCcw
+                    className="h-3 w-3 sm:h-5 sm:w-5"
+                    style={{ color: "rgb(220 38 38)" }}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Client Revision
+                  </p>
+                  <p
+                    className="text-sm sm:text-2xl font-bold"
+                    style={{ color: "rgb(220 38 38)" }}
+                  >
+                    {statusTotals.totals.client_revision}
                   </p>
                 </div>
               </div>
@@ -3746,7 +3797,9 @@ export default function AdminReviewPage() {
                                               .status === "in_production"
                                           ? "In Progress"
                                           : assignment.onboarding_assets
-                                                .status === "revisions"
+                                                .status === "revisions" ||
+                                              assignment.onboarding_assets
+                                                .status === "client_revision"
                                             ? "Sent for Revision"
                                             : assignment.onboarding_assets
                                                 .status}

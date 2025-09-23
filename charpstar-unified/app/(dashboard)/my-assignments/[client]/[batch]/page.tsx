@@ -556,7 +556,8 @@ export default function BatchDetailPage() {
         (asset) => asset.status === "not_started"
       ).length;
       const revisionAssets = allAssets.filter(
-        (asset) => asset.status === "revisions"
+        (asset) =>
+          asset.status === "revisions" || asset.status === "client_revision"
       ).length;
       const waitingForApprovalAssets = allAssets.filter(
         (asset) => asset.status === "delivered_by_artist"
@@ -778,6 +779,8 @@ export default function BatchDetailPage() {
         return "status-in-production";
       case "revisions":
         return "status-revisions";
+      case "client_revision":
+        return "status-client-revision";
       case "approved":
         return "status-approved";
       case "approved_by_client":
@@ -802,6 +805,8 @@ export default function BatchDetailPage() {
         return "In Production";
       case "revisions":
         return "Sent for Revision";
+      case "client_revision":
+        return "Client Revision";
       case "approved":
         return "Approved";
       case "approved_by_client":
@@ -826,6 +831,8 @@ export default function BatchDetailPage() {
         return "table-row-status-in-production";
       case "revisions":
         return "table-row-status-revisions";
+      case "client_revision":
+        return "table-row-status-client-revision";
       case "approved":
         return "table-row-status-approved";
       case "approved_by_client":

@@ -49,6 +49,8 @@ const getStatusLabelClass = (status: string): string => {
       return "status-in-production";
     case "revisions":
       return "status-revisions";
+    case "client_revision":
+      return "status-client-revision";
     case "approved":
       return "status-approved";
     case "approved_by_client":
@@ -73,6 +75,8 @@ const getStatusLabelText = (status: string): string => {
       return "In Progress";
     case "revisions":
       return "Sent for Revision";
+    case "client_revision":
+      return "Client Revision";
     case "approved":
       return "New Upload";
     case "approved_by_client":
@@ -104,6 +108,8 @@ const getRowStyling = (status: string): { base: string; hover: string } => {
       return { base: "table-row-status-in-production", hover: "" };
     case "revisions":
       return { base: "table-row-status-revisions", hover: "" };
+    case "client_revision":
+      return { base: "table-row-status-client-revision", hover: "" };
     case "approved":
       return { base: "table-row-status-approved", hover: "" };
     case "approved_by_client":
@@ -249,6 +255,7 @@ export default function ReviewDashboardPage() {
       total: assets.length,
       in_production: 0,
       revisions: 0,
+      client_revision: 0,
       approved: 0,
       approved_by_client: 0,
       delivered_by_artist: 0,
@@ -571,7 +578,7 @@ export default function ReviewDashboardPage() {
       <Card className="p-3 sm:p-6 flex-1 flex flex-col border-0 shadow-none">
         {/* Status Summary Cards */}
         {!loading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 mb-4 sm:mb-6">
             {/* Total Models (no filtering on this card itself) */}
             <Card
               className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
@@ -669,6 +676,30 @@ export default function ReviewDashboardPage() {
                   </p>
                   <p className="text-lg sm:text-2xl font-bold text-orange-600">
                     {statusTotals.revisions}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Client Revision */}
+            <Card
+              className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
+              onClick={() => {
+                setStatusFilters(["client_revision"]);
+                setPage(1);
+              }}
+            >
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                  <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                    <span className="hidden sm:inline">Client Revision</span>
+                    <span className="sm:hidden">Client Rev</span>
+                  </p>
+                  <p className="text-lg sm:text-2xl font-bold text-red-600">
+                    {statusTotals.client_revision || 0}
                   </p>
                 </div>
               </div>

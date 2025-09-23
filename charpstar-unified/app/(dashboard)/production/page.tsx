@@ -1011,7 +1011,10 @@ export default function ProductionDashboard() {
           modeler.completedModels++;
         } else if (asset.status === "in_production") {
           modeler.inProgressModels++;
-        } else if (asset.status === "revisions") {
+        } else if (
+          asset.status === "revisions" ||
+          asset.status === "client_revision"
+        ) {
           modeler.revisionModels++;
         } else if (!asset.status || asset.status === "not_started") {
           modeler.pendingModels++;
@@ -1122,7 +1125,10 @@ export default function ProductionDashboard() {
           qaUser.completedReviews++;
         } else if (asset.status === "in_production") {
           qaUser.inProgressReviews++;
-        } else if (asset.status === "revisions") {
+        } else if (
+          asset.status === "revisions" ||
+          asset.status === "client_revision"
+        ) {
           qaUser.revisionReviews++;
         } else if (!asset.status || asset.status === "not_started") {
           qaUser.pendingReviews++;
@@ -1492,7 +1498,10 @@ export default function ProductionDashboard() {
           modeler.completedModels++;
         } else if (asset.status === "in_production") {
           modeler.inProgressModels++;
-        } else if (asset.status === "revisions") {
+        } else if (
+          asset.status === "revisions" ||
+          asset.status === "client_revision"
+        ) {
           modeler.revisionModels++;
         } else if (!asset.status || asset.status === "not_started") {
           modeler.pendingModels++;
@@ -1706,7 +1715,10 @@ export default function ProductionDashboard() {
           asset.status === "approved_by_client"
         ) {
           qaUser.completedReviews++;
-        } else if (asset.status === "revisions") {
+        } else if (
+          asset.status === "revisions" ||
+          asset.status === "client_revision"
+        ) {
           qaUser.revisionReviews++;
         } else if (!asset.status || asset.status === "not_started") {
           qaUser.pendingReviews++;
@@ -2164,6 +2176,8 @@ export default function ProductionDashboard() {
         return "#3B82F6"; // light blue color
       case "revisions":
         return "#F97316"; // orange color
+      case "client_revision":
+        return "#DC2626"; // red color for client revisions
       case "approved":
         return "#22C55E"; // success color
       case "approved_by_client":
@@ -2183,6 +2197,8 @@ export default function ProductionDashboard() {
         return "In Production";
       case "revisions":
         return "Ready for Revision";
+      case "client_revision":
+        return "Client Revision";
       case "approved":
         return "Approved";
       case "approved_by_client":

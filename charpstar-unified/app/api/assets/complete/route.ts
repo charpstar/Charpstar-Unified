@@ -21,6 +21,13 @@ export async function POST(request: NextRequest) {
 
     const { assetId, status, revisionCount } = await request.json();
 
+    console.log("API received:", {
+      assetId,
+      status,
+      revisionCount,
+      userId: user.id,
+    });
+
     if (!assetId || !status) {
       return NextResponse.json(
         { error: "Missing required fields: assetId, status" },
@@ -43,6 +50,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log("User profile role:", profile?.role);
+
     // Enforce role on client approval
     if (status === "approved_by_client" && profile?.role !== "client") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -58,8 +67,15 @@ export async function POST(request: NextRequest) {
 
     // Update the asset status
     const updateData: any = { status };
+    console.log("About to update asset with:", { updateData, status });
+
+    // Test if the status is valid by checking the database schema
+    if (status === "client_revision") {
+      console.log("Testing client_revision status - this is a new enum value");
+    }
+
     // On revisions, increment revision_count immediately and log the revision action
-    if (status === "revisions") {
+    if (status === "revisions" || status === "client_revision") {
       // Fetch latest revision number to set on asset
       const { data: latestRev } = await supabase
         .from("revision_history")
@@ -88,16 +104,29 @@ export async function POST(request: NextRequest) {
       .update(updateData)
       .eq("id", assetId);
 
+    console.log("Database update result:", { assetError, updateData });
+
     if (assetError) {
       console.error("Error updating asset status:", assetError);
+      console.error("Asset ID:", assetId);
+      console.error("Update data:", updateData);
       return NextResponse.json(
-        { error: "Failed to update asset status" },
+        { error: "Failed to update asset status", details: assetError.message },
         { status: 500 }
       );
     }
 
+    // Verify the update worked
+    const { data: verifyAsset, error: verifyError } = await supabase
+      .from("onboarding_assets")
+      .select("status")
+      .eq("id", assetId)
+      .single();
+
+    console.log("Verification query result:", { verifyAsset, verifyError });
+
     // Mark all existing annotations as old when setting status to revisions
-    if (status === "revisions") {
+    if (status === "revisions" || status === "client_revision") {
       const { error: markOldError } = await supabase
         .from("asset_annotations")
         .update({ is_old_annotation: true })

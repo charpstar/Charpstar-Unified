@@ -78,6 +78,7 @@ const getStatusColor = (status: StatusKey): string => {
     not_started: "var(--status-not-started)",
     in_production: "var(--status-in-production)",
     revisions: "var(--status-revisions)",
+    client_revision: "#DC2626", // red color for client revisions
     approved: "var(--status-approved)",
     approved_by_client: "var(--status-approved-by-client)",
     delivered_by_artist: "var(--status-delivered-by-artist)",
@@ -1315,6 +1316,7 @@ export function ModelStatusWidget() {
     not_started: 0,
     in_production: 0,
     revisions: 0,
+    client_revision: 0,
     approved: 0,
     approved_by_client: 0,
     delivered_by_artist: 0,
@@ -1334,6 +1336,7 @@ export function ModelStatusWidget() {
           not_started: 0,
           in_production: 0,
           revisions: 0,
+          client_revision: 0,
           approved: 0,
           approved_by_client: 0,
           delivered_by_artist: 0,
@@ -1382,6 +1385,7 @@ export function StatusPieChartWidget() {
     not_started: 0,
     in_production: 0,
     revisions: 0,
+    client_revision: 0,
     approved: 0,
     approved_by_client: 0,
     delivered_by_artist: 0,
@@ -1402,6 +1406,7 @@ export function StatusPieChartWidget() {
           not_started: 0,
           in_production: 0,
           revisions: 0,
+          client_revision: 0,
           approved: 0,
           approved_by_client: 0,
           delivered_by_artist: 0,
@@ -1581,7 +1586,9 @@ export function ClientActionCenterWidget() {
 
       if (!error && data) {
         const waiting = data.filter((a) => a.status === "approved");
-        const revisions = data.filter((a) => a.status === "revisions");
+        const revisions = data.filter(
+          (a) => a.status === "revisions" || a.status === "client_revision"
+        );
         const approvedByClient = data.filter(
           (a) => a.status === "approved_by_client"
         );
@@ -1690,6 +1697,7 @@ export function AdminPipelineWidget() {
     not_started: 0,
     in_production: 0,
     revisions: 0,
+    client_revision: 0,
     approved: 0,
     approved_by_client: 0,
     delivered_by_artist: 0,
@@ -1715,6 +1723,7 @@ export function AdminPipelineWidget() {
           not_started: 0,
           in_production: 0,
           revisions: 0,
+          client_revision: 0,
           approved: 0,
           approved_by_client: 0,
           delivered_by_artist: 0,
@@ -1784,6 +1793,12 @@ export function AdminPipelineWidget() {
       value: counts.revisions,
     },
     {
+      key: "client_revision",
+      label: STATUS_LABELS.client_revision,
+      color: getStatusColor("client_revision"),
+      value: counts.client_revision,
+    },
+    {
       key: "approved",
       label: "New Upload",
       color: "#22C55E",
@@ -1838,6 +1853,14 @@ export function AdminPipelineWidget() {
       iconBg: "bg-amber-500 dark:bg-amber-600",
       accentBar: "bg-amber-500 dark:bg-amber-600",
       icon: RotateCcw,
+    },
+    client_revision: {
+      bgGradient:
+        "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
+      border: "border-red-200 dark:border-red-800",
+      iconBg: "bg-red-500 dark:bg-red-600",
+      accentBar: "bg-red-500 dark:bg-red-600",
+      icon: Eye,
     },
     approved: {
       bgGradient:

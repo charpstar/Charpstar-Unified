@@ -145,6 +145,7 @@
   /* Status color variables */
   --status-in-production: #facc15; /* yellow */
   --status-revisions: #f87171; /* red */
+  --status-client-revision: #dc2626; /* darker red for client revisions */
   --status-approved: #4ade80; /* green */
   --status-delivered-by-artist: #60a5fa; /* blue */
   --status-approved-alt: #059669; /* darker green for charts */
@@ -252,6 +253,7 @@
   /* Status color variables */
   --status-in-production: #facc15; /* yellow */
   --status-revisions: #f87171; /* red */
+  --status-client-revision: #dc2626; /* darker red for client revisions */
   --status-approved: #4ade80; /* green */
   --status-delivered-by-artist: #60a5fa; /* blue */
   --status-approved-alt: #059669; /* darker green for charts */
@@ -573,6 +575,9 @@ model-viewer::part(default-ar-button):focus-visible {
   .text-status-revisions {
     color: var(--status-revisions);
   }
+  .text-status-client-revision {
+    color: var(--status-client-revision);
+  }
   .text-status-approved {
     color: var(--status-approved);
   }
@@ -594,6 +599,9 @@ model-viewer::part(default-ar-button):focus-visible {
   }
   .bg-status-revisions {
     background-color: var(--status-revisions);
+  }
+  .bg-status-client-revision {
+    background-color: var(--status-client-revision);
   }
   .bg-status-approved {
     background-color: var(--status-approved);
@@ -650,6 +658,13 @@ model-viewer::part(default-ar-button):focus-visible {
     background-color: rgb(254 215 170 / 0.5) !important;
   }
 
+  .table-row-status-client-revision {
+    background-color: rgb(254 202 202 / 0.3) !important; /* light red */
+  }
+  .table-row-status-client-revision:hover {
+    background-color: rgb(254 202 202 / 0.5) !important;
+  }
+
   .table-row-status-approved {
     background-color: rgb(34 197 94 / 0.2) !important; /* green */
   }
@@ -703,6 +718,12 @@ model-viewer::part(default-ar-button):focus-visible {
     border: 1px solid rgb(251 146 60 / 0.5);
   }
 
+  .status-client-revision {
+    background-color: rgb(254 202 202); /* light red */
+    color: rgb(153 27 27); /* dark red */
+    border: 1px solid rgb(248 113 113 / 0.5);
+  }
+
   .status-approved {
     background-color: var(--success-muted);
     color: var(--success);
@@ -752,6 +773,12 @@ model-viewer::part(default-ar-button):focus-visible {
     background-color: rgb(194 65 12 / 0.2); /* dark orange */
     color: rgb(251 146 60);
     border: 1px solid rgb(251 146 60 / 0.3);
+  }
+
+  .dark .status-client-revision {
+    background-color: rgb(153 27 27 / 0.2); /* dark red */
+    color: rgb(248 113 113);
+    border: 1px solid rgb(248 113 113 / 0.3);
   }
 
   .dark .status-approved {
