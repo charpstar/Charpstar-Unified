@@ -1454,11 +1454,11 @@ export function StatusPieChartWidget() {
       const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
       const displayLabel =
         user?.metadata?.role === "client" && key === "approved"
-          ? "New Upload"
+          ? "New Uploads"
           : label;
       const color =
         user?.metadata?.role === "client" && key === "approved"
-          ? "#1b22e833"
+          ? "#22C55E"
           : getStatusColor(key as StatusKey);
       return {
         name: displayLabel,
@@ -1564,6 +1564,7 @@ export function ClientActionCenterWidget() {
   const user = useUser();
   const router = useRouter();
   const [waitingForApproval, setWaitingForApproval] = useState<any[]>([]);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [readyForRevision, setReadyForRevision] = useState<any[]>([]);
   const [totals, setTotals] = useState({ total: 0, approved_by_client: 0 });
   const [loading, setLoading] = useState(false);
@@ -1612,10 +1613,10 @@ export function ClientActionCenterWidget() {
         />
       </div>
       <CardContent className="space-y-4">
-        <div className="group relative overflow-hidden rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50 p-4">
+        <div className="group relative overflow-hidden rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-4">
           <div className="absolute inset-0 opacity-5"></div>
           <div className="relative flex items-center justify-between">
-            <div className="text-sm text-emerald-800 dark:text-emerald-300">
+            <div className="text-sm text-blue-800 dark:text-blue-300">
               Overall completion
             </div>
             <div className="text-sm font-semibold">{completionPct}%</div>
@@ -1625,15 +1626,15 @@ export function ClientActionCenterWidget() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           <div
-            className="group relative overflow-hidden rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-3 cursor-pointer"
-            onClick={() => router.push("/client-review")}
+            className="group relative overflow-hidden rounded-2xl border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/50 p-3 cursor-pointer"
+            onClick={() => router.push("/client-review?status=approved")}
           >
-            <div className="absolute inset-0 opacity-5"></div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium">New Upload</div>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+            <div className="absolute inset-0 opacity-5 w-full h-full"></div>
+            <div className="flex items-center justify-between mb-2 w-full">
+              <div className="text-sm font-medium">New Uploads</div>
+              <Badge variant="outline" className="bg-green-50 text-green-700">
                 {waitingForApproval.length}
               </Badge>
             </div>
@@ -1644,14 +1645,16 @@ export function ClientActionCenterWidget() {
                 Nothing pending
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 w-full">
                 {waitingForApproval.map((a) => (
                   <div
                     key={a.id}
                     className="group/item relative flex items-center justify-between text-sm cursor-pointer"
-                    onClick={() => router.push("/client-review")}
+                    onClick={() =>
+                      router.push("/client-review?status=approved")
+                    }
                   >
-                    <div className="truncate">
+                    <div className="truncate w-full">
                       <div className="font-medium truncate max-w-[180px]">
                         {a.product_name}
                       </div>
@@ -1664,62 +1667,14 @@ export function ClientActionCenterWidget() {
                 ))}
               </div>
             )}
-            <div className="mt-3">
+            <div className="mt-3 w-full">
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => router.push("/client-review")}
+                className="w-full"
+                onClick={() => router.push("/client-review?status=approved")}
               >
                 Review all
-              </Button>
-            </div>
-          </div>
-
-          <div
-            className="group relative overflow-hidden rounded-2xl border-2 border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/50 p-3 cursor-pointer"
-            onClick={() => router.push("/client-review")}
-          >
-            <div className="absolute inset-0 opacity-5"></div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium">Ready for Revision</div>
-              <Badge variant="outline" className="bg-amber-50 text-amber-700">
-                {readyForRevision.length}
-              </Badge>
-            </div>
-            {loading ? (
-              <div className="h-16 bg-muted animate-pulse rounded" />
-            ) : readyForRevision.length === 0 ? (
-              <div className="text-xs text-muted-foreground">
-                No revisions requested
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {readyForRevision.map((a) => (
-                  <div
-                    key={a.id}
-                    className="group/item relative flex items-center justify-between text-sm cursor-pointer"
-                    onClick={() => router.push("/client-review")}
-                  >
-                    <div className="truncate">
-                      <div className="font-medium truncate max-w-[180px]">
-                        {a.product_name}
-                      </div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {a.article_id}
-                      </div>
-                    </div>
-                    <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0" />
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="mt-3">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => router.push("/dashboard/client-review")}
-              >
-                Open review
               </Button>
             </div>
           </div>
@@ -1831,7 +1786,7 @@ export function AdminPipelineWidget() {
     {
       key: "approved",
       label: "New Upload",
-      color: "#1b22e833",
+      color: "#22C55E",
       value: counts.approved,
     },
     {

@@ -2170,7 +2170,7 @@ export default function ProductionDashboard() {
         return "#10B981"; // emerald color
 
       case "not_started":
-        return "#EF4444"; // error color
+        return "#22C55E"; // light green color
 
       default:
         return "#3B82F6"; // Default to in_production color
@@ -2187,6 +2187,8 @@ export default function ProductionDashboard() {
         return "Approved";
       case "approved_by_client":
         return "Approved by Client";
+      case "not_started":
+        return "New Upload";
 
       default:
         return "In Production"; // Default to in_production label
