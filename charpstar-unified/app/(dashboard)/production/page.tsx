@@ -7,10 +7,9 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Separator,
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
-import { Badge, Progress } from "@/components/ui/feedback";
+import { Badge } from "@/components/ui/feedback";
 import {
   Tooltip,
   TooltipContent,
@@ -52,15 +51,9 @@ import {
   AlertCircle,
   Info,
   Trash2,
+  User,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-} from "recharts";
 
 interface BatchProgress {
   id: string;
@@ -131,6 +124,31 @@ interface ClientSummary {
   assignedUsers: {
     modelers: number;
     qa: number;
+  };
+  teamDetails?: {
+    modelers: Array<{
+      id: string;
+      email: string;
+      name: string;
+      totalAssets: number;
+      statusCounts: {
+        not_started: number;
+        in_production: number;
+        revisions: number;
+        approved: number;
+        approved_by_client: number;
+      };
+    }>;
+    qa: Array<{
+      id: string;
+      totalAssets: number;
+      statusCounts: {
+        in_production: number;
+        revisions: number;
+        approved: number;
+        approved_by_client: number;
+      };
+    }>;
   };
   averageProgress: number;
   batches: Array<{
@@ -284,6 +302,19 @@ export default function ProductionDashboard() {
     if (newViewMode !== "batches") {
       params.delete("client");
     }
+
+    // Invalidate cache when switching to clients view to ensure fresh profile data
+    if (newViewMode === "clients" && viewMode !== "clients") {
+      setDataCache({
+        assets: null,
+        assetAssignments: null,
+        profiles: null,
+        lastFetched: null,
+        viewMode: null,
+        page: null,
+      });
+    }
+
     router.push(`/production?${params.toString()}`);
   };
 
@@ -372,7 +403,13 @@ export default function ProductionDashboard() {
         dataCache.page === currentPage) &&
       dataCache.assets &&
       (viewMode === "clients" || dataCache.assetAssignments) &&
-      (viewMode === "clients" || viewMode === "batches" || dataCache.profiles)
+      // Profiles are required for clients, batches, modelers, and qa views
+      (viewMode === "clients" ||
+      viewMode === "batches" ||
+      viewMode === "modelers" ||
+      viewMode === "qa"
+        ? dataCache.profiles
+        : true)
     );
   };
 
@@ -429,6 +466,7 @@ export default function ProductionDashboard() {
 
       // Only fetch assignments if needed for current view
       if (
+        viewMode === "clients" ||
         viewMode === "batches" ||
         viewMode === "modelers" ||
         viewMode === "qa"
@@ -446,7 +484,12 @@ export default function ProductionDashboard() {
       }
 
       // Only fetch profiles if needed for current view
-      if (viewMode === "modelers" || viewMode === "qa") {
+      if (
+        viewMode === "clients" ||
+        viewMode === "batches" ||
+        viewMode === "modelers" ||
+        viewMode === "qa"
+      ) {
         queries.push(
           supabase.from("profiles").select("id, email, title, role")
         );
@@ -496,8 +539,10 @@ export default function ProductionDashboard() {
           dataCache.assets &&
           (viewMode === "clients" || dataCache.assetAssignments) &&
           (viewMode === "clients" ||
-            viewMode === "batches" ||
-            dataCache.profiles);
+          viewMode === "modelers" ||
+          viewMode === "qa"
+            ? dataCache.profiles
+            : true);
 
         if (hasCachedData && isCacheValid()) {
           // Use cached data
@@ -551,7 +596,7 @@ export default function ProductionDashboard() {
   }) => {
     try {
       setLoadingStates((prev) => ({ ...prev, clients: true }));
-      const { assetData, assetAssignments } = data;
+      const { assetData, assetAssignments, profiles } = data;
 
       // Group assets by client
       const clientMap = new Map<string, ClientSummary>();
@@ -676,6 +721,77 @@ export default function ProductionDashboard() {
         const uniqueQAUsers = new Set(clientQAAssignments.map((a) => a.user_id))
           .size;
 
+        // Create a map of profiles for quick lookup
+        const profilesMap = new Map();
+        if (profiles && profiles.length > 0) {
+          profiles.forEach((profile) => {
+            profilesMap.set(profile.id, profile);
+          });
+        }
+
+        // Get detailed modeler info with their asset counts
+        const modelerDetails = new Map();
+        clientModelerAssignments.forEach((assignment) => {
+          const userId = assignment.user_id;
+          const asset = assignment.onboarding_assets as any;
+          const profile = profilesMap.get(userId);
+
+          if (!modelerDetails.has(userId)) {
+            modelerDetails.set(userId, {
+              id: userId,
+              email: profile?.email || `User-${userId.slice(0, 8)}`,
+              name:
+                profile?.title ||
+                (profile?.email ? profile.email.split("@")[0] : null) ||
+                `Modeler-${userId.slice(0, 8)}`,
+              totalAssets: 0,
+              statusCounts: {
+                not_started: 0,
+                in_production: 0,
+                revisions: 0,
+                approved: 0,
+                approved_by_client: 0,
+              },
+            });
+          }
+
+          const modeler = modelerDetails.get(userId);
+          modeler.totalAssets++;
+
+          if (asset.status && asset.status in modeler.statusCounts) {
+            modeler.statusCounts[asset.status]++;
+          } else if (!asset.status || asset.status === "not_started") {
+            modeler.statusCounts.not_started++;
+          }
+        });
+
+        // Get detailed QA info with their asset counts
+        const qaDetails = new Map();
+        clientQAAssignments.forEach((assignment) => {
+          const userId = assignment.user_id;
+          const asset = assignment.onboarding_assets as any;
+
+          if (!qaDetails.has(userId)) {
+            qaDetails.set(userId, {
+              id: userId,
+              totalAssets: 0,
+              statusCounts: {
+                in_production: 0,
+                revisions: 0,
+                approved: 0,
+                approved_by_client: 0,
+              },
+            });
+          }
+
+          const qa = qaDetails.get(userId);
+          qa.totalAssets++;
+
+          if (asset.status && asset.status in qa.statusCounts) {
+            qa.statusCounts[asset.status]++;
+          }
+        });
+
         return {
           ...client,
           completionPercentage:
@@ -686,6 +802,10 @@ export default function ProductionDashboard() {
           assignedUsers: {
             modelers: uniqueModelers,
             qa: uniqueQAUsers,
+          },
+          teamDetails: {
+            modelers: Array.from(modelerDetails.values()),
+            qa: Array.from(qaDetails.values()),
           },
         };
       });
@@ -2041,9 +2161,9 @@ export default function ProductionDashboard() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "in_production":
-        return "#FACC15"; // warning color
+        return "#3B82F6"; // light blue color
       case "revisions":
-        return "#3B82F6"; // info color
+        return "#F97316"; // orange color
       case "approved":
         return "#22C55E"; // success color
       case "approved_by_client":
@@ -2053,7 +2173,7 @@ export default function ProductionDashboard() {
         return "#EF4444"; // error color
 
       default:
-        return "#FACC15"; // Default to in_production color
+        return "#3B82F6"; // Default to in_production color
     }
   };
 
@@ -2596,174 +2716,347 @@ export default function ProductionDashboard() {
                   currentPage * itemsPerPage
                 )
                 .map((client) => {
-                  // Prepare chart data
-                  const chartData = Object.entries(client.statusCounts)
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    .filter(([_, count]) => count > 0)
-                    .map(([status, count]) => ({
-                      name: getStatusLabel(status),
-                      value: count,
-                      color: getStatusColor(status),
-                    }));
-
                   return (
                     <Card
                       key={client.name}
-                      className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02] cursor-pointer"
+                      className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
                       onClick={() => handleClientSelect(client.name)}
                     >
-                      <CardHeader className="pb-3 space-y-3 p-4 sm:p-6">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-lg sm:text-xl font-semibold text-foreground mb-2">
-                              {client.name}
-                            </CardTitle>
+                      {/* Background Pattern */}
+                      <div className="absolute inset-0 bg-grid-pattern opacity-5" />
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full transform translate-x-16 -translate-y-16" />
 
-                            {/* Key Metrics Row */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
-                              <div className="flex items-center gap-1 text-muted-foreground">
-                                <Package className="h-3 w-3 sm:h-4 sm:w-4" />
-                                <span>{client.totalModels} models</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-muted-foreground">
-                                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
-                                <span>{client.totalBatches} batches</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-muted-foreground">
-                                <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                                <span>
-                                  {client.assignedUsers.modelers +
-                                    client.assignedUsers.qa}{" "}
-                                  team
-                                </span>
+                      <CardHeader className="relative z-10 pb-4">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div>
+                                <CardTitle className="text-xl font-bold text-foreground mb-1">
+                                  {client.name}
+                                </CardTitle>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Package className="h-3 w-3" />
+                                  <span>{client.totalModels} Models</span>
+                                  <span>•</span>
+                                  <TrendingUp className="h-3 w-3" />
+                                  <span>{client.totalBatches} Batches</span>
+                                </div>
                               </div>
                             </div>
 
-                            {/* Progress Bar */}
-                            <div className="mt-3 space-y-2">
-                              <div className="flex items-center justify-between text-xs sm:text-sm">
-                                <span className="font-medium text-muted-foreground">
+                            {/* Progress Section */}
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-muted-foreground">
                                   Overall Progress
                                 </span>
-                                <span className="font-bold text-base sm:text-lg">
-                                  {client.completionPercentage}%
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-2xl font-bold text-foreground">
+                                    {client.completionPercentage}%
+                                  </span>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                                          <Users className="h-4 w-4" />
+                                          <span className="text-sm font-medium">
+                                            {client.assignedUsers.modelers +
+                                              client.assignedUsers.qa}
+                                          </span>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent
+                                        side="right"
+                                        className="max-w-2xl bg-background border border-border text-foreground p-6"
+                                      >
+                                        <div className="space-y-4">
+                                          <div className="font-semibold text-base border-b border-border pb-2">
+                                            Modeler Allocations - {client.name}
+                                          </div>
+
+                                          {/* Modelers Section */}
+                                          {client.teamDetails &&
+                                          client.teamDetails.modelers.length >
+                                            0 ? (
+                                            <div className="space-y-3 max-h-96 overflow-y-auto">
+                                              {client.teamDetails.modelers.map(
+                                                (modeler, index) => (
+                                                  <div
+                                                    key={modeler.id}
+                                                    className="bg-muted/20 rounded-lg p-4 border border-border/50"
+                                                  >
+                                                    {/* Modeler Header */}
+                                                    <div className="flex items-start justify-between mb-3">
+                                                      <div className="flex-1 min-w-0">
+                                                        <div className="font-semibold text-sm text-foreground mb-1">
+                                                          {modeler.name ||
+                                                            `Modeler ${index + 1}`}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground mb-2">
+                                                          {modeler.email ||
+                                                            "Email not available"}
+                                                        </div>
+                                                        <div className="text-xs font-medium text-primary">
+                                                          {modeler.totalAssets}{" "}
+                                                          Total Assets
+                                                        </div>
+                                                      </div>
+                                                    </div>
+
+                                                    {/* Status Breakdown */}
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                      <div className="bg-gray-100 dark:bg-gray-800 rounded p-2 text-center">
+                                                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                          Not Started
+                                                        </div>
+                                                        <div className="text-lg font-bold text-gray-600 dark:text-gray-400">
+                                                          {
+                                                            modeler.statusCounts
+                                                              .not_started
+                                                          }
+                                                        </div>
+                                                      </div>
+                                                      <div
+                                                        className="rounded p-2 text-center"
+                                                        style={{
+                                                          backgroundColor:
+                                                            getStatusColor(
+                                                              "in_production"
+                                                            ) + "20",
+                                                        }}
+                                                      >
+                                                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                          In Production
+                                                        </div>
+                                                        <div
+                                                          className="text-lg font-bold"
+                                                          style={{
+                                                            color:
+                                                              getStatusColor(
+                                                                "in_production"
+                                                              ),
+                                                          }}
+                                                        >
+                                                          {
+                                                            modeler.statusCounts
+                                                              .in_production
+                                                          }
+                                                        </div>
+                                                      </div>
+                                                      <div
+                                                        className="rounded p-2 text-center"
+                                                        style={{
+                                                          backgroundColor:
+                                                            getStatusColor(
+                                                              "revisions"
+                                                            ) + "20",
+                                                        }}
+                                                      >
+                                                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                          Revisions
+                                                        </div>
+                                                        <div
+                                                          className="text-lg font-bold"
+                                                          style={{
+                                                            color:
+                                                              getStatusColor(
+                                                                "revisions"
+                                                              ),
+                                                          }}
+                                                        >
+                                                          {
+                                                            modeler.statusCounts
+                                                              .revisions
+                                                          }
+                                                        </div>
+                                                      </div>
+                                                      <div
+                                                        className="rounded p-2 text-center"
+                                                        style={{
+                                                          backgroundColor:
+                                                            getStatusColor(
+                                                              "approved"
+                                                            ) + "20",
+                                                        }}
+                                                      >
+                                                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                          Approved
+                                                        </div>
+                                                        <div
+                                                          className="text-lg font-bold"
+                                                          style={{
+                                                            color:
+                                                              getStatusColor(
+                                                                "approved"
+                                                              ),
+                                                          }}
+                                                        >
+                                                          {modeler.statusCounts
+                                                            .approved +
+                                                            modeler.statusCounts
+                                                              .approved_by_client}
+                                                        </div>
+                                                      </div>
+                                                    </div>
+
+                                                    {/* Progress Bar for this modeler */}
+                                                    <div className="mt-3">
+                                                      <div className="flex items-center justify-between text-xs mb-1">
+                                                        <span className="text-muted-foreground">
+                                                          Progress
+                                                        </span>
+                                                        <span className="font-medium">
+                                                          {modeler.totalAssets >
+                                                          0
+                                                            ? Math.round(
+                                                                ((modeler
+                                                                  .statusCounts
+                                                                  .approved +
+                                                                  modeler
+                                                                    .statusCounts
+                                                                    .approved_by_client) /
+                                                                  modeler.totalAssets) *
+                                                                  100
+                                                              )
+                                                            : 0}
+                                                          %
+                                                        </span>
+                                                      </div>
+                                                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                                        <div
+                                                          className="h-full bg-green-500 rounded-full transition-all duration-300"
+                                                          style={{
+                                                            width: `${
+                                                              modeler.totalAssets >
+                                                              0
+                                                                ? ((modeler
+                                                                    .statusCounts
+                                                                    .approved +
+                                                                    modeler
+                                                                      .statusCounts
+                                                                      .approved_by_client) /
+                                                                    modeler.totalAssets) *
+                                                                  100
+                                                                : 0
+                                                            }%`,
+                                                          }}
+                                                        />
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                )
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <div className="text-center py-8">
+                                              <div className="text-muted-foreground text-sm">
+                                                No modelers assigned to this
+                                                client
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {/* Overall Summary */}
+                                          <div className="pt-3 border-t border-border">
+                                            <div className="text-sm text-muted-foreground">
+                                              <strong>
+                                                {client.completedModels}
+                                              </strong>{" "}
+                                              of{" "}
+                                              <strong>
+                                                {client.totalModels}
+                                              </strong>{" "}
+                                              total assets completed (
+                                              {client.completionPercentage}%)
+                                            </div>
+                                            {client.unassignedAssets > 0 && (
+                                              <div className="text-sm text-orange-600 dark:text-orange-400 mt-1">
+                                                ⚠️ {client.unassignedAssets}{" "}
+                                                assets still unassigned
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
                               </div>
-                              <Progress
-                                value={client.completionPercentage}
-                                className="h-2"
-                              />
-                              <div className="flex justify-between text-xs text-muted-foreground">
-                                <span>{client.completedModels} completed</span>
-                                <span>
-                                  {client.totalModels - client.completedModels}{" "}
-                                  remaining
-                                </span>
+
+                              {/* Modern Progress Bar */}
+                              <div className="relative">
+                                <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out"
+                                    style={{
+                                      width: `${client.completionPercentage}%`,
+                                    }}
+                                  />
+                                </div>
+                                <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                  <span className="font-medium">
+                                    {client.completedModels} completed
+                                  </span>
+                                  <span>
+                                    {client.totalModels -
+                                      client.completedModels}{" "}
+                                    remaining
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
                       </CardHeader>
 
-                      <CardContent className="pt-0 p-4 sm:p-6">
-                        {/* Main Content Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                          {/* Left Column - Chart */}
-                          <div className="flex items-center justify-center">
-                            <div className="w-24 h-24 sm:w-32 sm:h-32 relative">
-                              <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                  <Pie
-                                    data={chartData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={25}
-                                    outerRadius={40}
-                                    paddingAngle={2}
-                                    dataKey="value"
-                                  >
-                                    {chartData.map((entry, index) => (
-                                      <Cell
-                                        key={`cell-${index}`}
-                                        fill={entry.color}
-                                      />
-                                    ))}
-                                  </Pie>
-                                  <RechartsTooltip
-                                    wrapperStyle={{ zIndex: 99999 }}
-                                    contentStyle={{
-                                      backgroundColor: "var(--background)",
-                                      border: "1px solid var(--border)",
-                                      borderRadius: "8px",
-                                      fontSize: "12px",
-                                      zIndex: 99999,
-                                    }}
-                                  />
-                                </PieChart>
-                              </ResponsiveContainer>
-                              {/* Centered fraction label */}
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="text-center">
-                                  <div className="text-sm sm:text-lg font-bold text-primary">
-                                    {client.completedModels}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground font-medium">
-                                    of {client.totalModels}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Right Column - Batches Summary */}
-                          <div className="space-y-3">
-                            <h4 className="font-medium text-xs sm:text-sm text-muted-foreground">
-                              Recent Batches
-                            </h4>
-                            <div className="space-y-2 max-h-20 sm:max-h-24 overflow-y-auto">
-                              {client.batches.slice(0, 3).map((batch) => (
+                      <CardContent className="relative z-10 pt-0">
+                        {/* Status Pills */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {Object.entries(client.statusCounts)
+                            .filter(([, count]) => count > 0)
+                            .slice(0, 4)
+                            .map(([status, count]) => (
+                              <div
+                                key={status}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all hover:scale-105"
+                                style={{
+                                  backgroundColor:
+                                    getStatusColor(status) + "15",
+                                  color: getStatusColor(status),
+                                  border: `1px solid ${getStatusColor(status)}25`,
+                                }}
+                              >
                                 <div
-                                  key={batch.batch}
-                                  className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs"
-                                >
-                                  <span className="font-medium">
-                                    Batch {batch.batch}
-                                  </span>
-                                  <div className="flex items-center gap-1 sm:gap-2">
-                                    <span className="text-muted-foreground text-xs">
-                                      {batch.totalModels} models
-                                    </span>
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      {batch.completionPercentage}%
-                                    </Badge>
-                                  </div>
-                                </div>
-                              ))}
-                              {client.batches.length > 3 && (
-                                <div className="text-xs text-muted-foreground text-center">
-                                  +{client.batches.length - 3} more batches
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                                  className="w-2 h-2 rounded-full"
+                                  style={{
+                                    backgroundColor: getStatusColor(status),
+                                  }}
+                                />
+                                <span>{count}</span>
+                                <span className="hidden sm:inline">
+                                  {getStatusLabel(status)}
+                                </span>
+                              </div>
+                            ))}
                         </div>
 
-                        {/* Fixed Action Button */}
-                        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-border">
-                          <Separator className="mb-3 sm:mb-4" />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full text-xs sm:text-sm"
-                            onClick={() => handleClientSelect(client.name)}
-                          >
-                            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                            View Batches
-                          </Button>
-                        </div>
+                        {/* Batches Grid */}
+
+                        {/* Action Button */}
+                        <Button
+                          variant="ghost"
+                          className="w-full h-11 "
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClientSelect(client.name);
+                          }}
+                        >
+                          <TrendingUp className="h-4 w-4 mr-2" />
+                          View All Batches
+                          <span className="ml-auto text-xs opacity-75">
+                            {client.totalBatches} total
+                          </span>
+                        </Button>
                       </CardContent>
                     </Card>
                   );
@@ -2777,6 +3070,7 @@ export default function ProductionDashboard() {
                   )
                   .map((batch) => {
                     // Prepare chart data
+                    //eslint-disable-next-line @typescript-eslint/no-unused-vars
                     const chartData = Object.entries(batch.statusCounts)
                       // eslint-disable-next-line @typescript-eslint/no-unused-vars
                       .filter(([_, count]) => count > 0)
@@ -2792,78 +3086,545 @@ export default function ProductionDashboard() {
                     return (
                       <Card
                         key={batch.id}
-                        className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+                        className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                        onClick={() =>
+                          handleAdminReview(batch.client, batch.batch)
+                        }
                       >
-                        <CardHeader className="pb-3 space-y-3 p-4 sm:p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
-                              <CardTitle className="text-lg sm:text-xl font-semibold text-foreground mb-2">
-                                {batch.client} - Batch {batch.batch}
-                              </CardTitle>
+                        {/* Background Pattern */}
+                        <div className="absolute inset-0 bg-grid-pattern opacity-5" />
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full transform translate-x-16 -translate-y-16" />
 
-                              {/* Key Metrics Row */}
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
-                                <div className="flex items-center gap-1 text-muted-foreground">
-                                  <Package className="h-3 w-3 sm:h-4 sm:w-4" />
-                                  <span>{batch.totalModels} models</span>
-                                </div>
-                                <div className="flex items-center gap-1 text-muted-foreground">
-                                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                                  <span className="hidden sm:inline">
-                                    Started {batch.startDate}
-                                  </span>
-                                  <span className="sm:hidden">
-                                    {batch.startDate}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  {batch.unassignedAssets > 0 ? (
-                                    <>
-                                      <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600 dark:text-orange-400" />
-                                      <span className="text-orange-600 dark:text-orange-400 text-xs sm:text-sm">
-                                        {batch.unassignedAssets} unassigned
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
-                                      <span className="text-green-600 dark:text-green-400 text-xs sm:text-sm">
-                                        All assigned
-                                      </span>
-                                    </>
-                                  )}
+                        <CardHeader className="relative z-10 pb-4">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-3">
+                                <div>
+                                  <CardTitle className="text-xl font-bold text-foreground mb-1">
+                                    {batch.client} - Batch {batch.batch}
+                                  </CardTitle>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Package className="h-3 w-3" />
+                                    <span>{batch.totalModels} Models</span>
+                                    <span>•</span>
+                                    <Calendar className="h-3 w-3" />
+                                    <span>Started {batch.startDate}</span>
+                                  </div>
                                 </div>
                               </div>
 
-                              {/* Progress Bar */}
-                              <div className="mt-3 space-y-2">
-                                <div className="flex items-center justify-between text-xs sm:text-sm">
-                                  <span className="font-medium text-muted-foreground">
+                              {/* Progress Section */}
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Progress
                                   </span>
-                                  <span className="font-bold text-base sm:text-lg">
-                                    {batch.completionPercentage}%
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-2xl font-bold text-foreground">
+                                      {batch.completionPercentage}%
+                                    </span>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                                            <Users className="h-4 w-4" />
+                                            <span className="text-sm font-medium">
+                                              {(() => {
+                                                // Calculate unique modelers assigned to this specific batch
+                                                const uniqueModelers =
+                                                  dataCache.assetAssignments
+                                                    ? new Set(
+                                                        dataCache.assetAssignments
+                                                          .filter(
+                                                            (assignment: any) =>
+                                                              assignment.role ===
+                                                                "modeler" &&
+                                                              assignment
+                                                                .onboarding_assets
+                                                                ?.client ===
+                                                                batch.client &&
+                                                              assignment
+                                                                .onboarding_assets
+                                                                ?.batch ===
+                                                                batch.batch
+                                                          )
+                                                          .map(
+                                                            (assignment: any) =>
+                                                              assignment.user_id
+                                                          )
+                                                      ).size
+                                                    : 0;
+
+                                                // Calculate unique QA users assigned to this specific batch
+                                                const uniqueQA =
+                                                  dataCache.assetAssignments
+                                                    ? new Set(
+                                                        dataCache.assetAssignments
+                                                          .filter(
+                                                            (assignment: any) =>
+                                                              assignment.role ===
+                                                                "qa" &&
+                                                              assignment
+                                                                .onboarding_assets
+                                                                ?.client ===
+                                                                batch.client &&
+                                                              assignment
+                                                                .onboarding_assets
+                                                                ?.batch ===
+                                                                batch.batch
+                                                          )
+                                                          .map(
+                                                            (assignment: any) =>
+                                                              assignment.user_id
+                                                          )
+                                                      ).size
+                                                    : 0;
+
+                                                return (
+                                                  uniqueModelers + uniqueQA
+                                                );
+                                              })()}
+                                            </span>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent
+                                          side="right"
+                                          className="max-w-2xl bg-background border border-border text-foreground p-6"
+                                        >
+                                          <div className="space-y-4">
+                                            <div className="font-semibold text-base border-b border-border pb-2">
+                                              Batch Team Status - {batch.client}{" "}
+                                              Batch {batch.batch}
+                                            </div>
+
+                                            {/* Quick Stats */}
+                                            <div className="grid grid-cols-2 gap-4 p-3 bg-muted/20 rounded-lg">
+                                              <div className="text-center">
+                                                <div className="text-lg font-bold text-primary">
+                                                  {(() => {
+                                                    const uniqueModelers =
+                                                      dataCache.assetAssignments
+                                                        ? new Set(
+                                                            dataCache.assetAssignments
+                                                              .filter(
+                                                                (
+                                                                  assignment: any
+                                                                ) =>
+                                                                  assignment.role ===
+                                                                    "modeler" &&
+                                                                  assignment
+                                                                    .onboarding_assets
+                                                                    ?.client ===
+                                                                    batch.client &&
+                                                                  assignment
+                                                                    .onboarding_assets
+                                                                    ?.batch ===
+                                                                    batch.batch
+                                                              )
+                                                              .map(
+                                                                (
+                                                                  assignment: any
+                                                                ) =>
+                                                                  assignment.user_id
+                                                              )
+                                                          ).size
+                                                        : 0;
+                                                    return uniqueModelers;
+                                                  })()}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                  Modelers
+                                                </div>
+                                              </div>
+                                              <div className="text-center">
+                                                <div className="text-lg font-bold text-green-600">
+                                                  {(() => {
+                                                    const uniqueQA =
+                                                      dataCache.assetAssignments
+                                                        ? new Set(
+                                                            dataCache.assetAssignments
+                                                              .filter(
+                                                                (
+                                                                  assignment: any
+                                                                ) =>
+                                                                  assignment.role ===
+                                                                    "qa" &&
+                                                                  assignment
+                                                                    .onboarding_assets
+                                                                    ?.client ===
+                                                                    batch.client &&
+                                                                  assignment
+                                                                    .onboarding_assets
+                                                                    ?.batch ===
+                                                                    batch.batch
+                                                              )
+                                                              .map(
+                                                                (
+                                                                  assignment: any
+                                                                ) =>
+                                                                  assignment.user_id
+                                                              )
+                                                          ).size
+                                                        : 0;
+                                                    return uniqueQA;
+                                                  })()}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                  QA Users
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            {/* Modelers Section - Show all client modelers but filter their work to this batch */}
+                                            {(() => {
+                                              // Get modelers with their asset status breakdowns for this batch
+                                              const batchModelers: Array<{
+                                                id: string;
+                                                email: string;
+                                                title?: string;
+                                                totalAssets: number;
+                                                statusCounts: {
+                                                  not_started: number;
+                                                  in_production: number;
+                                                  revisions: number;
+                                                  approved: number;
+                                                  approved_by_client: number;
+                                                };
+                                              }> = [];
+
+                                              if (
+                                                dataCache.assetAssignments &&
+                                                dataCache.profiles
+                                              ) {
+                                                // Use the exact same logic as quick stats to find modelers assigned to this batch
+                                                const batchModelerAssignments =
+                                                  dataCache.assetAssignments.filter(
+                                                    (assignment: any) =>
+                                                      assignment.role ===
+                                                        "modeler" &&
+                                                      assignment
+                                                        .onboarding_assets
+                                                        ?.client ===
+                                                        batch.client &&
+                                                      assignment
+                                                        .onboarding_assets
+                                                        ?.batch === batch.batch
+                                                  );
+
+                                                // Get unique modeler IDs for this batch (same as quick stats)
+                                                const uniqueUserIds = [
+                                                  ...new Set(
+                                                    batchModelerAssignments.map(
+                                                      (assignment: any) =>
+                                                        assignment.user_id
+                                                    )
+                                                  ),
+                                                ];
+
+                                                // Build detailed modeler data with batch-filtered status counts
+                                                uniqueUserIds.forEach(
+                                                  (userId) => {
+                                                    const profile =
+                                                      dataCache.profiles?.find(
+                                                        (p: any) =>
+                                                          p.id === userId
+                                                      );
+
+                                                    if (profile) {
+                                                      // Get this modeler's assignments for this batch
+                                                      const modelerAssignments =
+                                                        batchModelerAssignments.filter(
+                                                          (assignment: any) =>
+                                                            assignment.user_id ===
+                                                            userId
+                                                        );
+
+                                                      const statusCounts = {
+                                                        not_started: 0,
+                                                        in_production: 0,
+                                                        revisions: 0,
+                                                        approved: 0,
+                                                        approved_by_client: 0,
+                                                      };
+
+                                                      modelerAssignments.forEach(
+                                                        (assignment: any) => {
+                                                          const status =
+                                                            assignment
+                                                              .onboarding_assets
+                                                              ?.status;
+                                                          if (
+                                                            status &&
+                                                            status in
+                                                              statusCounts
+                                                          ) {
+                                                            statusCounts[
+                                                              status as keyof typeof statusCounts
+                                                            ]++;
+                                                          } else {
+                                                            statusCounts.not_started++;
+                                                          }
+                                                        }
+                                                      );
+
+                                                      // Add this modeler to the list
+                                                      batchModelers.push({
+                                                        id: userId,
+                                                        email: profile.email,
+                                                        title: profile.title,
+                                                        totalAssets:
+                                                          modelerAssignments.length,
+                                                        statusCounts,
+                                                      });
+                                                    }
+                                                  }
+                                                );
+                                              }
+
+                                              return batchModelers.length >
+                                                0 ? (
+                                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                                  {batchModelers.map(
+                                                    (modeler, index) => {
+                                                      return (
+                                                        <div
+                                                          key={modeler.id}
+                                                          className="bg-muted/20 rounded-lg p-4 border border-border/50"
+                                                        >
+                                                          {/* Modeler Header */}
+                                                          <div className="flex items-start justify-between mb-3">
+                                                            <div className="flex-1 min-w-0">
+                                                              <div className="font-semibold text-sm text-foreground mb-1">
+                                                                {modeler.title ||
+                                                                  modeler.email?.split(
+                                                                    "@"
+                                                                  )[0] ||
+                                                                  `Modeler ${index + 1}`}
+                                                              </div>
+                                                              <div className="text-xs text-muted-foreground mb-2">
+                                                                {modeler.email ||
+                                                                  "Email not available"}
+                                                              </div>
+                                                              <div className="text-xs font-medium text-primary">
+                                                                {
+                                                                  modeler.totalAssets
+                                                                }{" "}
+                                                                Assets in this
+                                                                Batch
+                                                              </div>
+                                                            </div>
+                                                          </div>
+
+                                                          {/* Status Breakdown for this batch only */}
+                                                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                            <div className="bg-gray-100 dark:bg-gray-800 rounded p-2 text-center">
+                                                              <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                                Not Started
+                                                              </div>
+                                                              <div className="text-lg font-bold text-gray-600 dark:text-gray-400">
+                                                                {
+                                                                  modeler
+                                                                    .statusCounts
+                                                                    .not_started
+                                                                }
+                                                              </div>
+                                                            </div>
+                                                            <div
+                                                              className="rounded p-2 text-center"
+                                                              style={{
+                                                                backgroundColor:
+                                                                  getStatusColor(
+                                                                    "in_production"
+                                                                  ) + "20",
+                                                              }}
+                                                            >
+                                                              <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                                In Production
+                                                              </div>
+                                                              <div
+                                                                className="text-lg font-bold"
+                                                                style={{
+                                                                  color:
+                                                                    getStatusColor(
+                                                                      "in_production"
+                                                                    ),
+                                                                }}
+                                                              >
+                                                                {
+                                                                  modeler
+                                                                    .statusCounts
+                                                                    .in_production
+                                                                }
+                                                              </div>
+                                                            </div>
+                                                            <div
+                                                              className="rounded p-2 text-center"
+                                                              style={{
+                                                                backgroundColor:
+                                                                  getStatusColor(
+                                                                    "revisions"
+                                                                  ) + "20",
+                                                              }}
+                                                            >
+                                                              <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                                Revisions
+                                                              </div>
+                                                              <div
+                                                                className="text-lg font-bold"
+                                                                style={{
+                                                                  color:
+                                                                    getStatusColor(
+                                                                      "revisions"
+                                                                    ),
+                                                                }}
+                                                              >
+                                                                {
+                                                                  modeler
+                                                                    .statusCounts
+                                                                    .revisions
+                                                                }
+                                                              </div>
+                                                            </div>
+                                                            <div
+                                                              className="rounded p-2 text-center"
+                                                              style={{
+                                                                backgroundColor:
+                                                                  getStatusColor(
+                                                                    "approved"
+                                                                  ) + "20",
+                                                              }}
+                                                            >
+                                                              <div className="text-xs font-medium text-muted-foreground mb-1">
+                                                                Approved
+                                                              </div>
+                                                              <div
+                                                                className="text-lg font-bold"
+                                                                style={{
+                                                                  color:
+                                                                    getStatusColor(
+                                                                      "approved"
+                                                                    ),
+                                                                }}
+                                                              >
+                                                                {modeler
+                                                                  .statusCounts
+                                                                  .approved +
+                                                                  modeler
+                                                                    .statusCounts
+                                                                    .approved_by_client}
+                                                              </div>
+                                                            </div>
+                                                          </div>
+
+                                                          {/* Progress Bar for this modeler in this batch */}
+                                                          <div className="mt-3">
+                                                            <div className="flex items-center justify-between text-xs mb-1">
+                                                              <span className="text-muted-foreground">
+                                                                Batch Progress
+                                                              </span>
+                                                              <span className="font-medium">
+                                                                {modeler.totalAssets >
+                                                                0
+                                                                  ? Math.round(
+                                                                      ((modeler
+                                                                        .statusCounts
+                                                                        .approved +
+                                                                        modeler
+                                                                          .statusCounts
+                                                                          .approved_by_client) /
+                                                                        modeler.totalAssets) *
+                                                                        100
+                                                                    )
+                                                                  : 0}
+                                                                %
+                                                              </span>
+                                                            </div>
+                                                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                                              <div
+                                                                className="h-full bg-green-500 rounded-full transition-all duration-300"
+                                                                style={{
+                                                                  width: `${
+                                                                    modeler.totalAssets >
+                                                                    0
+                                                                      ? ((modeler
+                                                                          .statusCounts
+                                                                          .approved +
+                                                                          modeler
+                                                                            .statusCounts
+                                                                            .approved_by_client) /
+                                                                          modeler.totalAssets) *
+                                                                        100
+                                                                      : 0
+                                                                  }%`,
+                                                                }}
+                                                              />
+                                                            </div>
+                                                          </div>
+                                                        </div>
+                                                      );
+                                                    }
+                                                  )}
+                                                </div>
+                                              ) : (
+                                                <div className="text-center py-8">
+                                                  <div className="text-muted-foreground text-sm">
+                                                    No modelers assigned to this
+                                                    batch
+                                                  </div>
+                                                </div>
+                                              );
+                                            })()}
+
+                                            {/* Batch Summary */}
+                                            <div className="pt-3 border-t border-border">
+                                              <div className="text-sm text-muted-foreground">
+                                                <strong>Batch Summary:</strong>{" "}
+                                                {batch.statusCounts.approved} of{" "}
+                                                {batch.totalModels} assets
+                                                completed (
+                                                {batch.completionPercentage}%)
+                                              </div>
+                                              {batch.unassignedAssets > 0 && (
+                                                <div className="text-sm text-orange-600 dark:text-orange-400 mt-1">
+                                                  ⚠️ {batch.unassignedAssets}{" "}
+                                                  assets in this batch still
+                                                  unassigned
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
                                 </div>
-                                <Progress
-                                  value={batch.completionPercentage}
-                                  className="h-2"
-                                />
-                                <div className="flex justify-between text-xs text-muted-foreground">
-                                  <span>
-                                    {batch.statusCounts.approved} completed
-                                  </span>
-                                  <span>
-                                    {batch.totalModels -
-                                      batch.statusCounts.approved}{" "}
-                                    remaining
-                                  </span>
+
+                                {/* Modern Progress Bar */}
+                                <div className="relative">
+                                  <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out"
+                                      style={{
+                                        width: `${batch.completionPercentage}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                    <span className="font-medium">
+                                      {batch.statusCounts.approved} completed
+                                    </span>
+                                    <span>
+                                      {batch.totalModels -
+                                        batch.statusCounts.approved}{" "}
+                                      remaining
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
 
+                            {/* Delete Button */}
                             <div className="flex items-start gap-2 ml-2 sm:ml-4">
-                              {/* Delete Button */}
                               <Dialog
                                 open={
                                   deleteDialogOpen?.client === batch.client &&
@@ -2879,12 +3640,13 @@ export default function ProductionDashboard() {
                                     size="sm"
                                     className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                                     disabled={isDeleting}
-                                    onClick={() =>
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       setDeleteDialogOpen({
                                         client: batch.client,
                                         batch: batch.batch,
-                                      })
-                                    }
+                                      });
+                                    }}
                                   >
                                     {isDeleting ? (
                                       <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-destructive" />
@@ -2949,137 +3711,125 @@ export default function ProductionDashboard() {
                           </div>
                         </CardHeader>
 
-                        <CardContent className="pt-0 p-4 sm:p-6">
-                          {/* Main Content Grid */}
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                            {/* Left Column - Chart */}
-                            <div className="flex items-center justify-center">
-                              <div className="w-32 h-32 sm:w-40 sm:h-40 relative">
-                                <ResponsiveContainer width="100%" height="100%">
-                                  <PieChart>
-                                    <Pie
-                                      data={chartData}
-                                      cx="50%"
-                                      cy="50%"
-                                      innerRadius={35}
-                                      outerRadius={50}
-                                      paddingAngle={2}
-                                      dataKey="value"
-                                    >
-                                      {chartData.map((entry, index) => (
-                                        <Cell
-                                          key={`cell-${index}`}
-                                          fill={entry.color}
-                                        />
-                                      ))}
-                                    </Pie>
-                                    <RechartsTooltip
-                                      wrapperStyle={{ zIndex: 99999 }}
-                                      contentStyle={{
-                                        backgroundColor: "var(--background)",
-                                        border: "1px solid var(--border)",
-                                        borderRadius: "8px",
-                                        fontSize: "12px",
-                                        zIndex: 99999,
-                                      }}
-                                    />
-                                  </PieChart>
-                                </ResponsiveContainer>
-                                {/* Centered fraction label */}
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                  <div className="text-center">
-                                    <div className="text-lg sm:text-2xl font-bold text-primary">
-                                      {batch.statusCounts.approved}
+                        <CardContent className="relative z-10 pt-0">
+                          {/* Status Pills */}
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {Object.entries(batch.statusCounts)
+                              .filter(([, count]) => count > 0)
+                              .slice(0, 4)
+                              .map(([status, count]) => (
+                                <div
+                                  key={status}
+                                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all hover:scale-105"
+                                  style={{
+                                    backgroundColor:
+                                      getStatusColor(status) + "15",
+                                    color: getStatusColor(status),
+                                    border: `1px solid ${getStatusColor(status)}25`,
+                                  }}
+                                >
+                                  <div
+                                    className="w-2 h-2 rounded-full"
+                                    style={{
+                                      backgroundColor: getStatusColor(status),
+                                    }}
+                                  />
+                                  <span>{count}</span>
+                                  <span className="hidden sm:inline">
+                                    {getStatusLabel(status)}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+
+                          {/* Assignment Status */}
+                          <div className="space-y-3 mb-4">
+                            <h4 className="font-semibold text-sm text-foreground flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              Assignment Status
+                            </h4>
+                            <div className="grid grid-cols-1 gap-2">
+                              {batch.unassignedAssets > 0 ? (
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800/50 transition-all hover:bg-orange-100 dark:hover:bg-orange-950/30">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                                      <AlertCircle className="h-4 w-4 text-orange-600" />
                                     </div>
-                                    <div className="text-xs text-muted-foreground font-medium">
-                                      of {batch.totalModels}
+                                    <div>
+                                      <div className="font-medium text-sm text-orange-700 dark:text-orange-400">
+                                        {batch.unassignedAssets} Unassigned
+                                      </div>
+                                      <div className="text-xs text-orange-600 dark:text-orange-500">
+                                        Need team assignment
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            </div>
-
-                            {/* Right Column - Compact Status & Team */}
-                            <div className="space-y-3 sm:space-y-4">
-                              {/* Compact Status Grid */}
-                              <div>
-                                <h4 className="font-medium text-xs sm:text-sm text-muted-foreground mb-2">
-                                  Status Overview
-                                </h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
-                                  {Object.entries(batch.statusCounts)
-                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                    .filter(([_, count]) => count > 0)
-                                    .map(([status, count]) => (
-                                      <div
-                                        key={status}
-                                        className="flex items-center justify-between p-1.5 rounded bg-muted/20"
-                                      >
-                                        <span
-                                          className={`text-xs font-medium ${
-                                            status === "approved"
-                                              ? "text-green-600 dark:text-green-400"
-                                              : status === "in_production"
-                                                ? "text-blue-600 dark:text-blue-400"
-                                                : status === "revisions"
-                                                  ? "text-orange-600 dark:text-orange-400"
-                                                  : "text-muted-foreground"
-                                          }`}
-                                        >
-                                          {getStatusLabel(status)}
-                                        </span>
-                                        <span className="font-bold text-xs sm:text-sm">
-                                          {count}
-                                        </span>
+                              ) : (
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950/20 dark:border-green-800/50 transition-all hover:bg-green-100 dark:hover:bg-green-950/30">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                                      <CheckCircle className="h-4 w-4 text-green-600" />
+                                    </div>
+                                    <div>
+                                      <div className="font-medium text-sm text-green-700 dark:text-green-400">
+                                        All Assigned
                                       </div>
-                                    ))}
+                                      <div className="text-xs text-green-600 dark:text-green-500">
+                                        Team fully allocated
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
+                              )}
 
-                              {/* Team Section */}
+                              {/* Team Info Section */}
                               {(batch.assignedUsers.modelers.length > 0 ||
                                 batch.assignedUsers.qa.length > 0) && (
-                                <div className="bg-muted/30 rounded-lg p-2 sm:p-3">
+                                <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
                                   <TeamInfoTooltip
                                     modelers={batch.assignedUsers.modelers}
                                     qa={batch.assignedUsers.qa}
                                     clientName={batch.client}
                                     batchNumber={batch.batch}
                                   >
-                                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                                      <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                                      <span className="font-medium">
-                                        Team (
-                                        {batch.assignedUsers.modelers.length +
-                                          batch.assignedUsers.qa.length}
-                                        )
-                                      </span>
+                                    <div className="flex items-center justify-between cursor-pointer hover:bg-muted/20 rounded p-1 transition-colors">
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                                        <Users className="h-4 w-4" />
+                                        <span className="font-medium">
+                                          Team Members (
+                                          {batch.assignedUsers.modelers.length +
+                                            batch.assignedUsers.qa.length}
+                                          )
+                                        </span>
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {batch.assignedUsers.modelers.length}{" "}
+                                        modelers •{" "}
+                                        {batch.assignedUsers.qa.length} QA
+                                      </div>
                                     </div>
                                   </TeamInfoTooltip>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    {batch.assignedUsers.modelers.length}{" "}
-                                    modelers • {batch.assignedUsers.qa.length}{" "}
-                                    QA
-                                  </div>
                                 </div>
                               )}
                             </div>
                           </div>
 
-                          {/* Fixed Action Button */}
-                          <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-border">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full text-xs sm:text-sm"
-                              onClick={() =>
-                                handleAdminReview(batch.client, batch.batch)
-                              }
-                            >
-                              <ShieldCheck className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                              See Lists
-                            </Button>
-                          </div>
+                          {/* Action Button */}
+                          <Button
+                            variant="ghost"
+                            className="w-full h-11"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAdminReview(batch.client, batch.batch);
+                            }}
+                          >
+                            <ShieldCheck className="h-4 w-4 mr-2" />
+                            View Allocation Lists
+                            <span className="ml-auto text-xs opacity-75">
+                              {batch.totalModels} assets
+                            </span>
+                          </Button>
                         </CardContent>
                       </Card>
                     );
@@ -3092,183 +3842,192 @@ export default function ProductionDashboard() {
                     return (
                       <Card
                         key={modeler.id}
-                        className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+                        className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                        onClick={() =>
+                          handleModelerAdminReview(modeler.id, modeler.email)
+                        }
                       >
-                        <CardHeader className="pb-3 space-y-3">
-                          <div className="flex items-start justify-between">
+                        {/* Background Pattern */}
+                        <div className="absolute inset-0 bg-grid-pattern opacity-5" />
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full transform translate-x-16 -translate-y-16" />
+                        <CardHeader className="relative z-10 pb-4">
+                          <div className="flex items-start justify-between mb-4">
                             <div className="flex-1 min-w-0">
-                              <CardTitle className="text-xl font-semibold text-foreground mb-2">
-                                {modeler.name || modeler.email.split("@")[0]}
-                              </CardTitle>
-
-                              {/* Key Metrics Row */}
-                              <div className="grid grid-cols-3 gap-2 text-sm">
-                                <div className="flex items-center gap-1 text-muted-foreground">
-                                  <Package className="h-4 w-4" />
-                                  <span>{modeler.totalAssigned} assigned</span>
+                              <div className="flex items-center gap-3 mb-3">
+                                <div>
+                                  <CardTitle className="text-xl font-bold text-foreground mb-1">
+                                    {modeler.name ||
+                                      modeler.email.split("@")[0]}
+                                  </CardTitle>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Package className="h-3 w-3" />
+                                    <span>{modeler.totalAssigned} Assets</span>
+                                    <span>•</span>
+                                    <User className="h-3 w-3" />
+                                    <span>{modeler.email}</span>
+                                  </div>
                                 </div>
                               </div>
 
-                              {/* Progress Bar */}
-                              <div className="mt-3 space-y-2">
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="font-medium text-muted-foreground">
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-muted-foreground">
                                     Progress
                                   </span>
-                                  <span className="font-bold text-lg">
-                                    {modeler.completionPercentage}%
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-2xl font-bold text-foreground">
+                                      {modeler.completionPercentage}%
+                                    </span>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                                            <Info className="h-4 w-4" />
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent
+                                          side="right"
+                                          className="max-w-sm bg-background border border-border text-foreground p-4"
+                                        >
+                                          <div className="space-y-2">
+                                            <div className="font-semibold text-base border-b border-border pb-2">
+                                              Completion Statistics
+                                            </div>
+                                            {modeler.completionStats
+                                              .totalCompleted > 0 ? (
+                                              <>
+                                                <div className="text-sm">
+                                                  <span className="font-medium text-muted-foreground">
+                                                    Average Time:
+                                                  </span>{" "}
+                                                  {
+                                                    modeler.completionStats
+                                                      .averageMinutes
+                                                  }
+                                                  m
+                                                </div>
+                                                <div className="text-sm">
+                                                  <span className="font-medium text-muted-foreground">
+                                                    Fastest:
+                                                  </span>{" "}
+                                                  {
+                                                    modeler.completionStats
+                                                      .fastestCompletionMinutes
+                                                  }
+                                                  m
+                                                </div>
+                                                <div className="text-sm">
+                                                  <span className="font-medium text-muted-foreground">
+                                                    Revision Rate:
+                                                  </span>{" "}
+                                                  {
+                                                    modeler.completionStats
+                                                      .revisionRate
+                                                  }
+                                                  %
+                                                </div>
+                                              </>
+                                            ) : (
+                                              <div className="text-sm text-muted-foreground">
+                                                No completed assignments yet
+                                              </div>
+                                            )}
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
                                 </div>
-                                <Progress
-                                  value={modeler.completionPercentage}
-                                  className="h-2"
-                                />
-                                <div className="flex justify-between text-xs text-muted-foreground">
-                                  <span>
-                                    {modeler.statusCounts.approved || 0}{" "}
-                                    completed
-                                  </span>
-                                  <span>
-                                    {modeler.totalAssigned -
-                                      (modeler.statusCounts.approved || 0)}{" "}
-                                    remaining
-                                  </span>
+
+                                {/* Modern Progress Bar */}
+                                <div className="relative">
+                                  <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out"
+                                      style={{
+                                        width: `${modeler.completionPercentage}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                    <span className="font-medium">
+                                      {modeler.statusCounts.approved || 0}{" "}
+                                      completed
+                                    </span>
+                                    <span>
+                                      {modeler.totalAssigned -
+                                        (modeler.statusCounts.approved ||
+                                          0)}{" "}
+                                      remaining
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex items-start gap-2 ml-4">
+                            <div className="flex items-start gap-2 ml-2 sm:ml-4">
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleViewProfile(modeler.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewProfile(modeler.id);
+                                }}
                                 className="h-8 px-3 text-xs"
                               >
-                                View Profile
+                                Profile
                               </Button>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0"
-                                    >
-                                      <Info className="h-4 w-4 text-muted-foreground" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="left"
-                                    className="max-w-sm bg-background border border-border text-muted-foreground"
-                                  >
-                                    <div className="space-y-2">
-                                      <div className="font-semibold">
-                                        Completion Statistics
-                                      </div>
-                                      {modeler.completionStats.totalCompleted >
-                                      0 ? (
-                                        <>
-                                          <div className="text-sm">
-                                            <span className="font-medium text-muted-foreground">
-                                              Average Time:
-                                            </span>{" "}
-                                            {
-                                              modeler.completionStats
-                                                .averageMinutes
-                                            }
-                                            m
-                                          </div>
-                                          <div className="text-sm">
-                                            <span className="font-medium text-muted-foreground">
-                                              Fastest:
-                                            </span>{" "}
-                                            {
-                                              modeler.completionStats
-                                                .fastestCompletionMinutes
-                                            }
-                                            m
-                                          </div>
-                                          <div className="text-sm">
-                                            <span className="font-medium text-muted-foreground">
-                                              Revision Rate:
-                                            </span>{" "}
-                                            {
-                                              modeler.completionStats
-                                                .revisionRate
-                                            }
-                                            %
-                                          </div>
-                                        </>
-                                      ) : (
-                                        <div className="text-sm text-muted-foreground">
-                                          No completed assignments yet
-                                        </div>
-                                      )}
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
                             </div>
                           </div>
                         </CardHeader>
 
-                        <CardContent className="space-y-6">
-                          {/* Status Distribution */}
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-semibold text-muted-foreground">
-                                Asset Status Distribution
-                              </h4>
-                            </div>
-
-                            {/* Status bars similar to batch view */}
-                            <div className="space-y-2">
-                              {Object.entries(modeler.statusCounts)
-                                .filter(([, count]) => count > 0)
-                                .map(([status, count]) => (
+                        <CardContent className="relative z-10 pt-0">
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {Object.entries(modeler.statusCounts)
+                              .filter(([, count]) => count > 0)
+                              .map(([status, count]) => (
+                                <div
+                                  key={status}
+                                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all hover:scale-105"
+                                  style={{
+                                    backgroundColor:
+                                      getStatusColor(status) + "15",
+                                    color: getStatusColor(status),
+                                    border: `1px solid ${getStatusColor(status)}25`,
+                                  }}
+                                >
                                   <div
-                                    key={status}
-                                    className="flex items-center justify-between p-2 rounded bg-muted/20"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className="w-3 h-3 rounded-full"
-                                        style={{
-                                          backgroundColor:
-                                            getStatusColor(status),
-                                        }}
-                                      ></span>
-                                      <span className="text-sm font-medium">
-                                        {getStatusLabel(status)}
-                                      </span>
-                                    </div>
-                                    <span className="font-bold text-sm">
-                                      {count}
-                                    </span>
-                                  </div>
-                                ))}
-                            </div>
+                                    className="w-2 h-2 rounded-full"
+                                    style={{
+                                      backgroundColor: getStatusColor(status),
+                                    }}
+                                  />
+                                  <span>{count}</span>
+                                  <span className="hidden sm:inline">
+                                    {getStatusLabel(status)}
+                                  </span>
+                                </div>
+                              ))}
                           </div>
-
-                          {/* Assigned Batches - More Prominent */}
 
                           {/* Action Button */}
-                          <div className="pt-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={() =>
-                                handleModelerAdminReview(
-                                  modeler.id,
-                                  modeler.email
-                                )
-                              }
-                            >
-                              <ShieldCheck className="h-4 w-4 mr-2" />
-                              See Lists
-                            </Button>
-                          </div>
+                          <Button
+                            variant="ghost"
+                            className="w-full h-11"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleModelerAdminReview(
+                                modeler.id,
+                                modeler.email
+                              );
+                            }}
+                          >
+                            <ShieldCheck className="h-4 w-4 mr-2" />
+                            View Assignment Lists
+                            <span className="ml-auto text-xs opacity-75">
+                              {modeler.totalAssigned} assets
+                            </span>
+                          </Button>
                         </CardContent>
                       </Card>
                     );
@@ -3308,144 +4067,145 @@ export default function ProductionDashboard() {
                       return (
                         <Card
                           key={qaUser.id}
-                          className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+                          className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                          onClick={() =>
+                            handleModelerAdminReview(qaUser.id, qaUser.email)
+                          }
                         >
-                          <CardHeader className="pb-3 space-y-3">
-                            <div className="flex items-start justify-between">
+                          {/* Background Pattern */}
+                          <div className="absolute inset-0 bg-grid-pattern opacity-5" />
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full transform translate-x-16 -translate-y-16" />
+                          <CardHeader className="relative z-10 pb-4">
+                            <div className="flex items-start justify-between mb-4">
                               <div className="flex-1 min-w-0">
-                                <CardTitle className="text-xl font-semibold text-foreground mb-2">
-                                  {qaUser.name || qaUser.email.split("@")[0]}
-                                </CardTitle>
-
-                                {/* Key Metrics Row */}
-                                <div className="grid grid-cols-3 gap-2 text-sm">
-                                  <div className="flex items-center gap-1 text-muted-foreground">
-                                    <Package className="h-4 w-4" />
-                                    <span>
-                                      {qaUser.totalModelerAssets} total assets
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-muted-foreground">
-                                    <Users className="h-4 w-4" />
-                                    <span>
-                                      {(() => {
-                                        const mainModelers =
-                                          qaUser.connectedModelers?.filter(
-                                            (m) =>
-                                              m.assignmentType === "regular" ||
-                                              m.assignmentType === "both"
-                                          ).length || 0;
-                                        const provisionalModelers =
-                                          qaUser.connectedModelers?.filter(
-                                            (m) =>
-                                              m.assignmentType === "provisional"
-                                          ).length || 0;
-                                        if (provisionalModelers > 0) {
-                                          return `${mainModelers} main + ${provisionalModelers} prov`;
-                                        }
-                                        return `${mainModelers} modelers`;
-                                      })()}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-muted-foreground">
-                                    <CheckCircle className="h-4 w-4" />
-                                    <span>
-                                      {qaUser.modelerCompletionRate}% completion
-                                    </span>
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div>
+                                    <CardTitle className="text-xl font-bold text-foreground mb-1">
+                                      {qaUser.name ||
+                                        qaUser.email.split("@")[0]}
+                                    </CardTitle>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <Package className="h-3 w-3" />
+                                      <span>
+                                        {qaUser.totalModelerAssets} Assets
+                                      </span>
+                                      <span>•</span>
+                                      <Users className="h-3 w-3" />
+                                      <span>
+                                        {(() => {
+                                          const mainModelers =
+                                            qaUser.connectedModelers?.filter(
+                                              (m) =>
+                                                m.assignmentType ===
+                                                  "regular" ||
+                                                m.assignmentType === "both"
+                                            ).length || 0;
+                                          const provisionalModelers =
+                                            qaUser.connectedModelers?.filter(
+                                              (m) =>
+                                                m.assignmentType ===
+                                                "provisional"
+                                            ).length || 0;
+                                          if (provisionalModelers > 0) {
+                                            return `${mainModelers} main + ${provisionalModelers} prov`;
+                                          }
+                                          return `${mainModelers} modelers`;
+                                        })()}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
 
-                                {/* Progress Bar */}
-                                <div className="mt-3 space-y-2">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="font-medium text-muted-foreground">
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-muted-foreground">
                                       Modeler Progress
                                     </span>
-                                    <span className="font-bold text-lg">
-                                      {qaUser.modelerCompletionRate}%
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-2xl font-bold text-foreground">
+                                        {qaUser.modelerCompletionRate}%
+                                      </span>
+                                    </div>
                                   </div>
-                                  <Progress
-                                    value={qaUser.modelerCompletionRate}
-                                    className="h-2"
-                                  />
-                                  <div className="flex justify-between text-xs text-muted-foreground">
-                                    <span>
-                                      {qaUser.totalModelerCompleted} completed
-                                    </span>
-                                    <span>
-                                      {qaUser.totalModelerAssets -
-                                        qaUser.totalModelerCompleted}{" "}
-                                      remaining
-                                    </span>
+
+                                  {/* Modern Progress Bar */}
+                                  <div className="relative">
+                                    <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out"
+                                        style={{
+                                          width: `${qaUser.modelerCompletionRate}%`,
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                      <span className="font-medium">
+                                        {qaUser.totalModelerCompleted} completed
+                                      </span>
+                                      <span>
+                                        {qaUser.totalModelerAssets -
+                                          qaUser.totalModelerCompleted}{" "}
+                                        remaining
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
                           </CardHeader>
 
-                          <CardContent className="space-y-4">
-                            {/* Modeler Asset Status Distribution */}
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold text-muted-foreground">
-                                  Modeler Asset Status Distribution
-                                </h4>
-                              </div>
+                          <CardContent className="relative z-10 pt-0">
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {(() => {
+                                const combinedStatusCounts = {
+                                  in_production: 0,
+                                  revisions: 0,
+                                  approved: 0,
+                                  approved_by_client: 0,
+                                };
 
-                              {/* Calculate combined status counts from connected modelers */}
-                              <div className="space-y-2">
-                                {(() => {
-                                  const combinedStatusCounts = {
-                                    in_production: 0,
-                                    revisions: 0,
-                                    approved: 0,
-                                    approved_by_client: 0,
-                                  };
+                                qaUser.connectedModelers.forEach((modeler) => {
+                                  combinedStatusCounts.in_production +=
+                                    modeler.inProgressAssets || 0;
+                                  combinedStatusCounts.revisions +=
+                                    modeler.revisionAssets || 0;
+                                  combinedStatusCounts.approved +=
+                                    modeler.completedAssets || 0;
+                                  combinedStatusCounts.approved_by_client += 0;
+                                });
 
-                                  qaUser.connectedModelers.forEach(
-                                    (modeler) => {
-                                      combinedStatusCounts.in_production +=
-                                        modeler.inProgressAssets || 0;
-                                      combinedStatusCounts.revisions +=
-                                        modeler.revisionAssets || 0;
-                                      combinedStatusCounts.approved +=
-                                        modeler.completedAssets || 0;
-                                      combinedStatusCounts.approved_by_client += 0; // This would need to be tracked separately if needed
-                                    }
-                                  );
-
-                                  return Object.entries(combinedStatusCounts)
-                                    .filter(([, count]) => count > 0)
-                                    .map(([status, count]) => (
+                                return Object.entries(combinedStatusCounts)
+                                  .filter(([, count]) => count > 0)
+                                  .map(([status, count]) => (
+                                    <div
+                                      key={status}
+                                      className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all hover:scale-105"
+                                      style={{
+                                        backgroundColor:
+                                          getStatusColor(status) + "15",
+                                        color: getStatusColor(status),
+                                        border: `1px solid ${getStatusColor(status)}25`,
+                                      }}
+                                    >
                                       <div
-                                        key={status}
-                                        className="flex items-center justify-between"
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <span
-                                            className="w-3 h-3 rounded-full"
-                                            style={{
-                                              backgroundColor:
-                                                getStatusColor(status),
-                                            }}
-                                          ></span>
-                                          <span className="text-sm font-medium">
-                                            {getStatusLabel(status)}
-                                          </span>
-                                        </div>
-                                        <span className="font-bold text-sm">
-                                          {count}
-                                        </span>
-                                      </div>
-                                    ));
-                                })()}
-                              </div>
+                                        className="w-2 h-2 rounded-full"
+                                        style={{
+                                          backgroundColor:
+                                            getStatusColor(status),
+                                        }}
+                                      />
+                                      <span>{count}</span>
+                                      <span className="hidden sm:inline">
+                                        {getStatusLabel(status)}
+                                      </span>
+                                    </div>
+                                  ));
+                              })()}
                             </div>
 
                             {/* Connected Modelers */}
                             {qaUser.connectedModelers.length > 0 && (
-                              <div className="space-y-3">
+                              <div className="space-y-3 mb-4">
                                 <h4 className="text-sm font-semibold text-muted-foreground">
                                   Connected Modelers
                                 </h4>
@@ -3456,12 +4216,13 @@ export default function ProductionDashboard() {
                                       <div
                                         key={modeler.id}
                                         className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs cursor-pointer hover:bg-muted/30 transition-colors"
-                                        onClick={() =>
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           handleModelerAdminReview(
                                             modeler.id,
                                             modeler.email
-                                          )
-                                        }
+                                          );
+                                        }}
                                       >
                                         <div className="flex items-center gap-2">
                                           <span className="font-medium">
@@ -3505,22 +4266,23 @@ export default function ProductionDashboard() {
                             )}
 
                             {/* Action Button */}
-                            <div className="pt-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full"
-                                onClick={() =>
-                                  handleModelerAdminReview(
-                                    qaUser.id,
-                                    qaUser.email
-                                  )
-                                }
-                              >
-                                <ShieldCheck className="h-4 w-4 mr-2" />
-                                See Lists
-                              </Button>
-                            </div>
+                            <Button
+                              variant="ghost"
+                              className="w-full h-11"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleModelerAdminReview(
+                                  qaUser.id,
+                                  qaUser.email
+                                );
+                              }}
+                            >
+                              <ShieldCheck className="h-4 w-4 mr-2" />
+                              View Assignment Lists
+                              <span className="ml-auto text-xs opacity-75">
+                                {qaUser.totalModelerAssets} assets
+                              </span>
+                            </Button>
                           </CardContent>
                         </Card>
                       );
