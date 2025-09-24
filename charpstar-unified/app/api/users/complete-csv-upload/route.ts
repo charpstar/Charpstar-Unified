@@ -83,36 +83,9 @@ export async function DELETE(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    // First, get the user's client information
-    const { data: userProfile, error: profileFetchError } = await adminClient
-      .from("profiles")
-      .select("client")
-      .eq("id", userId)
-      .single();
-
-    if (profileFetchError) {
-      console.error("Error fetching user profile:", profileFetchError);
-      return NextResponse.json(
-        { error: "Failed to fetch user profile" },
-        { status: 500 }
-      );
-    }
-
-    // Delete all onboarding assets for this client
-    if (userProfile?.client) {
-      const { error: deleteError } = await adminClient
-        .from("onboarding_assets")
-        .delete()
-        .eq("client", userProfile.client);
-
-      if (deleteError) {
-        console.error("Error deleting onboarding assets:", deleteError);
-        return NextResponse.json(
-          { error: "Failed to delete onboarding assets" },
-          { status: 500 }
-        );
-      }
-    }
+    // Note: We do NOT delete assets when removing CSV upload status
+    // This endpoint only manages the user's onboarding progress flags
+    // Asset deletion should be handled separately if needed
 
     // Remove the user's CSV upload status
     const { data: profileData, error: profileError } = await adminClient
@@ -134,7 +107,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "CSV upload status and data removed",
+      message: "CSV upload status removed (assets preserved)",
       profile: profileData?.[0],
     });
   } catch (error) {

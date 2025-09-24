@@ -137,26 +137,8 @@ export default function CsvUploadPage() {
   };
 
   const confirmRemoveFile = async () => {
-    // Clear the uploaded data from database when file is removed
-    if (user?.metadata?.client) {
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .delete()
-        .eq("client", user.metadata.client);
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to clear previous data: " + error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Data Cleared",
-          description: "Previous CSV data has been removed.",
-        });
-      }
-    }
+    // Only clear the local file and preview data - DO NOT delete from database
+    // The CSV upload step should only manage the file preview, not database operations
 
     setCsvFile(null);
     setCsvPreview(null);
@@ -169,6 +151,12 @@ export default function CsvUploadPage() {
       fileInputRef.current.value = "";
     }
     setRemoveConfirmDialogOpen(false);
+
+    toast({
+      title: "File Removed",
+      description:
+        "CSV file has been removed from preview. No database changes were made.",
+    });
   };
 
   const handleConfirm = async () => {
@@ -715,12 +703,12 @@ export default function CsvUploadPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <Alert variant="destructive">
+            <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Are you sure you want to remove this CSV file? This will also
-                clear all the data that was uploaded from this file. This action
-                cannot be undone.
+                Are you sure you want to remove this CSV file from the preview?
+                This will only clear the file preview and will not affect any
+                data that has already been uploaded to the database.
               </AlertDescription>
             </Alert>
           </div>
@@ -731,9 +719,9 @@ export default function CsvUploadPage() {
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmRemoveFile}>
+            <Button variant="outline" onClick={confirmRemoveFile}>
               <X className="h-4 w-4 mr-2" />
-              Remove & Clear Data
+              Remove File
             </Button>
           </div>
         </DialogContent>
