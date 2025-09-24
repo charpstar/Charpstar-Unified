@@ -118,7 +118,8 @@ export function ModelerStatsWidget() {
 
       const totalAssigned = acceptedAssets.length;
       const completed = acceptedAssets.filter(
-        (asset) => asset.status === "approved"
+        (asset) =>
+          asset.status === "approved" || asset.status === "approved_by_client"
       ).length;
       const waitingForApproval = acceptedAssets.filter(
         (asset) => asset.status === "delivered_by_artist"
@@ -622,44 +623,42 @@ export function ModelerEarningsWidget() {
     try {
       setLoading(true);
 
-      // First, let's check if there are any allocation lists at all for this user
-      const {} = await supabase
-        .from("allocation_lists")
-        .select("id, name, status, approved_at")
-        .eq("user_id", user?.id)
-        .eq("role", "modeler");
-
-      // Get user's allocation lists with pricing - only for approved lists
-      const { data: allocationLists, error: listsError } = await supabase
-        .from("allocation_lists")
+      // Get individual approved assets instead of requiring fully approved allocation lists
+      const { data: approvedAssets, error: assetsError } = await supabase
+        .from("asset_assignments")
         .select(
           `
-          id,
-          name,
-          bonus,
-          deadline,
-          status,
-          approved_at,
-          asset_assignments!inner(
-            asset_id,
-            price,
-            onboarding_assets!inner(
-              id,
-              status
-            )
+          asset_id,
+          price,
+          allocation_list_id,
+          allocation_lists!inner(
+            id,
+            name,
+            bonus,
+            deadline,
+            status,
+            approved_at,
+            created_at
+          ),
+          onboarding_assets!inner(
+            id,
+            product_name,
+            status,
+            created_at
           )
         `
         )
         .eq("user_id", user?.id)
         .eq("role", "modeler")
-        .eq("status", "approved");
+        .in("onboarding_assets.status", ["approved", "approved_by_client"]);
 
-      if (listsError) {
-        console.error("Error fetching allocation lists:", listsError);
+      if (assetsError) {
+        console.error("Error fetching approved assets:", assetsError);
         return;
       }
 
-      if (!allocationLists || allocationLists.length === 0) {
+      if (!approvedAssets || approvedAssets.length === 0) {
+        console.log("No approved assets found for user:", user?.id);
         setEarningsData({
           thisMonth: 0,
           lastMonth: 0,
@@ -670,18 +669,9 @@ export function ModelerEarningsWidget() {
         return;
       }
 
-      // Filter allocation lists to only include those where ALL assets are approved
-      const fullyApprovedLists = allocationLists.filter((list: any) => {
-        // Check if all assets in this list are approved
-        // Both "approved" and "approved_by_client" count as approved for earnings
-        return list.asset_assignments.every(
-          (assignment: any) =>
-            assignment.onboarding_assets?.status === "approved" ||
-            assignment.onboarding_assets?.status === "approved_by_client"
-        );
-      });
+      console.log("Found approved assets:", approvedAssets.length);
 
-      // Calculate earnings from fully approved allocation lists only
+      // Calculate earnings from individual approved assets
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
@@ -696,9 +686,23 @@ export function ModelerEarningsWidget() {
       // Group earnings by day for chart
       const dailyData = new Map<string, number>();
 
-      fullyApprovedLists.forEach((list: any) => {
-        const listEarnings = list.asset_assignments.reduce(
-          (sum: number, assignment: any) => sum + (assignment.price || 0),
+      // Group assets by allocation list to calculate bonuses properly
+      const assetsByList = new Map<string, any[]>();
+      approvedAssets.forEach((asset: any) => {
+        const listId = asset.allocation_list_id;
+        if (!assetsByList.has(listId)) {
+          assetsByList.set(listId, []);
+        }
+        assetsByList.get(listId)!.push(asset);
+      });
+
+      assetsByList.forEach((assets) => {
+        const firstAsset = assets[0];
+        const allocationList = firstAsset.allocation_lists;
+
+        // Calculate total earnings for this allocation list
+        const listEarnings = assets.reduce(
+          (sum: number, asset: any) => sum + (asset.price || 0),
           0
         );
 
@@ -706,50 +710,55 @@ export function ModelerEarningsWidget() {
         let bonusAmount = 0;
         let totalListEarnings = listEarnings;
 
-        if (list.approved_at && list.deadline) {
-          const approvedDate = new Date(list.approved_at);
-          const deadlineDate = new Date(list.deadline);
+        if (allocationList.approved_at && allocationList.deadline) {
+          const approvedDate = new Date(allocationList.approved_at);
+          const deadlineDate = new Date(allocationList.deadline);
 
           // Only apply bonus if work was completed before or on the deadline
           if (approvedDate <= deadlineDate) {
-            bonusAmount = listEarnings * (list.bonus / 100);
+            bonusAmount = listEarnings * (allocationList.bonus / 100);
+            //eslint-disable-next-line
             totalListEarnings = listEarnings + bonusAmount;
-          } else {
           }
-        } else {
         }
 
-        totalEarnings += totalListEarnings;
+        // Calculate earnings for each individual asset
+        assets.forEach((asset: any) => {
+          const assetPrice = asset.price || 0;
+          const assetEarnings = assetPrice;
 
-        // Check if approved this month
-        if (list.approved_at) {
-          const approvedDate = new Date(list.approved_at);
-          const approvedMonth = approvedDate.getMonth();
-          const approvedYear = approvedDate.getFullYear();
+          // Add to total earnings
+          totalEarnings += assetEarnings;
+
+          // For monthly calculations, use allocation list approval date if available,
+          // otherwise use asset creation date as fallback
+          const approvalDate = allocationList.approved_at
+            ? new Date(allocationList.approved_at)
+            : new Date(asset.onboarding_assets.created_at);
+
+          const approvedMonth = approvalDate.getMonth();
+          const approvedYear = approvalDate.getFullYear();
 
           if (approvedMonth === currentMonth && approvedYear === currentYear) {
-            thisMonthEarnings += totalListEarnings;
-            approvedThisMonth++;
+            thisMonthEarnings += assetEarnings;
+            approvedThisMonth += 1;
           } else if (
             approvedMonth === lastMonth &&
             approvedYear === lastMonthYear
           ) {
-            lastMonthEarnings += totalListEarnings;
+            lastMonthEarnings += assetEarnings;
           }
 
-          // Add to daily chart data
-          const dayKey = `${approvedYear}-${String(approvedMonth + 1).padStart(2, "0")}-${String(approvedDate.getDate()).padStart(2, "0")}`;
-          dailyData.set(
-            dayKey,
-            (dailyData.get(dayKey) || 0) + totalListEarnings
-          );
-        }
+          // Add to daily chart data - use the last 30 days instead of 15
+          const dayKey = `${approvedYear}-${String(approvedMonth + 1).padStart(2, "0")}-${String(approvalDate.getDate()).padStart(2, "0")}`;
+          dailyData.set(dayKey, (dailyData.get(dayKey) || 0) + assetEarnings);
+        });
       });
 
-      // Generate chart data for last 15 days
+      // Generate chart data for last 30 days
       const chartData = [];
 
-      for (let i = 14; i >= 0; i--) {
+      for (let i = 29; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
         const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -777,6 +786,10 @@ export function ModelerEarningsWidget() {
         approvedThisMonth,
         chartData,
       };
+
+      console.log("Final earnings data:", finalData);
+      console.log("Chart data points:", chartData.length);
+      console.log("Daily data map:", dailyData);
 
       setEarningsData(finalData);
     } catch (error) {

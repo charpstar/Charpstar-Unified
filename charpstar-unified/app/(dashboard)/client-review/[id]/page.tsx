@@ -1295,6 +1295,20 @@ export default function ReviewPage() {
   ) => {
     if (!assetId) return;
 
+    // Prevent revision for assets that are not started or already approved by client
+    if (
+      (newStatus === "revisions" || newStatus === "client_revision") &&
+      (asset?.status === "not_started" ||
+        asset?.status === "approved_by_client")
+    ) {
+      const errorMessage =
+        asset?.status === "not_started"
+          ? "Cannot send for revision - asset has not been started yet"
+          : "Cannot send for revision - asset has already been approved by client";
+      toast.error(errorMessage);
+      return;
+    }
+
     // Validate feedback before allowing revision
     if (
       (newStatus === "revisions" || newStatus === "client_revision") &&
@@ -1571,6 +1585,20 @@ export default function ReviewPage() {
 
   const updateAssetStatus = async (newStatus: string, skipDialog = false) => {
     if (!assetId) return;
+
+    // Prevent revision for assets that are not started or already approved by client
+    if (
+      (newStatus === "revisions" || newStatus === "client_revision") &&
+      (asset?.status === "not_started" ||
+        asset?.status === "approved_by_client")
+    ) {
+      const errorMessage =
+        asset?.status === "not_started"
+          ? "Cannot send for revision - asset has not been started yet"
+          : "Cannot send for revision - asset has already been approved by client";
+      toast.error(errorMessage);
+      return;
+    }
 
     // Handle revision workflow
     if (
@@ -3315,6 +3343,8 @@ export default function ReviewPage() {
                   disabled={
                     asset?.status === "revisions" ||
                     asset?.status === "client_revision" ||
+                    asset?.status === "not_started" ||
+                    asset?.status === "approved_by_client" ||
                     statusUpdating
                   }
                   variant={
@@ -3335,11 +3365,15 @@ export default function ReviewPage() {
                         : ""
                   }`}
                   title={
-                    ["client", "qa"].includes(
-                      user?.metadata?.role?.toLowerCase?.() || ""
-                    ) && !hasValidFeedback()
-                      ? "Add annotations or comments before requesting a revision"
-                      : undefined
+                    asset?.status === "not_started"
+                      ? "Cannot send for revision - asset has not been started yet"
+                      : asset?.status === "approved_by_client"
+                        ? "Cannot send for revision - asset has already been approved by client"
+                        : ["client", "qa"].includes(
+                              user?.metadata?.role?.toLowerCase?.() || ""
+                            ) && !hasValidFeedback()
+                          ? "Add annotations or comments before requesting a revision"
+                          : undefined
                   }
                 >
                   {statusUpdating ? (
