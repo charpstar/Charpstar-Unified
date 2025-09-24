@@ -63,6 +63,17 @@ const isNewAsset = (createdAt: string): boolean => {
   return createdDate.isAfter(sevenDaysAgo);
 };
 
+// Helper function to check if a model is overdue (model update date is after delivery date)
+const isModelOverdue = (
+  deliveryDate: string,
+  modelUpdatedAt?: string
+): boolean => {
+  if (!modelUpdatedAt) return false;
+  const delivery = dayjs(deliveryDate);
+  const modelUpdate = dayjs(modelUpdatedAt);
+  return modelUpdate.isAfter(delivery);
+};
+
 // Helper function to get status label CSS class
 const getStatusLabelClass = (status: string): string => {
   switch (status) {
@@ -160,6 +171,7 @@ interface AssignedAsset {
   created_at: string;
   reference?: string[] | null;
   price: number;
+  model_updated_at?: string; // New field for GLB upload date
   modeler?: {
     id: string;
     email: string;
@@ -513,10 +525,40 @@ export default function QAReviewPage() {
       modelerDetails?.map((modeler) => [modeler.id, modeler]) || []
     );
 
+    // Get asset IDs for fetching GLB upload history
+    const assetIds = assetAssignments.map((a) => a.onboarding_assets.id);
+
+    // Fetch latest GLB upload date for each asset
+    const { data: glbHistory, error: glbError } = await supabase
+      .from("glb_upload_history")
+      .select("asset_id, uploaded_at")
+      .in("asset_id", assetIds)
+      .order("uploaded_at", { ascending: false });
+
+    if (glbError) {
+      console.error("Error fetching GLB upload history:", glbError);
+    }
+
+    // Create a map of asset ID to latest upload date
+    const glbUploadMap = new Map<string, string>();
+    if (glbHistory) {
+      // Group by asset_id and get the latest upload for each
+      glbHistory.forEach((upload) => {
+        if (
+          !glbUploadMap.has(upload.asset_id) ||
+          new Date(upload.uploaded_at) >
+            new Date(glbUploadMap.get(upload.asset_id)!)
+        ) {
+          glbUploadMap.set(upload.asset_id, upload.uploaded_at);
+        }
+      });
+    }
+
     // Transform asset assignments to AssignedAsset format
     const assets: AssignedAsset[] = assetAssignments.map((assignment) => {
       const asset = assignment.onboarding_assets;
       const modeler = modelerMap.get(assignment.user_id);
+      const modelUpdatedAt = glbUploadMap.get(asset.id);
 
       return {
         id: asset.id,
@@ -535,6 +577,7 @@ export default function QAReviewPage() {
         created_at: asset.created_at,
         reference: asset.reference,
         price: assignment.price || 0,
+        model_updated_at: modelUpdatedAt,
         modeler: modeler
           ? {
               id: modeler.id,
@@ -603,10 +646,39 @@ export default function QAReviewPage() {
       ]) || []
     );
 
+    // Fetch latest GLB upload date for each asset
+    const { data: glbHistory, error: glbError } = await supabase
+      .from("glb_upload_history")
+      .select("asset_id, uploaded_at")
+      .in("asset_id", assetIds)
+      .order("uploaded_at", { ascending: false });
+
+    if (glbError) {
+      console.error(
+        "Error fetching GLB upload history for provisional assets:",
+        glbError
+      );
+    }
+
+    // Create a map of asset ID to latest upload date
+    const glbUploadMap = new Map<string, string>();
+    if (glbHistory) {
+      glbHistory.forEach((upload) => {
+        if (
+          !glbUploadMap.has(upload.asset_id) ||
+          new Date(upload.uploaded_at) >
+            new Date(glbUploadMap.get(upload.asset_id)!)
+        ) {
+          glbUploadMap.set(upload.asset_id, upload.uploaded_at);
+        }
+      });
+    }
+
     // Transform provisional assignments to AssignedAsset format
     const assets: AssignedAsset[] = provisionalAssignments.map((assignment) => {
       const asset = assignment.onboarding_assets;
       const modeler = assetToModelerMap.get(assignment.asset_id);
+      const modelUpdatedAt = glbUploadMap.get(asset.id);
 
       return {
         id: asset.id,
@@ -625,6 +697,7 @@ export default function QAReviewPage() {
         created_at: asset.created_at,
         reference: asset.reference,
         price: assignment.price || 0,
+        model_updated_at: modelUpdatedAt,
         modeler: modeler
           ? {
               id: modeler.id,
@@ -688,6 +761,7 @@ export default function QAReviewPage() {
     filtered.sort((a, b) => {
       switch (sort) {
         case "status-progress": {
+          // For QA users, sort by model update date (newest first) within each status
           const statusPriority: Record<string, number> = {
             in_production: 1,
             delivered_by_artist: 2,
@@ -695,9 +769,19 @@ export default function QAReviewPage() {
             approved: 4,
             approved_by_client: 5,
           };
-          return (
-            (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
-          );
+
+          const statusDiff =
+            (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99);
+          if (statusDiff !== 0) return statusDiff;
+
+          // Within same status, sort by model update date (oldest first)
+          const aModelDate = a.model_updated_at
+            ? new Date(a.model_updated_at).getTime()
+            : 0;
+          const bModelDate = b.model_updated_at
+            ? new Date(b.model_updated_at).getTime()
+            : 0;
+          return aModelDate - bModelDate;
         }
         case "priority":
           // 1 is highest priority; show lowest numeric value first
@@ -712,17 +796,32 @@ export default function QAReviewPage() {
         case "za":
           return b.product_name.localeCompare(a.product_name);
         case "date":
-          // Newest first using asset delivery_date
-          return (
-            dayjs(b.delivery_date).valueOf() - dayjs(a.delivery_date).valueOf()
-          );
+          // Sort by model update date (oldest first) for QA users
+          const aModelDate = a.model_updated_at
+            ? new Date(a.model_updated_at).getTime()
+            : 0;
+          const bModelDate = b.model_updated_at
+            ? new Date(b.model_updated_at).getTime()
+            : 0;
+          return aModelDate - bModelDate;
         case "date-oldest":
-          // Oldest first using asset delivery_date
-          return (
-            dayjs(a.delivery_date).valueOf() - dayjs(b.delivery_date).valueOf()
-          );
+          // Sort by model update date (oldest first) for QA users
+          const aModelDateOld = a.model_updated_at
+            ? new Date(a.model_updated_at).getTime()
+            : 0;
+          const bModelDateOld = b.model_updated_at
+            ? new Date(b.model_updated_at).getTime()
+            : 0;
+          return aModelDateOld - bModelDateOld;
         default:
-          return 0;
+          // Default sorting: by model update date (oldest first) for QA users
+          const aDefaultDate = a.model_updated_at
+            ? new Date(a.model_updated_at).getTime()
+            : 0;
+          const bDefaultDate = b.model_updated_at
+            ? new Date(b.model_updated_at).getTime()
+            : 0;
+          return aDefaultDate - bDefaultDate;
       }
     });
 
@@ -1270,7 +1369,9 @@ export default function QAReviewPage() {
                   <TableHead className="text-left">Priority</TableHead>
                   <TableHead className="text-left">Status</TableHead>
                   <TableHead className="text-left">Modeler</TableHead>
-                  <TableHead className="w-20 text-left">Created</TableHead>
+                  <TableHead className="w-20 text-left">
+                    Model Updated
+                  </TableHead>
                   <TableHead className="text-left">Product Link</TableHead>
                   <TableHead className="text-left">GLB</TableHead>
                   <TableHead className="text-left">Files</TableHead>
@@ -1506,12 +1607,27 @@ export default function QAReviewPage() {
                           </span>
                         )}
                       </TableCell>
-                      {/* Created Date */}
+                      {/* Model Updated Date */}
                       <TableCell className="text-left">
                         <div className="flex items-center gap-1">
-                          <div className="text-xs text-muted-foreground">
-                            {dayjs(asset.created_at).format("MMM DD")}•
-                            {dayjs(asset.created_at).format("YYYY")}
+                          <div
+                            className={`text-xs ${isModelOverdue(asset.delivery_date, asset.model_updated_at) ? "text-red-600 font-semibold" : "text-muted-foreground"}`}
+                          >
+                            {asset.model_updated_at ? (
+                              <>
+                                {dayjs(asset.model_updated_at).format("MMM DD")}
+                                •{dayjs(asset.model_updated_at).format("YYYY")}•
+                                {dayjs(asset.model_updated_at).format("HH:mm")}
+                                {isModelOverdue(
+                                  asset.delivery_date,
+                                  asset.model_updated_at
+                                ) && (
+                                  <span className="ml-1 text-red-500">⚠️</span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
                           </div>
                         </div>
                       </TableCell>
@@ -1775,7 +1891,7 @@ export default function QAReviewPage() {
                       </Badge>
                     </div>
 
-                    {/* Modeler and Created Date */}
+                    {/* Modeler and Model Updated Date */}
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <div>
                         {asset.modeler ? (
@@ -1787,9 +1903,22 @@ export default function QAReviewPage() {
                           <span>-</span>
                         )}
                       </div>
-                      <div>
-                        {dayjs(asset.created_at).format("MMM DD")} •{" "}
-                        {dayjs(asset.created_at).format("YYYY")}
+                      <div
+                        className={`${isModelOverdue(asset.delivery_date, asset.model_updated_at) ? "text-red-600 font-semibold" : ""}`}
+                      >
+                        {asset.model_updated_at ? (
+                          <>
+                            {dayjs(asset.model_updated_at).format("MMM DD")} •{" "}
+                            {dayjs(asset.model_updated_at).format("YYYY")} •{" "}
+                            {dayjs(asset.model_updated_at).format("HH:mm")}
+                            {isModelOverdue(
+                              asset.delivery_date,
+                              asset.model_updated_at
+                            ) && <span className="ml-1 text-red-500">⚠️</span>}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </div>
                     </div>
 

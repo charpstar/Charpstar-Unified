@@ -388,7 +388,6 @@ export default function AdminClientsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <Building2 className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
             <span className="hidden sm:inline">Client Management</span>
             <span className="sm:hidden">Clients</span>
           </h1>

@@ -225,6 +225,11 @@ export default function AppSidebar({
             icon: MessageSquare,
           },
           {
+            title: "Guidelines",
+            url: "/guidelines",
+            icon: FileText,
+          },
+          {
             title: "Users",
             url: "/users",
             icon: Users,

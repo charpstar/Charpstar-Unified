@@ -1295,6 +1295,20 @@ export default function ReviewPage() {
   ) => {
     if (!assetId) return;
 
+    // Validate feedback before allowing revision
+    if (
+      (newStatus === "revisions" || newStatus === "client_revision") &&
+      !hasValidFeedback()
+    ) {
+      const userRole = user?.metadata?.role;
+      // eslint-disable-next-line
+      const roleText = userRole === "client" ? "client" : "QA";
+      toast.error(
+        `Please add annotations or comments before requesting a revision`
+      );
+      return;
+    }
+
     setStatusUpdating(true);
 
     try {
@@ -1408,17 +1422,151 @@ export default function ReviewPage() {
 
   // Helper function to check if client has provided any feedback
   const hasClientFeedback = () => {
-    // Check if there are any annotations created by the current client
+    // Get the last revision timestamp
+    const lastRevision =
+      revisionHistory.length > 0
+        ? revisionHistory[revisionHistory.length - 1]
+        : null;
+
+    const lastRevisionTime = lastRevision?.created_at
+      ? new Date(lastRevision.created_at).getTime()
+      : 0;
+
+    // Check if there are any annotations created by the current client since the last revision
     const clientAnnotations = annotations.filter(
-      (annotation) => annotation.created_by === user?.id
+      (annotation) =>
+        annotation.created_by === user?.id &&
+        new Date(annotation.created_at).getTime() > lastRevisionTime
     );
 
-    // Check if there are any comments created by the current client
+    // Check if there are any comments created by the current client since the last revision
     const clientComments = comments.filter(
-      (comment) => comment.created_by === user?.id
+      (comment) =>
+        comment.created_by === user?.id &&
+        new Date(comment.created_at).getTime() > lastRevisionTime
+    );
+
+    console.log(
+      "Debug - hasClientFeedback - Last revision time:",
+      lastRevisionTime
+    );
+    console.log(
+      "Debug - hasClientFeedback - Client annotations count (new):",
+      clientAnnotations.length
+    );
+    console.log(
+      "Debug - hasClientFeedback - Client comments count (new):",
+      clientComments.length
     );
 
     return clientAnnotations.length > 0 || clientComments.length > 0;
+  };
+
+  // Helper function to check if QA has provided any feedback since the last revision
+  const hasQAFeedback = () => {
+    // Get the current revision number
+    const currentRevision = revisionCount || 0;
+
+    // Get the last revision timestamp
+    const lastRevision =
+      revisionHistory.length > 0
+        ? revisionHistory[revisionHistory.length - 1]
+        : null;
+
+    const lastRevisionTime = lastRevision?.created_at
+      ? new Date(lastRevision.created_at).getTime()
+      : 0;
+
+    console.log("Debug - hasQAFeedback - Current revision:", currentRevision);
+    console.log("Debug - hasQAFeedback - User ID:", user?.id);
+    console.log(
+      "Debug - hasQAFeedback - Last revision time:",
+      lastRevisionTime
+    );
+    console.log("Debug - hasQAFeedback - Last revision:", lastRevision);
+
+    // Check if there are any annotations created by the current QA user since the last revision
+    const qaAnnotations = annotations.filter(
+      (annotation) =>
+        annotation.created_by === user?.id &&
+        new Date(annotation.created_at).getTime() > lastRevisionTime
+    );
+
+    // Check if there are any comments created by the current QA user since the last revision
+    const qaComments = comments.filter(
+      (comment) =>
+        comment.created_by === user?.id &&
+        new Date(comment.created_at).getTime() > lastRevisionTime
+    );
+
+    console.log(
+      "Debug - hasQAFeedback - QA annotations count (new):",
+      qaAnnotations.length
+    );
+    console.log(
+      "Debug - hasQAFeedback - QA comments count (new):",
+      qaComments.length
+    );
+    console.log(
+      "Debug - hasQAFeedback - New annotations:",
+      qaAnnotations.map((a) => ({
+        id: a.id,
+        created_by: a.created_by,
+        created_at: a.created_at,
+      }))
+    );
+    console.log(
+      "Debug - hasQAFeedback - New comments:",
+      qaComments.map((c) => ({
+        id: c.id,
+        created_by: c.created_by,
+        created_at: c.created_at,
+      }))
+    );
+
+    // If this is the first revision (revision 1), any feedback is valid
+    if (currentRevision === 0) {
+      const hasFeedback = qaAnnotations.length > 0 || qaComments.length > 0;
+      console.log(
+        "Debug - hasQAFeedback - First revision, has feedback:",
+        hasFeedback
+      );
+      return hasFeedback;
+    }
+
+    // For subsequent revisions, check for new feedback since the last revision
+    const hasFeedback = qaAnnotations.length > 0 || qaComments.length > 0;
+    console.log(
+      "Debug - hasQAFeedback - Subsequent revision, has new feedback:",
+      hasFeedback
+    );
+    return hasFeedback;
+  };
+
+  // Comprehensive feedback validation for both clients and QA
+  const hasValidFeedback = () => {
+    const userRole = user?.metadata?.role;
+    console.log("Debug - hasValidFeedback - User role:", userRole);
+    console.log("Debug - hasValidFeedback - User role type:", typeof userRole);
+    console.log("Debug - hasValidFeedback - User object:", user);
+    console.log("Debug - hasValidFeedback - Annotations:", annotations.length);
+    console.log("Debug - hasValidFeedback - Comments:", comments.length);
+
+    // Check for exact role matches (case-insensitive)
+    const normalizedRole = userRole?.toLowerCase?.();
+    if (normalizedRole === "client") {
+      const hasFeedback = hasClientFeedback();
+      console.log("Debug - hasValidFeedback - Client feedback:", hasFeedback);
+      return hasFeedback;
+    } else if (normalizedRole === "qa") {
+      const hasFeedback = hasQAFeedback();
+      console.log("Debug - hasValidFeedback - QA feedback:", hasFeedback);
+      return hasFeedback;
+    }
+
+    // For other roles (admin, etc.), allow revisions without feedback validation
+    console.log("Debug - hasValidFeedback - Other role, allowing revision");
+    return true;
   };
 
   const updateAssetStatus = async (newStatus: string, skipDialog = false) => {
@@ -1430,17 +1578,31 @@ export default function ReviewPage() {
       !skipDialog
     ) {
       const currentRevisionCount = revisionCount + 1;
-      const isClient = user?.metadata?.role === "client";
+      const userRole = user?.metadata?.role;
 
-      if (isClient) {
-        // Check if client has provided any feedback before allowing revision
-        if (!hasClientFeedback()) {
-          toast.error(
-            "Please add annotations or comments before requesting a revision"
-          );
-          return;
-        }
+      // Check if user has provided valid feedback before allowing revision
+      console.log("Debug - User role:", userRole);
+      console.log("Debug - Has valid feedback:", hasValidFeedback());
+      console.log(
+        "Debug - Annotations count:",
+        annotations.filter((a) => a.created_by === user?.id).length
+      );
+      console.log(
+        "Debug - Comments count:",
+        comments.filter((c) => c.created_by === user?.id).length
+      );
 
+      if (!hasValidFeedback()) {
+        // eslint-disable-next-line
+        const roleText = userRole === "client" ? "client" : "QA";
+        toast.error(
+          `Please add annotations or comments before requesting a revision`
+        );
+        return;
+      }
+
+      // Show revision dialogs for clients
+      if (userRole === "client") {
         if (currentRevisionCount === 1 || currentRevisionCount === 2) {
           setShowRevisionDialog(true);
           return;
@@ -3036,11 +3198,13 @@ export default function ReviewPage() {
               </div>
             </div>
 
-            {/* Client Feedback Notice */}
-            {user?.metadata?.role === "client" &&
+            {/* Feedback Notice */}
+            {["client", "qa"].includes(
+              user?.metadata?.role?.toLowerCase?.() || ""
+            ) &&
               asset?.status !== "revisions" &&
               asset?.status !== "client_revision" &&
-              hasClientFeedback() && (
+              hasValidFeedback() && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded px-2 py-1 mt-2">
                   <div className="flex items-center gap-1">
                     <AlertCircle className="h-3 w-3 text-yellow-600" />
@@ -3137,12 +3301,12 @@ export default function ReviewPage() {
 
                 <Button
                   onClick={() => {
+                    const userRole = user?.metadata?.role?.toLowerCase?.();
                     const newStatus =
-                      user?.metadata?.role === "client"
-                        ? "client_revision"
-                        : "revisions";
+                      userRole === "client" ? "client_revision" : "revisions";
                     console.log("Frontend sending status:", {
                       userRole: user?.metadata?.role,
+                      normalizedRole: userRole,
                       newStatus,
                       userId: user?.id,
                     });
@@ -3164,13 +3328,16 @@ export default function ReviewPage() {
                     asset?.status === "revisions" ||
                     asset?.status === "client_revision"
                       ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
-                      : user?.metadata?.role === "client" &&
-                          !hasClientFeedback()
+                      : ["client", "qa"].includes(
+                            user?.metadata?.role?.toLowerCase?.() || ""
+                          ) && !hasValidFeedback()
                         ? "bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-950/20 dark:border-yellow-800/50 dark:text-yellow-400 dark:hover:bg-yellow-950/30"
                         : ""
                   }`}
                   title={
-                    user?.metadata?.role === "client" && !hasClientFeedback()
+                    ["client", "qa"].includes(
+                      user?.metadata?.role?.toLowerCase?.() || ""
+                    ) && !hasValidFeedback()
                       ? "Add annotations or comments before requesting a revision"
                       : undefined
                   }
@@ -4593,7 +4760,7 @@ export default function ReviewPage() {
                                 </div>
                                 <div className="flex flex-col gap-1">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-foreground">
+                                    <span className="text-sm font-medium text-foreground truncate max-w-[150px]">
                                       {item.profiles?.email || "Unknown"}
                                     </span>
                                     <Badge
