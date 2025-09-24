@@ -1448,6 +1448,10 @@ export function StatusPieChartWidget() {
 
   const chartData = Object.entries(STATUS_LABELS)
     .filter(([key]) => {
+      // Hide "not_started" and "revisions" statuses as they'll be merged into "in_production"
+      if (key === "not_started" || key === "revisions") {
+        return false;
+      }
       // Hide "Delivered by Artist" for clients since it's shown as "In Production"
       if (user?.metadata?.role === "client" && key === "delivered_by_artist") {
         return false;
@@ -1455,7 +1459,13 @@ export function StatusPieChartWidget() {
       return true;
     })
     .map(([key, label]) => {
-      const count = counts[key as StatusKey];
+      let count = counts[key as StatusKey];
+
+      // Merge "not_started" and "revisions" into "in_production"
+      if (key === "in_production") {
+        count += counts.not_started + counts.revisions;
+      }
+
       const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
       const displayLabel =
         user?.metadata?.role === "client" && key === "approved"

@@ -59,6 +59,7 @@ interface ApprovedAsset {
   approved_at: string;
   allocation_list_id: string;
   allocation_list_number: number;
+  allocation_list_status: string;
   allocation_list_created_at: string;
   allocation_lists?: {
     bonus: number;
@@ -228,6 +229,7 @@ export default function InvoicingPage() {
           allocation_lists!inner(
             number,
             bonus,
+            status,
             approved_at,
             created_at
           ),
@@ -268,6 +270,7 @@ export default function InvoicingPage() {
           approved_at: item.allocation_lists.approved_at,
           allocation_list_id: item.allocation_list_id,
           allocation_list_number: item.allocation_lists.number,
+          allocation_list_status: item.allocation_lists.status,
           allocation_list_created_at: item.allocation_lists.created_at,
           allocation_lists: item.allocation_lists,
         })
@@ -879,12 +882,12 @@ export default function InvoicingPage() {
               </td>
               <td>€${asset.price.toFixed(2)}</td>
                               <td>
-                  ${asset.approved_at ? `+${asset.allocation_lists?.bonus || 0}%` : "Pending"}
+                  ${asset.allocation_list_status === "approved" ? `+${asset.allocation_lists?.bonus || 0}%` : "Pending"}
                 </td>
-                <td>€${(asset.approved_at ? asset.price * (1 + (asset.allocation_lists?.bonus || 0) / 100) : asset.price).toFixed(2)}</td>
+                <td>€${(asset.allocation_list_status === "approved" ? asset.price * (1 + (asset.allocation_lists?.bonus || 0) / 100) : asset.price).toFixed(2)}</td>
                               <td>
                   ${
-                    asset.approved_at
+                    asset.allocation_list_status === "approved"
                       ? '<span style="color: #166534; font-size: 0.85em;">✓ Complete</span>'
                       : '<span style="color: #92400e; font-size: 0.85em;">List pending</span>'
                   }
@@ -1496,7 +1499,7 @@ export default function InvoicingPage() {
                       </TableCell>
                       <TableCell className="min-w-[120px] text-left">
                         <div className="text-xs sm:text-sm text-muted-foreground">
-                          {asset.approved_at ? (
+                          {asset.allocation_list_status === "approved" ? (
                             <div>
                               <div>
                                 List:{" "}

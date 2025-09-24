@@ -177,6 +177,14 @@ export default function CsvUploadPage() {
     setIsUploading(true);
     setUploadProgress(0);
 
+    // Show upload progress toast
+    const uploadToast = toast({
+      title: "Uploading Assets...",
+      description:
+        "Please wait while we process your CSV data. You'll be redirected to the dashboard shortly.",
+      duration: 0, // Keep toast visible until manually dismissed
+    });
+
     if (!csvPreview || !user?.metadata?.client) return;
     const client = user.metadata.client;
     const rows = csvPreview.slice(1); // skip header
@@ -233,6 +241,8 @@ export default function CsvUploadPage() {
 
       if (error) {
         console.error("Error batch inserting products:", error);
+        // Dismiss the upload progress toast
+        uploadToast.dismiss();
         toast({
           title: "Upload Failed",
           description: "Failed to upload products. Please try again.",
@@ -247,15 +257,23 @@ export default function CsvUploadPage() {
     setIsUploading(false);
     setUploadProgress(100);
 
+    // Dismiss upload toast if no products were uploaded
+    if (successCount === 0) {
+      uploadToast.dismiss();
+    }
+
     if (successCount > 0) {
+      // Dismiss the upload progress toast
+      uploadToast.dismiss();
+
       toast({
-        title: " Upload Success!",
-        description: `${successCount} assets successfully uploaded!`,
+        title: "Upload Complete!",
+        description: `${successCount} assets successfully uploaded! Redirecting to dashboard...`,
       });
 
-      // Call the image scraper API
+      // Call the image collection API
       try {
-        const scraperResponse = await fetch("/api/scrape-images", {
+        const imageResponse = await fetch("/api/scrape-images", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -265,15 +283,15 @@ export default function CsvUploadPage() {
           }),
         });
 
-        if (scraperResponse.ok) {
-          const scraperResult = await scraperResponse.json();
-          console.log("Image scraping initiated:", scraperResult);
+        if (imageResponse.ok) {
+          const imageResult = await imageResponse.json();
+          console.log("Image collection initiated:", imageResult);
         } else {
-          console.warn("Image scraping failed:", await scraperResponse.text());
+          console.warn("Image collection failed:", await imageResponse.text());
         }
-      } catch (scraperError) {
-        console.error("Error calling image scraper:", scraperError);
-        // Don't fail the upload if scraper fails
+      } catch (imageError) {
+        console.error("Error calling image collection:", imageError);
+        // Don't fail the upload if image collection fails
       }
 
       // Send notification to admin users about new product submission
@@ -360,15 +378,10 @@ export default function CsvUploadPage() {
           <h1 className="text-4xl font-bold text-foreground mb-2">
             CSV Data Upload
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Upload your product data to get started with your 3D asset library.
-            The template includes: Article ID, Product Name, Product Link,
-            CAD/File Link, Category, and Subcategory. Required fields: Article
-            ID, Product Name, Product Link, and Category.{" "}
-            <strong>
-              Note: Do not add images yet - that&apos;s the next step.
-            </strong>
-          </p>
+
+          <strong>
+            Note: Do not add images yet - that&apos;s the next step.
+          </strong>
         </div>
       </div>
 
@@ -637,15 +650,11 @@ export default function CsvUploadPage() {
                               {cell}
                             </TableHead>
                           ))}
-                          <TableHead className="font-semibold text-primary bg-primary/5 text-left">
-                            Preview
-                          </TableHead>
                         </TableRow>
                       )}
                     </TableHeader>
                     <TableBody>
                       {csvPreview.slice(1).map((row, i) => {
-                        const cadFileLink = row[3]; // CAD/File Link is the 4th column (index 3)
                         return (
                           <TableRow key={i} className="p-2">
                             {row.map((cell, j) => (
@@ -660,29 +669,6 @@ export default function CsvUploadPage() {
                                 )}
                               </TableCell>
                             ))}
-                            <TableCell className="text-sm p-4 text-left">
-                              {cadFileLink ? (
-                                <div className="flex items-center space-x-2">
-                                  <div className="flex flex-col">
-                                    <span className="text-xs font-medium text-primary">
-                                      {cadFileLink
-                                        .split("/")
-                                        .pop()
-                                        ?.split("?")[0] || "Link"}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {cadFileLink.includes("drive.google.com")
-                                        ? "Google Drive"
-                                        : "External Link"}
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground italic text-sm">
-                                  No file
-                                </span>
-                              )}
-                            </TableCell>
                           </TableRow>
                         );
                       })}

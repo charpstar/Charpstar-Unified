@@ -753,10 +753,18 @@ export default function ReferenceImagesPage() {
                 <strong>
                   Reference files are optional but highly recommended!
                 </strong>{" "}
-                Upload any type of reference files (images, videos, PDFs, 3D
-                models, CAD files, etc.) to help our 3D modelers understand your
-                requirements. You can upload unlimited files and remove them as
-                needed.
+                We&apos;ll automatically collect reference images from your
+                product links, but any additional reference files you upload
+                (images, videos, PDFs, 3D models, CAD files, etc.) will help our
+                3D modelers understand your requirements much better. You can
+                upload unlimited files and remove them as needed.
+                <br />
+                <br />
+                <strong>How to add references:</strong> Click the
+                &quot;Ref&quot; button next to any product in the table below,
+                or select multiple products and use the &quot;Upload to X
+                Assets&quot; button to add the same reference to multiple
+                products at once.
               </p>
 
               {/* Progress Overview */}
@@ -814,7 +822,7 @@ export default function ReferenceImagesPage() {
                     className="gap-2"
                   >
                     <Upload className="h-4 w-4" />
-                    Upload to {selected.size} Assets
+                    Upload to {selected.size} assets
                   </Button>
                 </div>
               )}
@@ -890,11 +898,11 @@ export default function ReferenceImagesPage() {
                             </code>
                           </TableCell>
                           <TableCell className="text-left">
-                            <div className="flex flex-col items-center gap-1">
+                            <div className="flex flex-col items-start gap-1 text-left justify-start">
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs px-3 py-1 h-7"
+                                className="text-xs px-3 py-1 h-7 text-left justify-start"
                                 onClick={() => {
                                   setSelectedAssetForView(asset);
                                   setShowViewDialog(true);
@@ -959,6 +967,17 @@ export default function ReferenceImagesPage() {
               <Alert>
                 <Camera className="h-4 w-4" />
                 <AlertDescription>
+                  <strong>Reference images will be added automatically</strong>{" "}
+                  from your product links, but any additional reference files
+                  you upload will help our modelers significantly!
+                  <br />
+                  <br />
+                  <strong>How to use this dialog:</strong> For single products,
+                  drag & drop files or click &quot;Browse Files&quot;. For
+                  multiple products, enter a URL or select a file to upload to
+                  all selected assets.
+                  <br />
+                  <br />
                   <strong>Supported file types:</strong> Images (JPG, PNG, GIF,
                   etc.), Videos (MP4, AVI, MOV, etc.), PDFs, 3D models (GLB,
                   OBJ, FBX, STL, etc.), CAD files (DWG, STEP, etc.), and

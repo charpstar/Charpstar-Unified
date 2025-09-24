@@ -87,6 +87,8 @@ export default function AddProductsPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showCsvUploadConfirmDialog, setShowCsvUploadConfirmDialog] =
+    useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [csvErrors, setCsvErrors] = useState<
     { row: number; message: string }[]
@@ -101,7 +103,7 @@ export default function AddProductsPage() {
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [editedCsvData, setEditedCsvData] = useState<string[][] | null>(null);
   //eslint-disable-next-line
-  const [scrapingImages, setScrapingImages] = useState(false);
+  const [collectingImages, setCollectingImages] = useState(false);
 
   // Helper function to reset file input
   const resetFileInput = () => {
@@ -116,18 +118,14 @@ export default function AddProductsPage() {
     }
   };
 
-  // Function to scrape images for the client
-  const scrapeImages = async () => {
+  // Function to collect images for the client
+  const collectImages = async () => {
     if (!user?.metadata?.client) {
-      console.warn("Client information not available for image scraping");
+      console.warn("Client information not available for image collection");
       return;
     }
 
-    setScrapingImages(true);
-    const loadingToast = toast.loading("Scraping images...", {
-      description:
-        "This may take a few minutes depending on the number of products",
-    });
+    setCollectingImages(true);
 
     try {
       const clientName = user.metadata.client;
@@ -145,27 +143,14 @@ export default function AddProductsPage() {
       }
 
       const result = await response.json();
-
-      toast.success("Images scraped successfully!", {
-        id: loadingToast,
-        description:
-          result.message ||
-          "Images have been processed and saved to the database",
-        duration: 5000,
-      });
+      console.log("Images collected successfully:", result.message);
     } catch (error) {
-      console.error("Error scraping images:", error);
-
-      // Don't show error toast to user since this runs in background
-      // Just log it and silently fail
-      toast.dismiss(loadingToast);
-
-      // Only show a warning in console, not to user
+      console.error("Error collecting images:", error);
       console.warn(
-        "Image scraping failed silently - this won't affect your product upload"
+        "Image collection failed silently - this won't affect your product upload"
       );
     } finally {
-      setScrapingImages(false);
+      setCollectingImages(false);
     }
   };
 
@@ -302,16 +287,16 @@ export default function AddProductsPage() {
         // Don't fail the product submission if notification fails
       }
 
-      // Automatically scrape images in the background (fire and forget)
-      scrapeImages().catch((error) => {
-        console.warn("Background image scraping failed:", error);
+      // Automatically collect images in the background (fire and forget)
+      collectImages().catch((error) => {
+        console.warn("Background image collection failed:", error);
       });
 
       toast.success(
         ` Successfully added ${validProducts.length} product${validProducts.length === 1 ? "" : "s"} to batch ${currentBatch}!`,
         {
           id: loadingToast,
-          description: `Your products are now ready for review. Image scraping will be attempted in the background.`,
+          description: `Your products are now ready for review.`,
           duration: 5000,
         }
       );
@@ -581,7 +566,7 @@ export default function AddProductsPage() {
         article_id,
         product_name,
         product_link,
-        glb_link,
+        cad_file_link,
         category,
         subcategory,
       ] = row;
@@ -603,7 +588,7 @@ export default function AddProductsPage() {
         article_id: article_id.trim(),
         product_name: product_name.trim(),
         product_link: product_link.trim(),
-        glb_link: glb_link.trim(), // Use the actual glb_link from CSV
+        glb_link: cad_file_link?.trim() || null, // Use the actual CAD/File Link from CSV
         category: category?.trim() || null,
         subcategory: subcategory?.trim() || null,
         reference: null, // No reference column in new format
@@ -673,16 +658,16 @@ export default function AddProductsPage() {
         // Don't fail the product submission if notification fails
       }
 
-      // Automatically scrape images in the background (fire and forget)
-      scrapeImages().catch((error) => {
-        console.warn("Background image scraping failed:", error);
+      // Automatically collect images in the background (fire and forget)
+      collectImages().catch((error) => {
+        console.warn("Background image collection failed:", error);
       });
 
       toast.success(
         `🎉 Successfully uploaded ${successCount} product${successCount === 1 ? "" : "s"}!`,
         {
           id: loadingToast,
-          description: `Your products have been added to batch ${currentBatch} and are ready for review. Image scraping will be attempted in the background.`,
+          description: `Your products have been added to batch ${currentBatch} and are ready for review.`,
           duration: 5000,
         }
       );
@@ -836,6 +821,10 @@ export default function AddProductsPage() {
                 <Package className="h-5 w-5" />
                 Product Details
               </CardTitle>
+              <p className="text-xs text-muted-foreground mt-2">
+                Fill in the required fields (marked with *). Optional fields can
+                be left empty.
+              </p>
             </CardHeader>
             <CardContent className="space-y-6">
               {products.map((product, index) => (
@@ -1094,7 +1083,7 @@ export default function AddProductsPage() {
                   </Button>
 
                   <Button
-                    onClick={handleCsvUpload}
+                    onClick={() => setShowCsvUploadConfirmDialog(true)}
                     disabled={loading}
                     className="w-full cursor-pointer"
                     title={
@@ -1167,30 +1156,13 @@ export default function AddProductsPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Instructions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Instructions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <p>Fill in the required fields (marked with *)</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <p>Optional fields can be left empty</p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
       {/* CSV Preview Dialog */}
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent className="min-w-[70vw] max-h-[80vh] overflow-hidden">
-          <DialogHeader>
+        <DialogContent className="min-w-[70vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5" />
               CSV Preview ({csvPreview?.length ? csvPreview.length - 1 : 0}{" "}
@@ -1301,15 +1273,17 @@ export default function AddProductsPage() {
               </AlertDescription>
             </Alert>
           )}
-          <div className="flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto">
+          <div className="flex-1 overflow-hidden min-h-0">
+            <div className="h-full max-h-[60vh] overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-left">Article ID</TableHead>
                     <TableHead className="text-left">Product Name</TableHead>
                     <TableHead className="text-left">Product Link</TableHead>
+                    <TableHead className="text-left">CAD/File Link</TableHead>
                     <TableHead className="text-left">Category</TableHead>
+                    <TableHead className="text-left">Subcategory</TableHead>
                     <TableHead className="text-left">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1319,6 +1293,7 @@ export default function AddProductsPage() {
                       articleId,
                       productName,
                       productLink,
+                      cadFileLink,
                       category,
                       subcategory,
                     ] = row;
@@ -1405,45 +1380,78 @@ export default function AddProductsPage() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-left">
                           {isEditing ? (
-                            <div className="space-y-1">
-                              <Input
-                                value={
-                                  editedCsvData?.[index + 1]?.[4] ||
-                                  category ||
-                                  ""
-                                }
-                                onChange={(e) =>
-                                  saveEdit(index + 1, 4, e.target.value)
-                                }
-                                className="h-8 text-sm"
-                                placeholder="Category"
-                              />
-                              <Input
-                                value={
-                                  editedCsvData?.[index + 1]?.[5] ||
-                                  subcategory ||
-                                  ""
-                                }
-                                onChange={(e) =>
-                                  saveEdit(index + 1, 5, e.target.value)
-                                }
-                                className="h-8 text-sm"
-                                placeholder="Subcategory"
-                              />
-                            </div>
+                            <Input
+                              value={
+                                editedCsvData?.[index + 1]?.[3] ||
+                                cadFileLink ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                saveEdit(index + 1, 3, e.target.value)
+                              }
+                              className="h-8 text-sm"
+                              placeholder="CAD/File Link"
+                            />
                           ) : (
-                            <div>
-                              <span className="font-medium">
-                                {category || "-"}
-                              </span>
-                              {subcategory && (
-                                <span className="text-xs text-muted-foreground block">
-                                  {subcategory}
-                                </span>
+                            <div className="flex items-center">
+                              {cadFileLink ? (
+                                <a
+                                  href={cadFileLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-info hover:text-info/80 underline truncate block max-w-48"
+                                  title={cadFileLink}
+                                >
+                                  {cadFileLink.length > 50
+                                    ? `${cadFileLink.substring(0, 50)}...`
+                                    : cadFileLink}
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
                               )}
                             </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-left">
+                          {isEditing ? (
+                            <Input
+                              value={
+                                editedCsvData?.[index + 1]?.[4] ||
+                                category ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                saveEdit(index + 1, 4, e.target.value)
+                              }
+                              className="h-8 text-sm"
+                              placeholder="Category"
+                            />
+                          ) : (
+                            <span className="font-medium">
+                              {category || "-"}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-left">
+                          {isEditing ? (
+                            <Input
+                              value={
+                                editedCsvData?.[index + 1]?.[5] ||
+                                subcategory ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                saveEdit(index + 1, 5, e.target.value)
+                              }
+                              className="h-8 text-sm"
+                              placeholder="Subcategory"
+                            />
+                          ) : (
+                            <span className="font-medium">
+                              {subcategory || "-"}
+                            </span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -1487,7 +1495,7 @@ export default function AddProductsPage() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4 items-center">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4 items-center flex-shrink-0">
             <Button
               variant="outline"
               onClick={() => setShowPreviewDialog(false)}
@@ -1496,7 +1504,7 @@ export default function AddProductsPage() {
               Cancel
             </Button>
             <Button
-              onClick={handleCsvUpload}
+              onClick={() => setShowCsvUploadConfirmDialog(true)}
               disabled={loading || csvErrors.length > 0}
               className="cursor-pointer"
               title={
@@ -1523,16 +1531,16 @@ export default function AddProductsPage() {
 
       {/* Manual Products Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent className="min-w-[70vw] max-h-[calc(74vh-15rem)] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="min-w-[70vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
               Review Products Before Adding to Batch {currentBatch}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto min-h-[calc(74vh-15rem)]">
+          <div className="flex-1 overflow-hidden min-h-0">
+            <div className="h-full max-h-[60vh] overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1630,7 +1638,7 @@ export default function AddProductsPage() {
             </div>
           </div>
 
-          <div className="flex  justify-end gap-3 pt-4 border-t border-border max-h-[100px] items-center">
+          <div className="flex justify-end gap-3 pt-4 border-t border-border items-center flex-shrink-0">
             <Button
               variant="outline"
               onClick={() => setShowConfirmDialog(false)}
@@ -1655,6 +1663,188 @@ export default function AddProductsPage() {
                 <>
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Confirm & Add to Batch {currentBatch}
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Upload Confirmation Dialog */}
+      <Dialog
+        open={showCsvUploadConfirmDialog}
+        onOpenChange={setShowCsvUploadConfirmDialog}
+      >
+        <DialogContent className="min-w-[70vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5" />
+              Confirm CSV Upload
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden min-h-0">
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-5 w-5 text-blue-600" />
+                  <span className="font-medium text-blue-800 dark:text-blue-200">
+                    Are you sure you want to upload these products?
+                  </span>
+                </div>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  This will add {csvPreview?.length ? csvPreview.length - 1 : 0}{" "}
+                  products to batch {currentBatch}. This action cannot be
+                  undone.
+                </p>
+              </div>
+
+              {csvWarnings.length > 0 && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                    <span className="font-medium text-amber-800 dark:text-amber-200">
+                      Warnings Detected
+                    </span>
+                  </div>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    {
+                      csvWarnings.filter(
+                        (w) => w.type === "duplicate_article_id"
+                      ).length
+                    }{" "}
+                    products have duplicate Article IDs. Please review before
+                    proceeding.
+                  </p>
+                </div>
+              )}
+
+              <div className="max-h-[40vh] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-left">Article ID</TableHead>
+                      <TableHead className="text-left">Product Name</TableHead>
+                      <TableHead className="text-left">Product Link</TableHead>
+                      <TableHead className="text-left">CAD/File Link</TableHead>
+                      <TableHead className="text-left">Category</TableHead>
+                      <TableHead className="text-left">Subcategory</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {csvPreview?.slice(1).map((row, index) => {
+                      const [
+                        articleId,
+                        productName,
+                        productLink,
+                        cadFileLink,
+                        category,
+                        subcategory,
+                      ] = row;
+                      const hasError = csvErrors.some(
+                        (e) => e.row === index + 2
+                      );
+                      const hasWarning = csvWarnings.some(
+                        (w) => w.row === index + 2
+                      );
+                      const rowClassName = hasError
+                        ? "bg-red-50"
+                        : hasWarning
+                          ? "bg-amber-50 dark:bg-amber-950/20"
+                          : "";
+
+                      return (
+                        <TableRow key={index} className={rowClassName}>
+                          <TableCell className="font-medium text-left">
+                            {articleId || "-"}
+                          </TableCell>
+                          <TableCell className="text-left">
+                            {productName || "-"}
+                          </TableCell>
+                          <TableCell className="text-left">
+                            {productLink ? (
+                              <a
+                                href={productLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-info hover:text-info/80 underline truncate block max-w-48"
+                                title={productLink}
+                              >
+                                {productLink.length > 50
+                                  ? `${productLink.substring(0, 50)}...`
+                                  : productLink}
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-left">
+                            {cadFileLink ? (
+                              <a
+                                href={cadFileLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-info hover:text-info/80 underline truncate block max-w-48"
+                                title={cadFileLink}
+                              >
+                                {cadFileLink.length > 50
+                                  ? `${cadFileLink.substring(0, 50)}...`
+                                  : cadFileLink}
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <span className="font-medium">
+                              {category || "-"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <span className="font-medium">
+                              {subcategory || "-"}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4 items-center flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowCsvUploadConfirmDialog(false)}
+              className="cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowCsvUploadConfirmDialog(false);
+                handleCsvUpload();
+              }}
+              disabled={loading || csvErrors.length > 0}
+              className="cursor-pointer"
+              title={
+                csvWarnings.length > 0
+                  ? "Warning: Some products have duplicate Article IDs"
+                  : ""
+              }
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Confirm Upload{" "}
+                  {csvPreview?.length ? csvPreview.length - 1 : 0} Products
                 </>
               )}
             </Button>
