@@ -3331,7 +3331,7 @@ export default function AdminReviewPage() {
                     // Navigate to allocate page with selected assets
                     router.push(`/production/allocate?${params.toString()}`);
                   }}
-                  className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
+                  className="flex items-center gap-1 sm:gap-2 bg-primary/90  text-primary-foreground w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                 >
                   <Package className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">Allocate</span>

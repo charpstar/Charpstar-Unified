@@ -1709,8 +1709,8 @@ export default function AllocateAssetsPage() {
 
                           {/* QA Assignment Info */}
                           {qaAssignments.length > 0 && (
-                            <div className="p-2 bg-blue-50 rounded border border-blue-200">
-                              <div className="text-xs font-medium text-blue-800 mb-1">
+                            <div className="p-2 bg-muted/50 rounded">
+                              <div className="text-xs font-medium text-muted-foreground mb-1">
                                 Assigned QA{qaAssignments.length > 1 ? "s" : ""}
                                 :
                               </div>
@@ -1718,7 +1718,7 @@ export default function AllocateAssetsPage() {
                                 {qaAssignments.map((qa) => (
                                   <div
                                     key={qa.qaId}
-                                    className="flex items-center justify-between text-sm text-blue-700 bg-blue-100 px-2 py-1 rounded"
+                                    className="flex items-center justify-between text-sm bg-background px-2 py-1 rounded"
                                   >
                                     <span>{qa.qaTitle || qa.qaEmail}</span>
                                     <Button
@@ -1726,7 +1726,7 @@ export default function AllocateAssetsPage() {
                                       size="sm"
                                       onClick={() => removeQA(qa.qaId)}
                                       disabled={allocatingQA}
-                                      className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-600 text-blue-600"
+                                      className="h-5 w-5 p-0 hover:bg-destructive/10 hover:text-destructive"
                                     >
                                       <X className="h-3 w-3" />
                                     </Button>
@@ -1737,18 +1737,14 @@ export default function AllocateAssetsPage() {
                           )}
 
                           {/* QA Assignment Section - Always Visible */}
-                          <div
-                            className={`p-2 rounded border ${qaAssignments.length > 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
-                          >
-                            <div
-                              className={`text-xs font-medium mb-1 ${qaAssignments.length > 0 ? "text-green-800" : "text-red-800"}`}
-                            >
+                          <div className="p-2 rounded bg-muted/30">
+                            <div className="text-xs font-medium text-foreground mb-1">
                               {qaAssignments.length > 0
                                 ? "Add Additional QA:"
                                 : "⚠️ No QA Assigned - Add QA:"}
                             </div>
                             {qaAssignments.length === 0 && (
-                              <div className="text-sm text-red-700 mb-2">
+                              <div className="text-sm text-muted-foreground mb-2">
                                 Assets cannot be allocated until a QA is
                                 assigned.
                               </div>
@@ -1775,43 +1771,22 @@ export default function AllocateAssetsPage() {
                                   size="sm"
                                   onClick={allocateQA}
                                   disabled={!selectedQA || allocatingQA}
-                                  className={`text-xs h-8 px-3 ${
-                                    qaAssignments.length > 0
-                                      ? "bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
-                                      : "bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300"
-                                  }`}
+                                  className="text-xs h-8 px-3"
                                 >
                                   {allocatingQA ? "Assigning..." : "Assign QA"}
                                 </Button>
                               </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  router.push("/production/qa-allocation")
-                                }
-                                className={`text-xs h-6 px-2 w-full ${
-                                  qaAssignments.length > 0
-                                    ? "bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
-                                    : "bg-red-100 hover:bg-red-200 text-red-800 border-red-300"
-                                }`}
-                              >
-                                Manage QA Allocations
-                              </Button>
                             </div>
                           </div>
 
                           {/* Provisional QA Section */}
-                          <div className="p-3 border rounded-lg bg-amber-50 border-amber-200 space-y-3">
+                          <div className="p-3 rounded-lg bg-muted/30 space-y-3">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <label className="text-sm font-medium text-amber-800">
+                                <label className="text-sm font-medium text-foreground">
                                   Provisional QA
                                 </label>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs bg-amber-100 text-amber-700 border-amber-300"
-                                >
+                                <Badge variant="outline" className="text-xs">
                                   List-Specific
                                 </Badge>
                               </div>
@@ -1827,7 +1802,7 @@ export default function AllocateAssetsPage() {
                               />
                             </div>
 
-                            <div className="text-xs text-amber-700 mb-2">
+                            <div className="text-xs text-muted-foreground mb-2">
                               Override the assigned QA for this specific list.
                               The provisional QA will receive this list instead
                               of the main QA.
@@ -1857,11 +1832,11 @@ export default function AllocateAssetsPage() {
                                 </Select>
 
                                 {provisionalQA.qaId && (
-                                  <div className="p-2 bg-amber-100 rounded border border-amber-300">
-                                    <div className="text-xs font-medium text-amber-800 mb-1">
+                                  <div className="p-2 bg-background rounded">
+                                    <div className="text-xs font-medium text-foreground mb-1">
                                       QA Assignment:
                                     </div>
-                                    <div className="text-xs text-amber-700">
+                                    <div className="text-xs text-muted-foreground">
                                       • <strong>Main QA:</strong>{" "}
                                       {qaAssignments.length > 0
                                         ? qaAssignments
@@ -1872,7 +1847,7 @@ export default function AllocateAssetsPage() {
                                         : "None"}{" "}
                                       (will NOT receive this list)
                                     </div>
-                                    <div className="text-xs text-amber-700">
+                                    <div className="text-xs text-muted-foreground">
                                       • <strong>Provisional QA:</strong>{" "}
                                       {(() => {
                                         const selectedQA = availableQAs.find(

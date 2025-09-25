@@ -271,6 +271,7 @@ export default function ReviewPage() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteContent, setEditNoteContent] = useState("");
   const [showComments, setShowComments] = useState(false);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<
     string | null
@@ -359,6 +360,15 @@ export default function ReviewPage() {
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
   const [updatingPriority, setUpdatingPriority] = useState<string | null>(null);
+
+  // Undo functionality state
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [annotationHistory, setAnnotationHistory] = useState<Annotation[]>([]);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [undoStack, setUndoStack] = useState<Annotation[]>([]);
+  const [lastDeletedAnnotation, setLastDeletedAnnotation] =
+    useState<Annotation | null>(null);
+  const [isUndoing, setIsUndoing] = useState(false);
 
   // Function to handle back navigation based on where user came from
   const handleBackNavigation = () => {
@@ -707,11 +717,20 @@ export default function ReviewPage() {
     fetchRevisionHistory();
   }, [assetId]);
 
-  // Keyboard event listeners for Ctrl key detection
+  // Keyboard event listeners for Ctrl key detection and shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey) {
         setIsCtrlPressed(true);
+      }
+
+      // Handle keyboard shortcuts
+      if (event.key === "Tab" && !event.shiftKey) {
+        event.preventDefault();
+        centerModel();
+      } else if ((event.ctrlKey || event.metaKey) && event.key === "z") {
+        event.preventDefault();
+        undoLastDeletion();
       }
     };
 
@@ -730,7 +749,13 @@ export default function ReviewPage() {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keyup", handleKeyUp);
     };
-  }, []);
+  }, [lastDeletedAnnotation, modelLoaded]);
+
+  // Clear undo state when asset changes
+  useEffect(() => {
+    setLastDeletedAnnotation(null);
+    setIsUndoing(false);
+  }, [assetId]);
 
   // Prevent client from leaving page if they have unconfirmed revisions
   useEffect(() => {
@@ -754,6 +779,56 @@ export default function ReviewPage() {
   // Handle model load
   const handleModelLoaded = () => {
     setModelLoaded(true);
+  };
+
+  // Center the 3D model
+  const centerModel = () => {
+    if (modelViewerRef.current && modelLoaded) {
+      // Reset camera to default position
+      modelViewerRef.current.cameraTarget = "0m 0m 0m";
+      modelViewerRef.current.cameraOrbit = "0deg 75deg 1.5m";
+      modelViewerRef.current.play();
+    }
+  };
+
+  // Undo last deleted annotation
+  const undoLastDeletion = async () => {
+    if (lastDeletedAnnotation && !isUndoing) {
+      setIsUndoing(true);
+      try {
+        const response = await fetch("/api/annotations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            asset_id: lastDeletedAnnotation.asset_id,
+            position: lastDeletedAnnotation.position,
+            normal: lastDeletedAnnotation.normal,
+            surface: lastDeletedAnnotation.surface,
+            comment: lastDeletedAnnotation.comment,
+            image_url: lastDeletedAnnotation.image_url,
+            parent_id: lastDeletedAnnotation.parent_id,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.annotation) {
+          // Add the restored annotation back to the list
+          setAnnotations((prev) => [...prev, data.annotation]);
+          setLastDeletedAnnotation(null);
+          toast.success("Annotation restored successfully");
+        } else {
+          toast.error(data.error || "Failed to restore annotation");
+        }
+      } catch (error) {
+        console.error("Error restoring annotation:", error);
+        toast.error("Failed to restore annotation");
+      } finally {
+        setIsUndoing(false);
+      }
+    }
   };
 
   // Handle hotspot creation
@@ -887,6 +962,8 @@ export default function ReviewPage() {
         setSelectedAnnotation(null);
         setNewComment("");
         setSelectedHotspotId(null);
+        // Clear undo state when new annotation is created
+        setLastDeletedAnnotation(null);
         toast.success("Annotation saved successfully");
       } else {
         // Remove the temporary annotation if save failed
@@ -960,6 +1037,12 @@ export default function ReviewPage() {
         toast.error("You can only delete your own annotations");
         return;
       }
+
+      // Store the annotation for undo before deleting
+      if (annotation) {
+        setLastDeletedAnnotation(annotation);
+      }
+
       const response = await fetch(`/api/annotations?id=${annotationId}`, {
         method: "DELETE",
       });
@@ -969,13 +1052,17 @@ export default function ReviewPage() {
       if (response.ok) {
         setAnnotations((prev) => prev.filter((ann) => ann.id !== annotationId));
         setSelectedHotspotId(null);
-        toast.success("Annotation deleted successfully");
+        toast.success("Annotation deleted successfully (Ctrl+Z to undo)");
       } else {
         toast.error(data.error || "Failed to delete annotation");
+        // Clear the stored annotation if deletion failed
+        setLastDeletedAnnotation(null);
       }
     } catch (error) {
       console.error("Error deleting annotation:", error);
       toast.error("Failed to delete annotation");
+      // Clear the stored annotation if deletion failed
+      setLastDeletedAnnotation(null);
     }
   };
 
@@ -3563,17 +3650,19 @@ export default function ReviewPage() {
           {/* Main Content (3D Viewer) */}
           <div className="flex-1 relative  h-[65vh] xl:h-auto">
             {/* Ctrl Key Visual Indicator */}
-            {isCtrlPressed && !annotationMode && (
-              <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 bg-primary/90 text-primary-foreground px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium shadow-lg border border-primary/20 backdrop-blur-sm">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary-foreground rounded-full animate-pulse"></div>
-                  <span className="hidden sm:inline">
-                    Hold Ctrl + Click to add annotation
-                  </span>
-                  <span className="sm:hidden">Ctrl + Click</span>
-                </div>
+
+            <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 bg-background/90 text-foreground px-1 sm:px-3 py-1 sm:py-2 rounded-sm text-xs sm:text-xs  shadow-sm ">
+              <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+                <span className="hidden sm:inline">
+                  Hold Ctrl + Click to add annotation
+                </span>
+                <span className="hidden sm:inline">
+                  Click outside the model to reset view
+                </span>
+                <span className="sm:hidden">Ctrl + Click</span>
               </div>
-            )}
+            </div>
+
             <Script
               type="module"
               src="/model-viewer.js"
@@ -3707,10 +3796,6 @@ export default function ReviewPage() {
                   <p className="text-muted-foreground mb-4">
                     No 3D model available for this asset
                   </p>
-                  <Button onClick={() => router.push("/client-review")}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Client Review
-                  </Button>
                 </div>
               </div>
             )}
@@ -3718,6 +3803,30 @@ export default function ReviewPage() {
             {/* Dimensions Toggle Button */}
             {asset.glb_link && user?.metadata?.role !== "client" && (
               <div className="absolute top-2 right-2 sm:top-4 sm:right-0 z-20 w-fit min-w-[120px] sm:min-w-[200px] flex gap-2">
+                {/* Undo button */}
+                {lastDeletedAnnotation && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={undoLastDeletion}
+                    disabled={isUndoing}
+                    className="bg-background/95 backdrop-blur-sm border-border/50 shadow-md cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Undo last deletion (Ctrl+Z)"
+                  >
+                    {isUndoing ? (
+                      <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                    ) : (
+                      <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {isUndoing ? "Restoring..." : "Undo"}
+                    </span>
+                    <span className="sm:hidden">
+                      {isUndoing ? "..." : "Undo"}
+                    </span>
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -3729,7 +3838,7 @@ export default function ReviewPage() {
                     a.click();
                     document.body.removeChild(a);
                   }}
-                  className="bg-background/95 backdrop-blur-sm border-border/50 shadow-md cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs"
+                  className="bg-background/95  border-border/50 shadow-sm cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs"
                   title="Download GLB"
                 >
                   <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
@@ -3747,10 +3856,18 @@ export default function ReviewPage() {
                 <span className="sm:hidden">Click to add</span>
               </div>
             )}
+
+            {/* Center model shortcut indicator */}
+            {modelLoaded && (
+              <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 bg-muted/90 text-muted-foreground text-xs px-2 sm:px-3 py-1 rounded-md z-20 shadow-lg backdrop-blur-sm">
+                <span className="hidden sm:inline">TAB to center model</span>
+                <span className="sm:hidden">TAB center</span>
+              </div>
+            )}
           </div>
 
           {/* Right Panel - Switchable between Reference Images and Feedback */}
-          <div className="w-full xl:w-[570px] max-w-full flex flex-col bg-background border border-border/50 p-3 sm:p-6 h-[50vh] min-h-[700px] xl:h-auto xl:min-h-0 overflow-y-auto">
+          <div className="w-full xl:w-[510px] max-w-full flex flex-col bg-background border border-border/50 p-3 sm:p-6 h-[50vh] min-h-[500px] xl:h-auto xl:min-h-0 overflow-y-auto">
             {/* Tab Navigation */}
             <div className="flex items-center gap-1 mb-4 sm:mb-6 bg-muted/50 rounded-lg p-1">
               <button
@@ -4061,7 +4178,7 @@ export default function ReviewPage() {
                           {deleteMode ? "Cancel" : "Delete"}
                         </Button>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-2">
                         <Button
                           variant={annotationMode ? "default" : "outline"}
                           size="sm"
