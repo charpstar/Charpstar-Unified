@@ -661,10 +661,10 @@ export default function CostTrackingPage() {
         "Total Assets",
         "Base Cost",
         "Bonus Cost",
-        "Total Cost (Client-Approved)",
-        "Client-Approved Cost",
+        "Total Cost ",
+        "Approved Cost",
         "Pending Cost",
-        "Client-Approved Assets",
+        "Approved Assets",
         "Pending Assets",
       ],
       ...filteredModelerCosts.map((modeler) => [
@@ -829,7 +829,7 @@ export default function CostTrackingPage() {
                   .toFixed(2)}
               </div>
               <div className="text-xs sm:text-sm text-muted-foreground">
-                Client-Approved Costs
+                Approved Costs
               </div>
               <div className="text-xs text-green-600 mt-1">
                 {(
@@ -1037,7 +1037,7 @@ export default function CostTrackingPage() {
             </div>
             <div>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Total Spent (Client-Approved)
+                Total Spent
               </p>
               <p className="text-xl sm:text-2xl font-bold">
                 €{costSummary.totalSpent.toFixed(2)}
@@ -1079,7 +1079,7 @@ export default function CostTrackingPage() {
             </div>
             <div>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Client-Approved Cost
+                Approved Cost
               </p>
               <p className="text-xl sm:text-2xl font-bold">
                 €
@@ -1168,7 +1168,7 @@ export default function CostTrackingPage() {
         <CardHeader className="p-4 sm:p-6">
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
-            Budget Progress (Client-Approved Costs Only)
+            Budget Progress (Approved Costs Only)
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 sm:p-6">
@@ -1362,16 +1362,16 @@ export default function CostTrackingPage() {
                       Bonus Cost
                     </TableHead>
                     <TableHead className="text-xs sm:text-sm text-left">
-                      Total Cost (Client-Approved)
+                      Total Cost (Approved)
                     </TableHead>
                     <TableHead className="text-xs sm:text-sm text-left">
-                      Client-Approved Cost
+                      Approved Cost
                     </TableHead>
                     <TableHead className="text-xs sm:text-sm text-left">
                       Pending Cost
                     </TableHead>
                     <TableHead className="text-xs sm:text-sm text-left">
-                      Client-Approved
+                      Approved
                     </TableHead>
                     <TableHead className="text-xs sm:text-sm text-left">
                       Pending
@@ -1421,7 +1421,7 @@ export default function CostTrackingPage() {
                             €{modeler.totalCost.toFixed(2)}
                           </span>
                           <div className="text-xs text-muted-foreground ml-1 hidden sm:block">
-                            (Client-Approved)
+                            (Approved)
                           </div>
                         </div>
                       </TableCell>
@@ -1626,7 +1626,7 @@ export default function CostTrackingPage() {
                                         Pending
                                       </TableHead>
                                       <TableHead className="text-xs sm:text-sm text-left">
-                                        Total (Client-Approved)
+                                        Total (Approved)
                                       </TableHead>
                                     </TableRow>
                                   </TableHeader>

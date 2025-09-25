@@ -452,7 +452,7 @@ export function OnboardingDashboard() {
                                     onClick={step.removeAction}
                                     disabled={removingCsv}
                                     className="text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
-                                    title="Remove CSV upload"
+                                    title="Reset CSV upload status (preserves data)"
                                   >
                                     {removingCsv ? (
                                       <>
@@ -465,7 +465,7 @@ export function OnboardingDashboard() {
                                       <>
                                         <Trash2 className="h-4 w-4" />
                                         <span className="ml-2">
-                                          Remove Uploaded CSV
+                                          Reset CSV Status
                                         </span>
                                       </>
                                     )}
@@ -662,12 +662,12 @@ export function OnboardingDashboard() {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <Alert variant="destructive">
+              <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Are you sure you want to remove your CSV upload? This will
-                  also clear all the data that was uploaded from this file. This
-                  action cannot be undone.
+                  Are you sure you want to reset your CSV upload status? This
+                  will only reset your onboarding progress and will NOT affect
+                  any data that has already been uploaded to the database.
                 </AlertDescription>
               </Alert>
             </div>
@@ -679,19 +679,19 @@ export function OnboardingDashboard() {
                 Cancel
               </Button>
               <Button
-                variant="destructive"
+                variant="outline"
                 onClick={confirmRemoveCsv}
                 disabled={removingCsv}
               >
                 {removingCsv ? (
                   <>
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    <span className="ml-2">Removing...</span>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-transparent" />
+                    <span className="ml-2">Resetting...</span>
                   </>
                 ) : (
                   <>
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Remove & Clear Data
+                    Reset Status
                   </>
                 )}
               </Button>

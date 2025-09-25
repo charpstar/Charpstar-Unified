@@ -1,31 +1,3 @@
 Article ID,Product Name,Product Link,CAD/File Link,Category,Subcategory
 12345,Sample Product,https://example.com/product/12345,https://drive.google.com/file/d/12345_cad.step,Electronics,Headphones
-12346,Another Product,https://example.com/product/12346,https://drive.google.com/file/d/12346_cad.iges,Electronics,Speakers
-12347,Third Product,https://example.com/product/12347,https://drive.google.com/file/d/12347_cad.sldprt,Electronics,Microphones
-12348,Sample Product,https://example.com/product/12348,https://drive.google.com/file/d/12348_cad.dwg,Electronics,Headphones
-12349,Another Product,https://example.com/product/12349,https://drive.google.com/file/d/12349_cad.prt,Electronics,Speakers
-12350,Third Product,https://example.com/product/12350,https://drive.google.com/file/d/12350_cad.x_t,Electronics,Microphones
-12351,Sample Product,https://example.com/product/12351,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
-12352,Another Product,https://example.com/product/12352,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
-12353,Third Product,https://example.com/product/12353,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones
-12354,Sample Product,https://example.com/product/12354,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
-12355,Another Product,https://example.com/product/12355,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
-12356,Third Product,https://example.com/product/12356,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones
-12357,Sample Product,https://example.com/product/12357,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
-12358,Another Product,https://example.com/product/12358,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
-12359,Third Product,https://example.com/product/12359,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones
-12360,Sample Product,https://example.com/product/12360,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
-12361,Another Product,https://example.com/product/12361,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
-12362,Third Product,https://example.com/product/12362,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones
-12363,Sample Product,https://example.com/product/12363,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
-12364,Another Product,https://example.com/product/12364,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
-12365,Third Product,https://example.com/product/12365,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones
-12366,Sample Product,https://example.com/product/12366,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
-12367,Another Product,https://example.com/product/12367,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
-12368,Third Product,https://example.com/product/12368,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones
-12369,Sample Product,https://example.com/product/12369,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
-12370,Another Product,https://example.com/product/12370,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
-12371,Third Product,https://example.com/product/12371,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones
-12372,Sample Product,https://example.com/product/12372,https://aj.charpstar.net/Android/60191.glb,Electronics,Headphones
-12373,Another Product,https://example.com/product/12373,https://aj.charpstar.net/Android/60191.glb,Electronics,Speakers
-12374,Third Product,https://example.com/product/12374,https://aj.charpstar.net/Android/60191.glb,Electronics,Microphones
+

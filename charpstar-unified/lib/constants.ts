@@ -4,6 +4,7 @@ export const STATUS_LABELS = {
   not_started: "Not Started",
   in_production: "In Production",
   revisions: "Ready for Revision",
+  client_revision: "Client Revision",
   approved: "Waiting for Approval",
   approved_by_client: "Approved by Client",
   delivered_by_artist: "Delivered by Artist",

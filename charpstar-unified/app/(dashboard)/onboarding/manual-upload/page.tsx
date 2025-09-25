@@ -154,9 +154,9 @@ export default function ManualUploadPage() {
           .eq("id", user.id);
       }
 
-      // Call the image scraper API
+      // Call the image collection API
       try {
-        const scraperResponse = await fetch("/api/scrape-images", {
+        const imageResponse = await fetch("/api/scrape-images", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -166,15 +166,15 @@ export default function ManualUploadPage() {
           }),
         });
 
-        if (scraperResponse.ok) {
-          const scraperResult = await scraperResponse.json();
-          console.log("Image scraping initiated:", scraperResult);
+        if (imageResponse.ok) {
+          const imageResult = await imageResponse.json();
+          console.log("Image collection initiated:", imageResult);
         } else {
-          console.warn("Image scraping failed:", await scraperResponse.text());
+          console.warn("Image collection failed:", await imageResponse.text());
         }
-      } catch (scraperError) {
-        console.error("Error calling image scraper:", scraperError);
-        // Don't fail the upload if scraper fails
+      } catch (imageError) {
+        console.error("Error calling image collection:", imageError);
+        // Don't fail the upload if image collection fails
       }
 
       toast.success(

@@ -78,6 +78,7 @@ const getStatusColor = (status: StatusKey): string => {
     not_started: "var(--status-not-started)",
     in_production: "var(--status-in-production)",
     revisions: "var(--status-revisions)",
+    client_revision: "#DC2626", // red color for client revisions
     approved: "var(--status-approved)",
     approved_by_client: "var(--status-approved-by-client)",
     delivered_by_artist: "var(--status-delivered-by-artist)",
@@ -1315,6 +1316,7 @@ export function ModelStatusWidget() {
     not_started: 0,
     in_production: 0,
     revisions: 0,
+    client_revision: 0,
     approved: 0,
     approved_by_client: 0,
     delivered_by_artist: 0,
@@ -1334,6 +1336,7 @@ export function ModelStatusWidget() {
           not_started: 0,
           in_production: 0,
           revisions: 0,
+          client_revision: 0,
           approved: 0,
           approved_by_client: 0,
           delivered_by_artist: 0,
@@ -1382,6 +1385,7 @@ export function StatusPieChartWidget() {
     not_started: 0,
     in_production: 0,
     revisions: 0,
+    client_revision: 0,
     approved: 0,
     approved_by_client: 0,
     delivered_by_artist: 0,
@@ -1402,6 +1406,7 @@ export function StatusPieChartWidget() {
           not_started: 0,
           in_production: 0,
           revisions: 0,
+          client_revision: 0,
           approved: 0,
           approved_by_client: 0,
           delivered_by_artist: 0,
@@ -1443,6 +1448,10 @@ export function StatusPieChartWidget() {
 
   const chartData = Object.entries(STATUS_LABELS)
     .filter(([key]) => {
+      // Hide "not_started" and "revisions" statuses as they'll be merged into "in_production"
+      if (key === "not_started" || key === "revisions") {
+        return false;
+      }
       // Hide "Delivered by Artist" for clients since it's shown as "In Production"
       if (user?.metadata?.role === "client" && key === "delivered_by_artist") {
         return false;
@@ -1450,15 +1459,21 @@ export function StatusPieChartWidget() {
       return true;
     })
     .map(([key, label]) => {
-      const count = counts[key as StatusKey];
+      let count = counts[key as StatusKey];
+
+      // Merge "not_started" and "revisions" into "in_production"
+      if (key === "in_production") {
+        count += counts.not_started + counts.revisions;
+      }
+
       const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
       const displayLabel =
         user?.metadata?.role === "client" && key === "approved"
-          ? "New Upload"
+          ? "New Uploads"
           : label;
       const color =
         user?.metadata?.role === "client" && key === "approved"
-          ? "#1b22e833"
+          ? "#22C55E"
           : getStatusColor(key as StatusKey);
       return {
         name: displayLabel,
@@ -1564,6 +1579,7 @@ export function ClientActionCenterWidget() {
   const user = useUser();
   const router = useRouter();
   const [waitingForApproval, setWaitingForApproval] = useState<any[]>([]);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [readyForRevision, setReadyForRevision] = useState<any[]>([]);
   const [totals, setTotals] = useState({ total: 0, approved_by_client: 0 });
   const [loading, setLoading] = useState(false);
@@ -1580,7 +1596,9 @@ export function ClientActionCenterWidget() {
 
       if (!error && data) {
         const waiting = data.filter((a) => a.status === "approved");
-        const revisions = data.filter((a) => a.status === "revisions");
+        const revisions = data.filter(
+          (a) => a.status === "revisions" || a.status === "client_revision"
+        );
         const approvedByClient = data.filter(
           (a) => a.status === "approved_by_client"
         );
@@ -1612,10 +1630,10 @@ export function ClientActionCenterWidget() {
         />
       </div>
       <CardContent className="space-y-4">
-        <div className="group relative overflow-hidden rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50 p-4">
+        <div className="group relative overflow-hidden rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-4">
           <div className="absolute inset-0 opacity-5"></div>
           <div className="relative flex items-center justify-between">
-            <div className="text-sm text-emerald-800 dark:text-emerald-300">
+            <div className="text-sm text-blue-800 dark:text-blue-300">
               Overall completion
             </div>
             <div className="text-sm font-semibold">{completionPct}%</div>
@@ -1625,15 +1643,15 @@ export function ClientActionCenterWidget() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           <div
-            className="group relative overflow-hidden rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-3 cursor-pointer"
-            onClick={() => router.push("/client-review")}
+            className="group relative overflow-hidden rounded-2xl border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/50 p-3 cursor-pointer"
+            onClick={() => router.push("/client-review?status=approved")}
           >
-            <div className="absolute inset-0 opacity-5"></div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium">New Upload</div>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+            <div className="absolute inset-0 opacity-5 w-full h-full"></div>
+            <div className="flex items-center justify-between mb-2 w-full">
+              <div className="text-sm font-medium">New Uploads</div>
+              <Badge variant="outline" className="bg-green-50 text-green-700">
                 {waitingForApproval.length}
               </Badge>
             </div>
@@ -1644,14 +1662,16 @@ export function ClientActionCenterWidget() {
                 Nothing pending
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 w-full">
                 {waitingForApproval.map((a) => (
                   <div
                     key={a.id}
                     className="group/item relative flex items-center justify-between text-sm cursor-pointer"
-                    onClick={() => router.push("/client-review")}
+                    onClick={() =>
+                      router.push("/client-review?status=approved")
+                    }
                   >
-                    <div className="truncate">
+                    <div className="truncate w-full">
                       <div className="font-medium truncate max-w-[180px]">
                         {a.product_name}
                       </div>
@@ -1664,62 +1684,14 @@ export function ClientActionCenterWidget() {
                 ))}
               </div>
             )}
-            <div className="mt-3">
+            <div className="mt-3 w-full">
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => router.push("/client-review")}
+                className="w-full"
+                onClick={() => router.push("/client-review?status=approved")}
               >
                 Review all
-              </Button>
-            </div>
-          </div>
-
-          <div
-            className="group relative overflow-hidden rounded-2xl border-2 border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/50 p-3 cursor-pointer"
-            onClick={() => router.push("/client-review")}
-          >
-            <div className="absolute inset-0 opacity-5"></div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium">Ready for Revision</div>
-              <Badge variant="outline" className="bg-amber-50 text-amber-700">
-                {readyForRevision.length}
-              </Badge>
-            </div>
-            {loading ? (
-              <div className="h-16 bg-muted animate-pulse rounded" />
-            ) : readyForRevision.length === 0 ? (
-              <div className="text-xs text-muted-foreground">
-                No revisions requested
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {readyForRevision.map((a) => (
-                  <div
-                    key={a.id}
-                    className="group/item relative flex items-center justify-between text-sm cursor-pointer"
-                    onClick={() => router.push("/client-review")}
-                  >
-                    <div className="truncate">
-                      <div className="font-medium truncate max-w-[180px]">
-                        {a.product_name}
-                      </div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {a.article_id}
-                      </div>
-                    </div>
-                    <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0" />
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="mt-3">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => router.push("/dashboard/client-review")}
-              >
-                Open review
               </Button>
             </div>
           </div>
@@ -1735,6 +1707,7 @@ export function AdminPipelineWidget() {
     not_started: 0,
     in_production: 0,
     revisions: 0,
+    client_revision: 0,
     approved: 0,
     approved_by_client: 0,
     delivered_by_artist: 0,
@@ -1760,6 +1733,7 @@ export function AdminPipelineWidget() {
           not_started: 0,
           in_production: 0,
           revisions: 0,
+          client_revision: 0,
           approved: 0,
           approved_by_client: 0,
           delivered_by_artist: 0,
@@ -1829,9 +1803,15 @@ export function AdminPipelineWidget() {
       value: counts.revisions,
     },
     {
+      key: "client_revision",
+      label: STATUS_LABELS.client_revision,
+      color: getStatusColor("client_revision"),
+      value: counts.client_revision,
+    },
+    {
       key: "approved",
       label: "New Upload",
-      color: "#1b22e833",
+      color: "#22C55E",
       value: counts.approved,
     },
     {
@@ -1883,6 +1863,14 @@ export function AdminPipelineWidget() {
       iconBg: "bg-amber-500 dark:bg-amber-600",
       accentBar: "bg-amber-500 dark:bg-amber-600",
       icon: RotateCcw,
+    },
+    client_revision: {
+      bgGradient:
+        "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
+      border: "border-red-200 dark:border-red-800",
+      iconBg: "bg-red-500 dark:bg-red-600",
+      accentBar: "bg-red-500 dark:bg-red-600",
+      icon: Eye,
     },
     approved: {
       bgGradient:
@@ -2308,7 +2296,7 @@ export function QAStatisticsWidget() {
         <WidgetHeader title="QA Statistics" icon={ShieldCheck} />
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
+            <div key={i} className="h-12 bg-muted rounded animate-pulse" />
           ))}
         </div>
       </WidgetContainer>
@@ -2320,8 +2308,8 @@ export function QAStatisticsWidget() {
       title: "Total QAs",
       count: stats.totalQAs,
       animatedCount: animatedTotalQAs,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      color: "text-info",
+      bg: "bg-info-muted",
       icon: Users,
       action: () => router.push("/qa-statistics"),
     },
@@ -2329,8 +2317,8 @@ export function QAStatisticsWidget() {
       title: "Total Reviews",
       count: stats.totalReviews,
       animatedCount: animatedTotalReviews,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
+      color: "text-accent-purple",
+      bg: "bg-purple-500/20",
       icon: Eye,
       action: () => router.push("/qa-statistics"),
     },
@@ -2338,8 +2326,8 @@ export function QAStatisticsWidget() {
       title: "Total Approvals",
       count: stats.totalApprovals,
       animatedCount: animatedTotalApprovals,
-      color: "text-green-600",
-      bg: "bg-green-50",
+      color: "text-success",
+      bg: "bg-success-muted",
       icon: CheckCircle,
       action: () => router.push("/qa-statistics"),
     },
@@ -2347,8 +2335,8 @@ export function QAStatisticsWidget() {
       title: "Avg Reviews/QA",
       count: stats.averageReviewsPerQA,
       animatedCount: animatedAverageReviews,
-      color: "text-orange-600",
-      bg: "bg-orange-50",
+      color: "text-warning",
+      bg: "bg-warning-muted",
       icon: TrendingUp,
       action: () => router.push("/qa-statistics"),
     },
@@ -2362,7 +2350,7 @@ export function QAStatisticsWidget() {
           <div
             key={item.title}
             onClick={item.action}
-            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+            className="flex items-center justify-between p-3 rounded-lg bg-background hover:bg-accent border border-border cursor-pointer transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded ${item.bg}`}>
@@ -2374,19 +2362,19 @@ export function QAStatisticsWidget() {
               <span className={`text-lg font-bold ${item.color}`}>
                 {item.animatedCount}
               </span>
-              <ArrowRight className="h-4 w-4 text-gray-400" />
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         ))}
         {stats.topQA.email && stats.topQA.email !== "No QAs" && (
-          <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+          <div className="mt-3 p-3 bg-info-muted rounded-lg border border-info">
             <div className="flex items-center gap-2 mb-1">
-              <ShieldCheck className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">
+              <ShieldCheck className="h-4 w-4 text-info" />
+              <span className="text-sm font-medium text-foreground">
                 Top Performer
               </span>
             </div>
-            <p className="text-xs text-blue-700">
+            <p className="text-xs text-info">
               {stats.topQA.email} • {stats.topQA.reviews} reviews •{" "}
               {stats.topQA.approvals} approvals
             </p>
@@ -2585,7 +2573,7 @@ export function CostSummaryWidget() {
       count: stats.totalCost,
       animatedCount: animatedTotalCost,
       color: "text-red-600",
-      bg: "bg-red-50",
+      bg: "bg-red-500/20",
       icon: DollarSign,
       action: () => router.push("/production/cost-tracking"),
       prefix: "€",
@@ -2595,7 +2583,7 @@ export function CostSummaryWidget() {
       count: stats.monthlyAverage,
       animatedCount: animatedMonthlyAverage,
       color: "text-blue-600",
-      bg: "bg-blue-50",
+      bg: "bg-blue-500/20",
       icon: TrendingUp,
       action: () => router.push("/production/cost-tracking"),
       prefix: "€",
@@ -2605,7 +2593,7 @@ export function CostSummaryWidget() {
       count: stats.totalCompletedAssets,
       animatedCount: animatedCompletedAssets,
       color: "text-green-600",
-      bg: "bg-green-50",
+      bg: "bg-green-500/20",
       icon: CheckCircle,
       action: () => router.push("/production/cost-tracking"),
     },
@@ -2614,7 +2602,7 @@ export function CostSummaryWidget() {
       count: stats.costEfficiency,
       animatedCount: animatedCostEfficiency,
       color: "text-purple-600",
-      bg: "bg-purple-50",
+      bg: "bg-purple-500/20",
       icon: BarChart3,
       action: () => router.push("/production/cost-tracking"),
       prefix: "€",
@@ -2629,7 +2617,7 @@ export function CostSummaryWidget() {
           <div
             key={item.title}
             onClick={item.action}
-            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+            className="flex items-center justify-between p-3 rounded-lg bg-background hover:bg-accent border border-border cursor-pointer transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded ${item.bg}`}>
@@ -2642,19 +2630,19 @@ export function CostSummaryWidget() {
                 {item.prefix || ""}
                 {item.animatedCount}
               </span>
-              <ArrowRight className="h-4 w-4 text-gray-400" />
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         ))}
         {stats.topModelerEmail && (
-          <div className="mt-3 p-3 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-200">
+          <div className="mt-3 p-3 bg-error-muted rounded-lg border border-error">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="h-4 w-4 text-red-600" />
-              <span className="text-sm font-medium text-red-800">
+              <DollarSign className="h-4 w-4 text-error" />
+              <span className="text-sm font-medium text-foreground">
                 Highest Cost
               </span>
             </div>
-            <p className="text-xs text-red-700">
+            <p className="text-xs text-error">
               {stats.topModelerEmail} • €{stats.topModelerCost} total cost
             </p>
           </div>

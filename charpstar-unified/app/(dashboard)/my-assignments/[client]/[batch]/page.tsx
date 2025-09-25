@@ -59,6 +59,7 @@ import {
   ChevronDown,
   Target,
   StickyNote,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -555,7 +556,8 @@ export default function BatchDetailPage() {
         (asset) => asset.status === "not_started"
       ).length;
       const revisionAssets = allAssets.filter(
-        (asset) => asset.status === "revisions"
+        (asset) =>
+          asset.status === "revisions" || asset.status === "client_revision"
       ).length;
       const waitingForApprovalAssets = allAssets.filter(
         (asset) => asset.status === "delivered_by_artist"
@@ -777,6 +779,8 @@ export default function BatchDetailPage() {
         return "status-in-production";
       case "revisions":
         return "status-revisions";
+      case "client_revision":
+        return "status-client-revision";
       case "approved":
         return "status-approved";
       case "approved_by_client":
@@ -801,6 +805,8 @@ export default function BatchDetailPage() {
         return "In Production";
       case "revisions":
         return "Sent for Revision";
+      case "client_revision":
+        return "Client Revision";
       case "approved":
         return "Approved";
       case "approved_by_client":
@@ -825,6 +831,8 @@ export default function BatchDetailPage() {
         return "table-row-status-in-production";
       case "revisions":
         return "table-row-status-revisions";
+      case "client_revision":
+        return "table-row-status-client-revision";
       case "approved":
         return "table-row-status-approved";
       case "approved_by_client":
@@ -920,15 +928,16 @@ export default function BatchDetailPage() {
         }
       }
 
-      // Upload to Supabase Storage with clean filename
-      const fileNameForUpload = `${asset?.article_id || assetId}.glb`;
+      // Upload to Supabase Storage with unique filename to preserve history
+      const timestamp = Date.now();
+      const fileNameForUpload = `${asset?.article_id || assetId}_${timestamp}.glb`;
       const filePath = `models/${fileNameForUpload}`;
 
       const { error: uploadError } = await supabase.storage
         .from("assets")
         .upload(filePath, file, {
           cacheControl: "3600",
-          upsert: true, // Allow overwrites for same article_id
+          upsert: false, // Don't overwrite, use unique filename
         });
 
       if (uploadError) {
@@ -941,12 +950,12 @@ export default function BatchDetailPage() {
         .from("assets")
         .getPublicUrl(filePath);
 
-      // Update the asset with the new GLB link
+      // Update the asset with the new GLB link and change status to delivered_by_artist
       const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
           glb_link: urlData.publicUrl,
-          status: "in_production",
+          status: "delivered_by_artist",
         })
         .eq("id", assetId);
 
@@ -955,13 +964,23 @@ export default function BatchDetailPage() {
         throw updateError;
       }
 
-      // Record GLB upload history with clean filename
+      // Mark all existing annotations as "old" when uploading new GLB
+      const { error: markOldError } = await supabase
+        .from("asset_annotations")
+        .update({ is_old_annotation: true })
+        .eq("asset_id", assetId);
+
+      if (markOldError) {
+        console.error("Error marking old annotations:", markOldError);
+      }
+
+      // Record GLB upload history with unique filename
       const { error: newHistoryError } = await supabase
         .from("glb_upload_history")
         .insert({
           asset_id: assetId,
           glb_url: urlData.publicUrl,
-          file_name: `${asset?.article_id || assetId}.glb`,
+          file_name: fileNameForUpload,
           file_size: file.size,
           uploaded_by: user?.id,
           uploaded_at: new Date().toISOString(),
@@ -978,7 +997,11 @@ export default function BatchDetailPage() {
           ...list,
           assets: list.assets.map((a) =>
             a.id === assetId
-              ? { ...a, glb_link: urlData.publicUrl, status: "in_production" }
+              ? {
+                  ...a,
+                  glb_link: urlData.publicUrl,
+                  status: "delivered_by_artist",
+                }
               : a
           ),
         }));
@@ -2021,12 +2044,17 @@ export default function BatchDetailPage() {
                                             <Button
                                               variant="ghost"
                                               size="sm"
-                                              onClick={() =>
+                                              onClick={() => {
+                                                const fileName =
+                                                  asset.glb_link
+                                                    ?.split("/")
+                                                    .pop() ||
+                                                  `${asset.article_id}.glb`;
                                                 handleFileDownload(
                                                   asset.glb_link!,
-                                                  `${asset.article_id}.glb`
-                                                )
-                                              }
+                                                  fileName
+                                                );
+                                              }}
                                               className="text-xs h-6 px-2 w-full hover:text-blue-700 hover:underline"
                                             >
                                               <Download className="h-3 w-3 mr-1" />
@@ -2275,12 +2303,17 @@ export default function BatchDetailPage() {
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() =>
+                                            onClick={() => {
+                                              const fileName =
+                                                asset.glb_link
+                                                  ?.split("/")
+                                                  .pop() ||
+                                                `${asset.article_id}.glb`;
                                               handleFileDownload(
                                                 asset.glb_link!,
-                                                `${asset.article_id}.glb`
-                                              )
-                                            }
+                                                fileName
+                                              );
+                                            }}
                                             className="text-xs h-6 px-2 hover:text-blue-700"
                                           >
                                             <Download className="h-3 w-3 mr-1" />
@@ -2576,7 +2609,22 @@ export default function BatchDetailPage() {
                 <strong>Asset:</strong> {currentUploadAsset?.product_name}
               </p>
               <p className="mb-1 sm:mb-2">
-                <strong>Article ID:</strong> {currentUploadAsset?.article_id}
+                <strong>Article ID:</strong>{" "}
+                <span
+                  className="inline-flex items-center gap-1 font-mono cursor-pointer hover:text-foreground hover:bg-muted rounded px-1 py-0.5 transition-colors"
+                  onClick={() => {
+                    if (currentUploadAsset?.article_id) {
+                      navigator.clipboard.writeText(
+                        currentUploadAsset.article_id
+                      );
+                      toast.success("Article ID copied to clipboard");
+                    }
+                  }}
+                  title="Click to copy Article ID"
+                >
+                  {currentUploadAsset?.article_id}
+                  <Copy className="h-3 w-3 " />
+                </span>
               </p>
             </div>
 

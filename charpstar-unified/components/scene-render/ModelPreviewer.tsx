@@ -1,8 +1,36 @@
-import React, { Suspense, useRef, useEffect, useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { useGLTF, OrbitControls, Stage } from "@react-three/drei";
-import * as THREE from "three";
+import React, { useRef, useEffect, useState } from "react";
+import Script from "next/script";
 import Image from "next/image";
+
+// Add type declaration for model-viewer element
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
+      // @ts-expect-error -- model-viewer is a custom element
+      "model-viewer": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement> & {
+          src: string;
+          alt: string;
+          "camera-controls"?: boolean;
+          "shadow-intensity"?: string;
+          "environment-image"?: string;
+          exposure?: string;
+          "tone-mapping"?: string;
+          "shadow-softness"?: string;
+          "min-field-of-view"?: string;
+          "max-field-of-view"?: string;
+          "camera-orbit"?: string;
+          "max-camera-orbit"?: string;
+          "touch-action"?: string;
+          onLoad?: () => void;
+          onError?: (event: CustomEvent) => void;
+        },
+        HTMLElement
+      >;
+    }
+  }
+}
 
 const scenePresets = [
   // Product Showcase
@@ -98,13 +126,6 @@ const scenePresets = [
   },
 ];
 
-interface SceneProps {
-  fileUrl: string;
-  onBoundsCalculated: (bounds: THREE.Box3) => void;
-  onError: (error: string) => void;
-  onLoad: () => void;
-}
-
 const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -116,81 +137,10 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.onerror = (error) => reject(error);
   });
 
-const Scene: React.FC<SceneProps> = ({
-  fileUrl,
-  onBoundsCalculated,
-  onError,
-  onLoad,
-}) => {
-  console.log("Scene component rendering with fileUrl:", fileUrl);
-
-  // Always call hooks at the top level
-  const gltf = useGLTF(fileUrl || "dummy", true);
-  const { scene } = gltf;
-
-  console.log("GLTF loaded:", {
-    gltf: !!gltf,
-    scene: !!scene,
-    keys: gltf ? Object.keys(gltf) : [],
-  });
-
-  useEffect(() => {
-    console.log("GLTF effect triggered:", { gltf: !!gltf, scene: !!scene });
-
-    // Handle loading errors by catching them in a try-catch
-    try {
-      if (gltf && !scene) {
-        // If gltf exists but scene doesn't, there might be an issue
-        console.warn("GLTF loaded but scene is undefined");
-        onError("GLTF loaded but scene is undefined");
-      }
-    } catch (error) {
-      console.error("Error loading GLB:", error);
-      onError(
-        `Failed to load 3D model: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
-    }
-  }, [gltf, scene, onError]);
-
-  useEffect(() => {
-    console.log("Scene effect triggered:", { scene: !!scene });
-
-    if (scene) {
-      try {
-        console.log("Processing scene...");
-        scene.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(scene);
-        onBoundsCalculated(box);
-        console.log("Scene processed successfully, calling onLoad");
-        onLoad(); // Notify that the model has loaded
-      } catch (error) {
-        console.error("Error processing scene:", error);
-        onError(
-          `Failed to process 3D model: ${error instanceof Error ? error.message : "Unknown error"}`
-        );
-      }
-    }
-  }, [scene, onBoundsCalculated, onLoad, onError]);
-
-  // Don't try to load if fileUrl is empty
-  if (!fileUrl) {
-    console.log("No fileUrl provided, returning null");
-    return null;
-  }
-
-  if (!scene) {
-    console.log("No scene available, returning null");
-    return null;
-  }
-
-  console.log("Rendering primitive object");
-  return <primitive object={scene} />;
-};
-
 interface ModelPreviewerProps {
   file: File;
   onGenerate: (
-    snapshot: string,
+    snapshots: string[],
     objectSize: string,
     objectType: string,
     sceneDescription: string,
@@ -204,7 +154,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   onGenerate,
   onCancel,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const modelViewerRef = useRef<HTMLElement>(null);
   const [objectSize, setObjectSize] = useState("");
   const [objectType, setObjectType] = useState("");
   const [modelDimensions, setModelDimensions] = useState<{
@@ -212,7 +162,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     y: number;
     z: number;
   } | null>(null);
-  const [modelBounds, setModelBounds] = useState<THREE.Box3 | null>(null);
   const [sceneDescription, setSceneDescription] = useState(
     scenePresets[0].prompt
   );
@@ -224,6 +173,15 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   const [modelError, setModelError] = useState<string | null>(null);
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [modelViewerLoaded, setModelViewerLoaded] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureProgress, setCaptureProgress] = useState({
+    current: 0,
+    total: 3,
+  });
+  const [currentAngle, setCurrentAngle] = useState<string | null>(null);
+  const [isTestingAngles, setIsTestingAngles] = useState(false);
+  const [testAngleIndex, setTestAngleIndex] = useState(0);
 
   // Create blob URL only once when file changes
   useEffect(() => {
@@ -257,7 +215,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
 
   // Add timeout fallback for loading
   useEffect(() => {
-    if (isModelLoading && fileUrl) {
+    if (isModelLoading && fileUrl && modelViewerLoaded) {
       const timeout = setTimeout(() => {
         console.warn("Model loading timeout, forcing loading to complete");
         setIsModelLoading(false);
@@ -265,7 +223,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
 
       return () => clearTimeout(timeout);
     }
-  }, [isModelLoading, fileUrl]);
+  }, [isModelLoading, fileUrl, modelViewerLoaded]);
 
   useEffect(() => {
     return () => {
@@ -278,44 +236,188 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     };
   }, [fileUrl, inspirationImageUrl]);
 
+  // Handle model-viewer load event to get dimensions
   useEffect(() => {
-    if (modelBounds && !modelBounds.isEmpty()) {
-      const size = modelBounds.getSize(new THREE.Vector3());
-      setModelDimensions({ x: size.x, y: size.y, z: size.z });
-      const sizeString = `Width: ${size.x.toFixed(2)}m, Height: ${size.y.toFixed(2)}m, Depth: ${size.z.toFixed(2)}m.`;
-      setObjectSize(sizeString);
-    } else if (modelBounds) {
-      // It exists but it's empty
-      setModelDimensions({ x: 0, y: 0, z: 0 });
-      setObjectSize("Could not determine object dimensions.");
+    if (modelViewerRef.current && fileUrl && modelViewerLoaded) {
+      const modelViewer = modelViewerRef.current as any;
+
+      const handleLoad = () => {
+        try {
+          // Get model dimensions from model-viewer
+          const model = modelViewer.model;
+          if (model) {
+            const box = model.boundingBox;
+            if (box) {
+              const size = box.getSize();
+              setModelDimensions({
+                x: size.x,
+                y: size.y,
+                z: size.z,
+              });
+              const sizeString = `Width: ${size.x.toFixed(2)}m, Height: ${size.y.toFixed(2)}m, Depth: ${size.z.toFixed(2)}m.`;
+              setObjectSize(sizeString);
+            } else {
+              setModelDimensions({ x: 0, y: 0, z: 0 });
+              setObjectSize("Could not determine object dimensions.");
+            }
+          }
+          setIsModelLoading(false);
+        } catch (error) {
+          console.error("Error getting model dimensions:", error);
+          setModelDimensions({ x: 0, y: 0, z: 0 });
+          setObjectSize("Could not determine object dimensions.");
+          setIsModelLoading(false);
+        }
+      };
+
+      const handleError = (event: CustomEvent) => {
+        console.error("Model loading error:", event.detail);
+        setModelError("Failed to load 3D model. Please try a different file.");
+        setIsModelLoading(false);
+      };
+
+      modelViewer.addEventListener("load", handleLoad);
+      modelViewer.addEventListener("error", handleError);
+
+      return () => {
+        modelViewer.removeEventListener("load", handleLoad);
+        modelViewer.removeEventListener("error", handleError);
+      };
     }
-  }, [modelBounds]);
+  }, [fileUrl, modelViewerLoaded]);
+
+  const testCameraAngles = async () => {
+    const modelViewer = modelViewerRef.current as any;
+    if (!modelViewer) return;
+
+    const cameraAngles = [
+      { orbit: "0deg 75deg 0deg", name: "Front" },
+      { orbit: "45deg 75deg 0deg", name: "Front Right" },
+      { orbit: "-45deg 75deg 0deg", name: "Front Left" },
+    ];
+
+    setIsTestingAngles(true);
+    setTestAngleIndex(0);
+
+    try {
+      for (let i = 0; i < cameraAngles.length; i++) {
+        const angle = cameraAngles[i];
+        setTestAngleIndex(i);
+        setCurrentAngle(angle.name);
+
+        // Set camera position
+        modelViewer.cameraOrbit = angle.orbit;
+
+        // Force a re-render
+        modelViewer.dispatchEvent(new CustomEvent("camera-change"));
+
+        // Wait for camera to settle
+        await new Promise((resolve) => {
+          const checkCamera = () => {
+            const currentOrbit = modelViewer.cameraOrbit;
+            if (currentOrbit === angle.orbit) {
+              resolve(undefined);
+            } else {
+              setTimeout(checkCamera, 100);
+            }
+          };
+          setTimeout(checkCamera, 200);
+          setTimeout(resolve, 2000);
+        });
+
+        // Wait between angles for better visibility
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    } finally {
+      setIsTestingAngles(false);
+      setCurrentAngle(null);
+      setTestAngleIndex(0);
+    }
+  };
 
   const handleCapture = async () => {
     if (!objectType.trim()) return;
 
-    const canvas = canvasRef.current;
-    if (canvas) {
+    const modelViewer = modelViewerRef.current as any;
+    if (modelViewer) {
+      setIsCapturing(true);
+      setCaptureProgress({ current: 0, total: 5 });
+
       // Short delay to allow any UI updates to render before taking snapshot
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const finalObjectSize =
         objectSize || "The object's scale is unknown. Use common sense.";
-      const snapshotDataUrl = canvas.toDataURL("image/png");
-      const snapshotBase64 = snapshotDataUrl.split(",")[1];
 
-      let inspirationBase64: string | null = null;
-      if (inspirationImage) {
-        inspirationBase64 = await fileToBase64(inspirationImage);
+      // Define 3 different camera angles
+      const cameraAngles = [
+        { orbit: "0deg 75deg 0deg", name: "Front" },
+        { orbit: "45deg 75deg 0deg", name: "Front Right" },
+        { orbit: "-45deg 75deg 0deg", name: "Front Left" },
+      ];
+
+      const snapshots: string[] = [];
+
+      try {
+        // Capture each angle
+        for (let i = 0; i < cameraAngles.length; i++) {
+          const angle = cameraAngles[i];
+
+          // Update progress and current angle
+          setCaptureProgress({ current: i + 1, total: cameraAngles.length });
+          setCurrentAngle(angle.name);
+
+          // Set camera position
+          modelViewer.cameraOrbit = angle.orbit;
+
+          // Force a re-render by updating the model-viewer element
+          modelViewer.dispatchEvent(new CustomEvent("camera-change"));
+
+          // Wait for the camera to actually move to the new position
+          await new Promise((resolve) => {
+            // Check if camera has moved by comparing current orbit
+            const checkCamera = () => {
+              const currentOrbit = modelViewer.cameraOrbit;
+              if (currentOrbit === angle.orbit) {
+                resolve(undefined);
+              } else {
+                setTimeout(checkCamera, 100);
+              }
+            };
+            // Start checking after a short delay
+            setTimeout(checkCamera, 200);
+            // Fallback timeout
+            setTimeout(resolve, 2000);
+          });
+
+          // Additional wait to ensure rendering is complete
+          await new Promise((resolve) => setTimeout(resolve, 500));
+
+          // Capture screenshot
+          const snapshotDataUrl = await modelViewer.toDataURL();
+          const snapshotBase64 = snapshotDataUrl.split(",")[1];
+          snapshots.push(snapshotBase64);
+
+          console.log(`Captured ${angle.name} angle (${i + 1}/5)`);
+        }
+
+        let inspirationBase64: string | null = null;
+        if (inspirationImage) {
+          inspirationBase64 = await fileToBase64(inspirationImage);
+        }
+
+        onGenerate(
+          snapshots,
+          finalObjectSize,
+          objectType,
+          sceneDescription,
+          inspirationBase64
+        );
+      } finally {
+        setIsCapturing(false);
+        setCaptureProgress({ current: 0, total: 5 });
+        setCurrentAngle(null);
       }
-
-      onGenerate(
-        snapshotBase64,
-        finalObjectSize,
-        objectType,
-        sceneDescription,
-        inspirationBase64
-      );
     }
   };
 
@@ -378,7 +480,46 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
 
   return (
     <div className="w-full flex flex-col items-center glass-card p-6 rounded-2xl shadow-2xl animate-fade-in">
+      {/* Load model-viewer script */}
+      <Script
+        src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+        type="module"
+        onLoad={() => {
+          console.log("Model-viewer script loaded");
+          setModelViewerLoaded(true);
+        }}
+        onError={() => {
+          console.error("Failed to load model-viewer script");
+          setModelError("Failed to load 3D viewer. Please refresh the page.");
+        }}
+      />
+
       <div className="w-full h-96 rounded-lg overflow-hidden bg-gray-900/50 mb-6 relative cursor-grab active:cursor-grabbing border border-white/10">
+        {/* Capture Progress Overlay */}
+        {(isCapturing || isTestingAngles) && (
+          <div className="absolute top-4 left-4 right-4 z-10 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm font-medium">
+                  {isTestingAngles
+                    ? "Testing angles..."
+                    : "Capturing angles..."}
+                </span>
+              </div>
+              <div className="text-sm text-gray-300">
+                {isTestingAngles
+                  ? `${testAngleIndex + 1} of 3`
+                  : `${captureProgress.current} of ${captureProgress.total}`}
+              </div>
+            </div>
+            {currentAngle && (
+              <div className="text-center text-lg font-semibold text-blue-400">
+                Current: {currentAngle}
+              </div>
+            )}
+          </div>
+        )}
         {modelError ? (
           <div className="flex items-center justify-center h-full text-center p-4">
             <div>
@@ -393,8 +534,15 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
                   setModelError(null);
                   setIsModelLoading(true);
                   // Force re-render by updating fileUrl
-                  URL.revokeObjectURL(fileUrl);
-                  // This will trigger a re-render
+                  if (fileUrl) {
+                    URL.revokeObjectURL(fileUrl);
+                    setFileUrl(null);
+                    // This will trigger a re-render
+                    setTimeout(() => {
+                      const url = URL.createObjectURL(file);
+                      setFileUrl(url);
+                    }, 100);
+                  }
                 }}
                 className="btn btn-primary text-sm"
               >
@@ -416,6 +564,15 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
               </button>
             </div>
           </div>
+        ) : !modelViewerLoaded ? (
+          <div className="flex items-center justify-center h-full text-center p-4">
+            <div>
+              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <div className="text-gray-600 dark:text-gray-400">
+                Loading 3D viewer...
+              </div>
+            </div>
+          </div>
         ) : isModelLoading ? (
           <div className="flex items-center justify-center h-full text-center p-4">
             <div>
@@ -426,43 +583,37 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             </div>
           </div>
         ) : (
-          <Canvas
-            ref={canvasRef}
-            gl={{ preserveDrawingBuffer: true, antialias: true }}
-            camera={{ fov: 45 }}
-            dpr={[1, 2]}
-            shadows
-          >
-            <Suspense fallback={null}>
-              <Stage environment="city" intensity={0.5} adjustCamera>
-                {fileUrl && (
-                  <Scene
-                    fileUrl={fileUrl}
-                    onBoundsCalculated={setModelBounds}
-                    onError={setModelError}
-                    onLoad={() => {
-                      console.log(
-                        "onLoad called, setting isModelLoading to false"
-                      );
-                      setIsModelLoading(false);
-                    }}
-                  />
-                )}
-              </Stage>
-            </Suspense>
-            <OrbitControls
-              makeDefault
-              autoRotate={false}
-              autoRotateSpeed={1.0}
-              minDistance={1}
-              maxDistance={20}
-              mouseButtons={{
-                LEFT: THREE.MOUSE.ROTATE,
-                MIDDLE: THREE.MOUSE.PAN,
-                RIGHT: THREE.MOUSE.DOLLY,
-              }}
-            />
-          </Canvas>
+          // @ts-expect-error -- model-viewer is a custom element
+          <model-viewer
+            ref={modelViewerRef}
+            src={fileUrl}
+            alt="3D Model Preview"
+            camera-controls
+            shadow-intensity="0.5"
+            environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
+            exposure="1.2"
+            tone-mapping="aces"
+            shadow-softness="1"
+            min-field-of-view="5deg"
+            max-field-of-view="35deg"
+            camera-orbit="0deg 75deg 0deg"
+            max-camera-orbit="auto 100deg auto"
+            touch-action="pan-y"
+            style={{
+              width: "100%",
+              height: "100%",
+              backgroundColor: "#fafafa",
+            }}
+            onLoad={() => {
+              console.log("Model loaded successfully");
+            }}
+            onError={(event: CustomEvent) => {
+              console.error("Model loading error:", event.detail);
+              setModelError(
+                "Failed to load 3D model. Please try a different file."
+              );
+            }}
+          />
         )}
       </div>
       <div className="w-full max-w-md text-center mb-6 space-y-6">
@@ -471,7 +622,9 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             1. Position Your Model
           </h3>
           <p className="text-gray-600 dark:text-gray-400">
-            Left-click to rotate, middle-click to pan, and scroll to zoom.
+            Left-click to rotate, middle-click to pan, and scroll to zoom. The
+            system will automatically capture 3 different angles (Front, Front
+            Right, Front Left) when you generate scenes.
           </p>
         </div>
         <div>
@@ -643,16 +796,32 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           Cancel
         </button>
         <button
+          onClick={testCameraAngles}
+          className="btn btn-outline"
+          disabled={isCapturing || isTestingAngles}
+          title="Test camera angles without generating scenes"
+        >
+          {isTestingAngles
+            ? `Testing... (${testAngleIndex + 1}/3)`
+            : "Test Angles"}
+        </button>
+        <button
           onClick={handleCapture}
           className="btn btn-primary"
-          disabled={!objectType.trim()}
+          disabled={!objectType.trim() || isCapturing || isTestingAngles}
           title={
             !objectType.trim()
               ? "Please describe the object first"
-              : "Generate your scenes"
+              : isCapturing
+                ? "Capturing angles..."
+                : isTestingAngles
+                  ? "Please wait for angle testing to complete"
+                  : "Generate scenes from 3 different angles"
           }
         >
-          Generate Scene
+          {isCapturing
+            ? `Capturing... (${captureProgress.current}/${captureProgress.total})`
+            : "Generate Scenes"}
         </button>
       </div>
     </div>

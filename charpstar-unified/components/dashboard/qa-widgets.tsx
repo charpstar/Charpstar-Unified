@@ -519,8 +519,8 @@ export function PersonalMetricsWidget() {
         console.error("Error fetching status changes:", statusError);
       }
 
-      // 2. Get comments made by this QA
-      const { data: qaComments, error: commentError } = await supabase
+      // 2. Get comments made by this QA (for reference only, not counted as reviewed)
+      const { error: commentError } = await supabase
         .from("asset_comments")
         .select("created_at")
         .eq("created_by", user?.id)
@@ -531,8 +531,8 @@ export function PersonalMetricsWidget() {
         console.error("Error fetching QA comments:", commentError);
       }
 
-      // 2b. Get annotations made by this QA (count as reviewed)
-      const { data: qaAnnotations, error: annotationError } = await supabase
+      // 2b. Get annotations made by this QA (for reference only, not counted as reviewed)
+      const { error: annotationError } = await supabase
         .from("asset_annotations")
         .select("created_at")
         .eq("created_by", user?.id)
@@ -553,8 +553,9 @@ export function PersonalMetricsWidget() {
         console.error("Error fetching QA allocations:", allocationError);
       }
 
-      // 4. Track QA approval actions from activity_log (approved status changes)
+      // 4. Track QA review and approval actions from activity_log (status changes)
       const qaApprovals: { approvedAt: string }[] = [];
+      const qaReviews: { reviewedAt: string }[] = [];
 
       const { data: approvalActivities, error: approvalActivityError } =
         await supabase
@@ -576,6 +577,8 @@ export function PersonalMetricsWidget() {
           const newStatus = act?.metadata?.new_status;
           if (newStatus === "approved") {
             qaApprovals.push({ approvedAt: act.created_at });
+          } else if (newStatus === "revisions") {
+            qaReviews.push({ reviewedAt: act.created_at });
           }
         });
       }
@@ -590,18 +593,14 @@ export function PersonalMetricsWidget() {
         }
       });
 
-      // Process comments (each comment counts as a review action)
-      qaComments?.forEach((comment) => {
-        const dateStr = comment.created_at.split("T")[0];
-        if (dailyMetrics[dateStr]) {
-          dailyMetrics[dateStr].reviewed++;
-        }
-      });
+      // Comments and annotations are no longer counted as review actions
+      // Only status changes (revisions and approvals) count as reviews
 
-      // Process annotations (each annotation counts as a review action)
-      qaAnnotations?.forEach((annotation) => {
-        const dateStr = annotation.created_at.split("T")[0];
+      // Process QA review actions (from activity log - when QA sets status to revisions)
+      qaReviews.forEach((review) => {
+        const dateStr = review.reviewedAt.split("T")[0];
         if (dailyMetrics[dateStr]) {
+          // Count as reviewed only (not approved)
           dailyMetrics[dateStr].reviewed++;
         }
       });

@@ -62,6 +62,8 @@ export function ModelerStatsWidget() {
     waitingForApproval: 0,
     inProgress: 0,
     pending: 0,
+    revisions: 0,
+    clientRevisions: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -100,6 +102,8 @@ export function ModelerStatsWidget() {
           waitingForApproval: 0,
           inProgress: 0,
           pending: 0,
+          revisions: 0,
+          clientRevisions: 0,
         });
         return;
       }
@@ -114,7 +118,8 @@ export function ModelerStatsWidget() {
 
       const totalAssigned = acceptedAssets.length;
       const completed = acceptedAssets.filter(
-        (asset) => asset.status === "approved"
+        (asset) =>
+          asset.status === "approved" || asset.status === "approved_by_client"
       ).length;
       const waitingForApproval = acceptedAssets.filter(
         (asset) => asset.status === "delivered_by_artist"
@@ -125,6 +130,12 @@ export function ModelerStatsWidget() {
       const pending = acceptedAssets.filter(
         (asset) => asset.status === "not_started"
       ).length;
+      const revisions = acceptedAssets.filter(
+        (asset) => asset.status === "revisions"
+      ).length;
+      const clientRevisions = acceptedAssets.filter(
+        (asset) => asset.status === "client_revision"
+      ).length;
 
       setStats({
         totalAssigned,
@@ -132,6 +143,8 @@ export function ModelerStatsWidget() {
         waitingForApproval,
         inProgress,
         pending,
+        revisions,
+        clientRevisions,
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -142,8 +155,8 @@ export function ModelerStatsWidget() {
 
   if (!user) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 min-h-[320px]">
-        {[...Array(5)].map((_, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 min-h-[320px]">
+        {[...Array(7)].map((_, i) => (
           <div
             key={i}
             className="h-24 sm:h-32 bg-gradient-to-br from-muted/50 to-muted animate-pulse rounded-2xl"
@@ -170,11 +183,11 @@ export function ModelerStatsWidget() {
       title: "In Progress",
       value: stats.inProgress,
       icon: Clock,
-      color: "text-indigo-600 dark:text-indigo-400",
+      color: "text-blue-600 dark:text-blue-400",
       bgColor:
-        "bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50",
-      borderColor: "border-indigo-200 dark:border-indigo-800",
-      iconBg: "bg-indigo-500 dark:bg-indigo-600",
+        "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50",
+      borderColor: "border-blue-200 dark:border-blue-800",
+      iconBg: "bg-blue-500 dark:bg-blue-600",
       description: "Currently working on",
       trend: "attention" as const,
     },
@@ -182,11 +195,11 @@ export function ModelerStatsWidget() {
       title: "Waiting for Approval",
       value: stats.waitingForApproval,
       icon: AlertCircle,
-      color: "text-amber-600 dark:text-amber-400",
+      color: "text-green-600 dark:text-green-400",
       bgColor:
-        "bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/50",
-      borderColor: "border-amber-200 dark:border-amber-800",
-      iconBg: "bg-amber-500 dark:bg-amber-600",
+        "bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/50",
+      borderColor: "border-green-200 dark:border-green-800",
+      iconBg: "bg-green-500 dark:bg-green-600",
       description: "Awaiting feedback",
       trend: "attention" as const,
     },
@@ -205,13 +218,37 @@ export function ModelerStatsWidget() {
     {
       title: "Pending",
       value: stats.pending,
+      icon: Clock,
+      color: "text-gray-600 dark:text-gray-400",
+      bgColor:
+        "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950/50 dark:to-gray-900/50",
+      borderColor: "border-gray-200 dark:border-gray-800",
+      iconBg: "bg-gray-500 dark:bg-gray-600",
+      description: "Not started yet",
+      trend: "attention" as const,
+    },
+    {
+      title: "Revisions",
+      value: stats.revisions,
+      icon: RotateCcw,
+      color: "text-orange-600 dark:text-orange-400",
+      bgColor:
+        "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/50 dark:to-orange-900/50",
+      borderColor: "border-orange-200 dark:border-orange-800",
+      iconBg: "bg-orange-500 dark:bg-orange-600",
+      description: "QA requested changes",
+      trend: "attention" as const,
+    },
+    {
+      title: "Client Revisions",
+      value: stats.clientRevisions,
       icon: RotateCcw,
       color: "text-red-600 dark:text-red-400",
       bgColor:
         "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
       borderColor: "border-red-200 dark:border-red-800",
       iconBg: "bg-red-500 dark:bg-red-600",
-      description: "Not started yet",
+      description: "Client requested changes",
       trend: "attention" as const,
     },
   ];
@@ -224,7 +261,7 @@ export function ModelerStatsWidget() {
         subtitle="Track your current workload and progress"
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 gap-3 sm:gap-4 flex-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 flex-1">
         {statCards.map((stat, index: number) => (
           <div
             key={index}
@@ -586,44 +623,42 @@ export function ModelerEarningsWidget() {
     try {
       setLoading(true);
 
-      // First, let's check if there are any allocation lists at all for this user
-      const {} = await supabase
-        .from("allocation_lists")
-        .select("id, name, status, approved_at")
-        .eq("user_id", user?.id)
-        .eq("role", "modeler");
-
-      // Get user's allocation lists with pricing - only for approved lists
-      const { data: allocationLists, error: listsError } = await supabase
-        .from("allocation_lists")
+      // Get individual approved assets instead of requiring fully approved allocation lists
+      const { data: approvedAssets, error: assetsError } = await supabase
+        .from("asset_assignments")
         .select(
           `
-          id,
-          name,
-          bonus,
-          deadline,
-          status,
-          approved_at,
-          asset_assignments!inner(
-            asset_id,
-            price,
-            onboarding_assets!inner(
-              id,
-              status
-            )
+          asset_id,
+          price,
+          allocation_list_id,
+          allocation_lists!inner(
+            id,
+            name,
+            bonus,
+            deadline,
+            status,
+            approved_at,
+            created_at
+          ),
+          onboarding_assets!inner(
+            id,
+            product_name,
+            status,
+            created_at
           )
         `
         )
         .eq("user_id", user?.id)
         .eq("role", "modeler")
-        .eq("status", "approved");
+        .in("onboarding_assets.status", ["approved", "approved_by_client"]);
 
-      if (listsError) {
-        console.error("Error fetching allocation lists:", listsError);
+      if (assetsError) {
+        console.error("Error fetching approved assets:", assetsError);
         return;
       }
 
-      if (!allocationLists || allocationLists.length === 0) {
+      if (!approvedAssets || approvedAssets.length === 0) {
+        console.log("No approved assets found for user:", user?.id);
         setEarningsData({
           thisMonth: 0,
           lastMonth: 0,
@@ -634,18 +669,9 @@ export function ModelerEarningsWidget() {
         return;
       }
 
-      // Filter allocation lists to only include those where ALL assets are approved
-      const fullyApprovedLists = allocationLists.filter((list: any) => {
-        // Check if all assets in this list are approved
-        // Both "approved" and "approved_by_client" count as approved for earnings
-        return list.asset_assignments.every(
-          (assignment: any) =>
-            assignment.onboarding_assets?.status === "approved" ||
-            assignment.onboarding_assets?.status === "approved_by_client"
-        );
-      });
+      console.log("Found approved assets:", approvedAssets.length);
 
-      // Calculate earnings from fully approved allocation lists only
+      // Calculate earnings from individual approved assets
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
@@ -660,9 +686,23 @@ export function ModelerEarningsWidget() {
       // Group earnings by day for chart
       const dailyData = new Map<string, number>();
 
-      fullyApprovedLists.forEach((list: any) => {
-        const listEarnings = list.asset_assignments.reduce(
-          (sum: number, assignment: any) => sum + (assignment.price || 0),
+      // Group assets by allocation list to calculate bonuses properly
+      const assetsByList = new Map<string, any[]>();
+      approvedAssets.forEach((asset: any) => {
+        const listId = asset.allocation_list_id;
+        if (!assetsByList.has(listId)) {
+          assetsByList.set(listId, []);
+        }
+        assetsByList.get(listId)!.push(asset);
+      });
+
+      assetsByList.forEach((assets) => {
+        const firstAsset = assets[0];
+        const allocationList = firstAsset.allocation_lists;
+
+        // Calculate total earnings for this allocation list
+        const listEarnings = assets.reduce(
+          (sum: number, asset: any) => sum + (asset.price || 0),
           0
         );
 
@@ -670,50 +710,55 @@ export function ModelerEarningsWidget() {
         let bonusAmount = 0;
         let totalListEarnings = listEarnings;
 
-        if (list.approved_at && list.deadline) {
-          const approvedDate = new Date(list.approved_at);
-          const deadlineDate = new Date(list.deadline);
+        if (allocationList.approved_at && allocationList.deadline) {
+          const approvedDate = new Date(allocationList.approved_at);
+          const deadlineDate = new Date(allocationList.deadline);
 
           // Only apply bonus if work was completed before or on the deadline
           if (approvedDate <= deadlineDate) {
-            bonusAmount = listEarnings * (list.bonus / 100);
+            bonusAmount = listEarnings * (allocationList.bonus / 100);
+            //eslint-disable-next-line
             totalListEarnings = listEarnings + bonusAmount;
-          } else {
           }
-        } else {
         }
 
-        totalEarnings += totalListEarnings;
+        // Calculate earnings for each individual asset
+        assets.forEach((asset: any) => {
+          const assetPrice = asset.price || 0;
+          const assetEarnings = assetPrice;
 
-        // Check if approved this month
-        if (list.approved_at) {
-          const approvedDate = new Date(list.approved_at);
-          const approvedMonth = approvedDate.getMonth();
-          const approvedYear = approvedDate.getFullYear();
+          // Add to total earnings
+          totalEarnings += assetEarnings;
+
+          // For monthly calculations, use allocation list approval date if available,
+          // otherwise use asset creation date as fallback
+          const approvalDate = allocationList.approved_at
+            ? new Date(allocationList.approved_at)
+            : new Date(asset.onboarding_assets.created_at);
+
+          const approvedMonth = approvalDate.getMonth();
+          const approvedYear = approvalDate.getFullYear();
 
           if (approvedMonth === currentMonth && approvedYear === currentYear) {
-            thisMonthEarnings += totalListEarnings;
-            approvedThisMonth++;
+            thisMonthEarnings += assetEarnings;
+            approvedThisMonth += 1;
           } else if (
             approvedMonth === lastMonth &&
             approvedYear === lastMonthYear
           ) {
-            lastMonthEarnings += totalListEarnings;
+            lastMonthEarnings += assetEarnings;
           }
 
-          // Add to daily chart data
-          const dayKey = `${approvedYear}-${String(approvedMonth + 1).padStart(2, "0")}-${String(approvedDate.getDate()).padStart(2, "0")}`;
-          dailyData.set(
-            dayKey,
-            (dailyData.get(dayKey) || 0) + totalListEarnings
-          );
-        }
+          // Add to daily chart data - use the last 30 days instead of 15
+          const dayKey = `${approvedYear}-${String(approvedMonth + 1).padStart(2, "0")}-${String(approvalDate.getDate()).padStart(2, "0")}`;
+          dailyData.set(dayKey, (dailyData.get(dayKey) || 0) + assetEarnings);
+        });
       });
 
-      // Generate chart data for last 15 days
+      // Generate chart data for last 30 days
       const chartData = [];
 
-      for (let i = 14; i >= 0; i--) {
+      for (let i = 29; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
         const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -741,6 +786,10 @@ export function ModelerEarningsWidget() {
         approvedThisMonth,
         chartData,
       };
+
+      console.log("Final earnings data:", finalData);
+      console.log("Chart data points:", chartData.length);
+      console.log("Daily data map:", dailyData);
 
       setEarningsData(finalData);
     } catch (error) {

@@ -553,7 +553,7 @@ export default function UserProfileDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <UserProfileDialogContent className="max-w-7xl max-h-[90vh] min-w-6xl overflow-y-auto">
+      <UserProfileDialogContent className="max-w-7xl max-h-[91vh] min-w-6xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             User Profile

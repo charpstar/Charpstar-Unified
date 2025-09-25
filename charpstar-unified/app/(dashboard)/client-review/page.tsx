@@ -49,12 +49,14 @@ const getStatusLabelClass = (status: string): string => {
       return "status-in-production";
     case "revisions":
       return "status-revisions";
+    case "client_revision":
+      return "status-client-revision";
     case "approved":
       return "status-approved";
     case "approved_by_client":
       return "status-approved-by-client";
     case "delivered_by_artist":
-      return "status-delivered-by-artist";
+      return "status-in-progress"; // Use in-progress styling for client view
     case "not_started":
       return "status-in-production"; // Use same styling as in_production
     case "in_progress":
@@ -73,6 +75,8 @@ const getStatusLabelText = (status: string): string => {
       return "In Progress";
     case "revisions":
       return "Sent for Revision";
+    case "client_revision":
+      return "Client Revision";
     case "approved":
       return "New Upload";
     case "approved_by_client":
@@ -104,12 +108,14 @@ const getRowStyling = (status: string): { base: string; hover: string } => {
       return { base: "table-row-status-in-production", hover: "" };
     case "revisions":
       return { base: "table-row-status-revisions", hover: "" };
+    case "client_revision":
+      return { base: "table-row-status-client-revision", hover: "" };
     case "approved":
       return { base: "table-row-status-approved", hover: "" };
     case "approved_by_client":
       return { base: "table-row-status-approved-by-client", hover: "" };
     case "delivered_by_artist":
-      return { base: "table-row-status-delivered-by-artist", hover: "" };
+      return { base: "table-row-status-in-production", hover: "" }; // Use in-production styling for client view
     case "not_started":
       return { base: "table-row-status-in-production", hover: "" }; // Use same styling as in_production
     case "in_progress":
@@ -249,6 +255,7 @@ export default function ReviewDashboardPage() {
       total: assets.length,
       in_production: 0,
       revisions: 0,
+      client_revision: 0,
       approved: 0,
       approved_by_client: 0,
       delivered_by_artist: 0,
@@ -571,7 +578,7 @@ export default function ReviewDashboardPage() {
       <Card className="p-3 sm:p-6 flex-1 flex flex-col border-0 shadow-none">
         {/* Status Summary Cards */}
         {!loading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 mb-4 sm:mb-6">
             {/* Total Models (no filtering on this card itself) */}
             <Card
               className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
@@ -669,6 +676,30 @@ export default function ReviewDashboardPage() {
                   </p>
                   <p className="text-lg sm:text-2xl font-bold text-orange-600">
                     {statusTotals.revisions}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Client Revision */}
+            <Card
+              className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
+              onClick={() => {
+                setStatusFilters(["client_revision"]);
+                setPage(1);
+              }}
+            >
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                  <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                    <span className="hidden sm:inline">Client Revision</span>
+                    <span className="sm:hidden">Client Rev</span>
+                  </p>
+                  <p className="text-lg sm:text-2xl font-bold text-red-600">
+                    {statusTotals.client_revision || 0}
                   </p>
                 </div>
               </div>
@@ -804,7 +835,7 @@ export default function ReviewDashboardPage() {
           </div>
 
           {/* Bulk Actions Row - Fixed height to prevent layout shifts */}
-          <div className="min-h-[60px]">
+          <div className="min-h-[30px]">
             {selected.size > 0 && (
               <div className="flex flex-col gap-3 sm:gap-4 p-3 bg-muted/50 dark:bg-muted/20 rounded-lg border dark:border-border">
                 <div className="flex items-center justify-between gap-2">
@@ -858,7 +889,7 @@ export default function ReviewDashboardPage() {
           </div>
         </div>
 
-        <div className="overflow-auto rounded-lg border dark:border-border bg-background dark:bg-background flex-1 max-h-[62vh] min-h-[62vh]">
+        <div className="overflow-auto rounded-lg border dark:border-border bg-background dark:bg-background flex-1 max-h-[62vh] min-h-[62vh] relative">
           {loading ? (
             <ReviewTableSkeleton />
           ) : (
@@ -866,7 +897,7 @@ export default function ReviewDashboardPage() {
               {/* Desktop Table View */}
               <div className="hidden md:block min-w-[1200px]">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 bg-white dark:bg-slate-950 z-20 border-b border-border dark:border-border shadow-sm">
                     <TableRow className="dark:border-border">
                       <TableHead className="w-12 dark:text-foreground text-left">
                         <div className="flex items-center gap-2">
@@ -895,21 +926,19 @@ export default function ReviewDashboardPage() {
                       <TableHead className="dark:text-foreground text-left">
                         Status
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-left">
+                      <TableHead className="dark:text-foreground text-left pr-4">
                         Product Link
                       </TableHead>
                       <TableHead className="dark:text-foreground text-left">
                         References
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-left">
-                        GLB File
-                      </TableHead>
-                      <TableHead className="w-12 dark:text-foreground text-left">
+
+                      <TableHead className=" dark:text-foreground text-left pr-16">
                         View
                       </TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody className="pt-16">
                     {paged.length === 0 ? (
                       <TableRow className="dark:border-border">
                         <TableCell
@@ -1054,7 +1083,7 @@ export default function ReviewDashboardPage() {
                                   }}
                                 >
                                   <SelectTrigger
-                                    className={`border-0 shadow-none p-0 h-auto w-auto bg-transparent hover:opacity-80 transition-opacity cursor-pointer [&>svg]:hidden`}
+                                    className={`border-0 shadow-none dark:shadow-none dark:border-none dark:bg-transparent hover:bg-transparent dark:hover:bg-transparent p-0 h-auto w-auto bg-transparent hover:opacity-80 transition-opacity cursor-pointer [&>svg]:hidden`}
                                   >
                                     <span
                                       className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
@@ -1064,7 +1093,7 @@ export default function ReviewDashboardPage() {
                                       {getPriorityLabel(asset.priority || 2)}
                                     </span>
                                   </SelectTrigger>
-                                  <SelectContent className="dark:bg-background dark:border-border">
+                                  <SelectContent>
                                     <SelectItem
                                       value="1"
                                       className="dark:text-foreground"
@@ -1088,26 +1117,25 @@ export default function ReviewDashboardPage() {
                               </div>
                             </TableCell>
 
-                            <TableCell className="text-left">
+                            <TableCell className="text-left w-32">
                               <div className="flex items-center">
                                 <span
-                                  className={`px-2 py-1 rounded text-xs font-semibold ${getStatusLabelClass(asset.status)}`}
+                                  className={`px-2 py-1 rounded text-xs font-semibold  shadow-none border-none bg-transparent ${getStatusLabelClass(asset.status)}`}
                                 >
                                   {getStatusLabelText(asset.status)}
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-left w-12">
+                            <TableCell className="text-left w-12 justify-start">
                               {asset.product_link ? (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="w-full justify-start text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
+                                  className="w-full justify-start p-0 text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
                                   onClick={() =>
                                     window.open(asset.product_link, "_blank")
                                   }
                                 >
-                                  <ExternalLink className="mr-2 h-3 w-3" />
                                   Open Link
                                 </Button>
                               ) : (
@@ -1117,12 +1145,12 @@ export default function ReviewDashboardPage() {
                               )}
                             </TableCell>
 
-                            <TableCell className="text-left">
-                              <div className="flex flex-col items-center gap-1">
+                            <TableCell className="text-left w-12 pr-4">
+                              <div className="flex flex-col items-start gap-1">
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50"
+                                  className="text-xs px-3 py-1 h-7  dark:border-border dark:hover:bg-muted/50"
                                   onClick={() => {
                                     setSelectedAssetForView(asset);
                                     setShowViewRefDialog(true);
@@ -1142,42 +1170,27 @@ export default function ReviewDashboardPage() {
                                 </Button>
                               </div>
                             </TableCell>
-                            <TableCell className="text-left w-12">
-                              {asset.glb_link ? (
+
+                            <TableCell className="text-left w-16 pr-6">
+                              {(asset.status === "approved" ||
+                                asset.status === "approved_by_client") && (
                                 <Button
                                   variant="ghost"
-                                  size="sm"
-                                  className="w-full justify-start text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
-                                  onClick={() =>
-                                    window.open(asset.glb_link, "_blank")
-                                  }
+                                  size="icon"
+                                  onClick={() => {
+                                    const currentParams = new URLSearchParams(
+                                      searchParams.toString()
+                                    );
+                                    currentParams.set("from", "client-review");
+                                    router.push(
+                                      `/client-review/${asset.id}?${currentParams.toString()}`
+                                    );
+                                  }}
+                                  className="h-8 w-8 dark:hover:bg-muted/50"
                                 >
-                                  <Download className="mr-2 h-3 w-3" />
-                                  Download
+                                  <Eye className="h-5 w-5" />
                                 </Button>
-                              ) : (
-                                <span className="text-xs text-muted-foreground dark:text-muted-foreground">
-                                  No GLB
-                                </span>
                               )}
-                            </TableCell>
-                            <TableCell className="text-left w-12">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  const currentParams = new URLSearchParams(
-                                    searchParams.toString()
-                                  );
-                                  currentParams.set("from", "client-review");
-                                  router.push(
-                                    `/client-review/${asset.id}?${currentParams.toString()}`
-                                  );
-                                }}
-                                className="h-8 w-8 dark:hover:bg-muted/50"
-                              >
-                                <Eye className="h-5 w-5" />
-                              </Button>
                             </TableCell>
                           </TableRow>
                         );
@@ -1276,22 +1289,25 @@ export default function ReviewDashboardPage() {
                                 </div>
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                const currentParams = new URLSearchParams(
-                                  searchParams.toString()
-                                );
-                                currentParams.set("from", "client-review");
-                                router.push(
-                                  `/client-review/${asset.id}?${currentParams.toString()}`
-                                );
-                              }}
-                              className="h-8 w-8 dark:hover:bg-muted/50 flex-shrink-0"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            {(asset.status === "approved" ||
+                              asset.status === "approved_by_client") && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const currentParams = new URLSearchParams(
+                                    searchParams.toString()
+                                  );
+                                  currentParams.set("from", "client-review");
+                                  router.push(
+                                    `/client-review/${asset.id}?${currentParams.toString()}`
+                                  );
+                                }}
+                                className="h-8 w-8 dark:hover:bg-muted/50 flex-shrink-0"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
 
                           {/* Article ID and Priority */}
@@ -1378,7 +1394,7 @@ export default function ReviewDashboardPage() {
                           </div>
 
                           {/* Status */}
-                          <div className="flex items-center justify-center">
+                          <div className="flex items-center justify-start">
                             <span
                               className={`px-2 py-1 rounded text-xs font-semibold ${getStatusLabelClass(asset.status)}`}
                             >
@@ -1404,7 +1420,7 @@ export default function ReviewDashboardPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1 text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50"
+                              className="flex-1 text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50 "
                               onClick={() => {
                                 setSelectedAssetForView(asset);
                                 setShowViewRefDialog(true);
@@ -1446,7 +1462,7 @@ export default function ReviewDashboardPage() {
           )}
         </div>
         {/* Pagination - Always at bottom */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-2">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-2 mt-4">
           {selected.size > 0 && (
             <div className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground order-2 sm:order-1 sm:mr-4">
               {selected.size} of {paged.length} on this page selected

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/utils/supabase/server";
-import { createAdminClient } from "@/utils/supabase/admin";
 import { cookies } from "next/headers";
 import { getSignupUrl } from "@/lib/urlUtils";
 
@@ -136,32 +135,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send invitation using Supabase Auth
+    // Send invitation using Resend
     try {
-      const adminClient = createAdminClient();
-      const { error: inviteError } =
-        await adminClient.auth.admin.inviteUserByEmail(email, {
-          redirectTo: getSignupUrl(invitationToken),
-          data: {
-            client_name: client_name,
-            role: role,
-            invitation_id: invitation.id,
+      const emailResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/api/email/invitation`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        });
+          body: JSON.stringify({
+            to: email,
+            invitationLink: getSignupUrl(invitationToken),
+          }),
+        }
+      );
 
-      if (inviteError) {
-        console.error("Error sending Supabase invitation:", inviteError);
-        console.error("Error details:", {
-          code: inviteError.code,
-          message: inviteError.message,
-          status: inviteError.status,
-        });
+      if (!emailResponse.ok) {
+        const errorData = await emailResponse.json();
+        console.error("Error sending invitation email:", errorData);
         // Update invitation status to failed
         await supabase
           .from("invitations")
           .update({ status: "failed" })
           .eq("id", invitation.id);
       } else {
+        console.log("Invitation email sent successfully via Resend");
       }
     } catch (emailError) {
       console.error("Error sending invitation email:", emailError);

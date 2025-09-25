@@ -77,6 +77,7 @@ interface Annotation {
     email?: string;
   };
   parent_id?: string;
+  is_old_annotation?: boolean;
 }
 
 interface Hotspot {
@@ -94,6 +95,8 @@ const getStatusLabelClass = (status: string): string => {
       return "status-in-production";
     case "revisions":
       return "status-revisions";
+    case "client_revision":
+      return "status-client-revision";
     case "approved":
       return "status-approved";
     case "approved_by_client":
@@ -118,6 +121,8 @@ const getStatusLabelText = (status: string): string => {
       return "In Production";
     case "revisions":
       return "Sent for Revision";
+    case "client_revision":
+      return "Client Revision";
     case "approved":
       return "Approved";
     case "approved_by_client":
@@ -157,6 +162,11 @@ const getStatusDisplay = (
         return { label: "In Production", className: "status-in-production" };
       case "revisions":
         return { label: "Feedback Given", className: "status-revisions" };
+      case "client_revision":
+        return {
+          label: "Client Revision",
+          className: "status-client-revision",
+        };
       case "approved_by_client":
         return { label: "Approved", className: "status-approved-by-client" };
       case "approved":
@@ -234,9 +244,7 @@ export default function ReviewPage() {
     null
   );
   const [selectedAnnotations, setSelectedAnnotations] = useState<string[]>([]);
-  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
-  const [singleDeleteId, setSingleDeleteId] = useState<string | null>(null);
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string>("");
   const [selectedImageTitle, setSelectedImageTitle] = useState<string>("");
@@ -263,6 +271,7 @@ export default function ReviewPage() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteContent, setEditNoteContent] = useState("");
   const [showComments, setShowComments] = useState(false);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<
     string | null
@@ -298,6 +307,15 @@ export default function ReviewPage() {
   const [rightPanelTab, setRightPanelTab] = useState<"images" | "feedback">(
     "feedback"
   );
+
+  // Filter out old annotations for 3D viewer hotspots only
+  const filteredAnnotations = annotations.filter(
+    (annotation) => !annotation.is_old_annotation
+  );
+
+  // Keep all annotations for comment sections (including old ones for context)
+  const allAnnotations = annotations;
+
   const [imageZoom, setImageZoom] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -342,6 +360,15 @@ export default function ReviewPage() {
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
   const [updatingPriority, setUpdatingPriority] = useState<string | null>(null);
+
+  // Undo functionality state
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [annotationHistory, setAnnotationHistory] = useState<Annotation[]>([]);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [undoStack, setUndoStack] = useState<Annotation[]>([]);
+  const [lastDeletedAnnotation, setLastDeletedAnnotation] =
+    useState<Annotation | null>(null);
+  const [isUndoing, setIsUndoing] = useState(false);
 
   // Function to handle back navigation based on where user came from
   const handleBackNavigation = () => {
@@ -409,7 +436,7 @@ export default function ReviewPage() {
   };
 
   // Convert annotations to hotspots format
-  const hotspots: Hotspot[] = annotations
+  const hotspots: Hotspot[] = filteredAnnotations
     .filter((annotation: any) => !annotation.parent_id)
     .map((annotation) => ({
       id: annotation.id,
@@ -690,11 +717,20 @@ export default function ReviewPage() {
     fetchRevisionHistory();
   }, [assetId]);
 
-  // Keyboard event listeners for Ctrl key detection
+  // Keyboard event listeners for Ctrl key detection and shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey) {
         setIsCtrlPressed(true);
+      }
+
+      // Handle keyboard shortcuts
+      if (event.key === "Tab" && !event.shiftKey) {
+        event.preventDefault();
+        centerModel();
+      } else if ((event.ctrlKey || event.metaKey) && event.key === "z") {
+        event.preventDefault();
+        undoLastDeletion();
       }
     };
 
@@ -713,7 +749,13 @@ export default function ReviewPage() {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keyup", handleKeyUp);
     };
-  }, []);
+  }, [lastDeletedAnnotation, modelLoaded]);
+
+  // Clear undo state when asset changes
+  useEffect(() => {
+    setLastDeletedAnnotation(null);
+    setIsUndoing(false);
+  }, [assetId]);
 
   // Prevent client from leaving page if they have unconfirmed revisions
   useEffect(() => {
@@ -737,6 +779,56 @@ export default function ReviewPage() {
   // Handle model load
   const handleModelLoaded = () => {
     setModelLoaded(true);
+  };
+
+  // Center the 3D model
+  const centerModel = () => {
+    if (modelViewerRef.current && modelLoaded) {
+      // Reset camera to default position
+      modelViewerRef.current.cameraTarget = "0m 0m 0m";
+      modelViewerRef.current.cameraOrbit = "0deg 75deg 1.5m";
+      modelViewerRef.current.play();
+    }
+  };
+
+  // Undo last deleted annotation
+  const undoLastDeletion = async () => {
+    if (lastDeletedAnnotation && !isUndoing) {
+      setIsUndoing(true);
+      try {
+        const response = await fetch("/api/annotations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            asset_id: lastDeletedAnnotation.asset_id,
+            position: lastDeletedAnnotation.position,
+            normal: lastDeletedAnnotation.normal,
+            surface: lastDeletedAnnotation.surface,
+            comment: lastDeletedAnnotation.comment,
+            image_url: lastDeletedAnnotation.image_url,
+            parent_id: lastDeletedAnnotation.parent_id,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.annotation) {
+          // Add the restored annotation back to the list
+          setAnnotations((prev) => [...prev, data.annotation]);
+          setLastDeletedAnnotation(null);
+          toast.success("Annotation restored successfully");
+        } else {
+          toast.error(data.error || "Failed to restore annotation");
+        }
+      } catch (error) {
+        console.error("Error restoring annotation:", error);
+        toast.error("Failed to restore annotation");
+      } finally {
+        setIsUndoing(false);
+      }
+    }
   };
 
   // Handle hotspot creation
@@ -772,7 +864,9 @@ export default function ReviewPage() {
   const handleHotspotSelect = (hotspotId: string | null) => {
     setSelectedHotspotId(hotspotId);
     if (hotspotId) {
-      const annotation = annotations.find((ann) => ann.id === hotspotId);
+      const annotation = filteredAnnotations.find(
+        (ann) => ann.id === hotspotId
+      );
       if (annotation) {
         setSelectedAnnotation(annotation);
         setHighlightedAnnotationId(hotspotId);
@@ -868,6 +962,8 @@ export default function ReviewPage() {
         setSelectedAnnotation(null);
         setNewComment("");
         setSelectedHotspotId(null);
+        // Clear undo state when new annotation is created
+        setLastDeletedAnnotation(null);
         toast.success("Annotation saved successfully");
       } else {
         // Remove the temporary annotation if save failed
@@ -912,12 +1008,17 @@ export default function ReviewPage() {
         setAnnotations((prev) =>
           prev.map((ann) =>
             ann.id === annotationId
-              ? { ...ann, comment: editComment.trim() }
+              ? {
+                  ...ann,
+                  comment: editComment.trim(),
+                  image_url: editImageUrl.trim() || undefined,
+                }
               : ann
           )
         );
         setEditingAnnotation(null);
         setEditComment("");
+        setEditImageUrl("");
         toast.success("Annotation updated successfully");
       } else {
         toast.error(data.error || "Failed to update annotation");
@@ -936,6 +1037,12 @@ export default function ReviewPage() {
         toast.error("You can only delete your own annotations");
         return;
       }
+
+      // Store the annotation for undo before deleting
+      if (annotation) {
+        setLastDeletedAnnotation(annotation);
+      }
+
       const response = await fetch(`/api/annotations?id=${annotationId}`, {
         method: "DELETE",
       });
@@ -945,20 +1052,17 @@ export default function ReviewPage() {
       if (response.ok) {
         setAnnotations((prev) => prev.filter((ann) => ann.id !== annotationId));
         setSelectedHotspotId(null);
-        toast.success("Annotation deleted successfully");
+        toast.success("Annotation deleted successfully (Ctrl+Z to undo)");
       } else {
         toast.error(data.error || "Failed to delete annotation");
+        // Clear the stored annotation if deletion failed
+        setLastDeletedAnnotation(null);
       }
     } catch (error) {
       console.error("Error deleting annotation:", error);
       toast.error("Failed to delete annotation");
-    }
-  };
-
-  const handleSingleDelete = async () => {
-    if (singleDeleteId) {
-      await deleteAnnotation(singleDeleteId);
-      setSingleDeleteId(null);
+      // Clear the stored annotation if deletion failed
+      setLastDeletedAnnotation(null);
     }
   };
 
@@ -1003,7 +1107,9 @@ export default function ReviewPage() {
   };
 
   const handleAnnotationSelect = (annotationId: string) => {
-    const annotation = annotations.find((ann) => ann.id === annotationId);
+    const annotation = filteredAnnotations.find(
+      (ann) => ann.id === annotationId
+    );
     if (!isAdmin && annotation && annotation.created_by !== user?.id) {
       return;
     }
@@ -1210,6 +1316,42 @@ export default function ReviewPage() {
     }
   };
 
+  // Handle paste image for edit mode
+  const handleEditPasteImage = async (e: React.ClipboardEvent) => {
+    try {
+      const items = e.clipboardData?.items || [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file && file.type.startsWith("image/")) {
+            e.preventDefault();
+            setIsUploadingPastedImage(true);
+            const formData = new FormData();
+            formData.append("file", file);
+            try {
+              const response = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+              });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Upload failed");
+              setEditImageUrl(data.url);
+              toast.success("Image pasted and uploaded");
+              return;
+            } finally {
+              setIsUploadingPastedImage(false);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error handling pasted image:", error);
+      toast.error("Failed to paste image");
+      setIsUploadingPastedImage(false);
+    }
+  };
+
   // Helper function to update modeler's end time when asset is approved
   const updateModelerEndTime = async (assetId: string) => {
     try {
@@ -1240,6 +1382,34 @@ export default function ReviewPage() {
   ) => {
     if (!assetId) return;
 
+    // Prevent revision for assets that are not started or already approved by client
+    if (
+      (newStatus === "revisions" || newStatus === "client_revision") &&
+      (asset?.status === "not_started" ||
+        asset?.status === "approved_by_client")
+    ) {
+      const errorMessage =
+        asset?.status === "not_started"
+          ? "Cannot send for revision - asset has not been started yet"
+          : "Cannot send for revision - asset has already been approved by client";
+      toast.error(errorMessage);
+      return;
+    }
+
+    // Validate feedback before allowing revision
+    if (
+      (newStatus === "revisions" || newStatus === "client_revision") &&
+      !hasValidFeedback()
+    ) {
+      const userRole = user?.metadata?.role;
+      // eslint-disable-next-line
+      const roleText = userRole === "client" ? "client" : "QA";
+      toast.error(
+        `Please add annotations or comments before requesting a revision`
+      );
+      return;
+    }
+
     setStatusUpdating(true);
 
     try {
@@ -1264,6 +1434,19 @@ export default function ReviewPage() {
       // Update local state
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
       setRevisionCount(revisionNumber);
+
+      // Refresh annotations when status changes to revisions (annotations marked as old)
+      if (newStatus === "revisions") {
+        try {
+          const response = await fetch(`/api/annotations?asset_id=${assetId}`);
+          const data = await response.json();
+          if (response.ok) {
+            setAnnotations(data.annotations || []);
+          }
+        } catch (error) {
+          console.error("Error refreshing annotations:", error);
+        }
+      }
 
       // Dispatch custom event to notify other components to refresh
       window.dispatchEvent(
@@ -1338,15 +1521,203 @@ export default function ReviewPage() {
     }
   };
 
+  // Helper function to check if client has provided any feedback
+  const hasClientFeedback = () => {
+    // Get the last revision timestamp
+    const lastRevision =
+      revisionHistory.length > 0
+        ? revisionHistory[revisionHistory.length - 1]
+        : null;
+
+    const lastRevisionTime = lastRevision?.created_at
+      ? new Date(lastRevision.created_at).getTime()
+      : 0;
+
+    // Check if there are any annotations created by the current client since the last revision
+    const clientAnnotations = annotations.filter(
+      (annotation) =>
+        annotation.created_by === user?.id &&
+        new Date(annotation.created_at).getTime() > lastRevisionTime
+    );
+
+    // Check if there are any comments created by the current client since the last revision
+    const clientComments = comments.filter(
+      (comment) =>
+        comment.created_by === user?.id &&
+        new Date(comment.created_at).getTime() > lastRevisionTime
+    );
+
+    console.log(
+      "Debug - hasClientFeedback - Last revision time:",
+      lastRevisionTime
+    );
+    console.log(
+      "Debug - hasClientFeedback - Client annotations count (new):",
+      clientAnnotations.length
+    );
+    console.log(
+      "Debug - hasClientFeedback - Client comments count (new):",
+      clientComments.length
+    );
+
+    return clientAnnotations.length > 0 || clientComments.length > 0;
+  };
+
+  // Helper function to check if QA has provided any feedback since the last revision
+  const hasQAFeedback = () => {
+    // Get the current revision number
+    const currentRevision = revisionCount || 0;
+
+    // Get the last revision timestamp
+    const lastRevision =
+      revisionHistory.length > 0
+        ? revisionHistory[revisionHistory.length - 1]
+        : null;
+
+    const lastRevisionTime = lastRevision?.created_at
+      ? new Date(lastRevision.created_at).getTime()
+      : 0;
+
+    console.log("Debug - hasQAFeedback - Current revision:", currentRevision);
+    console.log("Debug - hasQAFeedback - User ID:", user?.id);
+    console.log(
+      "Debug - hasQAFeedback - Last revision time:",
+      lastRevisionTime
+    );
+    console.log("Debug - hasQAFeedback - Last revision:", lastRevision);
+
+    // Check if there are any annotations created by the current QA user since the last revision
+    const qaAnnotations = annotations.filter(
+      (annotation) =>
+        annotation.created_by === user?.id &&
+        new Date(annotation.created_at).getTime() > lastRevisionTime
+    );
+
+    // Check if there are any comments created by the current QA user since the last revision
+    const qaComments = comments.filter(
+      (comment) =>
+        comment.created_by === user?.id &&
+        new Date(comment.created_at).getTime() > lastRevisionTime
+    );
+
+    console.log(
+      "Debug - hasQAFeedback - QA annotations count (new):",
+      qaAnnotations.length
+    );
+    console.log(
+      "Debug - hasQAFeedback - QA comments count (new):",
+      qaComments.length
+    );
+    console.log(
+      "Debug - hasQAFeedback - New annotations:",
+      qaAnnotations.map((a) => ({
+        id: a.id,
+        created_by: a.created_by,
+        created_at: a.created_at,
+      }))
+    );
+    console.log(
+      "Debug - hasQAFeedback - New comments:",
+      qaComments.map((c) => ({
+        id: c.id,
+        created_by: c.created_by,
+        created_at: c.created_at,
+      }))
+    );
+
+    // If this is the first revision (revision 1), any feedback is valid
+    if (currentRevision === 0) {
+      const hasFeedback = qaAnnotations.length > 0 || qaComments.length > 0;
+      console.log(
+        "Debug - hasQAFeedback - First revision, has feedback:",
+        hasFeedback
+      );
+      return hasFeedback;
+    }
+
+    // For subsequent revisions, check for new feedback since the last revision
+    const hasFeedback = qaAnnotations.length > 0 || qaComments.length > 0;
+    console.log(
+      "Debug - hasQAFeedback - Subsequent revision, has new feedback:",
+      hasFeedback
+    );
+    return hasFeedback;
+  };
+
+  // Comprehensive feedback validation for both clients and QA
+  const hasValidFeedback = () => {
+    const userRole = user?.metadata?.role;
+    console.log("Debug - hasValidFeedback - User role:", userRole);
+    console.log("Debug - hasValidFeedback - User role type:", typeof userRole);
+    console.log("Debug - hasValidFeedback - User object:", user);
+    console.log("Debug - hasValidFeedback - Annotations:", annotations.length);
+    console.log("Debug - hasValidFeedback - Comments:", comments.length);
+
+    // Check for exact role matches (case-insensitive)
+    const normalizedRole = userRole?.toLowerCase?.();
+    if (normalizedRole === "client") {
+      const hasFeedback = hasClientFeedback();
+      console.log("Debug - hasValidFeedback - Client feedback:", hasFeedback);
+      return hasFeedback;
+    } else if (normalizedRole === "qa") {
+      const hasFeedback = hasQAFeedback();
+      console.log("Debug - hasValidFeedback - QA feedback:", hasFeedback);
+      return hasFeedback;
+    }
+
+    // For other roles (admin, etc.), allow revisions without feedback validation
+    console.log("Debug - hasValidFeedback - Other role, allowing revision");
+    return true;
+  };
+
   const updateAssetStatus = async (newStatus: string, skipDialog = false) => {
     if (!assetId) return;
 
-    // Handle revision workflow
-    if (newStatus === "revisions" && !skipDialog) {
-      const currentRevisionCount = revisionCount + 1;
-      const isClient = user?.metadata?.role === "client";
+    // Prevent revision for assets that are not started or already approved by client
+    if (
+      (newStatus === "revisions" || newStatus === "client_revision") &&
+      (asset?.status === "not_started" ||
+        asset?.status === "approved_by_client")
+    ) {
+      const errorMessage =
+        asset?.status === "not_started"
+          ? "Cannot send for revision - asset has not been started yet"
+          : "Cannot send for revision - asset has already been approved by client";
+      toast.error(errorMessage);
+      return;
+    }
 
-      if (isClient) {
+    // Handle revision workflow
+    if (
+      (newStatus === "revisions" || newStatus === "client_revision") &&
+      !skipDialog
+    ) {
+      const currentRevisionCount = revisionCount + 1;
+      const userRole = user?.metadata?.role;
+
+      // Check if user has provided valid feedback before allowing revision
+      console.log("Debug - User role:", userRole);
+      console.log("Debug - Has valid feedback:", hasValidFeedback());
+      console.log(
+        "Debug - Annotations count:",
+        annotations.filter((a) => a.created_by === user?.id).length
+      );
+      console.log(
+        "Debug - Comments count:",
+        comments.filter((c) => c.created_by === user?.id).length
+      );
+
+      if (!hasValidFeedback()) {
+        // eslint-disable-next-line
+        const roleText = userRole === "client" ? "client" : "QA";
+        toast.error(
+          `Please add annotations or comments before requesting a revision`
+        );
+        return;
+      }
+
+      // Show revision dialogs for clients
+      if (userRole === "client") {
         if (currentRevisionCount === 1 || currentRevisionCount === 2) {
           setShowRevisionDialog(true);
           return;
@@ -1369,7 +1740,10 @@ export default function ReviewPage() {
         body: JSON.stringify({
           assetId,
           status: newStatus,
-          revisionCount: newStatus === "revisions" ? revisionCount : undefined,
+          revisionCount:
+            newStatus === "revisions" || newStatus === "client_revision"
+              ? revisionCount
+              : undefined,
         }),
       });
 
@@ -1381,7 +1755,7 @@ export default function ReviewPage() {
       const result = await response.json();
 
       // Handle notification sending based on status changes
-      if (newStatus === "revisions") {
+      if (newStatus === "revisions" || newStatus === "client_revision") {
         // Send revision notification to modeler
         try {
           // Get modeler assignment info
@@ -1581,8 +1955,19 @@ export default function ReviewPage() {
 
       // Update local state
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
-      if (newStatus === "revisions") {
+      if (newStatus === "revisions" || newStatus === "client_revision") {
         setRevisionCount((prev) => prev + 1);
+
+        // Refresh annotations when status changes to revisions (annotations marked as old)
+        try {
+          const response = await fetch(`/api/annotations?asset_id=${assetId}`);
+          const data = await response.json();
+          if (response.ok) {
+            setAnnotations(data.annotations || []);
+          }
+        } catch (error) {
+          console.error("Error refreshing annotations:", error);
+        }
       }
 
       // Dispatch custom event to notify other components to refresh
@@ -1678,7 +2063,14 @@ export default function ReviewPage() {
       setRevisionCount(nextRevisionNumber);
       setAsset((prev) =>
         prev
-          ? { ...prev, revision_count: nextRevisionNumber, status: "revisions" }
+          ? {
+              ...prev,
+              revision_count: nextRevisionNumber,
+              status:
+                user?.metadata?.role === "client"
+                  ? "client_revision"
+                  : "revisions",
+            }
           : null
       );
 
@@ -1713,7 +2105,10 @@ export default function ReviewPage() {
       // Now update the asset status to revisions with the correct revision number
 
       try {
-        await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
+        await updateAssetStatusWithRevision(
+          user?.metadata?.role === "client" ? "client_revision" : "revisions",
+          nextRevisionNumber
+        );
 
         toast.success("Revision submitted. Awaiting production review.");
       } catch (statusError) {
@@ -1787,14 +2182,24 @@ export default function ReviewPage() {
       setRevisionCount(nextRevisionNumber);
       setAsset((prev) =>
         prev
-          ? { ...prev, revision_count: nextRevisionNumber, status: "revisions" }
+          ? {
+              ...prev,
+              revision_count: nextRevisionNumber,
+              status:
+                user?.metadata?.role === "client"
+                  ? "client_revision"
+                  : "revisions",
+            }
           : null
       );
 
       // Now update the asset status to revisions with the correct revision number
 
       try {
-        await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
+        await updateAssetStatusWithRevision(
+          user?.metadata?.role === "client" ? "client_revision" : "revisions",
+          nextRevisionNumber
+        );
 
         toast.success("Revision submitted. Awaiting production review.");
       } catch (statusError) {
@@ -1868,14 +2273,24 @@ export default function ReviewPage() {
       setRevisionCount(nextRevisionNumber);
       setAsset((prev) =>
         prev
-          ? { ...prev, revision_count: nextRevisionNumber, status: "revisions" }
+          ? {
+              ...prev,
+              revision_count: nextRevisionNumber,
+              status:
+                user?.metadata?.role === "client"
+                  ? "client_revision"
+                  : "revisions",
+            }
           : null
       );
 
       // Now update the asset status to revisions with the correct revision number
 
       try {
-        await updateAssetStatusWithRevision("revisions", nextRevisionNumber);
+        await updateAssetStatusWithRevision(
+          user?.metadata?.role === "client" ? "client_revision" : "revisions",
+          nextRevisionNumber
+        );
 
         toast.success("Revision submitted. Awaiting production review.");
       } catch (statusError) {
@@ -1893,7 +2308,10 @@ export default function ReviewPage() {
 
   // Check if functionality should be disabled
   const isFunctionalityDisabled = () => {
-    return asset?.status === "revisions" && revisionCount >= 1;
+    return (
+      (asset?.status === "revisions" || asset?.status === "client_revision") &&
+      revisionCount >= 1
+    );
   };
 
   // Function to determine which revision an item was added in
@@ -1930,6 +2348,116 @@ export default function ReviewPage() {
   const openRevisionDetails = (revision: any) => {
     setSelectedRevision(revision);
     setShowRevisionDetailsDialog(true);
+  };
+
+  // Function to restore a revision (restore annotations and comments from that revision)
+  const restoreRevision = async (revisionNumber: number) => {
+    if (!assetId || !user) return;
+
+    const revision = revisionHistory.find(
+      (r) => r.revision_number === revisionNumber
+    );
+
+    if (!revision) {
+      toast.error("Revision not found");
+      return;
+    }
+
+    try {
+      // Get the stored annotations and comments from the revision
+      const revisionAnnotations = revision.annotations || [];
+      const revisionComments = revision.comments || [];
+
+      // First, mark all current annotations as old
+      const { error: markOldError } = await supabase
+        .from("asset_annotations")
+        .update({ is_old_annotation: true })
+        .eq("asset_id", assetId);
+
+      if (markOldError) {
+        console.error(
+          "Error marking current annotations as old:",
+          markOldError
+        );
+        toast.error("Failed to prepare for restoration");
+        return;
+      }
+
+      // Delete all current comments
+      const { error: deleteCommentsError } = await supabase
+        .from("asset_comments")
+        .delete()
+        .eq("asset_id", assetId);
+
+      if (deleteCommentsError) {
+        console.error("Error deleting current comments:", deleteCommentsError);
+        toast.error("Failed to clear current comments");
+        return;
+      }
+
+      // Restore annotations from the revision snapshot
+      for (const annotation of revisionAnnotations) {
+        const { error: restoreAnnotationError } = await supabase
+          .from("asset_annotations")
+          .insert({
+            asset_id: assetId,
+            position: annotation.position,
+            normal: annotation.normal,
+            surface: annotation.surface,
+            comment: annotation.comment,
+            image_url: annotation.image_url,
+            parent_id: annotation.parent_id,
+            created_by: annotation.created_by,
+            created_at: annotation.created_at,
+            is_old_annotation: false, // Restored annotations are not old
+          });
+
+        if (restoreAnnotationError) {
+          console.error("Error restoring annotation:", restoreAnnotationError);
+        }
+      }
+
+      // Restore comments from the revision snapshot
+      for (const comment of revisionComments) {
+        const { error: restoreCommentError } = await supabase
+          .from("asset_comments")
+          .insert({
+            asset_id: assetId,
+            content: comment.content,
+            created_by: comment.created_by,
+            created_at: comment.created_at,
+            parent_id: comment.parent_id,
+            priority: comment.priority,
+          });
+
+        if (restoreCommentError) {
+          console.error("Error restoring comment:", restoreCommentError);
+        }
+      }
+
+      // Refresh the data by refetching
+      const annotationResponse = await fetch(
+        `/api/annotations?asset_id=${assetId}`
+      );
+      const annotationData = await annotationResponse.json();
+      if (annotationResponse.ok) {
+        setAnnotations(annotationData.annotations || []);
+      }
+
+      const commentResponse = await fetch(`/api/comments?asset_id=${assetId}`);
+      const commentData = await commentResponse.json();
+      if (commentResponse.ok) {
+        setComments(commentData.comments || []);
+      }
+
+      await fetchRevisionHistory();
+
+      toast.success(`Revision ${revisionNumber} restored successfully`);
+      setShowRevisionDetailsDialog(false);
+    } catch (error) {
+      console.error("Error restoring revision:", error);
+      toast.error("Failed to restore revision");
+    }
   };
 
   // Function to get color classes for revision badges
@@ -1991,11 +2519,11 @@ export default function ReviewPage() {
 
   // Permissions: Admins can edit/delete all annotations and comments, users can edit/delete their own annotations
   const isAdmin = user?.metadata?.role === "admin";
-  const isQA = user?.metadata?.role === "qa";
+
   const canEditOrDeleteAnnotation = (annotation: Annotation) =>
     isAdmin || annotation.created_by === user?.id;
   const canEditOrDeleteComment = (comment?: any) =>
-    isAdmin || (isQA && comment && comment.created_by === user?.id);
+    isAdmin || (comment && comment.created_by === user?.id);
 
   // Function to get comments for selected annotation
   // Comments should be independent of annotations - show all comments for the asset
@@ -2003,58 +2531,32 @@ export default function ReviewPage() {
     return comments;
   };
 
-  // Filter annotations and comments for a specific revision
+  // Filter annotations and comments for a specific revision using stored snapshots
   const getRevisionItems = (revisionNumber: number) => {
     if (revisionNumber === 0) {
       // For revision 0 (original), get items created before the first revision was requested
       if (revisionHistory.length === 0) {
         // If no revisions exist, all items belong to revision 0
-        return { annotations, comments };
+        return { annotations: allAnnotations, comments };
       }
 
-      const firstRevisionDate = new Date(revisionHistory[0].created_at);
-
-      const revisionAnnotations = annotations.filter(
-        (annotation) => new Date(annotation.created_at) < firstRevisionDate
-      );
-
-      const revisionComments = comments.filter(
-        (comment) => new Date(comment.created_at) < firstRevisionDate
-      );
+      // Use the snapshot from the first revision to get the state before any revisions
+      const firstRevision = revisionHistory[0];
+      const revisionAnnotations = firstRevision.annotations || [];
+      const revisionComments = firstRevision.comments || [];
 
       return { annotations: revisionAnnotations, comments: revisionComments };
     } else {
-      // For revision N, get items created after revision N-1 and before revision N+1
+      // For revision N, use the stored snapshot from that revision
       const currentRevision = revisionHistory.find(
         (r) => r.revision_number === revisionNumber
       );
 
       if (!currentRevision) return { annotations: [], comments: [] };
 
-      const currentRevisionDate = new Date(currentRevision.created_at);
-
-      // Find the next revision date (or use far future date for latest revision)
-      const nextRevision = revisionHistory.find(
-        (r) => r.revision_number === revisionNumber + 1
-      );
-      const nextRevisionDate = nextRevision
-        ? new Date(nextRevision.created_at)
-        : new Date(Date.now() + 86400000); // Far future date
-
-      const revisionAnnotations = annotations.filter((annotation) => {
-        const annotationDate = new Date(annotation.created_at);
-        return (
-          annotationDate >= currentRevisionDate &&
-          annotationDate < nextRevisionDate
-        );
-      });
-
-      const revisionComments = comments.filter((comment) => {
-        const commentDate = new Date(comment.created_at);
-        return (
-          commentDate >= currentRevisionDate && commentDate < nextRevisionDate
-        );
-      });
+      // Use the stored snapshots from the revision
+      const revisionAnnotations = currentRevision.annotations || [];
+      const revisionComments = currentRevision.comments || [];
 
       return { annotations: revisionAnnotations, comments: revisionComments };
     }
@@ -2165,11 +2667,6 @@ export default function ReviewPage() {
       setComments((prev) => [data, ...prev]);
       setNewCommentText("");
       toast.success("Comment added successfully");
-
-      // If client adds a comment, automatically trigger revision dialog
-      if (user?.metadata?.role === "client") {
-        setShowRevisionDialog(true);
-      }
     } catch (error) {
       console.error("Error adding comment:", error);
       toast.error("Failed to add comment");
@@ -2646,8 +3143,8 @@ export default function ReviewPage() {
 
         <div className="flex-1 flex overflow-hidden">
           {/* Skeleton Model Viewer */}
-          <div className="flex-1 relative bg-background rounded-2xl m-6 shadow-xl border border-border/50">
-            <div className="w-full h-full bg-muted rounded-2xl animate-pulse flex items-center justify-center">
+          <div className="flex-1 relative bg-background ">
+            <div className="w-full h-full bg-muted   flex items-center justify-center">
               <div className="text-center">
                 <div className="w-16 h-16 bg-muted rounded-full animate-pulse mx-auto mb-4"></div>
                 <div className="h-4 w-32 bg-muted rounded animate-pulse mx-auto"></div>
@@ -2656,7 +3153,7 @@ export default function ReviewPage() {
           </div>
 
           {/* Skeleton Annotations Panel */}
-          <div className="w-96 bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-xl overflow-y-auto">
+          <div className="w-143 bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-xl overflow-y-auto">
             <div className="p-8">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
@@ -2815,11 +3312,29 @@ export default function ReviewPage() {
                 </div>
               </div>
             </div>
+
+            {/* Feedback Notice */}
+            {["client", "qa"].includes(
+              user?.metadata?.role?.toLowerCase?.() || ""
+            ) &&
+              asset?.status !== "revisions" &&
+              asset?.status !== "client_revision" &&
+              hasValidFeedback() && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded px-2 py-1 mt-2">
+                  <div className="flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 text-yellow-600" />
+                    <p className="text-xs text-yellow-800">
+                      Remember to click &quot;Revision&quot; button when ready
+                    </p>
+                  </div>
+                </div>
+              )}
+
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="text-center">
                   <div className="text-sm sm:text-lg font-bold text-foreground">
-                    {annotations.length}
+                    {filteredAnnotations.length}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Annotations
@@ -2900,17 +3415,53 @@ export default function ReviewPage() {
                   )}
 
                 <Button
-                  onClick={() => updateAssetStatus("revisions")}
-                  disabled={asset?.status === "revisions" || statusUpdating}
+                  onClick={() => {
+                    const userRole = user?.metadata?.role?.toLowerCase?.();
+                    const newStatus =
+                      userRole === "client" ? "client_revision" : "revisions";
+                    console.log("Frontend sending status:", {
+                      userRole: user?.metadata?.role,
+                      normalizedRole: userRole,
+                      newStatus,
+                      userId: user?.id,
+                    });
+                    updateAssetStatus(newStatus);
+                  }}
+                  disabled={
+                    asset?.status === "revisions" ||
+                    asset?.status === "client_revision" ||
+                    asset?.status === "not_started" ||
+                    asset?.status === "approved_by_client" ||
+                    statusUpdating
+                  }
                   variant={
-                    asset?.status === "revisions" ? "outline" : "outline"
+                    asset?.status === "revisions" ||
+                    asset?.status === "client_revision"
+                      ? "outline"
+                      : "outline"
                   }
                   size="sm"
                   className={`h-7 sm:h-8 px-2 sm:px-3 text-xs cursor-pointer ${
-                    asset?.status === "revisions"
+                    asset?.status === "revisions" ||
+                    asset?.status === "client_revision"
                       ? "bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
-                      : ""
+                      : ["client", "qa"].includes(
+                            user?.metadata?.role?.toLowerCase?.() || ""
+                          ) && !hasValidFeedback()
+                        ? "bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-950/20 dark:border-yellow-800/50 dark:text-yellow-400 dark:hover:bg-yellow-950/30"
+                        : ""
                   }`}
+                  title={
+                    asset?.status === "not_started"
+                      ? "Cannot send for revision - asset has not been started yet"
+                      : asset?.status === "approved_by_client"
+                        ? "Cannot send for revision - asset has already been approved by client"
+                        : ["client", "qa"].includes(
+                              user?.metadata?.role?.toLowerCase?.() || ""
+                            ) && !hasValidFeedback()
+                          ? "Add annotations or comments before requesting a revision"
+                          : undefined
+                  }
                 >
                   {statusUpdating ? (
                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
@@ -3000,8 +3551,13 @@ export default function ReviewPage() {
                                   key={annotation.id || index}
                                   className="text-xs p-2 bg-background rounded border"
                                 >
-                                  <div className="font-medium text-muted-foreground mb-1">
+                                  <div className="font-medium text-muted-foreground mb-1 flex items-center gap-2">
                                     Annotation {index + 1}
+                                    {annotation.is_old_annotation && (
+                                      <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-800 rounded border border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/50">
+                                        Old
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-foreground">
                                     <span className="break-words whitespace-pre-wrap">
@@ -3090,21 +3646,23 @@ export default function ReviewPage() {
           </div>
         )}
 
-        <div className="flex flex-col xl:flex-row flex-1 overflow-y-auto xl:overflow-hidden bg-background">
+        <div className="flex flex-col xl:flex-row flex-1 overflow-y-auto xl:overflow-hidden ">
           {/* Main Content (3D Viewer) */}
-          <div className="flex-1 relative bg-background m-3 sm:m-6 rounded-lg shadow-lg border border-border/50 h-[65vh] xl:h-auto">
+          <div className="flex-1 relative  h-[65vh] xl:h-auto">
             {/* Ctrl Key Visual Indicator */}
-            {isCtrlPressed && !annotationMode && (
-              <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 bg-primary/90 text-primary-foreground px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium shadow-lg border border-primary/20 backdrop-blur-sm">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary-foreground rounded-full animate-pulse"></div>
-                  <span className="hidden sm:inline">
-                    Hold Ctrl + Click to add annotation
-                  </span>
-                  <span className="sm:hidden">Ctrl + Click</span>
-                </div>
+
+            <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 bg-background/90 text-foreground px-1 sm:px-3 py-1 sm:py-2 rounded-sm text-xs sm:text-xs  shadow-sm ">
+              <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+                <span className="hidden sm:inline">
+                  Hold Ctrl + Click to add annotation
+                </span>
+                <span className="hidden sm:inline">
+                  Click outside the model to reset view
+                </span>
+                <span className="sm:hidden">Ctrl + Click</span>
               </div>
-            )}
+            </div>
+
             <Script
               type="module"
               src="/model-viewer.js"
@@ -3115,7 +3673,7 @@ export default function ReviewPage() {
             />
 
             {asset.glb_link ? (
-              <div className="w-full h-full rounded-lg overflow-hidden">
+              <div className="w-full h-full overflow-hidden">
                 {/* @ts-expect-error cant really fix viewer errors */}
                 <model-viewer
                   ref={modelViewerRef}
@@ -3133,14 +3691,12 @@ export default function ReviewPage() {
                   shadow-softness="1"
                   min-field-of-view="5deg"
                   max-field-of-view="35deg"
-                  auto-rotate="false"
-                  style={{ width: "100%", height: "100%" }}
-                  onLoad={() => {
-                    handleModelLoaded();
-                    if (modelViewerRef.current) {
-                      modelViewerRef.current.autoRotate = false;
-                    }
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: "#fafafa",
                   }}
+                  onLoad={handleModelLoaded}
                   onClick={(event: any) => {
                     // Check if Ctrl key is held down for hotkey shortcut
                     const isCtrlPressed = event.ctrlKey || event.metaKey; // metaKey for Mac
@@ -3197,7 +3753,7 @@ export default function ReviewPage() {
                               selectedHotspotId === hotspot.id ? "selected" : ""
                             }`}
                             data-annotation={
-                              annotations
+                              filteredAnnotations
                                 .sort(
                                   (a, b) =>
                                     new Date(a.created_at).getTime() -
@@ -3240,17 +3796,37 @@ export default function ReviewPage() {
                   <p className="text-muted-foreground mb-4">
                     No 3D model available for this asset
                   </p>
-                  <Button onClick={() => router.push("/client-review")}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Client Review
-                  </Button>
                 </div>
               </div>
             )}
 
             {/* Dimensions Toggle Button */}
-            {asset.glb_link && (
+            {asset.glb_link && user?.metadata?.role !== "client" && (
               <div className="absolute top-2 right-2 sm:top-4 sm:right-0 z-20 w-fit min-w-[120px] sm:min-w-[200px] flex gap-2">
+                {/* Undo button */}
+                {lastDeletedAnnotation && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={undoLastDeletion}
+                    disabled={isUndoing}
+                    className="bg-background/95 backdrop-blur-sm border-border/50 shadow-md cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Undo last deletion (Ctrl+Z)"
+                  >
+                    {isUndoing ? (
+                      <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                    ) : (
+                      <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {isUndoing ? "Restoring..." : "Undo"}
+                    </span>
+                    <span className="sm:hidden">
+                      {isUndoing ? "..." : "Undo"}
+                    </span>
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -3262,7 +3838,7 @@ export default function ReviewPage() {
                     a.click();
                     document.body.removeChild(a);
                   }}
-                  className="bg-background/95 backdrop-blur-sm border-border/50 shadow-md cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs"
+                  className="bg-background/95  border-border/50 shadow-sm cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs"
                   title="Download GLB"
                 >
                   <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
@@ -3275,15 +3851,23 @@ export default function ReviewPage() {
             {annotationMode && (
               <div className="absolute top-2 left-2 sm:top-4 sm:left-4 bg-primary text-primary-foreground text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2 rounded-full z-20 shadow-lg backdrop-blur-sm">
                 <span className="hidden sm:inline">
-                  Double-click to add hotspot
+                  Click to add annotation
                 </span>
-                <span className="sm:hidden">Double-click</span>
+                <span className="sm:hidden">Click to add</span>
+              </div>
+            )}
+
+            {/* Center model shortcut indicator */}
+            {modelLoaded && (
+              <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 bg-muted/90 text-muted-foreground text-xs px-2 sm:px-3 py-1 rounded-md z-20 shadow-lg backdrop-blur-sm">
+                <span className="hidden sm:inline">TAB to center model</span>
+                <span className="sm:hidden">TAB center</span>
               </div>
             )}
           </div>
 
           {/* Right Panel - Switchable between Reference Images and Feedback */}
-          <div className="w-full xl:w-[570px] max-w-full flex flex-col bg-background shadow-lg border border-border/50 p-3 sm:p-6 h-[50vh] min-h-[700px] xl:h-auto xl:min-h-0 overflow-y-auto">
+          <div className="w-full xl:w-[510px] max-w-full flex flex-col bg-background border border-border/50 p-3 sm:p-6 h-[50vh] min-h-[500px] xl:h-auto xl:min-h-0 overflow-y-auto">
             {/* Tab Navigation */}
             <div className="flex items-center gap-1 mb-4 sm:mb-6 bg-muted/50 rounded-lg p-1">
               <button
@@ -3297,10 +3881,10 @@ export default function ReviewPage() {
                 <div className="flex items-center gap-1 sm:gap-2">
                   <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">
-                    Feedback ({annotations.length + comments.length})
+                    Feedback ({allAnnotations.length + comments.length})
                   </span>
                   <span className="sm:hidden">
-                    Feedback ({annotations.length + comments.length})
+                    Feedback ({allAnnotations.length + comments.length})
                   </span>
                 </div>
               </button>
@@ -3594,7 +4178,7 @@ export default function ReviewPage() {
                           {deleteMode ? "Cancel" : "Delete"}
                         </Button>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-2">
                         <Button
                           variant={annotationMode ? "default" : "outline"}
                           size="sm"
@@ -3672,7 +4256,7 @@ export default function ReviewPage() {
                             isFunctionalityDisabled()
                               ? "Comments disabled during revision"
                               : selectedHotspotId
-                                ? `Add a comment about annotation ${annotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
+                                ? `Add a comment about annotation ${allAnnotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
                                 : "Add a comment about this asset..."
                           }
                           value={newCommentText}
@@ -3712,7 +4296,13 @@ export default function ReviewPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setShowDeleteWarning(true)}
+                            onClick={async () => {
+                              await deleteMultipleAnnotations(
+                                selectedAnnotations
+                              );
+                              setSelectedAnnotations([]);
+                              setDeleteMode(false);
+                            }}
                             className="shadow-sm cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -3728,7 +4318,7 @@ export default function ReviewPage() {
                 <div className="p-2">
                   <div className="space-y-4">
                     {[
-                      ...annotations
+                      ...allAnnotations
                         .filter((a: any) => !a.parent_id)
                         .map((a) => ({
                           ...a,
@@ -3782,9 +4372,9 @@ export default function ReviewPage() {
                                   </div>
                                   {/* Annotation Number Badge */}
                                   <div
-                                    className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(annotations.findIndex((a) => a.id === item.id))}`}
+                                    className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(allAnnotations.findIndex((a) => a.id === item.id))}`}
                                   >
-                                    {annotations.findIndex(
+                                    {allAnnotations.findIndex(
                                       (a) => a.id === item.id
                                     ) + 1}
                                   </div>
@@ -3810,6 +4400,14 @@ export default function ReviewPage() {
                                         </span>
                                         <span className="sm:hidden">Ann</span>
                                       </Badge>
+                                      {item.is_old_annotation && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs px-1.5 sm:px-2 py-0.5 bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/50"
+                                        >
+                                          Old
+                                        </Badge>
+                                      )}
                                     </div>
                                   </div>
                                   {item.profiles?.title && (
@@ -3875,6 +4473,26 @@ export default function ReviewPage() {
                                     <Edit3 className="h-3 w-3 mr-2" />
                                     Edit Annotation
                                   </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      if (!canEditOrDeleteAnnotation(item)) {
+                                        toast.error(
+                                          "You can only delete your own annotations"
+                                        );
+                                        return;
+                                      }
+                                      await deleteAnnotation(item.id);
+                                    }}
+                                    disabled={
+                                      isFunctionalityDisabled() ||
+                                      !canEditOrDeleteAnnotation(item)
+                                    }
+                                    className={`${isFunctionalityDisabled() || !canEditOrDeleteAnnotation(item) ? "opacity-50 cursor-not-allowed" : "text-destructive hover:text-destructive"}`}
+                                  >
+                                    <Trash2 className="h-3 w-3 mr-2" />
+                                    Delete Annotation
+                                  </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -3886,8 +4504,12 @@ export default function ReviewPage() {
                                   onChange={(e) =>
                                     setEditComment(e.target.value)
                                   }
+                                  onPaste={handleEditPasteImage}
                                   rows={3}
                                 />
+                                <div className="text-[11px] text-muted-foreground">
+                                  Tip: Paste screenshots directly here (Ctrl+V)
+                                </div>
                                 <div>
                                   <label className="text-sm font-medium text-muted-foreground mb-2 block">
                                     Reference Image (optional)
@@ -4289,7 +4911,7 @@ export default function ReviewPage() {
                                 </div>
                                 <div className="flex flex-col gap-1">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-foreground">
+                                    <span className="text-sm font-medium text-foreground truncate max-w-[150px]">
                                       {item.profiles?.email || "Unknown"}
                                     </span>
                                     <Badge
@@ -4551,7 +5173,7 @@ export default function ReviewPage() {
                         )
                       )}
 
-                    {annotations.length + getAllComments().length === 0 && (
+                    {allAnnotations.length + getAllComments().length === 0 && (
                       <div className="text-center py-12">
                         <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                           <MessageCircle className="h-8 w-8 text-muted-foreground" />
@@ -4573,6 +5195,7 @@ export default function ReviewPage() {
           {/* New Annotation Dialog */}
           <Dialog
             open={selectedAnnotation?.id.startsWith("temp-") || false}
+            modal={true}
             onOpenChange={(open) => {
               if (!open) {
                 // Remove temporary annotation if canceling
@@ -4751,56 +5374,12 @@ export default function ReviewPage() {
             </DialogContent>
           </Dialog>
 
-          {/* Delete Warning Dialog */}
-          <Dialog open={showDeleteWarning} onOpenChange={setShowDeleteWarning}>
-            <DialogContent className="w-[95vw] sm:w-full sm:max-w-[425px] h-fit">
-              <DialogHeader className="pb-3 sm:pb-4">
-                <DialogTitle className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400">
-                  Delete Annotation{selectedAnnotations.length > 0 ? "s" : ""}
-                </DialogTitle>
-                <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
-                  Are you sure you want to delete{" "}
-                  {singleDeleteId
-                    ? "this annotation"
-                    : `${selectedAnnotations.length} annotation(s)`}
-                  ? This action cannot be undone.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex gap-3 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    if (singleDeleteId) {
-                      await handleSingleDelete();
-                    } else {
-                      await deleteMultipleAnnotations(selectedAnnotations);
-                    }
-                    setShowDeleteWarning(false);
-                  }}
-                  className="flex-1 cursor-pointer bg-red-50 border-red-200 text-red-700 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-950/30"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete{" "}
-                  {singleDeleteId
-                    ? "Annotation"
-                    : `${selectedAnnotations.length} Annotation(s)`}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowDeleteWarning(false);
-                    setSingleDeleteId(null);
-                  }}
-                  className="flex-1 cursor-pointer"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
           {/* Image Preview Dialog */}
-          <Dialog open={showImageDialog} onOpenChange={handleDialogClose}>
+          <Dialog
+            open={showImageDialog}
+            onOpenChange={handleDialogClose}
+            modal={true}
+          >
             <DialogContent className="w-[95vw] sm:w-full sm:max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
               <DialogHeader className="px-3 sm:px-6 py-3 sm:py-4 border-b border-border">
                 <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">
@@ -4861,7 +5440,11 @@ export default function ReviewPage() {
           </Dialog>
 
           {/* Add Image URL Dialog */}
-          <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
+          <Dialog
+            open={showUrlDialog}
+            onOpenChange={setShowUrlDialog}
+            modal={true}
+          >
             <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit">
               <DialogHeader className="pb-3 sm:pb-4">
                 <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">
@@ -4921,6 +5504,7 @@ export default function ReviewPage() {
           <Dialog
             open={showRevisionDialog}
             onOpenChange={setShowRevisionDialog}
+            modal={true}
           >
             <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit">
               <DialogHeader className="pb-3 sm:pb-4">
@@ -4977,6 +5561,7 @@ export default function ReviewPage() {
             <Dialog
               open={showSecondRevisionDialog}
               onOpenChange={setShowSecondRevisionDialog}
+              modal={true}
             >
               <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit">
                 <DialogHeader className="pb-3 sm:pb-4">
@@ -5041,6 +5626,7 @@ export default function ReviewPage() {
           <Dialog
             open={showRevisionDetailsDialog}
             onOpenChange={setShowRevisionDetailsDialog}
+            modal={true}
           >
             <DialogContent className="w-[95vw] sm:w-full sm:max-w-[800px] h-fit min-h-[400px] sm:min-h-[500px] overflow-y-auto">
               <DialogHeader className="pb-3 sm:pb-4">
@@ -5083,14 +5669,24 @@ export default function ReviewPage() {
                                         {annotation.profiles?.email ||
                                           "Unknown"}
                                       </div>
-                                      {annotation.profiles?.title && (
-                                        <Badge
-                                          variant="outline"
-                                          className="text-xs mt-1"
-                                        >
-                                          {annotation.profiles.title}
-                                        </Badge>
-                                      )}
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {annotation.profiles?.title && (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
+                                            {annotation.profiles.title}
+                                          </Badge>
+                                        )}
+                                        {annotation.is_old_annotation && (
+                                          <Badge
+                                            variant="secondary"
+                                            className="text-xs bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/50"
+                                          >
+                                            Old
+                                          </Badge>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                   <div className="text-xs text-muted-foreground">
@@ -5199,7 +5795,19 @@ export default function ReviewPage() {
                 </div>
               )}
 
-              <div className="flex justify-end pt-4 border-t border-border">
+              <div className="flex justify-between pt-4 border-t border-border">
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (selectedRevision) {
+                      restoreRevision(selectedRevision.revision_number);
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  Restore This Revision
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setShowRevisionDetailsDialog(false)}
@@ -5214,7 +5822,11 @@ export default function ReviewPage() {
       </div>
 
       {/* Notes Dialog */}
-      <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
+      <Dialog
+        open={isNotesDialogOpen}
+        onOpenChange={setIsNotesDialogOpen}
+        modal={true}
+      >
         <DialogContent className="w-[95vw] sm:w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">

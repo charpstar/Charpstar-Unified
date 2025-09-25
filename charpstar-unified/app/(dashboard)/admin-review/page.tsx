@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/containers";
@@ -104,7 +105,7 @@ const PRICING_OPTIONS: PricingOption[] = [
 
 // Derive human-readable task type from pricing option id
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import { getPriorityLabel } from "@/lib/constants";
@@ -125,6 +126,8 @@ const getStatusRowClass = (status: string): string => {
       return "table-row-status-in-production";
     case "revisions":
       return "table-row-status-revisions";
+    case "client_revision":
+      return "table-row-status-client-revision";
     case "approved":
       return "table-row-status-approved";
     case "approved_by_client":
@@ -151,6 +154,8 @@ const getStatusLabelClass = (status: string): string => {
       return "status-in-production";
     case "revisions":
       return "status-revisions";
+    case "client_revision":
+      return "status-client-revision";
     case "approved":
       return "status-approved";
     case "approved_by_client":
@@ -177,6 +182,8 @@ const getStatusLabelText = (status: string): string => {
       return "In Production";
     case "revisions":
       return "Sent for Revision";
+    case "client_revision":
+      return "Client Revision";
     case "approved":
       return "Approved";
     case "approved_by_client":
@@ -216,6 +223,8 @@ const getStatusIcon = (status: string) => {
       return null;
     case "revisions":
       return <RotateCcw className="h-4 w-4 text-orange-600" />;
+    case "client_revision":
+      return <RotateCcw className="h-4 w-4 text-red-600" />;
     case "unallocated":
       return <Users className="h-4 w-4 text-red-600" />;
     default:
@@ -394,12 +403,21 @@ export default function AdminReviewPage() {
   const [annotationCounts, setAnnotationCounts] = useState<
     Record<string, number>
   >({});
+
+  // Get URL parameters for client and batch filtering
+  const urlClient = searchParams.get("client");
+  const urlBatch = searchParams.get("batch");
+
+  // Debug URL parameters
+  console.log("URL parameters on render:", { urlClient, urlBatch });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [clients, setClients] = useState<string[]>([]);
   const [modelers, setModelers] = useState<
     Array<{ id: string; email: string; title?: string }>
   >([]);
-
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
+    {}
+  );
   // Price management state
   const [assetPrices, setAssetPrices] = useState<
     Record<string, { pricingOptionId: string; price: number }>
@@ -521,6 +539,19 @@ export default function AdminReviewPage() {
         )
         .order("upload_order", { ascending: true });
 
+      // Apply URL parameter filters
+      console.log("URL parameters:", { urlClient, urlBatch });
+      if (urlClient) {
+        query = query.eq("client", urlClient);
+        console.log("Applied client filter:", urlClient);
+      }
+      if (urlBatch) {
+        query = query.eq("batch", parseInt(urlBatch));
+        console.log("Applied batch filter:", urlBatch);
+      }
+
+      console.log("Query after URL filters applied");
+
       // If modeler filters are applied, only fetch assets assigned to those modelers
       if (modelerFilters && modelerFilters.length > 0) {
         // First get the asset IDs assigned to this modeler (only accepted assignments)
@@ -559,6 +590,13 @@ export default function AdminReviewPage() {
         return;
       }
 
+      console.log("Fetched assets count:", (data || []).length);
+      console.log(
+        "Sample assets:",
+        (data || [])
+          .slice(0, 3)
+          .map((a) => ({ client: a.client, batch: a.batch, status: a.status }))
+      );
       setAssets(data || []);
       setFiltered(data || []);
     } catch (error) {
@@ -1000,7 +1038,7 @@ export default function AdminReviewPage() {
     }
   };
 
-  // Calculate status totals based on unfiltered data (always show overall totals)
+  // Calculate status totals - use filtered data when URL parameters are present
   const statusTotals = useMemo(() => {
     if (showAllocationLists) {
       // Aggregate asset statuses from all assets across all allocation lists (unfiltered)
@@ -1008,6 +1046,7 @@ export default function AdminReviewPage() {
         total: 0, // Total assets across all lists
         in_production: 0,
         revisions: 0,
+        client_revision: 0,
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0,
@@ -1038,6 +1077,10 @@ export default function AdminReviewPage() {
           totals.total > 0
             ? Math.round((totals.approved / totals.total) * 100)
             : 0,
+        client_revision:
+          totals.total > 0
+            ? Math.round((totals.client_revision / totals.total) * 100)
+            : 0,
         delivered_by_artist:
           totals.total > 0
             ? Math.round((totals.delivered_by_artist / totals.total) * 100)
@@ -1055,6 +1098,7 @@ export default function AdminReviewPage() {
         total: filtered.length,
         in_production: 0,
         revisions: 0,
+        client_revision: 0,
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0,
@@ -1094,10 +1138,17 @@ export default function AdminReviewPage() {
 
       return { totals, percentages } as const;
     } else {
+      // Use the assets array which is already filtered by URL parameters in fetchAssets
+      const dataLength = assets.length;
+      console.log("Status totals calculation - assets count:", dataLength);
+      console.log("URL params in status totals:", { urlClient, urlBatch });
+
       const totals = {
-        total: assets.length,
+        total: dataLength,
         in_production: 0,
+        in_progress: 0, // Add in_progress status
         revisions: 0,
+        client_revision: 0,
         approved: 0,
         delivered_by_artist: 0,
         not_started: 0, // Include not_started for consistency
@@ -1115,30 +1166,44 @@ export default function AdminReviewPage() {
       const percentages = {
         total: 100,
         in_production:
-          assets.length > 0
-            ? Math.round((totals.in_production / assets.length) * 100)
+          dataLength > 0
+            ? Math.round((totals.in_production / dataLength) * 100)
+            : 0,
+        in_progress:
+          dataLength > 0
+            ? Math.round((totals.in_progress / dataLength) * 100)
             : 0,
         revisions:
-          assets.length > 0
-            ? Math.round((totals.revisions / assets.length) * 100)
+          dataLength > 0
+            ? Math.round((totals.revisions / dataLength) * 100)
             : 0,
         approved:
-          assets.length > 0
-            ? Math.round((totals.approved / assets.length) * 100)
+          dataLength > 0 ? Math.round((totals.approved / dataLength) * 100) : 0,
+        client_revision:
+          dataLength > 0
+            ? Math.round((totals.client_revision / dataLength) * 100)
             : 0,
         delivered_by_artist:
-          assets.length > 0
-            ? Math.round((totals.delivered_by_artist / assets.length) * 100)
+          dataLength > 0
+            ? Math.round((totals.delivered_by_artist / dataLength) * 100)
             : 0,
         not_started:
-          assets.length > 0
-            ? Math.round((totals.not_started / assets.length) * 100)
+          dataLength > 0
+            ? Math.round((totals.not_started / dataLength) * 100)
             : 0,
       };
 
       return { totals, percentages } as const;
     }
-  }, [assets, allocationLists, showAllocationLists, showQAAssets, filtered]);
+  }, [
+    assets,
+    allocationLists,
+    showAllocationLists,
+    showQAAssets,
+    filtered,
+    urlClient,
+    urlBatch,
+  ]);
 
   // Handle URL parameters for client, batch, modeler, and status filters
   useEffect(() => {
@@ -1332,6 +1397,17 @@ export default function AdminReviewPage() {
         showAllocationLists
       )
         return;
+
+      // Wait for searchParams to be available
+      if (!searchParams) {
+        console.log("SearchParams not available yet, skipping fetchAssets");
+        return;
+      }
+
+      console.log("fetchAssets called with URL params:", {
+        urlClient,
+        urlBatch,
+      });
       startLoading();
       setLoading(true);
 
@@ -1356,6 +1432,16 @@ export default function AdminReviewPage() {
           "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment"
         )
         .order("upload_order", { ascending: true });
+
+      // Apply URL parameter filters
+      if (urlClient) {
+        query = query.eq("client", urlClient);
+        console.log("Applied client filter:", urlClient);
+      }
+      if (urlBatch) {
+        query = query.eq("batch", parseInt(urlBatch));
+        console.log("Applied batch filter:", urlBatch);
+      }
 
       // If modeler filters are applied, only fetch assets assigned to those modelers
       if (modelerFilters && modelerFilters.length > 0) {
@@ -1445,6 +1531,9 @@ export default function AdminReviewPage() {
     batchFilters,
     showAllocationLists,
     refreshTrigger,
+    urlClient,
+    urlBatch,
+    searchParams,
   ]);
 
   // Fetch annotation counts for assets
@@ -1473,6 +1562,30 @@ export default function AdminReviewPage() {
     }
 
     fetchAnnotationCounts();
+  }, [assets]);
+
+  // Fetch comment counts for assets
+  useEffect(() => {
+    async function fetchCommentCounts() {
+      if (assets.length === 0) return;
+      try {
+        const assetIds = assets.map((asset) => asset.id);
+        const { data, error } = await supabase
+          .from("asset_comments")
+          .select("asset_id")
+          .in("asset_id", assetIds);
+        if (!error && data) {
+          const counts: Record<string, number> = {};
+          data.forEach((comment) => {
+            counts[comment.asset_id] = (counts[comment.asset_id] || 0) + 1;
+          });
+          setCommentCounts(counts);
+        }
+      } catch (error) {
+        console.error("Error fetching comment counts:", error);
+      }
+    }
+    fetchCommentCounts();
   }, [assets]);
 
   // Apply filters to allocation lists
@@ -2821,7 +2934,7 @@ export default function AdminReviewPage() {
 
         {/* Status Summary Cards */}
         {!loading && !showAllocationLists && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-2 sm:mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-4 mb-2 sm:mb-6">
             {/* Total Models (no filtering on this card itself) */}
             <Card
               className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
@@ -2849,11 +2962,7 @@ export default function AdminReviewPage() {
             <Card
               className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
               onClick={() => {
-                setStatusFilters([
-                  "in_production",
-                  "delivered_by_artist",
-                  "not_started",
-                ]);
+                setStatusFilters(["in_progress"]);
                 setPage(1);
               }}
             >
@@ -2875,9 +2984,7 @@ export default function AdminReviewPage() {
                     className="text-sm sm:text-2xl font-bold"
                     style={{ color: "rgb(30 64 175)" }}
                   >
-                    {statusTotals.totals.in_production +
-                      statusTotals.totals.delivered_by_artist +
-                      statusTotals.totals.not_started}
+                    {statusTotals.totals.in_production}
                   </p>
                 </div>
               </div>
@@ -2947,6 +3054,38 @@ export default function AdminReviewPage() {
               </div>
             </Card>
 
+            {/* Client Revision */}
+            <Card
+              className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["client_revision"]);
+                setPage(1);
+              }}
+            >
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div
+                  className="p-1 sm:p-2 rounded-lg"
+                  style={{ backgroundColor: "rgb(254 226 226)" }}
+                >
+                  <RotateCcw
+                    className="h-3 w-3 sm:h-5 sm:w-5"
+                    style={{ color: "rgb(220 38 38)" }}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Client Revision
+                  </p>
+                  <p
+                    className="text-sm sm:text-2xl font-bold"
+                    style={{ color: "rgb(220 38 38)" }}
+                  >
+                    {statusTotals.totals.client_revision}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
             {/* Delivered by Artist */}
             <Card
               className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
@@ -2974,6 +3113,38 @@ export default function AdminReviewPage() {
                     style={{ color: "rgb(22 101 52)" }}
                   >
                     {statusTotals.totals.delivered_by_artist}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Not Started */}
+            <Card
+              className="p-2 sm:p-4 cursor-pointer hover:shadow-md transition-all"
+              onClick={() => {
+                setStatusFilters(["not_started"]);
+                setPage(1);
+              }}
+            >
+              <div className="flex items-center gap-1.5 sm:gap-3">
+                <div
+                  className="p-1 sm:p-2 rounded-lg"
+                  style={{ backgroundColor: "rgb(243 244 246)" }}
+                >
+                  <Clock
+                    className="h-3 w-3 sm:h-5 sm:w-5"
+                    style={{ color: "rgb(107 114 128)" }}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Not Started
+                  </p>
+                  <p
+                    className="text-sm sm:text-2xl font-bold"
+                    style={{ color: "rgb(107 114 128)" }}
+                  >
+                    {statusTotals.totals.not_started}
                   </p>
                 </div>
               </div>
@@ -3160,7 +3331,7 @@ export default function AdminReviewPage() {
                     // Navigate to allocate page with selected assets
                     router.push(`/production/allocate?${params.toString()}`);
                   }}
-                  className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
+                  className="flex items-center gap-1 sm:gap-2 bg-primary/90  text-primary-foreground w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                 >
                   <Package className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">Allocate</span>
@@ -3318,7 +3489,7 @@ export default function AdminReviewPage() {
                       </div>
 
                       {/* Summary stats always visible */}
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pt-3 sm:pt-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 pt-3 sm:pt-4">
                         <div className="text-center">
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                             Assets
@@ -3339,8 +3510,16 @@ export default function AdminReviewPage() {
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                             Base Price
                           </p>
-                          <p className="text-lg sm:text-2xl font-medium  text-success">
+                          <p className="text-lg sm:text-2xl font-medium text-success">
                             €{stats.totalPrice.toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                            Total w/ Bonus
+                          </p>
+                          <p className="text-lg sm:text-2xl font-medium text-primary">
+                            €{stats.potentialEarnings.toFixed(2)}
                           </p>
                         </div>
                       </div>
@@ -3618,7 +3797,9 @@ export default function AdminReviewPage() {
                                               .status === "in_production"
                                           ? "In Progress"
                                           : assignment.onboarding_assets
-                                                .status === "revisions"
+                                                .status === "revisions" ||
+                                              assignment.onboarding_assets
+                                                .status === "client_revision"
                                             ? "Sent for Revision"
                                             : assignment.onboarding_assets
                                                 .status}
@@ -4423,7 +4604,13 @@ export default function AdminReviewPage() {
                               </span>
                               <div className="flex items-center gap-1 sm:gap-2">
                                 <span className="text-xs text-muted-foreground">
-                                  {annotationCounts[asset.id] || 0} ann.
+                                  {annotationCounts[asset.id] || 0} annotations
+                                </span>
+                                <span className="text-xs text-slate-500 hidden sm:inline">
+                                  •
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {commentCounts[asset.id] || 0} comments
                                 </span>
                                 <span className="text-xs text-slate-500 hidden sm:inline">
                                   •

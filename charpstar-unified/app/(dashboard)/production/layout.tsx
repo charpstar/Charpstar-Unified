@@ -8,7 +8,7 @@ export default function ProductionLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className=" bg-background">
       {/* Page Content */}
       <main>{children}</main>
     </div>
