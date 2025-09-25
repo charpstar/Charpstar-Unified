@@ -97,9 +97,9 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
     }
     
     // File size check
-    if (stats.fileSize > requirements.maxFileSize) {
+    if (stats.fileSize > requirements.maxFileSize + 1024) { // Add 1KB tolerance
       const actualMB = (stats.fileSize / (1024 * 1024)).toFixed(1);
-      const maxMB = (requirements.maxFileSize / (1024 * 1024)).toFixed(0);
+      const maxMB = (requirements.maxFileSize / (1024 * 1024)).toFixed(1);
       issues.push(`File size: ${actualMB}MB exceeds maximum ${maxMB}MB`);
     }
     

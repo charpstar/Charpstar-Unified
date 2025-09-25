@@ -52,6 +52,7 @@ type QAResults = {
     colorMaterial?: number;
     overall?: number;
   };
+  warnings?: string[];
 };
 
 // Job Queue Implementation
@@ -301,52 +302,53 @@ async function processQAJob(
 
     // Technical requirements check
     if (modelStats?.requirements) {
-      const issues: string[] = [];
+      const warnings: string[] = [];
+      const rejections: string[] = [];
 
+      // Check for warnings (non-blocking issues)
       if (
         modelStats.triangles &&
         modelStats.triangles > modelStats.requirements.maxTriangles
       ) {
-        issues.push(
+        warnings.push(
           `Triangle count: ${modelStats.triangles.toLocaleString()} exceeds maximum ${modelStats.requirements.maxTriangles.toLocaleString()}`
         );
       }
 
       if (modelStats.materialCount > modelStats.requirements.maxMaterials) {
-        issues.push(
+        warnings.push(
           `Material count: ${modelStats.materialCount} exceeds maximum ${modelStats.requirements.maxMaterials}`
         );
       }
 
       if (modelStats.meshCount > modelStats.requirements.maxMeshes) {
-        issues.push(
+        warnings.push(
           `Mesh count: ${modelStats.meshCount} exceeds maximum ${modelStats.requirements.maxMeshes}`
         );
       }
 
-      if (modelStats.fileSize > modelStats.requirements.maxFileSize) {
+      if (modelStats.fileSize > modelStats.requirements.maxFileSize + 1024) { // Add 1KB tolerance
         const actualMB = (modelStats.fileSize / (1024 * 1024)).toFixed(1);
-        const maxMB = (
-          modelStats.requirements.maxFileSize /
-          (1024 * 1024)
-        ).toFixed(0);
-        issues.push(`File size: ${actualMB}MB exceeds maximum ${maxMB}MB`);
+        const maxMB = (modelStats.requirements.maxFileSize / (1024 * 1024)).toFixed(1);
+        warnings.push(`File size: ${actualMB}MB exceeds maximum ${maxMB}MB`);
       }
 
+      // Check for rejections (blocking issues)
       if (modelStats.doubleSidedCount > 0) {
-        issues.push("Double sided material found");
+        rejections.push("Double sided material found");
       }
 
-      if (issues.length > 0) {
+      // Only reject if there are blocking issues (double-sided materials)
+      if (rejections.length > 0) {
         const technicalFailureResult: QAResults = {
-          differences: issues.map((issue) => ({
+          differences: rejections.map((issue) => ({
             renderIndex: 0,
             referenceIndex: 0,
             issues: [issue],
             bbox: [0, 0, 100, 100],
             severity: "high" as const,
           })),
-          summary: `${issues.join("; ")}.`,
+          summary: `${rejections.join("; ")}.`,
           status: "Not Approved",
           similarityScores: {
             silhouette: 0,
@@ -585,7 +587,7 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
     // AI Analysis for renders vs references comparison
     const systemMessage = {
       role: "system",
-      content: `You are a 3D model visual QA specialist. The model has already passed technical requirements validation.
+      content: `You are a 3D model visual QA specialist. The model has passed technical requirements validation (no blocking issues like double-sided materials).
 
 INTELLIGENT COMPARISON APPROACH:
 1. **Smart View Matching**: Match each render screenshot to the most relevant reference image(s) based on camera angle and perspective
@@ -625,8 +627,8 @@ SCORING SCALE:
 • 0-39% = unacceptable match with major differences
 
 APPROVAL CRITERIA :
-- If overall score ≥ 75% AND no individual score < 60% → status = "Approved"
-- If overall score < 75% OR any individual score < 60% → status = "Not Approved"
+- If overall score ≥ 60% AND no individual score < 60% → status = "Approved"
+- If overall score < 60% OR any individual score < 60% → status = "Not Approved"
 - If you mention "significant discrepancies" in your summary → status = "Not Approved"
 - If Color/Material score < 50% → status = "Not Approved" (color accuracy is critical)
 
@@ -789,6 +791,44 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
 
     qaResults.similarityScores = extractSimilarityScores(qaResults.summary);
     qaResults.summary = cleanSummary(qaResults.summary);
+
+    // Add warnings to the results if there are any
+    if (modelStats?.requirements) {
+      const warnings: string[] = [];
+
+      if (
+        modelStats.triangles &&
+        modelStats.triangles > modelStats.requirements.maxTriangles
+      ) {
+        warnings.push(
+          `Triangle count: ${modelStats.triangles.toLocaleString()} exceeds maximum ${modelStats.requirements.maxTriangles.toLocaleString()}`
+        );
+      }
+
+      if (modelStats.materialCount > modelStats.requirements.maxMaterials) {
+        warnings.push(
+          `Material count: ${modelStats.materialCount} exceeds maximum ${modelStats.requirements.maxMaterials}`
+        );
+      }
+
+      if (modelStats.meshCount > modelStats.requirements.maxMeshes) {
+        warnings.push(
+          `Mesh count: ${modelStats.meshCount} exceeds maximum ${modelStats.requirements.maxMeshes}`
+        );
+      }
+
+      if (modelStats.fileSize > modelStats.requirements.maxFileSize + 1024) { // Add 1KB tolerance
+        const actualMB = (modelStats.fileSize / (1024 * 1024)).toFixed(1);
+        const maxMB = (modelStats.requirements.maxFileSize / (1024 * 1024)).toFixed(1);
+        warnings.push(`File size: ${actualMB}MB exceeds maximum ${maxMB}MB`);
+      }
+
+      if (warnings.length > 0) {
+        qaResults.warnings = warnings;
+        // Add warnings to the summary
+        qaResults.summary += `\n\n⚠️ Technical Warnings: ${warnings.join("; ")}`;
+      }
+    }
 
     await supabaseAdmin
       .from("qa_jobs")

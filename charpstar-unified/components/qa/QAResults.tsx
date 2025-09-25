@@ -9,7 +9,8 @@ import {
   CheckCircle, 
   XCircle, 
   Clock, 
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from "lucide-react";
 
 interface QAResultsProps {
@@ -34,6 +35,7 @@ interface QAResults {
     colorMaterial?: number;
     overall?: number;
   };
+  warnings?: string[];
 }
 
 interface JobStatus {
@@ -305,6 +307,27 @@ const QAResults: React.FC<QAResultsProps> = ({ jobId, onRetry, onClose }) => {
                 <XCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
                 <h4 className="font-medium text-red-900">QA Not Approved</h4>
                 <p className="text-red-700 text-sm">Model needs improvements</p>
+              </div>
+            )}
+
+            {/* Technical Warnings */}
+            {jobStatus.qaResults.warnings && jobStatus.qaResults.warnings.length > 0 && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                  <h4 className="font-medium text-yellow-900">Technical Warnings</h4>
+                </div>
+                <ul className="space-y-1">
+                  {jobStatus.qaResults.warnings.map((warning, index) => (
+                    <li key={index} className="text-yellow-800 text-sm flex items-start gap-2">
+                      <span className="text-yellow-600 mt-0.5">•</span>
+                      {warning}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-yellow-700 text-xs mt-2">
+                  These are non-blocking warnings. The model can still be approved.
+                </p>
               </div>
             )}
           </div>
