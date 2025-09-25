@@ -889,6 +889,16 @@ export default function BatchDetailPage() {
     try {
       setUploadingGLB(assetId);
 
+      // Get the asset to validate file name against article ID
+      const asset = allocationLists
+        .flatMap((list) => list.assets)
+        .find((a) => a.id === assetId);
+
+      if (!asset) {
+        toast.error("Asset not found");
+        return;
+      }
+
       // Validate file
       const fileName = file.name.toLowerCase();
       if (!fileName.endsWith(".glb") && !fileName.endsWith(".gltf")) {
@@ -901,12 +911,21 @@ export default function BatchDetailPage() {
         return;
       }
 
-      // Get the asset to save current GLB to history if it exists
-      const asset = allocationLists
-        .flatMap((list) => list.assets)
-        .find((a) => a.id === assetId);
+      // Validate file name matches article ID
+      const fileBaseName = file.name
+        .replace(/\.(glb|gltf)$/i, "")
+        .toLowerCase();
+      const articleId = asset.article_id.toLowerCase();
 
-      if (asset?.glb_link) {
+      if (fileBaseName !== articleId) {
+        toast.error(
+          `File name must match the Article ID. Expected: ${asset.article_id}, got: ${file.name.replace(/\.(glb|gltf)$/i, "")}`
+        );
+        return;
+      }
+
+      // Save current GLB to history if it exists
+      if (asset.glb_link) {
         // Save current GLB to history
         const { error: historyError } = await supabase
           .from("glb_upload_history")
@@ -2643,8 +2662,14 @@ export default function BatchDetailPage() {
               <p className="text-xs sm:text-sm font-medium mb-1 sm:mb-2">
                 Drop your GLB file here or click to browse
               </p>
-              <p className="text-xs text-muted-foreground mb-3 sm:mb-4">
+              <p className="text-xs text-muted-foreground mb-2">
                 Only .glb and .gltf files are supported
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-3 sm:mb-4">
+                File name must match Article ID:{" "}
+                <span className="font-mono bg-amber-100 dark:bg-amber-900/30 px-1 py-0.5 rounded">
+                  {currentUploadAsset?.article_id}.glb
+                </span>
               </p>
 
               <input
