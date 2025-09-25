@@ -25,7 +25,6 @@ declare global {
         React.HTMLAttributes<HTMLElement> & {
           src?: string;
           alt?: string;
-          "auto-rotate"?: boolean;
           "camera-controls"?: boolean;
           "shadow-intensity"?: string;
           "camera-orbit"?: string;

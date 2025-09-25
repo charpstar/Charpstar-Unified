@@ -1,5 +1,5 @@
 //@ts-expect-error - Country region data module doesn't have types
-import countryRegionData from "country-region-data/dist/data-umd";
+import countryRegionData from "country-region-data/dist/data-umd.js";
 
 export interface Region {
   name: string;

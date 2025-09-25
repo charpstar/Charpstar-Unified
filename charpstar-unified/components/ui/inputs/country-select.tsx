@@ -48,7 +48,7 @@ function CountrySelect({
 
   useEffect(() => {
     //@ts-expect-error - Dynamic import for country-region-data module
-    import("country-region-data/dist/data-umd").then((countryRegionData) => {
+    import("country-region-data/dist/data-umd.js").then((countryRegionData) => {
       setCountries(
         getCountriesWithPriority(
           countryRegionData.default || countryRegionData,
