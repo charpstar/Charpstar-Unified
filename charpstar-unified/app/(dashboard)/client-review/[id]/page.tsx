@@ -17,6 +17,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/interactive/dropdown-menu";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/interactive";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -43,6 +48,7 @@ import {
   Clock,
   Download,
   Star,
+  FileText,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -58,6 +64,7 @@ interface Asset {
   status: string;
   product_link: string;
   glb_link: string;
+  pricing_comment?: string;
 }
 
 interface Annotation {
@@ -3293,6 +3300,29 @@ export default function ReviewPage() {
                       <span className="text-xs sm:text-sm text-muted-foreground font-medium">
                         {asset?.article_id}
                       </span>
+                      {asset?.pricing_comment && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-4 w-4 p-0 hover:bg-muted"
+                            >
+                              <FileText className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-fit p-3">
+                            <div className="space-y-2">
+                              <h4 className="font-medium text-sm">
+                                Asset Note
+                              </h4>
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap min-w-[200px]">
+                                {asset.pricing_comment}
+                              </p>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
                       {revisionCount > 0 && (
                         <Badge
                           variant="outline"
@@ -3659,6 +3689,7 @@ export default function ReviewPage() {
                 <span className="hidden sm:inline">
                   Click outside the model to reset view
                 </span>
+
                 <span className="sm:hidden">Ctrl + Click</span>
               </div>
             </div>

@@ -920,20 +920,20 @@ export default function ReviewDashboardPage() {
                       <TableHead className="dark:text-foreground text-left">
                         Article ID
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-left">
+                      <TableHead className="dark:text-foreground text-center">
                         Priority
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-left">
+                      <TableHead className="dark:text-foreground text-center">
                         Status
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-left pr-4">
+                      <TableHead className="dark:text-foreground text-center pr-4">
                         Product Link
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-left">
+                      <TableHead className="dark:text-foreground text-center">
                         References
                       </TableHead>
 
-                      <TableHead className=" dark:text-foreground text-left pr-16">
+                      <TableHead className=" dark:text-foreground text-center pr-16">
                         View
                       </TableHead>
                     </TableRow>
@@ -1037,8 +1037,8 @@ export default function ReviewDashboardPage() {
                             <TableCell className="dark:text-foreground text-left">
                               {asset.article_id}
                             </TableCell>
-                            <TableCell className="text-left">
-                              <div className="flex items-center">
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center">
                                 <Select
                                   value={(asset.priority || 2).toString()}
                                   onValueChange={(value) => {
@@ -1117,8 +1117,8 @@ export default function ReviewDashboardPage() {
                               </div>
                             </TableCell>
 
-                            <TableCell className="text-left w-32">
-                              <div className="flex items-center">
+                            <TableCell className="text-center w-32">
+                              <div className="flex items-center justify-center">
                                 <span
                                   className={`px-2 py-1 rounded text-xs font-semibold  shadow-none border-none bg-transparent ${getStatusLabelClass(asset.status)}`}
                                 >
@@ -1126,12 +1126,12 @@ export default function ReviewDashboardPage() {
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-left w-12 justify-start">
+                            <TableCell className="text-center w-12">
                               {asset.product_link ? (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="w-full justify-start p-0 text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
+                                  className="w-full justify-center p-0 text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
                                   onClick={() =>
                                     window.open(asset.product_link, "_blank")
                                   }
@@ -1145,8 +1145,8 @@ export default function ReviewDashboardPage() {
                               )}
                             </TableCell>
 
-                            <TableCell className="text-left w-12 pr-4">
-                              <div className="flex flex-col items-start gap-1">
+                            <TableCell className="text-center w-12 pr-4">
+                              <div className="flex flex-col items-center gap-1">
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1171,7 +1171,7 @@ export default function ReviewDashboardPage() {
                               </div>
                             </TableCell>
 
-                            <TableCell className="text-left w-16 pr-6">
+                            <TableCell className="text-center w-16 pr-6">
                               {(asset.status === "approved" ||
                                 asset.status === "approved_by_client") && (
                                 <Button

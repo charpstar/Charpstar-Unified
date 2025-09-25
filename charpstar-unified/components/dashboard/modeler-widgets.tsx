@@ -174,10 +174,9 @@ export function ModelerStatsWidget() {
       color: "text-blue-600 dark:text-blue-400",
       bgColor:
         "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50",
-      borderColor: "border-blue-200 dark:border-blue-800",
+      borderColor: "border-blue-200 dark:border-none",
       iconBg: "bg-blue-500 dark:bg-blue-600",
       description: "Assets assigned to you",
-      trend: "positive" as const,
     },
     {
       title: "In Progress",
@@ -186,10 +185,9 @@ export function ModelerStatsWidget() {
       color: "text-blue-600 dark:text-blue-400",
       bgColor:
         "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50",
-      borderColor: "border-blue-200 dark:border-blue-800",
+      borderColor: "border-blue-200 dark:border-none",
       iconBg: "bg-blue-500 dark:bg-blue-600",
       description: "Currently working on",
-      trend: "attention" as const,
     },
     {
       title: "Waiting for Approval",
@@ -198,10 +196,9 @@ export function ModelerStatsWidget() {
       color: "text-green-600 dark:text-green-400",
       bgColor:
         "bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/50",
-      borderColor: "border-green-200 dark:border-green-800",
+      borderColor: "border-green-200 dark:border-none",
       iconBg: "bg-green-500 dark:bg-green-600",
       description: "Awaiting feedback",
-      trend: "attention" as const,
     },
     {
       title: "Completed",
@@ -210,10 +207,9 @@ export function ModelerStatsWidget() {
       color: "text-emerald-600 dark:text-emerald-400",
       bgColor:
         "bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50",
-      borderColor: "border-emerald-200 dark:border-emerald-800",
+      borderColor: "border-emerald-200 dark:border-none",
       iconBg: "bg-emerald-500 dark:bg-emerald-600",
       description: "Successfully finished",
-      trend: "positive" as const,
     },
     {
       title: "Pending",
@@ -222,10 +218,9 @@ export function ModelerStatsWidget() {
       color: "text-gray-600 dark:text-gray-400",
       bgColor:
         "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950/50 dark:to-gray-900/50",
-      borderColor: "border-gray-200 dark:border-gray-800",
+      borderColor: "border-gray-200 dark:border-none",
       iconBg: "bg-gray-500 dark:bg-gray-600",
       description: "Not started yet",
-      trend: "attention" as const,
     },
     {
       title: "Revisions",
@@ -234,10 +229,9 @@ export function ModelerStatsWidget() {
       color: "text-orange-600 dark:text-orange-400",
       bgColor:
         "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/50 dark:to-orange-900/50",
-      borderColor: "border-orange-200 dark:border-orange-800",
+      borderColor: "border-orange-200 dark:border-none",
       iconBg: "bg-orange-500 dark:bg-orange-600",
       description: "QA requested changes",
-      trend: "attention" as const,
     },
     {
       title: "Client Revisions",
@@ -246,10 +240,9 @@ export function ModelerStatsWidget() {
       color: "text-red-600 dark:text-red-400",
       bgColor:
         "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
-      borderColor: "border-red-200 dark:border-red-800",
+      borderColor: "border-red-200 dark:border-none",
       iconBg: "bg-red-500 dark:bg-red-600",
       description: "Client requested changes",
-      trend: "attention" as const,
     },
   ];
 
@@ -288,20 +281,6 @@ export function ModelerStatsWidget() {
                 >
                   <stat.icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                 </div>
-                {!loading && stat.trend === "positive" && (
-                  <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-emerald-100 rounded-full">
-                    <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-emerald-500 rounded-full"></div>
-                    <span className="text-xs font-medium text-emerald-700">
-                      +
-                    </span>
-                  </div>
-                )}
-                {!loading && stat.trend === "attention" && (
-                  <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-rose-100 rounded-full">
-                    <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-rose-500 rounded-full"></div>
-                    <span className="text-xs font-medium text-rose-700">!</span>
-                  </div>
-                )}
               </div>
 
               {/* Stats */}

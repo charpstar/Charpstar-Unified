@@ -1630,7 +1630,7 @@ export function ClientActionCenterWidget() {
         />
       </div>
       <CardContent className="space-y-4">
-        <div className="group relative overflow-hidden rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-4">
+        <div className="group relative overflow-hidden rounded-2xl   bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-4">
           <div className="absolute inset-0 opacity-5"></div>
           <div className="relative flex items-center justify-between">
             <div className="text-sm text-blue-800 dark:text-blue-300">
@@ -1645,7 +1645,7 @@ export function ClientActionCenterWidget() {
 
         <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           <div
-            className="group relative overflow-hidden rounded-2xl border-2 border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/50 p-3 cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl  bg-gradient-to-br from-green-80 to-green-100 dark:from-green-950/50 dark:to-green-900/50 p-3 cursor-pointer"
             onClick={() => router.push("/client-review?status=approved")}
           >
             <div className="absolute inset-0 opacity-5 w-full h-full"></div>
@@ -1835,7 +1835,7 @@ export function AdminPipelineWidget() {
     unallocated: {
       bgGradient:
         "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
-      border: "border-red-200 dark:border-red-800",
+      border: "border-red-200 dark:border-none",
       iconBg: "bg-red-500 dark:bg-red-600",
       accentBar: "bg-red-500 dark:bg-red-600",
       icon: AlertTriangle,
@@ -1843,7 +1843,7 @@ export function AdminPipelineWidget() {
     not_started: {
       bgGradient:
         "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950/50 dark:to-gray-900/50",
-      border: "border-gray-200 dark:border-gray-800",
+      border: "border-gray-200 dark:border-none",
       iconBg: "bg-gray-500 dark:bg-gray-600",
       accentBar: "bg-gray-500 dark:bg-gray-600",
       icon: Package,
@@ -1851,7 +1851,7 @@ export function AdminPipelineWidget() {
     in_production: {
       bgGradient:
         "bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50",
-      border: "border-indigo-200 dark:border-indigo-800",
+      border: "border-indigo-200 dark:border-none",
       iconBg: "bg-indigo-500 dark:bg-indigo-600",
       accentBar: "bg-indigo-500 dark:bg-indigo-600",
       icon: Activity,
@@ -1859,7 +1859,7 @@ export function AdminPipelineWidget() {
     revisions: {
       bgGradient:
         "bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/50",
-      border: "border-amber-200 dark:border-amber-800",
+      border: "border-amber-200 dark:border-none",
       iconBg: "bg-amber-500 dark:bg-amber-600",
       accentBar: "bg-amber-500 dark:bg-amber-600",
       icon: RotateCcw,
@@ -1867,7 +1867,7 @@ export function AdminPipelineWidget() {
     client_revision: {
       bgGradient:
         "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
-      border: "border-red-200 dark:border-red-800",
+      border: "border-red-200 dark:border-none",
       iconBg: "bg-red-500 dark:bg-red-600",
       accentBar: "bg-red-500 dark:bg-red-600",
       icon: Eye,
@@ -1875,7 +1875,7 @@ export function AdminPipelineWidget() {
     approved: {
       bgGradient:
         "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50",
-      border: "border-blue-200 dark:border-blue-800",
+      border: "border-blue-200 dark:border-none",
       iconBg: "bg-blue-500 dark:bg-blue-600",
       accentBar: "bg-blue-500 dark:bg-blue-600",
       icon: CheckCircle,
@@ -1883,7 +1883,7 @@ export function AdminPipelineWidget() {
     approved_by_client: {
       bgGradient:
         "bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50",
-      border: "border-emerald-200 dark:border-emerald-800",
+      border: "border-emerald-200 dark:border-none",
       iconBg: "bg-emerald-500 dark:bg-emerald-600",
       accentBar: "bg-emerald-500 dark:bg-emerald-600",
       icon: ShieldCheck,
@@ -1891,7 +1891,7 @@ export function AdminPipelineWidget() {
     delivered_by_artist: {
       bgGradient:
         "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/50 dark:to-purple-900/50",
-      border: "border-purple-200 dark:border-purple-800",
+      border: "border-purple-200 dark:border-none",
       iconBg: "bg-purple-500 dark:bg-purple-600",
       accentBar: "bg-purple-500 dark:bg-purple-600",
       icon: Package,
@@ -2030,7 +2030,7 @@ export function AdminQueuesWidget() {
   const List = () => {
     const visible = showAll ? clientQueue : clientQueue.slice(0, 5);
     return (
-      <div className="group relative overflow-hidden rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50 p-3 transition-all duration-300 ease-out">
+      <div className="group relative overflow-hidden rounded-2xl  border-indigo-200  bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50 p-3 transition-all duration-300 ease-out">
         <div className="absolute inset-0 opacity-5">
           <div className="absolute top-0 right-0 w-20 h-20 transform rotate-45 translate-x-8 -translate-y-8 bg-current rounded-full"></div>
           <div className="absolute bottom-0 left-0 w-16 h-16 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>

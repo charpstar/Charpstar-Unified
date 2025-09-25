@@ -16,6 +16,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/display";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/interactive";
 
 import {
   Input,
@@ -171,6 +176,7 @@ interface AssignedAsset {
   created_at: string;
   reference?: string[] | null;
   price: number;
+  pricing_comment?: string;
   model_updated_at?: string; // New field for GLB upload date
   modeler?: {
     id: string;
@@ -426,6 +432,7 @@ export default function QAReviewPage() {
           subcategory_missing,
           created_at,
           reference,
+          pricing_comment,
           upload_order
         )
       `
@@ -474,6 +481,7 @@ export default function QAReviewPage() {
           subcategory_missing,
           created_at,
           reference,
+          pricing_comment,
           upload_order
         )
       `
@@ -577,6 +585,7 @@ export default function QAReviewPage() {
         created_at: asset.created_at,
         reference: asset.reference,
         price: assignment.price || 0,
+        pricing_comment: asset.pricing_comment,
         model_updated_at: modelUpdatedAt,
         modeler: modeler
           ? {
@@ -697,6 +706,7 @@ export default function QAReviewPage() {
         created_at: asset.created_at,
         reference: asset.reference,
         price: assignment.price || 0,
+        pricing_comment: asset.pricing_comment,
         model_updated_at: modelUpdatedAt,
         modeler: modeler
           ? {
@@ -1633,25 +1643,50 @@ export default function QAReviewPage() {
                       </TableCell>
                       {/* Product */}
                       <TableCell className="text-left">
-                        {asset.product_link ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Open Product Link"
-                            onClick={() =>
-                              window.open(
-                                asset.product_link as string,
-                                "_blank"
-                              )
-                            }
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            -
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {asset.product_link ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Open Product Link"
+                              onClick={() =>
+                                window.open(
+                                  asset.product_link as string,
+                                  "_blank"
+                                )
+                              }
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              -
+                            </span>
+                          )}
+                          {asset.pricing_comment && (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-4 w-4 p-0 hover:bg-muted"
+                                >
+                                  <FileText className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-fit p-3">
+                                <div className="space-y-2">
+                                  <h4 className="font-medium text-sm">
+                                    Asset Note
+                                  </h4>
+                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap min-w-[200px]">
+                                    {asset.pricing_comment}
+                                  </p>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                        </div>
                       </TableCell>
                       {/* GLB */}
                       <TableCell className="text-left">
@@ -1925,17 +1960,45 @@ export default function QAReviewPage() {
                     {/* Action buttons */}
                     <div className="flex flex-wrap gap-2">
                       {asset.product_link && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex-1 text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline"
-                          onClick={() =>
-                            window.open(asset.product_link as string, "_blank")
-                          }
-                        >
-                          <ExternalLink className="mr-1 h-3 w-3" />
-                          Product
-                        </Button>
+                        <div className="flex items-center gap-1 flex-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex-1 text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline"
+                            onClick={() =>
+                              window.open(
+                                asset.product_link as string,
+                                "_blank"
+                              )
+                            }
+                          >
+                            <ExternalLink className="mr-1 h-3 w-3" />
+                            Product
+                          </Button>
+                          {asset.pricing_comment && (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:bg-muted"
+                                >
+                                  <FileText className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-fit p-3">
+                                <div className="space-y-2">
+                                  <h4 className="font-medium text-sm">
+                                    Pricing Note
+                                  </h4>
+                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap min-w-[200px]">
+                                    {asset.pricing_comment}
+                                  </p>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                        </div>
                       )}
                       {asset.glb_link && (
                         <Button
