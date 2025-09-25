@@ -3848,15 +3848,6 @@ export default function ReviewPage() {
               </div>
             )}
 
-            {annotationMode && (
-              <div className="absolute top-2 left-2 sm:top-4 sm:left-4 bg-primary text-primary-foreground text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2 rounded-full z-20 shadow-lg backdrop-blur-sm">
-                <span className="hidden sm:inline">
-                  Click to add annotation
-                </span>
-                <span className="sm:hidden">Click to add</span>
-              </div>
-            )}
-
             {/* Center model shortcut indicator */}
             {modelLoaded && (
               <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 bg-muted/90 text-muted-foreground text-xs px-2 sm:px-3 py-1 rounded-md z-20 shadow-lg backdrop-blur-sm">

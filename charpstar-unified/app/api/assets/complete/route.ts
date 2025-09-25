@@ -125,16 +125,88 @@ export async function POST(request: NextRequest) {
 
     console.log("Verification query result:", { verifyAsset, verifyError });
 
-    // Mark all existing annotations as old when setting status to revisions
+    // Mark annotations as old when setting status to revisions
+    // Only mark as old if the annotation has been through 2+ revision cycles since creation
     if (status === "revisions" || status === "client_revision") {
-      const { error: markOldError } = await supabase
-        .from("asset_annotations")
-        .update({ is_old_annotation: true })
-        .eq("asset_id", assetId);
+      // Get current revision count
+      const { data: assetData, error: assetDataError } = await supabase
+        .from("onboarding_assets")
+        .select("revision_count")
+        .eq("id", assetId)
+        .single();
 
-      if (markOldError) {
-        console.error("Error marking old annotations:", markOldError);
-        // Don't fail the main request if annotation marking fails
+      if (!assetDataError && assetData) {
+        const currentRevisionCount = assetData.revision_count;
+
+        // Get all annotations that are not already marked as old
+        const { data: annotations, error: annotationsError } = await supabase
+          .from("asset_annotations")
+          .select("id, created_at")
+          .eq("asset_id", assetId)
+          .eq("is_old_annotation", false);
+
+        if (!annotationsError && annotations) {
+          // Get revision history to determine when each revision occurred
+          const { data: revisionHistory, error: revisionError } = await supabase
+            .from("revision_history")
+            .select("revision_number, created_at")
+            .eq("asset_id", assetId)
+            .order("revision_number", { ascending: true });
+
+          if (!revisionError && revisionHistory) {
+            // Create a map of revision numbers to creation dates
+            const revisionMap = new Map();
+            revisionHistory.forEach((rev) => {
+              revisionMap.set(rev.revision_number, new Date(rev.created_at));
+            });
+
+            // Process each annotation to determine if it should be marked as old
+            const annotationsToMarkOld = [];
+
+            for (const annotation of annotations) {
+              const annotationCreatedAt = new Date(annotation.created_at);
+
+              // Find which revision this annotation was created in by comparing creation date
+              let annotationRevisionCreatedIn = 0;
+              for (const [
+                revisionNumber,
+                revisionDate,
+              ] of revisionMap.entries()) {
+                if (annotationCreatedAt >= revisionDate) {
+                  annotationRevisionCreatedIn = revisionNumber;
+                } else {
+                  break;
+                }
+              }
+
+              // Calculate how many revision cycles this annotation has been through
+              // If annotation was created in revision X, it should be marked old at revision X+2
+              const shouldBeOld =
+                currentRevisionCount >= annotationRevisionCreatedIn + 2;
+
+              if (shouldBeOld) {
+                annotationsToMarkOld.push(annotation.id);
+              }
+            }
+
+            // Mark the selected annotations as old
+            if (annotationsToMarkOld.length > 0) {
+              const { error: markOldError } = await supabase
+                .from("asset_annotations")
+                .update({ is_old_annotation: true })
+                .in("id", annotationsToMarkOld);
+
+              if (markOldError) {
+                console.error("Error marking old annotations:", markOldError);
+                // Don't fail the main request if annotation marking fails
+              } else {
+                console.log(
+                  `Marked ${annotationsToMarkOld.length} annotations as old`
+                );
+              }
+            }
+          }
+        }
       }
     }
 
