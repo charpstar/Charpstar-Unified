@@ -229,6 +229,7 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true);
   const [clientViewerType, setClientViewerType] = useState<string | null>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(true);
   const [annotationMode, setAnnotationMode] = useState(false);
   const [selectedAnnotation, setSelectedAnnotation] =
     useState<Annotation | null>(null);
@@ -778,8 +779,28 @@ export default function ReviewPage() {
 
   // Handle model load
   const handleModelLoaded = () => {
+    console.log("Model loaded, starting 30-second timer for tooltip");
     setModelLoaded(true);
+    // Hide tooltip after 30 seconds
+    setTimeout(() => {
+      console.log("30 seconds elapsed, hiding tooltip");
+      setShowTooltip(false);
+    }, 5000);
   };
+
+  // Auto-hide tooltip after 30 seconds regardless of model load state
+  useEffect(() => {
+    console.log("Component mounted, starting 30-second timer for tooltip");
+    const timer = setTimeout(() => {
+      console.log("30 seconds elapsed, hiding tooltip");
+      setShowTooltip(false);
+    }, 5000);
+
+    return () => {
+      console.log("Cleaning up tooltip timer");
+      clearTimeout(timer);
+    };
+  }, []); // Empty dependency array - runs once on mount
 
   // Center the 3D model
   const centerModel = () => {
@@ -3650,18 +3671,19 @@ export default function ReviewPage() {
           {/* Main Content (3D Viewer) */}
           <div className="flex-1 relative  h-[65vh] xl:h-auto">
             {/* Ctrl Key Visual Indicator */}
-
-            <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 bg-background/90 text-foreground px-1 sm:px-3 py-1 sm:py-2 rounded-sm text-xs sm:text-xs  shadow-sm ">
-              <div className="flex flex-col items-center gap-1.5 sm:gap-2">
-                <span className="hidden sm:inline">
-                  Hold Ctrl + Click to add annotation
-                </span>
-                <span className="hidden sm:inline">
-                  Click outside the model to reset view
-                </span>
-                <span className="sm:hidden">Ctrl + Click</span>
+            {showTooltip && (
+              <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 bg-background/90 text-foreground px-1 sm:px-3 py-1 sm:py-2 rounded-sm text-xs sm:text-xs  shadow-sm ">
+                <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+                  <span className="hidden sm:inline">
+                    Hold Ctrl + Click to add annotation
+                  </span>
+                  <span className="hidden sm:inline">
+                    Click outside the model to reset view
+                  </span>
+                  <span className="sm:hidden">Ctrl + Click</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <Script
               type="module"
