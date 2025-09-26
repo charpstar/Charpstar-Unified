@@ -494,6 +494,7 @@ export default function ModelerReviewPage() {
     fetchAsset();
   }, [assetId]);
 
+
   // Fetch annotations
   useEffect(() => {
     async function fetchAnnotations() {
@@ -1150,21 +1151,8 @@ export default function ModelerReviewPage() {
       // Refresh GLB history to show the new version
       await fetchGlbHistory();
 
-      // Fetch reference images and trigger QA
-      console.log("Fetching reference images for asset:", assetId);
-      const refImages = await fetchReferenceImages();
-      console.log("Reference images found:", refImages.length);
-      
-      if (refImages.length > 0) {
-        console.log("Triggering QA dialog with images:", refImages);
-        setUploadedGlbUrl(urlData.publicUrl);
-        setShowQADialog(true);
-        console.log("QA dialog state set to true");
-        toast.success("GLB file uploaded successfully! Starting automated QA...");
-      } else {
-        console.log("No reference images found, skipping QA");
-        toast.success("GLB file uploaded successfully!");
-      }
+      // GLB uploaded successfully
+      toast.success("GLB file uploaded successfully!");
       
       setShowUploadDialog(false);
       setSelectedFile(null);
@@ -3328,6 +3316,12 @@ export default function ModelerReviewPage() {
             console.log("QA completed:", results);
             setQaApproved(results?.status === "Approved");
             setShowQADialog(false);
+            
+            // Auto-deliver if QA is approved
+            if (results?.status === "Approved") {
+              console.log("QA approved - auto-delivering model");
+              updateAssetStatus("delivered_by_artist");
+            }
           }}
         />
 
