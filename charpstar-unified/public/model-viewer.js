@@ -51223,6 +51223,25 @@ class ControlsModelViewerElement extends ModelViewerElement {
     return gridHelper;
   }
 
+  toggleGrid() {
+    if (this.gridHelper) {
+      // Grid exists, toggle its visibility
+      if (this.gridHelper.visible) {
+        this.gridHelper.visible = false;
+      } else {
+        this.gridHelper.visible = true;
+      }
+    } else {
+      // Grid doesn't exist, create it
+      this.setPlaneGrid();
+    }
+    
+    // Request re-render to show/hide the grid
+    if (typeof this.requestRender === "function") {
+      this.requestRender();
+    }
+  }
+
   // Method to apply a texture to a material from an image URL
   applyTexture(uuid, textureType, textureUrl) {
     const object = this.getObjectByUuid(uuid);
