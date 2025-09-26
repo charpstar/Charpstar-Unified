@@ -51242,6 +51242,276 @@ class ControlsModelViewerElement extends ModelViewerElement {
     }
   }
 
+  togglePanels() {
+    const meshPanel = this.querySelector("#cmv-meshPanel");
+    const statsPanel = this.querySelector("#cmv-modelStatsPanel");
+    const tooltip = this.querySelector("#cmv-meshPanelButton .tooltiptext");
+    
+    if (!meshPanel || !statsPanel) return;
+
+    // Initialize panel state if not set
+    if (!this.currentPanelState) {
+      this.currentPanelState = "closed";
+    }
+
+    // Toggle through states: closed -> meshes -> stats -> closed
+    switch (this.currentPanelState) {
+      case "closed":
+        // Show mesh panel
+        meshPanel.style.display = "block";
+        statsPanel.style.display = "none";
+        this.populateMeshList();
+        this.currentPanelState = "meshes";
+        if (tooltip) tooltip.textContent = "Show Model Statistics";
+        break;
+      
+      case "meshes":
+        // Show stats panel
+        meshPanel.style.display = "none";
+        statsPanel.style.display = "block";
+        this.populateModelStats();
+        this.currentPanelState = "stats";
+        if (tooltip) tooltip.textContent = "Hide Panel";
+        break;
+      
+      case "stats":
+        // Close both panels
+        meshPanel.style.display = "none";
+        statsPanel.style.display = "none";
+        this.currentPanelState = "closed";
+        if (tooltip) tooltip.textContent = "Show Scene Meshes";
+        break;
+    }
+  }
+
+  populateMeshList() {
+    const meshListContainer = this.querySelector("#cmv-meshList");
+    const meshCountSpan = this.querySelector("#cmv-meshCount");
+    if (!meshListContainer) return;
+
+    // Clear existing content
+    meshListContainer.innerHTML = "";
+
+    // Get all meshes from the scene
+    const meshes = this.getAllMeshes();
+    
+    // Update mesh count
+    if (meshCountSpan) {
+      meshCountSpan.textContent = meshes.length;
+    }
+    
+    if (meshes.length === 0) {
+      meshListContainer.innerHTML = '<div style="padding: 12px; text-align: center; color: #9ca3af; font-size: 12px;">No meshes found</div>';
+      return;
+    }
+
+    // Create checkbox for each mesh
+    meshes.forEach((mesh, index) => {
+      const label = document.createElement("label");
+      label.style.cssText = "display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 2px 0; font-size: 11px; color: #374151;";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.id = `mesh-${index}`;
+      checkbox.checked = mesh.visible;
+      checkbox.style.cssText = "cursor: pointer; width: 12px; height: 12px; accent-color: #3b82f6;";
+
+      const span = document.createElement("span");
+      span.style.cssText = "overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400;";
+      span.textContent = mesh.name || `Mesh ${index + 1}`;
+      span.title = mesh.name || `Mesh ${index + 1}`; // Add tooltip for full name
+
+      // Add event listener to toggle mesh visibility
+      const toggleVisibility = () => {
+        mesh.visible = checkbox.checked;
+        if (typeof this.requestRender === "function") {
+          this.requestRender();
+        }
+      };
+
+      checkbox.addEventListener("change", toggleVisibility);
+
+      label.appendChild(checkbox);
+      label.appendChild(span);
+      meshListContainer.appendChild(label);
+    });
+  }
+
+  populateModelStats() {
+    const statsContainer = this.querySelector("#cmv-statsList");
+    if (!statsContainer) return;
+
+    // Clear existing content
+    statsContainer.innerHTML = "";
+
+    // Calculate model statistics
+    const stats = this.calculateModelStats();
+
+    // Create triangles and vertices section (first grid)
+    const trianglesVerticesSection = document.createElement("div");
+    trianglesVerticesSection.style.cssText = "padding: 8px; border-bottom: 1px solid #e5e7eb; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 8px; align-items: center;";
+    
+    trianglesVerticesSection.innerHTML = `
+      <div style="display: flex; align-items: center;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; color: #6b7280;">
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+        </svg>
+        <span style="color: #374151;">Triangles:</span>
+      </div>
+      <div style="text-align: right; font-weight: 500;">${stats.triangles.toLocaleString()}</div>
+      <div style="display: flex; align-items: center;">
+        <div style="width: 10px; height: 10px; margin-right: 6px; opacity: 0;"></div>
+        <span style="color: #374151;">Vertices:</span>
+      </div>
+      <div style="text-align: right; font-weight: 500;">${stats.vertices.toLocaleString()}</div>
+    `;
+
+    // Create meshes and materials section (second grid)
+    const meshesMatSection = document.createElement("div");
+    meshesMatSection.style.cssText = "padding: 8px; border-bottom: 1px solid #e5e7eb; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 8px; align-items: center;";
+    
+    meshesMatSection.innerHTML = `
+      <div style="display: flex; align-items: center;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; color: #6b7280;">
+          <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"></path>
+          <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"></path>
+          <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"></path>
+        </svg>
+        <span style="color: #374151;">Meshes:</span>
+      </div>
+      <div style="text-align: right; font-weight: 500;">${stats.meshes}</div>
+      <div style="display: flex; align-items: center;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; color: #6b7280;">
+          <path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"></path>
+          <path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"></path>
+        </svg>
+        <span style="color: #374151;">Materials:</span>
+      </div>
+      <div style="text-align: right; font-weight: 500;">${stats.materials}</div>
+    `;
+
+    // Create variants section (single row)
+    const variantsSection = document.createElement("div");
+    variantsSection.style.cssText = "padding: 8px; border-bottom: 1px solid #e5e7eb; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;";
+    
+    variantsSection.innerHTML = `
+      <div style="display: flex; align-items: center;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; color: #6b7280;">
+          <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle>
+          <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle>
+          <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle>
+          <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle>
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path>
+        </svg>
+        <span style="color: #374151;">Variants:</span>
+      </div>
+      <div style="text-align: right; font-weight: 500;">${stats.variants}</div>
+    `;
+
+    // Create double sided section (final row)
+    const doubleSidedSection = document.createElement("div");
+    doubleSidedSection.style.cssText = "padding: 8px;";
+    
+    doubleSidedSection.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background-color: #10b981;"></div>
+          <span style="color: #374151;">Double Sided:</span>
+        </div>
+        <span style="font-weight: 500; display: flex; align-items: center;">${stats.doubleSided}</span>
+      </div>
+    `;
+
+    // Append all sections
+    statsContainer.appendChild(trianglesVerticesSection);
+    statsContainer.appendChild(meshesMatSection);
+    statsContainer.appendChild(variantsSection);
+    statsContainer.appendChild(doubleSidedSection);
+  }
+
+  calculateModelStats() {
+    let triangles = 0;
+    let vertices = 0;
+    let meshes = 0;
+    let materials = new Set();
+    let doubleSided = 0;
+    let variants = 0;
+
+    // Traverse the scene to calculate statistics
+    if (this[$scene] && this[$scene].model) {
+      this[$scene].model.traverse((child) => {
+        if (child.isMesh) {
+          meshes++;
+          
+          // Count triangles and vertices
+          if (child.geometry) {
+            if (child.geometry.index) {
+              triangles += child.geometry.index.count / 3;
+            } else if (child.geometry.attributes.position) {
+              triangles += child.geometry.attributes.position.count / 3;
+            }
+            
+            if (child.geometry.attributes.position) {
+              vertices += child.geometry.attributes.position.count;
+            }
+          }
+
+          // Count materials
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => {
+                if (mat.uuid) materials.add(mat.uuid);
+                if (mat.side === 2) doubleSided++; // DoubleSide = 2
+              });
+            } else {
+              if (child.material.uuid) materials.add(child.material.uuid);
+              if (child.material.side === 2) doubleSided++;
+            }
+          }
+        }
+      });
+
+      // Calculate variants - could be based on different criteria
+      // Option 1: Count unique material combinations
+      // Option 2: Count scene variants if available
+      // Option 3: Count texture variations
+      
+      // For now, let's use available variants from the model viewer's variant system
+      try {
+        // Check if model has variants property
+        variants = this.availableVariants.length;
+      } catch (e) {
+        // Fallback to material count if variant system is not available
+        variants = materials.size;
+      }
+    }
+
+    return {
+      triangles: Math.round(triangles),
+      vertices,
+      meshes,
+      materials: materials.size,
+      variants: variants,
+      doubleSided
+    };
+  }
+
+  getAllMeshes() {
+    const meshes = [];
+    
+    // Traverse the scene to find all meshes
+    if (this[$scene] && this[$scene].model) {
+      this[$scene].model.traverse((child) => {
+        if (child.isMesh) {
+          meshes.push(child);
+        }
+      });
+    }
+    
+    return meshes;
+  }
+
   // Method to apply a texture to a material from an image URL
   applyTexture(uuid, textureType, textureUrl) {
     const object = this.getObjectByUuid(uuid);
@@ -61809,6 +62079,59 @@ visibility: visible;
                    </svg>
                   </button>
                 </div>
+
+          <div class = "charpstar-button-meshpanel tooltip" id = "cmv-meshPanelButton" >
+              <span class="tooltiptext">Show Scene Meshes</span>
+                  <button style="display: flex; align-items: center; justify-content: space-evenly; background-color: rgba(240, 240, 240, 0.9); padding: 10px 15px; border: none; cursor: pointer; border-radius: 4px; "> 
+                   <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 3h18v18H3V3zm2 2v14h14V5H5z" fill="none" stroke="#000000" stroke-width="2"/>
+                    <circle cx="8" cy="8" r="1" fill="#000000"/>
+                    <circle cx="12" cy="8" r="1" fill="#000000"/>
+                    <circle cx="16" cy="8" r="1" fill="#000000"/>
+                    <circle cx="8" cy="12" r="1" fill="#000000"/>
+                    <circle cx="12" cy="12" r="1" fill="#000000"/>
+                    <circle cx="16" cy="12" r="1" fill="#000000"/>
+                    <circle cx="8" cy="16" r="1" fill="#000000"/>
+                    <circle cx="12" cy="16" r="1" fill="#000000"/>
+                    <circle cx="16" cy="16" r="1" fill="#000000"/>
+                   </svg>
+                  </button>
+                </div>
+          </div>
+
+          <!-- Scene Meshes Panel (initially hidden) -->
+          <div class="mesh-panel" id="cmv-meshPanel" style="display: none; position: absolute; top: 8px; left: 8px; background: rgba(255, 255, 255, 0.95); border: 1px solid #e5e7eb; border-radius: 6px; padding: 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); z-index: 1000; width: 208px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; font-size: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
+              <h3 style="margin: 0; font-size: 12px; font-weight: 500; color: #1f2937; display: flex; align-items: center;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                  <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"></path>
+                  <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"></path>
+                  <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"></path>
+                </svg>
+                Scene Meshes
+              </h3>
+              <span id="cmv-meshCount" style="font-size: 11px; color: #6b7280; background: #ffffff; padding: 1px 4px; border-radius: 8px; min-width: 12px; text-align: center;">0</span>
+            </div>
+            <div id="cmv-meshList" style="padding: 8px; font-size: 12px; max-height: 180px; overflow-y: auto;">
+              <!-- Mesh checkboxes will be populated here -->
+            </div>
+          </div>
+
+          <!-- Model Statistics Panel (initially hidden) -->
+          <div class="model-stats-panel" id="cmv-modelStatsPanel" style="display: none; position: absolute; top: 8px; left: 8px; background: rgba(255, 255, 255, 0.95); border: 1px solid #e5e7eb; border-radius: 6px; padding: 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); z-index: 1000; width: 208px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; font-size: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
+              <h3 style="margin: 0; font-size: 12px; font-weight: 500; color: #1f2937; display: flex; align-items: center;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 16v-4"></path>
+                  <path d="M12 8h.01"></path>
+                </svg>
+                Model Statistics
+              </h3>
+            </div>
+            <div id="cmv-statsList" style="font-size: 12px;">
+              <!-- Statistics will be populated here -->
+            </div>
           </div>
           `;
         this.insertAdjacentHTML("beforeend", htmlContent);
@@ -61845,6 +62168,12 @@ visibility: visible;
 
         gridButton.addEventListener("click", () => {
           this.toggleGrid();
+        });
+
+        const meshPanelButton = this.querySelector("#cmv-meshPanelButton");
+
+        meshPanelButton.addEventListener("click", () => {
+          this.togglePanels();
         });
       }
       this.dimensionLineToggle();
@@ -64984,6 +65313,44 @@ SceneGraphMixin(
 )
 );
 customElements.define("model-viewer", ModelViewerElement);
+
+// Tab functionality for cycling through camera views
+(() => {
+  let currentViewIndex = 0;
+  const cameraViews = [
+    { orbit: "0deg 75deg auto", target: "auto auto auto" }, // Front view
+    { orbit: "90deg 75deg auto", target: "auto auto auto" }, // Right view
+    { orbit: "180deg 75deg auto", target: "auto auto auto" }, // Back view
+    { orbit: "270deg 75deg auto", target: "auto auto auto" }, // Left view
+    { orbit: "45deg 60deg auto", target: "auto auto auto" } // Isometric view
+  ];
+
+  function applyView(modelViewer, view) {
+    modelViewer.cameraOrbit = view.orbit;
+    modelViewer.cameraTarget = view.target;
+  }
+
+  function initTabFunctionality() {
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        
+        const modelViewers = document.querySelectorAll('model-viewer');
+        modelViewers.forEach(modelViewer => {
+          currentViewIndex = (currentViewIndex + 1) % cameraViews.length;
+          applyView(modelViewer, cameraViews[currentViewIndex]);
+        });
+      }
+    });
+  }
+
+  // Initialize when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTabFunctionality);
+  } else {
+    initTabFunctionality();
+  }
+})();
 
 export { CanvasTexture, FileLoader, Loader, ModelViewerElement, NearestFilter };
 //# sourceMappingURL=model-viewer.js.map
