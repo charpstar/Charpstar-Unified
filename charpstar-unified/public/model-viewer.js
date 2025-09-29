@@ -51344,6 +51344,45 @@ class ControlsModelViewerElement extends ModelViewerElement {
     // Clear existing content
     statsContainer.innerHTML = "";
 
+    // Add dark mode CSS styles for stats values
+    const existingStyle = document.querySelector("#model-viewer-stats-style");
+    if (!existingStyle) {
+      const style = document.createElement("style");
+      style.id = "model-viewer-stats-style";
+      style.textContent = `
+        /* Model viewer stats dark mode fix */
+        .stats-value {
+          color: #1f2937 !important;
+          -webkit-text-fill-color: #1f2937 !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+          .stats-value {
+            color: #f9fafb !important;
+            -webkit-text-fill-color: #f9fafb !important;
+          }
+        }
+        
+        .dark .stats-value,
+        html.dark .stats-value,
+        body.dark .stats-value,
+        [data-theme="dark"] .stats-value {
+          color: #f9fafb !important;
+          -webkit-text-fill-color: #f9fafb !important;
+        }
+        
+        /* Additional selectors to ensure coverage */
+        model-viewer .stats-value,
+        #cmv-statsList .stats-value {
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     // Calculate model statistics
     const stats = this.calculateModelStats();
 
@@ -51357,14 +51396,14 @@ class ControlsModelViewerElement extends ModelViewerElement {
           <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
           <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
         </svg>
-        <span style="color: #374151;">Triangles:</span>
+        <span style="color: #000000;">Triangles:</span>
       </div>
-      <div style="text-align: right; font-weight: 500;">${stats.triangles.toLocaleString()}</div>
+      <div style="text-align: right; font-weight: 500;" class="stats-value">${stats.triangles.toLocaleString()}</div>
       <div style="display: flex; align-items: center;">
         <div style="width: 10px; height: 10px; margin-right: 6px; opacity: 0;"></div>
-        <span style="color: #374151;">Vertices:</span>
+        <span style="color: #000000;">Vertices:</span>
       </div>
-      <div style="text-align: right; font-weight: 500;">${stats.vertices.toLocaleString()}</div>
+      <div style="text-align: right; font-weight: 500;" class="stats-value">${stats.vertices.toLocaleString()}</div>
     `;
 
     // Create meshes and materials section (second grid)
@@ -51378,17 +51417,17 @@ class ControlsModelViewerElement extends ModelViewerElement {
           <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"></path>
           <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"></path>
         </svg>
-        <span style="color: #374151;">Meshes:</span>
+        <span style="color: #000000;">Meshes:</span>
       </div>
-      <div style="text-align: right; font-weight: 500;">${stats.meshes}</div>
+      <div style="text-align: right; font-weight: 500;" class="stats-value">${stats.meshes}</div>
       <div style="display: flex; align-items: center;">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; color: #6b7280;">
           <path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"></path>
           <path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"></path>
         </svg>
-        <span style="color: #374151;">Materials:</span>
+        <span style="color: #000000;">Materials:</span>
       </div>
-      <div style="text-align: right; font-weight: 500;">${stats.materials}</div>
+      <div style="text-align: right; font-weight: 500;" class="stats-value">${stats.materials}</div>
     `;
 
     // Create variants section (single row)
@@ -51404,9 +51443,9 @@ class ControlsModelViewerElement extends ModelViewerElement {
           <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle>
           <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path>
         </svg>
-        <span style="color: #374151;">Variants:</span>
+        <span style="color: #000000;">Variants:</span>
       </div>
-      <div style="text-align: right; font-weight: 500;">${stats.variants}</div>
+      <div style="text-align: right; font-weight: 500;" class="stats-value">${stats.variants}</div>
     `;
 
     // Create double sided section (final row)
@@ -51417,9 +51456,9 @@ class ControlsModelViewerElement extends ModelViewerElement {
       <div style="display: flex; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center;">
           <div style="width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background-color: #10b981;"></div>
-          <span style="color: #374151;">Double Sided:</span>
+          <span style="color: #000000;">Double Sided:</span>
         </div>
-        <span style="font-weight: 500; display: flex; align-items: center;">${stats.doubleSided}</span>
+        <span style="font-weight: 500; display: flex; align-items: center;" class="stats-value">${stats.doubleSided}</span>
       </div>
     `;
 

@@ -67,17 +67,10 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
 
   // Check if the passed modelViewerRef is available
   useEffect(() => {
-    console.log("ScreenshotCapture mounted, modelViewerRef:", modelViewerRef);
-    console.log("activeModelViewerRef:", activeModelViewerRef);
-    console.log("activeModelViewerRef.current:", activeModelViewerRef?.current);
+
 
     if (activeModelViewerRef?.current) {
-      console.log(
-        "Model-viewer ref available for QA:",
-        activeModelViewerRef.current
-      );
-      console.log("Model loaded:", activeModelViewerRef.current.loaded);
-      console.log("Model src:", activeModelViewerRef.current.src);
+      
     } else {
       console.warn("No model-viewer ref provided - screenshots may not work");
     }
@@ -139,14 +132,6 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
 
   const captureScreenshot = useCallback(
     async (angle: any, index: number) => {
-      console.log(`=== CAPTURE SCREENSHOT CALLED ===`);
-      console.log(`Angle:`, angle);
-      console.log(`Index:`, index);
-      console.log(`activeModelViewerRef:`, activeModelViewerRef);
-      console.log(
-        `activeModelViewerRef.current:`,
-        activeModelViewerRef?.current
-      );
 
       if (!activeModelViewerRef?.current) {
         console.error("No model viewer ref available for screenshot capture");
@@ -154,7 +139,6 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
       }
 
       const modelViewer = activeModelViewerRef.current;
-      console.log(`Setting camera for ${angle.name}: ${angle.cameraOrbit}`);
 
       // Store original settings to restore later
       const originalSettings = {
@@ -174,61 +158,56 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
         // Set background for QA captures (don't change dimensions)
         modelViewer.backgroundColor = "#f5f5f5"; // Light gray background instead of black
 
-        console.log(
-          `Camera set to: ${modelViewer.cameraOrbit}, autoRotate: ${modelViewer.autoRotate}`
-        );
+        
 
         // Wait for camera to settle and model to be ready
-        console.log("Waiting for camera to settle...");
+        
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
         // Ensure model is loaded
-        if (modelViewer.loaded) {
-          console.log(`Model loaded, capturing ${angle.name}`);
-        } else {
-          console.log(`Waiting for model to load...`);
+        if (!modelViewer.loaded) {
           // Wait longer for model to load
           let loadAttempts = 0;
           while (!modelViewer.loaded && loadAttempts < 10) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             loadAttempts++;
-            console.log(
-              `Load attempt ${loadAttempts}/10, loaded: ${modelViewer.loaded}`
-            );
           }
 
           if (!modelViewer.loaded) {
-            console.warn(
-              "Model still not loaded after waiting, proceeding anyway..."
-            );
+            
           }
         }
 
+        // Hide grid (if present) before capture
+        try {
+          if (typeof (modelViewer as any).gridHelper !== "undefined") {
+            const gv: any = (modelViewer as any).gridHelper;
+            if (gv && gv.visible) {
+              gv.visible = false;
+              (modelViewer as any).requestRender?.();
+              await new Promise((r) => setTimeout(r, 150));
+            }
+          }
+        } catch {}
+
         // Additional wait to ensure everything is rendered
-        console.log("Final wait for rendering...");
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         // Capture screenshot
-        console.log("Attempting to capture screenshot...");
+        
 
         // Check if toDataURL method exists
         if (typeof modelViewer.toDataURL !== "function") {
           console.error("toDataURL method not available on model-viewer");
-          console.log(
-            "Available methods:",
-            Object.getOwnPropertyNames(modelViewer).filter(
-              (name) => typeof modelViewer[name] === "function"
-            )
-          );
 
           // Try alternative method if available
           if (typeof modelViewer.toBlob === "function") {
-            console.log("Trying toBlob method instead...");
+            
             const blob = await modelViewer.toBlob({
               mimeType: "image/png",
               qualityArgument: 0.8,
             });
-            console.log("Blob created via toBlob, size:", blob.size);
+            
 
             // Upload directly
             const fileName = `qa-screenshots/${assetId}/${index + 1}-${angle.name.toLowerCase().replace(/\s+/g, "-")}.png`;
@@ -255,41 +234,10 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
         }
 
         const canvas = await modelViewer.toDataURL("image/png", 0.8);
-        console.log("Screenshot captured, data URL length:", canvas.length);
 
-        if (!canvas || canvas.length < 100) {
-          console.error("Invalid screenshot data received");
-          return null;
-        }
+        if (!canvas || canvas.length < 100) return null;
 
-        // Convert to blob and upload to storage
-        const response = await fetch(canvas);
-        if (!response.ok) {
-          console.error("Failed to fetch canvas data:", response.status);
-          return null;
-        }
-
-        const blob = await response.blob();
-        console.log("Blob created, size:", blob.size);
-
-        // Upload to Supabase storage
-        const fileName = `qa-screenshots/${assetId}/${index + 1}-${angle.name.toLowerCase().replace(/\s+/g, "-")}.png`;
-        const { error } = await supabase.storage
-          .from("assets")
-          .upload(fileName, blob, {
-            cacheControl: "3600",
-            upsert: true,
-          });
-
-        if (error) {
-          console.error("Upload error:", error);
-          return null;
-        }
-
-        const { data: urlData } = supabase.storage
-          .from("assets")
-          .getPublicUrl(fileName);
-
+        // Return the data URL directly (no upload)
         // Restore original settings
         modelViewer.style.aspectRatio = originalSettings.aspectRatio;
         modelViewer.style.width = originalSettings.width;
@@ -297,9 +245,8 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
         modelViewer.backgroundColor = originalSettings.backgroundColor;
         modelViewer.autoRotate = originalSettings.autoRotate;
 
-        return urlData.publicUrl;
+        return canvas;
       } catch (error) {
-        console.error("Screenshot capture error:", error);
 
         // Restore original settings even on error
         try {
@@ -310,9 +257,7 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
             modelViewer.backgroundColor = originalSettings.backgroundColor;
             modelViewer.autoRotate = originalSettings.autoRotate;
           }
-        } catch (restoreError) {
-          console.error("Error restoring original settings:", restoreError);
-        }
+        } catch (restoreError) {}
 
         return null;
       }
@@ -341,7 +286,6 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
 
       // Check if the model is loaded and wait if necessary
       if (!modelViewer.loaded) {
-        console.log("Model not loaded yet, waiting...");
         // Wait up to 10 seconds for the model to load
         let attempts = 0;
         while (!modelViewer.loaded && attempts < 50) {
@@ -359,7 +303,6 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
       let modelStats = null;
       if (typeof modelViewer.getModelStats === "function") {
         modelStats = modelViewer.getModelStats();
-        console.log("Got model stats from getModelStats():", modelStats);
       } else {
         console.warn(
           "getModelStats method not available, trying to initialize model-viewer"
@@ -378,7 +321,6 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
             typeof initializedViewer.getModelStats === "function"
           ) {
             modelStats = initializedViewer.getModelStats();
-            console.log("Got model stats after initialization:", modelStats);
           } else {
             console.error(
               "Failed to initialize model-viewer with stats methods"
@@ -430,14 +372,6 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
   }, [glbUrl]);
 
   const startCapture = async () => {
-    console.log("=== START CAPTURE CLICKED ===");
-    console.log("Starting screenshot capture...");
-    console.log("Model viewer ref:", activeModelViewerRef?.current);
-    console.log("GLB URL:", glbUrl);
-    console.log("Asset ID:", assetId);
-
-    // Show immediate feedback
-    toast.info("Starting QA capture...");
 
     setIsCapturing(true);
     setProgress(0);
@@ -452,69 +386,53 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
       }
 
       const modelViewer = activeModelViewerRef.current;
-      console.log("Model viewer element:", modelViewer);
-      console.log("Model viewer loaded:", modelViewer.loaded);
-      console.log(
-        "Model viewer methods:",
-        Object.getOwnPropertyNames(modelViewer).filter(
-          (name) => typeof modelViewer[name] === "function"
-        )
-      );
 
-      // Get model stats first
-      console.log("Getting model stats...");
+
       const stats = await getModelStats();
-      console.log("Model stats received:", stats);
       setModelStats(stats);
 
       if (!stats) {
         throw new Error("Failed to get model statistics");
       }
 
-      console.log("Model stats validated, proceeding with validation...");
 
       // Validate model requirements before proceeding
       const validation = validateModelRequirements(stats);
-      console.log("Validation result:", validation);
-      console.log("Validation issues:", validation.issues);
+
       setValidationResult(validation);
 
       if (!validation.valid) {
-        console.log("Model validation failed, showing issues to user...");
-        console.log("Validation issues:", validation.issues);
+
         // Model doesn't meet requirements - show issues to user but don't auto-complete
         // The user can see the issues and decide whether to proceed anyway
         setIsCapturing(false);
-        console.log(
-          "QA process stopped due to validation failure - user can see issues"
-        );
+
         return;
       }
 
-      // Model meets requirements - proceed with screenshot capture
-      console.log(
-        "Model validation passed, proceeding with screenshot capture..."
-      );
-      // Capture screenshots from different angles
-      const screenshots: string[] = [];
+
+      // Capture screenshots from different angles (preserve order by index)
+      const screenshots: string[] = new Array(cameraAngles.length).fill("");
 
       for (let i = 0; i < 5; i++) {
         setCurrentStep(i + 1);
         setProgress((i / 5) * 100);
 
-        console.log(`Capturing screenshot ${i + 1}/5: ${cameraAngles[i].name}`);
-        console.log(`About to call captureScreenshot for angle ${i + 1}...`);
+    
         const screenshot = await captureScreenshot(cameraAngles[i], i);
         if (screenshot) {
-          screenshots.push(screenshot);
-          setCapturedScreenshots([...screenshots]);
-          console.log(`Successfully captured ${cameraAngles[i].name}`);
+          screenshots[i] = screenshot;
+          // update by index to avoid misordered/stale previews
+          setCapturedScreenshots((prev) => {
+            const next = Array.isArray(prev) ? [...prev] : [];
+            next[i] = screenshot;
+            return next;
+          });
         } else {
-          console.error(`Failed to capture ${cameraAngles[i].name}`);
         }
 
         // Small delay between captures
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
       setProgress(100);
@@ -668,7 +586,6 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
         <div className="flex gap-3">
           <Button
             onClick={() => {
-              console.log("Button clicked!");
               startCapture();
             }}
             disabled={isCapturing}

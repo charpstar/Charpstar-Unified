@@ -40,13 +40,21 @@ import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useUser } from "@/contexts/useUser";
 import { Box } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const { theme, systemTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  
+  // Avoid hydration mismatch by only determining theme after component mounts
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
   const currentTheme = theme === "system" ? systemTheme : theme;
-  const isDark = currentTheme === "dark";
+  const isDark = mounted && currentTheme === "dark";
 
   const user = useUser();
   const clientName = user?.metadata?.client_config;

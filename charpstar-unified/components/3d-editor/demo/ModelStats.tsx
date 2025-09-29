@@ -2,6 +2,53 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Info, Loader, Copy, Layers, Brush, Palette } from "lucide-react";
 
+// CSS to force visible text in both light and dark modes
+const forceVisibleTextCSS = `
+  .force-black-text {
+    color: #1f2937 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: inline-block !important;
+    text-shadow: none !important;
+    filter: none !important;
+    -webkit-text-fill-color: #1f2937 !important;
+    font-weight: 600 !important;
+    background: transparent !important;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    .force-black-text {
+      color: #f9fafb !important;
+      -webkit-text-fill-color: #f9fafb !important;
+      background: transparent !important;
+    }
+  }
+  
+  [data-theme="dark"] .force-black-text {
+    color: #f9fafb !important;
+    -webkit-text-fill-color: #f9fafb !important;
+    background: transparent !important;
+  }
+  
+  .dark .force-black-text {
+    color: #f9fafb !important;
+    -webkit-text-fill-color: #f9fafb !important;
+    background: transparent !important;
+  }
+  
+  html.dark .force-black-text {
+    color: #f9fafb !important;
+    -webkit-text-fill-color: #f9fafb !important;
+    background: transparent !important;
+  }
+  
+  body.dark .force-black-text {
+    color: #f9fafb !important;
+    -webkit-text-fill-color: #f9fafb !important;
+    background: transparent !important;
+  }
+`;
+
 interface CompactModelStatsProps {
   modelViewerRef: React.RefObject<any>;
   modelName: string;
@@ -281,13 +328,15 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
 
   // Smaller and more compact panel
   return (
-    <div
-      className={
-        isMobile
-          ? "bg-card/95 rounded-md shadow-md border border-border overflow-hidden w-full max-w-md mx-auto text-xs"
-          : "absolute top-16 right-2 z-10 bg-card/95 rounded-md shadow-md border border-border overflow-hidden w-52 text-xs"
-      }
-    >
+    <>
+      <style dangerouslySetInnerHTML={{ __html: forceVisibleTextCSS }} />
+      <div
+        className={
+          isMobile
+            ? "bg-card rounded-md shadow-lg border border-border overflow-hidden w-full max-w-md mx-auto text-xs backdrop-blur-sm"
+            : "absolute top-16 right-2 z-10 bg-card rounded-md shadow-lg border border-border overflow-hidden w-52 text-xs backdrop-blur-sm"
+        }
+      >
       <div
         className={
           isMobile
@@ -296,7 +345,7 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
         }
       >
         <h3 className="text-xs font-medium text-foreground flex items-center">
-          <Info size={11} className="mr-1" />
+          <Info size={11} className="mr-1 text-muted-foreground" />
           Model Statistics
         </h3>
       </div>
@@ -330,17 +379,17 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
               <Copy size={10} className="mr-1.5 text-muted-foreground" />
               <span className="text-foreground">Triangles:</span>
             </div>
-            <div className="text-right font-medium text-foreground">
-              {formatNumber(stats.triangles)}
-            </div>
+              <div className="text-right font-medium force-black-text">
+                 {formatNumber(stats.triangles) || "0"}
+               </div>
 
             <div className="flex items-center">
               <div className="w-2.5 h-2.5 mr-1.5 opacity-0"></div>
               <span className="text-foreground">Vertices:</span>
             </div>
-            <div className="text-right font-medium text-foreground">
-              {formatNumber(stats.vertices)}
-            </div>
+              <div className="text-right font-medium force-black-text">
+                 {formatNumber(stats.vertices) || "0"}
+               </div>
           </div>
 
           {/* Mesh and Material Counts */}
@@ -355,17 +404,17 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
               <Layers size={10} className="mr-1.5 text-muted-foreground" />
               <span className="text-foreground">Meshes:</span>
             </div>
-            <div className="text-right font-medium text-foreground">
-              {formatNumber(stats.meshCount)}
-            </div>
+              <div className="text-right font-medium force-black-text">
+                 {formatNumber(stats.meshCount) || "0"}
+               </div>
 
             <div className="flex items-center">
               <Brush size={10} className="mr-1.5 text-muted-foreground" />
               <span className="text-foreground">Materials:</span>
             </div>
-            <div className="text-right font-medium text-foreground">
-              {formatNumber(stats.materialCount)}
-            </div>
+               <div className="text-right font-medium force-black-text">
+                   {formatNumber(stats.materialCount) || "0"}
+                 </div>
           </div>
 
           {/* Variants Count */}
@@ -380,9 +429,9 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
               <Palette size={10} className="mr-1.5 text-muted-foreground" />
               <span className="text-foreground">Variants:</span>
             </div>
-            <div className="text-right font-medium text-foreground">
-              {formatNumber(stats.variantCount)}
-            </div>
+              <div className="text-right font-medium force-black-text">
+                 {formatNumber(stats.variantCount) || "0"}
+               </div>
           </div>
 
           {/* Double Sided Materials */}
@@ -401,8 +450,8 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
                 ></div>
                 <span className="text-foreground">Double Sided:</span>
               </div>
-              <span className="font-medium flex items-center text-foreground">
-                {formatNumber(stats.doubleSidedCount)}
+                <span className="font-medium flex items-center force-black-text">
+                   {formatNumber(stats.doubleSidedCount) || "0"}
                 {stats.doubleSidedCount > 0 && (
                   <button className="ml-1 p-0.5">
                     {showDoubleSidedDetails ? (
@@ -455,6 +504,7 @@ export const CompactModelStats: React.FC<CompactModelStatsProps> = ({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };

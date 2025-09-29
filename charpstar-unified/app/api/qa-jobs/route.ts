@@ -389,6 +389,8 @@ ANALYSIS APPROACH:
    - Textures and surface details
    - Branding elements (logos, text)
    - Overall visual fidelity
+   
+IMPORTANT: Be reasonably tolerant of transparency, reflection, and material finish variations, and minor color shifts. Lens decals/branding (e.g., tiny logos on lenses) may vary due to reflections and render differences—do not penalize unless clearly wrong or missing where critical. Focus primarily on shape and proportions; only penalize materials for clear, noticeable mismatches.
 
 SCORING SYSTEM:
 - Silhouette: How well the overall shape matches (0-100%)
@@ -396,12 +398,12 @@ SCORING SYSTEM:
 - Color/Material: Color accuracy, material appearance, textures (0-100%)
 - Overall: Weighted average considering all factors (0-100%)
 
-APPROVAL CRITERIA - BE STRICT:
-- If overall score ≥ 65% AND no individual score < 60% → status = "Approved"
-- If overall score < 65% OR any individual score < 60% → status = "Not Approved"
+APPROVAL CRITERIA - MORE LENIENT:
+- If overall score ≥ 60% AND no individual score < 55% → status = "Approved"
+- If overall score < 60% OR any individual score < 55% → status = "Not Approved"
 - If you mention "significant discrepancies" in your summary → status = "Not Approved"
-- If Color/Material score < 50% → status = "Not Approved" (color accuracy is critical)
-- If critical branding elements are missing → status = "Not Approved"
+- If Color/Material score < 50% → status = "Not Approved"
+- If Silhouette score < 55% → status = "Not Approved"
 
 OUTPUT FORMAT:
 {
@@ -531,6 +533,9 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
         model: "gemini-2.5-flash",
         contents: geminiContents,
         config: {
+          temperature: 0,
+          topP: 1,
+          topK: 1,
           thinkingConfig: {
             thinkingBudget: 0, // Disables thinking
           },
@@ -568,6 +573,20 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
 
       qaResults.similarityScores = extractSimilarityScores(qaResults.summary);
       qaResults.summary = cleanSummary(qaResults.summary);
+
+      // Log similarity scores for debugging/visibility
+      try {
+        const s = qaResults.similarityScores as any;
+        console.log(
+          "SimilarityScores (reference-only):",
+          {
+            silhouette: s?.silhouette,
+            proportion: s?.proportion,
+            colorMaterial: s?.colorMaterial,
+            overall: s?.overall,
+          }
+        );
+      } catch {}
 
       await supabaseAdmin
         .from("qa_jobs")
@@ -612,25 +631,31 @@ Guidelines:
 3. Analyze geometry, proportions, textures, and material colors for each pairing.
 4. Be extremely specific with differences.
 5. Each issue must state: what's in the 3D Model, what's in the reference, the exact difference.
+6. **TRANSPARENCY & REFLECTIONS**: Be reasonably tolerant of transparency, reflections, metallic finishes, and gloss levels. Minor variations are acceptable; only deduct for clearly incorrect appearance.
+7. **LENS LOGOS/DECALS**: Small lens logos/branding may vary; do not penalize subtle differences caused by reflections or shader behavior. Only deduct if branding is clearly incorrect or missing where critical.
+8. **MATERIAL PRIORITY**: Focus on base colors and texture presence. Subtle finish differences are acceptable; deduct for wrong base colors or missing textures.
 
 SCORING - BE PRECISE:
 • SILHOUETTE: Compare overall shape, outline, and form. Ignore color/texture. Perfect match = 100%
 • PROPORTION: Compare relative sizes of parts. 
-• COLOR/MATERIAL: Compare exact colors, textures, materials. Small color shifts should impact score significantly
-• OVERALL: Weighted average considering all factors. Be conservative
+• COLOR/MATERIAL: Compare base colors and textures. Be tolerant of minor reflection/transparency/finish differences and subtle lens logo/branding shifts; small hue/brightness deviations are acceptable. Deduct only for clearly wrong base colors (by large margin), missing textures, or major material mismatch.
+• OVERALL: Weighted average considering all factors. Be conservative but account for material finish tolerance.
 
-SCORING SCALE: 
+SCORING SCALE (Be consistent - use this exact scale): 
 • 90-100% = excellent match with minimal differences
 • 75-89% = good match but clear differences visible
 • 60-74% = acceptable match with moderate differences  
 • 40-59% = poor match with significant differences
 • 0-39% = unacceptable match with major differences
 
-APPROVAL CRITERIA :
-- If overall score ≥ 60% AND no individual score < 60% → status = "Approved"
-- If overall score < 60% OR any individual score < 60% → status = "Not Approved"
+CONSISTENCY RULE: For identical inputs, always provide identical scores. Be methodical and consistent in your evaluation approach.
+
+APPROVAL CRITERIA - MORE LENIENT:
+- If overall score ≥ 60% AND no individual score < 55% → status = "Approved"
+- If overall score < 60% OR any individual score < 55% → status = "Not Approved"
 - If you mention "significant discrepancies" in your summary → status = "Not Approved"
-- If Color/Material score < 50% → status = "Not Approved" (color accuracy is critical)
+- If Color/Material score < 50% → status = "Not Approved"
+- If Silhouette score < 55% → status = "Not Approved"
 
 Output exactly one JSON object with these keys:
 
@@ -754,6 +779,9 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
       model: "gemini-2.5-flash",
       contents: geminiContents,
       config: {
+        temperature: 0,
+        topP: 1,
+        topK: 1,
         thinkingConfig: {
           thinkingBudget: 0, // Disables thinking
         },
@@ -791,6 +819,18 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
 
     qaResults.similarityScores = extractSimilarityScores(qaResults.summary);
     qaResults.summary = cleanSummary(qaResults.summary);
+    try {
+      const s = qaResults.similarityScores as any;
+      console.log(
+        "SimilarityScores (renders vs references):",
+        {
+          silhouette: s?.silhouette,
+          proportion: s?.proportion,
+          colorMaterial: s?.colorMaterial,
+          overall: s?.overall,
+        }
+      );
+    } catch {}
 
     // Add warnings to the results if there are any
     if (modelStats?.requirements) {
