@@ -151,7 +151,6 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
 
       try {
         // Set camera position
-        const modelViewer = activeModelViewerRef.current;
         modelViewer.autoRotate = false; // Ensure auto-rotate is disabled
         modelViewer.cameraOrbit = angle.cameraOrbit;
 
@@ -246,7 +245,7 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
         modelViewer.autoRotate = originalSettings.autoRotate;
 
         return canvas;
-      } catch (error) {
+      } catch {
 
         // Restore original settings even on error
         try {
@@ -257,7 +256,7 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
             modelViewer.backgroundColor = originalSettings.backgroundColor;
             modelViewer.autoRotate = originalSettings.autoRotate;
           }
-        } catch (restoreError) {}
+        } catch {}
 
         return null;
       }
@@ -385,7 +384,7 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
         );
       }
 
-      const modelViewer = activeModelViewerRef.current;
+      // Use activeModelViewerRef.current within helpers instead of a local variable
 
 
       const stats = await getModelStats();
@@ -428,8 +427,7 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
             next[i] = screenshot;
             return next;
           });
-        } else {
-        }
+        } else {}
 
         // Small delay between captures
         await new Promise((resolve) => setTimeout(resolve, 1000));

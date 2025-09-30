@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/containers/card";
 import { Badge } from "@/components/ui/feedback/badge";
 import { Button } from "@/components/ui/display/button";
-import { Progress } from "@/components/ui/feedback/progress";
 import { 
   CheckCircle, 
   XCircle, 
@@ -138,13 +137,6 @@ const QAResults: React.FC<QAResultsProps> = ({ jobId, onRetry, onClose }) => {
   const formatTime = (timeString?: string) => {
     if (!timeString) return 'N/A';
     return new Date(timeString).toLocaleString();
-  };
-
-  const getScoreColor = (score?: number) => {
-    if (!score) return 'text-gray-500';
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
   };
 
   if (isLoading) {
