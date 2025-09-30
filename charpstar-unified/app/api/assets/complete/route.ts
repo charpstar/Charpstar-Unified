@@ -221,6 +221,107 @@ export async function POST(request: NextRequest) {
               });
 
               console.log("Asset automatically transferred to assets table");
+
+              // Copy GLB file to Android folder for approved assets
+              if (onboardingAsset.glb_link) {
+                try {
+                  console.log(
+                    "Copying GLB file to Android folder:",
+                    onboardingAsset.glb_link
+                  );
+
+                  // Get BunnyCDN configuration
+                  const storageKey = process.env.BUNNY_STORAGE_KEY;
+                  const storageZone =
+                    process.env.BUNNY_STORAGE_ZONE_NAME || "maincdn";
+                  const cdnBaseUrl = process.env.BUNNY_STORAGE_PUBLIC_URL;
+
+                  if (storageKey && storageZone && cdnBaseUrl) {
+                    // Download the current GLB file
+                    const glbResponse = await fetch(onboardingAsset.glb_link, {
+                      method: "GET",
+                      headers: {
+                        AccessKey: storageKey,
+                      },
+                    });
+
+                    if (glbResponse.ok) {
+                      const glbBuffer = await glbResponse.arrayBuffer();
+
+                      // Create Android folder path
+                      const sanitizedClientName =
+                        onboardingAsset.client.replace(/[^a-zA-Z0-9._-]/g, "_");
+                      const fileName = `${onboardingAsset.article_id}.glb`;
+                      const androidPath = `${sanitizedClientName}/Android/${fileName}`;
+                      const androidStorageUrl = `https://se.storage.bunnycdn.com/${storageZone}/${androidPath}`;
+
+                      // Upload to Android folder
+                      const androidUploadResponse = await fetch(
+                        androidStorageUrl,
+                        {
+                          method: "PUT",
+                          headers: {
+                            AccessKey: storageKey,
+                            "Content-Type": "application/octet-stream",
+                          },
+                          body: glbBuffer,
+                        }
+                      );
+
+                      if (androidUploadResponse.ok) {
+                        const androidUrl = `${cdnBaseUrl}/${androidPath}`;
+                        console.log(
+                          "GLB file copied to Android folder:",
+                          androidUrl
+                        );
+
+                        // Update the asset with the Android URL
+                        await supabase
+                          .from("assets")
+                          .update({ glb_link: androidUrl })
+                          .eq("id", newAsset.id);
+
+                        // Log the Android copy activity
+                        await logActivityServer({
+                          action: "glb_copied_to_android",
+                          description: `GLB file copied to Android folder for approved asset ${onboardingAsset.product_name}`,
+                          type: "update",
+                          resource_type: "asset",
+                          resource_id: newAsset.id,
+                          metadata: {
+                            asset_id: newAsset.id,
+                            original_glb_url: onboardingAsset.glb_link,
+                            android_glb_url: androidUrl,
+                            client: onboardingAsset.client,
+                          },
+                        });
+                      } else {
+                        console.warn(
+                          "Failed to copy GLB to Android folder:",
+                          androidUploadResponse.status
+                        );
+                      }
+                    } else {
+                      console.warn(
+                        "Failed to download GLB file for Android copy:",
+                        glbResponse.status
+                      );
+                    }
+                  } else {
+                    console.warn(
+                      "BunnyCDN configuration missing for Android copy"
+                    );
+                  }
+                } catch (androidCopyError) {
+                  console.error(
+                    "Error copying GLB to Android folder:",
+                    androidCopyError
+                  );
+                  // Don't fail the transfer if Android copy fails
+                }
+              } else {
+                console.log("No GLB file to copy to Android folder");
+              }
             } else {
               console.warn(
                 "Failed to insert asset into assets table:",

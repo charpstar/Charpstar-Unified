@@ -819,7 +819,7 @@ export default function UsersPage() {
             password: "TempPassword123!", // Default password for bulk uploads
             confirmPassword: "TempPassword123!",
             clientName: values[headers.indexOf("clientname")] || "",
-            title: "Client", // Default title
+            title: "Manager", // Default title
             phoneNumber: "", // Empty phone number
             discordName: "",
             softwareExperience: [],
@@ -2018,7 +2018,8 @@ export default function UsersPage() {
                     <p>
                       <strong>Note:</strong> All users will be created with
                       default values: Name: &quot;Client User&quot;, Title:
-                      &quot;Client&quot;, Password: &quot;TempPassword123!&quot;
+                      &quot;Manager&quot;, Password:
+                      &quot;TempPassword123!&quot;
                     </p>
                     <p>
                       <strong>Role:</strong> All users will be assigned the
