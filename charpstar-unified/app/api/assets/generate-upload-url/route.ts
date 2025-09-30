@@ -23,11 +23,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get BunnyCDN credentials
-    const storageKey = process.env.BUNNYCDN_STORAGE_KEY;
-    const storageZone = process.env.BUNNYCDN_STORAGE_ZONE;
+    // Get BunnyCDN credentials (using same variables as existing upload system)
+    const storageKey = process.env.BUNNY_STORAGE_KEY;
+    const storageZone = process.env.BUNNY_STORAGE_ZONE_NAME || "maincdn";
+    const cdnBaseUrl = process.env.BUNNY_STORAGE_PUBLIC_URL;
 
-    if (!storageKey || !storageZone) {
+    if (!storageKey || !storageZone || !cdnBaseUrl) {
+      console.log("[UPLOAD] Missing BunnyCDN config:", {
+        hasStorageKey: !!storageKey,
+        hasStorageZone: !!storageZone,
+        hasCdnUrl: !!cdnBaseUrl,
+      });
       return NextResponse.json(
         { error: "BunnyCDN configuration missing" },
         { status: 500 }
@@ -50,21 +56,15 @@ export async function POST(request: NextRequest) {
       storagePath = `assets/other/${uniqueFileName}`;
     }
 
-    // Generate BunnyCDN upload URL
-    const uploadUrl = `https://storage.bunnycdn.com/${storageZone}/${storagePath}`;
-    const cdnUrl = `https://maincdn.b-cdn.net/${storageZone}/${storagePath}`;
-
-    // Generate signature for authentication (if needed)
-    const signature = crypto
-      .createHmac("sha256", storageKey)
-      .update(storagePath)
-      .digest("hex");
+    // Generate BunnyCDN upload URL (using same format as existing system)
+    const uploadUrl = `https://se.storage.bunnycdn.com/${storageZone}/${storagePath}`;
+    const cdnUrl = `${cdnBaseUrl}/${storagePath}`;
 
     return NextResponse.json({
       uploadUrl,
       cdnUrl,
       storagePath,
-      signature,
+      accessKey: storageKey, // Include the access key for authentication
       fileName: uniqueFileName,
       expiresIn: 3600, // 1 hour
     });

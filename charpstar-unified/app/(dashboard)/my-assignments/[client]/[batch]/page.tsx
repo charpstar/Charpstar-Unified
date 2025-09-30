@@ -951,21 +951,21 @@ export default function BatchDetailPage() {
       let result: any;
 
       if (isLargeFile) {
-        // Use large file uploader
-        const { LargeFileUploader, formatFileSize } = await import(
-          "@/lib/largeFileUpload"
+        // Use direct upload (bypasses Vercel's 4.5MB limit)
+        const { DirectFileUploader, formatFileSize } = await import(
+          "@/lib/directUpload"
         );
 
-        const uploader = new LargeFileUploader((progress) => {
+        const uploader = new DirectFileUploader((progress) => {
           console.log(
-            `GLB upload progress: ${progress.current}% - ${progress.fileName}`
+            `Direct GLB upload: ${progress.progress}% - ${progress.fileName} (${progress.status})`
           );
         });
 
         const uploadResult = await uploader.uploadFile(file, assetId, "glb");
 
         if (!uploadResult.success) {
-          throw new Error(uploadResult.error || "Large GLB file upload failed");
+          throw new Error(uploadResult.error || "Direct GLB upload failed");
         }
 
         result = { url: uploadResult.cdnUrl };
@@ -1076,21 +1076,21 @@ export default function BatchDetailPage() {
       const isLargeFile = file.size > 4.5 * 1024 * 1024; // 4.5MB
 
       if (isLargeFile) {
-        // Use large file uploader
-        const { LargeFileUploader, formatFileSize } = await import(
-          "@/lib/largeFileUpload"
+        // Use direct upload (bypasses Vercel's 4.5MB limit)
+        const { DirectFileUploader, formatFileSize } = await import(
+          "@/lib/directUpload"
         );
 
-        const uploader = new LargeFileUploader((progress) => {
+        const uploader = new DirectFileUploader((progress) => {
           console.log(
-            `Upload progress: ${progress.current}% - ${progress.fileName}`
+            `Direct upload: ${progress.progress}% - ${progress.fileName} (${progress.status})`
           );
         });
 
         const result = await uploader.uploadFile(file, assetId, "reference");
 
         if (!result.success) {
-          throw new Error(result.error || "Large file upload failed");
+          throw new Error(result.error || "Direct upload failed");
         }
 
         toast.success(
