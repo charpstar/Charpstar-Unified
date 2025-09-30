@@ -791,6 +791,25 @@ export default function ModelerReviewPage() {
     fetchDependencies();
   }, [assetId]);
 
+  // Sync qaApproved state with asset status on load
+  useEffect(() => {
+    if (asset?.status) {
+      if (
+        ["delivered_by_artist", "approved", "approved_by_client"].includes(
+          asset.status
+        )
+      ) {
+        setQaApproved(true);
+      } else {
+        // If status is anything else, it implies QA hasn't been passed for delivery yet.
+        // We can reset it to null, but let's be careful not to override an active failed state.
+        if (qaApproved !== false) {
+          setQaApproved(null);
+        }
+      }
+    }
+  }, [asset?.status]);
+
   // Compute latest external feedback time (annotations/comments not by modeler)
   useEffect(() => {
     const modelerId = user?.id;
@@ -1092,7 +1111,7 @@ export default function ModelerReviewPage() {
         .from("onboarding_assets")
         .update({
           glb_link: urlData.publicUrl,
-          status: "delivered_by_artist",
+          status: "in_production",
         })
         .eq("id", asset.id);
 
@@ -1143,7 +1162,7 @@ export default function ModelerReviewPage() {
           ? {
               ...prev,
               glb_link: urlData.publicUrl,
-              status: "delivered_by_artist",
+              status: "in_production",
             }
           : null
       );
@@ -1188,21 +1207,22 @@ export default function ModelerReviewPage() {
     }
   };
 
-  const updateAssetStatus = async (newStatus: string) => {
+  const updateAssetStatus = async (
+    newStatus: string,
+    options?: { qaStatus?: boolean | null }
+  ) => {
     if (!asset) return;
 
     // Warn and block if trying to deliver without correct GLB naming
     if (newStatus === "delivered_by_artist") {
-      // Block delivery if QA is not approved
-      if (qaApproved === false) {
-        toast.error("Cannot deliver: Model not approved by QA. Please run QA analysis and address any issues.");
+      // Block delivery if QA is not approved - This check is now only performed here.
+      if (options?.qaStatus !== true) {
+        toast.error(
+          "Cannot deliver: Please run and pass QA analysis first to ensure model quality."
+        );
         return;
       }
-      
-      if (qaApproved === null) {
-        toast.error("Cannot deliver: Please run QA analysis first to ensure model quality.");
-        return;
-      }
+
       // Block if GLB is older than latest external feedback
       try {
         if (
@@ -1932,7 +1952,9 @@ export default function ModelerReviewPage() {
                         } else if (qaApproved === true) {
                           // Deliver the model
                           console.log("Delivery button clicked. QA Approved:", qaApproved);
-                          updateAssetStatus("delivered_by_artist");
+                          updateAssetStatus("delivered_by_artist", {
+                            qaStatus: qaApproved,
+                          });
                         }
                       }}
                       disabled={
@@ -3313,14 +3335,17 @@ export default function ModelerReviewPage() {
           referenceImages={referenceImages}
           modelViewerRef={modelViewerRef}
           onComplete={(results) => {
-            console.log("QA completed:", results);
-            setQaApproved(results?.status === "Approved");
             setShowQADialog(false);
-            
-            // Auto-deliver if QA is approved
-            if (results?.status === "Approved") {
+            const isApproved = results?.status === "Approved";
+            setQaApproved(isApproved);
+            toast.info(`QA Analysis Complete: ${results?.status}`);
+            // If approved, automatically trigger delivery
+            if (isApproved) {
               console.log("QA approved - auto-delivering model");
-              updateAssetStatus("delivered_by_artist");
+              // Use the fresh 'isApproved' value, not the stale state
+              updateAssetStatus("delivered_by_artist", {
+                qaStatus: true,
+              });
             }
           }}
         />

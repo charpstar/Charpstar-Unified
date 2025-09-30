@@ -27,7 +27,7 @@ interface QAResults {
     bbox: number[];
     severity: string;
   }>;
-  summary: string;
+  summary: string[];
   status: string;
   similarityScores?: {
     silhouette?: number;
@@ -276,39 +276,23 @@ const QAResults: React.FC<QAResultsProps> = ({ jobId, onRetry, onClose }) => {
                   {jobStatus.qaResults.status}
                 </h3>
               </div>
-              <p className="text-muted-foreground">{jobStatus.qaResults.summary}</p>
-            </div>
-
-            {/* Overall Score */}
-            {jobStatus.qaResults.similarityScores?.overall !== undefined && (
-              <div className="text-center p-4 bg-muted/50 dark:bg-muted/20 rounded-lg">
-                <div className="text-3xl font-bold mb-2">
-                  <span className={getScoreColor(jobStatus.qaResults.similarityScores.overall)}>
-                    {jobStatus.qaResults.similarityScores.overall}%
-                  </span>
+              {jobStatus.qaResults.status === 'Approved' ? (
+                <div className="text-left">
+                    <p className="text-muted-foreground mb-2 text-center">This is a good submission, but you can improve the following:</p>
+                    <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                        {Array.isArray(jobStatus.qaResults.summary) && jobStatus.qaResults.summary.map((point, index) => (
+                            <li key={index}>{point}</li>
+                        ))}
+                    </ul>
                 </div>
-                <div className="text-sm text-muted-foreground">Overall Similarity</div>
-                <Progress 
-                  value={jobStatus.qaResults.similarityScores.overall} 
-                  className="mt-3 h-3"
-                />
-              </div>
-            )}
-
-            {/* Simple Status Display */}
-            {jobStatus.qaResults.status === 'Approved' ? (
-              <div className="text-center p-6 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/50 rounded-lg">
-                <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                <h4 className="font-medium text-green-900 dark:text-green-100">QA Approved</h4>
-                <p className="text-green-700 dark:text-green-300 text-sm">Model passed quality checks</p>
-              </div>
-            ) : (
-              <div className="text-center p-6 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 rounded-lg">
-                <XCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                <h4 className="font-medium text-red-900 dark:text-red-100">QA Not Approved</h4>
-                <p className="text-red-700 dark:text-red-300 text-sm">Model needs improvements</p>
-              </div>
-            )}
+              ) : (
+                <ul className="list-disc list-inside text-left text-muted-foreground space-y-1">
+                    {Array.isArray(jobStatus.qaResults.summary) && jobStatus.qaResults.summary.map((point, index) => (
+                        <li key={index}>{point}</li>
+                    ))}
+                </ul>
+              )}
+            </div>
 
             {/* Technical Warnings */}
             {jobStatus.qaResults.warnings && jobStatus.qaResults.warnings.length > 0 && (

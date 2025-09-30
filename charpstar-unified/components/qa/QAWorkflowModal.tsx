@@ -82,6 +82,8 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
         modelStats: stats
       };
       
+      console.log('Sending QA job request:', requestBody);
+      
       const response = await fetch('/api/qa-jobs', {
         method: 'POST',
         headers: {
@@ -120,18 +122,6 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
         if (result.status === 'complete') {
           setQaState('complete');
           setQaResults(result.qaResults);
-          // Debug: print similarity scores in browser console when available
-          try {
-            const s = result.qaResults?.similarityScores;
-            if (s) {
-              console.log('SimilarityScores (client):', {
-                silhouette: s.silhouette,
-                proportion: s.proportion,
-                colorMaterial: s.colorMaterial,
-                overall: s.overall,
-              });
-            }
-          } catch {}
           // Don't call onComplete immediately - let user see results first
         } else if (result.status === 'failed') {
           setQaState('error');
