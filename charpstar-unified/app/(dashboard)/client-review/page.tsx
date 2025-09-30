@@ -298,9 +298,10 @@ export default function ReviewDashboardPage() {
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, transferred"
         )
         .eq("client", user.metadata.client)
+        .eq("transferred", false) // Hide transferred assets
         .order("upload_order", { ascending: true });
 
       if (error) {

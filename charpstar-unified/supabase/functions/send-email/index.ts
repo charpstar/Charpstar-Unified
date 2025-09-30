@@ -38,7 +38,7 @@ serve(async (req) => {
     });
 
     await client.send({
-      from: Deno.env.get("SMTP_FROM_EMAIL") || "noreply@charpstar.com",
+      from: Deno.env.get("SMTP_FROM_EMAIL") || "noreply@mail.charpstar.co",
       to: to,
       subject: subject,
       content: html,

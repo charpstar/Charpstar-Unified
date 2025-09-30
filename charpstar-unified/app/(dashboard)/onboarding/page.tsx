@@ -76,6 +76,13 @@ export default function OnboardingPage() {
     invitation: Invitation | null;
   }>({ open: false, invitation: null });
   const [clearHistoryDialog, setClearHistoryDialog] = useState(false);
+  const [createUserDialog, setCreateUserDialog] = useState(false);
+  const [createUserData, setCreateUserData] = useState({
+    email: "",
+    client_name: "",
+    role: "client",
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
 
   // Check if user is admin
   useEffect(() => {
@@ -299,6 +306,57 @@ export default function OnboardingPage() {
     }
   };
 
+  const createUser = async () => {
+    if (!createUserData.email || !createUserData.client_name) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(createUserData),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "User Created",
+          description: `User account created for ${createUserData.email}`,
+        });
+        setCreateUserDialog(false);
+        setCreateUserData({
+          email: "",
+          client_name: "",
+          role: "client",
+        });
+        fetchInvitations(); // Refresh the list
+      } else {
+        const error = await response.json();
+        throw new Error(
+          error.details || error.message || "Failed to create user"
+        );
+      }
+    } catch (error) {
+      console.error("Error creating user:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to create user.",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
@@ -380,120 +438,216 @@ export default function OnboardingPage() {
             Manage client invitations and track onboarding progress
           </p>
         </div>
-        <Dialog open={newInviteDialog} onOpenChange={setNewInviteDialog}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 cursor-pointer">
-              <UserPlus className="h-4 w-4" />
-              Send Invitation
-            </Button>
-          </DialogTrigger>
-          <DialogContent className=" max-h-[85vh] h-fit overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Send Client Invitation</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label
-                  className="text-sm font-medium mb-1"
-                  htmlFor="invite_email"
-                >
-                  Email Address
-                </Label>
-                <Input
-                  id="invite_email"
-                  type="email"
-                  placeholder="client@company.com"
-                  value={newInviteData.email}
-                  onChange={(e) =>
-                    setNewInviteData((prev) => ({
-                      ...prev,
-                      email: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              {newInviteData.role === "client" ? (
+        <div className="flex gap-2">
+          <Dialog open={newInviteDialog} onOpenChange={setNewInviteDialog}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 cursor-pointer">
+                <UserPlus className="h-4 w-4" />
+                Send Invitation
+              </Button>
+            </DialogTrigger>
+            <DialogContent className=" max-h-[85vh] h-fit overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Send Client Invitation</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
                 <div>
                   <Label
-                    htmlFor="client_name"
-                    className="block text-sm font-medium mb-1"
+                    className="text-sm font-medium mb-1"
+                    htmlFor="invite_email"
                   >
-                    Client Name
+                    Email Address
                   </Label>
                   <Input
-                    id="client_name"
-                    type="text"
-                    placeholder="Enter client name"
-                    value={newInviteData.client_name}
+                    id="invite_email"
+                    type="email"
+                    placeholder="client@company.com"
+                    value={newInviteData.email}
                     onChange={(e) =>
-                      setNewInviteData({
-                        ...newInviteData,
+                      setNewInviteData((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                {newInviteData.role === "client" ? (
+                  <div>
+                    <Label
+                      htmlFor="client_name"
+                      className="block text-sm font-medium mb-1"
+                    >
+                      Client Name
+                    </Label>
+                    <Input
+                      id="client_name"
+                      type="text"
+                      placeholder="Enter client name"
+                      value={newInviteData.client_name}
+                      onChange={(e) =>
+                        setNewInviteData({
+                          ...newInviteData,
+                          client_name: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <Label
+                      htmlFor="client_name"
+                      className="block text-sm font-medium mb-1"
+                    >
+                      Name
+                    </Label>
+                    <Input
+                      id="client_name"
+                      type="text"
+                      placeholder="Enter name"
+                      value={newInviteData.client_name}
+                      onChange={(e) =>
+                        setNewInviteData({
+                          ...newInviteData,
+                          client_name: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                )}
+                <div>
+                  <Label className="text-sm font-medium mb-1">Role</Label>
+                  <Select
+                    value={newInviteData.role}
+                    onValueChange={(value) =>
+                      setNewInviteData((prev) => ({ ...prev, role: value }))
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="client">client</SelectItem>
+                      <SelectItem value="modeler">3D Modeler</SelectItem>
+                      <SelectItem value="qa">Quality Assurance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={sendInvitation}
+                    disabled={sendingInvite}
+                    className="flex-1 cursor-pointer"
+                  >
+                    {sendingInvite ? "Sending..." : "Send Invitation"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setNewInviteDialog(false)}
+                    className="cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={createUserDialog} onOpenChange={setCreateUserDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 cursor-pointer">
+                <UserPlus className="h-4 w-4" />
+                Create User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[85vh] h-fit overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create User Account</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label
+                    className="text-sm font-medium mb-1"
+                    htmlFor="create_email"
+                  >
+                    Email Address
+                  </Label>
+                  <Input
+                    id="create_email"
+                    type="email"
+                    placeholder="user@company.com"
+                    value={createUserData.email}
+                    onChange={(e) =>
+                      setCreateUserData((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label
+                    htmlFor="create_client_name"
+                    className="block text-sm font-medium mb-1"
+                  >
+                    {createUserData.role === "client" ? "Client Name" : "Name"}
+                  </Label>
+                  <Input
+                    id="create_client_name"
+                    type="text"
+                    placeholder={
+                      createUserData.role === "client"
+                        ? "Enter client name"
+                        : "Enter name"
+                    }
+                    value={createUserData.client_name}
+                    onChange={(e) =>
+                      setCreateUserData({
+                        ...createUserData,
                         client_name: e.target.value,
                       })
                     }
                     required
                   />
                 </div>
-              ) : (
                 <div>
-                  <Label
-                    htmlFor="client_name"
-                    className="block text-sm font-medium mb-1"
-                  >
-                    Name
-                  </Label>
-                  <Input
-                    id="client_name"
-                    type="text"
-                    placeholder="Enter name"
-                    value={newInviteData.client_name}
-                    onChange={(e) =>
-                      setNewInviteData({
-                        ...newInviteData,
-                        client_name: e.target.value,
-                      })
+                  <Label className="text-sm font-medium mb-1">Role</Label>
+                  <Select
+                    value={createUserData.role}
+                    onValueChange={(value) =>
+                      setCreateUserData((prev) => ({ ...prev, role: value }))
                     }
-                    required
-                  />
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="client">Client</SelectItem>
+                      <SelectItem value="modeler">3D Modeler</SelectItem>
+                      <SelectItem value="qa">Quality Assurance</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-              <div>
-                <Label className="text-sm font-medium mb-1">Role</Label>
-                <Select
-                  value={newInviteData.role}
-                  onValueChange={(value) =>
-                    setNewInviteData((prev) => ({ ...prev, role: value }))
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="client">client</SelectItem>
-                    <SelectItem value="modeler">3D Modeler</SelectItem>
-                    <SelectItem value="qa">Quality Assurance</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={createUser}
+                    disabled={creatingUser}
+                    className="flex-1 cursor-pointer"
+                  >
+                    {creatingUser ? "Creating..." : "Create User"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCreateUserDialog(false)}
+                    className="cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={sendInvitation}
-                  disabled={sendingInvite}
-                  className="flex-1 cursor-pointer"
-                >
-                  {sendingInvite ? "Sending..." : "Send Invitation"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setNewInviteDialog(false)}
-                  className="cursor-pointer"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Delete Confirmation Dialog */}

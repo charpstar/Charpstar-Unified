@@ -943,37 +943,33 @@ export default function BatchDetailPage() {
             "Error recording original GLB to history:",
             historyError
           );
-        } else {
         }
       }
 
-      // Upload to Supabase Storage with unique filename to preserve history
-      const timestamp = Date.now();
-      const fileNameForUpload = `${asset?.article_id || assetId}_${timestamp}.glb`;
-      const filePath = `models/${fileNameForUpload}`;
+      // Upload to BunnyCDN using the new API
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("asset_id", assetId);
+      formData.append("file_type", "glb");
+      formData.append("client_name", client);
 
-      const { error: uploadError } = await supabase.storage
-        .from("assets")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false, // Don't overwrite, use unique filename
-        });
+      const response = await fetch("/api/assets/upload-file", {
+        method: "POST",
+        body: formData,
+      });
 
-      if (uploadError) {
-        console.error("Storage upload error:", uploadError);
-        throw uploadError;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to upload GLB file");
       }
 
-      // Get the public URL
-      const { data: urlData } = supabase.storage
-        .from("assets")
-        .getPublicUrl(filePath);
+      const result = await response.json();
 
       // Update the asset with the new GLB link and change status to delivered_by_artist
       const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
-          glb_link: urlData.publicUrl,
+          glb_link: result.url, // Use result.url instead of result.file_url
           status: "delivered_by_artist",
         })
         .eq("id", assetId);
@@ -993,13 +989,13 @@ export default function BatchDetailPage() {
         console.error("Error marking old annotations:", markOldError);
       }
 
-      // Record GLB upload history with unique filename
+      // Record GLB upload history
       const { error: newHistoryError } = await supabase
         .from("glb_upload_history")
         .insert({
           asset_id: assetId,
-          glb_url: urlData.publicUrl,
-          file_name: fileNameForUpload,
+          glb_url: result.url, // Use result.url instead of result.file_url
+          file_name: file.name,
           file_size: file.size,
           uploaded_by: user?.id,
           uploaded_at: new Date().toISOString(),
@@ -1007,7 +1003,6 @@ export default function BatchDetailPage() {
 
       if (newHistoryError) {
         console.error("Error recording GLB history:", newHistoryError);
-      } else {
       }
 
       // Update local state to avoid collapsing the accordion
@@ -1018,7 +1013,7 @@ export default function BatchDetailPage() {
             a.id === assetId
               ? {
                   ...a,
-                  glb_link: urlData.publicUrl,
+                  glb_link: result.url, // Use result.url instead of result.file_url
                   status: "delivered_by_artist",
                 }
               : a
@@ -1048,6 +1043,7 @@ export default function BatchDetailPage() {
       formData.append("file", file);
       formData.append("asset_id", assetId);
       formData.append("file_type", "asset");
+      formData.append("client_name", client);
 
       const response = await fetch("/api/assets/upload-file", {
         method: "POST",

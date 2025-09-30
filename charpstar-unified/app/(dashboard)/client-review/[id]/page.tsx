@@ -482,6 +482,11 @@ export default function ReviewPage() {
         query = query.eq("client", user.metadata.client);
       }
 
+      // Hide transferred assets for client users
+      if (user?.metadata?.role === "client") {
+        query = query.eq("transferred", false);
+      }
+
       const { data, error } = await query.single();
 
       if (error) {

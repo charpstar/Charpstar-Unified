@@ -105,16 +105,12 @@ const fetchAssets = async (
     if (data.length < pageSize) break;
   }
 
-  // Parse materials, colors, and tags from string arrays
+  // Parse materials, colors, and tags from jsonb fields
   const parsedAssets = allAssets.map((item) => ({
     ...item,
-    materials: Array.isArray(item.materials)
-      ? item.materials
-      : JSON.parse(item.materials || "[]"),
-    colors: Array.isArray(item.colors)
-      ? item.colors
-      : JSON.parse(item.colors || "[]"),
-    tags: Array.isArray(item.tags) ? item.tags : JSON.parse(item.tags || "[]"),
+    materials: Array.isArray(item.materials) ? item.materials : [],
+    colors: Array.isArray(item.colors) ? item.colors : [],
+    tags: Array.isArray(item.tags) ? item.tags : [],
   }));
 
   return { assets: parsedAssets, totalCount: count || 0 };
@@ -143,7 +139,6 @@ export function useAssets() {
         setUserProfile(null);
         return;
       }
-
       const supabase = createClient();
       const { data, error } = await supabase
         .from("profiles")

@@ -110,14 +110,14 @@ export default function AssetCard({
         {isCompactMode ? (
           // Horizontal layout for compact mode
           <>
-            {/* Image section */}
-            <div className="flex-shrink-0 w-50 h-60 p-3">
-              <div
-                onClick={handleViewAsset}
-                className="block w-full h-full cursor-pointer"
-              >
-                <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
-                  {asset.preview_image && asset.preview_image !== "" ? (
+            {/* Image section - only show if there's a preview image */}
+            {asset.preview_image && asset.preview_image !== "" && (
+              <div className="flex-shrink-0 w-50 h-60 p-3">
+                <div
+                  onClick={handleViewAsset}
+                  className="block w-full h-full cursor-pointer"
+                >
+                  <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
                     <motion.img
                       src={asset.preview_image}
                       alt={asset.product_name}
@@ -127,16 +127,10 @@ export default function AssetCard({
                       onLoad={() => setImgLoaded(true)}
                       draggable={false}
                     />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur-sm flex items-center justify-center">
-                      <div className="text-muted-foreground/60 text-xs font-medium">
-                        No Preview
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Content section */}
             <div className="flex-1 flex flex-col justify-between p-4 min-w-0">
@@ -287,17 +281,16 @@ export default function AssetCard({
         ) : (
           // Original vertical layout for grid mode
           <>
-            <CardHeader
-              className={`flex-shrink-0 ${isCompactMode ? "p-1" : "p-2"}`}
-            >
-              <div
-                onClick={handleViewAsset}
-                className="block w-full h-full cursor-pointer"
+            {/* Image section - only show if there's a preview image */}
+            {asset.preview_image && asset.preview_image !== "" && (
+              <CardHeader
+                className={`flex-shrink-0 ${isCompactMode ? "p-1" : "p-2"}`}
               >
-                <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
-                  {/* Image skeleton loader */}
-
-                  {asset.preview_image && asset.preview_image !== "" ? (
+                <div
+                  onClick={handleViewAsset}
+                  className="block w-full h-full cursor-pointer"
+                >
+                  <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
                     <motion.img
                       src={asset.preview_image}
                       alt={asset.product_name}
@@ -307,25 +300,17 @@ export default function AssetCard({
                       onLoad={() => setImgLoaded(true)}
                       draggable={false}
                     />
-                  ) : (
-                    <div
-                      className={`w-full bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur-sm flex items-center justify-center ${isCompactMode ? "h-24" : "h-36"}`}
-                    >
-                      <div className="text-muted-foreground/60 text-xs font-medium">
-                        No Preview
-                      </div>
-                    </div>
-                  )}
-                  {/* Overlay gradient */}
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    whileHover={{ opacity: 1 }}
-                    className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent pointer-events-none"
-                    transition={{ duration: 0.3 }}
-                  />
+                    {/* Overlay gradient */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      whileHover={{ opacity: 1 }}
+                      className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent pointer-events-none"
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
+              </CardHeader>
+            )}
 
             <CardContent
               className={`flex-1 flex flex-col justify-between items-center gap-3 ${isCompactMode ? "p-2" : "p-3"}`}

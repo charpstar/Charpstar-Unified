@@ -13,7 +13,7 @@ const sendViaResend = async (
 ) => {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
-  const from = process.env.EMAIL_FROM || "noreply@charpstar.com";
+  const from = process.env.EMAIL_FROM || "noreply@mail.charpstar.co";
   const subject = payload.subject || "You're Invited to Join Us!";
 
   const html = `<!DOCTYPE html>
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
       try {
         const resend = new Resend(process.env.RESEND_API_KEY);
         const subject = body.subject || "You're Invited to Join Us!";
-        const from = process.env.EMAIL_FROM || "noreply@charpstar.com";
+        const from = process.env.EMAIL_FROM || "noreply@mail.charpstar.co";
 
         const { data, error } = await resend.emails.send({
           from,

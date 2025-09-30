@@ -600,7 +600,7 @@ export default function CsvUploadPage() {
 
       {/* Enhanced Preview Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="w-[95vw] min-w-[1400px]  max-h-[80vh] overflow-hidden">
+        <DialogContent className="w-[95vw] min-w-[1800px]  max-h-[80vh] ">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Eye className="h-5 w-5 text-primary" />
@@ -621,19 +621,20 @@ export default function CsvUploadPage() {
               </AlertDescription>
             </Alert>
 
-            <div className="border rounded-lg overflow-hidden">
+            <div className="border rounded-lg ">
               <div
                 className={`overflow-auto ${csvPreview && csvPreview.length > 11 ? "max-h-120" : "h-fit"}`}
+                style={{ overflowX: "auto", overflowY: "auto" }}
               >
                 {csvPreview ? (
-                  <Table>
+                  <Table className="min-w-[800px]">
                     <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                       {csvPreview[0] && (
                         <TableRow className="p-4">
                           {csvPreview[0].map((cell, j) => (
                             <TableHead
                               key={j}
-                              className="font-semibold text-primary bg-primary/5 text-left"
+                              className="font-semibold text-primary bg-primary/5 text-left whitespace-nowrap min-w-[120px]"
                             >
                               {cell}
                             </TableHead>
@@ -648,7 +649,7 @@ export default function CsvUploadPage() {
                             {row.map((cell, j) => (
                               <TableCell
                                 key={j}
-                                className="text-sm p-4 text-left"
+                                className="text-sm p-4 text-left whitespace-nowrap min-w-[120px]"
                               >
                                 {cell || (
                                   <span className="text-muted-foreground italic">
@@ -678,7 +679,7 @@ export default function CsvUploadPage() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-start gap-3 pt-4 border-t">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>

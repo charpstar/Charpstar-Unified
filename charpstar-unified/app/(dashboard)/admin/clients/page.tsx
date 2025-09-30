@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/inputs";
+import { Switch } from "@/components/ui/inputs";
 import { Plus, Edit, Eye, Search, Building2, FileText } from "lucide-react";
 import { DatePicker } from "@/components/ui/utilities";
 
@@ -57,6 +58,8 @@ interface Client {
   client_guide?: string | null;
   client_guide_links?: string[] | null;
   viewer_type?: "v6_aces" | "v5_tester" | "synsam" | "v2" | null;
+  bunny_custom_structure?: boolean | null;
+  bunny_custom_url?: string | null;
   created_at: string;
   updated_at: string;
   isPlaceholder?: boolean;
@@ -77,6 +80,8 @@ interface ClientFormData {
   client_guide?: string;
   client_guide_links?: string[];
   viewer_type?: "v6_aces" | "v5_tester" | "synsam" | "v2" | null;
+  bunny_custom_structure?: boolean;
+  bunny_custom_url?: string;
 }
 
 export default function AdminClientsPage() {
@@ -102,6 +107,8 @@ export default function AdminClientsPage() {
     client_guide: "",
     client_guide_links: [],
     viewer_type: null,
+    bunny_custom_structure: false,
+    bunny_custom_url: "",
   });
   const { toast } = useToast();
 
@@ -164,6 +171,8 @@ export default function AdminClientsPage() {
           client_guide: null,
           client_guide_links: [],
           viewer_type: null,
+          bunny_custom_structure: null,
+          bunny_custom_url: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           isPlaceholder: true,
@@ -211,6 +220,8 @@ export default function AdminClientsPage() {
       client_guide: client.client_guide || "",
       client_guide_links: client.client_guide_links || [],
       viewer_type: client.viewer_type || null,
+      bunny_custom_structure: client.bunny_custom_structure || false,
+      bunny_custom_url: client.bunny_custom_url || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -236,6 +247,8 @@ export default function AdminClientsPage() {
       client_guide: "",
       client_guide_links: [],
       viewer_type: null,
+      bunny_custom_structure: false,
+      bunny_custom_url: "",
     });
     setIsAddDialogOpen(true);
   };
@@ -256,6 +269,8 @@ export default function AdminClientsPage() {
       client_guide: "",
       client_guide_links: [],
       viewer_type: null,
+      bunny_custom_structure: false,
+      bunny_custom_url: "",
     });
     setIsAddDialogOpen(true);
   };
@@ -333,6 +348,8 @@ export default function AdminClientsPage() {
         client_guide: "",
         client_guide_links: [],
         viewer_type: null,
+        bunny_custom_structure: false,
+        bunny_custom_url: "",
       });
       setIsEditDialogOpen(false);
       setIsAddDialogOpen(false);
@@ -971,6 +988,68 @@ function ClientForm({
               </div>
             </div>
           )}
+          {role === "admin" && (
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="bunny_custom_structure"
+                    checked={formData.bunny_custom_structure || false}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        bunny_custom_structure: checked,
+                      })
+                    }
+                  />
+                  <Label htmlFor="bunny_custom_structure" className="text-sm">
+                    Custom Folder (Client has own CDN subdomain)
+                  </Label>
+                </div>
+
+                {formData.bunny_custom_structure && (
+                  <div className="space-y-1">
+                    <Label htmlFor="bunny_custom_url" className="text-sm">
+                      Custom Folder
+                    </Label>
+                    <Input
+                      id="bunny_custom_url"
+                      value={formData.bunny_custom_url || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          bunny_custom_url: e.target.value,
+                        })
+                      }
+                      placeholder="/"
+                      className="text-sm sm:text-base"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>
+                  • <strong>Folders auto-created</strong> on first asset upload
+                  with QC/, Android/, iOS/ subfolders
+                </p>
+                <p>
+                  • <strong>Default:</strong> Use main CDN structure (folder
+                  name = company name)
+                </p>
+                <p>
+                  • <strong>Custom:</strong> Client has their own CDN folder
+                </p>
+                <p>
+                  • <strong>Platform will use:</strong>{" "}
+                  {formData.bunny_custom_structure
+                    ? `${formData.bunny_custom_url || "custom-cdn"}/${formData.company.toLowerCase().replace(/\s+/g, "-")}/QC/`
+                    : `${formData.company.toLowerCase().replace(/\s+/g, "-")}/QC/`}
+                  , Android/, iOS/
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1102,6 +1181,50 @@ function ClientView({ client }: { client: Client }) {
                       ? "Synsam"
                       : "V2 (Under Construction)"}
               </Badge>
+            </div>
+          )}
+          {(client.bunny_custom_structure || client.bunny_custom_url) && (
+            <div>
+              <h4 className="font-medium text-muted-foreground text-sm">
+                BunnyCDN Configuration
+              </h4>
+              <div className="mt-1">
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-xs font-medium">Folder:</span>
+                    <code className="text-xs bg-muted px-2 py-1 rounded font-mono ml-1">
+                      {client.company.toLowerCase().replace(/\s+/g, "-")}
+                    </code>
+                    <span className="text-xs text-muted-foreground ml-1">
+                      (auto-generated from company name)
+                    </span>
+                  </div>
+
+                  {client.bunny_custom_structure && client.bunny_custom_url && (
+                    <div>
+                      <span className="text-xs font-medium">
+                        Custom Folder:
+                      </span>
+                      <code className="text-xs bg-muted px-2 py-1 rounded font-mono ml-1">
+                        {client.bunny_custom_url}
+                      </code>
+                    </div>
+                  )}
+
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>
+                      <strong>Structure:</strong>{" "}
+                      {client.bunny_custom_structure && client.bunny_custom_url
+                        ? `${client.bunny_custom_url}/${client.company.toLowerCase().replace(/\s+/g, "-")}/QC/`
+                        : `${client.company.toLowerCase().replace(/\s+/g, "-")}/QC/`}
+                      , Android/, iOS/
+                    </p>
+                    <p>• QC/ = Files pending approval</p>
+                    <p>• Android/ = Approved files for Live 3D & Android AR</p>
+                    <p>• iOS/ = USDZ files for iOS AR</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

@@ -250,6 +250,16 @@ export default function ModelerReviewPage() {
   const [isDialogDragOver, setIsDialogDragOver] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [restoringVersion, setRestoringVersion] = useState(false);
+  const skipNextAssetFetchRef = useRef(false);
+  const currentGlbUrlRef = useRef<string | null>(null);
+
+  // Update the ref whenever asset.glb_link changes
+  useEffect(() => {
+    if (asset?.glb_link) {
+      currentGlbUrlRef.current = asset.glb_link;
+    }
+  }, [asset?.glb_link]);
+
   //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [existingGlbNameMismatch, setExistingGlbNameMismatch] = useState<
     string | null
@@ -390,6 +400,10 @@ export default function ModelerReviewPage() {
     async function fetchAsset() {
       if (!assetId) return;
 
+      // Skip fetch if we just restored a version
+      if (skipNextAssetFetchRef.current) {
+        return;
+      }
       setLoading(true);
 
       try {
@@ -417,32 +431,13 @@ export default function ModelerReviewPage() {
 
           if (!clientError && clientData) {
             setClientViewerType(clientData.viewer_type);
-            console.log("🎯 Client viewer type:", clientData.viewer_type);
-            console.log(
-              "🎯 Viewer parameters:",
-              getViewerParameters(clientData.viewer_type)
-            );
           } else {
             // If no client found, default to null (will use default viewer)
             setClientViewerType(null);
-            console.log(
-              "🎯 No client viewer type found, using default parameters"
-            );
-            console.log(
-              "🎯 Default viewer parameters:",
-              getViewerParameters(null)
-            );
           }
         } catch (error) {
           console.error("Error fetching client viewer type:", error);
           setClientViewerType(null);
-          console.log(
-            "🎯 Error fetching viewer type, using default parameters"
-          );
-          console.log(
-            "🎯 Default viewer parameters:",
-            getViewerParameters(null)
-          );
         }
 
         // Validate existing GLB filename against article id and set warning
@@ -601,34 +596,34 @@ export default function ModelerReviewPage() {
     fetchNotes();
   }, [assetId, user]);
 
-  // Fetch GLB upload history
+  // Fetch GLB upload history from BunnyCDN backups
   const fetchGlbHistory = async () => {
     if (!assetId) return;
 
     try {
-      const { data, error } = await supabase
-        .from("glb_upload_history")
-        .select("*")
-        .eq("asset_id", assetId)
-        .order("uploaded_at", { ascending: false });
+      const response = await fetch(`/api/assets/${assetId}/backups`);
 
-      if (error) {
-        console.error("Error fetching GLB history:", error);
-        if (error.code === "42P01") {
-          setGlbHistory([]);
-          return;
-        }
+      if (!response.ok) {
+        console.error(
+          "Error fetching GLB history:",
+          response.status,
+          response.statusText
+        );
+        setGlbHistory([]);
         return;
       }
 
-      setGlbHistory(data || []);
-      const newest = (data || [])[0]?.uploaded_at
-        ? new Date((data || [])[0].uploaded_at).getTime()
-        : null;
-      setLatestGlbTime(newest);
+      const data = await response.json();
 
-      // Debug logging to help understand the data
-      if (data && data.length > 0) {
+      if (data.success && data.versions) {
+        setGlbHistory(data.versions);
+
+        // Find the current version timestamp
+        const currentVersion = data.versions.find((v: any) => v.isCurrent);
+        const newest = currentVersion?.timestamp || null;
+        setLatestGlbTime(newest);
+      } else {
+        setGlbHistory([]);
       }
     } catch (error) {
       console.error("Error fetching GLB history:", error);
@@ -653,14 +648,16 @@ export default function ModelerReviewPage() {
       }
 
       if (!data?.reference) {
-        console.log("No reference images found for asset:", assetId);
         return [];
       }
 
       let refs: string[] = [];
       if (Array.isArray(data.reference)) {
         refs = data.reference;
-      } else if (typeof data.reference === "string" && data.reference.startsWith("[")) {
+      } else if (
+        typeof data.reference === "string" &&
+        data.reference.startsWith("[")
+      ) {
         try {
           refs = JSON.parse(data.reference);
         } catch {
@@ -671,14 +668,21 @@ export default function ModelerReviewPage() {
       }
 
       // Filter to only show image files
-      const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"];
+      const imageExtensions = [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".bmp",
+        ".webp",
+        ".svg",
+      ];
       const imageUrls = refs.filter((url) => {
         if (!url) return false;
         const lowerUrl = url.toLowerCase();
         return imageExtensions.some((ext) => lowerUrl.includes(ext));
       });
 
-      console.log("Found reference images:", imageUrls);
       setReferenceImages(imageUrls);
       return imageUrls;
     } catch (error) {
@@ -689,8 +693,7 @@ export default function ModelerReviewPage() {
 
   // Clean up problematic GLB history entries
   // This function removes entries with the old naming convention (Current_ prefix)
-  // and handles duplicate URLs by keeping only the most recent entry for each unique URL.
-  // It's called when the component mounts to ensure a clean state.
+  // and removes duplicate entries with the same URL, keeping only the most recent
   const cleanupGlbHistory = async () => {
     if (!assetId) return;
 
@@ -704,10 +707,9 @@ export default function ModelerReviewPage() {
 
       if (cleanupError) {
         console.error("Error cleaning up GLB history:", cleanupError);
-      } else {
       }
 
-      // Now handle potential duplicate URLs - keep only the most recent entry for each unique URL
+      // Only remove exact duplicates (same URL AND uploaded within 1 second of each other)
       const { data: currentHistory, error: fetchError } = await supabase
         .from("glb_upload_history")
         .select("*")
@@ -723,7 +725,7 @@ export default function ModelerReviewPage() {
       }
 
       if (currentHistory && currentHistory.length > 1) {
-        // Group by glb_url and find duplicates
+        // Group by glb_url and find true duplicates
         const urlGroups = currentHistory.reduce(
           (groups, item) => {
             if (!groups[item.glb_url]) {
@@ -735,14 +737,30 @@ export default function ModelerReviewPage() {
           {} as Record<string, typeof currentHistory>
         );
 
-        // For each group with duplicates, keep only the most recent
+        // For each group, only remove entries that are true duplicates (within 1 second)
         for (const [, items] of Object.entries(urlGroups)) {
           if ((items as any[]).length > 1) {
-            // Sort by uploaded_at descending and keep only the first (most recent)
-            const itemsToDelete = (items as any[]).slice(1);
-            const idsToDelete = itemsToDelete.map((item: any) => item.id);
+            // Sort by uploaded_at descending
+            const sortedItems = (items as any[]).sort(
+              (a, b) =>
+                new Date(b.uploaded_at).getTime() -
+                new Date(a.uploaded_at).getTime()
+            );
 
-            if (idsToDelete.length > 0) {
+            const itemsToDelete = [];
+            for (let i = 1; i < sortedItems.length; i++) {
+              const timeDiff = Math.abs(
+                new Date(sortedItems[0].uploaded_at).getTime() -
+                  new Date(sortedItems[i].uploaded_at).getTime()
+              );
+              // Only consider it a duplicate if uploaded within 1 second
+              if (timeDiff < 1000) {
+                itemsToDelete.push(sortedItems[i]);
+              }
+            }
+
+            if (itemsToDelete.length > 0) {
+              const idsToDelete = itemsToDelete.map((item: any) => item.id);
               const { error: deleteError } = await supabase
                 .from("glb_upload_history")
                 .delete()
@@ -753,7 +771,6 @@ export default function ModelerReviewPage() {
                   "Error deleting duplicate GLB history entries:",
                   deleteError
                 );
-              } else {
               }
             }
           }
@@ -769,8 +786,8 @@ export default function ModelerReviewPage() {
 
   useEffect(() => {
     fetchGlbHistory();
-    // Clean up any problematic entries when component mounts
-    cleanupGlbHistory();
+    // Don't run cleanup automatically - it interferes with new uploads
+    // User can manually clean up using the "Clean Up History" button
   }, [assetId]);
 
   // Fetch attached components (dependencies)
@@ -950,22 +967,43 @@ export default function ModelerReviewPage() {
 
   // Restore GLB version
   const restoreGlbVersion = async (historyItem: any) => {
-    if (!asset) return;
-
+    if (!asset) {
+      return;
+    }
     setRestoringVersion(true);
+
     try {
       // Update asset with restored GLB
       const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
-          glb_link: historyItem.glb_url,
+          glb_link: historyItem.glbUrl,
           status: "in_production",
         })
         .eq("id", asset.id);
 
       if (updateError) {
+        console.error("❌ Database update error:", updateError);
         throw updateError;
       }
+
+      // Set flag to prevent refetch from overwriting our changes FIRST
+      skipNextAssetFetchRef.current = true;
+
+      // Update local asset state with the restored GLB
+
+      setAsset((prev) => {
+        return prev
+          ? {
+              ...prev,
+              glb_link: historyItem.glbUrl,
+              status: "in_production",
+            }
+          : null;
+      });
+
+      // Add a small delay to see if something happens after setAsset
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Mark all current annotations as old
       const { error: markOldError } = await supabase
@@ -981,7 +1019,7 @@ export default function ModelerReviewPage() {
       }
 
       // Find and restore annotations that were created before this GLB upload
-      const glbUploadTime = new Date(historyItem.uploaded_at);
+      const glbUploadTime = new Date(historyItem.lastModified);
 
       // Get all annotations for this asset that were created before the GLB upload
       const { data: oldAnnotations, error: fetchOldError } = await supabase
@@ -1032,8 +1070,22 @@ export default function ModelerReviewPage() {
 
       toast.success("GLB version and annotations restored successfully!");
       setShowHistoryDialog(false);
+
+      // Force model viewer refresh
+      setTimeout(() => {
+        const mv = modelViewerRef.current as any;
+        if (mv) {
+          mv.src = historyItem.glbUrl;
+        }
+      }, 100);
+
+      // Add a longer delay to ensure the skip flag stays active
+      setTimeout(() => {
+        skipNextAssetFetchRef.current = false;
+      }, 2000);
     } catch (error) {
-      console.error("Error restoring GLB version:", error);
+      console.error("❌ Error restoring GLB version:", error);
+      console.trace("❌ Restore error call stack:");
       toast.error("Failed to restore GLB version");
     } finally {
       setRestoringVersion(false);
@@ -1047,50 +1099,32 @@ export default function ModelerReviewPage() {
     setUploading(true);
 
     try {
-      // Save current GLB to history before uploading new one
-      if (asset.glb_link) {
-        const { error: historyError } = await supabase
-          .from("glb_upload_history")
-          .insert({
-            asset_id: asset.id,
-            glb_url: asset.glb_link,
-            file_name: `${asset.article_id}.glb`,
-            file_size: 0, // We don't have the original file size
-            uploaded_by: user?.id,
-            uploaded_at: new Date().toISOString(),
-          });
+      // Don't save current GLB to history - we'll only save the new one after successful upload
 
-        if (historyError) {
-          console.error("Error saving current GLB to history:", historyError);
-        }
+      // Upload to BunnyCDN using the new API
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("asset_id", asset.id);
+      formData.append("file_type", "glb");
+      formData.append("client_name", asset.client);
+
+      const uploadResponse = await fetch("/api/assets/upload-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json();
+        throw new Error(errorData.error || "Upload failed");
       }
 
-      // Upload to Supabase Storage with unique filename to preserve history
-      const timestamp = Date.now();
-      const fileName = `${asset.article_id}_${timestamp}.glb`;
-      const filePath = `models/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("assets")
-        .upload(filePath, selectedFile, {
-          cacheControl: "3600",
-          upsert: false, // Don't overwrite, use unique filename
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Get the public URL
-      const { data: urlData } = supabase.storage
-        .from("assets")
-        .getPublicUrl(filePath);
+      const uploadResult = await uploadResponse.json();
 
       // Update the asset with the new GLB link and change status to delivered_by_artist
       const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
-          glb_link: urlData.publicUrl,
+          glb_link: uploadResult.url,
           status: "delivered_by_artist",
         })
         .eq("id", asset.id);
@@ -1120,28 +1154,14 @@ export default function ModelerReviewPage() {
         }
       }
 
-      // Record GLB upload history for the new file
-      const { error: newHistoryError } = await supabase
-        .from("glb_upload_history")
-        .insert({
-          asset_id: asset.id,
-          glb_url: urlData.publicUrl,
-          file_name: `${asset.article_id}.glb`,
-          file_size: selectedFile.size,
-          uploaded_by: user?.id,
-          uploaded_at: new Date().toISOString(),
-        });
-
-      if (newHistoryError) {
-        console.error("Error recording new GLB history:", newHistoryError);
-      }
+      // History is now managed by BunnyCDN backups - no database tracking needed
 
       // Update local state
       setAsset((prev) =>
         prev
           ? {
               ...prev,
-              glb_link: urlData.publicUrl,
+              glb_link: uploadResult.url,
               status: "delivered_by_artist",
             }
           : null
@@ -1151,23 +1171,28 @@ export default function ModelerReviewPage() {
       await fetchGlbHistory();
 
       // Fetch reference images and trigger QA
-      console.log("Fetching reference images for asset:", assetId);
       const refImages = await fetchReferenceImages();
-      console.log("Reference images found:", refImages.length);
-      
+
       if (refImages.length > 0) {
-        console.log("Triggering QA dialog with images:", refImages);
-        setUploadedGlbUrl(urlData.publicUrl);
+        setUploadedGlbUrl(uploadResult.url);
         setShowQADialog(true);
-        console.log("QA dialog state set to true");
-        toast.success("GLB file uploaded successfully! Starting automated QA...");
+        toast.success(
+          "GLB file uploaded successfully! Starting automated QA..."
+        );
       } else {
-        console.log("No reference images found, skipping QA");
         toast.success("GLB file uploaded successfully!");
       }
-      
+
       setShowUploadDialog(false);
       setSelectedFile(null);
+
+      // Force model viewer refresh with the new URL
+      setTimeout(() => {
+        const mv = modelViewerRef.current as any;
+        if (mv) {
+          mv.src = uploadResult.url;
+        }
+      }, 100);
     } catch (error) {
       console.error("Error uploading file:", error);
       toast.error("Failed to upload GLB file");
@@ -1207,12 +1232,16 @@ export default function ModelerReviewPage() {
     if (newStatus === "delivered_by_artist") {
       // Block delivery if QA is not approved
       if (qaApproved === false) {
-        toast.error("Cannot deliver: Model not approved by QA. Please run QA analysis and address any issues.");
+        toast.error(
+          "Cannot deliver: Model not approved by QA. Please run QA analysis and address any issues."
+        );
         return;
       }
-      
+
       if (qaApproved === null) {
-        toast.error("Cannot deliver: Please run QA analysis first to ensure model quality.");
+        toast.error(
+          "Cannot deliver: Please run QA analysis first to ensure model quality."
+        );
         return;
       }
       // Block if GLB is older than latest external feedback
@@ -1926,16 +1955,20 @@ export default function ModelerReviewPage() {
                       onClick={async () => {
                         if (qaApproved === null) {
                           // Run QA analysis
-                          console.log("QA button clicked - starting QA analysis");
                           try {
                             const refImages = await fetchReferenceImages();
-                            console.log("Reference images found:", refImages);
-                            if (refImages.length > 0 && (uploadedGlbUrl || asset?.glb_link)) {
-                              setUploadedGlbUrl(uploadedGlbUrl || asset?.glb_link || "");
+                            if (
+                              refImages.length > 0 &&
+                              (uploadedGlbUrl || asset?.glb_link)
+                            ) {
+                              setUploadedGlbUrl(
+                                uploadedGlbUrl || asset?.glb_link || ""
+                              );
                               setShowQADialog(true);
-                              console.log("QA dialog opened");
                             } else {
-                              alert(`No reference images (${refImages.length}) or GLB file found`);
+                              alert(
+                                `No reference images (${refImages.length}) or GLB file found`
+                              );
                             }
                           } catch (error) {
                             console.error("Error starting QA:", error);
@@ -1943,7 +1976,6 @@ export default function ModelerReviewPage() {
                           }
                         } else if (qaApproved === true) {
                           // Deliver the model
-                          console.log("Delivery button clicked. QA Approved:", qaApproved);
                           updateAssetStatus("delivered_by_artist");
                         }
                       }}
@@ -1952,7 +1984,7 @@ export default function ModelerReviewPage() {
                         asset?.status === "approved" ||
                         asset?.status === "approved_by_client" ||
                         statusUpdating ||
-                        (qaApproved === false) // Block if QA failed
+                        qaApproved === false // Block if QA failed
                       }
                       variant={
                         asset?.status === "delivered_by_artist"
@@ -1963,14 +1995,14 @@ export default function ModelerReviewPage() {
                       }
                       size="sm"
                       className={`h-6 sm:h-7 px-2 text-xs ${
-                        qaApproved === false 
-                          ? "cursor-not-allowed opacity-50" 
+                        qaApproved === false
+                          ? "cursor-not-allowed opacity-50"
                           : "cursor-pointer"
                       }`}
                       title={
-                        qaApproved === false 
-                          ? "Cannot deliver: Model not approved by QA" 
-                          : qaApproved === null 
+                        qaApproved === false
+                          ? "Cannot deliver: Model not approved by QA"
+                          : qaApproved === null
                             ? "Run automated QA analysis to test model quality"
                             : qaApproved === true
                               ? "Model approved by QA - ready to deliver"
@@ -1988,21 +2020,30 @@ export default function ModelerReviewPage() {
                         {qaApproved === null ? "Run Auto QA" : "Delivered"}
                       </span>
                     </Button>
-                    
+
                     {/* QA Status Indicator */}
                     <div className="flex items-center gap-1 text-xs">
                       {qaApproved === null ? (
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-800 border-yellow-200">
+                        <Badge
+                          variant="outline"
+                          className="bg-yellow-50 text-yellow-800 border-yellow-200"
+                        >
                           <AlertTriangle className="h-3 w-3 mr-1" />
                           Run QA
                         </Badge>
                       ) : qaApproved ? (
-                        <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                        <Badge
+                          variant="default"
+                          className="bg-green-100 text-green-800 border-green-200"
+                        >
                           <CheckCircle className="h-3 w-3 mr-1" />
                           QA Approved
                         </Badge>
                       ) : (
-                        <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
+                        <Badge
+                          variant="destructive"
+                          className="bg-red-100 text-red-800 border-red-200"
+                        >
                           <AlertTriangle className="h-3 w-3 mr-1" />
                           QA Not Approved
                         </Badge>
@@ -2027,12 +2068,17 @@ export default function ModelerReviewPage() {
               }}
             />
 
-            {asset.glb_link ? (
+            {(() => {
+              const currentUrl = asset?.glb_link || currentGlbUrlRef.current;
+
+              return currentUrl && currentUrl !== "undefined";
+            })() ? (
               <div className="w-full h-full  overflow-hidden">
                 {/* @ts-expect-error -- model-viewer is a custom element */}
                 <model-viewer
+                  key={asset?.glb_link || currentGlbUrlRef.current} // Force re-render when GLB changes
                   ref={modelViewerRef}
-                  src={asset.glb_link}
+                  src={asset?.glb_link || currentGlbUrlRef.current}
                   alt={asset.product_name}
                   camera-controls={true}
                   interaction-prompt="none"
@@ -2136,6 +2182,9 @@ export default function ModelerReviewPage() {
                   <p className="text-muted-foreground mb-4">
                     No 3D model available for this asset
                   </p>
+                  <p className="text-xs text-muted-foreground">
+                    Debug: asset.glb_link = {String(asset?.glb_link)}
+                  </p>
                   <Button onClick={handleBackNavigation}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back
@@ -2163,7 +2212,6 @@ export default function ModelerReviewPage() {
                 <Upload className="h-4 w-4 mr-2" />
                 {asset.glb_link ? "Update GLB" : "Upload GLB"}
               </Button>
-              
             </div>
           </div>
 
@@ -3283,35 +3331,34 @@ export default function ModelerReviewPage() {
                 )}
               </div>
 
-            <div className="flex gap-2">
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                variant="outline"
-                className="flex-1"
-              >
-                Select File
-              </Button>
-              <Button
-                onClick={handleUpload}
-                disabled={
-                  !selectedFile ||
-                  uploading ||
-                  Boolean(selectedFileNameMismatch) ||
-                  selectedFileSizeWarning
-                }
-                className="flex-1"
-              >
-                {uploading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Uploading...
-                  </>
-                ) : (
-                  "Upload"
-                )}
-              </Button>
-            </div>
-            
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Select File
+                </Button>
+                <Button
+                  onClick={handleUpload}
+                  disabled={
+                    !selectedFile ||
+                    uploading ||
+                    Boolean(selectedFileNameMismatch) ||
+                    selectedFileSizeWarning
+                  }
+                  className="flex-1"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Uploading...
+                    </>
+                  ) : (
+                    "Upload"
+                  )}
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -3325,7 +3372,6 @@ export default function ModelerReviewPage() {
           referenceImages={referenceImages}
           modelViewerRef={modelViewerRef}
           onComplete={(results) => {
-            console.log("QA completed:", results);
             setQaApproved(results?.status === "Approved");
             setShowQADialog(false);
           }}
@@ -3379,10 +3425,10 @@ export default function ModelerReviewPage() {
                     // Debug logging to help identify any issues
 
                     return sortedHistory.map((historyItem, index) => {
-                      const isCurrentVersion =
-                        asset?.glb_link === historyItem.glb_url;
-                      const versionNumber = sortedHistory.length - index;
-                      const uploadDate = new Date(historyItem.uploaded_at);
+                      const isCurrentVersion = historyItem.isCurrent;
+                      // Version numbers: current version is always 1, others increment from there
+                      const versionNumber = isCurrentVersion ? 1 : index + 1;
+                      const uploadDate = new Date(historyItem.lastModified);
                       const isToday =
                         uploadDate.toDateString() === new Date().toDateString();
                       const isYesterday =
@@ -3450,16 +3496,24 @@ export default function ModelerReviewPage() {
                                         Current Version
                                       </Badge>
                                     )}
+                                    {historyItem.is_backup && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs px-2 py-1 bg-orange-50 text-orange-700 border-orange-200"
+                                      >
+                                        Backup
+                                      </Badge>
+                                    )}
                                   </div>
                                   <p className="text-sm text-muted-foreground mb-2">
                                     {dateDisplay}
                                   </p>
                                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                    {historyItem.file_size > 0 && (
+                                    {historyItem.fileSize > 0 && (
                                       <span className="flex items-center gap-1">
                                         <span className="w-2 h-2 bg-muted-foreground rounded-full"></span>
                                         {(
-                                          historyItem.file_size /
+                                          historyItem.fileSize /
                                           1024 /
                                           1024
                                         ).toFixed(2)}{" "}
@@ -3480,7 +3534,7 @@ export default function ModelerReviewPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() =>
-                                  window.open(historyItem.glb_url, "_blank")
+                                  window.open(historyItem.glbUrl, "_blank")
                                 }
                                 className="text-xs h-8 px-3"
                                 title="Download this version"

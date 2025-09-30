@@ -69,7 +69,7 @@ const sendViaSendGrid = async (
 ) => {
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) return false;
-  const from = process.env.EMAIL_FROM || "noreply@charpstar.com";
+  const from = process.env.EMAIL_FROM || "noreply@mail.charpstar.co";
   const subject =
     payload.subject ||
     `New Allocation Assigned${payload.client ? ` - ${payload.client}` : ""}`;
@@ -259,7 +259,7 @@ export async function POST(req: NextRequest) {
         const subject =
           body.subject ||
           `New Allocation Assigned${body.client ? ` - ${body.client}` : ""}`;
-        const from = process.env.EMAIL_FROM || "noreply@charpstar.com";
+        const from = process.env.EMAIL_FROM || "noreply@mail.charpstar.co";
         const { data, error } = await resend.emails.send({
           from,
           to: [body.to],
