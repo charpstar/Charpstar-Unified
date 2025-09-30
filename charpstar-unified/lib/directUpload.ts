@@ -71,7 +71,7 @@ export class DirectFileUploader {
         accessKey,
         (progress) => {
           // Only update progress in 5% increments to reduce console spam
-          const roundedProgress = Math.round(progress / 5) * 5;
+
           this.updateProgress({
             current: Math.round(20 + progress * 0.6), // 20-80% for upload
             total: 100,
