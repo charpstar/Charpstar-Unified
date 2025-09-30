@@ -1,5 +1,5 @@
 import { supabase } from "./supabaseClient";
-import { getBaseUrl } from "./urlUtils";
+// import { getBaseUrl } from "./urlUtils"; // TEMPORARILY DISABLED
 
 export interface NotificationData {
   id?: string;
@@ -205,6 +205,17 @@ class NotificationService {
     // Create notification in database
     await this.createNotification(notification);
 
+    // TEMPORARILY DISABLED - No email notifications during bulk operations
+    console.log("[EMAIL DISABLED] Asset allocation email would be sent:", {
+      to: modelerEmail,
+      client,
+      allocationListName: "Allocation",
+      assetNames,
+      deadline,
+      bonus,
+    });
+
+    /* ORIGINAL EMAIL CODE - TEMPORARILY COMMENTED OUT
     // Fire-and-forget email (if provider configured)
     try {
       const baseUrl = getBaseUrl();
@@ -239,6 +250,7 @@ class NotificationService {
       // Non-blocking; log and continue
       console.warn("Email dispatch failed (allocation)", e);
     }
+    */
   }
 
   async sendAssetCompletedNotification(
@@ -375,6 +387,7 @@ class NotificationService {
 
   /**
    * Send notification to clients when assets are ready for their review
+   * TEMPORARILY DISABLED - No client notifications during bulk operations
    */
   async sendClientReviewReadyNotification(
     assetId: string,
@@ -384,6 +397,21 @@ class NotificationService {
     client: string,
     modelerName: string
   ): Promise<void> {
+    // TEMPORARILY DISABLED - No client notifications during bulk operations
+    console.log(
+      "[NOTIFICATION DISABLED] Client review ready notification would be sent:",
+      {
+        assetId,
+        clientId,
+        clientEmail,
+        assetName,
+        client,
+        modelerName,
+      }
+    );
+    return;
+
+    /* ORIGINAL CODE - TEMPORARILY COMMENTED OUT
     const notification: Omit<NotificationData, "created_at"> = {
       recipient_id: clientId,
       recipient_email: clientEmail,
@@ -402,6 +430,7 @@ class NotificationService {
     };
 
     await this.createNotification(notification);
+    */
   }
 
   /**
@@ -1576,6 +1605,24 @@ class NotificationService {
     client: string,
     batch: number
   ): Promise<void> {
+    // TEMPORARILY DISABLED - No client notifications during bulk operations
+    console.log(
+      "[NOTIFICATION DISABLED] Client list progress notification would be sent:",
+      {
+        clientId,
+        clientEmail,
+        allocationListId,
+        allocationListName,
+        completionPercentage,
+        completedAssets,
+        totalAssets,
+        client,
+        batch,
+      }
+    );
+    return;
+
+    /* ORIGINAL CODE - TEMPORARILY COMMENTED OUT
     try {
       const progressText =
         completionPercentage === 100
@@ -1605,6 +1652,7 @@ class NotificationService {
       console.error("Failed to send client list progress notification:", error);
       throw error;
     }
+    */
   }
 }
 

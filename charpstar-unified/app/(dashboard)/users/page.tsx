@@ -22,6 +22,9 @@ import {
   Users,
   Briefcase,
   X,
+  Upload,
+  FileText,
+  Download,
 } from "lucide-react";
 import {
   Table,
@@ -217,6 +220,15 @@ export default function UsersPage() {
   // Profile dialog state
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+
+  // Bulk CSV upload state
+  const [isBulkUploadDialogOpen, setIsBulkUploadDialogOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+  const [bulkResults, setBulkResults] = useState<{
+    success: number;
+    errors: string[];
+  } | null>(null);
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -739,6 +751,169 @@ export default function UsersPage() {
     });
   };
 
+  // Bulk CSV upload functions
+  const handleCsvFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === "text/csv") {
+      setCsvFile(file);
+      setBulkResults(null);
+    } else {
+      toast({
+        title: "Error",
+        description: "Please select a valid CSV file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const processBulkCsv = async () => {
+    if (!csvFile) return;
+
+    setIsProcessingBulk(true);
+    setBulkResults(null);
+
+    try {
+      const csvText = await csvFile.text();
+      const lines = csvText.split("\n").filter((line) => line.trim());
+
+      if (lines.length < 2) {
+        throw new Error("CSV must have at least a header row and one data row");
+      }
+
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+      const requiredHeaders = ["email", "clientname"];
+
+      // Check if all required headers are present
+      const missingHeaders = requiredHeaders.filter(
+        (header) => !headers.includes(header)
+      );
+      if (missingHeaders.length > 0) {
+        throw new Error(
+          `Missing required headers: ${missingHeaders.join(", ")}`
+        );
+      }
+
+      const results = {
+        success: 0,
+        errors: [] as string[],
+      };
+
+      // Process each row (skip header)
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        try {
+          const values = line.split(",").map((v) => v.trim());
+          if (values.length !== headers.length) {
+            results.errors.push(`Row ${i + 1}: Column count mismatch`);
+            continue;
+          }
+
+          // Create user data object
+          const userData: UserFormData = {
+            email: values[headers.indexOf("email")] || "",
+            firstName: "Client", // Default first name
+            lastName: "User", // Default last name
+            role: "client",
+            password: "TempPassword123!", // Default password for bulk uploads
+            confirmPassword: "TempPassword123!",
+            clientName: values[headers.indexOf("clientname")] || "",
+            title: "Client", // Default title
+            phoneNumber: "", // Empty phone number
+            discordName: "",
+            softwareExperience: [],
+            modelTypes: [],
+            dailyHours: 8,
+            exclusiveWork: false,
+            country: "",
+            portfolioLinks: [""],
+          };
+
+          // Validate required fields
+          if (!userData.email || !userData.clientName) {
+            results.errors.push(
+              `Row ${i + 1}: Missing required fields (email or clientname)`
+            );
+            continue;
+          }
+
+          // Create user via API
+          const response = await fetch("/api/users/create-provisional", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(userData),
+          });
+
+          if (response.ok) {
+            results.success++;
+          } else {
+            const errorData = await response.json();
+            results.errors.push(
+              `Row ${i + 1}: ${errorData.error || "Failed to create user"}`
+            );
+          }
+        } catch (error) {
+          results.errors.push(
+            `Row ${i + 1}: ${error instanceof Error ? error.message : "Unknown error"}`
+          );
+        }
+      }
+
+      setBulkResults(results);
+
+      if (results.success > 0) {
+        toast({
+          title: "Bulk Upload Complete",
+          description: `Successfully created ${results.success} users. ${results.errors.length} errors occurred.`,
+        });
+        await fetchUsers(); // Refresh the user list
+      } else {
+        toast({
+          title: "Bulk Upload Failed",
+          description: "No users were created. Check the error details.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error processing CSV:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to process CSV file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingBulk(false);
+    }
+  };
+
+  const downloadCsvTemplate = () => {
+    const templateData = [
+      "Email,ClientName",
+      "john.smith@acmecorp.com,Acme Corporation",
+      "jane.doe@techcorp.com,Tech Corp",
+      "bob.wilson@designco.com,Design Co",
+    ].join("\n");
+
+    const blob = new Blob([templateData], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bulk-client-template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Template Downloaded",
+      description: "CSV template downloaded successfully",
+    });
+  };
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "client":
@@ -823,6 +998,14 @@ export default function UsersPage() {
         <h1 className="text-2xl font-bold">Users</h1>
 
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsBulkUploadDialogOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            Bulk Upload
+          </Button>
           <Button
             variant="outline"
             onClick={() => setIsCreateUserDialogOpen(true)}
@@ -1732,6 +1915,196 @@ export default function UsersPage() {
                 </>
               )}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Upload Dialog */}
+      <Dialog
+        open={isBulkUploadDialogOpen}
+        onOpenChange={setIsBulkUploadDialogOpen}
+      >
+        <DialogContent className="w-[95vw] sm:w-full max-w-2xl h-fit overflow-y-auto">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Upload className="h-4 w-4 sm:h-5 sm:w-5" />
+              Bulk Upload Client Users
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-3">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+                CSV Upload
+              </h3>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      Select CSV File
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Upload a CSV file with client user data. Only Email and
+                      ClientName are required.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="bulk-csv-upload"
+                      type="file"
+                      accept=".csv"
+                      onChange={handleCsvFileUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        document.getElementById("bulk-csv-upload")?.click()
+                      }
+                      className="flex items-center gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Choose CSV
+                    </Button>
+                    <Button
+                      onClick={downloadCsvTemplate}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      Template
+                    </Button>
+                  </div>
+                </div>
+
+                {csvFile && (
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          {csvFile.name}
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          ({(csvFile.size / 1024).toFixed(1)} KB)
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCsvFile(null)}
+                        className="text-slate-500 hover:text-slate-700"
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
+                    Required CSV Format
+                  </h4>
+                  <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                    <p>
+                      <strong>Headers:</strong> Email, ClientName
+                    </p>
+                    <p>
+                      <strong>Note:</strong> All users will be created with
+                      default values: Name: &quot;Client User&quot;, Title:
+                      &quot;Client&quot;, Password: &quot;TempPassword123!&quot;
+                    </p>
+                    <p>
+                      <strong>Role:</strong> All users will be assigned the
+                      &quot;client&quot; role
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {bulkResults && (
+              <div className="space-y-3">
+                <h3 className="text-base sm:text-lg font-semibold">
+                  Upload Results
+                </h3>
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border">
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <span className="font-medium text-green-800 dark:text-green-200">
+                        Success: {bulkResults.success} users created
+                      </span>
+                    </div>
+                    {bulkResults.errors.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <span className="font-medium text-red-800 dark:text-red-200">
+                          Errors: {bulkResults.errors.length}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {bulkResults.errors.length > 0 && (
+                    <div className="mt-3">
+                      <h4 className="font-medium text-sm mb-2">
+                        Error Details:
+                      </h4>
+                      <div className="max-h-32 overflow-y-auto space-y-1">
+                        {bulkResults.errors.map((error, index) => (
+                          <p
+                            key={index}
+                            className="text-xs text-red-600 dark:text-red-400"
+                          >
+                            {error}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 sm:gap-4 pt-4 sm:pt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsBulkUploadDialogOpen(false);
+                  setCsvFile(null);
+                  setBulkResults(null);
+                }}
+                className="flex-1 text-sm sm:text-base"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={processBulkCsv}
+                disabled={!csvFile || isProcessingBulk}
+                className="flex-1 text-sm sm:text-base"
+              >
+                {isProcessingBulk ? (
+                  <>
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                    <span className="hidden sm:inline">Processing...</span>
+                    <span className="sm:hidden">Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Upload Users</span>
+                    <span className="sm:hidden">Upload</span>
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

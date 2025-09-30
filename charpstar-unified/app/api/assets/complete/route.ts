@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 
 import { cleanupSingleAllocationList } from "@/lib/allocationListCleanup";
 import { logActivityServer } from "@/lib/serverActivityLogger";
-import { notificationService } from "@/lib/notificationService";
+// import { notificationService } from "@/lib/notificationService"; // TEMPORARILY DISABLED
 
 export async function POST(request: NextRequest) {
   try {
@@ -567,14 +567,28 @@ export async function POST(request: NextRequest) {
                 const batch = firstAsset?.onboarding_assets?.batch || 1;
 
                 // Find client profile
-                const { data: clientProfile, error: clientError } =
-                  await supabaseAdmin
-                    .from("profiles")
-                    .select("id, email")
-                    .eq("client", client)
-                    .eq("role", "client")
-                    .single();
+                const { data: clientProfile } = await supabaseAdmin
+                  .from("profiles")
+                  .select("id, email")
+                  .eq("client", client)
+                  .eq("role", "client")
+                  .single();
 
+                // TEMPORARILY DISABLED - No client notifications during bulk operations
+                console.log(
+                  "[NOTIFICATION DISABLED] Client list progress notification would be sent:",
+                  {
+                    clientProfile: clientProfile?.id,
+                    allocationListId,
+                    completionPercentage,
+                    completedAssets,
+                    totalAssets,
+                    client,
+                    batch,
+                  }
+                );
+
+                /* ORIGINAL CODE - TEMPORARILY COMMENTED OUT
                 if (!clientError && clientProfile && allocationListId) {
                   await notificationService.sendClientListProgressNotification(
                     clientProfile.id,
@@ -589,6 +603,7 @@ export async function POST(request: NextRequest) {
                     batch
                   );
                 }
+                */
               }
             }
           } catch (progressError) {

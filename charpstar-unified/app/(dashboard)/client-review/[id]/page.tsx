@@ -1961,6 +1961,13 @@ export default function ReviewPage() {
             }
           }
 
+          // TEMPORARILY DISABLED - No client notifications during bulk operations
+          console.log(
+            "[NOTIFICATION DISABLED] Client review ready notification would be sent for asset:",
+            assetId
+          );
+
+          /* ORIGINAL CODE - TEMPORARILY COMMENTED OUT
           // Send client review ready notification to client
           const { data: clientProfile, error: clientError } = await supabase
             .from("profiles")
@@ -1981,6 +1988,7 @@ export default function ReviewPage() {
               modelerName
             );
           }
+          */
         } catch (error) {
           console.error("❌ Failed to send approval notifications:", error);
         }
