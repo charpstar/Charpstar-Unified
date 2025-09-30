@@ -4,12 +4,12 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/containers/card";
 import { Badge } from "@/components/ui/feedback/badge";
 import { Button } from "@/components/ui/display/button";
-import { Progress } from "@/components/ui/feedback/progress";
 import { 
   CheckCircle, 
   XCircle, 
   Clock, 
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from "lucide-react";
 
 interface QAResultsProps {
@@ -26,7 +26,7 @@ interface QAResults {
     bbox: number[];
     severity: string;
   }>;
-  summary: string;
+  summary: string[];
   status: string;
   similarityScores?: {
     silhouette?: number;
@@ -34,6 +34,7 @@ interface QAResults {
     colorMaterial?: number;
     overall?: number;
   };
+  warnings?: string[];
 }
 
 interface JobStatus {
@@ -138,13 +139,6 @@ const QAResults: React.FC<QAResultsProps> = ({ jobId, onRetry, onClose }) => {
     return new Date(timeString).toLocaleString();
   };
 
-  const getScoreColor = (score?: number) => {
-    if (!score) return 'text-gray-500';
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
   if (isLoading) {
     return (
       <Card className="w-full max-w-4xl mx-auto">
@@ -244,12 +238,12 @@ const QAResults: React.FC<QAResultsProps> = ({ jobId, onRetry, onClose }) => {
 
         {/* Error State */}
         {jobStatus.status === 'failed' && (
-          <div className="bg-red-50 p-4 rounded-lg">
+          <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 p-4 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <XCircle className="h-4 w-4 text-red-600" />
-              <span className="font-medium text-red-900">Analysis Failed</span>
+              <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <span className="font-medium text-red-900 dark:text-red-100">Analysis Failed</span>
             </div>
-            <p className="text-red-700 text-sm">{jobStatus.error}</p>
+            <p className="text-red-700 dark:text-red-300 text-sm">{jobStatus.error}</p>
             {onRetry && (
               <Button variant="outline" size="sm" onClick={onRetry} className="mt-2">
                 <RefreshCw className="h-4 w-4 mr-2" />
@@ -263,48 +257,53 @@ const QAResults: React.FC<QAResultsProps> = ({ jobId, onRetry, onClose }) => {
         {jobStatus.qaResults && (
           <div className="space-y-6">
             {/* Overall Status */}
-            <div className="text-center p-6 bg-gray-50 rounded-lg">
+            <div className="text-center p-6 bg-muted/50 dark:bg-muted/20 rounded-lg">
               <div className="flex items-center justify-center gap-2 mb-2">
                 {jobStatus.qaResults.status === 'Approved' ? (
                   <CheckCircle className="h-8 w-8 text-green-500" />
                 ) : (
                   <XCircle className="h-8 w-8 text-red-500" />
                 )}
-                <h3 className="text-xl font-semibold">
+                <h3 className="text-xl font-semibold text-foreground">
                   {jobStatus.qaResults.status}
                 </h3>
               </div>
-              <p className="text-muted-foreground">{jobStatus.qaResults.summary}</p>
+              {jobStatus.qaResults.status === 'Approved' ? (
+                <div className="text-left">
+                    <p className="text-muted-foreground mb-2 text-center">This is a good submission, but you can improve the following:</p>
+                    <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                        {Array.isArray(jobStatus.qaResults.summary) && jobStatus.qaResults.summary.map((point, index) => (
+                            <li key={index}>{point}</li>
+                        ))}
+                    </ul>
+                </div>
+              ) : (
+                <ul className="list-disc list-inside text-left text-muted-foreground space-y-1">
+                    {Array.isArray(jobStatus.qaResults.summary) && jobStatus.qaResults.summary.map((point, index) => (
+                        <li key={index}>{point}</li>
+                    ))}
+                </ul>
+              )}
             </div>
 
-            {/* Overall Score */}
-            {jobStatus.qaResults.similarityScores?.overall !== undefined && (
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-3xl font-bold mb-2">
-                  <span className={getScoreColor(jobStatus.qaResults.similarityScores.overall)}>
-                    {jobStatus.qaResults.similarityScores.overall}%
-                  </span>
+            {/* Technical Warnings */}
+            {jobStatus.qaResults.warnings && jobStatus.qaResults.warnings.length > 0 && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800/50 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                  <h4 className="font-medium text-yellow-900 dark:text-yellow-100">Technical Warnings</h4>
                 </div>
-                <div className="text-sm text-muted-foreground">Overall Similarity</div>
-                <Progress 
-                  value={jobStatus.qaResults.similarityScores.overall} 
-                  className="mt-3 h-3"
-                />
-              </div>
-            )}
-
-            {/* Simple Status Display */}
-            {jobStatus.qaResults.status === 'Approved' ? (
-              <div className="text-center p-6 bg-green-50 rounded-lg">
-                <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                <h4 className="font-medium text-green-900">QA Approved</h4>
-                <p className="text-green-700 text-sm">Model passed quality checks</p>
-              </div>
-            ) : (
-              <div className="text-center p-6 bg-red-50 rounded-lg">
-                <XCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                <h4 className="font-medium text-red-900">QA Not Approved</h4>
-                <p className="text-red-700 text-sm">Model needs improvements</p>
+                <ul className="space-y-1">
+                  {jobStatus.qaResults.warnings.map((warning, index) => (
+                    <li key={index} className="text-yellow-800 dark:text-yellow-200 text-sm flex items-start gap-2">
+                      <span className="text-yellow-600 dark:text-yellow-400 mt-0.5">•</span>
+                      {warning}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-yellow-700 dark:text-yellow-300 text-xs mt-2">
+                  These are non-blocking warnings. The model can still be approved.
+                </p>
               </div>
             )}
           </div>

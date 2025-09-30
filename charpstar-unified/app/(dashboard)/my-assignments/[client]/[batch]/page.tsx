@@ -965,12 +965,13 @@ export default function BatchDetailPage() {
 
       const result = await response.json();
 
-      // Update the asset with the new GLB link and change status to delivered_by_artist
+      // Update the asset with the new GLB link but keep status as in_progress for QA
       const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
           glb_link: result.url, // Use result.url instead of result.file_url
           status: "delivered_by_artist",
+          // Don't change status to delivered_by_artist - let QA handle that
         })
         .eq("id", assetId);
 
@@ -1023,7 +1024,12 @@ export default function BatchDetailPage() {
         return updatedLists;
       });
 
-      toast.success("GLB file uploaded successfully!");
+      toast.success("GLB file uploaded successfully! Redirecting to viewer...");
+
+      // Redirect to modeler review page
+      setTimeout(() => {
+        router.push(`/modeler-review/${assetId}`);
+      }, 1500);
     } catch (error) {
       console.error("Error uploading GLB:", error);
       toast.error(

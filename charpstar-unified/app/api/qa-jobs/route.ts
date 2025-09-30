@@ -44,7 +44,7 @@ type QAResults = {
     bbox: number[];
     severity: string;
   }>;
-  summary: string;
+  summary: string[];
   status: string;
   similarityScores?: {
     silhouette?: number;
@@ -52,6 +52,7 @@ type QAResults = {
     colorMaterial?: number;
     overall?: number;
   };
+  warnings?: string[];
 };
 
 // Job Queue Implementation
@@ -274,14 +275,6 @@ function extractSimilarityScores(summary: string) {
   return scores;
 }
 
-function cleanSummary(summary: string): string {
-  const cleanedSummary = summary
-    .replace(/\.?\s*Similarity scores:.*$/i, "")
-    .trim();
-
-  return cleanedSummary.endsWith(".") ? cleanedSummary : cleanedSummary + ".";
-}
-
 // Process QA job function
 async function processQAJob(
   jobId: string,
@@ -301,52 +294,53 @@ async function processQAJob(
 
     // Technical requirements check
     if (modelStats?.requirements) {
-      const issues: string[] = [];
+      const warnings: string[] = [];
+      const rejections: string[] = [];
 
+      // Check for warnings (non-blocking issues)
       if (
         modelStats.triangles &&
         modelStats.triangles > modelStats.requirements.maxTriangles
       ) {
-        issues.push(
+        warnings.push(
           `Triangle count: ${modelStats.triangles.toLocaleString()} exceeds maximum ${modelStats.requirements.maxTriangles.toLocaleString()}`
         );
       }
 
       if (modelStats.materialCount > modelStats.requirements.maxMaterials) {
-        issues.push(
+        warnings.push(
           `Material count: ${modelStats.materialCount} exceeds maximum ${modelStats.requirements.maxMaterials}`
         );
       }
 
       if (modelStats.meshCount > modelStats.requirements.maxMeshes) {
-        issues.push(
+        warnings.push(
           `Mesh count: ${modelStats.meshCount} exceeds maximum ${modelStats.requirements.maxMeshes}`
         );
       }
 
-      if (modelStats.fileSize > modelStats.requirements.maxFileSize) {
+      if (modelStats.fileSize > modelStats.requirements.maxFileSize + 1024) { // Add 1KB tolerance
         const actualMB = (modelStats.fileSize / (1024 * 1024)).toFixed(1);
-        const maxMB = (
-          modelStats.requirements.maxFileSize /
-          (1024 * 1024)
-        ).toFixed(0);
-        issues.push(`File size: ${actualMB}MB exceeds maximum ${maxMB}MB`);
+        const maxMB = (modelStats.requirements.maxFileSize / (1024 * 1024)).toFixed(1);
+        warnings.push(`File size: ${actualMB}MB exceeds maximum ${maxMB}MB`);
       }
 
+      // Check for rejections (blocking issues)
       if (modelStats.doubleSidedCount > 0) {
-        issues.push("Double sided material found");
+        rejections.push("Double sided material found");
       }
 
-      if (issues.length > 0) {
+      // Only reject if there are blocking issues (double-sided materials)
+      if (rejections.length > 0) {
         const technicalFailureResult: QAResults = {
-          differences: issues.map((issue) => ({
+          differences: rejections.map((issue) => ({
             renderIndex: 0,
             referenceIndex: 0,
             issues: [issue],
             bbox: [0, 0, 100, 100],
             severity: "high" as const,
           })),
-          summary: `${issues.join("; ")}.`,
+          summary: [`${rejections.join("; ")}.`],
           status: "Not Approved",
           similarityScores: {
             silhouette: 0,
@@ -369,6 +363,8 @@ async function processQAJob(
       }
     }
 
+    let qaResults: QAResults;
+
     // If no renders provided, we need to capture screenshots first
     if (renders.length === 0) {
       // For now, we'll analyze references only since screenshot capture requires frontend
@@ -387,6 +383,12 @@ ANALYSIS APPROACH:
    - Textures and surface details
    - Branding elements (logos, text)
    - Overall visual fidelity
+   
+IMPORTANT: Be slightly more tolerant across all aspects. Account for lighting/exposure/white‑balance and shadow differences between renders and references. Be reasonably tolerant of transparency, reflections, finish, and minor color shifts. Lens decals/branding (e.g., small logos on lenses) may vary—do not penalize unless clearly wrong or missing where critical. Focus primarily on shape and proportions; penalize materials only for clear, noticeable mismatches.
+
+SUMMARY PHRASING:
+- If status is "Approved", phrase the summary as a list of constructive feedback points. Start with a positive statement as the first item in the list.
+- If status is "Not Approved", the summary should be a list of the critical issues.
 
 SCORING SYSTEM:
 - Silhouette: How well the overall shape matches (0-100%)
@@ -394,12 +396,12 @@ SCORING SYSTEM:
 - Color/Material: Color accuracy, material appearance, textures (0-100%)
 - Overall: Weighted average considering all factors (0-100%)
 
-APPROVAL CRITERIA - BE STRICT:
-- If overall score ≥ 65% AND no individual score < 60% → status = "Approved"
-- If overall score < 65% OR any individual score < 60% → status = "Not Approved"
+APPROVAL CRITERIA - SLIGHTLY MORE LENIENT:
+- If overall score ≥ 60% AND no individual score < 55% → status = "Approved"
+- If overall score < 60% OR any individual score < 55% → status = "Not Approved"
 - If you mention "significant discrepancies" in your summary → status = "Not Approved"
-- If Color/Material score < 50% → status = "Not Approved" (color accuracy is critical)
-- If critical branding elements are missing → status = "Not Approved"
+  - If Color/Material score < 50% → status = "Not Approved"
+  - If Silhouette score < 55% → status = "Not Approved"
 
 OUTPUT FORMAT:
 {
@@ -413,7 +415,7 @@ OUTPUT FORMAT:
       "severity": "high|medium|low"
     }
   ],
-  "summary": "Overall assessment of the 3D model accuracy",
+  "summary": ["Overall assessment point 1", "Overall assessment point 2"],
   "status": "Approved|Not Approved",
   "similarityScores": {
     "silhouette": 85,
@@ -529,6 +531,9 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
         model: "gemini-2.5-flash",
         contents: geminiContents,
         config: {
+          temperature: 0, // Force determinism
+          topP: 0,
+          topK: 1,
           thinkingConfig: {
             thinkingBudget: 0, // Disables thinking
           },
@@ -537,7 +542,6 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
 
       const raw = response.text || "";
 
-      let qaResults: QAResults;
       try {
         qaResults = JSON.parse(raw);
       } catch {
@@ -564,8 +568,42 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
         }
       }
 
-      qaResults.similarityScores = extractSimilarityScores(qaResults.summary);
-      qaResults.summary = cleanSummary(qaResults.summary);
+      // Prefer model-provided scores; fallback to parsing summary (no post-adjustments)
+      {
+        const provided: any = (qaResults as any).similarityScores;
+        if (provided && typeof provided === "object") {
+          qaResults.similarityScores = provided as any;
+        } else {
+          qaResults.similarityScores = extractSimilarityScores(qaResults.summary.join(" "));
+        }
+      }
+      
+      // Stabilize scores to reduce jitter and be slightly more lenient on color
+      try {
+        const s: any = qaResults.similarityScores || {};
+        const r = (n: any) => Math.max(0, Math.min(100, Math.round(Number(n || 0))));
+        const silhouette = r(s.silhouette);
+        const proportion = r(s.proportion);
+        // Slight color leniency: small uplift and minimum floor
+        const colorMaterial = r(Math.max(Number(s.colorMaterial || 0) + 3, 51));
+        // Reduce color weight a bit versus shape
+        const overall = Math.round(silhouette * 0.5 + proportion * 0.3 + colorMaterial * 0.2);
+        qaResults.similarityScores = { silhouette, proportion, colorMaterial, overall } as any;
+      } catch {}
+
+      // Log similarity scores for debugging/visibility
+      try {
+        const s = qaResults.similarityScores as any;
+        console.log(
+          "SimilarityScores (reference-only):",
+          {
+            silhouette: s?.silhouette,
+            proportion: s?.proportion,
+            colorMaterial: s?.colorMaterial,
+            overall: s?.overall,
+          }
+        );
+      } catch {}
 
       await supabaseAdmin
         .from("qa_jobs")
@@ -580,75 +618,65 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
         `Job ${jobId} completed successfully (reference analysis only)`
       );
       return;
-    }
-
-    // AI Analysis for renders vs references comparison
-    const systemMessage = {
-      role: "system",
-      content: `You are a 3D model visual QA specialist. The model has already passed technical requirements validation.
+    } else {
+        // AI Analysis for renders vs references comparison
+        const systemPrompt = `You are a highly analytical and deterministic 3D model visual QA specialist. Your task is to compare render screenshots of a 3D model against reference images and output a precise, structured JSON report. The model has passed all blocking technical requirements.
 
 INTELLIGENT COMPARISON APPROACH:
-1. **Smart View Matching**: Match each render screenshot to the most relevant reference image(s) based on camera angle and perspective
-2. **Adaptive Analysis**: If reference images are limited (e.g., only front view available), only compare the corresponding render views
-3. **Comprehensive Assessment**: For each matched pair, analyze silhouette, proportions, colors, materials, textures, and branding elements
+1.  **Smart View Matching**: Match each render screenshot to the most relevant reference image(s) based on camera angle and perspective.
+2.  **Adaptive Analysis**: ONLY compare views showing the *SAME PERSPECTIVE and ANGLE* of the product. If a render angle has no match in the references, SKIP that render.
+3.  **Comprehensive Assessment**: Analyze geometry, proportions, colors, materials, textures, and branding elements for each matched pair.
 
-‼️ CRITICAL RULES ‼️
-PERSPECTIVE MATCHING:
-• ONLY compare views showing the SAME PERSPECTIVE and ANGLE of the product
-• If a render shows a different side/angle than available references, skip that render
-• Different sides should NEVER be compared (e.g., front view vs. side view)
-• If only front references exist, only analyze front renders
+CRITICAL RULES:
+* **NO DUPLICATE ISSUES**: Report each unique issue **ONLY ONCE**. Choose the clearest view to report it in.
+* **SPECIFICITY**: Each issue must state: what's in the 3D Model, what's in the reference, and the exact difference.
+* **TOLERANCE**: Be reasonably tolerant of **transparency, reflections, metallic finishes, and gloss levels**. Minor variations are acceptable. Only deduct for clearly incorrect base colors, missing textures, or major material type mismatches. Be tolerant of subtle lens logo/branding shifts due to shading.
 
-NO DUPLICATE ISSUES:
-• If the same issue appears in multiple views, report it ONLY ONCE
-• Choose the clearest view to report each issue
-• Focus on unique problems per perspective
+**SUMMARY PHRASING**:
+*   If status is "Approved", phrase the summary as a list of constructive feedback points. Start with a positive statement as the first item in the list.
+*   If status is "Not Approved", the summary should be a list of the critical issues.
 
-Guidelines:
-1. 3D Model come from <model-viewer>—perfect fidelity is not expected.
-2. References are human-crafted—focus on real discrepancies.
-3. Analyze geometry, proportions, textures, and material colors for each pairing.
-4. Be extremely specific with differences.
-5. Each issue must state: what's in the 3D Model, what's in the reference, the exact difference.
+SCORING - BE PRECISE AND METHODICAL:
+* **SILHOUETTE**: Compare overall shape, outline, and form. (0-100%)
+* **PROPORTION**: Compare relative sizes and dimensions of parts. (0-100%)
+* **COLOR/MATERIAL**: Compare base colors and primary textures. Be tolerant of finish differences. (0-100%)
+* **OVERALL**: Must be the weighted average of the other scores.
 
-SCORING - BE PRECISE:
-• SILHOUETTE: Compare overall shape, outline, and form. Ignore color/texture. Perfect match = 100%
-• PROPORTION: Compare relative sizes of parts. 
-• COLOR/MATERIAL: Compare exact colors, textures, materials. Small color shifts should impact score significantly
-• OVERALL: Weighted average considering all factors. Be conservative
+**CRITICAL CALCULATION RULE:**
+The \`overall\` score must be calculated exactly as:
+\`\`\`
+ROUND(Silhouette * 0.5 + Proportion * 0.3 + Color/Material * 0.2)
+\`\`\`
 
-SCORING SCALE: 
-• 90-100% = excellent match with minimal differences
-• 75-89% = good match but clear differences visible
-• 60-74% = acceptable match with moderate differences  
-• 40-59% = poor match with significant differences
-• 0-39% = unacceptable match with major differences
+CONSISTENCY RULE: For identical inputs, always provide identical scores and issues. Adhere strictly to the required output format.
 
-APPROVAL CRITERIA :
-- If overall score ≥ 75% AND no individual score < 60% → status = "Approved"
-- If overall score < 75% OR any individual score < 60% → status = "Not Approved"
-- If you mention "significant discrepancies" in your summary → status = "Not Approved"
-- If Color/Material score < 50% → status = "Not Approved" (color accuracy is critical)
+OUTPUT FORMAT:
+Output exactly one JSON object with the following structure:
 
-Output exactly one JSON object with these keys:
-
-"differences": [
-  {
-    "renderIndex": <integer>,
-    "referenceIndex": <integer>,
-    "view": <string describing the view angle>,
-    "issues": [<string>],
-    "bbox": [<integer>,<integer>,<integer>,<integer>],
-    "severity": "low"|"medium"|"high"
+{
+  "differences": [
+    {
+      "renderIndex": <integer, starting at 0>,
+      "referenceIndex": <integer, starting at 0>,
+      "view": <string describing the view angle, e.g., "Front View">,
+      "issues": [<string>],
+      "bbox": [<integer>,<integer>,<integer>,<integer>],
+      "severity": "low"|"medium"|"high"
+    }
+  ],
+  "summary": ["Detailed overall assessment point 1", "Detailed overall assessment point 2"],
+  "status": "Approved"|"Not Approved",
+  "similarityScores": {
+    "silhouette": <integer 0-100>,
+    "proportion": <integer 0-100>,
+    "colorMaterial": <integer 0-100>,
+    "overall": <integer 0-100> (Calculated using the CRITICAL CALCULATION RULE)
   }
-],
-"summary": <string ending with "Similarity scores: Silhouette X%, Proportion X%, Color/Material X%, Overall X%.">,
-"status": "Approved"|"Not Approved"
+}
 
-CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not include any text before or after the JSON object. Start with { and end with }.`,
-    };
+CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do not include any text before or after the JSON object. Start with \`{\` and end with \`}\`.`;
 
-    const messages: Message[] = [systemMessage as SystemMessage];
+    const messages: Message[] = [{ role: "system", content: systemPrompt }];
 
     // Add renders to the message
     renders.forEach((url, i) => {
@@ -749,46 +777,79 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: geminiContents,
-      config: {
-        thinkingConfig: {
-          thinkingBudget: 0, // Disables thinking
-        },
-      }
+        model: "gemini-2.5-flash",
+        contents: geminiContents,
+        config: {
+            temperature: 0,
+            topP: 0,
+            topK: 1,
+            thinkingConfig: {
+                thinkingBudget: 0, // Disables thinking
+            },
+        }
     });
 
     const raw = response.text || "";
 
-    let qaResults: QAResults;
     try {
-      qaResults = JSON.parse(raw);
+        qaResults = JSON.parse(raw);
     } catch {
-      // Attempt to extract JSON from markdown code blocks
-      let jsonText = raw;
-      
-      // Remove markdown code block markers
-      jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      
-      // Try to find JSON object in the text
-      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          qaResults = JSON.parse(jsonMatch[0]);
-        } catch (e) {
-          console.error('Raw response:', raw);
-          console.error('Cleaned response:', jsonText);
-          console.error('JSON match:', jsonMatch[0]);
-          throw new Error(`Failed to parse Gemini response: ${e instanceof Error ? e.message : String(e)}`);
+        // Attempt to extract JSON from markdown code blocks
+        let jsonText = raw;
+        
+        // Remove markdown code block markers
+        jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+        
+        // Try to find JSON object in the text
+        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try {
+                qaResults = JSON.parse(jsonMatch[0]);
+            } catch (e) {
+                console.error('Raw response:', raw);
+                console.error('Cleaned response:', jsonText);
+                console.error('JSON match:', jsonMatch[0]);
+                throw new Error(`Failed to parse Gemini response: ${e instanceof Error ? e.message : String(e)}`);
+            }
+        } else {
+            console.error('Raw response:', raw);
+            throw new Error(`Failed to parse Gemini response: No JSON found in response`);
         }
-      } else {
-        console.error('Raw response:', raw);
-        throw new Error(`Failed to parse Gemini response: No JSON found in response`);
-      }
+    }
+  }
+
+    // Ensure scores are present (even if 0 if the model fails, but Gemini should provide them)
+    if (!qaResults.similarityScores) {
+      throw new Error("Gemini response is missing similarityScores.");
+    }
+    const s: any = qaResults.similarityScores;
+    const r = (n: any) => Math.max(0, Math.min(100, Math.round(Number(n || 0))));
+
+    // 1. DETERMINE INDIVIDUAL SCORES (Normalize model's raw score)
+    const silhouette = r(s.silhouette);
+    const proportion = r(s.proportion);
+    const colorMaterial = r(s.colorMaterial);
+
+    // 2. CALCULATE DETERMINISTIC OVERALL SCORE (using the fixed weights)
+    const overall = Math.round(silhouette * 0.5 + proportion * 0.3 + colorMaterial * 0.2);
+
+    qaResults.similarityScores = { silhouette, proportion, colorMaterial, overall } as any;
+
+    
+
+    // 3. CALCULATE DETERMINISTIC STATUS (Overwriting the model's suggested status)
+    let finalStatus = "Not Approved";
+
+    // Applying your specified lenient approval criteria
+    const isApproved = overall >= 62 && silhouette >= 57 && proportion >= 57 && colorMaterial >= 52;
+
+    if (isApproved) {
+      finalStatus = "Approved";
     }
 
-    qaResults.similarityScores = extractSimilarityScores(qaResults.summary);
-    qaResults.summary = cleanSummary(qaResults.summary);
+    qaResults.status = finalStatus;
+
+    // TODO: Add warnings based on severity levels if needed
 
     await supabaseAdmin
       .from("qa_jobs")

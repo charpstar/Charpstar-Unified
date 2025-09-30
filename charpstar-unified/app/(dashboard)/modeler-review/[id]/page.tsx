@@ -807,6 +807,25 @@ export default function ModelerReviewPage() {
     fetchDependencies();
   }, [assetId]);
 
+  // Sync qaApproved state with asset status on load
+  useEffect(() => {
+    if (asset?.status) {
+      if (
+        ["delivered_by_artist", "approved", "approved_by_client"].includes(
+          asset.status
+        )
+      ) {
+        setQaApproved(true);
+      } else {
+        // If status is anything else, it implies QA hasn't been passed for delivery yet.
+        // We can reset it to null, but let's be careful not to override an active failed state.
+        if (qaApproved !== false) {
+          setQaApproved(null);
+        }
+      }
+    }
+  }, [asset?.status]);
+
   // Compute latest external feedback time (annotations/comments not by modeler)
   useEffect(() => {
     const modelerId = user?.id;
@@ -1124,8 +1143,8 @@ export default function ModelerReviewPage() {
       const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
-          glb_link: uploadResult.url,
-          status: "delivered_by_artist",
+          glb_link: urlData.publicUrl,
+          status: "in_production",
         })
         .eq("id", asset.id);
 
@@ -1161,7 +1180,7 @@ export default function ModelerReviewPage() {
         prev
           ? {
               ...prev,
-              glb_link: uploadResult.url,
+              glb_link: urlData.publicUrl,
               status: "delivered_by_artist",
             }
           : null
@@ -1171,15 +1190,20 @@ export default function ModelerReviewPage() {
       await fetchGlbHistory();
 
       // Fetch reference images and trigger QA
+      console.log("Fetching reference images for asset:", assetId);
       const refImages = await fetchReferenceImages();
+      console.log("Reference images found:", refImages.length);
 
       if (refImages.length > 0) {
-        setUploadedGlbUrl(uploadResult.url);
+        console.log("Triggering QA dialog with images:", refImages);
+        setUploadedGlbUrl(urlData.publicUrl);
         setShowQADialog(true);
+        console.log("QA dialog state set to true");
         toast.success(
           "GLB file uploaded successfully! Starting automated QA..."
         );
       } else {
+        console.log("No reference images found, skipping QA");
         toast.success("GLB file uploaded successfully!");
       }
 
@@ -1225,7 +1249,10 @@ export default function ModelerReviewPage() {
     }
   };
 
-  const updateAssetStatus = async (newStatus: string) => {
+  const updateAssetStatus = async (
+    newStatus: string,
+    options?: { qaStatus?: boolean | null }
+  ) => {
     if (!asset) return;
 
     // Warn and block if trying to deliver without correct GLB naming
@@ -1976,6 +2003,10 @@ export default function ModelerReviewPage() {
                           }
                         } else if (qaApproved === true) {
                           // Deliver the model
+                          console.log(
+                            "Delivery button clicked. QA Approved:",
+                            qaApproved
+                          );
                           updateAssetStatus("delivered_by_artist");
                         }
                       }}
@@ -3372,8 +3403,20 @@ export default function ModelerReviewPage() {
           referenceImages={referenceImages}
           modelViewerRef={modelViewerRef}
           onComplete={(results) => {
+            console.log("QA completed:", results);
             setQaApproved(results?.status === "Approved");
             setShowQADialog(false);
+            const isApproved = results?.status === "Approved";
+            setQaApproved(isApproved);
+            toast.info(`QA Analysis Complete: ${results?.status}`);
+            // If approved, automatically trigger delivery
+            if (isApproved) {
+              console.log("QA approved - auto-delivering model");
+              // Use the fresh 'isApproved' value, not the stale state
+              updateAssetStatus("delivered_by_artist", {
+                qaStatus: true,
+              });
+            }
           }}
         />
 

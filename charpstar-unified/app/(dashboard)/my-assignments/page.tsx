@@ -257,7 +257,7 @@ export default function MyAssignmentsPage() {
           `
           asset_id,
           user_id,
-          profiles!inner(title, email)
+          profiles(title, email)
         `
         )
         .in("asset_id", assetIds)
