@@ -1120,24 +1120,59 @@ export default function ModelerReviewPage() {
     try {
       // Don't save current GLB to history - we'll only save the new one after successful upload
 
-      // Upload to BunnyCDN using the new API
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("asset_id", asset.id);
-      formData.append("file_type", "glb");
-      formData.append("client_name", asset.client);
+      // Check if file is too large for regular upload
+      const isLargeFile = selectedFile.size > 4.5 * 1024 * 1024; // 4.5MB
+      let uploadResult: any;
 
-      const uploadResponse = await fetch("/api/assets/upload-file", {
-        method: "POST",
-        body: formData,
-      });
+      if (isLargeFile) {
+        // Use direct upload (bypasses Vercel's 4.5MB limit)
+        const { DirectFileUploader, formatFileSize } = await import(
+          "@/lib/directUpload"
+        );
 
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json();
-        throw new Error(errorData.error || "Upload failed");
+        const uploader = new DirectFileUploader((progress) => {
+          // Only log every 10% to reduce console spam
+          if (
+            progress.progress % 10 === 0 ||
+            progress.status === "complete" ||
+            progress.status === "error"
+          ) {
+            console.log(
+              `Direct GLB upload: ${progress.progress}% - ${progress.fileName} (${progress.status})`
+            );
+          }
+        });
+
+        const result = await uploader.uploadFile(selectedFile, asset.id, "glb");
+
+        if (!result.success) {
+          throw new Error(result.error || "Direct GLB upload failed");
+        }
+
+        uploadResult = { url: result.cdnUrl };
+        toast.success(
+          `Large GLB file uploaded successfully! (${formatFileSize(selectedFile.size)})`
+        );
+      } else {
+        // Use regular upload for smaller files
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("asset_id", asset.id);
+        formData.append("file_type", "glb");
+        formData.append("client_name", asset.client);
+
+        const uploadResponse = await fetch("/api/assets/upload-file", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          throw new Error(errorData.error || "Upload failed");
+        }
+
+        uploadResult = await uploadResponse.json();
       }
-
-      const uploadResult = await uploadResponse.json();
 
       // Update the asset with the new GLB link and change status to delivered_by_artist
       const { error: updateError } = await supabase
@@ -1199,12 +1234,18 @@ export default function ModelerReviewPage() {
         setUploadedGlbUrl(uploadResult.url);
         setShowQADialog(true);
         console.log("QA dialog state set to true");
-        toast.success(
-          "GLB file uploaded successfully! Starting automated QA..."
-        );
+        // Only show success toast if not already shown for large files
+        if (!isLargeFile) {
+          toast.success(
+            "GLB file uploaded successfully! Starting automated QA..."
+          );
+        }
       } else {
         console.log("No reference images found, skipping QA");
-        toast.success("GLB file uploaded successfully!");
+        // Only show success toast if not already shown for large files
+        if (!isLargeFile) {
+          toast.success("GLB file uploaded successfully!");
+        }
       }
 
       setShowUploadDialog(false);

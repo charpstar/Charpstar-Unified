@@ -957,9 +957,16 @@ export default function BatchDetailPage() {
         );
 
         const uploader = new DirectFileUploader((progress) => {
-          console.log(
-            `Direct GLB upload: ${progress.progress}% - ${progress.fileName} (${progress.status})`
-          );
+          // Only log every 10% to reduce console spam
+          if (
+            progress.progress % 10 === 0 ||
+            progress.status === "complete" ||
+            progress.status === "error"
+          ) {
+            console.log(
+              `Direct GLB upload: ${progress.progress}% - ${progress.fileName} (${progress.status})`
+            );
+          }
         });
 
         const uploadResult = await uploader.uploadFile(file, assetId, "glb");
@@ -1082,9 +1089,16 @@ export default function BatchDetailPage() {
         );
 
         const uploader = new DirectFileUploader((progress) => {
-          console.log(
-            `Direct upload: ${progress.progress}% - ${progress.fileName} (${progress.status})`
-          );
+          // Only log every 10% to reduce console spam
+          if (
+            progress.progress % 10 === 0 ||
+            progress.status === "complete" ||
+            progress.status === "error"
+          ) {
+            console.log(
+              `Direct upload: ${progress.progress}% - ${progress.fileName} (${progress.status})`
+            );
+          }
         });
 
         const result = await uploader.uploadFile(file, assetId, "reference");

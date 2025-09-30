@@ -64,12 +64,14 @@ export class DirectFileUploader {
         progress: 20,
       });
 
-      // Create a progress tracking fetch
+      // Create a progress tracking fetch with optimized reporting
       const uploadResponse = await this.uploadWithProgress(
         file,
         uploadUrl,
         accessKey,
         (progress) => {
+          // Only update progress in 5% increments to reduce console spam
+          const roundedProgress = Math.round(progress / 5) * 5;
           this.updateProgress({
             current: Math.round(20 + progress * 0.6), // 20-80% for upload
             total: 100,
@@ -153,13 +155,22 @@ export class DirectFileUploader {
     accessKey: string,
     onProgress: (progress: number) => void
   ): Promise<Response> {
+    // Use XMLHttpRequest for better progress tracking and performance
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
+      // Set up progress tracking with throttling for better performance
+      let lastProgressTime = 0;
+      const PROGRESS_THROTTLE_MS = 100; // Update progress max every 100ms
+
       xhr.upload.addEventListener("progress", (event) => {
         if (event.lengthComputable) {
-          const progress = (event.loaded / event.total) * 100;
-          onProgress(progress);
+          const now = Date.now();
+          if (now - lastProgressTime > PROGRESS_THROTTLE_MS) {
+            const progress = (event.loaded / event.total) * 100;
+            onProgress(progress);
+            lastProgressTime = now;
+          }
         }
       });
 
@@ -184,9 +195,19 @@ export class DirectFileUploader {
         reject(new Error("Upload aborted"));
       });
 
+      // Configure for optimal performance
       xhr.open("PUT", uploadUrl);
       xhr.setRequestHeader("Content-Type", file.type);
-      xhr.setRequestHeader("AccessKey", accessKey); // BunnyCDN authentication
+      xhr.setRequestHeader("AccessKey", accessKey);
+
+      // Set timeout for large files (5 minutes)
+      xhr.timeout = 5 * 60 * 1000;
+
+      xhr.addEventListener("timeout", () => {
+        reject(new Error("Upload timeout"));
+      });
+
+      // Start upload
       xhr.send(file);
     });
   }
