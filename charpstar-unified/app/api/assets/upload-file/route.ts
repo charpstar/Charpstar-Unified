@@ -1,232 +1,194 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+
+// Helper function to create folder structure in BunnyCDN
+async function createClientFolderStructure(
+  storageKey: string,
+  storageZone: string,
+  clientName: string
+) {
+  const sanitizedClientName = clientName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const folders = ["QC", "Android", "iOS"];
+
+  for (const folder of folders) {
+    const folderPath = `${sanitizedClientName}/${folder}/`;
+    const folderUrl = `https://se.storage.bunnycdn.com/${storageZone}/${folderPath}`;
+
+    try {
+      const response = await fetch(folderUrl, {
+        method: "PUT",
+        headers: {
+          AccessKey: storageKey,
+          "Content-Type": "application/octet-stream",
+        },
+        body: new Uint8Array(0), // Empty file to create folder
+      });
+
+      if (!response.ok && response.status !== 409) {
+        // 409 means folder already exists, which is fine
+        console.warn(`Failed to create folder ${folderPath}:`, response.status);
+      } else {
+      }
+    } catch (error) {
+      console.warn(`Error creating folder ${folderPath}:`, error);
+    }
+  }
+}
 
 export async function POST(request: NextRequest) {
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const startTime = Date.now();
 
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const formData = await request.formData();
+
     const file = formData.get("file") as File;
-    const assetId = formData.get("asset_id") as string;
-    const fileType = formData.get("file_type") as string; // "glb", "asset", "reference"
+    const clientName = formData.get("client_name") as string;
+
+    // Try alternative field names that might be used
+    const alternativeClientName =
+      (formData.get("client") as string) ||
+      (formData.get("clientName") as string) ||
+      (formData.get("client_id") as string);
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    if (!assetId) {
-      return NextResponse.json(
-        { error: "Asset ID is required" },
-        { status: 400 }
-      );
-    }
+    // Use alternative client name if primary one is not found
+    const finalClientName = clientName || alternativeClientName;
 
-    // Get asset details to create proper file path
-    const { data: asset, error: assetError } = await supabase
-      .from("onboarding_assets")
-      .select("article_id, client, product_name")
-      .eq("id", assetId)
-      .single();
-
-    if (assetError || !asset) {
-      return NextResponse.json({ error: "Asset not found" }, { status: 404 });
-    }
-
-    // Validate file size based on type
-    const maxSizes = {
-      glb: 200 * 1024 * 1024, // 200MB for GLB files
-      asset: 500 * 1024 * 1024, // 500MB for general asset files (e.g., .ma/.mb/.sbs/.sbsar/.spp)
-      reference: 50 * 1024 * 1024, // 50MB for reference files
-    };
-
-    const maxSize =
-      maxSizes[fileType as keyof typeof maxSizes] || 50 * 1024 * 1024;
-    if (file.size > maxSize) {
+    if (!finalClientName) {
       return NextResponse.json(
         {
-          error: `File size must be less than ${Math.round(maxSize / (1024 * 1024))}MB`,
+          error:
+            "Client name is required. Please provide 'client_name', 'client', 'clientName', or 'client_id' in the form data.",
         },
         { status: 400 }
       );
     }
 
-    // Determine storage path based on file type
-    let storagePath: string;
-    let contentType: string;
+    // 🔑 Load from .env
+    const storageZone = process.env.BUNNY_STORAGE_ZONE_NAME || "maincdn";
+    const storageKey = process.env.BUNNY_STORAGE_KEY;
+    const cdnUrl = process.env.BUNNY_STORAGE_PUBLIC_URL;
 
-    switch (fileType) {
-      case "glb":
-        storagePath = `assets/${asset.client}/${asset.article_id}/models/`;
-        contentType = "model/gltf-binary";
-        break;
-      case "asset":
-        storagePath = `assets/${asset.client}/${asset.article_id}/files/`;
-        // Some desktop formats (Maya/Substance) come without a MIME type; force binary if missing
-        contentType =
-          file.type && file.type.trim() !== ""
-            ? file.type
-            : "application/octet-stream";
-        break;
-      case "reference":
-        storagePath = `assets/${asset.client}/${asset.article_id}/references/`;
-        contentType = file.type || "image/jpeg";
-        break;
-      default:
-        storagePath = `assets/${asset.client}/${asset.article_id}/misc/`;
-        contentType = file.type || "application/octet-stream";
-    }
-
-    // Generate clean filename for GLB files, unique filename for others
-    let fileName: string;
-    if (fileType === "glb") {
-      const sanitizedName = (file?.name || "upload.bin").replace(
-        /[^a-zA-Z0-9.-]/g,
-        "_"
-      );
-      fileName = sanitizedName;
-    } else {
-      const timestamp = Date.now();
-      const sanitizedName = (file?.name || "upload.bin").replace(
-        /[^a-zA-Z0-9.-]/g,
-        "_"
-      );
-      fileName = `${timestamp}_${sanitizedName}`;
-    }
-    const fullPath = `${storagePath}${fileName}`;
-
-    // Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from("assets")
-      .upload(fullPath, file, {
-        contentType,
-        cacheControl: "3600",
-        upsert: fileType === "glb", // Allow overwrites for GLB files
-      });
-
-    if (uploadError) {
-      console.error("Error uploading file:", uploadError);
+    if (!storageKey || !storageZone || !cdnUrl) {
       return NextResponse.json(
-        {
-          error: "Failed to upload file",
-          details: uploadError.message || String(uploadError),
-          path: fullPath,
-        },
+        { error: "Missing BunnyCDN config" },
         { status: 500 }
       );
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from("assets")
-      .getPublicUrl(fullPath);
+    // Create folder structure for the client
+    await createClientFolderStructure(storageKey, storageZone, finalClientName);
 
-    // Store file metadata in database
-    try {
-      const { error: metadataError } = await supabase
-        .from("asset_files")
-        .insert({
-          asset_id: assetId,
-          file_name: file.name,
-          file_path: fullPath,
-          file_url: urlData.publicUrl,
-          file_type: fileType,
-          file_size: file.size,
-          mime_type: file.type,
-          uploaded_by: session.user.id,
-          uploaded_at: new Date().toISOString(),
-        });
+    // Convert File → Buffer
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-      if (metadataError) {
-        console.error("Error storing file metadata:", metadataError);
-        // Don't fail the upload, just log the error
+    // Upload path - using client name as folder with QC subfolder
+    const baseFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const sanitizedClientName = finalClientName.replace(
+      /[^a-zA-Z0-9._-]/g,
+      "_"
+    );
+
+    // Original file path (where the current version will be stored)
+    const originalPath = `${sanitizedClientName}/QC/${baseFileName}`;
+    const originalUrl = `https://se.storage.bunnycdn.com/${storageZone}/${originalPath}`;
+
+    let backupUrl = null;
+    let backupFileName = null;
+
+    // Check if file already exists by trying to download it
+    const checkStartTime = Date.now();
+    const existingFileResponse = await fetch(originalUrl, {
+      method: "GET",
+      headers: {
+        AccessKey: storageKey,
+      },
+    });
+
+    const checkDuration = Date.now() - checkStartTime;
+
+    if (existingFileResponse.ok) {
+      // We already have the file from the check above
+      const existingFileBuffer = await existingFileResponse.arrayBuffer();
+
+      // Create backup filename with timestamp
+      const timestamp = Date.now();
+      const fileExtension = baseFileName.split(".").pop();
+      const fileNameWithoutExt = baseFileName.replace(/\.[^/.]+$/, "");
+      backupFileName = `${fileNameWithoutExt}_backup_${timestamp}.${fileExtension}`;
+      const backupPath = `${sanitizedClientName}/QC/backups/${backupFileName}`;
+      const backupStorageUrl = `https://se.storage.bunnycdn.com/${storageZone}/${backupPath}`;
+
+      // BunnyCDN will create the folder structure automatically when we upload to the path
+
+      // Upload backup
+      const backupStartTime = Date.now();
+      const backupUploadResponse = await fetch(backupStorageUrl, {
+        method: "PUT",
+        headers: {
+          AccessKey: storageKey,
+          "Content-Type": "application/octet-stream",
+        },
+        body: existingFileBuffer,
+      });
+
+      const backupDuration = Date.now() - backupStartTime;
+
+      if (backupUploadResponse.ok) {
+        // Construct public backup URL
+        const cleanCdnUrl = cdnUrl;
+        backupUrl = `${cleanCdnUrl}/${backupPath}`;
+      } else {
+        const errorText = await backupUploadResponse.text();
       }
-    } catch (err) {
-      console.error(
-        "Error inserting file metadata (table may not exist):",
-        err
+    }
+
+    // Upload new file to original location
+    const uploadPath = originalPath;
+    const url = originalUrl;
+
+    // Upload to Bunny
+    const mainUploadStartTime = Date.now();
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        AccessKey: storageKey,
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: buffer,
+    });
+
+    const mainUploadDuration = Date.now() - mainUploadStartTime;
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return NextResponse.json(
+        { error: "Upload failed", status: response.status, details: errText },
+        { status: response.status }
       );
-      // Don't fail the upload if the table doesn't exist yet
     }
 
-    // Update asset record based on file type
-    const updateData: any = {};
+    // Public URL - ensure no double slashes
+    const cleanCdnUrl = cdnUrl; // Remove trailing slash if present
+    const publicUrl = `${cleanCdnUrl}/${uploadPath}`;
 
-    if (fileType === "glb" || fileType === "reference") {
-      // Get existing references and add new one (for both GLB and reference files)
-      const { data: currentAsset, error: fetchError } = await supabase
-        .from("onboarding_assets")
-        .select("reference")
-        .eq("id", assetId)
-        .single();
-
-      if (fetchError) {
-        console.error("Error fetching current asset:", fetchError);
-      }
-
-      const existingReferences = currentAsset?.reference || [];
-      let newReferences;
-
-      if (Array.isArray(existingReferences)) {
-        newReferences = [...existingReferences, urlData.publicUrl];
-      } else if (typeof existingReferences === "string") {
-        // Handle case where reference might be a JSON string
-        try {
-          const parsed = JSON.parse(existingReferences);
-          newReferences = Array.isArray(parsed)
-            ? [...parsed, urlData.publicUrl]
-            : [urlData.publicUrl];
-        } catch {
-          newReferences = [urlData.publicUrl];
-        }
-      } else {
-        newReferences = [urlData.publicUrl];
-      }
-
-      updateData.reference = newReferences;
-
-      // For GLB files, also update status
-      if (fileType === "glb") {
-        updateData.status = "in_production";
-      }
-    }
-
-    if (Object.keys(updateData).length > 0) {
-      const { error: updateError } = await supabase
-        .from("onboarding_assets")
-        .update(updateData)
-        .eq("id", assetId)
-        .select();
-
-      if (updateError) {
-        console.error("Error updating asset:", updateError);
-      } else {
-      }
-    }
+    const totalDuration = Date.now() - startTime;
 
     return NextResponse.json({
       success: true,
-      url: urlData.publicUrl,
-      filename: file.name,
-      file_path: fullPath,
-      file_type: fileType,
+      url: publicUrl,
+      fileName: baseFileName,
+      originalFileName: file.name,
+      fileSize: buffer.length,
+      uploadPath,
+      backupUrl,
+      backupFileName,
     });
-  } catch (error) {
-    console.error("Error in asset file upload API:", error);
+  } catch (err) {
     return NextResponse.json(
-      {
-        error: "Internal server error",
-        details: (error as Error)?.message || String(error),
-      },
+      { error: "Server error", details: (err as Error).message },
       { status: 500 }
     );
   }

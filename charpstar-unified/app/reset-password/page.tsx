@@ -20,7 +20,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Get the hash fragment from the URL
+        // Get the hash fragment from the URL (old format)
         const hashFragment = window.location.hash;
 
         if (hashFragment) {
@@ -44,18 +44,30 @@ export default function ResetPasswordPage() {
             }
           }
         } else {
-          // Check for query parameters
-          const type = searchParams.get("type");
+          // Check for query parameters (new format)
           const code = searchParams.get("code");
+          const type = searchParams.get("type");
 
-          if (type === "recovery" && code) {
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (code) {
+            // New Supabase password reset format - exchange code for session
+            console.log("Exchanging code for session:", code);
+            const { data, error } =
+              await supabase.auth.exchangeCodeForSession(code);
 
             if (error) {
               console.error("Error exchanging code for session:", error);
               setError("Invalid or expired recovery link.");
               return;
             }
+
+            console.log("Successfully exchanged code for session:", data);
+          } else if (type === "recovery") {
+            // Legacy format support
+            console.log("Legacy recovery format detected");
+          } else {
+            console.log("No valid recovery parameters found");
+            setError("Invalid recovery link format.");
+            return;
           }
         }
 
@@ -63,6 +75,8 @@ export default function ResetPasswordPage() {
         const {
           data: { session },
         } = await supabase.auth.getSession();
+
+        console.log("Session after initialization:", session);
 
         if (!session) {
           setError(

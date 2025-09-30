@@ -175,6 +175,11 @@ export default function AppSidebar({
                 url: "/admin/pending-replies",
                 icon: MessageSquare,
               },
+              {
+                title: "Clients",
+                url: "/production/clients",
+                icon: Building2,
+              },
             ],
           },
           {

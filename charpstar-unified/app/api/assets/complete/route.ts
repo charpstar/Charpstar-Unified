@@ -52,8 +52,12 @@ export async function POST(request: NextRequest) {
 
     console.log("User profile role:", profile?.role);
 
-    // Enforce role on client approval
-    if (status === "approved_by_client" && profile?.role !== "client") {
+    // Enforce role on client approval - allow both clients and admins
+    if (
+      status === "approved_by_client" &&
+      profile?.role !== "client" &&
+      profile?.role !== "admin"
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -114,6 +118,168 @@ export async function POST(request: NextRequest) {
         { error: "Failed to update asset status", details: assetError.message },
         { status: 500 }
       );
+    }
+
+    // Auto-transfer approved assets to assets table (do this before other logic)
+    if (status === "approved_by_client") {
+      console.log("Starting auto-transfer for asset:", assetId);
+      try {
+        // Get the onboarding asset for transfer
+        const { data: onboardingAsset, error: fetchError } = await supabase
+          .from("onboarding_assets")
+          .select("*")
+          .eq("id", assetId)
+          .eq("status", "approved_by_client")
+          .eq("transferred", false)
+          .single();
+
+        console.log("Onboarding asset fetch result:", {
+          onboardingAsset: !!onboardingAsset,
+          fetchError: fetchError?.message,
+        });
+
+        if (!fetchError && onboardingAsset) {
+          console.log("Onboarding asset found:", {
+            id: onboardingAsset.id,
+            product_name: onboardingAsset.product_name,
+            article_id: onboardingAsset.article_id,
+            client: onboardingAsset.client,
+            transferred: onboardingAsset.transferred,
+          });
+
+          // Check if asset already exists in assets table
+          const { data: existingAsset } = await supabase
+            .from("assets")
+            .select("id")
+            .eq("article_id", onboardingAsset.article_id)
+            .eq("client", onboardingAsset.client)
+            .single();
+
+          console.log("Existing asset check:", {
+            existingAsset: !!existingAsset,
+          });
+
+          if (!existingAsset) {
+            // Prepare data for assets table
+            const assetData = {
+              article_id: onboardingAsset.article_id,
+              product_name: onboardingAsset.product_name,
+              product_link: onboardingAsset.product_link,
+              glb_link: onboardingAsset.glb_link,
+              category: onboardingAsset.category,
+              subcategory: onboardingAsset.subcategory,
+              client: onboardingAsset.client,
+              tags: onboardingAsset.tags,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              preview_image: onboardingAsset.preview_images
+                ? Array.isArray(onboardingAsset.preview_images)
+                  ? onboardingAsset.preview_images[0]
+                  : onboardingAsset.preview_images
+                : null,
+              materials: null,
+              colors: null,
+              glb_status: "completed",
+            };
+
+            // Insert into assets table
+            console.log("Inserting asset data:", assetData);
+            const { data: newAsset, error: insertError } = await supabase
+              .from("assets")
+              .insert(assetData)
+              .select()
+              .single();
+
+            console.log("Asset insert result:", {
+              newAsset: !!newAsset,
+              insertError: insertError?.message,
+            });
+
+            if (!insertError && newAsset) {
+              // Update onboarding_assets to mark as transferred
+              await supabase
+                .from("onboarding_assets")
+                .update({
+                  transferred: true,
+                })
+                .eq("id", assetId);
+
+              // Log the activity
+              await logActivityServer({
+                action: "asset_transferred",
+                description: `Asset ${onboardingAsset.product_name} (${onboardingAsset.article_id}) automatically transferred to assets table`,
+                type: "update",
+                resource_type: "asset",
+                resource_id: assetId,
+                metadata: {
+                  asset_id: assetId,
+                  new_asset_id: newAsset.id,
+                  product_name: onboardingAsset.product_name,
+                  article_id: onboardingAsset.article_id,
+                  client: onboardingAsset.client,
+                },
+              });
+
+              console.log("Asset automatically transferred to assets table");
+            } else {
+              console.warn(
+                "Failed to insert asset into assets table:",
+                insertError
+              );
+            }
+          } else {
+            console.log(
+              "Asset already exists in assets table, skipping transfer"
+            );
+          }
+        }
+      } catch (transferError) {
+        console.error("Error auto-transferring asset:", transferError);
+        // Don't fail the main request if transfer fails
+      }
+    }
+
+    // Move files to appropriate folder based on new status
+    try {
+      const { data: files, error: filesError } = await supabase
+        .from("asset_files")
+        .select("id, file_type")
+        .eq("asset_id", assetId);
+
+      if (!filesError && files && files.length > 0) {
+        // Move each file to the appropriate folder
+        for (const file of files) {
+          try {
+            const moveResponse = await fetch(
+              `${process.env.NEXT_PUBLIC_APP_URL}/api/assets/move-file`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Cookie: request.headers.get("cookie") || "",
+                },
+                body: JSON.stringify({
+                  assetId,
+                  fileId: file.id,
+                  newStatus: status,
+                }),
+              }
+            );
+
+            if (!moveResponse.ok) {
+              console.warn(
+                `Failed to move file ${file.id}:`,
+                await moveResponse.text()
+              );
+            }
+          } catch (moveError) {
+            console.warn(`Error moving file ${file.id}:`, moveError);
+          }
+        }
+      }
+    } catch (fileMoveError) {
+      console.warn("Error moving files:", fileMoveError);
+      // Don't fail the entire operation if file moving fails
     }
 
     // Verify the update worked

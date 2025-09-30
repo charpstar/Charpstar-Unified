@@ -126,7 +126,23 @@ export default function AuthPage() {
       setResetSent(true);
     } catch (err: any) {
       console.error("Password reset error:", err);
-      setError(err.message);
+
+      // Provide more helpful error messages
+      let errorMessage = err.message;
+      if (err.message.includes("rate limit")) {
+        errorMessage =
+          "Too many requests. Please wait a few minutes and try again.";
+      } else if (err.message.includes("Invalid email")) {
+        errorMessage =
+          "Email address not found. Please check your email and try again.";
+      } else if (err.message.includes("redirect")) {
+        errorMessage = "Configuration error. Please contact support.";
+      } else if (err.message.includes("email")) {
+        errorMessage =
+          "Unable to send email. Please try again later or contact support.";
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

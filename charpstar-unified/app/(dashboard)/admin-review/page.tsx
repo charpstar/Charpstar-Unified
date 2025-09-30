@@ -505,6 +505,22 @@ export default function AdminReviewPage() {
     useState<number>(15);
   const [bulkReallocating, setBulkReallocating] = useState(false);
 
+  // Bulk status update state
+  const [showBulkStatusDialog, setShowBulkStatusDialog] = useState(false);
+  const [bulkStatusUpdating, setBulkStatusUpdating] = useState(false);
+
+  // Fix stuck assets state
+  const [showFixStuckDialog, setShowFixStuckDialog] = useState(false);
+  const [fixingStuckAssets, setFixingStuckAssets] = useState(false);
+  const [stuckAssetsCount, setStuckAssetsCount] = useState(0);
+
+  // Count stuck assets when dialog opens or selection changes
+  useEffect(() => {
+    if (showFixStuckDialog) {
+      countStuckAssets().then(setStuckAssetsCount);
+    }
+  }, [showFixStuckDialog, selected]);
+
   // Fetch assets function
   const fetchAssets = async () => {
     if (
@@ -735,6 +751,196 @@ export default function AdminReviewPage() {
       );
     } finally {
       setBulkReallocating(false);
+    }
+  };
+
+  // Handle bulk status update
+  const handleBulkStatusUpdate = async () => {
+    if (selected.size === 0) {
+      toast.error("Please select assets to update");
+      return;
+    }
+
+    try {
+      setBulkStatusUpdating(true);
+
+      // Update each asset individually using the complete API to trigger auto-transfer
+      const selectedArray = Array.from(selected);
+      const updatePromises = selectedArray.map(async (assetId) => {
+        const response = await fetch("/api/assets/complete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            assetId: assetId,
+            status: "approved_by_client",
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || `Failed to update asset ${assetId}`
+          );
+        }
+
+        return response.json();
+      });
+
+      // Wait for all updates to complete
+      await Promise.all(updatePromises);
+
+      // Update local state
+      setAssets((prevAssets) =>
+        prevAssets.map((asset) =>
+          selected.has(asset.id)
+            ? { ...asset, status: "approved_by_client" }
+            : asset
+        )
+      );
+
+      // Clear selection and close dialog
+      setSelected(new Set());
+      setShowBulkStatusDialog(false);
+
+      toast.success(
+        `Successfully updated ${selected.size} asset(s) to approved by client status and transferred to assets table`
+      );
+
+      // Refresh the page data
+      await fetchAssets();
+    } catch (error) {
+      console.error("Error updating asset status:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update asset status"
+      );
+    } finally {
+      setBulkStatusUpdating(false);
+    }
+  };
+
+  // Count stuck assets in selection (approved_by_client but not transferred)
+  const countStuckAssets = async () => {
+    if (selected.size === 0) {
+      return 0;
+    }
+
+    try {
+      const selectedArray = Array.from(selected);
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("id")
+        .in("id", selectedArray)
+        .eq("status", "approved_by_client")
+        .eq("transferred", false);
+
+      if (error) {
+        console.error("Error counting stuck assets:", error);
+        return 0;
+      }
+
+      return data?.length || 0;
+    } catch (error) {
+      console.error("Error counting stuck assets:", error);
+      return 0;
+    }
+  };
+
+  // Fix stuck assets function - only for selected assets
+  const handleFixStuckAssets = async () => {
+    if (selected.size === 0) {
+      toast.error("Please select assets to fix");
+      return;
+    }
+
+    try {
+      setFixingStuckAssets(true);
+
+      // Get selected assets that are stuck (approved_by_client but not transferred)
+      const selectedArray = Array.from(selected);
+      const { data: stuckAssets, error: fetchError } = await supabase
+        .from("onboarding_assets")
+        .select("id, product_name, article_id, status, transferred")
+        .in("id", selectedArray)
+        .eq("status", "approved_by_client")
+        .eq("transferred", false);
+
+      if (fetchError) {
+        console.error("Error fetching stuck assets:", fetchError);
+        throw new Error("Failed to fetch stuck assets");
+      }
+
+      if (!stuckAssets || stuckAssets.length === 0) {
+        toast.success("No stuck assets found in your selection!");
+        setShowFixStuckDialog(false);
+        return;
+      }
+
+      console.log(
+        `Found ${stuckAssets.length} stuck assets in selection to fix`
+      );
+
+      // Update each asset using the complete API to trigger auto-transfer
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const asset of stuckAssets) {
+        try {
+          const response = await fetch("/api/assets/complete", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              assetId: asset.id,
+              status: "approved_by_client",
+            }),
+          });
+
+          if (response.ok) {
+            successCount++;
+            console.log(
+              `✅ Fixed: ${asset.article_id} - ${asset.product_name}`
+            );
+          } else {
+            const errorData = await response.json();
+            console.error(
+              `❌ Failed to fix ${asset.article_id}:`,
+              errorData.error
+            );
+            errorCount++;
+          }
+        } catch (error) {
+          console.error(`❌ Error fixing ${asset.article_id}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Clear selection and close dialog
+      setSelected(new Set());
+      setShowFixStuckDialog(false);
+
+      // Show results
+      if (successCount > 0) {
+        toast.success(
+          `Successfully fixed ${successCount} stuck asset(s) and transferred them to assets table`
+        );
+      }
+
+      if (errorCount > 0) {
+        toast.error(`Failed to fix ${errorCount} asset(s)`);
+      }
+
+      // Refresh the page data
+      await fetchAssets();
+    } catch (error) {
+      console.error("Error fixing stuck assets:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to fix stuck assets"
+      );
+    } finally {
+      setFixingStuckAssets(false);
     }
   };
 
@@ -3337,6 +3543,28 @@ export default function AdminReviewPage() {
                   <span className="hidden sm:inline">Allocate</span>
                   <span className="sm:hidden">Advanced</span>
                 </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkStatusDialog(true)}
+                  className="flex items-center gap-1 sm:gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
+                >
+                  <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Mark as Approved</span>
+                  <span className="sm:hidden">Approved</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFixStuckDialog(true)}
+                  className="flex items-center gap-1 sm:gap-2 bg-orange-600 hover:bg-orange-700 text-white w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
+                >
+                  <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Fix Stuck Assets</span>
+                  <span className="sm:hidden">Fix</span>
+                </Button>
               </div>
             )}
           </div>
@@ -5637,6 +5865,185 @@ export default function AdminReviewPage() {
                 <>
                   <Users className="h-4 w-4" />
                   Reallocate {selectedAssetsForReallocation.size} Assets
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Status Update Dialog */}
+      <Dialog
+        open={showBulkStatusDialog}
+        onOpenChange={setShowBulkStatusDialog}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Mark Assets as Approved by Client
+            </DialogTitle>
+            <DialogDescription>
+              Update {selected.size} selected asset(s) to "approved_by_client"
+              status
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-green-800 dark:text-green-200">
+                    Confirm Status Update
+                  </h4>
+                  <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                    This will mark all selected assets as approved by the
+                    client. This action will trigger the automatic transfer to
+                    the assets table.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-medium">Selected Assets ({selected.size})</h4>
+              <div className="max-h-32 overflow-y-auto border rounded-lg p-3 bg-muted/50">
+                <div className="space-y-1">
+                  {Array.from(selected)
+                    .slice(0, 5)
+                    .map((assetId) => {
+                      const asset = assets.find((a) => a.id === assetId);
+                      return asset ? (
+                        <div
+                          key={assetId}
+                          className="text-sm font-mono text-slate-700 dark:text-slate-300"
+                        >
+                          {asset.article_id} - {asset.product_name}
+                        </div>
+                      ) : null;
+                    })}
+                  {selected.size > 5 && (
+                    <div className="text-sm text-slate-500">
+                      ... and {selected.size - 5} more assets
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkStatusDialog(false)}
+              disabled={bulkStatusUpdating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkStatusUpdate}
+              disabled={selected.size === 0 || bulkStatusUpdating}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+            >
+              {bulkStatusUpdating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  Mark as Approved ({selected.size})
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fix Stuck Assets Dialog */}
+      <Dialog open={showFixStuckDialog} onOpenChange={setShowFixStuckDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-orange-600" />
+              Fix Stuck Assets
+            </DialogTitle>
+            <DialogDescription>
+              Fix selected assets that are stuck in "approved_by_client" status
+              and transfer them to the assets table
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+              <div className="flex items-start gap-3">
+                <RotateCcw className="h-5 w-5 text-orange-600 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-orange-800 dark:text-orange-200">
+                    Fix Stuck Assets
+                  </h4>
+                  <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                    This will find and fix selected assets that are stuck in
+                    "approved_by_client" status but haven't been transferred to
+                    the assets table. They will be processed through the
+                    complete API to trigger the auto-transfer.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-medium">
+                Selected Assets: {selected.size} | Stuck Assets:{" "}
+                {stuckAssetsCount}
+              </h4>
+              <div className="text-sm text-muted-foreground">
+                {selected.size === 0 ? (
+                  <span className="text-red-600">
+                    ❌ Please select assets first
+                  </span>
+                ) : stuckAssetsCount === 0 ? (
+                  <span className="text-green-600">
+                    ✅ No stuck assets found in selection!
+                  </span>
+                ) : (
+                  <span className="text-orange-600">
+                    ⚠️ Found {stuckAssetsCount} stuck assets in your selection
+                    that need to be fixed
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowFixStuckDialog(false)}
+              disabled={fixingStuckAssets}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleFixStuckAssets}
+              disabled={
+                selected.size === 0 ||
+                stuckAssetsCount === 0 ||
+                fixingStuckAssets
+              }
+              className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700"
+            >
+              {fixingStuckAssets ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Fixing...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="h-4 w-4" />
+                  Fix {stuckAssetsCount} Stuck Assets
                 </>
               )}
             </Button>

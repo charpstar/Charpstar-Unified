@@ -116,7 +116,8 @@ export default function ReferenceImagesPage() {
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select("*")
-        .eq("client", user.metadata.client);
+        .eq("client", user.metadata.client)
+        .eq("transferred", false); // Hide transferred assets
       if (error)
         toast({
           title: "Error",
