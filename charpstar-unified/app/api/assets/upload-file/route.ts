@@ -38,7 +38,10 @@ export async function POST(request: NextRequest) {
   // const startTime = Date.now(); // Not currently used
 
   try {
+    console.log("[UPLOAD] Starting file upload process");
+
     const formData = await request.formData();
+    console.log("[UPLOAD] Form data parsed successfully");
 
     const file = formData.get("file") as File;
     const clientName = formData.get("client_name") as string;
@@ -50,13 +53,35 @@ export async function POST(request: NextRequest) {
       (formData.get("client_id") as string);
 
     if (!file) {
+      console.log("[UPLOAD] No file provided in form data");
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    console.log("[UPLOAD] File received:", {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    });
+
+    // Check file size limits (Vercel has a 4.5MB limit for serverless functions)
+    const maxSize = 4 * 1024 * 1024; // 4MB
+    if (file.size > maxSize) {
+      console.log("[UPLOAD] File too large:", file.size, "bytes");
+      return NextResponse.json(
+        {
+          error: "File too large",
+          details: `File size ${file.size} bytes exceeds maximum of ${maxSize} bytes`,
+          maxSize,
+        },
+        { status: 413 }
+      );
     }
 
     // Use alternative client name if primary one is not found
     const finalClientName = clientName || alternativeClientName;
 
     if (!finalClientName) {
+      console.log("[UPLOAD] No client name provided");
       return NextResponse.json(
         {
           error:
@@ -66,23 +91,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log("[UPLOAD] Client name:", finalClientName);
+
     // 🔑 Load from .env
     const storageZone = process.env.BUNNY_STORAGE_ZONE_NAME || "maincdn";
     const storageKey = process.env.BUNNY_STORAGE_KEY;
     const cdnUrl = process.env.BUNNY_STORAGE_PUBLIC_URL;
 
     if (!storageKey || !storageZone || !cdnUrl) {
+      console.log("[UPLOAD] Missing BunnyCDN config:", {
+        hasStorageKey: !!storageKey,
+        hasStorageZone: !!storageZone,
+        hasCdnUrl: !!cdnUrl,
+      });
       return NextResponse.json(
         { error: "Missing BunnyCDN config" },
         { status: 500 }
       );
     }
 
+    console.log("[UPLOAD] BunnyCDN config loaded successfully");
+
     // Create folder structure for the client
     await createClientFolderStructure(storageKey, storageZone, finalClientName);
 
     // Convert File → Buffer
+    console.log("[UPLOAD] Converting file to buffer...");
     const buffer = Buffer.from(await file.arrayBuffer());
+    console.log("[UPLOAD] Buffer created, size:", buffer.length);
 
     // Upload path - using client name as folder with QC subfolder
     const baseFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -150,25 +186,59 @@ export async function POST(request: NextRequest) {
     const url = originalUrl;
 
     // Upload to Bunny
+    console.log("[UPLOAD] Uploading to BunnyCDN:", url);
     // const mainUploadStartTime = Date.now(); // Not currently used
-    const response = await fetch(url, {
-      method: "PUT",
-      headers: {
-        AccessKey: storageKey,
-        "Content-Type": file.type || "application/octet-stream",
-      },
-      body: buffer,
-    });
+
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "PUT",
+        headers: {
+          AccessKey: storageKey,
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: buffer,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if ((error as Error).name === "AbortError") {
+        console.log("[UPLOAD] Upload timeout after 30 seconds");
+        return NextResponse.json(
+          {
+            error: "Upload timeout",
+            details: "Request timed out after 30 seconds",
+          },
+          { status: 408 }
+        );
+      }
+      throw error;
+    }
+
+    console.log("[UPLOAD] BunnyCDN response status:", response.status);
 
     // const mainUploadDuration = Date.now() - mainUploadStartTime; // Not currently used
 
     if (!response.ok) {
       const errText = await response.text();
+      console.log("[UPLOAD] Upload failed:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errText,
+      });
       return NextResponse.json(
         { error: "Upload failed", status: response.status, details: errText },
         { status: response.status }
       );
     }
+
+    console.log("[UPLOAD] Upload successful");
 
     // Public URL - ensure no double slashes
     const cleanCdnUrl = cdnUrl; // Remove trailing slash if present
@@ -187,6 +257,7 @@ export async function POST(request: NextRequest) {
       backupFileName,
     });
   } catch (err) {
+    console.error("[UPLOAD] Server error:", err);
     return NextResponse.json(
       { error: "Server error", details: (err as Error).message },
       { status: 500 }
