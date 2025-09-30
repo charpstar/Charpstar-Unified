@@ -1208,7 +1208,21 @@ export default function ModelerReviewPage() {
         }
       }
 
-      // History is now managed by BunnyCDN backups - no database tracking needed
+      // Record GLB upload history
+      const { error: newHistoryError } = await supabase
+        .from("glb_upload_history")
+        .insert({
+          asset_id: asset.id,
+          glb_url: uploadResult.url,
+          file_name: selectedFile.name,
+          file_size: selectedFile.size,
+          uploaded_by: user?.id,
+          uploaded_at: new Date().toISOString(),
+        });
+
+      if (newHistoryError) {
+        console.error("Error recording GLB history:", newHistoryError);
+      }
 
       // Update local state
       setAsset((prev) =>
