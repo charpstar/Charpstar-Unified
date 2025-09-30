@@ -1143,7 +1143,7 @@ export default function ModelerReviewPage() {
       const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
-          glb_link: urlData.publicUrl,
+          glb_link: uploadResult.url,
           status: "in_production",
         })
         .eq("id", asset.id);
@@ -1180,7 +1180,7 @@ export default function ModelerReviewPage() {
         prev
           ? {
               ...prev,
-              glb_link: urlData.publicUrl,
+              glb_link: uploadResult.url,
               status: "delivered_by_artist",
             }
           : null
@@ -1196,7 +1196,7 @@ export default function ModelerReviewPage() {
 
       if (refImages.length > 0) {
         console.log("Triggering QA dialog with images:", refImages);
-        setUploadedGlbUrl(urlData.publicUrl);
+        setUploadedGlbUrl(uploadResult.url);
         setShowQADialog(true);
         console.log("QA dialog state set to true");
         toast.success(
@@ -1251,6 +1251,7 @@ export default function ModelerReviewPage() {
 
   const updateAssetStatus = async (
     newStatus: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     options?: { qaStatus?: boolean | null }
   ) => {
     if (!asset) return;

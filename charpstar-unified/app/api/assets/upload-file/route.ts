@@ -35,7 +35,7 @@ async function createClientFolderStructure(
 }
 
 export async function POST(request: NextRequest) {
-  const startTime = Date.now();
+  // const startTime = Date.now(); // Not currently used
 
   try {
     const formData = await request.formData();
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     let backupFileName = null;
 
     // Check if file already exists by trying to download it
-    const checkStartTime = Date.now();
+    // const checkStartTime = Date.now(); // Not currently used
     const existingFileResponse = await fetch(originalUrl, {
       method: "GET",
       headers: {
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const checkDuration = Date.now() - checkStartTime;
+    // const checkDuration = Date.now() - checkStartTime; // Not currently used
 
     if (existingFileResponse.ok) {
       // We already have the file from the check above
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       // BunnyCDN will create the folder structure automatically when we upload to the path
 
       // Upload backup
-      const backupStartTime = Date.now();
+      // const backupStartTime = Date.now(); // Not currently used
       const backupUploadResponse = await fetch(backupStorageUrl, {
         method: "PUT",
         headers: {
@@ -134,14 +134,14 @@ export async function POST(request: NextRequest) {
         body: existingFileBuffer,
       });
 
-      const backupDuration = Date.now() - backupStartTime;
+      // const backupDuration = Date.now() - backupStartTime; // Not currently used
 
       if (backupUploadResponse.ok) {
         // Construct public backup URL
         const cleanCdnUrl = cdnUrl;
         backupUrl = `${cleanCdnUrl}/${backupPath}`;
       } else {
-        const errorText = await backupUploadResponse.text();
+        // const errorText = await backupUploadResponse.text(); // Not currently used
       }
     }
 
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
     const url = originalUrl;
 
     // Upload to Bunny
-    const mainUploadStartTime = Date.now();
+    // const mainUploadStartTime = Date.now(); // Not currently used
     const response = await fetch(url, {
       method: "PUT",
       headers: {
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
       body: buffer,
     });
 
-    const mainUploadDuration = Date.now() - mainUploadStartTime;
+    // const mainUploadDuration = Date.now() - mainUploadStartTime; // Not currently used
 
     if (!response.ok) {
       const errText = await response.text();
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
     const cleanCdnUrl = cdnUrl; // Remove trailing slash if present
     const publicUrl = `${cleanCdnUrl}/${uploadPath}`;
 
-    const totalDuration = Date.now() - startTime;
+    // const totalDuration = Date.now() - startTime; // Not currently used
 
     return NextResponse.json({
       success: true,

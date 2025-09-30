@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/containers";
 import { Input } from "@/components/ui/inputs";
 import { useUser } from "@/contexts/useUser";
-import { createClient } from "@/utils/supabase/client";
+// import { createClient } from "@/utils/supabase/client"; // Not currently used
 import { toast } from "@/components/ui/utilities";
 import {
   Loader2,
@@ -89,7 +89,7 @@ export default function ClientsPage() {
             <div className="text-center py-8">
               <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
               <p className="text-muted-foreground">
-                You don't have permission to access this page.
+                You don&apos;t have permission to access this page.
               </p>
             </div>
           </CardContent>

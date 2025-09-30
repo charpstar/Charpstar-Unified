@@ -5884,8 +5884,8 @@ export default function AdminReviewPage() {
               Mark Assets as Approved by Client
             </DialogTitle>
             <DialogDescription>
-              Update {selected.size} selected asset(s) to "approved_by_client"
-              status
+              Update {selected.size} selected asset(s) to
+              &quot;approved_by_client&quot; status
             </DialogDescription>
           </DialogHeader>
 
@@ -5971,8 +5971,9 @@ export default function AdminReviewPage() {
               Fix Stuck Assets
             </DialogTitle>
             <DialogDescription>
-              Fix selected assets that are stuck in "approved_by_client" status
-              and transfer them to the assets table
+              Fix selected assets that are stuck in
+              &quot;approved_by_client&quot; status and transfer them to the
+              assets table
             </DialogDescription>
           </DialogHeader>
 
@@ -5986,9 +5987,9 @@ export default function AdminReviewPage() {
                   </h4>
                   <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
                     This will find and fix selected assets that are stuck in
-                    "approved_by_client" status but haven't been transferred to
-                    the assets table. They will be processed through the
-                    complete API to trigger the auto-transfer.
+                    &quot;approved_by_client&quot; status but haven&apos;t been
+                    transferred to the assets table. They will be processed
+                    through the complete API to trigger the auto-transfer.
                   </p>
                 </div>
               </div>

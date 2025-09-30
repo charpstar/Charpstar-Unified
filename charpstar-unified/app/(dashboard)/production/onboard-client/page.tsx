@@ -67,7 +67,7 @@ export default function OnboardClientPage() {
 
   useEffect(() => {
     const clientId = searchParams.get("clientId");
-    const clientName = searchParams.get("clientName");
+    // const clientName = searchParams.get("clientName"); // Not currently used
 
     if (!clientId) {
       router.push("/production/clients");
@@ -122,7 +122,7 @@ export default function OnboardClientPage() {
               <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
               <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
               <p className="text-muted-foreground">
-                You don't have permission to access this page.
+                You don&apos;t have permission to access this page.
               </p>
             </div>
           </CardContent>
@@ -1226,8 +1226,8 @@ export default function OnboardClientPage() {
                     Convert with AI
                   </h4>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Click "Convert to CSV" to let AI convert the data to the
-                    required format with proper columns.
+                    Click &quot;Convert to CSV&quot; to let AI convert the data
+                    to the required format with proper columns.
                   </p>
                 </div>
               </div>

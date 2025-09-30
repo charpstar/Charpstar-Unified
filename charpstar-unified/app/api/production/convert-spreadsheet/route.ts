@@ -173,7 +173,7 @@ Return the JSON array:`;
         throw new Error("Invalid response format: expected array");
       }
 
-      const validatedData = convertedData.map((item: any, index: number) => ({
+      const validatedData = convertedData.map((item: any) => ({
         article_id: String(item.article_id || ""),
         product_name: String(item.product_name || ""),
         product_link: String(item.product_link || ""),
