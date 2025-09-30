@@ -64,14 +64,17 @@ export async function POST(request: NextRequest) {
     });
 
     // Check file size limits (Vercel has a 4.5MB limit for serverless functions)
-    const maxSize = 4 * 1024 * 1024; // 4MB
+    const maxSize = 15 * 1024 * 1024; // 4.5MB (Vercel's actual limit)
     if (file.size > maxSize) {
       console.log("[UPLOAD] File too large:", file.size, "bytes");
       return NextResponse.json(
         {
           error: "File too large",
-          details: `File size ${file.size} bytes exceeds maximum of ${maxSize} bytes`,
+          details: `File size ${(file.size / 1024 / 1024).toFixed(2)}MB exceeds maximum of ${(maxSize / 1024 / 1024).toFixed(2)}MB. Please compress the GLB file or use a different upload method.`,
           maxSize,
+          fileSize: file.size,
+          suggestion:
+            "Try compressing the GLB file using tools like Blender's 'Decimate' modifier or online GLB compressors.",
         },
         { status: 413 }
       );

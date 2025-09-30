@@ -439,7 +439,18 @@ export default function ReferenceImagesPage() {
         });
 
         if (!response.ok) {
-          throw new Error(`Upload failed for asset ${assetId}`);
+          let errorMessage = `Upload failed for asset ${assetId}`;
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.details || errorMessage;
+          } catch {
+            // If response is not JSON (e.g., HTML error page), use status text
+            errorMessage =
+              response.status === 413
+                ? `File too large for asset ${assetId}. Please compress the file or use a smaller file.`
+                : `Upload failed for asset ${assetId}: ${response.status} ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
         }
 
         // Update progress

@@ -946,24 +946,52 @@ export default function BatchDetailPage() {
         }
       }
 
-      // Upload to BunnyCDN using the new API
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("asset_id", assetId);
-      formData.append("file_type", "glb");
-      formData.append("client_name", client);
+      // Check if file is too large for regular upload
+      const isLargeFile = file.size > 4.5 * 1024 * 1024; // 4.5MB
+      let result: any;
 
-      const response = await fetch("/api/assets/upload-file", {
-        method: "POST",
-        body: formData,
-      });
+      if (isLargeFile) {
+        // Use large file uploader
+        const { LargeFileUploader, formatFileSize } = await import(
+          "@/lib/largeFileUpload"
+        );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upload GLB file");
+        const uploader = new LargeFileUploader((progress) => {
+          console.log(
+            `GLB upload progress: ${progress.current}% - ${progress.fileName}`
+          );
+        });
+
+        const uploadResult = await uploader.uploadFile(file, assetId, "glb");
+
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || "Large GLB file upload failed");
+        }
+
+        result = { url: uploadResult.cdnUrl };
+        toast.success(
+          `Large GLB file uploaded successfully! (${formatFileSize(file.size)})`
+        );
+      } else {
+        // Use regular upload for smaller files
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("asset_id", assetId);
+        formData.append("file_type", "glb");
+        formData.append("client_name", client);
+
+        const response = await fetch("/api/assets/upload-file", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to upload GLB file");
+        }
+
+        result = await response.json();
       }
-
-      const result = await response.json();
 
       // Update the asset with the new GLB link but keep status as in_progress for QA
       const { error: updateError } = await supabase
@@ -1044,24 +1072,61 @@ export default function BatchDetailPage() {
     try {
       setUploadingFile(assetId);
 
-      // Create FormData for file upload
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("asset_id", assetId);
-      formData.append("file_type", "asset");
-      formData.append("client_name", client);
+      // Check if file is too large for regular upload
+      const isLargeFile = file.size > 4.5 * 1024 * 1024; // 4.5MB
 
-      const response = await fetch("/api/assets/upload-file", {
-        method: "POST",
-        body: formData,
-      });
+      if (isLargeFile) {
+        // Use large file uploader
+        const { LargeFileUploader, formatFileSize } = await import(
+          "@/lib/largeFileUpload"
+        );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upload file");
+        const uploader = new LargeFileUploader((progress) => {
+          console.log(
+            `Upload progress: ${progress.current}% - ${progress.fileName}`
+          );
+        });
+
+        const result = await uploader.uploadFile(file, assetId, "reference");
+
+        if (!result.success) {
+          throw new Error(result.error || "Large file upload failed");
+        }
+
+        toast.success(
+          `Large file uploaded successfully! (${formatFileSize(file.size)})`
+        );
+      } else {
+        // Use regular upload for smaller files
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("asset_id", assetId);
+        formData.append("file_type", "asset");
+        formData.append("client_name", client);
+
+        const response = await fetch("/api/assets/upload-file", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          let errorMessage = "Failed to upload file";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.details || errorMessage;
+          } catch {
+            // If response is not JSON (e.g., HTML error page), use status text
+            errorMessage =
+              response.status === 413
+                ? "File too large. Please compress the file or use a smaller file."
+                : `Upload failed: ${response.status} ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+
+        toast.success("File uploaded successfully!");
       }
 
-      toast.success("File uploaded successfully!");
       // Refresh only the affected asset to keep UI state
       await refreshAssetReferenceData(assetId);
     } catch (error) {

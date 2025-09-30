@@ -230,7 +230,13 @@ export function AddReferenceDialog({
           try {
             const errJson = await response.json();
             details = errJson?.error || errJson?.details || response.statusText;
-          } catch {}
+          } catch {
+            // If response is not JSON (e.g., HTML error page), use status text
+            details =
+              response.status === 413
+                ? "File too large. Please compress the file or use a smaller file."
+                : `Upload failed: ${response.status} ${response.statusText}`;
+          }
           throw new Error(
             `Upload failed for ${file.name}${details ? `: ${details}` : ""}`
           );
