@@ -203,7 +203,7 @@ const getStatusLabelText = (status: string): string => {
   }
 };
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 200;
 
 const getStatusIcon = (status: string) => {
   switch (status) {

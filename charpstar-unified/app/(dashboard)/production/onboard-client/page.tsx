@@ -9,10 +9,24 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/containers";
 import { Input } from "@/components/ui/inputs";
 import { Label } from "@/components/ui/display";
 import { Textarea } from "@/components/ui/inputs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/display";
 import { Switch } from "@/components/ui/inputs";
 import { useUser } from "@/contexts/useUser";
 import { createClient } from "@/utils/supabase/client";
@@ -64,6 +78,7 @@ export default function OnboardClientPage() {
   const [customStorageUrl, setCustomStorageUrl] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [isProcessingCsv, setIsProcessingCsv] = useState(false);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
 
   useEffect(() => {
     const clientId = searchParams.get("clientId");
@@ -256,10 +271,10 @@ export default function OnboardClientPage() {
     if (convertedData.length === 0) return;
 
     const csvContent = [
-      "Article ID,Product Name,Product Link,CAD/File Link,Category,Subcategory",
+      "Article ID,Product Name,Product Link,CAD/File Link,Category,Subcategory,GLB Link",
       ...convertedData.map(
         (row) =>
-          `"${row.article_id}","${row.product_name}","${row.product_link}","${row.cad_file_link}","${row.category}","${row.subcategory}"`
+          `"${row.article_id}","${row.product_name}","${row.product_link}","${row.cad_file_link}","${row.category}","${row.subcategory}","${row.glb_link || ""}"`
       ),
     ].join("\n");
 
@@ -274,7 +289,7 @@ export default function OnboardClientPage() {
     window.URL.revokeObjectURL(url);
   };
 
-  const uploadToOnboardingAssets = async () => {
+  const showPreview = () => {
     if (convertedData.length === 0) {
       toast({
         title: "Error",
@@ -283,15 +298,11 @@ export default function OnboardClientPage() {
       });
       return;
     }
+    setShowPreviewDialog(true);
+  };
 
-    // Confirmation dialog
-    const confirmed = window.confirm(
-      `Are you sure you want to upload ${convertedData.length} assets to the onboarding system for ${client?.name}? This will create new onboarding assets that can be reviewed by the client.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
+  const uploadToOnboardingAssets = async () => {
+    setShowPreviewDialog(false);
 
     setIsUploading(true);
     try {
@@ -468,10 +479,10 @@ export default function OnboardClientPage() {
 
   const downloadTemplate = () => {
     const templateData = [
-      "Article ID,Product Name,Product Link,CAD/File Link,Category,Subcategory",
-      "EXAMPLE-001,Sample Product 1,https://example.com/product1,https://example.com/cad1,Furniture,Chairs",
-      "EXAMPLE-002,Sample Product 2,https://example.com/product2,https://example.com/cad2,Furniture,Tables",
-      "EXAMPLE-003,Sample Product 3,https://example.com/product3,https://example.com/cad3,Lighting,Floor Lamps",
+      "Article ID,Product Name,Product Link,CAD/File Link,Category,Subcategory,GLB Link",
+      "EXAMPLE-001,Sample Product 1,https://example.com/product1,https://example.com/cad1,Furniture,Chairs,https://cdn.example.com/models/EXAMPLE-001.glb",
+      "EXAMPLE-002,Sample Product 2,https://example.com/product2,https://example.com/cad2,Furniture,Tables,https://cdn.example.com/models/EXAMPLE-002.glb",
+      "EXAMPLE-003,Sample Product 3,https://example.com/product3,https://example.com/cad3,Lighting,Floor Lamps,https://cdn.example.com/models/EXAMPLE-003.glb",
     ].join("\n");
 
     const blob = new Blob([templateData], { type: "text/csv" });
@@ -560,7 +571,7 @@ export default function OnboardClientPage() {
           cad_file_link: values[3] || "",
           category: values[4] || "",
           subcategory: values[5] || "",
-          glb_link: undefined, // Will be set by URL generator if needed
+          glb_link: values[6] || undefined, // Can be provided in spreadsheet or set by URL generator
         };
 
         console.log(`Mapped row:`, row);
@@ -779,7 +790,8 @@ export default function OnboardClientPage() {
                     </Label>
                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                       Upload a CSV file with columns: Article ID, Product Name,
-                      Product Link, CAD/File Link, Category, Subcategory
+                      Product Link, CAD/File Link, Category, Subcategory, GLB
+                      Link (optional)
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -921,22 +933,13 @@ export default function OnboardClientPage() {
                     Download CSV
                   </Button>
                   <Button
-                    onClick={uploadToOnboardingAssets}
+                    onClick={showPreview}
                     disabled={isUploading}
                     className="bg-slate-900 hover:bg-slate-800 text-white h-12 px-6"
                     size="lg"
                   >
-                    {isUploading ? (
-                      <>
-                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-5 w-5 mr-2" />
-                        Upload to Onboarding
-                      </>
-                    )}
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Preview & Upload
                   </Button>
                 </div>
               )}
@@ -1252,6 +1255,183 @@ export default function OnboardClientPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+        <DialogContent className="min-w-7xl w-[95vw] max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <CheckCircle className="h-6 w-6" />
+              Preview Upload - {convertedData.length} Assets
+            </DialogTitle>
+            <DialogDescription>
+              Review the data before uploading to the onboarding system for{" "}
+              <strong>{client?.name}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto border-t border-b px-6 max-h-[calc(100vh-500px)]">
+            <Table>
+              <TableHeader className="sticky top-0 bg-slate-50 dark:bg-slate-800 z-10">
+                <TableRow>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead className="min-w-[120px]">Article ID</TableHead>
+                  <TableHead className="min-w-[200px]">Product Name</TableHead>
+                  <TableHead className="min-w-[120px]">Category</TableHead>
+                  <TableHead className="min-w-[120px]">Subcategory</TableHead>
+                  <TableHead className="min-w-[80px]">Priority</TableHead>
+                  <TableHead className="min-w-[100px]">GLB Link</TableHead>
+                  <TableHead className="min-w-[200px]">Product Link</TableHead>
+                  <TableHead className="min-w-[200px]">CAD Link</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {convertedData.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium text-slate-500">
+                      {index + 1}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {item.article_id}
+                    </TableCell>
+                    <TableCell className="max-w-[250px] truncate">
+                      {item.product_name}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{item.category}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {item.subcategory ? (
+                        <Badge variant="outline">{item.subcategory}</Badge>
+                      ) : (
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                          Missing
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          index < 10
+                            ? "default"
+                            : index < 50
+                              ? "secondary"
+                              : "outline"
+                        }
+                      >
+                        1
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {item.glb_link ? (
+                        <div className="flex items-center gap-1">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-xs text-green-600 dark:text-green-400">
+                            Set
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[200px]">
+                      {item.product_link ? (
+                        <a
+                          href={item.product_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate block"
+                        >
+                          {item.product_link}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-500">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[200px]">
+                      {item.cad_file_link ? (
+                        <a
+                          href={item.cad_file_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate block"
+                        >
+                          {item.cad_file_link}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-500">-</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-3 px-6 py-4">
+            <div className="flex-1 text-sm text-slate-600 dark:text-slate-400">
+              <p>
+                <strong>{convertedData.length}</strong> assets will be uploaded
+                with:
+              </p>
+              <ul className="list-disc list-inside text-xs mt-1 space-y-1">
+                <li>
+                  Status: <strong>not_started</strong>
+                </li>
+                <li>
+                  Priority: <strong>1</strong> (Highest)
+                </li>
+                <li>
+                  Batch: <strong>1</strong>
+                </li>
+                <li>
+                  GLB Links:{" "}
+                  <strong>
+                    {convertedData.filter((d) => d.glb_link).length}
+                  </strong>{" "}
+                  set
+                </li>
+                <li>
+                  Missing Subcategories:{" "}
+                  <strong className="text-amber-600 dark:text-amber-400">
+                    {
+                      convertedData.filter(
+                        (d) => !d.subcategory || d.subcategory.trim() === ""
+                      ).length
+                    }
+                  </strong>
+                </li>
+              </ul>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowPreviewDialog(false)}
+                className="cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={uploadToOnboardingAssets}
+                disabled={isUploading}
+                className="bg-slate-900 hover:bg-slate-800 text-white cursor-pointer"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Confirm & Upload
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
