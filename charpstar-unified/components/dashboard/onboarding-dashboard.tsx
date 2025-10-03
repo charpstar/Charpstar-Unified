@@ -46,9 +46,11 @@ interface OnboardingStep {
   completed: boolean;
   action?: () => void;
   removeAction?: () => void;
+  skipAction?: () => void;
   disabled?: boolean;
   helpText?: string;
   estimatedTime?: string;
+  skippable?: boolean;
 }
 
 export function OnboardingDashboard() {
@@ -60,6 +62,7 @@ export function OnboardingDashboard() {
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
   const [removingCsv, setRemovingCsv] = useState(false);
   const [showRemoveCsvDialog, setShowRemoveCsvDialog] = useState(false);
+  const [skippingStep, setSkippingStep] = useState(false);
 
   const handleCompleteOnboarding = async () => {
     setCompletingOnboarding(true);
@@ -135,6 +138,35 @@ export function OnboardingDashboard() {
     }
   };
 
+  const handleSkipStep = async (stepId: string) => {
+    if (!user?.id) return;
+
+    setSkippingStep(true);
+    try {
+      // Mark the step as completed by updating user metadata
+      const response = await fetch("/api/users/skip-onboarding-step", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stepId: stepId,
+        }),
+      });
+
+      if (response.ok) {
+        // Reload the page to reflect the changes
+        window.location.reload();
+      } else {
+        throw new Error("Failed to skip step");
+      }
+    } catch (error) {
+      console.error("Error skipping step:", error);
+    } finally {
+      setSkippingStep(false);
+    }
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "client":
@@ -199,16 +231,15 @@ export function OnboardingDashboard() {
             id: "csv-upload",
             title: "CSV Upload",
             description:
-              "Upload your product data and specifications to get started",
+              "Upload your product data and specifications to get started (optional)",
             icon: Package,
             completed: user?.metadata?.csv_uploaded || false,
             action: () => {
               startLoading();
               router.push("/onboarding/csv-upload");
             },
-
             disabled: false,
-
+            skippable: true,
             estimatedTime: "2-3 minutes",
             removeAction: user?.metadata?.csv_uploaded
               ? handleRemoveCsv
@@ -218,17 +249,16 @@ export function OnboardingDashboard() {
           {
             id: "reference-images",
             title: "Reference Images Upload",
-            description: "Upload additional reference images for your products",
+            description:
+              "Upload additional reference images for your products. This step is optional and can be skipped.",
             icon: Package,
             completed: user?.metadata?.reference_images_uploaded || false,
-            action: user?.metadata?.csv_uploaded
-              ? () => {
-                  startLoading();
-                  router.push("/onboarding/reference-images");
-                }
-              : undefined,
-            disabled: !user?.metadata?.csv_uploaded,
-
+            action: () => {
+              startLoading();
+              router.push("/onboarding/reference-images");
+            },
+            disabled: false,
+            skippable: true,
             estimatedTime: "5-10 minutes",
           },
         ];
@@ -247,11 +277,10 @@ export function OnboardingDashboard() {
   const progressPercentage =
     totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
 
-  const getStepStatus = (step: OnboardingStep, index: number) => {
+  const getStepStatus = (step: OnboardingStep) => {
     if (step.completed) return "completed";
     if (step.disabled) return "locked";
-    if (index === 0 || steps[index - 1]?.completed) return "available";
-    return "locked";
+    return "available"; // All steps are now available since they can be skipped
   };
 
   return (
@@ -359,7 +388,7 @@ export function OnboardingDashboard() {
 
           <div className="space-y-6">
             {steps.map((step, index) => {
-              const status = getStepStatus(step, index);
+              const status = getStepStatus(step);
               const isExpanded = expandedStep === step.id;
 
               return (
@@ -513,16 +542,40 @@ export function OnboardingDashboard() {
                                         </Button>
                                       </>
                                     ) : (
-                                      <Button
-                                        size="default"
-                                        onClick={step.action}
-                                        className="gap-2 px-6 py-2"
-                                        disabled={step.disabled}
-                                      >
-                                        <Play className="h-4 w-4" />
-                                        Continue
-                                        <ArrowRight className="h-4 w-4" />
-                                      </Button>
+                                      <>
+                                        <Button
+                                          size="default"
+                                          onClick={step.action}
+                                          className="gap-2 px-6 py-2"
+                                          disabled={step.disabled}
+                                        >
+                                          <Play className="h-4 w-4" />
+                                          Continue
+                                          <ArrowRight className="h-4 w-4" />
+                                        </Button>
+
+                                        {step.skippable && step.skipAction && (
+                                          <Button
+                                            variant="outline"
+                                            size="default"
+                                            onClick={step.skipAction}
+                                            disabled={skippingStep}
+                                            className="gap-2 px-6 py-2"
+                                          >
+                                            {skippingStep ? (
+                                              <>
+                                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-transparent" />
+                                                Skipping...
+                                              </>
+                                            ) : (
+                                              <>
+                                                <ArrowRight className="h-4 w-4" />
+                                                Skip for Now
+                                              </>
+                                            )}
+                                          </Button>
+                                        )}
+                                      </>
                                     )}
                                   </>
                                 )}
@@ -582,8 +635,7 @@ export function OnboardingDashboard() {
                           <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-border">
                             <p className="text-sm text-muted-foreground flex items-center gap-2">
                               <Lock className="h-4 w-4" />
-                              You must complete the CSV Upload step before
-                              uploading reference images.
+                              This step is currently disabled.
                             </p>
                           </div>
                         )}
@@ -595,6 +647,46 @@ export function OnboardingDashboard() {
             })}
           </div>
         </div>
+
+        {/* Skip All Steps Button */}
+        {completedSteps < totalSteps && totalSteps > 0 && (
+          <Card className="border">
+            <CardContent className="py-6">
+              <div className="text-center space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-foreground">
+                    Want to skip the setup?
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+                    You can skip these onboarding steps and upload your products
+                    later from the &quot;Add Products&quot; page in your
+                    dashboard.
+                  </p>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => handleSkipStep("all")}
+                  disabled={skippingStep}
+                  className="gap-2 px-6 py-2"
+                >
+                  {skippingStep ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-transparent" />
+                      Skipping All...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="h-4 w-4" />
+                      Skip All Steps
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Completion Card */}
         {completedSteps === totalSteps && totalSteps > 0 && (
@@ -665,9 +757,7 @@ export function OnboardingDashboard() {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Are you sure you want to reset your CSV upload status? This
-                  will only reset your onboarding progress and will NOT affect
-                  any data that has already been uploaded to the database.
+                  Are you sure you want to reset your CSV upload status?
                 </AlertDescription>
               </Alert>
             </div>

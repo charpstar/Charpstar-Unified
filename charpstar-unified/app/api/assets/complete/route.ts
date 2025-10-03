@@ -129,7 +129,6 @@ export async function POST(request: NextRequest) {
           .from("onboarding_assets")
           .select("*")
           .eq("id", assetId)
-          .eq("status", "approved_by_client")
           .eq("transferred", false)
           .single();
 
@@ -144,8 +143,21 @@ export async function POST(request: NextRequest) {
             product_name: onboardingAsset.product_name,
             article_id: onboardingAsset.article_id,
             client: onboardingAsset.client,
+            status: onboardingAsset.status,
             transferred: onboardingAsset.transferred,
           });
+
+          // Double-check that the asset has the correct status
+          if (onboardingAsset.status !== "approved_by_client") {
+            console.log(
+              "Asset status mismatch, skipping transfer:",
+              onboardingAsset.status
+            );
+            return NextResponse.json({
+              success: true,
+              message: "Asset status updated successfully",
+            });
+          }
 
           // Check if asset already exists in assets table
           const { data: existingAsset } = await supabase
@@ -330,7 +342,35 @@ export async function POST(request: NextRequest) {
             }
           } else {
             console.log(
-              "Asset already exists in assets table, skipping transfer"
+              "Asset already exists in assets table, skipping insert but marking as transferred"
+            );
+
+            // Still need to mark as transferred even if asset already exists
+            await supabase
+              .from("onboarding_assets")
+              .update({
+                transferred: true,
+              })
+              .eq("id", assetId);
+
+            // Log the activity
+            await logActivityServer({
+              action: "asset_transferred",
+              description: `Asset ${onboardingAsset.product_name} (${onboardingAsset.article_id}) marked as transferred (already existed in assets table)`,
+              type: "update",
+              resource_type: "asset",
+              resource_id: assetId,
+              metadata: {
+                asset_id: assetId,
+                product_name: onboardingAsset.product_name,
+                article_id: onboardingAsset.article_id,
+                client: onboardingAsset.client,
+                already_existed: true,
+              },
+            });
+
+            console.log(
+              "Asset marked as transferred (already existed in assets table)"
             );
           }
         }

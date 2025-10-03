@@ -378,6 +378,10 @@ export default function ReviewPage() {
     useState<Annotation | null>(null);
   const [isUndoing, setIsUndoing] = useState(false);
 
+  // Approval confirmation dialog state
+  const [showApprovalConfirmDialog, setShowApprovalConfirmDialog] =
+    useState(false);
+
   // Function to handle back navigation based on where user came from
   const handleBackNavigation = () => {
     const from = searchParams.get("from");
@@ -1704,6 +1708,11 @@ export default function ReviewPage() {
   };
 
   const updateAssetStatus = async (newStatus: string, skipDialog = false) => {
+    console.log("updateAssetStatus called with:", {
+      newStatus,
+      skipDialog,
+      assetId,
+    });
     if (!assetId) return;
 
     // Prevent revision for assets that are not started or already approved by client
@@ -1764,6 +1773,10 @@ export default function ReviewPage() {
     setStatusUpdating(true);
 
     try {
+      console.log("About to call API for status update:", {
+        assetId,
+        newStatus,
+      });
       // Use the complete API endpoint for proper allocation list handling
       const response = await fetch("/api/assets/complete", {
         method: "POST",
@@ -1786,6 +1799,7 @@ export default function ReviewPage() {
       }
 
       const result = await response.json();
+      console.log("API response:", result);
 
       // Handle notification sending based on status changes
       if (newStatus === "revisions" || newStatus === "client_revision") {
@@ -3299,23 +3313,25 @@ export default function ReviewPage() {
                     <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">
                       {asset?.product_name || "Review Asset"}
                     </h3>
-                    <Badge
-                      variant="outline"
-                      className="text-xs font-medium text-muted-foreground border-border bg-yellow-500/20 w-fit"
-                    >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsNotesDialogOpen(true)}
-                        className="h-6 sm:h-8 px-2 sm:px-3 text-xs"
+                    {user?.metadata?.role !== "client" && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-medium text-muted-foreground border-border bg-yellow-500/20 w-fit"
                       >
-                        <StickyNote className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                        <span className="hidden sm:inline">
-                          Notes ({notes.length})
-                        </span>
-                        <span className="sm:hidden">{notes.length}</span>
-                      </Button>
-                    </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsNotesDialogOpen(true)}
+                          className="h-6 sm:h-8 px-2 sm:px-3 text-xs"
+                        >
+                          <StickyNote className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                          <span className="hidden sm:inline">
+                            Notes ({notes.length})
+                          </span>
+                          <span className="sm:hidden">{notes.length}</span>
+                        </Button>
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-4">
@@ -3417,7 +3433,7 @@ export default function ReviewPage() {
               <div className="flex flex-wrap items-center gap-2">
                 {user?.metadata?.role === "client" && (
                   <Button
-                    onClick={() => updateAssetStatus("approved_by_client")}
+                    onClick={() => setShowApprovalConfirmDialog(true)}
                     disabled={
                       asset?.status === "approved_by_client" || statusUpdating
                     }
@@ -3427,7 +3443,7 @@ export default function ReviewPage() {
                         : "outline"
                     }
                     size="sm"
-                    className="h-7 sm:h-8 px-2 sm:px-3 text-xs cursor-pointer"
+                    className="h-7 sm:h-8 px-2 sm:px-3 text-xs cursor-pointer bg-green-600 hover:bg-green-700 text-white"
                   >
                     {statusUpdating ? (
                       <Loader2 className="h-3 w-3 mr-1 animate-spin" />
@@ -3447,7 +3463,7 @@ export default function ReviewPage() {
                       asset?.status === "approved" ? "default" : "outline"
                     }
                     size="sm"
-                    className="h-8 px-3 text-xs cursor-pointer"
+                    className="h-8 px-3 text-xs cursor-pointer bg-green-600 hover:bg-green-700 text-white"
                   >
                     {statusUpdating ? (
                       <Loader2 className="h-3 w-3 mr-1 animate-spin" />
@@ -5997,6 +6013,61 @@ export default function ReviewPage() {
               onClick={() => setIsNotesDialogOpen(false)}
             >
               Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Confirmation Dialog */}
+      <Dialog
+        open={showApprovalConfirmDialog}
+        onOpenChange={setShowApprovalConfirmDialog}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              Confirm Approval
+            </DialogTitle>
+            <DialogDescription className="text-left">
+              <div className="space-y-3 mt-3">
+                <p>Are you sure you want to approve this asset?</p>
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    <strong>Note:</strong> This will remove the asset from your
+                    review list and transfer it to the asset library.
+                  </p>
+                </div>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setShowApprovalConfirmDialog(false)}
+              disabled={statusUpdating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowApprovalConfirmDialog(false);
+                updateAssetStatus("approved_by_client");
+              }}
+              disabled={statusUpdating}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {statusUpdating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Confirm Approval
+                </>
+              )}
             </Button>
           </div>
         </DialogContent>

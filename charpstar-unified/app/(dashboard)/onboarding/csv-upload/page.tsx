@@ -217,6 +217,8 @@ export default function CsvUploadPage() {
         priority: 2, // Default priority since not in template
         status: "not_started",
         upload_order: i + 1, // Preserve the order from CSV
+        new_upload: true, // Mark as uploaded via CSV for reference images page
+        transferred: false, // Not transferred yet
       });
     }
 

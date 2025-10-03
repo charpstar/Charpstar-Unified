@@ -275,7 +275,7 @@ export default function ProductionDashboard() {
   });
 
   // Cache duration (2 minutes for better performance)
-  const CACHE_DURATION = 2 * 60 * 1000;
+  const CACHE_DURATION = 0; // Temporarily disable cache to test the fix
 
   // Get state from URL params with defaults
   const searchTerm = searchParams.get("search") || "";
@@ -439,6 +439,7 @@ export default function ProductionDashboard() {
             `
             )
             .order("upload_order", { ascending: true })
+            .range(0, 9999) // Use range to fetch up to 10,000 assets
         );
       } else {
         // Use pagination for other views
@@ -507,6 +508,14 @@ export default function ProductionDashboard() {
         assetAssignments: assignmentResult?.data || [],
         profiles: profileResult?.data || [],
       };
+
+      // Debug: Check if we're still limited to 1000
+      console.log("Assets fetched with range(0, 9999):", data.assetData.length);
+      if (data.assetData.length === 1000) {
+        console.warn(
+          "Still limited to 1000 assets - Supabase may have a global limit"
+        );
+      }
 
       // Update cache
       setDataCache({
@@ -607,6 +616,11 @@ export default function ProductionDashboard() {
       assetData.forEach((asset) => {
         const clientName = asset.client;
         const batchNumber = asset.batch || 1;
+
+        // Skip assets without a proper client name
+        if (!clientName || clientName.trim() === "") {
+          return;
+        }
 
         if (!clientMap.has(clientName)) {
           clientMap.set(clientName, {
@@ -838,6 +852,12 @@ export default function ProductionDashboard() {
       assetData.forEach((asset) => {
         const client = asset.client;
         const batch = asset.batch || 1;
+
+        // Skip assets without a proper client name
+        if (!client || client.trim() === "") {
+          return;
+        }
+
         const batchKey = `${client}-${batch}`;
 
         if (!batchMap.has(batchKey)) {

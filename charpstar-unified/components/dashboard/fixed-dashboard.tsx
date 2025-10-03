@@ -116,44 +116,38 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Row 1 */}
-        <Card
-          className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
+        <div
+          className="p-6 rounded-2xl bg-white dark:bg-background border border-gray-200 dark:border-gray-800"
           data-tour="profile"
         >
-          <CardContent>{profileContent}</CardContent>
-        </Card>
+          {profileContent}
+        </div>
 
-        <Card
-          className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300"
+        <div
+          className="p-6 rounded-2xl bg-white dark:bg-background border border-gray-200 dark:border-gray-800"
           data-tour="quick-actions"
         >
-          <CardContent className="">
-            <Suspense
-              fallback={
-                <div className="h-32 bg-muted animate-pulse rounded-lg" />
-              }
-            >
-              <LazyQuickActionsWidget />
-            </Suspense>
-          </CardContent>
-        </Card>
+          <Suspense
+            fallback={
+              <div className="h-32 bg-gray-100 dark:bg-gray-800 animate-pulse rounded-xl" />
+            }
+          >
+            <LazyQuickActionsWidget />
+          </Suspense>
+        </div>
 
         {/* Row 2 */}
-        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
-          <CardContent className="">
-            <ErrorBoundary>
-              <ClientActionCenterWidget />
-            </ErrorBoundary>
-          </CardContent>
-        </Card>
+        <div className="p-6 rounded-2xl bg-white dark:bg-background border border-gray-200 dark:border-gray-800">
+          <ErrorBoundary>
+            <ClientActionCenterWidget />
+          </ErrorBoundary>
+        </div>
 
-        <Card className="p-6 rounded-2xl border-none bg-background shadow-[inset_0_0_12px_rgba(0,0,0,0.15),inset_0_0_6px_rgba(255,255,255,0.1)] transition-all duration-300">
-          <CardContent className="">
-            <ErrorBoundary>
-              <StatusPieChartWidget />
-            </ErrorBoundary>
-          </CardContent>
-        </Card>
+        <div className="p-6 rounded-2xl bg-white dark:bg-background border border-gray-200 dark:border-gray-800">
+          <ErrorBoundary>
+            <StatusPieChartWidget />
+          </ErrorBoundary>
+        </div>
       </div>
     );
   }

@@ -24,17 +24,18 @@ import {
 import { Button } from "@/components/ui/display";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
+import { ActivityLogsDialog } from "@/components/ui/containers/ActivityLogsDialog";
 import {
   Eye,
   ChevronLeft,
   ChevronRight,
   Package,
-  Send,
   CheckCircle,
   ExternalLink,
   FileText,
   Download,
   X,
+  Activity,
 } from "lucide-react";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -127,7 +128,7 @@ const getRowStyling = (status: string): { base: string; hover: string } => {
   }
 };
 
-const PAGE_SIZE = 18;
+const PAGE_SIZE = 100;
 
 const ReviewTableSkeleton = () => (
   <div className="overflow-y-auto rounded-lg border dark:border-border bg-background dark:bg-background flex-1 max-h-[78vh]">
@@ -208,6 +209,7 @@ export default function ReviewDashboardPage() {
     Record<string, number>
   >({});
   const [bulkPriority, setBulkPriority] = useState<number>(2);
+  const [bulkStatus, setBulkStatus] = useState<string>("approved_by_client");
 
   // Add new filter states for multi-select capability
   const [clientFilters, setClientFilters] = useState<string[]>([]);
@@ -225,6 +227,9 @@ export default function ReviewDashboardPage() {
   // View Ref dialog state
   const [showViewRefDialog, setShowViewRefDialog] = useState(false);
   const [selectedAssetForView, setSelectedAssetForView] = useState<any>(null);
+
+  // Activity logs dialog state
+  const [showLogsDialog, setShowLogsDialog] = useState(false);
 
   // Function to refresh a specific asset's reference data
   const refreshAssetReferenceData = async (assetId: string) => {
@@ -561,6 +566,80 @@ export default function ReviewDashboardPage() {
     }
   };
 
+  const handleBulkStatusChange = async () => {
+    if (selected.size === 0) return;
+
+    startLoading();
+    try {
+      const selectedIds = Array.from(selected);
+
+      // If updating to approved_by_client, use the bulk API endpoint to trigger auto-transfer
+      if (bulkStatus === "approved_by_client") {
+        const response = await fetch("/api/assets/bulk-complete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            assetIds: selectedIds,
+            status: "approved_by_client",
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Failed to update assets`);
+        }
+
+        await response.json();
+
+        // Update local state
+        setAssets((prev) =>
+          prev.map((a) =>
+            selectedIds.includes(a.id) ? { ...a, status: bulkStatus } : a
+          )
+        );
+
+        toast.success(
+          `Successfully updated ${selectedIds.length} product(s) to approved by client status and transferred to assets table`
+        );
+      } else {
+        // For other statuses, update directly in database
+        setAssets((prev) =>
+          prev.map((a) =>
+            selectedIds.includes(a.id) ? { ...a, status: bulkStatus } : a
+          )
+        );
+
+        const { error } = await supabase
+          .from("onboarding_assets")
+          .update({ status: bulkStatus })
+          .in("id", selectedIds);
+
+        if (error) {
+          console.error("Error updating bulk status:", error);
+          toast.error("Failed to update statuses");
+          // Revert on error - we need to fetch the original statuses
+          fetchAssets();
+          return;
+        }
+
+        toast.success(`Updated status for ${selectedIds.length} product(s)`);
+      }
+
+      setSelected(new Set()); // Clear selection
+    } catch (error) {
+      console.error("Error in bulk status update:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update statuses"
+      );
+      // Revert on error
+      fetchAssets();
+    } finally {
+      stopLoading();
+    }
+  };
+
   // Helper function to parse references
   const parseReferences = (
     referenceImages: string[] | string | null
@@ -579,7 +658,7 @@ export default function ReviewDashboardPage() {
       <Card className="p-3 sm:p-6 flex-1 flex flex-col border-0 shadow-none">
         {/* Status Summary Cards */}
         {!loading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
             {/* Total Models (no filtering on this card itself) */}
             <Card
               className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
@@ -604,36 +683,6 @@ export default function ReviewDashboardPage() {
               </div>
             </Card>
 
-            {/* In Production */}
-            <Card
-              className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
-              onClick={() => {
-                setStatusFilters([
-                  "in_production",
-                  "revisions",
-                  "delivered_by_artist",
-                ]);
-                setPage(1);
-              }}
-            >
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="p-1.5 sm:p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                  <Send className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
-                    <span className="hidden sm:inline">In Production</span>
-                    <span className="sm:hidden">Production</span>
-                  </p>
-                  <p className="text-lg sm:text-2xl font-bold text-blue-600">
-                    {statusTotals.in_production +
-                      statusTotals.revisions +
-                      statusTotals.delivered_by_artist}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
             {/* New Upload (Approved) */}
             <Card
               className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
@@ -653,30 +702,6 @@ export default function ReviewDashboardPage() {
                   </p>
                   <p className="text-lg sm:text-2xl font-medium text-green-600">
                     {statusTotals.approved}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Ready for Revision */}
-            <Card
-              className="p-3 sm:p-4 cursor-pointer hover:shadow-md transition-all dark:bg-background dark:border-border"
-              onClick={() => {
-                setStatusFilters(["revisions"]);
-                setPage(1);
-              }}
-            >
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="p-1.5 sm:p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
-                  <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
-                    <span className="hidden sm:inline">Ready for Revision</span>
-                    <span className="sm:hidden">Revision</span>
-                  </p>
-                  <p className="text-lg sm:text-2xl font-bold text-orange-600">
-                    {statusTotals.revisions}
                   </p>
                 </div>
               </div>
@@ -783,7 +808,20 @@ export default function ReviewDashboardPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+
+            {/* Logs Dialog Trigger */}
+
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLogsDialog(true)}
+                className="gap-2 h-8 sm:h-9 text-sm 0 justify-end "
+              >
+                <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Logs</span>
+                <span className="sm:hidden">Logs</span>
+              </Button>
               <Select value={sort} onValueChange={(value) => setSort(value)}>
                 <SelectTrigger className="w-full sm:w-auto h-8 sm:h-9 text-sm">
                   <SelectValue placeholder="Sort by" />
@@ -876,6 +914,47 @@ export default function ReviewDashboardPage() {
                     <Button
                       size="sm"
                       onClick={handleBulkPriorityChange}
+                      className="h-7 sm:h-8 text-xs sm:text-sm flex-1 sm:flex-none"
+                    >
+                      <span className="hidden sm:inline">
+                        Apply to {selected.size} product(s)
+                      </span>
+                      <span className="sm:hidden">Apply</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2">
+                  <span className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">
+                    Set status:
+                  </span>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Select
+                      value={bulkStatus}
+                      onValueChange={(value) => setBulkStatus(value)}
+                    >
+                      <SelectTrigger className="w-32 sm:w-36 h-7 sm:h-8 dark:bg-background dark:border-border text-xs sm:text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="approved_by_client">
+                          Approved by Client
+                        </SelectItem>
+                        <SelectItem value="approved">New Upload</SelectItem>
+                        <SelectItem value="client_revision">
+                          Client Revision
+                        </SelectItem>
+                        <SelectItem value="revisions">
+                          Sent for Revision
+                        </SelectItem>
+                        <SelectItem value="in_production">
+                          In Production
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      onClick={handleBulkStatusChange}
                       className="h-7 sm:h-8 text-xs sm:text-sm flex-1 sm:flex-none"
                     >
                       <span className="hidden sm:inline">
@@ -1538,6 +1617,13 @@ export default function ReviewDashboardPage() {
           setShowViewRefDialog(false);
           setShowAddRefDialog(true);
         }}
+      />
+
+      {/* Activity Logs Dialog */}
+      <ActivityLogsDialog
+        open={showLogsDialog}
+        onOpenChange={setShowLogsDialog}
+        assetIds={assets.map((asset) => asset.id)}
       />
     </div>
   );

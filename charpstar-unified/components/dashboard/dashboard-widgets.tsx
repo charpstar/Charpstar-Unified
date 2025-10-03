@@ -1504,19 +1504,20 @@ export function StatusPieChartWidget() {
         </div>
       ) : (
         <CardContent className=" w-full">
-          <div className="group relative overflow-hidden rounded-2xl border-1   w-full flex flex-col md:flex-row items-center justify-center gap-6">
+          <div className="group relative overflow-hidden rounded-2xl    w-full flex flex-col md:flex-row items-center justify-center gap-6">
             <div className="absolute inset-0 opacity-5"></div>
-            <div className="relative w-64 h-64 drop-shadow-lg pointer-events-auto">
+            <div className="relative w-64 h-64 pr-6  pointer-events-auto">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={chartData}
                     dataKey="value"
-                    nameKey="name"
                     cx="50%"
                     cy="50%"
-                    outerRadius={90}
-                    label
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    cornerRadius={8}
                     isAnimationActive={true}
                   >
                     {chartData.map((entry) => (
@@ -1526,6 +1527,25 @@ export function StatusPieChartWidget() {
                       />
                     ))}
                   </Pie>
+                  {/* Center text showing total assets */}
+                  <text
+                    x="50%"
+                    y="45%"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="text-3xl font-bold fill-foreground"
+                  >
+                    {total}
+                  </text>
+                  <text
+                    x="50%"
+                    y="55%"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="text-sm fill-muted-foreground"
+                  >
+                    Total Assets
+                  </text>
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "white",
@@ -1546,7 +1566,7 @@ export function StatusPieChartWidget() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="relative flex flex-col gap-3 min-w-[160px] select-none">
+            <div className="relative flex flex-col pl-4 gap-3 min-w-[160px] select-none">
               {chartData.map((entry, index) => (
                 <>
                   <div key={entry.key} className="flex items-center gap-3">
@@ -1621,7 +1641,7 @@ export function ClientActionCenterWidget() {
     : 0;
 
   return (
-    <Card className="p-0 rounded-2xl bg-transparent border-0 shadow-none">
+    <Card className="p-0 rounded-2xl bg-transparent  ">
       <div className="w-full px-4 pt-4">
         <QAHeader
           icon={Settings}
@@ -1684,11 +1704,11 @@ export function ClientActionCenterWidget() {
                 ))}
               </div>
             )}
-            <div className="mt-3 w-full">
+            <div className="mt-3">
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full"
+                className=""
                 onClick={() => router.push("/client-review?status=approved")}
               >
                 Review all

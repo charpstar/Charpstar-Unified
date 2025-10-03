@@ -51,6 +51,7 @@ import {
 import { Loader2 } from "lucide-react";
 
 import { Input } from "@/components/ui/inputs";
+import { Checkbox } from "@/components/ui/inputs/checkbox";
 import { useRouter } from "next/navigation";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
@@ -74,6 +75,7 @@ export default function ReferenceImagesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [debugAssets, setDebugAssets] = useState<any[]>([]);
   const [completing, setCompleting] = useState(false);
   const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<{
@@ -113,18 +115,29 @@ export default function ReferenceImagesPage() {
     const fetchAssets = async () => {
       if (!user?.metadata?.client) return;
       setFetching(true);
+      console.log("🔍 Fetching assets for client:", user.metadata.client);
+
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select("*")
         .eq("client", user.metadata.client)
-        .eq("transferred", false); // Hide transferred assets
-      if (error)
+        .eq("transferred", false)
+        .eq("new_upload", true); // Only show assets uploaded via CSV in step 1
+
+      console.log("📊 Query result:", {
+        data: data?.length,
+        error: error?.message,
+      });
+
+      if (error) {
+        console.error("❌ Error fetching assets:", error);
         toast({
           title: "Error",
           description: error.message,
           variant: "destructive",
         });
-      else {
+      } else {
+        console.log("✅ Assets found:", data?.length);
         // Sort assets by article_id
         const sortedData = (data || []).sort((a, b) => {
           const articleIdA = a.article_id || "";
@@ -138,23 +151,68 @@ export default function ReferenceImagesPage() {
     fetchAssets();
   }, [user]);
 
+  // Debug function to check all assets for this client
+  const debugFetchAllAssets = async () => {
+    if (!user?.metadata?.client) return;
+    console.log(
+      "🔍 DEBUG: Fetching ALL assets for client:",
+      user.metadata.client
+    );
+
+    const { data, error } = await supabase
+      .from("onboarding_assets")
+      .select("*")
+      .eq("client", user.metadata.client)
+      .order("created_at", { ascending: false });
+
+    console.log("🔍 DEBUG: All assets result:", {
+      data: data?.length,
+      error: error?.message,
+    });
+    if (data) {
+      console.log(
+        "🔍 DEBUG: Assets found:",
+        data.map((asset) => ({
+          id: asset.id,
+          article_id: asset.article_id,
+          product_name: asset.product_name,
+          transferred: asset.transferred,
+          new_upload: asset.new_upload,
+          status: asset.status,
+        }))
+      );
+    }
+    setDebugAssets(data || []);
+  };
+
   // Function to manually refresh assets data
   const refreshAssetsData = async () => {
     try {
       setFetching(true);
+      console.log("🔄 Refreshing assets for client:", user?.metadata?.client);
+
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select("*")
+        .eq("client", user?.metadata?.client)
+        .eq("transferred", false)
+        .eq("new_upload", true)
         .order("created_at", { ascending: false });
 
+      console.log("🔄 Refresh result:", {
+        data: data?.length,
+        error: error?.message,
+      });
+
       if (error) {
-        console.error("Error fetching assets:", error);
+        console.error("❌ Error fetching assets:", error);
         return;
       }
 
+      console.log("✅ Refresh successful, assets found:", data?.length);
       setAssets(data || []);
     } catch (error) {
-      console.error("Error refreshing assets:", error);
+      console.error("❌ Error refreshing assets:", error);
     } finally {
       setFetching(false);
     }
@@ -605,7 +663,9 @@ export default function ReferenceImagesPage() {
       const { data } = await supabase
         .from("onboarding_assets")
         .select("*")
-        .eq("client", user?.metadata.client);
+        .eq("client", user?.metadata.client)
+        .eq("transferred", false)
+        .eq("new_upload", true);
 
       // Sort assets by article_id
       const sortedData = (data || []).sort((a, b) => {
@@ -761,23 +821,68 @@ export default function ReferenceImagesPage() {
                 </h1>
               </div>
 
-              <p className="max-w-7xl text-sm text-muted-foreground mx-auto leading-relaxed">
-                <strong>
-                  Reference files are optional but highly recommended!
-                </strong>{" "}
-                We&apos;ll automatically collect reference images from your
-                product links, but any additional reference files you upload
-                (images, videos, PDFs, 3D models, CAD files, etc.) will help our
-                3D modelers understand your requirements much better. You can
-                upload unlimited files and remove them as needed.
-                <br />
-                <br />
-                <strong>How to add references:</strong> Click the
-                &quot;Ref&quot; button next to any product in the table below,
-                or select multiple products and use the &quot;Upload to X
-                Assets&quot; button to add the same reference to multiple
-                products at once.
-              </p>
+              <div className="max-w-4xl mx-auto space-y-4">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                        Reference files are optional but highly recommended!
+                      </h3>
+                      <p className="text-blue-800 dark:text-blue-200 leading-relaxed">
+                        We&apos;ll automatically collect reference images from
+                        your product links, but any additional reference files
+                        you upload (images, videos, PDFs, 3D models, CAD files,
+                        etc.) will help our 3D modelers understand your
+                        requirements much better.
+                      </p>
+                      <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>
+                          Upload unlimited files and remove them as needed
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border border-green-200 dark:border-green-800 rounded-xl p-6">
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
+                      <Target className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold text-green-900 dark:text-green-100">
+                        How to add references:
+                      </h3>
+                      <div className="space-y-2 text-green-800 dark:text-green-200">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                          <span>
+                            Click the{" "}
+                            <span className="font-medium bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-sm">
+                              &quot;Ref&quot;
+                            </span>{" "}
+                            button next to any product
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                          <span>
+                            Select multiple products and use the{" "}
+                            <span className="font-medium bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-sm">
+                              &quot;Upload to X Assets&quot;
+                            </span>{" "}
+                            button
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* Progress Overview */}
               <div className="flex items-center justify-center gap-6 mt-6">
@@ -795,7 +900,25 @@ export default function ReferenceImagesPage() {
                 </div>
               </div>
 
-              {/* Refresh Button */}
+              {/* Debug and Refresh Buttons */}
+              <div className="flex items-center justify-center gap-4 mt-4">
+                <Button
+                  onClick={debugFetchAllAssets}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  🔍 Debug: Show All Assets ({debugAssets.length})
+                </Button>
+                <Button
+                  onClick={refreshAssetsData}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  🔄 Refresh Assets
+                </Button>
+              </div>
 
               {/* Progress Bar */}
               <div className="w-full max-w-md mx-auto">
@@ -858,19 +981,22 @@ export default function ReferenceImagesPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12 text-left">
-                        <Input
-                          type="checkbox"
+                        <Checkbox
                           checked={selected.size === assets.length}
-                          onChange={(e) =>
-                            e.target.checked ? selectAll() : deselectAll()
+                          onCheckedChange={(checked) =>
+                            checked ? selectAll() : deselectAll()
                           }
-                          className="rounded h-4 w-4"
-                          aria-invalid="false"
                         />
                       </TableHead>
-                      <TableHead className="text-left">Product</TableHead>
-                      <TableHead className="text-left">Article ID</TableHead>
-                      <TableHead className="text-left">References</TableHead>
+                      <TableHead className="text-left font-semibold text-foreground">
+                        Product
+                      </TableHead>
+                      <TableHead className="text-left font-semibold text-foreground">
+                        Article ID
+                      </TableHead>
+                      <TableHead className="text-left font-semibold text-foreground">
+                        References
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -880,32 +1006,29 @@ export default function ReferenceImagesPage() {
                       return (
                         <TableRow key={asset.id}>
                           <TableCell className="text-left">
-                            <Input
-                              type="checkbox"
+                            <Checkbox
                               checked={selected.has(asset.id)}
-                              onChange={() => toggleSelect(asset.id)}
-                              className="rounded h-4 w-4"
-                              aria-invalid="false"
+                              onCheckedChange={() => toggleSelect(asset.id)}
                             />
                           </TableCell>
                           <TableCell className="text-left">
                             <div>
                               <p
-                                className="font-medium truncate max-w-[200px] cursor-help"
+                                className="font-semibold text-foreground truncate max-w-[200px] cursor-help"
                                 title={asset.product_name}
                               >
                                 {asset.product_name.length > 35
                                   ? asset.product_name.substring(0, 35) + "..."
                                   : asset.product_name}
                               </p>
-                              <p className="text-sm text-muted-foreground">
+                              <p className="text-sm text-foreground/70 font-medium">
                                 {asset.category}{" "}
                                 {asset.subcategory && `• ${asset.subcategory}`}
                               </p>
                             </div>
                           </TableCell>
                           <TableCell className="text-left">
-                            <code className="text-sm bg-muted px-2 py-1 rounded">
+                            <code className="text-sm bg-foreground/10 text-foreground px-3 py-1.5 rounded-md font-mono font-medium">
                               {asset.article_id}
                             </code>
                           </TableCell>

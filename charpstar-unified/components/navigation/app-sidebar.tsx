@@ -47,12 +47,12 @@ export default function AppSidebar({
 }: React.ComponentProps<typeof Sidebar>) {
   const { theme, systemTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  
+
   // Avoid hydration mismatch by only determining theme after component mounts
   useEffect(() => {
     setMounted(true);
   }, []);
-  
+
   const currentTheme = theme === "system" ? systemTheme : theme;
   const isDark = mounted && currentTheme === "dark";
 
@@ -117,15 +117,16 @@ export default function AppSidebar({
         ...(role === "client" && user?.metadata?.onboarding === false
           ? [
               {
+                title: "Review Assets",
+                url: "/client-review",
+                icon: Eye,
+              },
+              {
                 title: "Add Products",
                 url: "/add-products",
                 icon: ClipboardList,
               },
-              {
-                title: "Client Review",
-                url: "/client-review",
-                icon: Eye,
-              },
+
               {
                 title: "Scene Render",
                 url: "/scene-render",
