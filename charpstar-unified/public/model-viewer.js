@@ -30977,6 +30977,106 @@ constructor(geometry, material) {
 }
 }
 
+// Add missing classes for measurement tool
+class LineDashedMaterial extends LineBasicMaterial {
+  constructor(parameters) {
+    super();
+
+    this.type = "LineDashedMaterial";
+
+    this.scale = 1;
+    this.dashSize = 3;
+    this.gapSize = 1;
+
+    this.setValues(parameters);
+  }
+
+  copy(source) {
+    super.copy(source);
+
+    this.scale = source.scale;
+    this.dashSize = source.dashSize;
+    this.gapSize = source.gapSize;
+
+    return this;
+  }
+}
+
+LineDashedMaterial.prototype.isLineDashedMaterial = true;
+
+class SpriteMaterial extends Material$1 {
+  constructor(parameters) {
+    super();
+
+    this.isSpriteMaterial = true;
+    this.type = "SpriteMaterial";
+
+    this.color = new Color(0xffffff);
+    this.map = null;
+    this.alphaMap = null;
+    this.rotation = 0;
+    this.sizeAttenuation = true;
+    this.transparent = true;
+
+    this.setValues(parameters);
+  }
+
+  copy(source) {
+    super.copy(source);
+
+    this.color.copy(source.color);
+    this.map = source.map;
+    this.alphaMap = source.alphaMap;
+    this.rotation = source.rotation;
+    this.sizeAttenuation = source.sizeAttenuation;
+
+    return this;
+  }
+}
+
+class Sprite extends Object3D {
+  constructor(material) {
+    super();
+
+    this.type = "Sprite";
+
+    this.isSprite = true;
+
+    this.geometry = new PlaneGeometry(1, 1);
+    this.material = material !== undefined ? material : new SpriteMaterial();
+
+    this.center = new Vector2(0.5, 0.5);
+  }
+
+  raycast(raycaster, intersects) {
+    const intersectPoint = new Vector3();
+    const worldPosition = new Vector3();
+
+    worldPosition.setFromMatrixPosition(this.matrixWorld);
+    raycaster.ray.closestPointToPoint(worldPosition, intersectPoint);
+
+    const distance = raycaster.ray.origin.distanceTo(intersectPoint);
+
+    if (distance < this.scale.x) {
+      intersects.push({
+        distance: distance,
+        point: intersectPoint.clone(),
+        face: null,
+        object: this
+      });
+    }
+  }
+
+  copy(source, recursive) {
+    super.copy(source, recursive);
+
+    if (source.center !== undefined) this.center.copy(source.center);
+
+    return this;
+  }
+}
+
+
 class PointsMaterial extends Material$1 {
 constructor(parameters) {
   super();
@@ -51218,6 +51318,46 @@ class ControlsModelViewerElement extends ModelViewerElement {
         }
       }, 100);
     }
+    
+    // Create and add dimension lines and text - DISABLED
+    // Red lines and planes have been removed as requested
+    /*
+    if (!this.dimensionLine) {
+      // Create 3D line geometry
+      const lineGeometry = new BufferGeometry();
+      const linePoints = [
+        new Vector3(0, 0, 0),     // Start point at origin
+        new Vector3(1, 0, 0)      // End point 1 unit along X axis
+      ];
+      lineGeometry.setFromPoints(linePoints);
+      
+      // Create line material with bright red color for visibility
+      const lineMaterial = new LineBasicMaterial({ color: 0xff0000, linewidth: 3 });
+      
+      // Create the line mesh
+      this.dimensionLine = new Line(lineGeometry, lineMaterial);
+      this.dimensionLine.name = 'dimension-line';
+      
+      // Create 3D text using basic geometry
+      const textGeometry = new PlaneGeometry(0.3, 0.15);
+      
+      // Create text material with bright red color for visibility
+      const textMaterial = new MeshBasicMaterial({ 
+        color: 0xff0000,
+        transparent: true,
+        opacity: 1.0
+      });
+      
+      // Create the text mesh
+      this.dimensionText = new Mesh(textGeometry, textMaterial);
+      this.dimensionText.name = 'dimension-text';
+      this.dimensionText.position.set(0.5, 0.1, 0.1); // Position above the line
+      
+      // Add both meshes to the model's parent node (same as gridHelper)
+      this[$scene].model.parent.add(this.dimensionLine);
+      this[$scene].model.parent.add(this.dimensionText);
+    }
+    */
 
     // Return the grid helper for inspection
     return gridHelper;
@@ -51628,6 +51768,16 @@ class ControlsModelViewerElement extends ModelViewerElement {
     const y2 = size.y / 40 + size.y / 2;
     const z2 = size.z / 40 + size.z / 2;
 
+    // Transform world coordinates to model space
+    const worldToModel = new Matrix4();
+    worldToModel.copy(this[$scene].target.matrixWorld).invert();
+    
+    // Helper function to transform world coordinates to model space
+    const toModelSpace = (worldPos) => {
+      const modelPos = new Vector3(worldPos.x, worldPos.y, worldPos.z);
+      return modelPos.applyMatrix4(worldToModel);
+    };
+
     this[$addHotspot](
       this.shadowRoot.querySelector(`button[slot="hotspot-dot+X-Y+Z"]`)
     );
@@ -51662,74 +51812,92 @@ class ControlsModelViewerElement extends ModelViewerElement {
       this.shadowRoot.querySelector(`button[slot="hotspot-dot-X-Y+Z"]`)
     );
 
+    // Transform positions to model space
+    const dotPos1 = toModelSpace({x: center.x + x2, y: center.y - y2, z: center.z + z2});
+    const dimPos1 = toModelSpace({x: center.x + x2 + size.x / 40, y: center.y - y2, z: center.z});
+
     this.updateHotspot({
       name: "hotspot-dot+X-Y+Z",
-      position: `${center.x + x2} ${center.y - y2} ${center.z + z2}`,
+      position: `${dotPos1.x} ${dotPos1.y} ${dotPos1.z}`,
     });
 
     this.updateHotspot({
       name: "hotspot-dim+X-Y",
-      position: `${center.x + x2 + size.x / 40} ${center.y - y2} ${center.z}`,
+      position: `${dimPos1.x} ${dimPos1.y} ${dimPos1.z}`,
     });
     this.shadowRoot.querySelector(
       'button[slot="hotspot-dim+X-Y"]'
     ).textContent = `${(size.z * 100).toFixed(3)} cm`;
 
+    const dotPos2 = toModelSpace({x: center.x + x2, y: center.y - y2, z: center.z - z2});
+    const dimPos2 = toModelSpace({x: center.x + x2 + size.x / 40, y: center.y, z: center.z - z2});
+
     this.updateHotspot({
       name: "hotspot-dot+X-Y-Z",
-      position: `${center.x + x2} ${center.y - y2} ${center.z - z2}`,
+      position: `${dotPos2.x} ${dotPos2.y} ${dotPos2.z}`,
     });
 
     this.updateHotspot({
       name: "hotspot-dim+X-Z",
-      position: `${center.x + x2 + size.x / 40} ${center.y} ${center.z - z2}`,
+      position: `${dimPos2.x} ${dimPos2.y} ${dimPos2.z}`,
     });
     this.shadowRoot.querySelector(
       'button[slot="hotspot-dim+X-Z"]'
     ).textContent = `${(size.y * 100).toFixed(3)} cm`;
 
+    const dotPos3 = toModelSpace({x: center.x + x2, y: center.y + y2, z: center.z - z2});
+    const dimPos3 = toModelSpace({x: center.x, y: center.y + y2 + size.y / 40, z: center.z - z2});
+
     this.updateHotspot({
       name: "hotspot-dot+X+Y-Z",
-      position: `${center.x + x2} ${center.y + y2} ${center.z - z2}`,
+      position: `${dotPos3.x} ${dotPos3.y} ${dotPos3.z}`,
     });
 
     this.updateHotspot({
       name: "hotspot-dim+Y-Z",
-      position: `${center.x} ${center.y + y2 + size.y / 40} ${center.z - z2}`,
+      position: `${dimPos3.x} ${dimPos3.y} ${dimPos3.z}`,
     });
     this.shadowRoot.querySelector(
       'button[slot="hotspot-dim+Y-Z"]'
     ).textContent = `${(size.x * 100).toFixed(3)} cm`;
 
+    const dotPos4 = toModelSpace({x: center.x - x2, y: center.y + y2, z: center.z - z2});
+    const dimPos4 = toModelSpace({x: center.x - x2 - size.x / 40, y: center.y, z: center.z - z2});
+
     this.updateHotspot({
       name: "hotspot-dot-X+Y-Z",
-      position: `${center.x - x2} ${center.y + y2} ${center.z - z2}`,
+      position: `${dotPos4.x} ${dotPos4.y} ${dotPos4.z}`,
     });
 
     this.updateHotspot({
       name: "hotspot-dim-X-Z",
-      position: `${center.x - x2 - size.x / 40} ${center.y} ${center.z - z2}`,
+      position: `${dimPos4.x} ${dimPos4.y} ${dimPos4.z}`,
     });
     this.shadowRoot.querySelector(
       'button[slot="hotspot-dim-X-Z"]'
     ).textContent = `${(size.y * 100).toFixed(3)} cm`;
 
+    const dotPos5 = toModelSpace({x: center.x - x2, y: center.y - y2, z: center.z - z2});
+    const dimPos5 = toModelSpace({x: center.x - x2 - size.x / 40, y: center.y - y2, z: center.z});
+
     this.updateHotspot({
       name: "hotspot-dot-X-Y-Z",
-      position: `${center.x - x2} ${center.y - y2} ${center.z - z2}`,
+      position: `${dotPos5.x} ${dotPos5.y} ${dotPos5.z}`,
     });
 
     this.updateHotspot({
       name: "hotspot-dim-X-Y",
-      position: `${center.x - x2 - size.x / 40} ${center.y - y2} ${center.z}`,
+      position: `${dimPos5.x} ${dimPos5.y} ${dimPos5.z}`,
     });
     this.shadowRoot.querySelector(
       'button[slot="hotspot-dim-X-Y"]'
     ).textContent = `${(size.z * 100).toFixed(3)} cm`;
 
+    const dotPos6 = toModelSpace({x: center.x - x2, y: center.y - y2, z: center.z + z2});
+
     this.updateHotspot({
       name: "hotspot-dot-X-Y+Z",
-      position: `${center.x - x2} ${center.y - y2} ${center.z + z2}`,
+      position: `${dotPos6.x} ${dotPos6.y} ${dotPos6.z}`,
     });
     this.startSVGRenderLoop(this);
   }
@@ -52152,7 +52320,54 @@ class ControlsModelViewerElement extends ModelViewerElement {
     if (cameraMoved || targetMoved) {
       this[$onChange]();
     }
+    
+    // Annotations are now created in [$onModelLoad] method
   }
+  
+  create3DAnnotations(scene) {
+    // Remove existing 3D annotations to avoid duplicates
+    if (this.annotationLine) {
+      scene.target.remove(this.annotationLine);
+    }
+    if (this.annotationText) {
+      scene.target.remove(this.annotationText);
+    }
+    
+    // Create 3D line geometry
+    const lineGeometry = new BufferGeometry();
+    const linePoints = [
+      new Vector3(-1, -1, 0),  // Start point
+      new Vector3(-0.5, -1.5, 0)  // End point
+    ];
+    lineGeometry.setFromPoints(linePoints);
+    
+    // Create line material
+    const lineMaterial = new LineBasicMaterial({ color: 0x000000 });
+    
+    // Create the line mesh
+    this.annotationLine = new Line(lineGeometry, lineMaterial);
+    this.annotationLine.name = 'annotation-line';
+    
+    // Create 3D text using basic geometry (simple rectangle for now)
+    const textGeometry = new PlaneGeometry(0.2, 0.1);
+    
+    // Create text material
+    const textMaterial = new MeshBasicMaterial({ 
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.8
+    });
+    
+    // Create the text mesh
+    this.annotationText = new Mesh(textGeometry, textMaterial);
+    this.annotationText.name = 'annotation-text';
+    this.annotationText.position.set(-0.3, -1.4, 0.01); // Slightly in front to avoid z-fighting
+    
+    // Add annotations to the model's parent node (same as gridHelper)
+    scene.model.parent.add(this.annotationLine);
+    scene.model.parent.add(this.annotationText);
+  }
+  
   [$deferInteractionPrompt]() {
     // Effectively cancel the timer waiting for user interaction:
     this[$waitingToPromptUser] = false;
@@ -60340,6 +60555,8 @@ class ModelScene extends Scene {
 constructor({ canvas, element, width, height }) {
   super();
   this.annotationRenderer = new CSS2DRenderer();
+  // Hide the CSS2DRenderer domElement to prevent conflicts with direct positioning
+  this.annotationRenderer.domElement.style.display = 'none';
   this.effectRenderer = null;
   this.schemaElement = document.createElement("script");
   this.width = 1;
@@ -60434,6 +60651,45 @@ async setObject(model) {
   this.reset();
   this._model = model;
   this.target.add(model);
+  
+  // Add 3D dimension line and text directly to model - DISABLED
+  // Red lines and planes have been removed as requested
+  /*
+  // Create 3D line geometry with more visible positioning
+  const lineGeometry = new BufferGeometry();
+  const linePoints = [
+    new Vector3(0, 0, 0),     // Start point at origin
+    new Vector3(1, 0, 0)      // End point 1 unit along X axis
+  ];
+  lineGeometry.setFromPoints(linePoints);
+  
+  // Create line material with bright red color for visibility
+  const lineMaterial = new LineBasicMaterial({ color: 0xff0000, linewidth: 3 });
+  
+  // Create the line mesh
+  const annotationLine = new Line(lineGeometry, lineMaterial);
+  annotationLine.name = 'dimension-line';
+  
+  // Create 3D text using basic geometry (simple rectangle for now)
+  const textGeometry = new PlaneGeometry(0.3, 0.15);
+  
+  // Create text material with bright red color for visibility
+  const textMaterial = new MeshBasicMaterial({ 
+    color: 0xff0000,
+    transparent: true,
+    opacity: 1.0
+  });
+  
+  // Create the text mesh
+  const annotationText = new Mesh(textGeometry, textMaterial);
+  annotationText.name = 'dimension-text';
+  annotationText.position.set(0.5, 0.1, 0.1); // Position above the line
+  
+  // Add both meshes to the model
+  model.add(annotationLine);
+  model.add(annotationText);
+  */
+  
   await this.setupScene();
 }
 /**
@@ -60658,6 +60914,44 @@ updateBoundingBox() {
   this.setBakedShadowVisibility();
   this.boundingBox.getSize(this.size);
   this.target.add(model);
+  
+  // Add 3D dimension line and text directly to model - DISABLED
+  // Red lines and planes have been removed as requested
+  /*
+  // Create 3D line geometry with more visible positioning
+  const lineGeometry = new BufferGeometry();
+  const linePoints = [
+    new Vector3(0, 0, 0),     // Start point at origin
+    new Vector3(1, 0, 0)      // End point 1 unit along X axis
+  ];
+  lineGeometry.setFromPoints(linePoints);
+  
+  // Create line material with bright red color for visibility
+  const lineMaterial = new LineBasicMaterial({ color: 0xff0000, linewidth: 3 });
+  
+  // Create the line mesh
+  const annotationLine = new Line(lineGeometry, lineMaterial);
+  annotationLine.name = 'dimension-line';
+  
+  // Create 3D text using basic geometry (simple rectangle for now)
+  const textGeometry = new PlaneGeometry(0.3, 0.15);
+  
+  // Create text material with bright red color for visibility
+  const textMaterial = new MeshBasicMaterial({ 
+    color: 0xff0000,
+    transparent: true,
+    opacity: 1.0
+  });
+  
+  // Create the text mesh
+  const annotationText = new Mesh(textGeometry, textMaterial);
+  annotationText.name = 'dimension-text';
+  annotationText.position.set(0.5, 0.1, 0.1); // Position above the line
+  
+  // Add both meshes to the model
+  model.add(annotationLine);
+  model.add(annotationText);
+  */
 }
 /**
  * Calculates the boundingSphere and idealAspect that allows the 3D
@@ -62630,13 +62924,12 @@ class AnnotationModelViewerElement extends ModelViewerElement {
   [$tick](time, delta) {
     super[$tick](time, delta);
     const scene = this[$scene];
-    const { annotationRenderer } = scene;
     const camera = scene.getCamera();
     if (scene.shouldRender()) {
       scene.animateSurfaceHotspots();
       scene.updateHotspotsVisibility(camera.position);
-      annotationRenderer.domElement.style.display = "";
-      annotationRenderer.render(scene, camera);
+      // Annotation positioning is now handled in the main [$tick] method
+      // CSS2DRenderer is disabled to prevent conflicts
     }
   }
   /**
@@ -65352,6 +65645,1139 @@ SceneGraphMixin(
 )
 );
 customElements.define("model-viewer", ModelViewerElement);
+
+// Measurement Tool Functionality
+(() => {
+  // Add measurement functionality to ModelViewerElement
+  const originalUpdated = ModelViewerElement.prototype.updated;
+  
+  ModelViewerElement.prototype.updated = function(changedProperties) {
+    if (originalUpdated) {
+      originalUpdated.call(this, changedProperties);
+    }
+    
+    // Initialize measurement tool state only once
+    if (!this.measurementInitialized && this.loaded) {
+      this.measurementInitialized = true;
+      this.measurementMode = false;
+      this.measurementPoints = [];
+      this.currentMeasurementLine = null;
+      this.measurementLines = [];
+      this.measurementTexts = [];
+      this.isDragging = false;
+      this.startPoint = null;
+      this.endPoint = null;
+      
+      // Add measurement button after a short delay to ensure DOM is ready
+      setTimeout(() => {
+        this.addMeasurementButton();
+        
+        // Add camera change listener for measurement lines
+        if (!this._measurementCameraListenerAdded) {
+          this.addEventListener('camera-change', this.updateMeasurementLines.bind(this));
+          this._measurementCameraListenerAdded = true;
+          console.log('Camera change listener added for measurement lines (initialization)');
+        }
+      }, 100);
+    }
+  };
+  
+  // Add measurement button to the model-viewer
+  ModelViewerElement.prototype.addMeasurementButton = function() {
+    // Check if button already exists
+    if (this.querySelector('#measurement-button')) {
+      return;
+    }
+    
+    // Create measurement button
+    const measurementButton = document.createElement('button');
+    measurementButton.id = 'measurement-button';
+    measurementButton.innerHTML = '📏';
+    measurementButton.title = 'Toggle Measurement Tool (Double-click to reset if stuck)';
+    measurementButton.style.cssText = `
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.2s;
+    `;
+    
+    // Add hover effect
+    measurementButton.addEventListener('mouseenter', () => {
+      measurementButton.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+    });
+    measurementButton.addEventListener('mouseleave', () => {
+      measurementButton.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    });
+    
+    // Add click handler
+    measurementButton.addEventListener('click', () => {
+      this.toggleMeasurementMode();
+    });
+    
+    // Add double-click handler to force reset if interactions are broken
+    measurementButton.addEventListener('dblclick', () => {
+      console.log('Double-click detected - force resetting model-viewer');
+      this.forceResetModelViewer();
+    });
+    
+    // Add button to the model-viewer
+    this.appendChild(measurementButton);
+    console.log('Measurement button added to model-viewer');
+  };
+  
+  // Toggle measurement mode - SIMPLIFIED APPROACH
+  ModelViewerElement.prototype.toggleMeasurementMode = function() {
+    this.measurementMode = !this.measurementMode;
+    const button = this.querySelector('#measurement-button');
+    
+    if (this.measurementMode) {
+      // Enter measurement mode - NO DISABLING OF INTERACTIONS
+      button.style.backgroundColor = 'rgba(0, 100, 200, 0.9)';
+      button.title = 'Exit Measurement Mode';
+      this.style.cursor = 'crosshair';
+      
+      // Add measurement event listeners
+      this.addMeasurementEventListeners();
+      
+      // Add camera change listener to update measurement lines (only if not already added)
+      if (!this._measurementCameraListenerAdded) {
+        this.addEventListener('camera-change', this.updateMeasurementLines.bind(this));
+        this._measurementCameraListenerAdded = true;
+        console.log('Camera change listener added for measurement lines');
+      }
+      
+      console.log('Measurement mode activated (interactions preserved)');
+    } else {
+      // Exit measurement mode
+      button.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      button.title = 'Toggle Measurement Tool (Double-click to reset if stuck)';
+      this.style.cursor = 'default';
+      
+      // Remove measurement event listeners
+      this.removeMeasurementEventListeners();
+      
+      // Don't remove camera change listener - keep it for existing measurement lines
+      // this.removeEventListener('camera-change', this.updateMeasurementLines.bind(this));
+      
+      // Clear any current measurement in progress
+      this.clearCurrentMeasurement();
+      
+      console.log('Measurement mode deactivated (interactions preserved)');
+    }
+  };
+  
+  // Disable normal model-viewer interactions
+  ModelViewerElement.prototype.disableNormalInteractions = function() {
+    // Store original values for restoration
+    this._originalCameraControls = this.cameraControls;
+    this._originalAutoRotate = this.autoRotate;
+    this._originalInteractionPrompt = this.interactionPrompt;
+    
+    // Disable camera controls - check if it's an object with enabled property
+    if (this.cameraControls && typeof this.cameraControls === 'object' && 'enabled' in this.cameraControls) {
+      this.cameraControls.enabled = false;
+    }
+    
+    // TARGET THE EXACT AUTO-ROTATE MECHANISM
+    this.autoRotate = false;
+    this.setAttribute('auto-rotate', 'false');
+    this.setAttribute('auto-rotate-delay', '0');
+    
+    // Target the EXACT auto-rotate start time symbol
+    if (this[$autoRotateStartTime]) {
+      this[$autoRotateStartTime] = 0;
+    }
+    
+    // Force disable the scene yaw rotation
+    if (this[$scene]) {
+      this[$scene].yaw = 0;
+    }
+    
+    // Just set autoRotate to false (don't try to make it immutable)
+    this.autoRotate = false;
+    
+    // Disable other interactive elements
+    this.interactionPrompt = 'none';
+    
+    // Disable the ACTUAL model-viewer controls (the real ones!)
+    if (this[$controls]) {
+      this[$controls].enabled = false;
+    }
+    
+    // Also try to disable interaction
+    if (this[$controls] && this[$controls].disableInteraction) {
+      this[$controls].disableInteraction();
+    }
+    
+    // Set attributes to disable interactions
+    this.setAttribute('camera-controls', 'false');
+    this.setAttribute('auto-rotate', 'false');
+    this.setAttribute('interaction-prompt', 'none');
+    
+    // COMPLETELY DISABLE ALL INTERACTIONS AND MOVEMENT
+    this.style.pointerEvents = 'none';
+    this.style.userSelect = 'none';
+    this.style.touchAction = 'none';
+    
+    // Disable all interactive elements EXCEPT measurement button
+    const interactiveElements = this.querySelectorAll('*');
+    interactiveElements.forEach(el => {
+      // Skip the measurement button - keep it interactive
+      if (el.id === 'measurement-button') {
+        return;
+      }
+      el.style.pointerEvents = 'none';
+      el.style.userSelect = 'none';
+      el.style.touchAction = 'none';
+    });
+    
+    // Force disable any interaction prompts
+    const interactionPrompts = this.querySelectorAll('.interaction-prompt');
+    interactionPrompts.forEach(prompt => {
+      prompt.style.display = 'none';
+      prompt.style.visibility = 'hidden';
+      prompt.style.opacity = '0';
+    });
+    
+    // RE-ENABLE the measurement button so it can be clicked
+    const measurementButton = this.querySelector('#measurement-button');
+    if (measurementButton) {
+      measurementButton.style.pointerEvents = 'auto';
+      measurementButton.style.userSelect = 'auto';
+      measurementButton.style.touchAction = 'auto';
+    }
+    
+    // Disable camera-orbit-controls if they exist
+    const cameraOrbitControls = this.querySelector('camera-orbit-controls');
+    if (cameraOrbitControls) {
+      this._originalCameraOrbitControls = cameraOrbitControls.enabled;
+      cameraOrbitControls.enabled = false;
+    }
+    
+    // Disable touch/pointer events on the model-viewer
+    this.style.pointerEvents = 'none';
+    
+    // Re-enable pointer events for our measurement tool
+    this.style.pointerEvents = 'auto';
+    
+    // SIMPLE APPROACH: Just override the update method to prevent rotation
+    this._originalUpdate = this.update;
+    this.update = function() {
+      // Do absolutely nothing - this prevents ALL updates including rotation
+    };
+    
+    // Also set up a continuous loop to force stop any rotation
+    this._rotationStopper = setInterval(() => {
+      if (this[$scene]) {
+        this[$scene].yaw = 0;
+      }
+      if (this[$controls] && this[$controls].object) {
+        this[$controls].object.rotation.set(0, 0, 0);
+      }
+    }, 16); // 60fps
+    
+    // Disable all mouse/touch events on the model-viewer
+    this.addEventListener('mousedown', this.preventDefault, { capture: true, passive: false });
+    this.addEventListener('mousemove', this.preventDefault, { capture: true, passive: false });
+    this.addEventListener('mouseup', this.preventDefault, { capture: true, passive: false });
+    this.addEventListener('touchstart', this.preventDefault, { capture: true, passive: false });
+    this.addEventListener('touchmove', this.preventDefault, { capture: true, passive: false });
+    this.addEventListener('touchend', this.preventDefault, { capture: true, passive: false });
+    this.addEventListener('wheel', this.preventDefault, { capture: true, passive: false });
+    
+    // Also disable pointer events on the canvas
+    const canvas = this.querySelector('canvas');
+    if (canvas) {
+      canvas.style.pointerEvents = 'none';
+    }
+  };
+  
+  // Re-enable normal model-viewer interactions
+  ModelViewerElement.prototype.enableNormalInteractions = function() {
+    console.log('Re-enabling normal interactions...');
+    
+    // Restore original values
+    if (this._originalCameraControls !== undefined) {
+      this.cameraControls = this._originalCameraControls;
+    }
+    if (this._originalAutoRotate !== undefined) {
+      this.autoRotate = this._originalAutoRotate;
+    }
+    if (this._originalInteractionPrompt !== undefined) {
+      this.interactionPrompt = this._originalInteractionPrompt;
+    }
+    
+    // Re-enable camera controls - check if it's an object with enabled property
+    if (this.cameraControls && typeof this.cameraControls === 'object' && 'enabled' in this.cameraControls) {
+      this.cameraControls.enabled = true;
+    }
+    
+    // Re-enable the ACTUAL model-viewer controls
+    if (this[$controls]) {
+      this[$controls].enabled = true;
+    }
+    
+    // Also try to enable interaction
+    if (this[$controls] && this[$controls].enableInteraction) {
+      this[$controls].enableInteraction();
+    }
+    
+    // Re-enable camera-orbit-controls if they exist
+    const cameraOrbitControls = this.querySelector('camera-orbit-controls');
+    if (cameraOrbitControls && this._originalCameraOrbitControls !== undefined) {
+      cameraOrbitControls.enabled = this._originalCameraOrbitControls;
+    }
+    
+    // Restore attributes
+    this.setAttribute('camera-controls', 'true');
+    this.removeAttribute('auto-rotate');
+    this.removeAttribute('interaction-prompt');
+    
+    // Restore pointer events - CRITICAL FIX
+    this.style.pointerEvents = 'auto';
+    this.style.userSelect = 'auto';
+    this.style.touchAction = 'auto';
+    
+    // Re-enable all interactive elements
+    const interactiveElements = this.querySelectorAll('*');
+    interactiveElements.forEach(el => {
+      // Skip the measurement button - keep it interactive
+      if (el.id === 'measurement-button') {
+        el.style.pointerEvents = 'auto';
+        el.style.userSelect = 'auto';
+        el.style.touchAction = 'auto';
+        return;
+      }
+      el.style.pointerEvents = 'auto';
+      el.style.userSelect = 'auto';
+      el.style.touchAction = 'auto';
+    });
+    
+    // Re-enable interaction prompts
+    const interactionPrompts = this.querySelectorAll('.interaction-prompt');
+    interactionPrompts.forEach(prompt => {
+      prompt.style.display = '';
+      prompt.style.visibility = '';
+      prompt.style.opacity = '';
+    });
+    
+    // Remove event listeners
+    this.removeEventListener('mousedown', this.preventDefault, { capture: true });
+    this.removeEventListener('mousemove', this.preventDefault, { capture: true });
+    this.removeEventListener('mouseup', this.preventDefault, { capture: true });
+    this.removeEventListener('touchstart', this.preventDefault, { capture: true });
+    this.removeEventListener('touchmove', this.preventDefault, { capture: true });
+    this.removeEventListener('touchend', this.preventDefault, { capture: true });
+    this.removeEventListener('wheel', this.preventDefault, { capture: true });
+    
+    // Restore canvas pointer events
+    const canvas = this.querySelector('canvas');
+    if (canvas) {
+      canvas.style.pointerEvents = 'auto';
+    }
+    
+    // Clear the rotation stopper
+    if (this._rotationStopper) {
+      clearInterval(this._rotationStopper);
+      this._rotationStopper = null;
+    }
+    
+    // Restore the original update method
+    if (this._originalUpdate) {
+      this.update = this._originalUpdate;
+      this._originalUpdate = null;
+    }
+    
+    // Force refresh the model-viewer's internal state
+    if (this.requestUpdate) {
+      this.requestUpdate();
+    }
+    
+    // Force re-enable camera controls by removing and re-adding the attribute
+    this.removeAttribute('camera-controls');
+    setTimeout(() => {
+      this.setAttribute('camera-controls', 'true');
+    }, 50);
+    
+    // Force re-enable the controls object directly
+    if (this[$controls]) {
+      this[$controls].enabled = true;
+      if (this[$controls].enableInteraction) {
+        this[$controls].enableInteraction();
+      }
+    }
+    
+    // Force re-enable camera controls object if it exists
+    if (this.cameraControls && typeof this.cameraControls === 'object') {
+      this.cameraControls.enabled = true;
+    }
+    
+    // Trigger a camera change to refresh the view
+    setTimeout(() => {
+      this.dispatchEvent(new CustomEvent('camera-change'));
+    }, 100);
+    
+    // Force a complete refresh of the model-viewer
+    setTimeout(() => {
+      if (this.loaded) {
+        // Force the model-viewer to re-initialize its controls
+        this.dispatchEvent(new CustomEvent('load'));
+      }
+    }, 200);
+    
+    // Use the force reset method as a final fallback
+    setTimeout(() => {
+      this.forceResetModelViewer();
+    }, 300);
+    
+    console.log('Normal interactions fully re-enabled');
+  };
+  
+  // Force reset model-viewer to working state
+  ModelViewerElement.prototype.forceResetModelViewer = function() {
+    console.log('Force resetting model-viewer...');
+    
+    // Remove all measurement-related attributes
+    this.removeAttribute('camera-controls');
+    this.removeAttribute('auto-rotate');
+    this.removeAttribute('interaction-prompt');
+    
+    // Reset all styles
+    this.style.pointerEvents = 'auto';
+    this.style.userSelect = 'auto';
+    this.style.touchAction = 'auto';
+    this.style.cursor = 'default';
+    
+    // Reset all child elements
+    const allElements = this.querySelectorAll('*');
+    allElements.forEach(el => {
+      el.style.pointerEvents = 'auto';
+      el.style.userSelect = 'auto';
+      el.style.touchAction = 'auto';
+    });
+    
+    // Re-add camera controls
+    setTimeout(() => {
+      this.setAttribute('camera-controls', 'true');
+      console.log('Model-viewer force reset complete');
+    }, 100);
+  };
+  
+  // Prevent default behavior for measurement mode
+  ModelViewerElement.prototype.preventDefault = function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    return false;
+  };
+  
+  // Add measurement event listeners - TARGETED APPROACH
+  ModelViewerElement.prototype.addMeasurementEventListeners = function() {
+    // Use capture phase and be more selective about when we handle events
+    this.addEventListener('pointerdown', this.onMeasurementPointerDown, { capture: true });
+    this.addEventListener('pointermove', this.onMeasurementPointerMove, { capture: true });
+    this.addEventListener('pointerup', this.onMeasurementPointerUp, { capture: true });
+  };
+  
+  // Remove measurement event listeners
+  ModelViewerElement.prototype.removeMeasurementEventListeners = function() {
+    this.removeEventListener('pointerdown', this.onMeasurementPointerDown, { capture: true });
+    this.removeEventListener('pointermove', this.onMeasurementPointerMove, { capture: true });
+    this.removeEventListener('pointerup', this.onMeasurementPointerUp, { capture: true });
+  };
+  
+  // Clear current measurement in progress - AGGRESSIVE CLEANUP
+  ModelViewerElement.prototype.clearCurrentMeasurement = function() {
+    if (this.currentMeasurementLine) {
+      // Remove current measurement line from SVG
+      if (this.currentMeasurementLine.parentNode) {
+        this.currentMeasurementLine.parentNode.removeChild(this.currentMeasurementLine);
+      }
+      this.currentMeasurementLine = null;
+    }
+    this.isDragging = false;
+    this.startPoint = null;
+    this.endPoint = null;
+  };
+  
+  // Mouse/Touch event handlers for real-time measurement - SELECTIVE INTERFERENCE
+  ModelViewerElement.prototype.onMeasurementPointerDown = function(event) {
+    if (!this.measurementMode) return;
+    
+    console.log('Measurement pointer down - mode active');
+    
+    // Get the 3D world coordinates from screen coordinates
+    const worldPoint = this.getWorldPointFromScreen(event);
+    if (!worldPoint) {
+      console.warn('No world point found');
+      return;
+    }
+    
+    // Only prevent default if we're actually starting a measurement
+    // This allows normal model-viewer interactions for pan/zoom
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Start new measurement
+    this.isDragging = true;
+    this.startPoint = worldPoint;
+    this.endPoint = worldPoint;
+    
+    console.log('Measurement started at:', worldPoint);
+  };
+  
+  ModelViewerElement.prototype.onMeasurementPointerMove = function(event) {
+    if (!this.measurementMode || !this.isDragging) return;
+    
+    // Get the current 3D world coordinates
+    const worldPoint = this.getWorldPointFromScreen(event);
+    if (!worldPoint) {
+      console.warn('No world point in move');
+      return;
+    }
+    
+    // Prevent default only when actively dragging a measurement
+    event.preventDefault();
+    event.stopPropagation();
+    
+    this.endPoint = worldPoint;
+    
+    // Update the preview line
+    this.updatePreviewLine();
+    
+    console.log('Measurement dragging to:', worldPoint);
+  };
+  
+  ModelViewerElement.prototype.onMeasurementPointerUp = function(event) {
+    if (!this.measurementMode || !this.isDragging) return;
+    
+    // Get the final 3D world coordinates
+    const worldPoint = this.getWorldPointFromScreen(event);
+    if (!worldPoint) return;
+    
+    // Prevent default only when completing a measurement
+    event.preventDefault();
+    event.stopPropagation();
+    
+    this.endPoint = worldPoint;
+    
+    // Create the final measurement line
+    this.createFinalMeasurement();
+    
+    // Reset for next measurement
+    this.isDragging = false;
+    this.startPoint = null;
+    this.endPoint = null;
+    
+    console.log('Measurement completed');
+  };
+  
+  // Get 3D world coordinates from screen coordinates - WORKING WITH FALLBACK
+  ModelViewerElement.prototype.getWorldPointFromScreen = function(event) {
+    // Get the scene from model-viewer
+    const scene = this.getScene();
+    
+    if (!scene) {
+      console.warn('Scene not available');
+      return null;
+    }
+    
+    // Get camera
+    let camera;
+    try {
+      if (typeof this.getCamera === 'function') {
+        camera = this.getCamera();
+      } else if (scene.getCamera && typeof scene.getCamera === 'function') {
+        camera = scene.getCamera();
+      }
+    } catch (error) {
+      console.warn('Error getting camera:', error);
+      return null;
+    }
+    
+    if (!camera) {
+      console.warn('Camera not found');
+      return null;
+    }
+    
+    // Get mouse coordinates relative to the model-viewer element
+    const rect = this.getBoundingClientRect();
+    const mouse = {
+      x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      y: -((event.clientY - rect.top) / rect.height) * 2 + 1
+    };
+    
+    console.log('Mouse coordinates:', mouse);
+    
+    // Create a raycaster for proper 3D intersection
+    const raycaster = new Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+    
+    // Find ALL meshes in the scene and intersect with them
+    const intersects = [];
+    scene.traverse((child) => {
+      if (child.isMesh && child.visible && !child.userData.noHit) {
+        const childIntersects = raycaster.intersectObject(child, true);
+        intersects.push(...childIntersects);
+      }
+    });
+    
+    console.log('Found intersects:', intersects.length);
+    
+    // Sort by distance and find the closest valid intersection
+    intersects.sort((a, b) => a.distance - b.distance);
+    
+    for (const intersect of intersects) {
+      if (intersect.object.visible && !intersect.object.userData.noHit) {
+        console.log('Found valid intersection point:', intersect.point);
+        
+        // Transform world coordinates to model space
+        const worldToModel = new Matrix4();
+        worldToModel.copy(scene.target.matrixWorld).invert();
+        const modelPoint = intersect.point.clone().applyMatrix4(worldToModel);
+        
+        console.log('Transformed to model space:', modelPoint);
+        return modelPoint;
+      }
+    }
+    
+    // FALLBACK: Create a point at a fixed distance from camera
+    // This ensures we always get a point for drawing lines
+    const distance = 2; // Fixed distance from camera
+    const direction = new Vector3(mouse.x, mouse.y, -1).normalize();
+    const worldPoint = new Vector3().copy(camera.position).add(direction.multiplyScalar(distance));
+    
+    // Transform world coordinates to model space
+    const worldToModel = new Matrix4();
+    worldToModel.copy(scene.target.matrixWorld).invert();
+    const modelPoint = worldPoint.applyMatrix4(worldToModel);
+    
+    console.log('Using fallback point in model space:', modelPoint);
+    return modelPoint;
+  };
+  
+  // Update the preview line while dragging - SINGLE LINE ONLY
+  ModelViewerElement.prototype.updatePreviewLine = function() {
+    if (!this.startPoint || !this.endPoint) return;
+    
+    console.log('Updating preview line from', this.startPoint, 'to', this.endPoint);
+    
+    // Remove existing preview line from SVG
+    if (this.currentMeasurementLine) {
+      if (this.currentMeasurementLine.parentNode) {
+        this.currentMeasurementLine.parentNode.removeChild(this.currentMeasurementLine);
+      }
+    }
+    
+    // Create new preview line (SVG-based)
+    this.currentMeasurementLine = this.createPreviewLine(this.startPoint, this.endPoint);
+    console.log('Created preview line:', this.currentMeasurementLine);
+  };
+  
+  // Create preview line (temporary, dashed) - SOFFADIREKT STYLE
+  ModelViewerElement.prototype.createPreviewLine = function(startPoint, endPoint) {
+    console.log('Creating preview line from', startPoint, 'to', endPoint);
+    
+    // Create SVG overlay instead of 3D object
+    const svgContainer = this.querySelector('#measurement-lines') || this.createMeasurementSVGContainer();
+    
+    // Convert model space points to world space, then to screen coordinates
+    const startWorldPos = this.modelToWorld(startPoint);
+    const endWorldPos = this.modelToWorld(endPoint);
+    const startScreenPos = this.worldToScreen(startWorldPos);
+    const endScreenPos = this.worldToScreen(endWorldPos);
+    
+    if (!startScreenPos || !endScreenPos) {
+      console.warn('Could not convert 3D points to screen coordinates for preview');
+      return null;
+    }
+    
+    // Create SVG line element for preview
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', startScreenPos.x);
+    line.setAttribute('y1', startScreenPos.y);
+    line.setAttribute('x2', endScreenPos.x);
+    line.setAttribute('y2', endScreenPos.y);
+    line.setAttribute('stroke', '#666666');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '2,1');
+    line.setAttribute('opacity', '0.7');
+    line.setAttribute('class', 'measurement-preview-line');
+    
+    // Store 3D points for later updates
+    line._startPoint3D = startPoint.clone();
+    line._endPoint3D = endPoint.clone();
+    
+    svgContainer.appendChild(line);
+    
+    console.log('Created SVG preview line:', line);
+    return line;
+  };
+  
+  // Create final measurement line
+  ModelViewerElement.prototype.createFinalMeasurement = function() {
+    if (!this.startPoint || !this.endPoint) return;
+    
+    // Remove preview line
+    if (this.currentMeasurementLine) {
+      if (this.currentMeasurementLine.parentNode) {
+        this.currentMeasurementLine.parentNode.removeChild(this.currentMeasurementLine);
+      }
+      this.currentMeasurementLine = null;
+    }
+    
+    // Create final measurement line (now SVG-based)
+    const measurementLine = this.createMeasurementLine(this.startPoint, this.endPoint);
+    let distance;
+    
+    if (measurementLine) {
+      this.measurementLines.push(measurementLine);
+      console.log('Added SVG measurement line');
+      
+      // Calculate distance based on measurement type
+      if (measurementLine._surfacePath && measurementLine._surfacePath.length > 1) {
+        // Calculate surface distance along the path
+        distance = this.calculateSurfaceDistance(measurementLine._surfacePath);
+        console.log('Surface distance:', distance);
+      } else {
+        // Fallback to straight-line distance
+        distance = this.startPoint.distanceTo(this.endPoint);
+        console.log('Straight-line distance:', distance);
+      }
+    } else {
+      console.warn('Failed to create measurement line');
+      // Fallback to straight-line distance
+      distance = this.startPoint.distanceTo(this.endPoint);
+      console.log('Fallback distance:', distance);
+    }
+    
+    // Create distance text
+    const midPoint = new Vector3()
+      .addVectors(this.startPoint, this.endPoint)
+      .multiplyScalar(0.5);
+    
+    this.createMeasurementText(midPoint, distance);
+    
+    console.log(`Measurement created: ${distance.toFixed(3)} units`);
+    
+    // AUTO-EXIT measurement mode after completing measurement
+    setTimeout(() => {
+      this.toggleMeasurementMode();
+    }, 100);
+  };
+  
+  // Create final measurement line (permanent, dashed) - SLEEK SOFFADIREKT STYLE
+  ModelViewerElement.prototype.createMeasurementLine = function(startPoint, endPoint) {
+    console.log('Creating final measurement line from', startPoint, 'to', endPoint);
+    
+    // Create SVG overlay instead of 3D object
+    const svgContainer = this.querySelector('#measurement-lines') || this.createMeasurementSVGContainer();
+    
+    // Try to create a surface-following measurement first
+    const surfaceMeasurement = this.createSurfaceMeasurement(startPoint, endPoint);
+    if (surfaceMeasurement) {
+      return surfaceMeasurement;
+    }
+    
+    // Fallback to straight-line measurement
+    const startWorldPos = this.modelToWorld(startPoint);
+    const endWorldPos = this.modelToWorld(endPoint);
+    const startScreenPos = this.worldToScreen(startWorldPos);
+    const endScreenPos = this.worldToScreen(endWorldPos);
+    
+    if (!startScreenPos || !endScreenPos) {
+      console.warn('Could not convert 3D points to screen coordinates');
+      return null;
+    }
+    
+    // Create SVG line element
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', startScreenPos.x);
+    line.setAttribute('y1', startScreenPos.y);
+    line.setAttribute('x2', endScreenPos.x);
+    line.setAttribute('y2', endScreenPos.y);
+    line.setAttribute('stroke', '#111111');
+    line.setAttribute('stroke-width', '1');
+    line.setAttribute('stroke-dasharray', '4,2');
+    line.setAttribute('opacity', '0.8');
+    line.setAttribute('class', 'measurement-line');
+    
+    // Store 3D points for later updates
+    line._startPoint3D = startPoint.clone();
+    line._endPoint3D = endPoint.clone();
+    
+    svgContainer.appendChild(line);
+    
+    console.log('Created SVG measurement line:', line);
+    return line;
+  };
+  
+  // Create surface-following measurement for curved surfaces
+  ModelViewerElement.prototype.createSurfaceMeasurement = function(startPoint, endPoint) {
+    console.log('Attempting surface-following measurement from', startPoint, 'to', endPoint);
+    
+    // Check if this looks like a curved surface measurement
+    if (!this.shouldUseCurvedMeasurement(startPoint, endPoint)) {
+      console.log('Not suitable for curved measurement');
+      return null;
+    }
+    
+    // Create a curved path that follows a more natural arc
+    const surfacePath = this.createCurvedPath(startPoint, endPoint);
+    if (!surfacePath || surfacePath.length < 2) {
+      console.log('Could not create curved path');
+      return null;
+    }
+    
+    // Create SVG path element for the curved measurement
+    const svgContainer = this.querySelector('#measurement-lines') || this.createMeasurementSVGContainer();
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    
+    // Convert 3D path points to screen coordinates
+    const screenPoints = surfacePath.map(point => {
+      const worldPoint = this.modelToWorld(point);
+      return this.worldToScreen(worldPoint);
+    }).filter(point => point !== null);
+    
+    if (screenPoints.length < 2) {
+      console.log('Could not convert surface path to screen coordinates');
+      return null;
+    }
+    
+    // Create SVG path string with smooth curves
+    let pathData = `M ${screenPoints[0].x} ${screenPoints[0].y}`;
+    for (let i = 1; i < screenPoints.length; i++) {
+      if (i === 1) {
+        // Use quadratic curve for smoother appearance
+        const controlX = (screenPoints[i-1].x + screenPoints[i].x) / 2;
+        const controlY = (screenPoints[i-1].y + screenPoints[i].y) / 2;
+        pathData += ` Q ${controlX} ${controlY} ${screenPoints[i].x} ${screenPoints[i].y}`;
+      } else {
+        pathData += ` L ${screenPoints[i].x} ${screenPoints[i].y}`;
+      }
+    }
+    
+    path.setAttribute('d', pathData);
+    path.setAttribute('stroke', '#111111');
+    path.setAttribute('stroke-width', '1');
+    path.setAttribute('stroke-dasharray', '4,2');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('opacity', '0.8');
+    path.setAttribute('class', 'measurement-line surface-measurement');
+    
+    // Store 3D points for later updates
+    path._startPoint3D = startPoint.clone();
+    path._endPoint3D = endPoint.clone();
+    path._surfacePath = surfacePath;
+    
+    svgContainer.appendChild(path);
+    
+    console.log('Created curved measurement:', path);
+    return path;
+  };
+  
+  // Determine if we should use curved measurement based on point characteristics
+  ModelViewerElement.prototype.shouldUseCurvedMeasurement = function(startPoint, endPoint) {
+    const straightDistance = startPoint.distanceTo(endPoint);
+    
+    // If the points are very close, use straight line
+    if (straightDistance < 0.01) {
+      return false;
+    }
+    
+    // Check if the measurement is long enough to benefit from curvature
+    if (straightDistance < 0.05) {
+      return false;
+    }
+    
+    // Check the angle of the measurement line
+    const direction = endPoint.clone().sub(startPoint).normalize();
+    const angle = Math.atan2(direction.y, direction.x);
+    
+    // If the measurement is mostly horizontal or vertical, use straight line
+    const horizontalThreshold = Math.PI / 6; // 30 degrees
+    if (Math.abs(angle) < horizontalThreshold || Math.abs(angle - Math.PI/2) < horizontalThreshold) {
+      return false;
+    }
+    
+    // For diagonal measurements, use curved path
+    return true;
+  };
+  
+  // Create a curved path between two points
+  ModelViewerElement.prototype.createCurvedPath = function(startPoint, endPoint) {
+    const path = [];
+    
+    // Start with the start point
+    path.push(startPoint.clone());
+    
+    // Create intermediate points that form a natural curve
+    const numSteps = 8; // Number of intermediate points
+    for (let i = 1; i < numSteps; i++) {
+      const t = i / numSteps;
+      
+      // Linear interpolation between start and end
+      const interpolatedPoint = startPoint.clone().lerp(endPoint, t);
+      
+      // Add some curvature by offsetting perpendicular to the line
+      const direction = endPoint.clone().sub(startPoint).normalize();
+      const perpendicular = new Vector3(-direction.y, direction.x, direction.z).normalize();
+      
+      // Calculate offset amount based on distance and position
+      const distance = startPoint.distanceTo(endPoint);
+      const offsetAmount = distance * 0.1 * Math.sin(t * Math.PI); // Sine wave for natural curve
+      
+      // Apply the offset
+      interpolatedPoint.add(perpendicular.multiplyScalar(offsetAmount));
+      
+      path.push(interpolatedPoint);
+    }
+    
+    // End with the end point
+    path.push(endPoint.clone());
+    
+    return path;
+  };
+  
+  
+  // Calculate the total distance along a surface path
+  ModelViewerElement.prototype.calculateSurfaceDistance = function(surfacePath) {
+    if (!surfacePath || surfacePath.length < 2) {
+      return 0;
+    }
+    
+    let totalDistance = 0;
+    for (let i = 0; i < surfacePath.length - 1; i++) {
+      const segmentDistance = surfacePath[i].distanceTo(surfacePath[i + 1]);
+      totalDistance += segmentDistance;
+    }
+    
+    return totalDistance;
+  };
+  
+  // Create SVG container for measurement lines
+  ModelViewerElement.prototype.createMeasurementSVGContainer = function() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'measurement-lines';
+    svg.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+    `;
+    this.appendChild(svg);
+    return svg;
+  };
+  
+  // Convert 3D model space coordinates to world space coordinates
+  ModelViewerElement.prototype.modelToWorld = function(modelPoint) {
+    const scene = this.getScene();
+    if (!scene) return null;
+    
+    // Transform model space coordinates to world space
+    const worldPoint = modelPoint.clone().applyMatrix4(scene.target.matrixWorld);
+    return worldPoint;
+  };
+
+  // Convert 3D world coordinates to screen coordinates
+  ModelViewerElement.prototype.worldToScreen = function(worldPoint) {
+    // Use the model-viewer's internal camera system
+    const scene = this.getScene();
+    if (!scene) return null;
+    
+    // Get the camera from the model-viewer's internal system
+    const camera = scene.camera;
+    if (!camera) return null;
+    
+    // Create a temporary vector for projection
+    const vector = worldPoint.clone();
+    
+    // Project the 3D point to normalized device coordinates
+    vector.project(camera);
+    
+    // Convert NDC to screen coordinates
+    const rect = this.getBoundingClientRect();
+    const x = (vector.x * 0.5 + 0.5) * rect.width;
+    const y = (vector.y * -0.5 + 0.5) * rect.height;
+    
+    // Check if the point is in front of the camera
+    if (vector.z > 1) {
+      return null; // Point is behind the camera
+    }
+    
+    return { x, y };
+  };
+  
+  // Update measurement lines when camera changes
+  ModelViewerElement.prototype.updateMeasurementLines = function() {
+    const measurementLines = this.querySelectorAll('.measurement-line, .measurement-preview-line');
+    
+    measurementLines.forEach((line, index) => {
+      if (line._startPoint3D && line._endPoint3D) {
+        // Check if this is a surface measurement (SVG path)
+        if (line.tagName === 'path' && line._surfacePath) {
+          // Update surface measurement path
+          const screenPoints = line._surfacePath.map(point => {
+            const worldPoint = this.modelToWorld(point);
+            return this.worldToScreen(worldPoint);
+          }).filter(point => point !== null);
+          
+          if (screenPoints.length >= 2) {
+            // Create SVG path string
+            let pathData = `M ${screenPoints[0].x} ${screenPoints[0].y}`;
+            for (let i = 1; i < screenPoints.length; i++) {
+              pathData += ` L ${screenPoints[i].x} ${screenPoints[i].y}`;
+            }
+            line.setAttribute('d', pathData);
+          } else {
+            console.warn(`Failed to get screen positions for surface measurement ${index}`);
+          }
+        } else {
+          // Update regular line measurement
+          const startWorldPos = this.modelToWorld(line._startPoint3D);
+          const endWorldPos = this.modelToWorld(line._endPoint3D);
+          const startScreenPos = this.worldToScreen(startWorldPos);
+          const endScreenPos = this.worldToScreen(endWorldPos);
+          
+          if (startScreenPos && endScreenPos) {
+            line.setAttribute('x1', startScreenPos.x);
+            line.setAttribute('y1', startScreenPos.y);
+            line.setAttribute('x2', endScreenPos.x);
+            line.setAttribute('y2', endScreenPos.y);
+          } else {
+            console.warn(`Failed to get screen positions for line ${index}`);
+          }
+        }
+      }
+    });
+    
+    // Update text positions
+    this.updateMeasurementTextPositions();
+  };
+  
+  // Create measurement text label - SVG OVERLAY APPROACH
+  ModelViewerElement.prototype.createMeasurementText = function(position, distance) {
+    const text = `${distance.toFixed(3) * 1000} mm`;
+    
+    // Create SVG container for measurement text (same as lines)
+    const svgContainer = this.querySelector('#measurement-lines') || this.createMeasurementSVGContainer();
+    
+    // Convert model space position to world space, then to screen coordinates
+    const worldPosition = this.modelToWorld(position);
+    const screenPosition = this.worldToScreen(worldPosition);
+    
+    if (!screenPosition) {
+      console.warn('Could not convert 3D point to screen coordinates for text');
+      return;
+    }
+    
+    // Create SVG text element
+    const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    textElement.setAttribute('x', screenPosition.x);
+    textElement.setAttribute('y', screenPosition.y - 20); // Position above the line
+    textElement.setAttribute('text-anchor', 'middle');
+    textElement.setAttribute('dominant-baseline', 'middle');
+    textElement.setAttribute('fill', '#111111'); // Black text for better visibility
+    textElement.setAttribute('font-family', 'Montserrat, sans-serif');
+    textElement.setAttribute('font-size', '14px');
+    textElement.setAttribute('font-weight', 'normal');
+    // textElement.setAttribute('stroke', '#ffffff'); // White stroke for contrast
+    textElement.setAttribute('stroke-width', '0.2');
+    textElement.setAttribute('class', 'measurement-text');
+    textElement.textContent = text;
+    
+    // Store 3D position for later updates
+    textElement._modelSpacePosition = position.clone();
+    
+    // Add to SVG container
+    svgContainer.appendChild(textElement);
+    
+    // Store references for updates
+    if (!this.measurementTexts) {
+      this.measurementTexts = [];
+    }
+    this.measurementTexts.push({ text: textElement });
+    
+    console.log('Created SVG measurement text at screen position:', screenPosition);
+  };
+  
+  // Update measurement text positions when model transforms
+  ModelViewerElement.prototype.updateMeasurementTextPositions = function() {
+    if (!this.measurementTexts || this.measurementTexts.length === 0) {
+      return;
+    }
+    
+    // Update each measurement text SVG element position
+    this.measurementTexts.forEach(textObj => {
+      const textElement = textObj.text;
+      
+      if (textElement._modelSpacePosition) {
+        // Convert model space position to world space, then to screen coordinates
+        const worldPosition = this.modelToWorld(textElement._modelSpacePosition);
+        const screenPosition = this.worldToScreen(worldPosition);
+        
+        if (screenPosition) {
+          // Update text position
+          textElement.setAttribute('x', screenPosition.x);
+          textElement.setAttribute('y', screenPosition.y - 20); // Position above the line
+        }
+      }
+    });
+  };
+  
+  // Fallback: Add measurement button to any model-viewer that gets added to the DOM
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (node.tagName === 'MODEL-VIEWER') {
+            // Wait for the model-viewer to be fully loaded
+            setTimeout(() => {
+              if (node.loaded && !node.querySelector('#measurement-button')) {
+                node.addMeasurementButton();
+              }
+            }, 500);
+          }
+          // Also check for model-viewer elements within the added node
+          const modelViewers = node.querySelectorAll ? node.querySelectorAll('model-viewer') : [];
+          modelViewers.forEach((mv) => {
+            setTimeout(() => {
+              if (mv.loaded && !mv.querySelector('#measurement-button')) {
+                mv.addMeasurementButton();
+              }
+            }, 500);
+          });
+        }
+      });
+    });
+  });
+  
+  // Start observing
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  
+  // Global function to manually add measurement buttons
+  window.addMeasurementButtons = function() {
+    const modelViewers = document.querySelectorAll('model-viewer');
+    modelViewers.forEach((mv) => {
+      if (!mv.querySelector('#measurement-button')) {
+        mv.addMeasurementButton();
+      }
+    });
+  };
+})();
 
 // Tab functionality for cycling through camera views
 (() => {
