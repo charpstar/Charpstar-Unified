@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { emailService } from "./emailService";
 // import { getBaseUrl } from "./urlUtils"; // TEMPORARILY DISABLED
 
 export interface NotificationData {
@@ -387,7 +388,6 @@ class NotificationService {
 
   /**
    * Send notification to clients when assets are ready for their review
-   * TEMPORARILY DISABLED - No client notifications during bulk operations
    */
   async sendClientReviewReadyNotification(
     assetId: string,
@@ -397,21 +397,6 @@ class NotificationService {
     client: string,
     modelerName: string
   ): Promise<void> {
-    // TEMPORARILY DISABLED - No client notifications during bulk operations
-    console.log(
-      "[NOTIFICATION DISABLED] Client review ready notification would be sent:",
-      {
-        assetId,
-        clientId,
-        clientEmail,
-        assetName,
-        client,
-        modelerName,
-      }
-    );
-    return;
-
-    /* ORIGINAL CODE - TEMPORARILY COMMENTED OUT
     const notification: Omit<NotificationData, "created_at"> = {
       recipient_id: clientId,
       recipient_email: clientEmail,
@@ -429,8 +414,45 @@ class NotificationService {
       read: false,
     };
 
+    // Create notification in database
     await this.createNotification(notification);
-    */
+
+    // Send email notification
+    try {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+      const reviewLink = `${baseUrl}/client-review/${assetId}`;
+
+      // Get batch information if available
+      const { data: assetData } = await supabase
+        .from("onboarding_assets")
+        .select("batch, delivery_date")
+        .eq("id", assetId)
+        .single();
+
+      await emailService.sendModelReadyForReview(
+        {
+          clientName: client,
+          modelName: assetName,
+          modelerName,
+          reviewLink,
+          batch: assetData?.batch,
+          deadline: assetData?.delivery_date,
+        },
+        {
+          from: process.env.EMAIL_FROM || "noreply@mail.charpstar.co",
+          to: clientEmail,
+          subject: `New Model Ready for Review - ${assetName}`,
+        }
+      );
+
+      console.log(
+        `Model ready for review email sent to ${clientEmail} for ${assetName}`
+      );
+    } catch (error) {
+      console.error("Failed to send model ready for review email:", error);
+      // Don't throw here - email failure shouldn't break the notification process
+    }
   }
 
   /**

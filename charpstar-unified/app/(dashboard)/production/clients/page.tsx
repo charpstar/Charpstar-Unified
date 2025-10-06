@@ -43,16 +43,49 @@ export default function ClientsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Calculate total asset counts
-  const totalOnboardingAssets = clients.reduce(
-    (sum, client) => sum + client.onboardingAssetsCount,
+  // Calculate total asset counts grouped by company (client field)
+  const uniqueCompanies = new Set(clients.map((client) => client.client));
+
+  // Group assets by company to avoid double counting
+  const companyAssets = clients.reduce(
+    (acc, client) => {
+      const company = client.client;
+      if (!acc[company]) {
+        acc[company] = {
+          onboardingAssets: 0,
+          productionAssets: 0,
+          totalAssets: 0,
+        };
+      }
+      // Only count assets once per company (use the first user's count for each company)
+      if (acc[company].onboardingAssets === 0) {
+        acc[company].onboardingAssets = client.onboardingAssetsCount;
+      }
+      if (acc[company].productionAssets === 0) {
+        acc[company].productionAssets = client.assetsCount;
+      }
+      acc[company].totalAssets =
+        acc[company].onboardingAssets + acc[company].productionAssets;
+      return acc;
+    },
+    {} as Record<
+      string,
+      {
+        onboardingAssets: number;
+        productionAssets: number;
+        totalAssets: number;
+      }
+    >
+  );
+
+  const totalOnboardingAssets = Object.values(companyAssets).reduce(
+    (sum, company) => sum + company.onboardingAssets,
     0
   );
-  const totalProductionAssets = clients.reduce(
-    (sum, client) => sum + client.assetsCount,
+  const totalProductionAssets = Object.values(companyAssets).reduce(
+    (sum, company) => sum + company.productionAssets,
     0
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const totalAssets = totalOnboardingAssets + totalProductionAssets;
 
   const fetchClients = async () => {
@@ -166,6 +199,93 @@ export default function ClientsPage() {
           Add New Client
         </Button>
       </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Unique Companies
+                </p>
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {uniqueCompanies.size}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                <Building2 className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Onboarding Assets
+                </p>
+                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                  {totalOnboardingAssets.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                <Plus className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Assets
+                </p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {totalProductionAssets.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Total Assets Summary */}
+      <Card className="border-2 border-primary/20 bg-primary/5 dark:bg-primary/10">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/20 rounded-lg">
+                <Building2 className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Total Unique Assets
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Across all clients (no duplicates counted)
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-bold text-primary">
+                {totalAssets.toLocaleString()}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {totalOnboardingAssets.toLocaleString()} onboarding +{" "}
+                {totalProductionAssets.toLocaleString()} production
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="min-w-fit mx-auto  pr-6">
         <CardHeader>

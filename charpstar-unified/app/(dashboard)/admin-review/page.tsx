@@ -4232,31 +4232,31 @@ export default function AdminReviewPage() {
                   <TableHead className="text-xs sm:text-sm text-left">
                     Article ID
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm text-left">
+                  <TableHead className="text-xs sm:text-sm text-center">
                     Modeler
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm text-left">
+                  <TableHead className="text-xs sm:text-sm text-center">
                     Client
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm text-left">
+                  <TableHead className="text-xs sm:text-sm text-center">
                     Batch
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm text-left">
+                  <TableHead className="text-xs sm:text-sm text-center">
                     Priority
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm text-left">
+                  <TableHead className="text-xs sm:text-sm text-center">
                     Status
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm text-left">
+                  <TableHead className="text-xs sm:text-sm text-center">
                     References
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm text-left">
+                  <TableHead className="text-xs sm:text-sm text-center">
                     Product Link
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm text-left">
+                  <TableHead className="text-xs sm:text-sm text-center">
                     Price
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm text-left">
+                  <TableHead className="text-xs sm:text-sm text-center">
                     Review
                   </TableHead>
                 </TableRow>
@@ -4313,24 +4313,24 @@ export default function AdminReviewPage() {
                       <TableCell className="text-left text-xs sm:text-sm font-mono">
                         {asset.article_id}
                       </TableCell>
-                      <TableCell className="text-left">
-                        <div className="flex flex-col gap-1">
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center gap-1">
                           <span className="text-xs text-muted-foreground">
                             {asset.modeler_email?.split("@")[0] || "Unknown"}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-left">
+                      <TableCell className="text-center">
                         <span className="text-xs text-muted-foreground">
                           {asset.client}
                         </span>
                       </TableCell>
-                      <TableCell className="text-left">
+                      <TableCell className="text-center">
                         <span className="text-xs text-muted-foreground">
                           B{asset.batch}
                         </span>
                       </TableCell>
-                      <TableCell className="text-left">
+                      <TableCell className="text-center">
                         <Select
                           value={(asset.priority || 2).toString()}
                           onValueChange={(value) =>
@@ -4363,8 +4363,8 @@ export default function AdminReviewPage() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-1 sm:gap-2">
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1 sm:gap-2">
                           <span
                             className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
                           >
@@ -4372,7 +4372,7 @@ export default function AdminReviewPage() {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-left">
+                      <TableCell className="text-center">
                         <div className="flex flex-col items-center gap-1">
                           <Button
                             variant="outline"
@@ -4396,7 +4396,7 @@ export default function AdminReviewPage() {
                           </Button>
                         </div>
                       </TableCell>
-                      <TableCell className="text-left">
+                      <TableCell className="text-center">
                         {asset.product_link ? (
                           <a
                             href={asset.product_link}
@@ -4415,8 +4415,8 @@ export default function AdminReviewPage() {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-2">
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
                           <Select
                             value={assetPrices[asset.id]?.pricingOptionId || ""}
                             onValueChange={(value) => {
@@ -4557,34 +4557,36 @@ export default function AdminReviewPage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-left">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
-                          onClick={() => {
-                            // Navigate to asset detail for QA assets
-                            const params = new URLSearchParams();
-                            params.set("from", "admin-review");
-                            if (clientFilters.length > 0) {
-                              params.set("client", clientFilters.join(","));
-                            }
-                            if (batchFilters.length > 0) {
-                              params.set("batch", batchFilters.join(","));
-                            }
-                            if (modelerFilters.length > 0) {
-                              params.set("modeler", modelerFilters.join(","));
-                            }
-                            if (modelerEmail) {
-                              params.set("email", modelerEmail);
-                            }
-                            router.push(
-                              `/client-review/${asset.id}?${params.toString()}`
-                            );
-                          }}
-                        >
-                          <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-                        </Button>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
+                            onClick={() => {
+                              // Navigate to asset detail for QA assets
+                              const params = new URLSearchParams();
+                              params.set("from", "admin-review");
+                              if (clientFilters.length > 0) {
+                                params.set("client", clientFilters.join(","));
+                              }
+                              if (batchFilters.length > 0) {
+                                params.set("batch", batchFilters.join(","));
+                              }
+                              if (modelerFilters.length > 0) {
+                                params.set("modeler", modelerFilters.join(","));
+                              }
+                              if (modelerEmail) {
+                                params.set("email", modelerEmail);
+                              }
+                              router.push(
+                                `/client-review/${asset.id}?${params.toString()}`
+                              );
+                            }}
+                          >
+                            <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -4649,22 +4651,22 @@ export default function AdminReviewPage() {
                     <TableHead className="text-xs sm:text-sm text-left">
                       Article ID
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
+                    <TableHead className="text-xs sm:text-sm text-center">
                       Priority
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
+                    <TableHead className="text-xs sm:text-sm text-center">
                       Status
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
+                    <TableHead className="text-xs sm:text-sm text-center">
                       References
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
+                    <TableHead className="text-xs sm:text-sm text-center">
                       Product Link
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
+                    <TableHead className="text-xs sm:text-sm text-center">
                       Price
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
+                    <TableHead className="text-xs sm:text-sm text-center">
                       Review
                     </TableHead>
                   </TableRow>
@@ -4855,7 +4857,7 @@ export default function AdminReviewPage() {
                           <TableCell className="text-left text-xs sm:text-sm font-mono">
                             {asset.article_id}
                           </TableCell>
-                          <TableCell className="text-left">
+                          <TableCell className="text-center">
                             <Select
                               value={(asset.priority || 2).toString()}
                               onValueChange={(value) =>
@@ -4898,8 +4900,8 @@ export default function AdminReviewPage() {
                             </Select>
                           </TableCell>
 
-                          <TableCell className="text-left">
-                            <div className="flex items-center gap-1 sm:gap-2">
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-1 sm:gap-2">
                               <span
                                 className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
                               >
@@ -4907,7 +4909,7 @@ export default function AdminReviewPage() {
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-left">
+                          <TableCell className="text-center">
                             <div className="flex flex-col items-center gap-1">
                               <Button
                                 variant="outline"
@@ -4936,7 +4938,7 @@ export default function AdminReviewPage() {
                             </div>
                           </TableCell>
 
-                          <TableCell className="text-left">
+                          <TableCell className="text-center">
                             {asset.product_link ? (
                               <a
                                 href={asset.product_link}
@@ -4957,8 +4959,8 @@ export default function AdminReviewPage() {
                             )}
                           </TableCell>
 
-                          <TableCell className="text-left">
-                            <div className="flex items-center gap-2">
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
                               <Select
                                 value={
                                   assetPrices[asset.id]?.pricingOptionId || ""
@@ -5107,8 +5109,8 @@ export default function AdminReviewPage() {
                             </div>
                           </TableCell>
 
-                          <TableCell className="text-left">
-                            <div className="flex items-center gap-1">
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-1">
                               <Button
                                 variant="ghost"
                                 size="icon"
