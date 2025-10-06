@@ -80,6 +80,26 @@ export default function OnboardClientPage() {
   const [isProcessingCsv, setIsProcessingCsv] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
 
+  // Reset all form state
+  const resetForm = () => {
+    setSpreadsheetData("");
+    setConvertedData([]);
+    setBunnyGeneratedUrls([]);
+    setBunnyStoragePath("");
+    setCustomStorageUrl("");
+    setUseCustomStorage(false);
+    setCsvFile(null);
+    setIsConverting(false);
+    setIsProcessingCsv(false);
+    setIsUploading(false);
+
+    // 🔥 Reset the actual <input type="file"> value
+    const fileInput = document.getElementById("csv-upload") as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = "";
+    }
+  };
+
   useEffect(() => {
     const clientId = searchParams.get("clientId");
     // const clientName = searchParams.get("clientName"); // Not currently used
@@ -854,7 +874,7 @@ export default function OnboardClientPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setCsvFile(null)}
+                        onClick={resetForm}
                         className="text-slate-500 hover:text-slate-700"
                       >
                         Clear
@@ -873,6 +893,19 @@ export default function OnboardClientPage() {
                   rows={10}
                   className="font-mono text-sm border border-slate-200 dark:border-slate-600 focus:border-slate-400 dark:focus:border-slate-500 rounded-lg resize-none transition-colors"
                 />
+                {spreadsheetData && (
+                  <div className="absolute top-2 right-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={resetForm}
+                      className="text-slate-500 hover:text-slate-700 h-7 px-2"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
                 {!spreadsheetData && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="text-center text-slate-400 dark:text-slate-500">
@@ -897,7 +930,6 @@ export default function OnboardClientPage() {
                 disabled={
                   isConverting ||
                   isProcessingCsv ||
-                  (!spreadsheetData.trim() && !csvFile) ||
                   spreadsheetData.length > 5800
                 }
                 className="flex-1 bg-slate-900 hover:bg-slate-800 text-white h-12 text-lg font-semibold"
