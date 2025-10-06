@@ -637,7 +637,6 @@ export function ModelerEarningsWidget() {
       }
 
       if (!approvedAssets || approvedAssets.length === 0) {
-        console.log("No approved assets found for user:", user?.id);
         setEarningsData({
           thisMonth: 0,
           lastMonth: 0,
@@ -647,8 +646,6 @@ export function ModelerEarningsWidget() {
         });
         return;
       }
-
-      console.log("Found approved assets:", approvedAssets.length);
 
       // Calculate earnings from individual approved assets
       const now = new Date();
@@ -765,10 +762,6 @@ export function ModelerEarningsWidget() {
         approvedThisMonth,
         chartData,
       };
-
-      console.log("Final earnings data:", finalData);
-      console.log("Chart data points:", chartData.length);
-      console.log("Daily data map:", dailyData);
 
       setEarningsData(finalData);
     } catch (error) {

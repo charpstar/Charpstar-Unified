@@ -76,7 +76,6 @@ export async function generatePreviewImage(glbUrl: string): Promise<Buffer> {
           }, 
           // Progress callback
           (xhr) => {
-            console.log((xhr.loaded / xhr.total * 100) + '% loaded');
           },
           // Error callback
           (error) => {
@@ -109,7 +108,9 @@ export async function generatePreviewImage(glbUrl: string): Promise<Buffer> {
     await page.setViewport({ width: 800, height: 600 });
 
     // Enable console logging from the page
-    page.on("console", (msg) => console.log("Page log:", msg.text()));
+    page.on("console", () => {
+      // Page console messages are handled silently
+    });
     page.on("pageerror", (err) => console.error("Page error:", err));
 
     await page.setContent(html);

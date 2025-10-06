@@ -10,12 +10,6 @@ export async function PATCH(
     const { action, approvedBy } = await request.json();
     const { id: pendingReplyId } = await params;
 
-    console.log("PATCH pending reply API called:", {
-      pendingReplyId,
-      action,
-      approvedBy,
-    });
-
     if (!action || !approvedBy) {
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -36,12 +30,6 @@ export async function PATCH(
       .select("*")
       .eq("id", pendingReplyId)
       .single();
-
-    console.log("Pending reply query result:", {
-      pendingReply,
-      fetchError,
-      pendingReplyId,
-    });
 
     if (fetchError) {
       console.error("Error fetching pending reply:", fetchError);

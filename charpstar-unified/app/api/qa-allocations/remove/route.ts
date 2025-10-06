@@ -5,15 +5,12 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("[qa-allocations/remove] POST request start");
-
     const supabaseAuth = createRouteHandlerClient({ cookies });
     const {
       data: { user },
     } = await supabaseAuth.auth.getUser();
 
     if (!user) {
-      console.log("[qa-allocations/remove] No user found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -32,7 +29,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { modelerId, qaId } = await request.json();
-    console.log("[qa-allocations/remove] Removing QA:", { modelerId, qaId });
 
     if (!modelerId || !qaId) {
       return NextResponse.json(
@@ -56,7 +52,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("[qa-allocations/remove] QA allocation removed successfully");
     return NextResponse.json({
       message: "QA allocation removed successfully",
     });

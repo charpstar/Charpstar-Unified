@@ -142,7 +142,7 @@ export default function AddProductsPage() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result = await response.json();
+      await response.json();
     } catch (error) {
       console.error("Error collecting images:", error);
       console.warn(

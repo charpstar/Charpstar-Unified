@@ -34,10 +34,6 @@ export class ChunkedFileUploader {
       // Calculate chunks
       const totalChunks = Math.ceil(file.size / this.chunkSize);
 
-      console.log(
-        `📦 Splitting ${file.name} into ${totalChunks} chunks of ${this.chunkSize / 1024 / 1024}MB each`
-      );
-
       // Step 1: Initialize chunked upload
       this.updateProgress({
         currentChunk: 0,
@@ -187,10 +183,6 @@ export class ChunkedFileUploader {
         status: "uploading",
         progress,
       });
-
-      console.log(
-        `✅ Chunk ${chunkNumber}/${totalChunks} uploaded successfully`
-      );
     } catch (error) {
       console.error(`❌ Chunk ${chunkNumber} upload failed:`, error);
       throw error;

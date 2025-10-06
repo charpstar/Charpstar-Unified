@@ -41,7 +41,6 @@ export async function POST(request: NextRequest) {
       const result = await response.json();
 
       // Log the successful operation
-      console.log(`Image scraping completed for client: ${clientName}`, result);
 
       return NextResponse.json({
         success: true,

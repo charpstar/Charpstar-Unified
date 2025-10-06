@@ -705,7 +705,7 @@ export default function AllocateAssetsPage() {
       });
 
       setModelerQAAssignments(qaDetailsMap);
-    } catch (error) {}
+    } catch {}
   };
 
   // Allocate QA to modeler

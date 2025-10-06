@@ -50,22 +50,16 @@ export default function ResetPasswordPage() {
 
           if (code) {
             // New Supabase password reset format - exchange code for session
-            console.log("Exchanging code for session:", code);
-            const { data, error } =
-              await supabase.auth.exchangeCodeForSession(code);
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
 
             if (error) {
               console.error("Error exchanging code for session:", error);
               setError("Invalid or expired recovery link.");
               return;
             }
-
-            console.log("Successfully exchanged code for session:", data);
           } else if (type === "recovery") {
             // Legacy format support
-            console.log("Legacy recovery format detected");
           } else {
-            console.log("No valid recovery parameters found");
             setError("Invalid recovery link format.");
             return;
           }
@@ -75,8 +69,6 @@ export default function ResetPasswordPage() {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-
-        console.log("Session after initialization:", session);
 
         if (!session) {
           setError(

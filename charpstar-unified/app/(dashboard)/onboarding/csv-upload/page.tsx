@@ -274,7 +274,7 @@ export default function CsvUploadPage() {
         });
 
         if (imageResponse.ok) {
-          const imageResult = await imageResponse.json();
+          await imageResponse.json();
         } else {
           console.warn("Image collection failed:", await imageResponse.text());
         }

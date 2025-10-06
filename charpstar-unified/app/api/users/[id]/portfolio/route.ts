@@ -144,7 +144,6 @@ export async function POST(
         .getPublicUrl(fileName);
 
       // Insert portfolio image record with creator email and name
-      console.log("Creating portfolio image with email:", user.email);
       const { data: portfolioImage, error: dbError } = await supabaseAdmin
         .from("user_portfolio_images")
         .insert({

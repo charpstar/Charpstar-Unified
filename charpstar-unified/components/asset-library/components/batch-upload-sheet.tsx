@@ -480,13 +480,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
             formData.append("file_type", "glb");
             formData.append("client_name", row.client);
 
-            console.log("🚀 Uploading GLB to BunnyCDN (batch upload):", {
-              fileName: row.glb_file.name,
-              fileSize: row.glb_file.size,
-              client: row.client,
-              articleId: row.article_id,
-            });
-
             const uploadResponse = await fetch("/api/assets/upload-file", {
               method: "POST",
               body: formData,
@@ -498,7 +491,6 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
             }
 
             const uploadResult = await uploadResponse.json();
-            console.log("✅ BunnyCDN upload successful (batch):", uploadResult);
             if (!glb_url) {
               glb_url = uploadResult.url;
             }

@@ -152,11 +152,6 @@ export async function POST(request: NextRequest) {
     // Copy GLB file to Android folder for approved assets
     if (onboardingAsset.glb_link) {
       try {
-        console.log(
-          "Copying GLB file to Android folder:",
-          onboardingAsset.glb_link
-        );
-
         // Get BunnyCDN configuration
         const storageKey = process.env.BUNNY_STORAGE_KEY;
         const storageZone = process.env.BUNNY_STORAGE_ZONE_NAME || "maincdn";
@@ -195,7 +190,6 @@ export async function POST(request: NextRequest) {
 
             if (androidUploadResponse.ok) {
               const androidUrl = `${cdnBaseUrl}/${androidPath}`;
-              console.log("GLB file copied to Android folder:", androidUrl);
 
               // Update the asset with the Android URL
               await supabase
@@ -237,7 +231,6 @@ export async function POST(request: NextRequest) {
         // Don't fail the transfer if Android copy fails
       }
     } else {
-      console.log("No GLB file to copy to Android folder");
     }
 
     return NextResponse.json({

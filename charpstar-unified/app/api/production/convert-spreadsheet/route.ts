@@ -4,21 +4,15 @@ import { cookies } from "next/headers";
 import { GoogleGenAI } from "@google/genai";
 
 export async function POST(request: NextRequest) {
-  console.log("🚀 Convert spreadsheet API called");
-
   try {
-    console.log("🔐 Checking authentication...");
     const supabaseAuth = createRouteHandlerClient({ cookies });
     const {
       data: { user },
     } = await supabaseAuth.auth.getUser();
 
     if (!user) {
-      console.log("❌ No user found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    console.log("👤 User found:", user.id);
 
     // Check if user has admin or production role
     const { data: profile, error: profileError } = await supabaseAuth
@@ -32,18 +26,13 @@ export async function POST(request: NextRequest) {
       !profile ||
       (profile.role !== "admin" && profile.role !== "production")
     ) {
-      console.log("❌ User role not authorized:", profile?.role);
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    console.log("✅ User authorized with role:", profile.role);
-
-    console.log("📝 Parsing request body...");
     const body = await request.json();
     const { spreadsheetData } = body;
 
     if (!spreadsheetData || !spreadsheetData.trim()) {
-      console.log("❌ No spreadsheet data provided");
       return NextResponse.json(
         { error: "Spreadsheet data is required" },
         { status: 400 }
@@ -52,7 +41,6 @@ export async function POST(request: NextRequest) {
 
     // Check maximum length
     if (spreadsheetData.length > 5800) {
-      console.log("❌ Spreadsheet data too large:", spreadsheetData.length);
       return NextResponse.json(
         {
           error: "Spreadsheet data too large",
@@ -64,22 +52,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(
-      "📊 Spreadsheet data received, length:",
-      spreadsheetData.length
-    );
-
     // Initialize Gemini AI
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.log("❌ No Gemini API key found");
       return NextResponse.json(
         { error: "Gemini API key not configured" },
         { status: 500 }
       );
     }
 
-    console.log("🔑 API key found, initializing Gemini...");
     const genAI = new GoogleGenAI({ apiKey });
 
     const prompt = `
@@ -109,8 +90,6 @@ ${spreadsheetData}
 Return the JSON array:`;
 
     try {
-      console.log("Calling Gemini API with model: gemini-2.0-flash-exp");
-
       const result = await genAI.models.generateContent({
         model: "gemini-2.0-flash-exp",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -127,8 +106,6 @@ Return the JSON array:`;
         throw new Error("No response text from AI");
       }
 
-      console.log("Raw AI response:", text.substring(0, 500) + "...");
-
       // Remove markdown code fences if present
       let jsonText = text
         .replace(/^```(json)?/i, "")
@@ -140,8 +117,6 @@ Return the JSON array:`;
       if (jsonMatch) {
         jsonText = jsonMatch[0];
       }
-
-      console.log("Cleaned JSON text:", jsonText.substring(0, 300) + "...");
 
       let convertedData;
       try {
@@ -155,7 +130,6 @@ Return the JSON array:`;
         if (arrayMatch) {
           try {
             convertedData = JSON.parse(arrayMatch[0]);
-            console.log("Successfully parsed JSON from array match");
           } catch (secondErr) {
             console.error("Second JSON parse attempt failed:", secondErr);
             throw new Error(

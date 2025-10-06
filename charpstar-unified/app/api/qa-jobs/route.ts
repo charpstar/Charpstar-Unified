@@ -92,10 +92,6 @@ class QAJobQueue {
       );
     }
 
-    console.log(
-      `Adding job ${jobId} to queue. Queue length: ${this.queue.length}/${this.maxQueueSize}`
-    );
-
     this.queue.push({
       jobId,
       renders,
@@ -126,19 +122,10 @@ class QAJobQueue {
       const job = this.queue.shift();
       if (!job) break;
 
-      console.log(
-        `Starting job ${job.jobId}. Active jobs: ${this.activeJobs.size + 1}/${
-          this.maxConcurrentJobs
-        }`
-      );
-
       this.activeJobs.add(job.jobId);
 
       this.processJob(job).finally(() => {
         this.activeJobs.delete(job.jobId);
-        console.log(
-          `Completed job ${job.jobId}. Active jobs: ${this.activeJobs.size}/${this.maxConcurrentJobs}`
-        );
 
         setTimeout(() => this.processQueue(), 100);
       });
@@ -169,11 +156,6 @@ class QAJobQueue {
 
       if (job.retryCount < this.maxRetries) {
         job.retryCount++;
-        console.log(
-          `Retrying job ${job.jobId} (attempt ${job.retryCount + 1}/${
-            this.maxRetries + 1
-          })`
-        );
 
         setTimeout(() => {
           this.queue.unshift(job);
@@ -319,9 +301,13 @@ async function processQAJob(
         );
       }
 
-      if (modelStats.fileSize > modelStats.requirements.maxFileSize + 1024) { // Add 1KB tolerance
+      if (modelStats.fileSize > modelStats.requirements.maxFileSize + 1024) {
+        // Add 1KB tolerance
         const actualMB = (modelStats.fileSize / (1024 * 1024)).toFixed(1);
-        const maxMB = (modelStats.requirements.maxFileSize / (1024 * 1024)).toFixed(1);
+        const maxMB = (
+          modelStats.requirements.maxFileSize /
+          (1024 * 1024)
+        ).toFixed(1);
         warnings.push(`File size: ${actualMB}MB exceeds maximum ${maxMB}MB`);
       }
 
@@ -460,12 +446,12 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
 
       // Convert messages to Gemini format
       const geminiContents: any[] = [];
-      
+
       for (const msg of messages) {
         if (msg.role === "system") {
           geminiContents.push({
             role: "user",
-            parts: [{ text: msg.content }]
+            parts: [{ text: msg.content }],
           });
         } else if (msg.role === "user") {
           const parts: any[] = [];
@@ -478,10 +464,10 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
                 const imageUrl = content.image_url.url;
                 let base64Data: string;
                 let mimeType = "image/jpeg";
-                
-                if (imageUrl.startsWith('data:')) {
+
+                if (imageUrl.startsWith("data:")) {
                   // Already base64 encoded
-                  const [header, data] = imageUrl.split(',');
+                  const [header, data] = imageUrl.split(",");
                   base64Data = data;
                   const mimeMatch = header.match(/data:([^;]+)/);
                   if (mimeMatch) {
@@ -491,30 +477,35 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
                   // Fetch image from URL
                   const response = await fetch(imageUrl);
                   if (!response.ok) {
-                    throw new Error(`Failed to fetch image: ${response.statusText}`);
+                    throw new Error(
+                      `Failed to fetch image: ${response.statusText}`
+                    );
                   }
                   const arrayBuffer = await response.arrayBuffer();
-                  base64Data = Buffer.from(arrayBuffer).toString('base64');
-                  
+                  base64Data = Buffer.from(arrayBuffer).toString("base64");
+
                   // Determine MIME type from URL or response
-                  const contentType = response.headers.get('content-type');
+                  const contentType = response.headers.get("content-type");
                   if (contentType) {
                     mimeType = contentType;
-                  } else if (imageUrl.includes('.png')) {
+                  } else if (imageUrl.includes(".png")) {
                     mimeType = "image/png";
-                  } else if (imageUrl.includes('.jpg') || imageUrl.includes('.jpeg')) {
+                  } else if (
+                    imageUrl.includes(".jpg") ||
+                    imageUrl.includes(".jpeg")
+                  ) {
                     mimeType = "image/jpeg";
                   }
                 }
-                
+
                 parts.push({
                   inlineData: {
                     mimeType: mimeType,
-                    data: base64Data
-                  }
+                    data: base64Data,
+                  },
                 });
               } catch (error) {
-                console.error('Error processing image:', error);
+                console.error("Error processing image:", error);
                 // Skip this image if there's an error
                 continue;
               }
@@ -522,7 +513,7 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
           }
           geminiContents.push({
             role: "user",
-            parts: parts
+            parts: parts,
           });
         }
       }
@@ -537,7 +528,7 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
           thinkingConfig: {
             thinkingBudget: 0, // Disables thinking
           },
-        }
+        },
       });
 
       const raw = response.text || "";
@@ -547,24 +538,28 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
       } catch {
         // Attempt to extract JSON from markdown code blocks
         let jsonText = raw;
-        
+
         // Remove markdown code block markers
-        jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-        
+        jsonText = jsonText.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+
         // Try to find JSON object in the text
         const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           try {
             qaResults = JSON.parse(jsonMatch[0]);
           } catch (e) {
-            console.error('Raw response:', raw);
-            console.error('Cleaned response:', jsonText);
-            console.error('JSON match:', jsonMatch[0]);
-            throw new Error(`Failed to parse Gemini response: ${e instanceof Error ? e.message : String(e)}`);
+            console.error("Raw response:", raw);
+            console.error("Cleaned response:", jsonText);
+            console.error("JSON match:", jsonMatch[0]);
+            throw new Error(
+              `Failed to parse Gemini response: ${e instanceof Error ? e.message : String(e)}`
+            );
           }
         } else {
-          console.error('Raw response:', raw);
-          throw new Error(`Failed to parse Gemini response: No JSON found in response`);
+          console.error("Raw response:", raw);
+          throw new Error(
+            `Failed to parse Gemini response: No JSON found in response`
+          );
         }
       }
 
@@ -574,35 +569,36 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
         if (provided && typeof provided === "object") {
           qaResults.similarityScores = provided as any;
         } else {
-          qaResults.similarityScores = extractSimilarityScores(qaResults.summary.join(" "));
+          qaResults.similarityScores = extractSimilarityScores(
+            qaResults.summary.join(" ")
+          );
         }
       }
-      
+
       // Stabilize scores to reduce jitter and be slightly more lenient on color
       try {
         const s: any = qaResults.similarityScores || {};
-        const r = (n: any) => Math.max(0, Math.min(100, Math.round(Number(n || 0))));
+        const r = (n: any) =>
+          Math.max(0, Math.min(100, Math.round(Number(n || 0))));
         const silhouette = r(s.silhouette);
         const proportion = r(s.proportion);
         // Slight color leniency: small uplift and minimum floor
         const colorMaterial = r(Math.max(Number(s.colorMaterial || 0) + 3, 51));
         // Reduce color weight a bit versus shape
-        const overall = Math.round(silhouette * 0.5 + proportion * 0.3 + colorMaterial * 0.2);
-        qaResults.similarityScores = { silhouette, proportion, colorMaterial, overall } as any;
+        const overall = Math.round(
+          silhouette * 0.5 + proportion * 0.3 + colorMaterial * 0.2
+        );
+        qaResults.similarityScores = {
+          silhouette,
+          proportion,
+          colorMaterial,
+          overall,
+        } as any;
       } catch {}
 
       // Log similarity scores for debugging/visibility
       try {
-        const s = qaResults.similarityScores as any;
-        console.log(
-          "SimilarityScores (reference-only):",
-          {
-            silhouette: s?.silhouette,
-            proportion: s?.proportion,
-            colorMaterial: s?.colorMaterial,
-            overall: s?.overall,
-          }
-        );
+        console.log("Similarity scores:", qaResults.similarityScores);
       } catch {}
 
       await supabaseAdmin
@@ -614,13 +610,10 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
         })
         .eq("id", jobId);
 
-      console.log(
-        `Job ${jobId} completed successfully (reference analysis only)`
-      );
       return;
     } else {
-        // AI Analysis for renders vs references comparison
-        const systemPrompt = `You are a highly analytical and deterministic 3D model visual QA specialist. Your task is to compare render screenshots of a 3D model against reference images and output a precise, structured JSON report. The model has passed all blocking technical requirements.
+      // AI Analysis for renders vs references comparison
+      const systemPrompt = `You are a highly analytical and deterministic 3D model visual QA specialist. Your task is to compare render screenshots of a 3D model against reference images and output a precise, structured JSON report. The model has passed all blocking technical requirements.
 
 INTELLIGENT COMPARISON APPROACH:
 1.  **Smart View Matching**: Match each render screenshot to the most relevant reference image(s) based on camera angle and perspective.
@@ -676,154 +669,164 @@ Output exactly one JSON object with the following structure:
 
 CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do not include any text before or after the JSON object. Start with \`{\` and end with \`}\`.`;
 
-    const messages: Message[] = [{ role: "system", content: systemPrompt }];
+      const messages: Message[] = [{ role: "system", content: systemPrompt }];
 
-    // Add renders to the message
-    renders.forEach((url, i) => {
-      messages.push({
-        role: "user",
-        content: [
-          { type: "text", text: `Rendered screenshot ${i + 1}:` },
-          { type: "image_url", image_url: { url } },
-        ],
-      } as const);
-    });
-
-    references.forEach((url, i) => {
-      messages.push({
-        role: "user",
-        content: [
-          { type: "text", text: `Reference image ${i + 1}:` },
-          { type: "image_url", image_url: { url } },
-        ],
-      } as const);
-    });
-
-    // Initialize Gemini
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY environment variable not set");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-
-    // Convert messages to Gemini format
-    const geminiContents: any[] = [];
-    
-    for (const msg of messages) {
-      if (msg.role === "system") {
-        geminiContents.push({
+      // Add renders to the message
+      renders.forEach((url, i) => {
+        messages.push({
           role: "user",
-          parts: [{ text: msg.content }]
-        });
-      } else if (msg.role === "user") {
-        const parts: any[] = [];
-        for (const content of msg.content) {
-          if (content.type === "text") {
-            parts.push({ text: content.text });
-          } else if (content.type === "image_url" && content.image_url) {
-            // Fetch image and convert to base64
-            try {
-              const imageUrl = content.image_url.url;
-              let base64Data: string;
-              let mimeType = "image/jpeg";
-              
-              if (imageUrl.startsWith('data:')) {
-                // Already base64 encoded
-                const [header, data] = imageUrl.split(',');
-                base64Data = data;
-                const mimeMatch = header.match(/data:([^;]+)/);
-                if (mimeMatch) {
-                  mimeType = mimeMatch[1];
+          content: [
+            { type: "text", text: `Rendered screenshot ${i + 1}:` },
+            { type: "image_url", image_url: { url } },
+          ],
+        } as const);
+      });
+
+      references.forEach((url, i) => {
+        messages.push({
+          role: "user",
+          content: [
+            { type: "text", text: `Reference image ${i + 1}:` },
+            { type: "image_url", image_url: { url } },
+          ],
+        } as const);
+      });
+
+      // Initialize Gemini
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("GEMINI_API_KEY environment variable not set");
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+
+      // Convert messages to Gemini format
+      const geminiContents: any[] = [];
+
+      for (const msg of messages) {
+        if (msg.role === "system") {
+          geminiContents.push({
+            role: "user",
+            parts: [{ text: msg.content }],
+          });
+        } else if (msg.role === "user") {
+          const parts: any[] = [];
+          for (const content of msg.content) {
+            if (content.type === "text") {
+              parts.push({ text: content.text });
+            } else if (content.type === "image_url" && content.image_url) {
+              // Fetch image and convert to base64
+              try {
+                const imageUrl = content.image_url.url;
+                let base64Data: string;
+                let mimeType = "image/jpeg";
+
+                if (imageUrl.startsWith("data:")) {
+                  // Already base64 encoded
+                  const [header, data] = imageUrl.split(",");
+                  base64Data = data;
+                  const mimeMatch = header.match(/data:([^;]+)/);
+                  if (mimeMatch) {
+                    mimeType = mimeMatch[1];
+                  }
+                } else {
+                  // Fetch image from URL
+                  const response = await fetch(imageUrl);
+                  if (!response.ok) {
+                    throw new Error(
+                      `Failed to fetch image: ${response.statusText}`
+                    );
+                  }
+                  const arrayBuffer = await response.arrayBuffer();
+                  base64Data = Buffer.from(arrayBuffer).toString("base64");
+
+                  // Determine MIME type from URL or response
+                  const contentType = response.headers.get("content-type");
+                  if (contentType) {
+                    mimeType = contentType;
+                  } else if (imageUrl.includes(".png")) {
+                    mimeType = "image/png";
+                  } else if (
+                    imageUrl.includes(".jpg") ||
+                    imageUrl.includes(".jpeg")
+                  ) {
+                    mimeType = "image/jpeg";
+                  }
                 }
-              } else {
-                // Fetch image from URL
-                const response = await fetch(imageUrl);
-                if (!response.ok) {
-                  throw new Error(`Failed to fetch image: ${response.statusText}`);
-                }
-                const arrayBuffer = await response.arrayBuffer();
-                base64Data = Buffer.from(arrayBuffer).toString('base64');
-                
-                // Determine MIME type from URL or response
-                const contentType = response.headers.get('content-type');
-                if (contentType) {
-                  mimeType = contentType;
-                } else if (imageUrl.includes('.png')) {
-                  mimeType = "image/png";
-                } else if (imageUrl.includes('.jpg') || imageUrl.includes('.jpeg')) {
-                  mimeType = "image/jpeg";
-                }
+
+                parts.push({
+                  inlineData: {
+                    mimeType: mimeType,
+                    data: base64Data,
+                  },
+                });
+              } catch (error) {
+                console.error("Error processing image:", error);
+                // Skip this image if there's an error
+                continue;
               }
-              
-              parts.push({
-                inlineData: {
-                  mimeType: mimeType,
-                  data: base64Data
-                }
-              });
-            } catch (error) {
-              console.error('Error processing image:', error);
-              // Skip this image if there's an error
-              continue;
             }
           }
+          geminiContents.push({
+            role: "user",
+            parts: parts,
+          });
         }
-        geminiContents.push({
-          role: "user",
-          parts: parts
-        });
       }
-    }
 
-    const response = await ai.models.generateContent({
+      const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: geminiContents,
         config: {
-            temperature: 0,
-            topP: 0,
-            topK: 1,
-            thinkingConfig: {
-                thinkingBudget: 0, // Disables thinking
-            },
-        }
-    });
+          temperature: 0,
+          topP: 0,
+          topK: 1,
+          thinkingConfig: {
+            thinkingBudget: 0, // Disables thinking
+          },
+        },
+      });
 
-    const raw = response.text || "";
+      const raw = response.text || "";
 
-    try {
+      try {
         qaResults = JSON.parse(raw);
-    } catch {
+      } catch {
         // Attempt to extract JSON from markdown code blocks
         let jsonText = raw;
-        
+
         // Remove markdown code block markers
-        jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-        
+        jsonText = jsonText.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+
         // Try to find JSON object in the text
         const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-            try {
-                qaResults = JSON.parse(jsonMatch[0]);
-            } catch (e) {
-                console.error('Raw response:', raw);
-                console.error('Cleaned response:', jsonText);
-                console.error('JSON match:', jsonMatch[0]);
-                throw new Error(`Failed to parse Gemini response: ${e instanceof Error ? e.message : String(e)}`);
-            }
+          try {
+            qaResults = JSON.parse(jsonMatch[0]);
+          } catch (e) {
+            console.error("Raw response:", raw);
+            console.error("Cleaned response:", jsonText);
+            console.error("JSON match:", jsonMatch[0]);
+            throw new Error(
+              `Failed to parse Gemini response: ${e instanceof Error ? e.message : String(e)}`
+            );
+          }
         } else {
-            console.error('Raw response:', raw);
-            throw new Error(`Failed to parse Gemini response: No JSON found in response`);
+          console.error("Raw response:", raw);
+          throw new Error(
+            `Failed to parse Gemini response: No JSON found in response`
+          );
         }
+      }
     }
-  }
 
     // Ensure scores are present (even if 0 if the model fails, but Gemini should provide them)
     if (!qaResults.similarityScores) {
       throw new Error("Gemini response is missing similarityScores.");
     }
     const s: any = qaResults.similarityScores;
-    const r = (n: any) => Math.max(0, Math.min(100, Math.round(Number(n || 0))));
+    const r = (n: any) =>
+      Math.max(0, Math.min(100, Math.round(Number(n || 0))));
 
     // 1. DETERMINE INDIVIDUAL SCORES (Normalize model's raw score)
     const silhouette = r(s.silhouette);
@@ -831,17 +834,26 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
     const colorMaterial = r(s.colorMaterial);
 
     // 2. CALCULATE DETERMINISTIC OVERALL SCORE (using the fixed weights)
-    const overall = Math.round(silhouette * 0.5 + proportion * 0.3 + colorMaterial * 0.2);
+    const overall = Math.round(
+      silhouette * 0.5 + proportion * 0.3 + colorMaterial * 0.2
+    );
 
-    qaResults.similarityScores = { silhouette, proportion, colorMaterial, overall } as any;
-
-    
+    qaResults.similarityScores = {
+      silhouette,
+      proportion,
+      colorMaterial,
+      overall,
+    } as any;
 
     // 3. CALCULATE DETERMINISTIC STATUS (Overwriting the model's suggested status)
     let finalStatus = "Not Approved";
 
     // Applying your specified lenient approval criteria
-    const isApproved = overall >= 62 && silhouette >= 57 && proportion >= 57 && colorMaterial >= 52;
+    const isApproved =
+      overall >= 62 &&
+      silhouette >= 57 &&
+      proportion >= 57 &&
+      colorMaterial >= 52;
 
     if (isApproved) {
       finalStatus = "Approved";
@@ -859,8 +871,6 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
         qa_results: JSON.stringify(qaResults),
       })
       .eq("id", jobId);
-
-    console.log(`Job ${jobId} completed successfully`);
   } catch (error: any) {
     console.error(`Job ${jobId} failed:`, error);
 
@@ -1036,4 +1046,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

@@ -191,14 +191,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     }
 
     try {
-      console.log(
-        "Creating object URL for file:",
-        file.name,
-        file.type,
-        file.size
-      );
       const url = URL.createObjectURL(file);
-      console.log("Created object URL:", url);
       setFileUrl(url);
       setIsModelLoading(true);
       setModelError(null);
@@ -207,11 +200,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
       setFileUrl(null);
     }
   }, [file]);
-
-  // Debug fileUrl changes
-  useEffect(() => {
-    console.log("fileUrl changed:", fileUrl);
-  }, [fileUrl]);
 
   // Add timeout fallback for loading
   useEffect(() => {
@@ -397,8 +385,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           const snapshotDataUrl = await modelViewer.toDataURL();
           const snapshotBase64 = snapshotDataUrl.split(",")[1];
           snapshots.push(snapshotBase64);
-
-          console.log(`Captured ${angle.name} angle (${i + 1}/5)`);
         }
 
         let inspirationBase64: string | null = null;
@@ -485,7 +471,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
         src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
         type="module"
         onLoad={() => {
-          console.log("Model-viewer script loaded");
           setModelViewerLoaded(true);
         }}
         onError={() => {
@@ -604,9 +589,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
               height: "100%",
               backgroundColor: "#fafafa",
             }}
-            onLoad={() => {
-              console.log("Model loaded successfully");
-            }}
+            onLoad={() => {}}
             onError={(event: CustomEvent) => {
               console.error("Model loading error:", event.detail);
               setModelError(

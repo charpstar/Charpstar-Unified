@@ -149,10 +149,6 @@ export async function PATCH(
       .eq("id", userId);
 
     if (profileUpdateError) {
-      console.log(
-        "Note: Could not update name in profiles table:",
-        profileUpdateError
-      );
       // This is not critical since the primary source is user_metadata
     }
 

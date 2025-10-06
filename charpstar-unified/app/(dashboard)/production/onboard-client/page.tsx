@@ -339,7 +339,7 @@ export default function OnboardClientPage() {
         transferred: false,
       }));
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("onboarding_assets")
         .insert(assetsToUpload)
         .select();

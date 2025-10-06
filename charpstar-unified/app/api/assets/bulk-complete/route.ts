@@ -19,13 +19,6 @@ export async function POST(request: NextRequest) {
 
     const { assetIds, status, revisionCount } = await request.json();
 
-    console.log("Bulk API received:", {
-      assetIds,
-      status,
-      revisionCount,
-      userId: user.id,
-    });
-
     if (
       !assetIds ||
       !Array.isArray(assetIds) ||
@@ -52,8 +45,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    console.log("User profile role:", profile?.role);
 
     // Enforce role on client approval - allow both clients and admins
     if (
@@ -86,8 +77,6 @@ export async function POST(request: NextRequest) {
       .update(updateData)
       .in("id", assetIds);
 
-    console.log("Bulk database update result:", { assetError, updateData });
-
     if (assetError) {
       console.error("Error updating asset statuses:", assetError);
       console.error("Asset IDs:", assetIds);
@@ -103,7 +92,6 @@ export async function POST(request: NextRequest) {
 
     // Auto-transfer approved assets to assets table
     if (status === "approved_by_client") {
-      console.log("Starting bulk auto-transfer for assets:", assetIds);
       try {
         // Get all onboarding assets for transfer
         const { data: onboardingAssets, error: fetchError } = await supabase
@@ -112,11 +100,6 @@ export async function POST(request: NextRequest) {
           .in("id", assetIds)
           .eq("status", "approved_by_client")
           .eq("transferred", false);
-
-        console.log("Onboarding assets fetch result:", {
-          count: onboardingAssets?.length || 0,
-          fetchError: fetchError?.message,
-        });
 
         if (!fetchError && onboardingAssets && onboardingAssets.length > 0) {
           // Prepare data for assets table
@@ -142,7 +125,7 @@ export async function POST(request: NextRequest) {
           }));
 
           // Insert all assets at once
-          const { data: newAssets, error: insertError } = await supabase
+          const { error: insertError } = await supabase
             .from("assets")
             .insert(assetsToInsert)
             .select();
@@ -154,8 +137,6 @@ export async function POST(request: NextRequest) {
               { status: 500 }
             );
           }
-
-          console.log(`Successfully inserted ${newAssets?.length || 0} assets`);
 
           // Update onboarding_assets to mark as transferred
           const transferredIds = onboardingAssets.map((asset) => asset.id);
@@ -170,10 +151,6 @@ export async function POST(request: NextRequest) {
             console.error("Error marking assets as transferred:", updateError);
             // Don't fail the request, just log the error
           }
-
-          console.log(
-            `Successfully marked ${transferredIds.length} assets as transferred`
-          );
         }
       } catch (transferError) {
         console.error("Error during bulk transfer:", transferError);
@@ -222,8 +199,6 @@ export async function POST(request: NextRequest) {
       // Execute cleanup in parallel (don't wait for completion)
       Promise.all(cleanupPromises);
     }
-
-    console.log(`Bulk update completed for ${assetIds.length} assets`);
 
     return NextResponse.json({
       success: true,

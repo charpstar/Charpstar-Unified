@@ -1277,7 +1277,7 @@ class NotificationService {
       if (recipientId) {
         query = query.eq("recipient_id", recipientId);
       }
-      const { data, error } = await query.select("id");
+      const { error } = await query.select("id");
 
       if (error) {
         console.error("Error deleting notifications:", error);
@@ -1575,17 +1575,27 @@ class NotificationService {
   }
 
   async sendClientListProgressNotification(
-    clientId: string,
-    clientEmail: string,
-    allocationListId: string,
-    allocationListName: string,
-    completionPercentage: number,
-    completedAssets: number,
-    totalAssets: number,
-    client: string,
-    batch: number
+    _clientId: string,
+    _clientEmail: string,
+    _allocationListId: string,
+    _allocationListName: string,
+    _completionPercentage: number,
+    _completedAssets: number,
+    _totalAssets: number,
+    _client: string,
+    _batch: number
   ): Promise<void> {
     // TEMPORARILY DISABLED - No client notifications during bulk operations
+    // Suppress unused parameter warnings
+    void _clientId;
+    void _clientEmail;
+    void _allocationListId;
+    void _allocationListName;
+    void _completionPercentage;
+    void _completedAssets;
+    void _totalAssets;
+    void _client;
+    void _batch;
     return;
 
     /* ORIGINAL CODE - TEMPORARILY COMMENTED OUT

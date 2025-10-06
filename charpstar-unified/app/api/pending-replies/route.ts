@@ -7,13 +7,6 @@ export async function POST(request: NextRequest) {
     const { assetId, parentCommentId, replyText, createdBy } =
       await request.json();
 
-    console.log("Pending reply API called:", {
-      assetId,
-      parentCommentId,
-      replyText: replyText?.substring(0, 50) + "...",
-      createdBy,
-    });
-
     if (!assetId || !parentCommentId || !replyText || !createdBy) {
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -26,8 +19,6 @@ export async function POST(request: NextRequest) {
       .from("onboarding_assets")
       .select("id")
       .eq("id", assetId);
-
-    console.log("Asset query result:", { assets, assetError, assetId });
 
     if (assetError) {
       console.error("Asset query error:", assetError);
@@ -48,8 +39,6 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-
-    console.log("Asset found:", assets[0]);
 
     // Insert pending reply
     const { data: pendingReply, error } = await supabaseAdmin

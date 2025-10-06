@@ -29,11 +29,6 @@ export async function POST(request: NextRequest) {
     const cdnBaseUrl = process.env.BUNNY_STORAGE_PUBLIC_URL;
 
     if (!storageKey || !storageZone || !cdnBaseUrl) {
-      console.log("[UPLOAD] Missing BunnyCDN config:", {
-        hasStorageKey: !!storageKey,
-        hasStorageZone: !!storageZone,
-        hasCdnUrl: !!cdnBaseUrl,
-      });
       return NextResponse.json(
         { error: "BunnyCDN configuration missing" },
         { status: 500 }

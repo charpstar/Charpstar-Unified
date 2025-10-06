@@ -97,7 +97,6 @@ export async function POST(
     }
 
     // Insert comment with creator email and name
-    console.log("Creating comment with email:", user.email);
     const { data: comment, error } = await supabaseAdmin
       .from("user_comments")
       .insert({

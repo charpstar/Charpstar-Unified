@@ -126,7 +126,6 @@ export async function POST(request: NextRequest) {
 
               if (backupUploadResponse.ok) {
                 backupUrl = `${cdnBaseUrl}/${backupPath}`;
-                console.log(`Backup created: ${backupUrl}`);
               } else {
                 console.warn(
                   "Failed to create backup:",

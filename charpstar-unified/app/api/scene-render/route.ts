@@ -28,21 +28,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate scenes using all angles together for consistency
-    const angleNames = ["Front", "Front Right", "Front Left"];
-
-    console.log(
-      `🎬 Starting multi-angle scene generation for ${base64Images.length} camera angles`
-    );
-    console.log(
-      `📸 Angles: ${angleNames.slice(0, base64Images.length).join(", ")}`
-    );
-
-    // Log image sizes for verification
-    base64Images.forEach((img, i) => {
-      console.log(
-        `   ${angleNames[i] || `Angle ${i + 1}`}: ${img.length} characters (base64)`
-      );
-    });
 
     const allScenes = await generateMultiAngleScenes(
       base64Images,
@@ -50,10 +35,6 @@ export async function POST(request: NextRequest) {
       objectType,
       sceneDescription || "",
       inspirationImage || null
-    );
-
-    console.log(
-      `🎉 Completed generation of ${allScenes.length} scenes from ${base64Images.length} camera angles`
     );
 
     return NextResponse.json({ scenes: allScenes });

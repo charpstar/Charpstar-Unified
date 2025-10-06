@@ -96,18 +96,21 @@ async function callApi(
     );
   } catch (error: any) {
     // Handle rate limiting (429) and other retryable errors
-    if (retryCount < maxRetries && (
-      error.status === 429 || 
-      error.message?.includes('429') ||
-      error.message?.includes('rate limit') ||
-      error.message?.includes('quota')
-    )) {
+    if (
+      retryCount < maxRetries &&
+      (error.status === 429 ||
+        error.message?.includes("429") ||
+        error.message?.includes("rate limit") ||
+        error.message?.includes("quota"))
+    ) {
       const delay = baseDelay * Math.pow(2, retryCount) + Math.random() * 1000; // Exponential backoff with jitter
-      console.warn(`Rate limit hit, retrying in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      console.warn(
+        `Rate limit hit, retrying in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
       return callApi(ai, imageParts, textPart, retryCount + 1);
     }
-    
+
     // Re-throw non-retryable errors
     throw error;
   }
@@ -161,7 +164,6 @@ export async function generateSingleScene(
   );
 
   try {
-    console.log("Generating single scene...");
     const result = await callApi(ai, imageParts, { text: textPrompt });
 
     if (!result) {
@@ -170,7 +172,6 @@ export async function generateSingleScene(
       );
     }
 
-    console.log("Successfully generated single scene");
     return result;
   } catch (error) {
     console.error("Error calling Gemini API:", error);
@@ -245,14 +246,10 @@ This detailed analysis will be used to generate perfectly consistent scenes for 
 
   let contextAnalysis = "";
   try {
-    console.log(
-      `🔍 Analyzing product consistency across ${base64Images.length} angles...`
-    );
     const contextResult = await callApi(ai, contextImageParts, {
       text: contextPrompt,
     });
     contextAnalysis = contextResult || "";
-    console.log(`✅ Context analysis completed`);
   } catch (error) {
     console.warn(
       "Context analysis failed, proceeding with individual generation:",
@@ -264,10 +261,6 @@ This detailed analysis will be used to generate perfectly consistent scenes for 
   for (let i = 0; i < base64Images.length; i++) {
     const base64Image = base64Images[i];
     const angleName = angleNames[i] || `Angle ${i + 1}`;
-
-    console.log(
-      `🎨 Generating scene for ${angleName} (${i + 1}/${base64Images.length}) with consistency context`
-    );
 
     const imagePart = {
       inlineData: {
@@ -366,16 +359,12 @@ Apply these techniques to achieve a flawless, professional result:
       }
 
       allScenes.push(result);
-      console.log(`✅ Successfully generated scene for ${angleName}`);
     } catch (error) {
       console.error(`Error generating scene for ${angleName}:`, error);
       throw error;
     }
   }
 
-  console.log(
-    `🎉 Completed generation of ${allScenes.length} consistent scenes`
-  );
   return allScenes;
 }
 
@@ -443,7 +432,6 @@ export async function generateScenes(
     const results: (string | null)[] = [];
     for (let i = 0; i < textPrompts.length; i++) {
       try {
-        console.log(`Generating scene ${i + 1}/${textPrompts.length}...`);
         const result = await callApi(ai, imageParts, { text: textPrompts[i] });
         results.push(result);
 
@@ -467,9 +455,6 @@ export async function generateScenes(
       );
     }
 
-    console.log(
-      `Successfully generated ${successfulResults.length}/${textPrompts.length} scenes`
-    );
     return successfulResults;
   } catch (error) {
     console.error("Error calling Gemini API:", error);
@@ -478,7 +463,10 @@ export async function generateScenes(
         "The request was invalid. The uploaded image might be unsupported. Please try another file."
       );
     }
-    if (error instanceof Error && (error.message.includes("429") || error.message.includes("rate limit"))) {
+    if (
+      error instanceof Error &&
+      (error.message.includes("429") || error.message.includes("rate limit"))
+    ) {
       throw new Error(
         "Rate limit exceeded. Please wait a moment and try again."
       );
