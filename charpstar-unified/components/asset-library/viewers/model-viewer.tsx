@@ -85,7 +85,7 @@ export function ModelViewer({
       dotHotspot2: any,
       dimensionHotspot: any
     ) {
-      if (dotHotspot1 && dotHotspot2) {
+      if (dotHotspot1 && dotHotspot2 && svgLine) {
         svgLine.setAttribute("x1", dotHotspot1.canvasPosition.x);
         svgLine.setAttribute("y1", dotHotspot1.canvasPosition.y);
         svgLine.setAttribute("x2", dotHotspot2.canvasPosition.x);

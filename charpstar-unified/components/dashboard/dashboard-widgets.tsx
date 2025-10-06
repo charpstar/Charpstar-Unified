@@ -1743,10 +1743,11 @@ export function AdminPipelineWidget() {
     const fetchCounts = async () => {
       setLoading(true);
 
-      // Fetch asset statuses
+      // Fetch asset statuses (excluding transferred assets)
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("status");
+        .select("status")
+        .eq("transferred", false);
 
       if (!error && data) {
         const next: Record<StatusKey, number> = {
@@ -1777,7 +1778,8 @@ export function AdminPipelineWidget() {
 
         const { data: allAssets, error: allAssetsError } = await supabase
           .from("onboarding_assets")
-          .select("id");
+          .select("id")
+          .eq("transferred", false);
 
         if (!allAssetsError && allAssets) {
           const unallocated = allAssets.filter(

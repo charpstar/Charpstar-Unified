@@ -551,8 +551,9 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment, transferred"
         )
+        .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
 
       // Apply URL parameter filters
@@ -1185,8 +1186,9 @@ export default function AdminReviewPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link, status")
+        .select("reference, glb_link, status, transferred")
         .eq("id", assetId)
+        .eq("transferred", false)
         .single();
 
       if (!error && data) {
@@ -1635,8 +1637,9 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred"
         )
+        .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
 
       // Apply URL parameter filters

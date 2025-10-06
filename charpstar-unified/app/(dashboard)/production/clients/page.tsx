@@ -30,6 +30,9 @@ interface Client {
   role: string;
   client: string;
   created_at: string;
+  onboardingAssetsCount: number;
+  assetsCount: number;
+  totalAssetsCount: number;
 }
 
 export default function ClientsPage() {
@@ -39,6 +42,18 @@ export default function ClientsPage() {
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Calculate total asset counts
+  const totalOnboardingAssets = clients.reduce(
+    (sum, client) => sum + client.onboardingAssetsCount,
+    0
+  );
+  const totalProductionAssets = clients.reduce(
+    (sum, client) => sum + client.assetsCount,
+    0
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const totalAssets = totalOnboardingAssets + totalProductionAssets;
 
   const fetchClients = async () => {
     try {
@@ -152,7 +167,7 @@ export default function ClientsPage() {
         </Button>
       </div>
 
-      <Card>
+      <Card className="min-w-fit mx-auto  pr-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -174,7 +189,7 @@ export default function ClientsPage() {
 
             {/* Users Table */}
             {filteredClients.length === 0 ? (
-              <div className="text-center py-12">
+              <div className="text-center py-14">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">
                   No client users found
@@ -194,6 +209,15 @@ export default function ClientsPage() {
                       <th className="text-left p-3 font-medium">Email</th>
                       <th className="text-left p-3 font-medium">Client</th>
                       <th className="text-left p-3 font-medium">Role</th>
+                      <th className="text-left p-3 font-medium">
+                        Onboarding Assets
+                      </th>
+                      <th className="text-left p-3 font-medium">
+                        Production Assets
+                      </th>
+                      <th className="text-left p-3 font-medium">
+                        Total Assets
+                      </th>
                       <th className="text-left p-3 font-medium">Created</th>
                       <th className="text-left p-3 font-medium">Actions</th>
                     </tr>
@@ -216,6 +240,21 @@ export default function ClientsPage() {
                           <div className="text-sm">{client.client}</div>
                         </td>
                         <td className="p-3">{getRoleBadge(client.role)}</td>
+                        <td className="p-3">
+                          <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                            {client.onboardingAssetsCount}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="text-sm font-medium text-green-600 dark:text-green-400">
+                            {client.assetsCount}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="text-sm font-bold text-foreground">
+                            {client.totalAssetsCount}
+                          </div>
+                        </td>
                         <td className="p-3">
                           <div className="text-sm text-muted-foreground">
                             {new Date(client.created_at).toLocaleDateString()}

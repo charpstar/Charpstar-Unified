@@ -809,19 +809,95 @@ export default function ReviewDashboardPage() {
               />
             </div>
 
-            {/* Logs Dialog Trigger */}
-
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
+              {/* Bulk Actions - Only show when items are selected */}
+              {selected.size > 0 && (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-1.5  rounded-md">
+                    <div className="h-2 w-2 bg-primary rounded-full"></div>
+                    <span className="text-xs font-medium text-primary">
+                      {selected.size} selected
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelected(new Set())}
+                      className="h-5 px-2 text-xs hover:bg-primary/20"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={bulkPriority.toString()}
+                      onValueChange={(value) =>
+                        setBulkPriority(parseInt(value))
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-20 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">High</SelectItem>
+                        <SelectItem value="2">Medium</SelectItem>
+                        <SelectItem value="3">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      onClick={handleBulkPriorityChange}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Set Priority
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={bulkStatus}
+                      onValueChange={(value) => setBulkStatus(value)}
+                    >
+                      <SelectTrigger className="h-8 w-32 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="approved_by_client">
+                          Approved
+                        </SelectItem>
+                        <SelectItem value="approved">New Upload</SelectItem>
+                        <SelectItem value="client_revision">
+                          Revision
+                        </SelectItem>
+                        <SelectItem value="revisions">Sent for Rev</SelectItem>
+                        <SelectItem value="in_production">
+                          In Production
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      onClick={handleBulkStatusChange}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Set Status
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {/* Logs Dialog Trigger */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowLogsDialog(true)}
-                className="gap-2 h-8 sm:h-9 text-sm 0 justify-end "
+                className="gap-2 h-8 sm:h-9 text-sm"
               >
                 <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline">Logs</span>
                 <span className="sm:hidden">Logs</span>
               </Button>
+
               <Select value={sort} onValueChange={(value) => setSort(value)}>
                 <SelectTrigger className="w-full sm:w-auto h-8 sm:h-9 text-sm">
                   <SelectValue placeholder="Sort by" />
@@ -853,6 +929,7 @@ export default function ReviewDashboardPage() {
                   </SelectItem>
                 </SelectContent>
               </Select>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -872,101 +949,6 @@ export default function ReviewDashboardPage() {
               </Button>
             </div>
           </div>
-
-          {/* Bulk Actions Row - Fixed height to prevent layout shifts */}
-          <div className="min-h-[30px]">
-            {selected.size > 0 && (
-              <div className="flex flex-col gap-3 sm:gap-4 p-3 bg-muted/50 dark:bg-muted/20 rounded-lg border dark:border-border">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs sm:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
-                    {selected.size} product(s) selected
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelected(new Set())}
-                    className="h-6 px-2 text-xs dark:hover:bg-muted/50"
-                  >
-                    Clear
-                  </Button>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2">
-                  <span className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">
-                    Set priority:
-                  </span>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Select
-                      value={bulkPriority.toString()}
-                      onValueChange={(value) =>
-                        setBulkPriority(parseInt(value))
-                      }
-                    >
-                      <SelectTrigger className="w-20 sm:w-24 h-7 sm:h-8 dark:bg-background dark:border-border text-xs sm:text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">High</SelectItem>
-                        <SelectItem value="2">Medium</SelectItem>
-                        <SelectItem value="3">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="sm"
-                      onClick={handleBulkPriorityChange}
-                      className="h-7 sm:h-8 text-xs sm:text-sm flex-1 sm:flex-none"
-                    >
-                      <span className="hidden sm:inline">
-                        Apply to {selected.size} product(s)
-                      </span>
-                      <span className="sm:hidden">Apply</span>
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2">
-                  <span className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">
-                    Set status:
-                  </span>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Select
-                      value={bulkStatus}
-                      onValueChange={(value) => setBulkStatus(value)}
-                    >
-                      <SelectTrigger className="w-32 sm:w-36 h-7 sm:h-8 dark:bg-background dark:border-border text-xs sm:text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="approved_by_client">
-                          Approved by Client
-                        </SelectItem>
-                        <SelectItem value="approved">New Upload</SelectItem>
-                        <SelectItem value="client_revision">
-                          Client Revision
-                        </SelectItem>
-                        <SelectItem value="revisions">
-                          Sent for Revision
-                        </SelectItem>
-                        <SelectItem value="in_production">
-                          In Production
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="sm"
-                      onClick={handleBulkStatusChange}
-                      className="h-7 sm:h-8 text-xs sm:text-sm flex-1 sm:flex-none"
-                    >
-                      <span className="hidden sm:inline">
-                        Apply to {selected.size} product(s)
-                      </span>
-                      <span className="sm:hidden">Apply</span>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="overflow-auto rounded-lg border dark:border-border bg-background dark:bg-background flex-1 max-h-[62vh] min-h-[62vh] relative">
@@ -979,8 +961,8 @@ export default function ReviewDashboardPage() {
                 <Table>
                   <TableHeader className="sticky top-0 bg-white dark:bg-slate-950 z-20 border-b border-border dark:border-border shadow-sm">
                     <TableRow className="dark:border-border">
-                      <TableHead className="w-12 dark:text-foreground text-left">
-                        <div className="flex items-center gap-2">
+                      <TableHead className="w-12 dark:text-foreground text-center">
+                        <div className="flex items-center justify-center gap-2">
                           <Checkbox
                             checked={
                               isAllSelected
@@ -1006,14 +988,13 @@ export default function ReviewDashboardPage() {
                       <TableHead className="dark:text-foreground text-center">
                         Status
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-center pr-4">
+                      <TableHead className="dark:text-foreground text-center">
                         Product Link
                       </TableHead>
                       <TableHead className="dark:text-foreground text-center">
                         References
                       </TableHead>
-
-                      <TableHead className=" dark:text-foreground text-center pr-16">
+                      <TableHead className="dark:text-foreground text-center">
                         View
                       </TableHead>
                     </TableRow>
@@ -1077,7 +1058,7 @@ export default function ReviewDashboardPage() {
                             key={asset.id}
                             className={`${rowStyling.base} transition-all duration-200 dark:border-border dark:hover:bg-muted/20`}
                           >
-                            <TableCell className="text-left">
+                            <TableCell className="text-center">
                               <Checkbox
                                 checked={selected.has(asset.id)}
                                 onCheckedChange={() => toggleSelect(asset.id)}

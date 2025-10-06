@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { createServerClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { cookies } from "next/headers";
 
 export async function GET() {
   try {
-    const supabaseAuth = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabaseAuth = createServerClient(cookieStore);
     const {
       data: { user },
     } = await supabaseAuth.auth.getUser();
@@ -40,10 +41,10 @@ export async function GET() {
       throw profilesError;
     }
 
-    // Get user names from auth metadata using admin client
+    // Get user names from auth metadata using admin client and asset counts
     const adminClient = createAdminClient();
     const clientsWithNames = await Promise.all(
-      (profiles || []).map(async (profile) => {
+      (profiles || []).map(async (profile: any) => {
         try {
           const { data: authData } = await adminClient.auth.admin.getUserById(
             profile.id
@@ -53,9 +54,29 @@ export async function GET() {
             `${authData?.user?.user_metadata?.first_name || ""} ${authData?.user?.user_metadata?.last_name || ""}`.trim() ||
             "Unknown User";
 
+          // Get asset counts from both tables
+          const [onboardingAssetsResult, assetsResult] = await Promise.all([
+            supabaseAuth
+              .from("onboarding_assets")
+              .select("id", { count: "exact" })
+              .eq("client", profile.client)
+              .eq("transferred", false),
+            supabaseAuth
+              .from("assets")
+              .select("id", { count: "exact" })
+              .eq("client", profile.client),
+          ]);
+
+          const onboardingAssetsCount = onboardingAssetsResult.count || 0;
+          const assetsCount = assetsResult.count || 0;
+          const totalAssetsCount = onboardingAssetsCount + assetsCount;
+
           return {
             ...profile,
             name: name || "Unknown User",
+            onboardingAssetsCount,
+            assetsCount,
+            totalAssetsCount,
           };
         } catch (error) {
           console.error(
@@ -65,6 +86,9 @@ export async function GET() {
           return {
             ...profile,
             name: "Unknown User",
+            onboardingAssetsCount: 0,
+            assetsCount: 0,
+            totalAssetsCount: 0,
           };
         }
       })

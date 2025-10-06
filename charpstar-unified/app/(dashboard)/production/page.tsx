@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
@@ -39,6 +39,17 @@ import UserProfileDialog from "@/components/users/UserProfileDialog";
 import { useUser } from "@/contexts/useUser";
 
 import { supabase } from "@/lib/supabaseClient";
+// Debounce utility function
+const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  delay: number
+): ((...args: Parameters<T>) => void) => {
+  let timeoutId: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), delay);
+  };
+};
 import {
   TrendingUp,
   Calendar,
@@ -282,6 +293,9 @@ export default function ProductionDashboard() {
   const clientFilter = searchParams.get("client") || "all";
   const sortBy = searchParams.get("sort") || "";
 
+  // Local search state for immediate UI updates
+  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
+
   // Get view mode from URL params, default to "clients"
   const viewMode =
     (searchParams.get("view") as "clients" | "batches" | "modelers" | "qa") ||
@@ -334,15 +348,24 @@ export default function ProductionDashboard() {
     router.push(`/production?${params.toString()}`);
   };
 
-  // Function to handle search term changes and update URL
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    debounce((newSearchTerm: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (newSearchTerm) {
+        params.set("search", newSearchTerm);
+      } else {
+        params.delete("search");
+      }
+      router.push(`/production?${params.toString()}`);
+    }, 300), // 300ms delay
+    [searchParams, router]
+  );
+
+  // Function to handle search term changes with immediate local update
   const handleSearchChange = (newSearchTerm: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (newSearchTerm) {
-      params.set("search", newSearchTerm);
-    } else {
-      params.delete("search");
-    }
-    router.push(`/production?${params.toString()}`);
+    setLocalSearchTerm(newSearchTerm);
+    debouncedSearch(newSearchTerm);
   };
 
   // Function to handle client filter changes and update URL
@@ -377,6 +400,11 @@ export default function ProductionDashboard() {
   useEffect(() => {
     document.title = "CharpstAR Platform - Production Dashboard";
   }, []);
+
+  // Sync local search term with URL changes
+  useEffect(() => {
+    setLocalSearchTerm(searchTerm);
+  }, [searchTerm]);
 
   // Get current user ID
   useEffect(() => {
@@ -435,7 +463,8 @@ export default function ProductionDashboard() {
               status,
               created_at,
               delivery_date,
-              revision_count
+              revision_count,
+              transferred
             `
             )
             .order("upload_order", { ascending: true })
@@ -622,6 +651,11 @@ export default function ProductionDashboard() {
           return;
         }
 
+        // Skip transferred assets as they are no longer part of production
+        if (asset.transferred === true) {
+          return;
+        }
+
         if (!clientMap.has(clientName)) {
           clientMap.set(clientName, {
             name: clientName,
@@ -675,7 +709,9 @@ export default function ProductionDashboard() {
         client.batches = Array.from(batchSet).map((batchNum) => {
           const batchAssets = assetData.filter(
             (asset) =>
-              asset.client === clientName && (asset.batch || 1) === batchNum
+              asset.client === clientName &&
+              (asset.batch || 1) === batchNum &&
+              asset.transferred !== true
           );
           const completedCount = batchAssets.filter(
             (asset) =>
@@ -705,9 +741,9 @@ export default function ProductionDashboard() {
 
       // Calculate completion percentages and other stats
       const clientsArray = Array.from(clientMap.values()).map((client) => {
-        // Count unassigned assets for this client
+        // Count unassigned assets for this client (excluding transferred assets)
         const clientAssets = assetData.filter(
-          (asset) => asset.client === client.name
+          (asset) => asset.client === client.name && asset.transferred !== true
         );
 
         const unassignedCount = clientAssets.filter(
@@ -750,6 +786,11 @@ export default function ProductionDashboard() {
           const asset = assignment.onboarding_assets as any;
           const profile = profilesMap.get(userId);
 
+          // Skip transferred assets
+          if (asset.transferred === true) {
+            return;
+          }
+
           if (!modelerDetails.has(userId)) {
             modelerDetails.set(userId, {
               id: userId,
@@ -784,6 +825,11 @@ export default function ProductionDashboard() {
         clientQAAssignments.forEach((assignment) => {
           const userId = assignment.user_id;
           const asset = assignment.onboarding_assets as any;
+
+          // Skip transferred assets
+          if (asset.transferred === true) {
+            return;
+          }
 
           if (!qaDetails.has(userId)) {
             qaDetails.set(userId, {
@@ -914,28 +960,44 @@ export default function ProductionDashboard() {
       );
 
       // Calculate completion percentages and format dates
-      const batchesArray = Array.from(batchMap.values()).map((batch) => {
-        // Count unassigned assets for this batch
-        const batchAssets = assetData.filter(
-          (asset) =>
-            asset.client === batch.client && asset.batch === batch.batch
-        );
+      const batchesArray = Array.from(batchMap.values())
+        .map((batch) => {
+          // Count unassigned assets for this batch
+          const batchAssets = assetData.filter(
+            (asset) =>
+              asset.client === batch.client && asset.batch === batch.batch
+          );
 
-        const unassignedCount = batchAssets.filter(
-          (asset) => !assignedAssetIds.has(asset.id)
-        ).length;
+          const unassignedCount = batchAssets.filter(
+            (asset) => !assignedAssetIds.has(asset.id)
+          ).length;
 
-        return {
-          ...batch,
-          completionPercentage:
-            batch.totalModels > 0
-              ? Math.round((batch.completedModels / batch.totalModels) * 100)
-              : 0,
-          startDate: new Date(batch.startDate).toLocaleDateString(),
-          deadline: new Date(batch.deadline).toLocaleDateString(),
-          unassignedAssets: unassignedCount,
-        };
-      });
+          return {
+            ...batch,
+            completionPercentage:
+              batch.totalModels > 0
+                ? Math.round((batch.completedModels / batch.totalModels) * 100)
+                : 0,
+            startDate: new Date(batch.startDate).toLocaleDateString(),
+            deadline: new Date(batch.deadline).toLocaleDateString(),
+            unassignedAssets: unassignedCount,
+          };
+        })
+        .filter((batch) => {
+          // Filter out batches that contain only 100% transferred assets
+          const batchAssets = assetData.filter(
+            (asset) =>
+              asset.client === batch.client && asset.batch === batch.batch
+          );
+
+          // Check if all assets in this batch are transferred
+          const allTransferred = batchAssets.every(
+            (asset) => asset.transferred === true
+          );
+
+          // Only show batches that are not 100% transferred
+          return !allTransferred;
+        });
 
       setBatches(batchesArray);
       setFilteredBatches(batchesArray);
@@ -2607,7 +2669,7 @@ export default function ProductionDashboard() {
                       ? "Search QA users..."
                       : "Search assets..."
             }
-            value={searchTerm}
+            value={localSearchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10 text-sm sm:text-base"
           />

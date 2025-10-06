@@ -3,12 +3,10 @@
 import * as React from "react";
 import {
   Camera,
-  BarChart3,
   LayoutDashboard,
   FileText,
   Folder,
   Users,
-  ClipboardList,
   Eye,
   Factory,
   Package,
@@ -91,11 +89,6 @@ export default function AppSidebar({
               ? []
               : [
                   {
-                    title: "Analytics",
-                    url: "/analytics",
-                    icon: BarChart3,
-                  },
-                  {
                     title: "Asset Library",
                     url: "/asset-library",
                     icon: Folder,
@@ -120,17 +113,6 @@ export default function AppSidebar({
                 title: "Review Assets",
                 url: "/client-review",
                 icon: Eye,
-              },
-              {
-                title: "Add Products",
-                url: "/add-products",
-                icon: ClipboardList,
-              },
-
-              {
-                title: "Scene Render",
-                url: "/scene-render",
-                icon: Palette,
               },
             ]
           : []),

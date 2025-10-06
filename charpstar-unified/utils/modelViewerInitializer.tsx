@@ -14,6 +14,12 @@ export const initializeModelViewer = (modelViewerElement: any): any => {
     return null;
   }
 
+  // Additional safety check to ensure element is still in DOM
+  if (!document.contains(modelViewerElement)) {
+    console.warn("Cannot initialize model-viewer: Element no longer in DOM");
+    return null;
+  }
+
   // Don't re-initialize if already done
   if (typeof modelViewerElement.getModelStats === "function") {
     return modelViewerElement;

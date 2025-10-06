@@ -117,6 +117,12 @@ export const ModelViewer = ({ onModelLoaded, clientModelUrl }) => {
         return;
       }
 
+      // Additional safety check to ensure element is still in DOM
+      if (!document.contains(modelViewer)) {
+        console.warn("[ModelViewer] Model viewer element no longer in DOM");
+        return;
+      }
+
       // Clear any existing timeout
       if (initializationTimeoutRef.current) {
         clearTimeout(initializationTimeoutRef.current);
