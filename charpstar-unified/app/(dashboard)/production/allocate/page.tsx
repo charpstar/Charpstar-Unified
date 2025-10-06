@@ -705,10 +705,7 @@ export default function AllocateAssetsPage() {
       });
 
       setModelerQAAssignments(qaDetailsMap);
-      console.log("QA Assignments loaded:", qaDetailsMap);
-    } catch (error) {
-      console.error("Error fetching QA assignments:", error);
-    }
+    } catch (error) {}
   };
 
   // Allocate QA to modeler
@@ -1294,7 +1291,6 @@ export default function AllocateAssetsPage() {
       if (provisionalQA.enabled && provisionalQA.qaId) {
         // Use provisional QA
         finalQAId = provisionalQA.qaId;
-        console.log(`Using provisional QA: ${finalQAId}`);
       } else {
         // Check if the selected modeler has a QA assigned
         const { data: qaAllocations, error: qaError } = await supabase
@@ -1303,7 +1299,6 @@ export default function AllocateAssetsPage() {
           .eq("modeler_id", globalTeamAssignment.modelerId);
 
         if (qaError) {
-          console.error("Error checking QA allocation:", qaError);
           toast.error("Failed to verify QA assignment");
           return;
         }
@@ -1318,14 +1313,10 @@ export default function AllocateAssetsPage() {
 
         // Use the first assigned QA (main QA)
         finalQAId = qaAllocations[0].qa_id;
-        console.log(`Using assigned QA: ${finalQAId}`);
       }
 
       // Log info about final QA assignment
       if (provisionalQA.enabled && provisionalQA.qaId) {
-        console.log(`Using provisional QA override: ${finalQAId}`);
-      } else {
-        console.log(`Using assigned QA: ${finalQAId}`);
       }
 
       // Validate group settings and individual prices
@@ -1652,15 +1643,6 @@ export default function AllocateAssetsPage() {
                         modelerQAAssignments.get(
                           globalTeamAssignment.modelerId
                         ) || [];
-                      console.log(
-                        "Selected modeler ID:",
-                        globalTeamAssignment.modelerId
-                      );
-                      console.log(
-                        "QA Assignments for this modeler:",
-                        qaAssignments
-                      );
-                      console.log("All QA assignments:", modelerQAAssignments);
 
                       return (
                         <div className="p-4 border rounded-lg bg-muted/30 space-y-3">

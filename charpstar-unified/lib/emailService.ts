@@ -106,12 +106,6 @@ class EmailService {
     config: EmailConfig
   ) {
     if (this.isDevelopmentMode || !this.resend) {
-      console.log(
-        "🚧 DEVELOPMENT MODE: Email would be sent to",
-        config.to,
-        "for model",
-        data.modelName
-      );
       return { success: true, messageId: "dev-mode-simulated", devMode: true };
     }
 
@@ -129,10 +123,6 @@ class EmailService {
         throw error;
       }
 
-      console.log(
-        "Model ready for review email sent successfully:",
-        result?.id
-      );
       return { success: true, messageId: result?.id };
     } catch (error) {
       console.error("Error sending model ready for review email:", error);
@@ -148,12 +138,6 @@ class EmailService {
     config: EmailConfig
   ) {
     if (this.isDevelopmentMode || !this.resend) {
-      console.log(
-        "🚧 DEVELOPMENT MODE: Weekly summary would be sent to",
-        config.to,
-        "for client",
-        data.clientName
-      );
       return { success: true, messageId: "dev-mode-simulated", devMode: true };
     }
 
@@ -170,7 +154,6 @@ class EmailService {
         throw error;
       }
 
-      console.log("Weekly status summary email sent successfully:", result?.id);
       return { success: true, messageId: result?.id };
     } catch (error) {
       console.error("Error sending weekly status summary email:", error);
@@ -183,12 +166,6 @@ class EmailService {
    */
   async sendBatchCompletion(data: BatchCompletionData, config: EmailConfig) {
     if (this.isDevelopmentMode || !this.resend) {
-      console.log(
-        "🚧 DEVELOPMENT MODE: Batch completion would be sent to",
-        config.to,
-        "for batch",
-        data.batchNumber
-      );
       return { success: true, messageId: "dev-mode-simulated", devMode: true };
     }
 
@@ -207,7 +184,6 @@ class EmailService {
         throw error;
       }
 
-      console.log("Batch completion email sent successfully:", result?.id);
       return { success: true, messageId: result?.id };
     } catch (error) {
       console.error("Error sending batch completion email:", error);
@@ -223,13 +199,6 @@ class EmailService {
     config: EmailConfig
   ) {
     if (this.isDevelopmentMode || !this.resend) {
-      console.log(
-        "🚧 DEVELOPMENT MODE: Stale model reminder would be sent to",
-        config.to,
-        "for",
-        data.staleModels.length,
-        "models"
-      );
       return { success: true, messageId: "dev-mode-simulated", devMode: true };
     }
 
@@ -248,7 +217,6 @@ class EmailService {
         throw error;
       }
 
-      console.log("Stale model reminder email sent successfully:", result?.id);
       return { success: true, messageId: result?.id };
     } catch (error) {
       console.error("Error sending stale model reminder email:", error);
@@ -263,12 +231,6 @@ class EmailService {
     config: EmailConfig & { html?: string; text?: string }
   ) {
     if (this.isDevelopmentMode || !this.resend) {
-      console.log(
-        "🚧 DEVELOPMENT MODE: Simple email would be sent to",
-        config.to,
-        "with subject",
-        config.subject
-      );
       return { success: true, messageId: "dev-mode-simulated", devMode: true };
     }
 
@@ -299,7 +261,6 @@ class EmailService {
         throw error;
       }
 
-      console.log("Simple email sent successfully:", result?.id);
       return { success: true, messageId: result?.id };
     } catch (error) {
       console.error("Error sending simple email:", error);
@@ -319,12 +280,6 @@ class EmailService {
     }
   ) {
     if (this.isDevelopmentMode || !this.resend) {
-      console.log(
-        "🚧 DEVELOPMENT MODE: Bulk email would be sent to",
-        config.to.length,
-        "recipients with subject",
-        config.subject
-      );
       return { success: true, messageId: "dev-mode-simulated", devMode: true };
     }
 
@@ -358,7 +313,6 @@ class EmailService {
         throw error;
       }
 
-      console.log("Bulk email sent successfully:", result?.id);
       return { success: true, messageId: result?.id };
     } catch (error) {
       console.error("Error sending bulk email:", error);
@@ -371,10 +325,6 @@ class EmailService {
    */
   async testEmailService(testEmail: string) {
     if (this.isDevelopmentMode || !this.resend) {
-      console.log(
-        "🚧 DEVELOPMENT MODE: Test email would be sent to",
-        testEmail
-      );
       return { success: true, messageId: "dev-mode-simulated", devMode: true };
     }
 
@@ -400,7 +350,6 @@ class EmailService {
         throw error;
       }
 
-      console.log("Email service test successful:", result?.id);
       return { success: true, messageId: result?.id };
     } catch (error) {
       console.error("Error testing email service:", error);

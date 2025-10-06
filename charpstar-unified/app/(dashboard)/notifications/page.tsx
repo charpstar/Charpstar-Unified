@@ -470,7 +470,6 @@ export default function NotificationsPage() {
 
   const deleteNotifications = async (notificationIds: string[]) => {
     try {
-      console.log("[notifications] Request delete IDs:", notificationIds);
       await notificationService.deleteNotifications(notificationIds);
 
       setNotifications((prev) =>

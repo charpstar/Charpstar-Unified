@@ -66,13 +66,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (fetchedRef.current) {
-      console.log(
-        "🚫 Dashboard stats already fetched, skipping duplicate call"
-      );
       return; // Prevent duplicate calls
     }
     fetchedRef.current = true;
-    console.log("🔄 Fetching dashboard stats...");
 
     const fetchDashboardData = async () => {
       try {
@@ -81,7 +77,6 @@ export default function DashboardPage() {
           if (response.ok) {
             const data = await response.json();
             setStats(data);
-            console.log("✅ Dashboard stats fetched successfully");
           }
         };
 

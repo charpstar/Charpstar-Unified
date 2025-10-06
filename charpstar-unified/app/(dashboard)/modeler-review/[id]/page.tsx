@@ -1137,9 +1137,6 @@ export default function ModelerReviewPage() {
             progress.status === "complete" ||
             progress.status === "error"
           ) {
-            console.log(
-              `Direct GLB upload: ${progress.progress}% - ${progress.fileName} (${progress.status})`
-            );
           }
         });
 
@@ -1239,15 +1236,11 @@ export default function ModelerReviewPage() {
       await fetchGlbHistory();
 
       // Fetch reference images and trigger QA
-      console.log("Fetching reference images for asset:", assetId);
       const refImages = await fetchReferenceImages();
-      console.log("Reference images found:", refImages.length);
 
       if (refImages.length > 0) {
-        console.log("Triggering QA dialog with images:", refImages);
         setUploadedGlbUrl(uploadResult.url);
         setShowQADialog(true);
-        console.log("QA dialog state set to true");
         // Only show success toast if not already shown for large files
         if (!isLargeFile) {
           toast.success(
@@ -1255,7 +1248,6 @@ export default function ModelerReviewPage() {
           );
         }
       } else {
-        console.log("No reference images found, skipping QA");
         // Only show success toast if not already shown for large files
         if (!isLargeFile) {
           toast.success("GLB file uploaded successfully!");
@@ -2059,10 +2051,6 @@ export default function ModelerReviewPage() {
                           }
                         } else if (qaApproved === true) {
                           // Deliver the model
-                          console.log(
-                            "Delivery button clicked. QA Approved:",
-                            qaApproved
-                          );
                           updateAssetStatus("delivered_by_artist");
                         }
                       }}
@@ -3459,7 +3447,6 @@ export default function ModelerReviewPage() {
           referenceImages={referenceImages}
           modelViewerRef={modelViewerRef}
           onComplete={(results) => {
-            console.log("QA completed:", results);
             setQaApproved(results?.status === "Approved");
             setShowQADialog(false);
             const isApproved = results?.status === "Approved";
@@ -3467,7 +3454,6 @@ export default function ModelerReviewPage() {
             toast.info(`QA Analysis Complete: ${results?.status}`);
             // If approved, automatically trigger delivery
             if (isApproved) {
-              console.log("QA approved - auto-delivering model");
               // Use the fresh 'isApproved' value, not the stale state
               updateAssetStatus("delivered_by_artist", {
                 qaStatus: true,

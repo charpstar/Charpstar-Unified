@@ -202,18 +202,13 @@ export default function OnboardClientPage() {
   }
 
   const convertSpreadsheetToCSV = async () => {
-    console.log("🔄 Starting conversion process...");
-
     // Check if we have CSV file to process
     if (csvFile) {
       await processCsvFile();
       return;
     }
 
-    console.log("📊 Spreadsheet data length:", spreadsheetData.length);
-
     if (!spreadsheetData.trim()) {
-      console.log("❌ No data provided");
       toast({
         title: "Error",
         description: "Please paste spreadsheet data or upload a CSV file",
@@ -222,14 +217,9 @@ export default function OnboardClientPage() {
       return;
     }
 
-    console.log("✅ Data validation passed, setting converting state...");
     setIsConverting(true);
 
     try {
-      console.log(
-        "🌐 Making API call to /api/production/convert-spreadsheet..."
-      );
-
       // Add timeout to prevent infinite hanging
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
@@ -247,16 +237,12 @@ export default function OnboardClientPage() {
 
       clearTimeout(timeoutId);
 
-      console.log("📡 Response received, status:", response.status);
       const result = await response.json();
-      console.log("📋 Response data:", result);
 
       if (!response.ok) {
-        console.log("❌ API returned error:", result.error);
         throw new Error(result.error || "Conversion failed");
       }
 
-      console.log("✅ Conversion successful, setting data...");
       setConvertedData(result.data);
       // Clear any existing generated URLs since we have new data
       setBunnyGeneratedUrls([]);
@@ -280,9 +266,6 @@ export default function OnboardClientPage() {
         variant: "destructive",
       });
     } finally {
-      console.log(
-        "🏁 Conversion process finished, setting converting to false"
-      );
       setIsConverting(false);
     }
   };
@@ -326,8 +309,6 @@ export default function OnboardClientPage() {
 
     setIsUploading(true);
     try {
-      console.log("📤 Uploading assets to onboarding_assets table...");
-
       const supabase = await createClient();
 
       // Prepare data for onboarding_assets table
@@ -358,8 +339,6 @@ export default function OnboardClientPage() {
         transferred: false,
       }));
 
-      console.log(`📊 Uploading ${assetsToUpload.length} assets...`);
-
       const { data, error } = await supabase
         .from("onboarding_assets")
         .insert(assetsToUpload)
@@ -369,8 +348,6 @@ export default function OnboardClientPage() {
         console.error("❌ Upload error:", error);
         throw error;
       }
-
-      console.log("✅ Successfully uploaded assets:", data?.length);
 
       toast({
         title: "Success",
@@ -554,7 +531,6 @@ export default function OnboardClientPage() {
     setIsProcessingCsv(true);
     try {
       const text = await csvFile.text();
-      console.log("CSV file content:", text);
 
       // Parse CSV content
       const lines = text.split("\n").filter((line) => line.trim());
@@ -566,20 +542,12 @@ export default function OnboardClientPage() {
 
       // Parse data rows (skip header)
       const csvData: ConvertedData[] = [];
-      console.log(`Processing ${lines.length - 1} data rows...`);
 
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
-        console.log(`Row ${i}: "${line}"`);
-
         const values = line.split(",").map((v) => v.trim().replace(/"/g, ""));
 
-        console.log(`Parsed values:`, values);
-
         if (values.length < 3) {
-          console.log(
-            `Skipping row ${i}: insufficient columns (${values.length})`
-          );
           continue; // Skip rows with less than 3 columns
         }
 
@@ -594,20 +562,12 @@ export default function OnboardClientPage() {
           glb_link: values[6] || undefined, // Can be provided in spreadsheet or set by URL generator
         };
 
-        console.log(`Mapped row:`, row);
-
         // Only require article_id and product_name (make category optional)
         if (row.article_id && row.product_name) {
           csvData.push(row);
-          console.log(`✅ Added row ${i}`);
         } else {
-          console.log(
-            `❌ Skipping row ${i}: missing required fields (article_id: "${row.article_id}", product_name: "${row.product_name}")`
-          );
         }
       }
-
-      console.log(`Total valid rows found: ${csvData.length}`);
 
       if (csvData.length === 0) {
         throw new Error(

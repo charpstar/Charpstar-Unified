@@ -51,17 +51,6 @@ export default function SceneRenderPage() {
       startLoading();
       setError(null);
 
-      console.log(
-        `🚀 Sending ${snapshots.length} camera angles to Gemini API:`,
-        {
-          angleCount: snapshots.length,
-          objectType,
-          objectSize,
-          sceneDescription: sceneDescription.substring(0, 50) + "...",
-          hasInspiration: !!inspirationImage,
-        }
-      );
-
       const response = await fetch("/api/scene-render", {
         method: "POST",
         headers: {
@@ -82,14 +71,8 @@ export default function SceneRenderPage() {
       }
 
       const data = await response.json();
-      console.log(
-        `📥 Received ${data.scenes?.length || 0} generated scenes from Gemini API`
-      );
 
       if (data.scenes && data.scenes.length > 0) {
-        console.log(
-          `✅ Successfully generated ${data.scenes.length} scenes from ${snapshots.length} camera angles`
-        );
         setGeneratedImages(data.scenes);
         setAppState("results");
       } else {

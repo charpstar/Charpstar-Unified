@@ -207,14 +207,6 @@ class NotificationService {
     await this.createNotification(notification);
 
     // TEMPORARILY DISABLED - No email notifications during bulk operations
-    console.log("[EMAIL DISABLED] Asset allocation email would be sent:", {
-      to: modelerEmail,
-      client,
-      allocationListName: "Allocation",
-      assetNames,
-      deadline,
-      bonus,
-    });
 
     /* ORIGINAL EMAIL CODE - TEMPORARILY COMMENTED OUT
     // Fire-and-forget email (if provider configured)
@@ -228,13 +220,6 @@ class NotificationService {
         deadline,
         bonus,
       } as any;
-      console.log("[notify] email -> /api/email/asset-allocation", {
-        to: payload.to,
-        client: payload.client,
-        assets: assetNames.length,
-        hasResend: Boolean(process.env.RESEND_API_KEY),
-        baseUrl,
-      });
       const res = await fetch(`${baseUrl}/api/email/asset-allocation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -245,7 +230,6 @@ class NotificationService {
         console.warn("[notify] email failed", res.status, txt);
       } else {
         const json = await res.json().catch(() => ({}) as any);
-        console.log("[notify] email ok", json);
       }
     } catch (e) {
       // Non-blocking; log and continue
@@ -444,10 +428,6 @@ class NotificationService {
           to: clientEmail,
           subject: `New Model Ready for Review - ${assetName}`,
         }
-      );
-
-      console.log(
-        `Model ready for review email sent to ${clientEmail} for ${assetName}`
       );
     } catch (error) {
       console.error("Failed to send model ready for review email:", error);
@@ -667,9 +647,6 @@ class NotificationService {
 
       // Check if today is the 28th of the month
       if (today.getDate() !== 28) {
-        console.log(
-          "Not the 28th of the month, skipping invoice deadline reminders"
-        );
         return;
       }
 
@@ -685,7 +662,6 @@ class NotificationService {
       }
 
       if (!modelers || modelers.length === 0) {
-        console.log("No modelers found for invoice deadline reminders");
         return;
       }
 
@@ -728,9 +704,6 @@ class NotificationService {
           }
 
           if (!completedAssets || completedAssets.length === 0) {
-            console.log(
-              `No completed assets found for modeler ${modeler.email} this month`
-            );
             continue;
           }
 
@@ -768,10 +741,6 @@ class NotificationService {
           );
         }
       }
-
-      console.log(
-        `✅ Invoice deadline reminders sent to ${modelers.length} modelers`
-      );
 
       // Trigger global notification update
       if (typeof window !== "undefined") {
@@ -883,9 +852,6 @@ class NotificationService {
         );
         // Continue with creation even if check fails
       } else if (existingNotifications && existingNotifications.length > 0) {
-        console.log(
-          `Skipping duplicate product submission notification for ${client} batch ${batch}`
-        );
         return; // Skip creating duplicate notification
       }
 
@@ -1302,10 +1268,7 @@ class NotificationService {
       try {
         const { data } = await supabase.auth.getUser();
         recipientId = data?.user?.id ?? null;
-        console.log("[notifications] auth user:", recipientId);
       } catch {}
-
-      console.log("[notifications] Deleting IDs:", notificationIds);
 
       let query = supabase
         .from("notifications")
@@ -1320,11 +1283,6 @@ class NotificationService {
         console.error("Error deleting notifications:", error);
         throw error;
       }
-
-      console.log(
-        "[notifications] Deleted rows:",
-        Array.isArray(data) ? data.map((d: any) => d.id) : data
-      );
     } catch (error) {
       console.error("Failed to delete notifications:", error);
       throw error;
@@ -1628,20 +1586,6 @@ class NotificationService {
     batch: number
   ): Promise<void> {
     // TEMPORARILY DISABLED - No client notifications during bulk operations
-    console.log(
-      "[NOTIFICATION DISABLED] Client list progress notification would be sent:",
-      {
-        clientId,
-        clientEmail,
-        allocationListId,
-        allocationListName,
-        completionPercentage,
-        completedAssets,
-        totalAssets,
-        client,
-        batch,
-      }
-    );
     return;
 
     /* ORIGINAL CODE - TEMPORARILY COMMENTED OUT

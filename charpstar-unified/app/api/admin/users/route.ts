@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user in Supabase Auth
-    console.log("Creating user with email:", email);
+
     const { data: authUser, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
         email,
@@ -57,10 +57,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Generated user ID:", authUser.user.id);
-    console.log("User email:", authUser.user.email);
-    console.log("User created at:", authUser.user.created_at);
-
     // Check if this UUID already exists in profiles table
     const { data: existingUser } = await supabaseAdmin
       .from("profiles")
@@ -69,11 +65,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingUser) {
-      console.log(
-        "User already exists, updating instead of creating new one:",
-        existingUser
-      );
-
       // Update the existing user with the new data
       const { error: updateError } = await supabaseAdmin
         .from("profiles")

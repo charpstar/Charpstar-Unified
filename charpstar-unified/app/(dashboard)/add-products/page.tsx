@@ -143,7 +143,6 @@ export default function AddProductsPage() {
       }
 
       const result = await response.json();
-      console.log("Images collected successfully:", result.message);
     } catch (error) {
       console.error("Error collecting images:", error);
       console.warn(

@@ -512,27 +512,13 @@ export default function ReviewPage() {
 
         if (!clientError && clientData) {
           setClientViewerType(clientData.viewer_type);
-          console.log("🎯 Client viewer type:", clientData.viewer_type);
-          console.log(
-            "🎯 Viewer parameters:",
-            getViewerParameters(clientData.viewer_type)
-          );
         } else {
           // If no client found, default to null (will use default viewer)
           setClientViewerType(null);
-          console.log(
-            "🎯 No client viewer type found, using default parameters"
-          );
-          console.log(
-            "🎯 Default viewer parameters:",
-            getViewerParameters(null)
-          );
         }
       } catch (error) {
         console.error("Error fetching client viewer type:", error);
         setClientViewerType(null);
-        console.log("🎯 Error fetching viewer type, using default parameters");
-        console.log("🎯 Default viewer parameters:", getViewerParameters(null));
       }
 
       // Set revision count - fallback to revision history if asset record is outdated
@@ -795,25 +781,20 @@ export default function ReviewPage() {
 
   // Handle model load
   const handleModelLoaded = () => {
-    console.log("Model loaded, starting 30-second timer for tooltip");
     setModelLoaded(true);
     // Hide tooltip after 30 seconds
     setTimeout(() => {
-      console.log("30 seconds elapsed, hiding tooltip");
       setShowTooltip(false);
     }, 5000);
   };
 
   // Auto-hide tooltip after 30 seconds regardless of model load state
   useEffect(() => {
-    console.log("Component mounted, starting 30-second timer for tooltip");
     const timer = setTimeout(() => {
-      console.log("30 seconds elapsed, hiding tooltip");
       setShowTooltip(false);
     }, 5000);
 
     return () => {
-      console.log("Cleaning up tooltip timer");
       clearTimeout(timer);
     };
   }, []); // Empty dependency array - runs once on mount
@@ -1584,19 +1565,6 @@ export default function ReviewPage() {
         new Date(comment.created_at).getTime() > lastRevisionTime
     );
 
-    console.log(
-      "Debug - hasClientFeedback - Last revision time:",
-      lastRevisionTime
-    );
-    console.log(
-      "Debug - hasClientFeedback - Client annotations count (new):",
-      clientAnnotations.length
-    );
-    console.log(
-      "Debug - hasClientFeedback - Client comments count (new):",
-      clientComments.length
-    );
-
     return clientAnnotations.length > 0 || clientComments.length > 0;
   };
 
@@ -1615,14 +1583,6 @@ export default function ReviewPage() {
       ? new Date(lastRevision.created_at).getTime()
       : 0;
 
-    console.log("Debug - hasQAFeedback - Current revision:", currentRevision);
-    console.log("Debug - hasQAFeedback - User ID:", user?.id);
-    console.log(
-      "Debug - hasQAFeedback - Last revision time:",
-      lastRevisionTime
-    );
-    console.log("Debug - hasQAFeedback - Last revision:", lastRevision);
-
     // Check if there are any annotations created by the current QA user since the last revision
     const qaAnnotations = annotations.filter(
       (annotation) =>
@@ -1637,82 +1597,36 @@ export default function ReviewPage() {
         new Date(comment.created_at).getTime() > lastRevisionTime
     );
 
-    console.log(
-      "Debug - hasQAFeedback - QA annotations count (new):",
-      qaAnnotations.length
-    );
-    console.log(
-      "Debug - hasQAFeedback - QA comments count (new):",
-      qaComments.length
-    );
-    console.log(
-      "Debug - hasQAFeedback - New annotations:",
-      qaAnnotations.map((a) => ({
-        id: a.id,
-        created_by: a.created_by,
-        created_at: a.created_at,
-      }))
-    );
-    console.log(
-      "Debug - hasQAFeedback - New comments:",
-      qaComments.map((c) => ({
-        id: c.id,
-        created_by: c.created_by,
-        created_at: c.created_at,
-      }))
-    );
-
     // If this is the first revision (revision 1), any feedback is valid
     if (currentRevision === 0) {
       const hasFeedback = qaAnnotations.length > 0 || qaComments.length > 0;
-      console.log(
-        "Debug - hasQAFeedback - First revision, has feedback:",
-        hasFeedback
-      );
       return hasFeedback;
     }
 
     // For subsequent revisions, check for new feedback since the last revision
     const hasFeedback = qaAnnotations.length > 0 || qaComments.length > 0;
-    console.log(
-      "Debug - hasQAFeedback - Subsequent revision, has new feedback:",
-      hasFeedback
-    );
     return hasFeedback;
   };
 
   // Comprehensive feedback validation for both clients and QA
   const hasValidFeedback = () => {
     const userRole = user?.metadata?.role;
-    console.log("Debug - hasValidFeedback - User role:", userRole);
-    console.log("Debug - hasValidFeedback - User role type:", typeof userRole);
-    console.log("Debug - hasValidFeedback - User object:", user);
-    console.log("Debug - hasValidFeedback - Annotations:", annotations.length);
-    console.log("Debug - hasValidFeedback - Comments:", comments.length);
 
     // Check for exact role matches (case-insensitive)
     const normalizedRole = userRole?.toLowerCase?.();
     if (normalizedRole === "client") {
       const hasFeedback = hasClientFeedback();
-      console.log("Debug - hasValidFeedback - Client feedback:", hasFeedback);
       return hasFeedback;
     } else if (normalizedRole === "qa") {
       const hasFeedback = hasQAFeedback();
-      console.log("Debug - hasValidFeedback - QA feedback:", hasFeedback);
       return hasFeedback;
     }
 
     // For other roles (admin, etc.), allow revisions without feedback validation
-    console.log("Debug - hasValidFeedback - Other role, allowing revision");
     return true;
   };
 
   const updateAssetStatus = async (newStatus: string, skipDialog = false) => {
-    console.log("updateAssetStatus called with:", {
-      newStatus,
-      skipDialog,
-      assetId,
-    });
     if (!assetId) return;
 
     // Prevent revision for assets that are not started or already approved by client
@@ -1738,16 +1652,6 @@ export default function ReviewPage() {
       const userRole = user?.metadata?.role;
 
       // Check if user has provided valid feedback before allowing revision
-      console.log("Debug - User role:", userRole);
-      console.log("Debug - Has valid feedback:", hasValidFeedback());
-      console.log(
-        "Debug - Annotations count:",
-        annotations.filter((a) => a.created_by === user?.id).length
-      );
-      console.log(
-        "Debug - Comments count:",
-        comments.filter((c) => c.created_by === user?.id).length
-      );
 
       if (!hasValidFeedback()) {
         // eslint-disable-next-line
@@ -1773,10 +1677,6 @@ export default function ReviewPage() {
     setStatusUpdating(true);
 
     try {
-      console.log("About to call API for status update:", {
-        assetId,
-        newStatus,
-      });
       // Use the complete API endpoint for proper allocation list handling
       const response = await fetch("/api/assets/complete", {
         method: "POST",
@@ -1799,7 +1699,6 @@ export default function ReviewPage() {
       }
 
       const result = await response.json();
-      console.log("API response:", result);
 
       // Handle notification sending based on status changes
       if (newStatus === "revisions" || newStatus === "client_revision") {
@@ -1976,10 +1875,6 @@ export default function ReviewPage() {
           }
 
           // TEMPORARILY DISABLED - No client notifications during bulk operations
-          console.log(
-            "[NOTIFICATION DISABLED] Client review ready notification would be sent for asset:",
-            assetId
-          );
 
           /* ORIGINAL CODE - TEMPORARILY COMMENTED OUT
           // Send client review ready notification to client
@@ -3030,13 +2925,6 @@ export default function ReviewPage() {
         const isQAReplyingToClient =
           user?.metadata?.role === "qa" && parentAuthorRole === "client";
 
-        console.log("Reply debug:", {
-          userRole: user?.metadata?.role,
-          parentAuthorRole,
-          isQAReplyingToClient,
-          parentComment,
-        });
-
         if (isQAReplyingToClient) {
           // QA replying to client - requires admin approval
           const response = await fetch("/api/pending-replies", {
@@ -3499,12 +3387,6 @@ export default function ReviewPage() {
                     const userRole = user?.metadata?.role?.toLowerCase?.();
                     const newStatus =
                       userRole === "client" ? "client_revision" : "revisions";
-                    console.log("Frontend sending status:", {
-                      userRole: user?.metadata?.role,
-                      normalizedRole: userRole,
-                      newStatus,
-                      userId: user?.id,
-                    });
                     updateAssetStatus(newStatus);
                   }}
                   disabled={

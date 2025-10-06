@@ -111,7 +111,6 @@ export default function ReferenceImagesPage() {
     const fetchAssets = async () => {
       if (!user?.metadata?.client) return;
       setFetching(true);
-      console.log("🔍 Fetching assets for client:", user.metadata.client);
 
       const { data, error } = await supabase
         .from("onboarding_assets")
@@ -119,11 +118,6 @@ export default function ReferenceImagesPage() {
         .eq("client", user.metadata.client)
         .eq("transferred", false)
         .eq("new_upload", true); // Only show assets uploaded via CSV in step 1
-
-      console.log("📊 Query result:", {
-        data: data?.length,
-        error: error?.message,
-      });
 
       if (error) {
         console.error("❌ Error fetching assets:", error);
@@ -133,7 +127,6 @@ export default function ReferenceImagesPage() {
           variant: "destructive",
         });
       } else {
-        console.log("✅ Assets found:", data?.length);
         // Sort assets by article_id
         const sortedData = (data || []).sort((a, b) => {
           const articleIdA = a.article_id || "";
@@ -151,7 +144,6 @@ export default function ReferenceImagesPage() {
   const refreshAssetsData = async () => {
     try {
       setFetching(true);
-      console.log("🔄 Refreshing assets for client:", user?.metadata?.client);
 
       const { data, error } = await supabase
         .from("onboarding_assets")
@@ -161,17 +153,11 @@ export default function ReferenceImagesPage() {
         .eq("new_upload", true)
         .order("created_at", { ascending: false });
 
-      console.log("🔄 Refresh result:", {
-        data: data?.length,
-        error: error?.message,
-      });
-
       if (error) {
         console.error("❌ Error fetching assets:", error);
         return;
       }
 
-      console.log("✅ Refresh successful, assets found:", data?.length);
       setAssets(data || []);
     } catch (error) {
       console.error("❌ Error refreshing assets:", error);

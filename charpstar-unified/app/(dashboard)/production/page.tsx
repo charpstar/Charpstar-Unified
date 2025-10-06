@@ -539,7 +539,7 @@ export default function ProductionDashboard() {
       };
 
       // Debug: Check if we're still limited to 1000
-      console.log("Assets fetched with range(0, 9999):", data.assetData.length);
+
       if (data.assetData.length === 1000) {
         console.warn(
           "Still limited to 1000 assets - Supabase may have a global limit"

@@ -409,7 +409,6 @@ export default function AdminReviewPage() {
   const urlBatch = searchParams.get("batch");
 
   // Debug URL parameters
-  console.log("URL parameters on render:", { urlClient, urlBatch });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [clients, setClients] = useState<string[]>([]);
   const [modelers, setModelers] = useState<
@@ -557,17 +556,12 @@ export default function AdminReviewPage() {
         .order("upload_order", { ascending: true });
 
       // Apply URL parameter filters
-      console.log("URL parameters:", { urlClient, urlBatch });
       if (urlClient) {
         query = query.eq("client", urlClient);
-        console.log("Applied client filter:", urlClient);
       }
       if (urlBatch) {
         query = query.eq("batch", parseInt(urlBatch));
-        console.log("Applied batch filter:", urlBatch);
       }
-
-      console.log("Query after URL filters applied");
 
       // If modeler filters are applied, only fetch assets assigned to those modelers
       if (modelerFilters && modelerFilters.length > 0) {
@@ -607,13 +601,6 @@ export default function AdminReviewPage() {
         return;
       }
 
-      console.log("Fetched assets count:", (data || []).length);
-      console.log(
-        "Sample assets:",
-        (data || [])
-          .slice(0, 3)
-          .map((a) => ({ client: a.client, batch: a.batch, status: a.status }))
-      );
       setAssets(data || []);
       setFiltered(data || []);
     } catch (error) {
@@ -878,10 +865,6 @@ export default function AdminReviewPage() {
         return;
       }
 
-      console.log(
-        `Found ${stuckAssets.length} stuck assets in selection to fix`
-      );
-
       // Update each asset using the complete API to trigger auto-transfer
       let successCount = 0;
       let errorCount = 0;
@@ -901,9 +884,6 @@ export default function AdminReviewPage() {
 
           if (response.ok) {
             successCount++;
-            console.log(
-              `✅ Fixed: ${asset.article_id} - ${asset.product_name}`
-            );
           } else {
             const errorData = await response.json();
             console.error(
@@ -1348,8 +1328,6 @@ export default function AdminReviewPage() {
     } else {
       // Use the assets array which is already filtered by URL parameters in fetchAssets
       const dataLength = assets.length;
-      console.log("Status totals calculation - assets count:", dataLength);
-      console.log("URL params in status totals:", { urlClient, urlBatch });
 
       const totals = {
         total: dataLength,
@@ -1608,14 +1586,8 @@ export default function AdminReviewPage() {
 
       // Wait for searchParams to be available
       if (!searchParams) {
-        console.log("SearchParams not available yet, skipping fetchAssets");
         return;
       }
-
-      console.log("fetchAssets called with URL params:", {
-        urlClient,
-        urlBatch,
-      });
       startLoading();
       setLoading(true);
 
@@ -1645,11 +1617,9 @@ export default function AdminReviewPage() {
       // Apply URL parameter filters
       if (urlClient) {
         query = query.eq("client", urlClient);
-        console.log("Applied client filter:", urlClient);
       }
       if (urlBatch) {
         query = query.eq("batch", parseInt(urlBatch));
-        console.log("Applied batch filter:", urlBatch);
       }
 
       // If modeler filters are applied, only fetch assets assigned to those modelers

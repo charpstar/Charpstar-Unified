@@ -963,9 +963,6 @@ export default function BatchDetailPage() {
             progress.status === "complete" ||
             progress.status === "error"
           ) {
-            console.log(
-              `Direct GLB upload: ${progress.progress}% - ${progress.fileName} (${progress.status})`
-            );
           }
         });
 
@@ -1095,9 +1092,6 @@ export default function BatchDetailPage() {
             progress.status === "complete" ||
             progress.status === "error"
           ) {
-            console.log(
-              `Direct upload: ${progress.progress}% - ${progress.fileName} (${progress.status})`
-            );
           }
         });
 

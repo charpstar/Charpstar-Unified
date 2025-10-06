@@ -160,7 +160,6 @@ export async function POST(request: NextRequest) {
           .update({ status: "failed" })
           .eq("id", invitation.id);
       } else {
-        console.log("Invitation email sent successfully via Resend");
       }
     } catch (emailError) {
       console.error("Error sending invitation email:", emailError);

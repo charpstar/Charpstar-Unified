@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
 
     const { assetId, status, revisionCount } = await request.json();
 
-    console.log("API received:", {
       assetId,
       status,
       revisionCount,
@@ -50,7 +49,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("User profile role:", profile?.role);
 
     // Enforce role on client approval - allow both clients and admins
     if (
@@ -71,11 +69,9 @@ export async function POST(request: NextRequest) {
 
     // Update the asset status
     const updateData: any = { status };
-    console.log("About to update asset with:", { updateData, status });
 
     // Test if the status is valid by checking the database schema
     if (status === "client_revision") {
-      console.log("Testing client_revision status - this is a new enum value");
     }
 
     // On revisions, increment revision_count immediately and log the revision action
@@ -108,7 +104,6 @@ export async function POST(request: NextRequest) {
       .update(updateData)
       .eq("id", assetId);
 
-    console.log("Database update result:", { assetError, updateData });
 
     if (assetError) {
       console.error("Error updating asset status:", assetError);
@@ -122,7 +117,6 @@ export async function POST(request: NextRequest) {
 
     // Auto-transfer approved assets to assets table (do this before other logic)
     if (status === "approved_by_client") {
-      console.log("Starting auto-transfer for asset:", assetId);
       try {
         // Get the onboarding asset for transfer
         const { data: onboardingAsset, error: fetchError } = await supabase
@@ -132,13 +126,11 @@ export async function POST(request: NextRequest) {
           .eq("transferred", false)
           .single();
 
-        console.log("Onboarding asset fetch result:", {
           onboardingAsset: !!onboardingAsset,
           fetchError: fetchError?.message,
         });
 
         if (!fetchError && onboardingAsset) {
-          console.log("Onboarding asset found:", {
             id: onboardingAsset.id,
             product_name: onboardingAsset.product_name,
             article_id: onboardingAsset.article_id,
@@ -149,7 +141,6 @@ export async function POST(request: NextRequest) {
 
           // Double-check that the asset has the correct status
           if (onboardingAsset.status !== "approved_by_client") {
-            console.log(
               "Asset status mismatch, skipping transfer:",
               onboardingAsset.status
             );
@@ -167,7 +158,6 @@ export async function POST(request: NextRequest) {
             .eq("client", onboardingAsset.client)
             .single();
 
-          console.log("Existing asset check:", {
             existingAsset: !!existingAsset,
           });
 
@@ -195,14 +185,12 @@ export async function POST(request: NextRequest) {
             };
 
             // Insert into assets table
-            console.log("Inserting asset data:", assetData);
             const { data: newAsset, error: insertError } = await supabase
               .from("assets")
               .insert(assetData)
               .select()
               .single();
 
-            console.log("Asset insert result:", {
               newAsset: !!newAsset,
               insertError: insertError?.message,
             });
@@ -232,12 +220,10 @@ export async function POST(request: NextRequest) {
                 },
               });
 
-              console.log("Asset automatically transferred to assets table");
 
               // Copy GLB file to Android folder for approved assets
               if (onboardingAsset.glb_link) {
                 try {
-                  console.log(
                     "Copying GLB file to Android folder:",
                     onboardingAsset.glb_link
                   );
@@ -282,7 +268,6 @@ export async function POST(request: NextRequest) {
 
                       if (androidUploadResponse.ok) {
                         const androidUrl = `${cdnBaseUrl}/${androidPath}`;
-                        console.log(
                           "GLB file copied to Android folder:",
                           androidUrl
                         );
@@ -332,7 +317,6 @@ export async function POST(request: NextRequest) {
                   // Don't fail the transfer if Android copy fails
                 }
               } else {
-                console.log("No GLB file to copy to Android folder");
               }
             } else {
               console.warn(
@@ -341,7 +325,6 @@ export async function POST(request: NextRequest) {
               );
             }
           } else {
-            console.log(
               "Asset already exists in assets table, skipping insert but marking as transferred"
             );
 
@@ -369,7 +352,6 @@ export async function POST(request: NextRequest) {
               },
             });
 
-            console.log(
               "Asset marked as transferred (already existed in assets table)"
             );
           }
@@ -430,7 +412,6 @@ export async function POST(request: NextRequest) {
       .eq("id", assetId)
       .single();
 
-    console.log("Verification query result:", { verifyAsset, verifyError });
 
     // Mark annotations as old when setting status to revisions
     // Only mark as old if the annotation has been through 2+ revision cycles since creation
@@ -507,7 +488,6 @@ export async function POST(request: NextRequest) {
                 console.error("Error marking old annotations:", markOldError);
                 // Don't fail the main request if annotation marking fails
               } else {
-                console.log(
                   `Marked ${annotationsToMarkOld.length} annotations as old`
                 );
               }
@@ -716,7 +696,6 @@ export async function POST(request: NextRequest) {
                   .single();
 
                 // TEMPORARILY DISABLED - No client notifications during bulk operations
-                console.log(
                   "[NOTIFICATION DISABLED] Client list progress notification would be sent:",
                   {
                     clientProfile: clientProfile?.id,
