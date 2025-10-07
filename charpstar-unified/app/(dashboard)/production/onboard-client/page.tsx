@@ -60,6 +60,7 @@ interface ConvertedData {
   category: string;
   subcategory: string;
   glb_link?: string;
+  active?: boolean;
 }
 
 export default function OnboardClientPage() {
@@ -274,10 +275,10 @@ export default function OnboardClientPage() {
     if (convertedData.length === 0) return;
 
     const csvContent = [
-      "Article ID,Product Name,Product Link,CAD/File Link,Category,Subcategory,GLB Link",
+      "Article ID,Product Name,Product Link,CAD/File Link,Category,Subcategory,GLB Link,Active",
       ...convertedData.map(
         (row) =>
-          `"${row.article_id}","${row.product_name}","${row.product_link}","${row.cad_file_link}","${row.category}","${row.subcategory}","${row.glb_link || ""}"`
+          `"${row.article_id}","${row.product_name}","${row.product_link}","${row.cad_file_link}","${row.category}","${row.subcategory}","${row.glb_link || ""}","${row.active !== undefined ? row.active : true}"`
       ),
     ].join("\n");
 
@@ -337,6 +338,7 @@ export default function OnboardClientPage() {
         pricing_comment: null,
         tags: null,
         transferred: false,
+        active: item.active !== undefined ? item.active : true, // Default to true if not specified
       }));
 
       const { error } = await supabase
@@ -476,10 +478,10 @@ export default function OnboardClientPage() {
 
   const downloadTemplate = () => {
     const templateData = [
-      "Article ID,Product Name,Product Link,CAD/File Link,Category,Subcategory,GLB Link",
-      "EXAMPLE-001,Sample Product 1,https://example.com/product1,https://example.com/cad1,Furniture,Chairs,https://cdn.example.com/models/EXAMPLE-001.glb",
-      "EXAMPLE-002,Sample Product 2,https://example.com/product2,https://example.com/cad2,Furniture,Tables,https://cdn.example.com/models/EXAMPLE-002.glb",
-      "EXAMPLE-003,Sample Product 3,https://example.com/product3,https://example.com/cad3,Lighting,Floor Lamps,https://cdn.example.com/models/EXAMPLE-003.glb",
+      "Article ID,Product Name,Product Link,CAD/File Link,Category,Subcategory,GLB Link,Active",
+      "EXAMPLE-001,Sample Product 1,https://example.com/product1,https://example.com/cad1,Furniture,Chairs,https://cdn.example.com/models/EXAMPLE-001.glb,true",
+      "EXAMPLE-002,Sample Product 2,https://example.com/product2,https://example.com/cad2,Furniture,Tables,https://cdn.example.com/models/EXAMPLE-002.glb,true",
+      "EXAMPLE-003,Sample Product 3,https://example.com/product3,https://example.com/cad3,Lighting,Floor Lamps,https://cdn.example.com/models/EXAMPLE-003.glb,false",
     ].join("\n");
 
     const blob = new Blob([templateData], { type: "text/csv" });
@@ -560,6 +562,7 @@ export default function OnboardClientPage() {
           category: values[4] || "",
           subcategory: values[5] || "",
           glb_link: values[6] || undefined, // Can be provided in spreadsheet or set by URL generator
+          active: values[7] ? values[7].toLowerCase() === "true" : true, // Default to true if not specified
         };
 
         // Only require article_id and product_name (make category optional)
@@ -771,7 +774,7 @@ export default function OnboardClientPage() {
                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                       Upload a CSV file with columns: Article ID, Product Name,
                       Product Link, CAD/File Link, Category, Subcategory, GLB
-                      Link (optional)
+                      Link (optional), Active (true/false, optional)
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1273,6 +1276,7 @@ export default function OnboardClientPage() {
                   <TableHead className="min-w-[120px]">Subcategory</TableHead>
                   <TableHead className="min-w-[80px]">Priority</TableHead>
                   <TableHead className="min-w-[100px]">GLB Link</TableHead>
+                  <TableHead className="min-w-[80px]">Active</TableHead>
                   <TableHead className="min-w-[200px]">Product Link</TableHead>
                   <TableHead className="min-w-[200px]">CAD Link</TableHead>
                 </TableRow>
@@ -1325,6 +1329,15 @@ export default function OnboardClientPage() {
                       ) : (
                         <span className="text-xs text-slate-500">-</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          item.active !== false ? "default" : "secondary"
+                        }
+                      >
+                        {item.active !== false ? "Active" : "Inactive"}
+                      </Badge>
                     </TableCell>
                     <TableCell className="max-w-[200px]">
                       {item.product_link ? (
@@ -1391,6 +1404,12 @@ export default function OnboardClientPage() {
                         (d) => !d.subcategory || d.subcategory.trim() === ""
                       ).length
                     }
+                  </strong>
+                </li>
+                <li>
+                  Inactive Assets:{" "}
+                  <strong className="text-slate-600 dark:text-slate-400">
+                    {convertedData.filter((d) => d.active === false).length}
                   </strong>
                 </li>
               </ul>

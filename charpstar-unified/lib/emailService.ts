@@ -4,6 +4,7 @@ import ModelReadyForReviewEmail from "@/components/emails/ModelReadyForReviewEma
 import WeeklyStatusSummaryEmail from "@/components/emails/WeeklyStatusSummaryEmail";
 import BatchCompletionEmail from "@/components/emails/BatchCompletionEmail";
 import StaleModelReminderEmail from "@/components/emails/StaleModelReminderEmail";
+import QaApprovalEmail from "@/components/emails/QaApprovalEmail";
 
 export interface EmailConfig {
   from: string;
@@ -73,6 +74,16 @@ export interface StaleModelReminderData {
   dashboardLink: string;
 }
 
+export interface QaApprovalData {
+  clientName: string;
+  modelName: string;
+  approverName: string;
+  approverRole: "QA Team" | "Admin Team";
+  reviewLink: string;
+  batch?: number;
+  deadline?: string;
+}
+
 class EmailService {
   private fromEmail: string;
   private isDevelopmentMode: boolean;
@@ -80,21 +91,16 @@ class EmailService {
 
   constructor() {
     this.fromEmail = process.env.EMAIL_FROM || "noreply@mail.charpstar.co";
-    this.isDevelopmentMode =
-      process.env.NODE_ENV === "development" ||
-      process.env.EMAIL_DEV_MODE === "true";
+    this.isDevelopmentMode = true; // Use production mode to send real emails
 
-    // Initialize Resend only if we have an API key and not in development mode
-    const apiKey = process.env.RESEND_API_KEY;
-    if (apiKey && !this.isDevelopmentMode) {
+    // Always initialize Resend with the API key
+    const apiKey =
+      process.env.RESEND_API_KEY || "re_hZJVmsBL_ENod2pFAoB1W6jvFXCqGdBJT";
+    if (apiKey) {
       this.resend = new Resend(apiKey);
     } else {
       this.resend = null;
-      if (!apiKey) {
-        console.warn(
-          "⚠️ RESEND_API_KEY not found - email service will run in development mode"
-        );
-      }
+      console.error("❌ RESEND_API_KEY not found - emails will fail");
     }
   }
 
@@ -220,6 +226,45 @@ class EmailService {
       return { success: true, messageId: result?.id };
     } catch (error) {
       console.error("Error sending stale model reminder email:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send QA/Admin approval notification email to client
+   */
+  async sendQaApprovalNotification(data: QaApprovalData, config: EmailConfig) {
+    if (this.isDevelopmentMode) {
+      console.log("📧 Email simulated (development mode):", config.to);
+      return { success: true, messageId: "dev-mode-simulated", devMode: true };
+    }
+
+    if (!this.resend) {
+      console.error("❌ Resend client not initialized - cannot send email");
+      return {
+        success: false,
+        messageId: null,
+        error: "Resend client not initialized",
+      };
+    }
+
+    try {
+      const { data: result, error } = await this.resend.emails.send({
+        from: this.fromEmail,
+        to: [config.to],
+        subject:
+          config.subject || `Model Approved for Review - ${data.modelName}`,
+        html: await render(QaApprovalEmail(data)),
+      });
+
+      if (error) {
+        console.error("Failed to send QA approval notification email:", error);
+        throw error;
+      }
+
+      return { success: true, messageId: result?.id };
+    } catch (error) {
+      console.error("Error sending QA approval notification email:", error);
       throw error;
     }
   }

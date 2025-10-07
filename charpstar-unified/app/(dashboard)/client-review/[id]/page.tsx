@@ -1677,21 +1677,63 @@ export default function ReviewPage() {
     setStatusUpdating(true);
 
     try {
-      // Use the complete API endpoint for proper allocation list handling
-      const response = await fetch("/api/assets/complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          assetId,
+      // For QA/Admin approvals, use simple status update
+      // For client approvals, use the complete API endpoint for proper allocation list handling
+      let response;
+
+      if (
+        (newStatus === "approved" ||
+          newStatus === "revisions" ||
+          newStatus === "client_revision" ||
+          newStatus === "in_progress" ||
+          newStatus === "in_production") &&
+        (user?.metadata?.role === "qa" || user?.metadata?.role === "admin")
+      ) {
+        // Simple status update for QA/Admin approvals and revisions
+        const updateData: any = {
           status: newStatus,
-          revisionCount:
-            newStatus === "revisions" || newStatus === "client_revision"
-              ? revisionCount
-              : undefined,
-        }),
-      });
+        };
+
+        // Add revision count if provided
+        if (newStatus === "revisions" || newStatus === "client_revision") {
+          updateData.revision_count = revisionCount;
+        }
+
+        const { error: updateError } = await supabase
+          .from("onboarding_assets")
+          .update(updateData)
+          .eq("id", assetId);
+
+        if (updateError) {
+          throw new Error(`Failed to update status: ${updateError.message}`);
+        }
+
+        // Create a mock response object for consistency
+        response = {
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              message: "Status updated successfully",
+            }),
+        };
+      } else {
+        // Use the complete API endpoint for other status updates (client approvals, revisions, etc.)
+        response = await fetch("/api/assets/complete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            assetId,
+            status: newStatus,
+            revisionCount:
+              newStatus === "revisions" || newStatus === "client_revision"
+                ? revisionCount
+                : undefined,
+          }),
+        });
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -1874,10 +1916,7 @@ export default function ReviewPage() {
             }
           }
 
-          // TEMPORARILY DISABLED - No client notifications during bulk operations
-
-          /* ORIGINAL CODE - TEMPORARILY COMMENTED OUT
-          // Send client review ready notification to client
+          // Send email notification to client when QA/Admin approves
           const { data: clientProfile, error: clientError } = await supabase
             .from("profiles")
             .select("id, email")
@@ -1886,18 +1925,65 @@ export default function ReviewPage() {
             .single();
 
           if (!clientError && clientProfile && asset) {
-            const modelerName = modelerProfile?.title || "Modeler Team";
+            try {
+              // Determine approver role and name
+              const approverRole =
+                user?.metadata?.role === "admin" ? "Admin Team" : "QA Team";
+              const approverName =
+                user?.user_metadata?.name || user?.email || approverRole;
 
-            await notificationService.sendClientReviewReadyNotification(
-              assetId,
-              clientProfile.id,
-              clientProfile.email,
-              asset.product_name,
-              (asset as any).client,
-              modelerName
-            );
+              // Create review link
+              const reviewLink = `${window.location.origin}/client-review/${assetId}`;
+
+              // Send email notification to client via API route
+              const emailResponse = await fetch("/api/email/send-qa-approval", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  clientName: (asset as any).client,
+                  modelName: asset.product_name,
+                  approverName: approverName,
+                  approverRole: approverRole,
+                  reviewLink: reviewLink,
+                  batch: (asset as any).batch,
+                  deadline: asset.delivery_date,
+                  to: clientProfile.email,
+                  subject: `Model Approved for Review - ${asset.product_name}`,
+                }),
+              });
+
+              const emailResult = await emailResponse.json();
+
+              if (emailResult.success) {
+                if (emailResult.devMode) {
+                  console.log(
+                    "📧 Email simulated (development mode):",
+                    clientProfile.email
+                  );
+                } else {
+                  console.log(
+                    "✅ QA approval email sent to client:",
+                    clientProfile.email,
+                    "Message ID:",
+                    emailResult.messageId
+                  );
+                }
+              } else {
+                console.error(
+                  "❌ Failed to send QA approval email:",
+                  emailResult.error
+                );
+              }
+            } catch (emailError) {
+              console.error(
+                "❌ Failed to send QA approval email to client:",
+                emailError
+              );
+              // Don't throw - email failures shouldn't block the approval process
+            }
           }
-          */
         } catch (error) {
           console.error("❌ Failed to send approval notifications:", error);
         }
