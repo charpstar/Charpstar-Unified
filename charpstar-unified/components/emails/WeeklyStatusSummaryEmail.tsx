@@ -5,9 +5,8 @@ interface WeeklyStatusSummaryEmailProps {
   summaryData: {
     totalModels: number;
     completedModels: number;
-    inProgressModels: number;
+    readyForReviewModels: number;
     pendingModels: number;
-    revisionModels: number;
     completionPercentage: number;
     batches: Array<{
       batchNumber: number;
@@ -48,11 +47,11 @@ export default function WeeklyStatusSummaryEmail({
           style={{
             background:
               'url("https://tpamckewerybqzhhhqqp.supabase.co/storage/v1/object/public/maillogo/6%20(1).png") no-repeat center center',
-            backgroundSize: "contain",
-            height: "180px",
+            backgroundSize: "120% auto",
+            height: "120px",
             width: "100%",
-            maxWidth: "400px",
-            margin: "0 auto 40px auto",
+            maxWidth: "300px",
+            margin: "0 auto 15px auto",
             display: "block",
           }}
         />
@@ -78,8 +77,10 @@ export default function WeeklyStatusSummaryEmail({
             marginBottom: "25px",
           }}
         >
-          <p style={{ margin: "0 0 12px 0" }}>Hi {clientName},</p>
-          <p style={{ margin: "0 0 20px 0" }}>
+          <p style={{ margin: "0 0 12px 0", color: "#dddddd" }}>
+            Hi {clientName},
+          </p>
+          <p style={{ margin: "0 0 20px 0", color: "#dddddd" }}>
             Here&apos;s your project status for {weekRange}:
           </p>
 
@@ -93,59 +94,61 @@ export default function WeeklyStatusSummaryEmail({
               border: "1px solid #333333",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: "20px",
-              }}
-            >
-              <div style={{ textAlign: "center", flex: "1", minWidth: "80px" }}>
-                <div
-                  style={{
-                    color: "#10b981",
-                    fontSize: "28px",
-                    fontWeight: "bold",
-                    marginBottom: "5px",
-                  }}
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <tr>
+                <td
+                  style={{ textAlign: "center", padding: "20px", width: "33%" }}
                 >
-                  {summaryData.completedModels}
-                </div>
-                <div style={{ color: "#cccccc", fontSize: "12px" }}>Done</div>
-              </div>
-              <div style={{ textAlign: "center", flex: "1", minWidth: "80px" }}>
-                <div
-                  style={{
-                    color: "#f59e0b",
-                    fontSize: "28px",
-                    fontWeight: "bold",
-                    marginBottom: "5px",
-                  }}
+                  <div
+                    style={{
+                      color: "#10b981",
+                      fontSize: "32px",
+                      fontWeight: "bold",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    {summaryData.completedModels}
+                  </div>
+                  <div style={{ color: "#cccccc", fontSize: "13px" }}>
+                    Completed
+                  </div>
+                </td>
+                <td
+                  style={{ textAlign: "center", padding: "20px", width: "33%" }}
                 >
-                  {summaryData.inProgressModels}
-                </div>
-                <div style={{ color: "#cccccc", fontSize: "12px" }}>
-                  In Progress
-                </div>
-              </div>
-              <div style={{ textAlign: "center", flex: "1", minWidth: "80px" }}>
-                <div
-                  style={{
-                    color: "#6b7280",
-                    fontSize: "28px",
-                    fontWeight: "bold",
-                    marginBottom: "5px",
-                  }}
+                  <div
+                    style={{
+                      color: "#3b82f6",
+                      fontSize: "32px",
+                      fontWeight: "bold",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    {summaryData.readyForReviewModels}
+                  </div>
+                  <div style={{ color: "#cccccc", fontSize: "13px" }}>
+                    Ready for Review
+                  </div>
+                </td>
+                <td
+                  style={{ textAlign: "center", padding: "20px", width: "33%" }}
                 >
-                  {summaryData.pendingModels}
-                </div>
-                <div style={{ color: "#cccccc", fontSize: "12px" }}>
-                  Pending
-                </div>
-              </div>
-            </div>
+                  <div
+                    style={{
+                      color: "#f59e0b",
+                      fontSize: "32px",
+                      fontWeight: "bold",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    {summaryData.pendingModels}
+                  </div>
+                  <div style={{ color: "#cccccc", fontSize: "13px" }}>
+                    Pending
+                  </div>
+                </td>
+              </tr>
+            </table>
 
             {/* Progress Bar */}
             <div
@@ -198,49 +201,48 @@ export default function WeeklyStatusSummaryEmail({
               >
                 <strong>Batches:</strong>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "15px",
-                }}
-              >
-                {summaryData.batches.slice(0, 3).map((batch) => (
-                  <div
-                    key={batch.batchNumber}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      flex: "1",
-                      minWidth: "80px",
-                      padding: "8px",
-                      backgroundColor: "#1a1a1a",
-                      borderRadius: "4px",
-                    }}
-                  >
-                    <span style={{ color: "#cccccc", fontSize: "12px" }}>
-                      Batch #{batch.batchNumber}
-                    </span>
-                    <span
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tr>
+                  {summaryData.batches.slice(0, 3).map((batch) => (
+                    <td
+                      key={batch.batchNumber}
                       style={{
-                        color:
-                          batch.status === "completed"
-                            ? "#10b981"
-                            : batch.status === "in_progress"
-                              ? "#f59e0b"
-                              : "#6b7280",
-                        fontWeight: "600",
-                        fontSize: "16px",
+                        textAlign: "center",
+                        padding: "15px",
+                        width: `${100 / Math.min(summaryData.batches.length, 3)}%`,
+                        backgroundColor: "#1a1a1a",
+                        borderRadius: "6px",
+                        margin: "0 5px",
                       }}
                     >
-                      {batch.completionPercentage}%
-                    </span>
-                  </div>
-                ))}
-              </div>
+                      <div
+                        style={{
+                          color: "#cccccc",
+                          fontSize: "13px",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        Batch #{batch.batchNumber}
+                      </div>
+                      <div
+                        style={{
+                          color:
+                            batch.status === "completed"
+                              ? "#10b981"
+                              : batch.status === "in_progress"
+                                ? "#f59e0b"
+                                : "#6b7280",
+                          fontWeight: "bold",
+                          fontSize: "22px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        {batch.completionPercentage}%
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+              </table>
               {summaryData.batches.length > 3 && (
                 <div
                   style={{

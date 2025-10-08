@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
     // Prepare update data
     const updateData: any = {
       status,
+      updated_at: new Date().toISOString(), // Set updated_at timestamp
     };
 
     // Add revision count if provided

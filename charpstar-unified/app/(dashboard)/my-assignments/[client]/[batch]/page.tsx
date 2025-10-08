@@ -966,7 +966,12 @@ export default function BatchDetailPage() {
           }
         });
 
-        const uploadResult = await uploader.uploadFile(file, assetId, "glb");
+        const uploadResult = await uploader.uploadFile(
+          file,
+          assetId,
+          "glb",
+          client
+        );
 
         if (!uploadResult.success) {
           throw new Error(uploadResult.error || "Direct GLB upload failed");
@@ -1095,7 +1100,12 @@ export default function BatchDetailPage() {
           }
         });
 
-        const result = await uploader.uploadFile(file, assetId, "reference");
+        const result = await uploader.uploadFile(
+          file,
+          assetId,
+          "reference",
+          client
+        );
 
         if (!result.success) {
           throw new Error(result.error || "Direct upload failed");

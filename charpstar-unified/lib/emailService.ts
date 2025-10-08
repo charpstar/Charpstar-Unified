@@ -26,6 +26,7 @@ export interface WeeklyStatusSummaryData {
   summaryData: {
     totalModels: number;
     completedModels: number;
+    readyForReviewModels: number;
     inProgressModels: number;
     pendingModels: number;
     revisionModels: number;
@@ -91,7 +92,8 @@ class EmailService {
 
   constructor() {
     this.fromEmail = process.env.EMAIL_FROM || "noreply@mail.charpstar.co";
-    this.isDevelopmentMode = true; // Use production mode to send real emails
+    // TODO: Change to false when ready to send real emails
+    this.isDevelopmentMode = true; // Disabled - no emails will be sent
 
     // Always initialize Resend with the API key
     const apiKey =
@@ -100,7 +102,6 @@ class EmailService {
       this.resend = new Resend(apiKey);
     } else {
       this.resend = null;
-      console.error("❌ RESEND_API_KEY not found - emails will fail");
     }
   }
 
@@ -125,13 +126,11 @@ class EmailService {
       });
 
       if (error) {
-        console.error("Failed to send model ready for review email:", error);
         throw error;
       }
 
       return { success: true, messageId: result?.id };
     } catch (error) {
-      console.error("Error sending model ready for review email:", error);
       throw error;
     }
   }
@@ -156,13 +155,11 @@ class EmailService {
       });
 
       if (error) {
-        console.error("Failed to send weekly status summary email:", error);
         throw error;
       }
 
       return { success: true, messageId: result?.id };
     } catch (error) {
-      console.error("Error sending weekly status summary email:", error);
       throw error;
     }
   }
@@ -186,13 +183,11 @@ class EmailService {
       });
 
       if (error) {
-        console.error("Failed to send batch completion email:", error);
         throw error;
       }
 
       return { success: true, messageId: result?.id };
     } catch (error) {
-      console.error("Error sending batch completion email:", error);
       throw error;
     }
   }
@@ -219,13 +214,11 @@ class EmailService {
       });
 
       if (error) {
-        console.error("Failed to send stale model reminder email:", error);
         throw error;
       }
 
       return { success: true, messageId: result?.id };
     } catch (error) {
-      console.error("Error sending stale model reminder email:", error);
       throw error;
     }
   }
@@ -235,12 +228,10 @@ class EmailService {
    */
   async sendQaApprovalNotification(data: QaApprovalData, config: EmailConfig) {
     if (this.isDevelopmentMode) {
-      console.log("📧 Email simulated (development mode):", config.to);
       return { success: true, messageId: "dev-mode-simulated", devMode: true };
     }
 
     if (!this.resend) {
-      console.error("❌ Resend client not initialized - cannot send email");
       return {
         success: false,
         messageId: null,
@@ -258,13 +249,11 @@ class EmailService {
       });
 
       if (error) {
-        console.error("Failed to send QA approval notification email:", error);
         throw error;
       }
 
       return { success: true, messageId: result?.id };
     } catch (error) {
-      console.error("Error sending QA approval notification email:", error);
       throw error;
     }
   }
@@ -302,13 +291,11 @@ class EmailService {
         await this.resend.emails.send(emailOptions);
 
       if (error) {
-        console.error("Failed to send simple email:", error);
         throw error;
       }
 
       return { success: true, messageId: result?.id };
     } catch (error) {
-      console.error("Error sending simple email:", error);
       throw error;
     }
   }
@@ -354,13 +341,11 @@ class EmailService {
         await this.resend.emails.send(emailOptions);
 
       if (error) {
-        console.error("Failed to send bulk email:", error);
         throw error;
       }
 
       return { success: true, messageId: result?.id };
     } catch (error) {
-      console.error("Error sending bulk email:", error);
       throw error;
     }
   }
@@ -391,13 +376,11 @@ class EmailService {
       });
 
       if (error) {
-        console.error("Email service test failed:", error);
         throw error;
       }
 
       return { success: true, messageId: result?.id };
     } catch (error) {
-      console.error("Error testing email service:", error);
       throw error;
     }
   }

@@ -1140,7 +1140,12 @@ export default function ModelerReviewPage() {
           }
         });
 
-        const result = await uploader.uploadFile(selectedFile, asset.id, "glb");
+        const result = await uploader.uploadFile(
+          selectedFile,
+          asset.id,
+          "glb",
+          asset.client
+        );
 
         if (!result.success) {
           throw new Error(result.error || "Direct GLB upload failed");
@@ -1353,17 +1358,46 @@ export default function ModelerReviewPage() {
 
     setStatusUpdating(true);
     try {
-      // Use the complete API endpoint for proper allocation list handling
-      const response = await fetch("/api/assets/complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          assetId: asset.id,
+      let response;
+
+      if (newStatus === "approved_by_client") {
+        // Use the complete API endpoint only for client approvals (which transfers asset to production)
+        response = await fetch("/api/assets/complete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            assetId: asset.id,
+            status: newStatus,
+          }),
+        });
+      } else {
+        // For all other status updates, use direct database update
+        const updateData: any = {
           status: newStatus,
-        }),
-      });
+          updated_at: new Date().toISOString(), // Set updated_at timestamp
+        };
+
+        const { error: updateError } = await supabase
+          .from("onboarding_assets")
+          .update(updateData)
+          .eq("id", asset.id);
+
+        if (updateError) {
+          throw new Error(`Failed to update status: ${updateError.message}`);
+        }
+
+        // Create a mock response object for consistency
+        response = {
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              message: "Status updated successfully",
+            }),
+        };
+      }
 
       if (!response.ok) {
         const errorData = await response.json();

@@ -40,11 +40,11 @@ export default function QaApprovalEmail({
           style={{
             background:
               'url("https://tpamckewerybqzhhhqqp.supabase.co/storage/v1/object/public/maillogo/6%20(1).png") no-repeat center center',
-            backgroundSize: "contain",
-            height: "180px",
+            backgroundSize: "120% auto",
+            height: "120px",
             width: "100%",
-            maxWidth: "400px",
-            margin: "0 auto 40px auto",
+            maxWidth: "300px",
+            margin: "0 auto 15px auto",
             display: "block",
           }}
         />
@@ -70,8 +70,10 @@ export default function QaApprovalEmail({
             marginBottom: "25px",
           }}
         >
-          <p style={{ margin: "0 0 12px 0" }}>Hello {clientName},</p>
-          <p style={{ margin: "0 0 15px 0" }}>
+          <p style={{ margin: "0 0 12px 0", color: "#dddddd" }}>
+            Hello {clientName},
+          </p>
+          <p style={{ margin: "0 0 15px 0", color: "#dddddd" }}>
             Great news! Your 3D model <strong>&ldquo;{modelName}&rdquo;</strong>{" "}
             has been approved by our {approverRole.toLowerCase()} and is now
             ready for your review.

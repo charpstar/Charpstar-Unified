@@ -119,6 +119,9 @@ export async function POST(request: NextRequest) {
     const summaryData = {
       totalModels,
       completedModels,
+      readyForReviewModels: assets.filter(
+        (asset) => asset.status === "approved"
+      ).length,
       inProgressModels,
       pendingModels,
       revisionModels,

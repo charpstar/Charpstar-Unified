@@ -10,60 +10,94 @@ export async function GET(request: NextRequest) {
     //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     // }
 
-    console.log("🔄 Starting weekly status summary cron job...");
-
     const emailsSent = [];
     const errors = [];
 
     try {
-      // Get all assets for "Adam AB" client
-      const { data: adamAssets, error: assetsError } = await supabaseAdmin
-        .from("onboarding_assets")
-        .select("*")
-        .eq("client", "Adam AB");
+      // Get all clients from profiles table
+      const { data: clients, error: clientsError } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email, metadata")
+        .eq("role", "client")
+        .not("email", "is", null);
 
-      if (assetsError) {
-        console.error("Error fetching assets:", assetsError);
+      if (clientsError) {
         return NextResponse.json(
-          { error: "Failed to fetch assets", details: assetsError.message },
+          { error: "Failed to fetch clients", details: clientsError.message },
           { status: 500 }
         );
       }
 
-      // Group assets by client (only Adam AB)
-      const clientsMap =
-        adamAssets && adamAssets.length > 0
-          ? {
-              "Adam AB": adamAssets,
-            }
-          : {};
+      if (!clients || clients.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: "No clients found",
+          totalClients: 0,
+          emailsSent: 0,
+        });
+      }
 
-      console.log(
-        `📊 Found ${Object.keys(clientsMap).length} clients with assets`
-      );
+      // Get all assets grouped by client
+      const clientsMap: Record<string, any[]> = {};
+
+      for (const client of clients) {
+        const clientName = client.metadata?.client || client.email;
+
+        const { data: clientAssets, error: assetsError } = await supabaseAdmin
+          .from("onboarding_assets")
+          .select("*")
+          .eq("client", clientName);
+
+        if (assetsError) {
+          continue; // Skip this client if assets can't be fetched
+        }
+
+        if (clientAssets && clientAssets.length > 0) {
+          clientsMap[clientName] = clientAssets;
+        }
+      }
 
       // Process each client
       for (const [clientName, clientAssets] of Object.entries(clientsMap)) {
         try {
-          // For testing, use hardcoded email since no profile exists
-          const testEmail = "awadin16@gmail.com"; // Change this to your test email
-          console.log(`📧 Using test email for ${clientName}: ${testEmail}`);
+          // Skip clients with no assets
+          if (!clientAssets || clientAssets.length === 0) {
+            continue;
+          }
+
+          // Find the client's email from the profiles table
+          const clientProfile = clients.find(
+            (c) => (c.metadata?.client || c.email) === clientName
+          );
+
+          if (!clientProfile?.email) {
+            errors.push({
+              client: clientName,
+              error: "No email found for client",
+            });
+            continue;
+          }
+
+          const clientEmail = clientProfile.email;
 
           // Calculate summary data for this client
           const totalModels = clientAssets.length;
+          const readyForReviewModels = clientAssets.filter(
+            (a: any) => a.status === "approved"
+          ).length;
           const completedModels = clientAssets.filter(
             (a: any) => a.status === "approved_by_client"
           ).length;
-          const inProgressModels = clientAssets.filter(
-            (a: any) => a.status === "in_progress"
-          ).length;
           const pendingModels = clientAssets.filter(
-            (a: any) => a.status === "not_started"
-          ).length;
-          const revisionModels = clientAssets.filter(
             (a: any) =>
-              a.status === "revisions" || a.status === "client_revision"
+              a.status === "not_started" ||
+              a.status === "delivered_by_artist" ||
+              a.status === "in_production" ||
+              a.status === "in_progress" ||
+              a.status === "revisions" ||
+              a.status === "client_revision"
           ).length;
+
           const completionPercentage =
             totalModels > 0
               ? Math.round((completedModels / totalModels) * 100)
@@ -108,9 +142,14 @@ export async function GET(request: NextRequest) {
           const summaryData = {
             totalModels,
             completedModels,
-            inProgressModels,
+            readyForReviewModels,
             pendingModels,
-            revisionModels,
+            inProgressModels: clientAssets.filter(
+              (a: any) => a.status === "in_progress"
+            ).length,
+            revisionModels: clientAssets.filter(
+              (a: any) => a.status === "revisions"
+            ).length,
             completionPercentage,
             batches: Object.values(batches) as Array<{
               batchNumber: number;
@@ -120,8 +159,6 @@ export async function GET(request: NextRequest) {
               status: "in_progress" | "completed" | "pending";
             }>,
           };
-
-          console.log(`📊 Summary for ${clientName}:`, summaryData);
 
           // Send weekly status summary email
           const emailResult = await emailService.sendWeeklyStatusSummary(
@@ -133,24 +170,18 @@ export async function GET(request: NextRequest) {
             },
             {
               from: process.env.EMAIL_FROM || "noreply@mail.charpstar.co",
-              to: testEmail,
+              to: clientEmail,
               subject: `Weekly Status Summary - ${clientName}`,
             }
           );
 
           if (emailResult.success) {
-            console.log(
-              `✅ Weekly status summary sent to ${testEmail} for ${clientName}`
-            );
             emailsSent.push({
               client: clientName,
-              email: testEmail,
+              email: clientEmail,
               messageId: emailResult.messageId,
             });
           } else {
-            console.error(
-              `❌ Failed to send weekly status summary to ${testEmail} for ${clientName}`
-            );
             errors.push({
               client: clientName,
               error: emailResult.devMode
@@ -159,10 +190,6 @@ export async function GET(request: NextRequest) {
             });
           }
         } catch (clientError) {
-          console.error(
-            `❌ Error processing client ${clientName}:`,
-            clientError
-          );
           errors.push({
             client: clientName,
             error:
@@ -182,7 +209,6 @@ export async function GET(request: NextRequest) {
         errors: errors,
       });
     } catch (dbError) {
-      console.error("Database error:", dbError);
       return NextResponse.json(
         {
           error: "Database operation failed",
@@ -192,7 +218,6 @@ export async function GET(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error("❌ Cron job error:", error);
     return NextResponse.json(
       {
         error: "Cron job failed",

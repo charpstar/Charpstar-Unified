@@ -60,6 +60,7 @@ interface Client {
   viewer_type?: "v6_aces" | "v5_tester" | "synsam" | "v2" | null;
   bunny_custom_structure?: boolean | null;
   bunny_custom_url?: string | null;
+  bunny_custom_access_key?: string | null;
   created_at: string;
   updated_at: string;
   isPlaceholder?: boolean;
@@ -82,6 +83,7 @@ interface ClientFormData {
   viewer_type?: "v6_aces" | "v5_tester" | "synsam" | "v2" | null;
   bunny_custom_structure?: boolean;
   bunny_custom_url?: string;
+  bunny_custom_access_key?: string;
 }
 
 export default function AdminClientsPage() {
@@ -109,6 +111,7 @@ export default function AdminClientsPage() {
     viewer_type: null,
     bunny_custom_structure: false,
     bunny_custom_url: "",
+    bunny_custom_access_key: "",
   });
   const { toast } = useToast();
 
@@ -173,6 +176,7 @@ export default function AdminClientsPage() {
           viewer_type: null,
           bunny_custom_structure: null,
           bunny_custom_url: null,
+          bunny_custom_access_key: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           isPlaceholder: true,
@@ -222,6 +226,7 @@ export default function AdminClientsPage() {
       viewer_type: client.viewer_type || null,
       bunny_custom_structure: client.bunny_custom_structure || false,
       bunny_custom_url: client.bunny_custom_url || "",
+      bunny_custom_access_key: client.bunny_custom_access_key || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -355,11 +360,29 @@ export default function AdminClientsPage() {
       setIsAddDialogOpen(false);
       setSelectedClient(null);
       fetchClients(); // Refresh the list
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving client:", error);
+
+      // Provide specific error messages for common issues
+      let errorMessage = "Failed to save client";
+
+      if (error?.code === "23505") {
+        // Unique constraint violation
+        if (error?.details?.includes("email")) {
+          errorMessage = `This email (${formData.email}) is already associated with another client. Please use a different email address.`;
+        } else if (error?.details?.includes("name")) {
+          errorMessage = `A client with the name "${formData.name}" already exists. Please use a different name.`;
+        } else {
+          errorMessage =
+            "A client with this information already exists. Please check for duplicates.";
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
       toast({
         title: "Error",
-        description: "Failed to save client",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -1003,27 +1026,64 @@ function ClientForm({
                     }
                   />
                   <Label htmlFor="bunny_custom_structure" className="text-sm">
-                    Custom Folder (Client has own CDN subdomain)
+                    Use Custom Storage Zone (Client has their own BunnyCDN
+                    storage zone)
                   </Label>
                 </div>
 
                 {formData.bunny_custom_structure && (
-                  <div className="space-y-1">
-                    <Label htmlFor="bunny_custom_url" className="text-sm">
-                      Custom Folder
-                    </Label>
-                    <Input
-                      id="bunny_custom_url"
-                      value={formData.bunny_custom_url || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          bunny_custom_url: e.target.value,
-                        })
-                      }
-                      placeholder="/"
-                      className="text-sm sm:text-base"
-                    />
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="bunny_custom_url" className="text-sm">
+                        Custom Storage Zone Name
+                      </Label>
+                      <Input
+                        id="bunny_custom_url"
+                        value={formData.bunny_custom_url || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            bunny_custom_url: e.target.value,
+                          })
+                        }
+                        placeholder="e.g., Polhus"
+                        className="text-sm sm:text-base font-mono"
+                      />
+                      <div className="text-xs space-y-1">
+                        <p className="text-muted-foreground">
+                          ⚠️ Case-sensitive! Must match BunnyCDN exactly.
+                        </p>
+                        {formData.bunny_custom_url && (
+                          <p className="text-blue-600 font-mono">
+                            CDN URL: https://cdn.charpstar.net/QC/filename.glb
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="bunny_custom_access_key"
+                        className="text-sm"
+                      >
+                        Custom Storage Zone Access Key
+                      </Label>
+                      <Input
+                        id="bunny_custom_access_key"
+                        type="password"
+                        value={formData.bunny_custom_access_key || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            bunny_custom_access_key: e.target.value,
+                          })
+                        }
+                        placeholder="Enter BunnyCDN AccessKey for this storage zone"
+                        className="text-sm sm:text-base font-mono"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Required: Each storage zone has its own AccessKey
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1034,18 +1094,48 @@ function ClientForm({
                   with QC/, Android/, iOS/ subfolders
                 </p>
                 <p>
-                  • <strong>Default:</strong> Use main CDN structure (folder
-                  name = company name)
+                  • <strong>Default:</strong> Storage zone &quot;maincdn&quot;
+                  with folder {"{ClientName}"}
                 </p>
                 <p>
-                  • <strong>Custom:</strong> Client has their own CDN folder
+                  • <strong>Custom:</strong> Custom storage zone (replaces
+                  &quot;maincdn&quot;)
                 </p>
                 <p>
-                  • <strong>Platform will use:</strong>{" "}
-                  {formData.bunny_custom_structure
-                    ? `${formData.bunny_custom_url || "custom-cdn"}/${formData.company.toLowerCase().replace(/\s+/g, "-")}/QC/`
-                    : `${formData.company.toLowerCase().replace(/\s+/g, "-")}/QC/`}
-                  , Android/, iOS/
+                  • <strong>Storage Path:</strong>{" "}
+                  {(() => {
+                    const clientName = (formData.name || "ClientName").replace(
+                      /[^a-zA-Z0-9._-]/g,
+                      "_"
+                    );
+                    if (
+                      formData.bunny_custom_structure &&
+                      formData.bunny_custom_url
+                    ) {
+                      const customZone = formData.bunny_custom_url.replace(
+                        /^\/+|\/+$/g,
+                        ""
+                      );
+                      return `${customZone}/QC/, Android/, iOS/`;
+                    }
+                    return `maincdn/${clientName}/QC/, Android/, iOS/`;
+                  })()}
+                </p>
+                <p>
+                  • <strong>CDN URL:</strong>{" "}
+                  {(() => {
+                    const clientName = (formData.name || "ClientName").replace(
+                      /[^a-zA-Z0-9._-]/g,
+                      "_"
+                    );
+                    if (
+                      formData.bunny_custom_structure &&
+                      formData.bunny_custom_url
+                    ) {
+                      return `cdn.charpstar.net/QC/filename.glb`;
+                    }
+                    return `cdn.charpstar.net/${clientName}/QC/filename.glb`;
+                  })()}
                 </p>
               </div>
             </div>
@@ -1191,33 +1281,66 @@ function ClientView({ client }: { client: Client }) {
               <div className="mt-1">
                 <div className="space-y-2">
                   <div>
-                    <span className="text-xs font-medium">Folder:</span>
-                    <code className="text-xs bg-muted px-2 py-1 rounded font-mono ml-1">
-                      {client.company.toLowerCase().replace(/\s+/g, "-")}
-                    </code>
-                    <span className="text-xs text-muted-foreground ml-1">
-                      (auto-generated from company name)
+                    <span className="text-xs font-medium">
+                      {client.bunny_custom_structure && client.bunny_custom_url
+                        ? "Custom Storage Zone:"
+                        : "Storage Zone:"}
                     </span>
+                    <code className="text-xs bg-muted px-2 py-1 rounded font-mono ml-1">
+                      {client.bunny_custom_structure && client.bunny_custom_url
+                        ? client.bunny_custom_url
+                        : "maincdn"}
+                    </code>
                   </div>
-
-                  {client.bunny_custom_structure && client.bunny_custom_url && (
+                  {!(
+                    client.bunny_custom_structure && client.bunny_custom_url
+                  ) && (
                     <div>
                       <span className="text-xs font-medium">
-                        Custom Folder:
+                        Client Folder:
                       </span>
                       <code className="text-xs bg-muted px-2 py-1 rounded font-mono ml-1">
-                        {client.bunny_custom_url}
+                        {client.name.replace(/[^a-zA-Z0-9._-]/g, "_")}
                       </code>
                     </div>
                   )}
 
                   <div className="text-xs text-muted-foreground space-y-1">
                     <p>
-                      <strong>Structure:</strong>{" "}
-                      {client.bunny_custom_structure && client.bunny_custom_url
-                        ? `${client.bunny_custom_url}/${client.company.toLowerCase().replace(/\s+/g, "-")}/QC/`
-                        : `${client.company.toLowerCase().replace(/\s+/g, "-")}/QC/`}
-                      , Android/, iOS/
+                      <strong>Storage Path:</strong>{" "}
+                      {(() => {
+                        const clientName = client.name.replace(
+                          /[^a-zA-Z0-9._-]/g,
+                          "_"
+                        );
+                        if (
+                          client.bunny_custom_structure &&
+                          client.bunny_custom_url
+                        ) {
+                          const customZone = client.bunny_custom_url.replace(
+                            /^\/+|\/+$/g,
+                            ""
+                          );
+                          return `${customZone}/QC/, Android/, iOS/`;
+                        }
+                        return `maincdn/${clientName}/QC/, Android/, iOS/`;
+                      })()}
+                    </p>
+                    <p>
+                      <strong>CDN URL:</strong>{" "}
+                      {(() => {
+                        const clientName = client.name.replace(
+                          /[^a-zA-Z0-9._-]/g,
+                          "_"
+                        );
+                        if (
+                          client.bunny_custom_structure &&
+                          client.bunny_custom_url
+                        ) {
+                          return `cdn.charpstar.net/QC/filename.glb`;
+                        }
+                        return `cdn.charpstar.net/${clientName}/QC/filename.glb`;
+                      })()}
                     </p>
                     <p>• QC/ = Files pending approval</p>
                     <p>• Android/ = Approved files for Live 3D & Android AR</p>

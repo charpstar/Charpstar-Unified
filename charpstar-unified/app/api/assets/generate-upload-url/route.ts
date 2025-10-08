@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
-import crypto from "crypto";
-
 export async function POST(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
@@ -14,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { fileName, fileType, assetId } = await request.json();
+    const { fileName, fileType, assetId, clientName } = await request.json();
 
     if (!fileName || !fileType || !assetId) {
       return NextResponse.json(
@@ -35,32 +33,94 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique file path
-    const timestamp = Date.now();
-    const randomString = crypto.randomBytes(8).toString("hex");
-    const fileExtension = fileName.split(".").pop();
-    const uniqueFileName = `${assetId}_${timestamp}_${randomString}.${fileExtension}`;
+    // Sanitize file name and client name (same as upload-file route)
+    const baseFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const sanitizedClientName = clientName
+      ? clientName.replace(/[^a-zA-Z0-9._-]/g, "_")
+      : "UnknownClient";
+
+    // Check if client has custom BunnyCDN folder structure
+    let useCustomStructure = false;
+    let customStorageZone = storageZone;
+    let customAccessKey = storageKey;
+    if (clientName) {
+      try {
+        const { createRouteHandlerClient } = await import(
+          "@supabase/auth-helpers-nextjs"
+        );
+        const { cookies } = await import("next/headers");
+        const supabase = createRouteHandlerClient({ cookies });
+
+        const { data: clientData } = await supabase
+          .from("clients")
+          .select(
+            "bunny_custom_structure, bunny_custom_url, bunny_custom_access_key"
+          )
+          .eq("name", clientName)
+          .single();
+
+        if (
+          clientData?.bunny_custom_structure &&
+          clientData?.bunny_custom_url
+        ) {
+          useCustomStructure = true;
+          // Custom URL REPLACES the storage zone (e.g., "Polhus" instead of "maincdn")
+          customStorageZone = clientData.bunny_custom_url.replace(
+            /^\/+|\/+$/g,
+            ""
+          );
+          // Use custom access key if provided, otherwise fall back to default
+          if (clientData?.bunny_custom_access_key) {
+            customAccessKey = clientData.bunny_custom_access_key;
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching client folder structure:", error);
+        // Continue with default structure if fetch fails
+      }
+    }
+
+    // Use custom or default storage zone
+    const finalStorageZone = useCustomStructure
+      ? customStorageZone
+      : storageZone;
+
+    // Skip verification for speed - let the actual upload fail if there's an issue
+    // Storage zone validation was too slow (added ~5-10 seconds to every upload)
 
     // Determine storage path based on file type
     let storagePath = "";
-    if (fileType === "glb") {
-      storagePath = `assets/glb/${uniqueFileName}`;
-    } else if (fileType === "reference") {
-      storagePath = `assets/reference/${uniqueFileName}`;
+    if (useCustomStructure) {
+      // Custom structure: No client name, just QC/file directly in custom storage zone
+      if (fileType === "glb") {
+        storagePath = `QC/${baseFileName}`;
+      } else if (fileType === "reference") {
+        storagePath = `reference/${baseFileName}`;
+      } else {
+        storagePath = `assets/${baseFileName}`;
+      }
     } else {
-      storagePath = `assets/other/${uniqueFileName}`;
+      // Default structure: use client name as folder within maincdn
+      if (fileType === "glb") {
+        storagePath = `${sanitizedClientName}/QC/${baseFileName}`;
+      } else if (fileType === "reference") {
+        storagePath = `${sanitizedClientName}/reference/${baseFileName}`;
+      } else {
+        storagePath = `${sanitizedClientName}/assets/${baseFileName}`;
+      }
     }
 
-    // Generate BunnyCDN upload URL (using same format as existing system)
-    const uploadUrl = `https://se.storage.bunnycdn.com/${storageZone}/${storagePath}`;
+    // Generate BunnyCDN upload URL (using final storage zone)
+    const uploadUrl = `https://se.storage.bunnycdn.com/${finalStorageZone}/${storagePath}`;
+    // CDN URL: Never includes storage zone - Pull Zone handles the routing
     const cdnUrl = `${cdnBaseUrl}/${storagePath}`;
 
     return NextResponse.json({
       uploadUrl,
       cdnUrl,
       storagePath,
-      accessKey: storageKey, // Include the access key for authentication
-      fileName: uniqueFileName,
+      accessKey: customAccessKey, // Use custom access key if available
+      fileName: baseFileName,
       expiresIn: 3600, // 1 hour
     });
   } catch (error: any) {

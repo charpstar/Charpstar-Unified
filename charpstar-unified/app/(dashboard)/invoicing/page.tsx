@@ -57,6 +57,8 @@ interface ApprovedAsset {
   priority: number;
   price: number;
   approved_at: string;
+  asset_created_at: string; // When the individual asset was created
+  asset_updated_at: string; // When the individual asset was last updated/approved
   allocation_list_id: string;
   allocation_list_number: number;
   allocation_list_status: string;
@@ -242,7 +244,9 @@ export default function InvoicingPage() {
             category,
             subcategory,
             priority,
-            status
+            status,
+            created_at,
+            updated_at
           )
         `
         )
@@ -268,6 +272,8 @@ export default function InvoicingPage() {
           priority: item.onboarding_assets.priority,
           price: item.price || 0,
           approved_at: item.allocation_lists.approved_at,
+          asset_created_at: item.onboarding_assets.created_at, // When the individual asset was created
+          asset_updated_at: item.onboarding_assets.updated_at, // When the individual asset was last updated/approved
           allocation_list_id: item.allocation_list_id,
           allocation_list_number: item.allocation_lists.number,
           allocation_list_status: item.allocation_lists.status,
@@ -307,10 +313,19 @@ export default function InvoicingPage() {
     // setFutureBonuses([]);
 
     // Filter assets that were approved in this specific month period
-    // We need to determine when each asset was approved
+    // Use individual asset's updated_at timestamp as the primary indicator
+    // This represents when the individual asset was approved and ready for payment
     const assetsApprovedInPeriod = approvedAssets.filter((asset) => {
-      // If the asset has an allocation list that was completed in this period,
-      // it means the asset was approved in this period
+      // Use individual asset's updated_at timestamp as the primary indicator
+      if (asset.asset_updated_at) {
+        const assetApprovedDate = new Date(asset.asset_updated_at);
+        return (
+          assetApprovedDate >= period.startDate &&
+          assetApprovedDate <= period.endDate
+        );
+      }
+
+      // Fallback to allocation list completion date if individual asset timestamp not available
       if (asset.approved_at) {
         const listCompletedDate = new Date(asset.approved_at);
         return (
@@ -319,9 +334,7 @@ export default function InvoicingPage() {
         );
       }
 
-      // If no allocation list completion date, we need to check when the asset was individually approved
-      // For now, we&apos;ll use the allocation list creation date as a proxy for when the asset was assigned
-      // This is not perfect but gives us a reasonable approximation
+      // Final fallback to allocation list creation date
       const listCreatedDate = new Date(asset.allocation_list_created_at);
       return (
         listCreatedDate >= period.startDate && listCreatedDate <= period.endDate

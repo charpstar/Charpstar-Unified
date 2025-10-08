@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     // Update the asset with the new file URL
     const adminClient = createAdminClient();
-    let backupUrl = null;
+    const backupUrl = null;
 
     if (fileType === "glb") {
       // Get asset details for backup
@@ -79,65 +79,57 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create backup if there's an existing GLB file
+      // Create backup asynchronously in the background (non-blocking)
+      // This prevents slow downloads of large existing files from delaying the response
       if (asset.glb_link) {
-        try {
-          // Get BunnyCDN configuration
-          const storageKey = process.env.BUNNY_STORAGE_KEY;
-          const storageZone = process.env.BUNNY_STORAGE_ZONE_NAME || "maincdn";
-          const cdnBaseUrl = process.env.BUNNY_STORAGE_PUBLIC_URL;
+        const createBackupAsync = async () => {
+          try {
+            const storageKey = process.env.BUNNY_STORAGE_KEY;
+            const storageZone =
+              process.env.BUNNY_STORAGE_ZONE_NAME || "maincdn";
+            const cdnBaseUrl = process.env.BUNNY_STORAGE_PUBLIC_URL;
 
-          if (storageKey && storageZone && cdnBaseUrl) {
-            // Download existing file for backup
-            const existingFileResponse = await fetch(asset.glb_link, {
-              method: "GET",
-              headers: {
-                AccessKey: storageKey,
-              },
-            });
-
-            if (existingFileResponse.ok) {
-              const existingFileBuffer =
-                await existingFileResponse.arrayBuffer();
-
-              // Create backup filename with timestamp
-              const timestamp = Date.now();
-              const fileExtension = fileName.split(".").pop();
-              const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
-              const backupFileName = `${fileNameWithoutExt}_backup_${timestamp}.${fileExtension}`;
-
-              // Create backup path
-              const sanitizedClientName = (client || "unknown").replace(
-                /[^a-zA-Z0-9._-]/g,
-                "_"
-              );
-              const backupPath = `${sanitizedClientName}/QC/backups/${backupFileName}`;
-              const backupStorageUrl = `https://se.storage.bunnycdn.com/${storageZone}/${backupPath}`;
-
-              // Upload backup to BunnyCDN
-              const backupUploadResponse = await fetch(backupStorageUrl, {
-                method: "PUT",
+            if (storageKey && storageZone && cdnBaseUrl) {
+              const existingFileResponse = await fetch(asset.glb_link!, {
+                method: "GET",
                 headers: {
                   AccessKey: storageKey,
-                  "Content-Type": "application/octet-stream",
                 },
-                body: existingFileBuffer,
               });
 
-              if (backupUploadResponse.ok) {
-                backupUrl = `${cdnBaseUrl}/${backupPath}`;
-              } else {
-                console.warn(
-                  "Failed to create backup:",
-                  backupUploadResponse.status
+              if (existingFileResponse.ok) {
+                const existingFileBuffer =
+                  await existingFileResponse.arrayBuffer();
+                const timestamp = Date.now();
+                const fileExtension = fileName.split(".").pop();
+                const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+                const backupFileName = `${fileNameWithoutExt}_backup_${timestamp}.${fileExtension}`;
+                const sanitizedClientName = (client || "unknown").replace(
+                  /[^a-zA-Z0-9._-]/g,
+                  "_"
                 );
+                const backupPath = `${sanitizedClientName}/QC/backups/${backupFileName}`;
+                const backupStorageUrl = `https://se.storage.bunnycdn.com/${storageZone}/${backupPath}`;
+
+                await fetch(backupStorageUrl, {
+                  method: "PUT",
+                  headers: {
+                    AccessKey: storageKey,
+                    "Content-Type": "application/octet-stream",
+                  },
+                  body: existingFileBuffer,
+                });
               }
             }
+          } catch (backupError) {
+            console.error("Background backup creation failed:", backupError);
           }
-        } catch (backupError) {
-          console.error("Error creating backup:", backupError);
-          // Don't fail the upload if backup fails
-        }
+        };
+
+        // Start backup but don't wait for it
+        createBackupAsync().catch((err) =>
+          console.error("Async backup error:", err)
+        );
       }
 
       // Update GLB link in onboarding_assets

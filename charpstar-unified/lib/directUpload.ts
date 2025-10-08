@@ -23,8 +23,10 @@ export class DirectFileUploader {
   async uploadFile(
     file: File,
     assetId: string,
-    fileType: "glb" | "reference" | "asset"
+    fileType: "glb" | "reference" | "asset",
+    clientName?: string
   ): Promise<DirectUploadResult> {
+    const startTime = Date.now();
     try {
       // Step 1: Get direct upload URL from our API (this stays under 4.5MB)
       this.updateProgress({
@@ -35,6 +37,7 @@ export class DirectFileUploader {
         progress: 10,
       });
 
+      const step1Start = Date.now();
       const urlResponse = await fetch("/api/assets/generate-upload-url", {
         method: "POST",
         headers: {
@@ -44,8 +47,10 @@ export class DirectFileUploader {
           fileName: file.name,
           fileType,
           assetId,
+          clientName,
         }),
       });
+      console.log(`[Upload] Step 1 (Get URL): ${Date.now() - step1Start}ms`);
 
       if (!urlResponse.ok) {
         const errorData = await urlResponse.json();
@@ -64,6 +69,7 @@ export class DirectFileUploader {
         progress: 20,
       });
 
+      const step2Start = Date.now();
       // Create a progress tracking fetch with optimized reporting
       const uploadResponse = await this.uploadWithProgress(
         file,
@@ -81,6 +87,9 @@ export class DirectFileUploader {
           });
         }
       );
+      console.log(
+        `[Upload] Step 2 (Upload to BunnyCDN): ${Date.now() - step2Start}ms`
+      );
 
       if (!uploadResponse.ok) {
         throw new Error(
@@ -97,6 +106,7 @@ export class DirectFileUploader {
         progress: 80,
       });
 
+      const step3Start = Date.now();
       const processResponse = await fetch("/api/assets/upload-large-file", {
         method: "POST",
         headers: {
@@ -111,6 +121,9 @@ export class DirectFileUploader {
           fileSize: file.size,
         }),
       });
+      console.log(
+        `[Upload] Step 3 (Process/DB Update): ${Date.now() - step3Start}ms`
+      );
 
       if (!processResponse.ok) {
         const errorData = await processResponse.json();
@@ -124,6 +137,11 @@ export class DirectFileUploader {
         status: "complete",
         progress: 100,
       });
+
+      const totalTime = Date.now() - startTime;
+      console.log(
+        `[Upload] Total upload time: ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s)`
+      );
 
       return {
         success: true,
