@@ -1,6 +1,21 @@
 import React, { useRef, useEffect, useState } from "react";
-import Script from "next/script";
 import Image from "next/image";
+import { Card } from "@/components/ui/containers/card";
+import { Button } from "@/components/ui/display/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/interactive/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/utilities/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 
 // Add type declaration for model-viewer element
 declare global {
@@ -138,7 +153,8 @@ const fileToBase64 = (file: File): Promise<string> =>
   });
 
 interface ModelPreviewerProps {
-  file: File;
+  file: File | null;
+  modelUrl: string | null;
   onGenerate: (
     snapshots: string[],
     objectSize: string,
@@ -151,6 +167,7 @@ interface ModelPreviewerProps {
 
 const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   file,
+  modelUrl,
   onGenerate,
   onCancel,
 }) => {
@@ -166,14 +183,14 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     scenePresets[0].prompt
   );
   const [isCustomScene, setIsCustomScene] = useState(false);
+  const [sceneOpen, setSceneOpen] = useState(false);
   const [inspirationImage, setInspirationImage] = useState<File | null>(null);
   const [inspirationImageUrl, setInspirationImageUrl] = useState<string | null>(
     null
   );
   const [modelError, setModelError] = useState<string | null>(null);
-  const [isModelLoading, setIsModelLoading] = useState(true);
+  const [isModelLoading, setIsModelLoading] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
-  const [modelViewerLoaded, setModelViewerLoaded] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureProgress, setCaptureProgress] = useState({
     current: 0,
@@ -183,96 +200,82 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   const [isTestingAngles, setIsTestingAngles] = useState(false);
   const [testAngleIndex, setTestAngleIndex] = useState(0);
 
-  // Create blob URL only once when file changes
+  // Simplified file URL handling - create once, cleanup on change
   useEffect(() => {
-    // Clean up previous URL
-    if (fileUrl) {
-      URL.revokeObjectURL(fileUrl);
-    }
-
-    try {
-      const url = URL.createObjectURL(file);
-      setFileUrl(url);
-      setIsModelLoading(true);
-      setModelError(null);
-    } catch (error) {
-      console.error("Error creating object URL:", error);
+    if (!file && !modelUrl) {
       setFileUrl(null);
+      return;
     }
-  }, [file]);
 
-  // Add timeout fallback for loading
-  useEffect(() => {
-    if (isModelLoading && fileUrl && modelViewerLoaded) {
-      const timeout = setTimeout(() => {
-        console.warn("Model loading timeout, forcing loading to complete");
-        setIsModelLoading(false);
-      }, 10000); // 10 second timeout
+    setIsModelLoading(true);
+    const url = modelUrl || URL.createObjectURL(file!);
+    setFileUrl(url);
+    setModelError(null);
 
-      return () => clearTimeout(timeout);
-    }
-  }, [isModelLoading, fileUrl, modelViewerLoaded]);
+    return () => {
+      // Only revoke if it's a blob URL we created
+      if (!modelUrl && url) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [file, modelUrl]);
 
+  // Cleanup inspiration image URL on unmount
   useEffect(() => {
     return () => {
-      if (fileUrl) {
-        URL.revokeObjectURL(fileUrl);
-      }
       if (inspirationImageUrl) {
         URL.revokeObjectURL(inspirationImageUrl);
       }
     };
-  }, [fileUrl, inspirationImageUrl]);
+  }, [inspirationImageUrl]);
 
   // Handle model-viewer load event to get dimensions
   useEffect(() => {
-    if (modelViewerRef.current && fileUrl && modelViewerLoaded) {
-      const modelViewer = modelViewerRef.current as any;
+    const modelViewer = modelViewerRef.current as any;
+    if (!modelViewer || !fileUrl) return;
 
-      const handleLoad = () => {
-        try {
-          // Get model dimensions from model-viewer
-          const model = modelViewer.model;
-          if (model) {
-            const box = model.boundingBox;
-            if (box) {
-              const size = box.getSize();
-              setModelDimensions({
-                x: size.x,
-                y: size.y,
-                z: size.z,
-              });
-              const sizeString = `Width: ${size.x.toFixed(2)}m, Height: ${size.y.toFixed(2)}m, Depth: ${size.z.toFixed(2)}m.`;
-              setObjectSize(sizeString);
-            } else {
-              setModelDimensions({ x: 0, y: 0, z: 0 });
-              setObjectSize("Could not determine object dimensions.");
-            }
+    const handleLoad = () => {
+      try {
+        // Get model dimensions from model-viewer
+        const model = modelViewer.model;
+        if (model) {
+          const box = model.boundingBox;
+          if (box) {
+            const size = box.getSize();
+            setModelDimensions({
+              x: size.x,
+              y: size.y,
+              z: size.z,
+            });
+            const sizeString = `Width: ${size.x.toFixed(2)}m, Height: ${size.y.toFixed(2)}m, Depth: ${size.z.toFixed(2)}m.`;
+            setObjectSize(sizeString);
+          } else {
+            setModelDimensions({ x: 0, y: 0, z: 0 });
+            setObjectSize("Could not determine object dimensions.");
           }
-          setIsModelLoading(false);
-        } catch (error) {
-          console.error("Error getting model dimensions:", error);
-          setModelDimensions({ x: 0, y: 0, z: 0 });
-          setObjectSize("Could not determine object dimensions.");
-          setIsModelLoading(false);
         }
-      };
+      } catch (error) {
+        console.error("Error getting model dimensions:", error);
+        setModelDimensions({ x: 0, y: 0, z: 0 });
+        setObjectSize("Could not determine object dimensions.");
+      }
+      setIsModelLoading(false);
+    };
 
-      const handleError = (event: CustomEvent) => {
-        console.error("Model loading error:", event.detail);
-        setModelError("Failed to load 3D model. Please try a different file.");
-        setIsModelLoading(false);
-      };
+    const handleError = (event: CustomEvent) => {
+      console.error("Model loading error:", event.detail);
+      setModelError("Failed to load 3D model. Please try a different file.");
+      setIsModelLoading(false);
+    };
 
-      modelViewer.addEventListener("load", handleLoad);
-      modelViewer.addEventListener("error", handleError);
+    modelViewer.addEventListener("load", handleLoad);
+    modelViewer.addEventListener("error", handleError);
 
-      return () => {
-        modelViewer.removeEventListener("load", handleLoad);
-        modelViewer.removeEventListener("error", handleError);
-      };
-    }
-  }, [fileUrl, modelViewerLoaded]);
+    return () => {
+      modelViewer.removeEventListener("load", handleLoad);
+      modelViewer.removeEventListener("error", handleError);
+    };
+  }, [fileUrl]);
 
   const testCameraAngles = async () => {
     const modelViewer = modelViewerRef.current as any;
@@ -456,30 +459,36 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           <div className="text-gray-700 dark:text-gray-300 text-sm mb-4">
             Unable to create file URL. Please try uploading the file again.
           </div>
-          <button onClick={onCancel} className="btn btn-primary">
+          <Button onClick={onCancel} variant="default">
             Cancel
-          </button>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Wait for both file URL and custom element to be ready
+  if (
+    !fileUrl ||
+    (typeof window !== "undefined" &&
+      !window.customElements?.get("model-viewer"))
+  ) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-2">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-sm text-muted-foreground">
+            Preparing 3D viewer...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full flex flex-col items-center glass-card p-6 rounded-2xl shadow-2xl animate-fade-in">
-      {/* Load model-viewer script */}
-      <Script
-        src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
-        type="module"
-        onLoad={() => {
-          setModelViewerLoaded(true);
-        }}
-        onError={() => {
-          console.error("Failed to load model-viewer script");
-          setModelError("Failed to load 3D viewer. Please refresh the page.");
-        }}
-      />
-
-      <div className="w-full h-96 rounded-lg overflow-hidden bg-gray-900/50 mb-6 relative cursor-grab active:cursor-grabbing border border-white/10">
+    <div className="w-full h-full flex flex-col gap-3 p-2 animate-fade-in">
+      {/* Top: 3D Model Viewer */}
+      <div className="h-[650px] rounded-lg overflow-hidden bg-gray-900/50 relative cursor-grab active:cursor-grabbing border border-white/10 shadow-lg">
         {/* Capture Progress Overlay */}
         {(isCapturing || isTestingAngles) && (
           <div className="absolute top-4 left-4 right-4 z-10 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white">
@@ -505,145 +514,105 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             )}
           </div>
         )}
-        {modelError ? (
-          <div className="flex items-center justify-center h-full text-center p-4">
-            <div>
-              <div className="text-red-600 dark:text-red-400 text-lg font-semibold mb-2">
+        {/* Loading overlay */}
+        {isModelLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm z-10">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-sm text-white">Loading 3D model...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error overlay */}
+        {modelError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm z-10">
+            <div className="text-center p-6">
+              <div className="text-red-400 text-lg font-semibold mb-2">
                 Model Loading Error
               </div>
-              <div className="text-gray-700 dark:text-gray-300 text-sm mb-4">
-                {modelError}
-              </div>
-              <button
+              <div className="text-gray-300 text-sm mb-4">{modelError}</div>
+              <Button
+                variant="default"
+                size="sm"
                 onClick={() => {
                   setModelError(null);
-                  setIsModelLoading(true);
-                  // Force re-render by updating fileUrl
-                  if (fileUrl) {
-                    URL.revokeObjectURL(fileUrl);
-                    setFileUrl(null);
-                    // This will trigger a re-render
-                    setTimeout(() => {
-                      const url = URL.createObjectURL(file);
-                      setFileUrl(url);
-                    }, 100);
-                  }
+                  // The model will retry automatically when fileUrl changes
                 }}
-                className="btn btn-primary text-sm"
               >
-                Retry Loading
-              </button>
+                Retry
+              </Button>
             </div>
           </div>
-        ) : !fileUrl ? (
-          <div className="flex items-center justify-center h-full text-center p-4">
-            <div>
-              <div className="text-red-600 dark:text-red-400 text-lg font-semibold mb-2">
-                File Error
-              </div>
-              <div className="text-gray-700 dark:text-gray-300 text-sm mb-4">
-                Unable to create file URL. Please try uploading the file again.
-              </div>
-              <button onClick={onCancel} className="btn btn-primary">
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : !modelViewerLoaded ? (
-          <div className="flex items-center justify-center h-full text-center p-4">
-            <div>
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <div className="text-gray-600 dark:text-gray-400">
-                Loading 3D viewer...
-              </div>
-            </div>
-          </div>
-        ) : isModelLoading ? (
-          <div className="flex items-center justify-center h-full text-center p-4">
-            <div>
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <div className="text-gray-600 dark:text-gray-400">
-                Loading 3D model...
-              </div>
-            </div>
-          </div>
-        ) : (
-          // @ts-expect-error -- model-viewer is a custom element
-          <model-viewer
-            ref={modelViewerRef}
-            src={fileUrl}
-            alt="3D Model Preview"
-            camera-controls
-            shadow-intensity="0.5"
-            environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
-            exposure="1.2"
-            tone-mapping="aces"
-            shadow-softness="1"
-            min-field-of-view="5deg"
-            max-field-of-view="35deg"
-            camera-orbit="0deg 75deg 0deg"
-            max-camera-orbit="auto 100deg auto"
-            touch-action="pan-y"
-            style={{
-              width: "100%",
-              height: "100%",
-              backgroundColor: "#fafafa",
-            }}
-            onLoad={() => {}}
-            onError={(event: CustomEvent) => {
-              console.error("Model loading error:", event.detail);
-              setModelError(
-                "Failed to load 3D model. Please try a different file."
-              );
-            }}
-          />
         )}
+
+        {/* Persistent model-viewer element - never unmounted */}
+        {/* @ts-expect-error -- model-viewer is a custom element */}
+        <model-viewer
+          key="viewer"
+          ref={modelViewerRef}
+          src={fileUrl || ""}
+          alt="3D Model Preview"
+          camera-controls
+          shadow-intensity="0.5"
+          environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
+          exposure="1.2"
+          tone-mapping="aces"
+          shadow-softness="1"
+          min-field-of-view="5deg"
+          max-field-of-view="35deg"
+          camera-orbit="0deg 75deg 0deg"
+          max-camera-orbit="auto 100deg auto"
+          touch-action="pan-y"
+          style={{
+            width: "100%",
+            height: "100%",
+            backgroundColor: "#fafafa",
+          }}
+        />
       </div>
-      <div className="w-full max-w-md text-center mb-6 space-y-6">
-        <div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            1. Position Your Model
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">
-            Left-click to rotate, middle-click to pan, and scroll to zoom. The
-            system will automatically capture 3 different angles (Front, Front
-            Right, Front Left) when you generate scenes.
-          </p>
-        </div>
-        <div>
-          <label className="block text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            2. Detected Dimensions
-          </label>
-          <p className="text-gray-600 dark:text-gray-400 mb-2">
-            These measurements ensure your object is scaled correctly.
-          </p>
-          <div className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 transition text-center min-h-[48px] flex items-center justify-center">
+
+      {/* Bottom: Compact Controls in Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Dimensions */}
+        <Card className="p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+              1
+            </div>
+            <h3 className="text-sm font-semibold">Dimensions</h3>
+          </div>
+          <div className="px-3 py-2 bg-muted rounded-md text-xs text-center font-mono">
             {modelDimensions ? (
-              <code className="text-base">{`W: ${modelDimensions.x.toFixed(2)}m  H: ${modelDimensions.y.toFixed(2)}m  D: ${modelDimensions.z.toFixed(2)}m`}</code>
+              <div className="space-y-0.5">
+                <div>W: {modelDimensions.x.toFixed(2)}m</div>
+                <div>H: {modelDimensions.y.toFixed(2)}m</div>
+                <div>D: {modelDimensions.z.toFixed(2)}m</div>
+              </div>
             ) : (
-              <span className="text-gray-500 dark:text-gray-400">
-                Calculating...
-              </span>
+              <span className="text-muted-foreground">Calculating...</span>
             )}
           </div>
-        </div>
-        <div>
-          <label
-            htmlFor="object-type"
-            className="block text-xl font-bold text-gray-900 dark:text-gray-100 mb-2"
-          >
-            3. What type of product is this?
-          </label>
-          <p className="text-gray-600 dark:text-gray-400 mb-3">
-            Select a category or describe the object below. This helps generate
-            place it realistically.
-          </p>
-          <div className="flex flex-wrap gap-2 mb-3 justify-center">
+        </Card>
+
+        {/* Product Type */}
+        <Card className="p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+              2
+            </div>
+            <h3 className="text-sm font-semibold">Product Type</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-1 mb-2">
             {productPresets.map((preset) => (
               <button
                 key={preset}
                 onClick={() => setObjectType(preset)}
-                className={`px-3 py-1.5 text-sm font-semibold rounded-full transition-colors ${objectType === preset ? "bg-blue-600 text-white" : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"}`}
+                className={`px-2 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  objectType === preset
+                    ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
+                    : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                }`}
               >
                 {preset}
               </button>
@@ -654,75 +623,132 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             type="text"
             value={objectType}
             onChange={(e) => setObjectType(e.target.value)}
-            placeholder="e.g., 'a leather armchair', 'a ceramic vase'"
-            className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-center"
+            placeholder="e.g., 'leather armchair'"
+            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow"
             required
           />
-        </div>
-        <div>
-          <label
-            htmlFor="scene-preset"
-            className="block text-xl font-bold text-gray-900 dark:text-gray-100 mb-2"
-          >
-            4. Describe the Scene
-          </label>
-          <p className="text-gray-600 dark:text-gray-400 mb-3">
-            Select a preset or write your own description.
-          </p>
-          <select
-            id="scene-preset"
-            value={isCustomScene ? "custom" : sceneDescription}
-            onChange={handlePresetChange}
-            className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-center appearance-none"
-          >
-            <option value="custom">-- Write a Custom Description --</option>
-            {presetCategories.map((category) => (
-              <optgroup key={category} label={category}>
-                {scenePresets
-                  .filter((p) => p.category === category)
-                  .map((preset) => (
-                    <option key={preset.label} value={preset.prompt}>
-                      {preset.label}
-                    </option>
+        </Card>
+
+        {/* Scene Description */}
+        <Card className="p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+              3
+            </div>
+            <h3 className="text-sm font-semibold">Scene</h3>
+          </div>
+          <Popover open={sceneOpen} onOpenChange={setSceneOpen} modal={false}>
+            <PopoverTrigger asChild>
+              <button
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md mb-2 focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between"
+                aria-expanded={sceneOpen}
+              >
+                <span className="truncate">
+                  {isCustomScene
+                    ? "✏️ Custom Scene..."
+                    : scenePresets.find((p) => p.prompt === sceneDescription)
+                        ?.label || "Select scene..."}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100000]"
+              align="start"
+            >
+              <Command>
+                <CommandInput placeholder="Search scenes..." />
+                <CommandList className="max-h-[300px] overflow-y-auto">
+                  <CommandEmpty>No scene found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      key="custom"
+                      onSelect={() => {
+                        setIsCustomScene(true);
+                        setSceneDescription("");
+                        setSceneOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={`mr-2 h-4 w-4 ${
+                          isCustomScene ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                      ✏️ Custom Scene...
+                    </CommandItem>
+                  </CommandGroup>
+                  {presetCategories.map((category) => (
+                    <CommandGroup key={category} heading={category}>
+                      {scenePresets
+                        .filter((p) => p.category === category)
+                        .map((preset) => (
+                          <CommandItem
+                            key={preset.label}
+                            onSelect={() => {
+                              setIsCustomScene(false);
+                              setSceneDescription(preset.prompt);
+                              setSceneOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                !isCustomScene &&
+                                sceneDescription === preset.prompt
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              }`}
+                            />
+                            {preset.label}
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
                   ))}
-              </optgroup>
-            ))}
-          </select>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
           {isCustomScene && (
             <textarea
               id="scene-description"
               value={sceneDescription}
               onChange={(e) => setSceneDescription(e.target.value)}
-              placeholder="e.g., 'a studio with soft, natural light', 'an outdoor scene with dappled sunlight'"
-              className="w-full mt-3 px-4 py-3 bg-gray-100 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-center h-24 resize-none"
+              placeholder="e.g., 'modern minimalist studio with soft lighting'"
+              className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md resize-none h-20 focus:ring-2 focus:ring-primary focus:border-primary transition-shadow"
             />
           )}
-        </div>
-        <div>
-          <label className="block text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            5. Add Inspiration (Optional)
-          </label>
-          <p className="text-gray-600 dark:text-gray-400 mb-3">
-            Upload an image to guide the style.
-          </p>
+        </Card>
+
+        {/* Inspiration Image */}
+        <Card className="p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-bold">
+              4
+            </div>
+            <h3 className="text-sm font-semibold">
+              Inspiration{" "}
+              <span className="text-xs text-muted-foreground font-normal">
+                (Optional)
+              </span>
+            </h3>
+          </div>
           {inspirationImageUrl ? (
-            <div className="relative group w-full h-32">
+            <div className="relative group">
               <Image
                 src={inspirationImageUrl}
-                alt="Inspiration preview"
-                className="w-full h-full object-cover rounded-lg border border-gray-600"
-                width={640}
-                height={360}
+                alt="Inspiration"
+                className="w-full h-20 object-cover rounded-md border shadow-sm"
+                width={320}
+                height={180}
               />
               <button
                 onClick={handleRemoveInspirationImage}
-                className="absolute top-2 right-2 p-1 bg-black/60 rounded-full text-white hover:bg-black/80 transition-colors"
-                aria-label="Remove inspiration image"
+                className="absolute top-1 right-1 p-1 bg-destructive/90 rounded-full text-destructive-foreground hover:bg-destructive transition-colors shadow-md"
+                aria-label="Remove"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
+                  className="h-3 w-3"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >
@@ -735,77 +761,75 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-center w-full">
-              <label
-                htmlFor="inspiration-upload"
-                className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-900/50 hover:bg-gray-800/60 transition-colors"
-              >
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <svg
-                    className="w-8 h-8 mb-2 text-gray-500"
-                    aria-hidden="true"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 20 16"
-                  >
-                    <path
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
-                    />
-                  </svg>
-                  <p className="text-sm text-gray-400">
-                    <span className="font-semibold">Click to upload</span> or
-                    drag and drop
-                  </p>
-                  <p className="text-xs text-gray-500">PNG, JPG, or WEBP</p>
-                </div>
-                <input
-                  id="inspiration-upload"
-                  type="file"
-                  className="hidden"
-                  onChange={handleInspirationImageChange}
-                  accept="image/png, image/jpeg, image/webp"
-                />
-              </label>
-            </div>
+            <label
+              htmlFor="inspiration-upload"
+              className="flex flex-col items-center justify-center h-20 border-2 border-dashed border-muted-foreground/30 rounded-md cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all group"
+            >
+              <div className="text-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mx-auto mb-1 text-muted-foreground group-hover:text-primary transition-colors"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <p className="text-xs text-muted-foreground">Upload image</p>
+              </div>
+              <input
+                id="inspiration-upload"
+                type="file"
+                className="hidden"
+                onChange={handleInspirationImageChange}
+                accept="image/png, image/jpeg, image/webp"
+              />
+            </label>
           )}
-        </div>
+        </Card>
       </div>
-      <div className="flex space-x-4 mt-4">
-        <button onClick={onCancel} className="btn btn-secondary">
-          Cancel
-        </button>
-        <button
-          onClick={testCameraAngles}
-          className="btn btn-outline"
-          disabled={isCapturing || isTestingAngles}
-          title="Test camera angles without generating scenes"
+
+      {/* Action Buttons - Full Width Bottom */}
+      <div className="flex gap-2">
+        <Button
+          onClick={onCancel}
+          variant="secondary"
+          size="sm"
+          className="flex-1"
         >
-          {isTestingAngles
-            ? `Testing... (${testAngleIndex + 1}/3)`
-            : "Test Angles"}
-        </button>
-        <button
+          Cancel
+        </Button>
+        <Button
+          onClick={testCameraAngles}
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          disabled={isCapturing || isTestingAngles}
+          title="Test camera angles"
+        >
+          {isTestingAngles ? `Testing ${testAngleIndex + 1}/3` : "Test Angles"}
+        </Button>
+        <Button
           onClick={handleCapture}
-          className="btn btn-primary"
+          variant="default"
+          size="sm"
+          className="flex-1"
           disabled={!objectType.trim() || isCapturing || isTestingAngles}
           title={
             !objectType.trim()
               ? "Please describe the object first"
-              : isCapturing
-                ? "Capturing angles..."
-                : isTestingAngles
-                  ? "Please wait for angle testing to complete"
-                  : "Generate scenes from 3 different angles"
+              : "Generate scenes"
           }
         >
           {isCapturing
-            ? `Capturing... (${captureProgress.current}/${captureProgress.total})`
+            ? `Capturing ${captureProgress.current}/${captureProgress.total}`
             : "Generate Scenes"}
-        </button>
+        </Button>
       </div>
     </div>
   );

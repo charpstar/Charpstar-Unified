@@ -10,6 +10,7 @@ import { DateRangeProvider } from "@/contexts/DateRangeContext";
 import { Editor3DProvider } from "@/contexts/Editor3DContext";
 import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/react";
+import Script from "next/script";
 
 // Root layout font configuration
 const montserrat = Montserrat({
@@ -47,6 +48,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Preload model-viewer script globally for instant 3D model rendering */}
+        <Script
+          src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+          type="module"
+          strategy="beforeInteractive"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `

@@ -17,6 +17,7 @@ import FileUploader from "@/components/scene-render/FileUploader";
 import ModelPreviewer from "@/components/scene-render/ModelPreviewer";
 import Loader from "@/components/scene-render/Loader";
 import ResultDisplay from "@/components/scene-render/ResultDisplay";
+import AssetLibraryPanel from "@/components/scene-render/AssetLibraryPanel";
 
 type AppState = "upload" | "preview" | "generating" | "results" | "error";
 
@@ -26,8 +27,10 @@ export default function SceneRenderPage() {
   const { startLoading, stopLoading } = useLoadingState();
   const [appState, setAppState] = useState<AppState>("upload");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedModelUrl, setSelectedModelUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleFileSelect = (file: File) => {
     if (file.type !== "model/gltf-binary" && !file.name.endsWith(".glb")) {
@@ -36,7 +39,18 @@ export default function SceneRenderPage() {
     }
     setError(null);
     setSelectedFile(file);
+    setSelectedModelUrl(null); // Clear URL when using file
     setAppState("preview");
+  };
+
+  const handleAssetSelect = (asset: any) => {
+    console.log("Asset selected:", asset);
+    if (asset.glb_link) {
+      setError(null);
+      setSelectedFile(null); // Clear file when using URL
+      setSelectedModelUrl(asset.glb_link); // Use URL directly
+      setAppState("preview");
+    }
   };
 
   const handleGenerate = async (
@@ -91,12 +105,14 @@ export default function SceneRenderPage() {
 
   const handleCancel = () => {
     setSelectedFile(null);
+    setSelectedModelUrl(null);
     setError(null);
     setAppState("upload");
   };
 
   const handleReset = () => {
     setSelectedFile(null);
+    setSelectedModelUrl(null);
     setError(null);
     setGeneratedImages([]);
     setAppState("upload");
@@ -105,13 +121,11 @@ export default function SceneRenderPage() {
   // Show loading state while user context is initializing
   if (user === null) {
     return (
-      <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
-        <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
-        </Card>
+      <div className="w-full h-full flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -122,15 +136,13 @@ export default function SceneRenderPage() {
     (user.metadata?.role !== "client" && user.metadata?.role !== "admin")
   ) {
     return (
-      <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
-        <Card className="p-6 flex-1 flex flex-col border-0 shadow-none">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl font-semibold">
-              Access Denied
-            </CardTitle>
+      <div className="w-full h-full flex items-center justify-center p-4">
+        <Card className="max-w-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Access Denied</CardTitle>
           </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-muted-foreground">
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
               This page is only available for clients and administrators.
             </p>
           </CardContent>
@@ -145,9 +157,10 @@ export default function SceneRenderPage() {
         return <FileUploader onFileSelect={handleFileSelect} error={error} />;
       case "preview":
         return (
-          selectedFile && (
+          (selectedFile || selectedModelUrl) && (
             <ModelPreviewer
               file={selectedFile}
+              modelUrl={selectedModelUrl}
               onGenerate={handleGenerate}
               onCancel={handleCancel}
             />
@@ -181,125 +194,155 @@ export default function SceneRenderPage() {
   };
 
   return (
-    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
-      {/* Header with Back Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-        <div className="flex items-center gap-2 sm:gap-4">
+    <div className="w-full h-full p-2 space-y-2">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/dashboard")}
-            className="gap-2 h-8 sm:h-9 text-sm"
+            className="gap-1 h-7 text-xs"
           >
-            <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Back to Dashboard</span>
-            <span className="sm:hidden">Back</span>
+            <ChevronLeft className="h-3 w-3" />
+            Back
           </Button>
+          <h1 className="text-lg font-semibold">3D Product Stager</h1>
+        </div>
+
+        {/* Compact Progress Indicator */}
+        <div className="flex items-center gap-2 text-xs">
+          <div
+            className={`flex items-center gap-1 ${
+              appState === "upload"
+                ? "text-primary"
+                : ["preview", "generating", "results"].includes(appState)
+                  ? "text-green-600"
+                  : "text-muted-foreground"
+            }`}
+          >
+            <div
+              className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs ${
+                appState === "upload"
+                  ? "border-primary bg-primary/10"
+                  : ["preview", "generating", "results"].includes(appState)
+                    ? "border-green-600 bg-green-600/10"
+                    : "border-muted-foreground"
+              }`}
+            >
+              {["preview", "generating", "results"].includes(appState)
+                ? "✓"
+                : "1"}
+            </div>
+            <span className="hidden sm:inline">Upload</span>
+          </div>
+
+          <div className="w-6 h-px bg-border"></div>
+
+          <div
+            className={`flex items-center gap-1 ${
+              appState === "preview"
+                ? "text-primary"
+                : ["generating", "results"].includes(appState)
+                  ? "text-green-600"
+                  : "text-muted-foreground"
+            }`}
+          >
+            <div
+              className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs ${
+                appState === "preview"
+                  ? "border-primary bg-primary/10"
+                  : ["generating", "results"].includes(appState)
+                    ? "border-green-600 bg-green-600/10"
+                    : "border-muted-foreground"
+              }`}
+            >
+              {["generating", "results"].includes(appState) ? "✓" : "2"}
+            </div>
+            <span className="hidden sm:inline">Configure</span>
+          </div>
+
+          <div className="w-6 h-px bg-border"></div>
+
+          <div
+            className={`flex items-center gap-1 ${
+              appState === "generating"
+                ? "text-primary"
+                : appState === "results"
+                  ? "text-green-600"
+                  : "text-muted-foreground"
+            }`}
+          >
+            <div
+              className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs ${
+                appState === "generating"
+                  ? "border-primary bg-primary/10"
+                  : appState === "results"
+                    ? "border-green-600 bg-green-600/10"
+                    : "border-muted-foreground"
+              }`}
+            >
+              {appState === "results" ? "✓" : "3"}
+            </div>
+            <span className="hidden sm:inline">Generate</span>
+          </div>
         </div>
       </div>
 
-      <Card className="p-3 sm:p-6 flex-1 flex flex-col border-0 shadow-none">
-        {/* Page Title and Description */}
-        <CardHeader className="text-center pb-6">
-          <CardTitle className="text-2xl sm:text-3xl font-bold mb-2">
-            3D Product Stager
-          </CardTitle>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Instantly create professional e-commerce photoshoots for your 3D
-            models.
-          </p>
-        </CardHeader>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 ">
+        {/* Main Content Area - Left Side (2/3 width) */}
+        <div
+          className="lg:col-span-2"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
 
-        {/* Progress Indicator */}
-        <div className="flex items-center justify-center mb-6">
-          <div className="flex items-center gap-2 sm:gap-4">
-            {/* Step 1 - Upload */}
-            <div
-              className={`flex items-center gap-2 ${
-                appState === "upload"
-                  ? "text-primary"
-                  : ["preview", "generating", "results"].includes(appState)
-                    ? "text-green-600"
-                    : "text-muted-foreground"
-              }`}
-            >
-              <div
-                className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm ${
-                  appState === "upload"
-                    ? "border-primary bg-primary/10"
-                    : ["preview", "generating", "results"].includes(appState)
-                      ? "border-green-600 bg-green-600/10"
-                      : "border-muted-foreground"
-                }`}
-              >
-                {["preview", "generating", "results"].includes(appState)
-                  ? "✓"
-                  : "1"}
-              </div>
-              <span className="text-xs sm:text-sm font-medium">Upload</span>
-            </div>
+            try {
+              const assetData = e.dataTransfer.getData("application/json");
+              if (assetData) {
+                const asset = JSON.parse(assetData);
+                handleAssetSelect(asset);
+              }
+            } catch (err) {
+              console.error("Error parsing dropped data:", err);
+            }
+          }}
+        >
+          <Card
+            className={`h-full flex flex-col transition-all ${
+              isDragging ? "ring-2 ring-primary bg-primary/5" : ""
+            }`}
+          >
+            {/* Main Content Area */}
+            <CardContent className="flex-1 flex items-center justify-center p-2 relative overflow-hidden">
+              {isDragging && appState === "upload" && (
+                <div className="absolute inset-0 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg z-10">
+                  <div className="text-center">
+                    <p className="text-lg font-semibold text-primary">
+                      Drop asset here
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Release to load the 3D model
+                    </p>
+                  </div>
+                </div>
+              )}
 
-            {/* Divider */}
-            <div className="w-8 sm:w-12 h-px bg-border"></div>
-
-            {/* Step 2 - Configure */}
-            <div
-              className={`flex items-center gap-2 ${
-                appState === "preview"
-                  ? "text-primary"
-                  : ["generating", "results"].includes(appState)
-                    ? "text-green-600"
-                    : "text-muted-foreground"
-              }`}
-            >
-              <div
-                className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm ${
-                  appState === "preview"
-                    ? "border-primary bg-primary/10"
-                    : ["generating", "results"].includes(appState)
-                      ? "border-green-600 bg-green-600/10"
-                      : "border-muted-foreground"
-                }`}
-              >
-                {["generating", "results"].includes(appState) ? "✓" : "2"}
-              </div>
-              <span className="text-xs sm:text-sm font-medium">Configure</span>
-            </div>
-
-            {/* Divider */}
-            <div className="w-8 sm:w-12 h-px bg-border"></div>
-
-            {/* Step 3 - Generate */}
-            <div
-              className={`flex items-center gap-2 ${
-                appState === "generating"
-                  ? "text-primary"
-                  : appState === "results"
-                    ? "text-green-600"
-                    : "text-muted-foreground"
-              }`}
-            >
-              <div
-                className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm ${
-                  appState === "generating"
-                    ? "border-primary bg-primary/10"
-                    : appState === "results"
-                      ? "border-green-600 bg-green-600/10"
-                      : "border-muted-foreground"
-                }`}
-              >
-                {appState === "results" ? "✓" : "3"}
-              </div>
-              <span className="text-xs sm:text-sm font-medium">Generate</span>
-            </div>
-          </div>
+              {renderContent()}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Main Content Area */}
-        <CardContent className="flex-1 flex items-center justify-center min-h-[400px]">
-          {renderContent()}
-        </CardContent>
-      </Card>
+        {/* Asset Library Panel - Right Side (1/3 width) */}
+        <div className="hidden lg:block">
+          <AssetLibraryPanel onAssetSelect={handleAssetSelect} />
+        </div>
+      </div>
     </div>
   );
 }

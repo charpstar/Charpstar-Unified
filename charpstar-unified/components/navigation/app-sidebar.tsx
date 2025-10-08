@@ -18,6 +18,8 @@ import {
   HelpCircle,
   Bug,
   ShieldCheck,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -92,6 +94,11 @@ export default function AppSidebar({
                     title: "Asset Library",
                     url: "/asset-library",
                     icon: Folder,
+                  },
+                  {
+                    title: "Texture Library",
+                    url: "/texture-library",
+                    icon: Layers,
                   },
                 ]),
         // FAQ - available to all users except clients
@@ -197,7 +204,11 @@ export default function AppSidebar({
             url: "/my-assignments",
             icon: Package,
           },
-
+          {
+            title: "3D Generator",
+            url: "/generator",
+            icon: Sparkles,
+          },
           {
             title: "Guidelines",
             url: "/guidelines",
@@ -256,6 +267,7 @@ export default function AppSidebar({
     "Scene Render": 25,
     // Modeler
     "My Assignments": 10,
+    "3D Generator": 12,
     Guidelines: 15,
     Invoicing: 50,
     // QA

@@ -12,6 +12,8 @@ declare namespace JSX {
         "tone-mapping"?: string;
         "camera-orbit"?: string;
         "camera-controls"?: boolean;
+        "auto-rotate"?: boolean;
+        "touch-action"?: string;
         "ar-status"?: string;
         "shadow-softness"?: string;
         "min-field-of-view"?: string;
