@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Box, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/display/button";
 import { Progress } from "@/components/ui/feedback/progress";
@@ -62,7 +62,7 @@ export function ModelViewerSection({
       return (
         <div className="h-full flex flex-col">
           <div className="flex-1">
-            <ModelViewer modelUrl={generatedModel} className="w-full h-full" />
+            <ModelViewer modelUrl={generatedModel} />
           </div>
         </div>
       );

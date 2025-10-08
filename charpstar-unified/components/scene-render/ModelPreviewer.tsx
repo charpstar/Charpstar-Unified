@@ -410,17 +410,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     }
   };
 
-  const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    if (value === "custom") {
-      setIsCustomScene(true);
-      setSceneDescription("");
-    } else {
-      setIsCustomScene(false);
-      setSceneDescription(value);
-    }
-  };
-
   const handleInspirationImageChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {

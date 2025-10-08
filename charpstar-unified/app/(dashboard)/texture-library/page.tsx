@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
 import { Select } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
-import { Search, Upload, Filter } from "lucide-react";
+import { Search, Upload } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 

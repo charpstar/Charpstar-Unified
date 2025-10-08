@@ -198,13 +198,13 @@ export default function ModelViewerTestPage() {
           </CardHeader>
           <CardContent className="prose prose-sm max-w-none">
             <ol className="space-y-2">
-              <li>Check the diagnostics above to see what's working</li>
+              <li>Check the diagnostics above to see what&apos;s working</li>
               <li>
                 If the model file is missing, add orb.glb to public/models/
               </li>
               <li>
-                If the script isn't loading, check that model-viewer.js exists
-                in public/
+                If the script isn&apos;t loading, check that model-viewer.js
+                exists in public/
               </li>
               <li>Open browser console (F12) to see detailed logs</li>
               <li>Once everything is green, go back to the texture library</li>

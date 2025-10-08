@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Home, Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/display/button";
 
 interface ModelViewerProps {
   modelUrl: string;
-  className?: string;
 }
 
-export function ModelViewer({ modelUrl, className = "" }: ModelViewerProps) {
+export function ModelViewer({ modelUrl }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [bgColor, setBgColor] = useState("");
 

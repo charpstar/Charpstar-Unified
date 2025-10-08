@@ -3,8 +3,11 @@
 import { useCallback } from "react";
 import { Upload, Star, X, Box, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/display/button";
-import { Progress } from "@/components/ui/feedback/progress";
-import { UploadedImages, UploadedImage } from "./GeneratorPage";
+import {
+  UploadedImages,
+  UploadedImage,
+} from "@/components/generator/GeneratorPage";
+import Image from "next/image";
 
 interface ImageUploadSectionProps {
   uploadedImages: UploadedImages;
@@ -282,7 +285,7 @@ export function ImageUploadSection({
       try {
         const parsed = JSON.parse(eventResult);
         eventId = parsed.event_id;
-      } catch (e) {
+      } catch {
         eventId = eventResult.match(/"event_id"\s*:\s*"([^"]+)"/)?.[1];
       }
 
@@ -546,7 +549,9 @@ export function ImageUploadSection({
               </div>
             ) : (
               <div className="relative">
-                <img
+                <Image
+                  width={120}
+                  height={120}
                   src={uploadedImages.front.preview}
                   alt="Single image"
                   className="w-full h-[120px] object-cover rounded-md"
@@ -598,7 +603,9 @@ export function ImageUploadSection({
                     </div>
                   ) : (
                     <div className="relative">
-                      <img
+                      <Image
+                        width={80}
+                        height={80}
                         src={uploadedImage.preview}
                         alt={`${config.type} view`}
                         className="w-full h-[80px] object-cover rounded-md"

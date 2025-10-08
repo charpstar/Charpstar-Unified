@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/display";
 import { Slider } from "@/components/ui/inputs";
 import { Select } from "@/components/ui/inputs";
 import { ArrowLeft, Edit, Save, X, Download } from "lucide-react";
-import Head from "next/head";
 
 interface Texture {
   id: string;

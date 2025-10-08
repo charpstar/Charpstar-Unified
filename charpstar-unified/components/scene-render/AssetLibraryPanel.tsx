@@ -16,14 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/interactive";
-import {
-  Search,
-  Filter,
-  ArrowUpDown,
-  Download,
-  Check,
-  ChevronsUpDown,
-} from "lucide-react";
+import { Search, Filter, Download, Check, ChevronsUpDown } from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -48,8 +41,7 @@ export default function AssetLibraryPanel({
     assets,
     loading,
     filteredAssets,
-    filters,
-    setFilters,
+
     filterOptions,
   } = useAssets();
 
@@ -135,14 +127,6 @@ export default function AssetLibraryPanel({
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, selectedCategory, selectedClient, sortBy, sortOrder]);
-
-  const toggleSort = () => {
-    if (sortOrder === "asc") {
-      setSortOrder("desc");
-    } else {
-      setSortOrder("asc");
-    }
-  };
 
   // Get categories based on selected client (for admins)
   const availableCategories = useMemo(() => {
