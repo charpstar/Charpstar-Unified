@@ -11,7 +11,8 @@ const createPrompt = (
   const physicalAccuracy = `2.  **PHYSICAL ACCURACY:**
     *   **Scaling Reference:** The product's real-world dimensions are: ${size}. Use this data to render the scene to a perfectly realistic scale.
     *   **CRITICAL: Do NOT Render Dimensions:** Under no circumstances should you draw or write these dimensions, measurement lines, or any related text onto the final image. This data is for your internal scaling calculations ONLY.
-    *   **Object Context:** The object is a "${objectType}". This context is CRITICAL for realistic placement. A "${objectType}" belongs in a logical location (e.g., a chair on the floor, a lamp on a table). Ensure the placement is physically plausible and respects gravity.`;
+    *   **Object Context:** The object is a "${objectType}". This context is CRITICAL for realistic placement. A "${objectType}" belongs in a logical location (e.g., a chair on the floor, a lamp on a table). Ensure the placement is physically plausible and respects gravity.
+    *   **CRITICAL FOR GLASSES/EYEWEAR:** If the product is glasses or eyewear on a flat surface, they MUST be resting properly on their temple tips (the ends of the arms) and nose bridge. The lenses should NOT be touching the surface. Glasses naturally rest on these three contact points - ensure this is physically accurate.`;
 
   const sceneInstruction = `**Creative Brief:**\n${scene}`;
 

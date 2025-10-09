@@ -48,6 +48,15 @@ const parseReferences = (
 ): string[] => {
   if (!referenceImages) return [];
   if (Array.isArray(referenceImages)) return referenceImages;
+
+  // Check if it's a string with ||| separator
+  if (typeof referenceImages === "string" && referenceImages.includes("|||")) {
+    return referenceImages
+      .split("|||")
+      .map((ref) => ref.trim())
+      .filter(Boolean);
+  }
+
   try {
     return JSON.parse(referenceImages);
   } catch {

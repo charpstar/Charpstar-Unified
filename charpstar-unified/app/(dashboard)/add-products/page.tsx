@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { notificationService } from "@/lib/notificationService";
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -13,13 +14,6 @@ import {
 } from "@/components/ui/containers";
 import { Button, Label } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/inputs/select";
 import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
 import {
   Table,
@@ -49,6 +43,9 @@ import {
   X,
   Eye,
   AlertTriangle,
+  FileText,
+  Link as LinkIcon,
+  Trash2,
 } from "lucide-react";
 
 import * as saveAs from "file-saver";
@@ -57,10 +54,10 @@ interface ProductForm {
   article_id: string;
   product_name: string;
   product_link: string;
-  glb_link: string;
+  cad_file_link: string;
   category: string;
   subcategory: string;
-  priority: number;
+  references: { type: "url" | "file"; value: string; file?: File }[];
 }
 
 export default function AddProductsPage() {
@@ -74,10 +71,10 @@ export default function AddProductsPage() {
       article_id: "",
       product_name: "",
       product_link: "",
-      glb_link: "",
+      cad_file_link: "",
       category: "",
       subcategory: "",
-      priority: 2,
+      references: [],
     },
   ]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -104,6 +101,58 @@ export default function AddProductsPage() {
   const [editedCsvData, setEditedCsvData] = useState<string[][] | null>(null);
   //eslint-disable-next-line
   const [collectingImages, setCollectingImages] = useState(false);
+  const [editingReferencesIndex, setEditingReferencesIndex] = useState<
+    number | null
+  >(null);
+  const [showReferencesDialog, setShowReferencesDialog] = useState(false);
+  const [recentReferences, setRecentReferences] = useState<
+    { type: "url" | "file"; value: string; file?: File }[]
+  >([]);
+
+  // Helper to check if a reference is an image
+  const isImageReference = (ref: {
+    type: "url" | "file";
+    value: string;
+    file?: File;
+  }) => {
+    if (ref.type === "file" && ref.file) {
+      return ref.file.type.startsWith("image/");
+    } else if (ref.type === "url") {
+      const url = ref.value.toLowerCase();
+      return url.match(/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i);
+    }
+    return false;
+  };
+
+  // Helper to get preview URL for an image
+  const getImagePreviewUrl = (ref: {
+    type: "url" | "file";
+    value: string;
+    file?: File;
+  }) => {
+    if (ref.type === "file" && ref.file) {
+      return URL.createObjectURL(ref.file);
+    } else if (ref.type === "url") {
+      return ref.value;
+    }
+    return null;
+  };
+
+  // Helper to add reference to recent list
+  const addToRecent = (ref: {
+    type: "url" | "file";
+    value: string;
+    file?: File;
+  }) => {
+    setRecentReferences((prev) => {
+      // Check if already exists
+      const exists = prev.some((r) => r.value === ref.value);
+      if (exists) return prev;
+
+      // Add to beginning, keep last 5
+      return [ref, ...prev].slice(0, 5);
+    });
+  };
 
   // Helper function to reset file input
   const resetFileInput = () => {
@@ -208,10 +257,10 @@ export default function AddProductsPage() {
         article_id: "",
         product_name: "",
         product_link: "",
-        glb_link: "",
+        cad_file_link: "",
         category: "",
         subcategory: "",
-        priority: 2,
+        references: [],
       },
     ]);
   };
@@ -270,18 +319,19 @@ export default function AddProductsPage() {
         article_id: product.article_id.trim(),
         product_name: product.product_name.trim(),
         product_link: product.product_link.trim(),
-        glb_link: product.glb_link.trim() || null,
+        glb_link: product.cad_file_link.trim() || null,
         category: product.category.trim() || null,
         subcategory: product.subcategory.trim() || null,
-        reference: null, // No reference field in new format
-        priority: product.priority,
+        reference: null, // Will be updated if references exist
+        priority: 2, // Default medium priority
         status: "not_started",
         delivery_date: null,
       }));
 
-      const { error } = await supabase
+      const { data: insertedProducts, error } = await supabase
         .from("onboarding_assets")
-        .insert(productsToInsert);
+        .insert(productsToInsert)
+        .select("id, article_id");
 
       if (error) {
         console.error("Error inserting products:", error);
@@ -289,6 +339,68 @@ export default function AddProductsPage() {
           id: loadingToast,
         });
         return;
+      }
+
+      // Upload references if any products have them
+      if (
+        insertedProducts &&
+        validProducts.some((p) => p.references.length > 0)
+      ) {
+        toast.loading("Uploading references...", {
+          id: loadingToast,
+          description: "Uploading reference files and URLs",
+        });
+
+        for (let i = 0; i < validProducts.length; i++) {
+          const product = validProducts[i];
+          const insertedProduct = insertedProducts[i];
+
+          if (product.references.length > 0 && insertedProduct) {
+            const referenceUrls: string[] = [];
+
+            // Upload files and add URLs
+            for (const ref of product.references) {
+              if (ref.type === "file" && ref.file) {
+                try {
+                  // Upload file using the same API as AddReferenceDialog (BunnyCDN)
+                  const formData = new FormData();
+                  formData.append("file", ref.file);
+                  formData.append("client_name", clientName);
+
+                  const response = await fetch("/api/assets/upload-file", {
+                    method: "POST",
+                    body: formData,
+                    credentials: "include",
+                  });
+
+                  if (response.ok) {
+                    const data = await response.json();
+                    if (data.url) {
+                      referenceUrls.push(data.url);
+                    }
+                  } else {
+                    console.error(
+                      "Error uploading reference file:",
+                      await response.text()
+                    );
+                  }
+                } catch (uploadError) {
+                  console.error("Error uploading reference:", uploadError);
+                }
+              } else if (ref.type === "url") {
+                referenceUrls.push(ref.value);
+              }
+            }
+
+            // Update the asset with reference URLs
+            if (referenceUrls.length > 0) {
+              await supabase
+                .from("onboarding_assets")
+                .update({ reference: referenceUrls.join("|||") })
+                .eq("id", insertedProduct.id);
+            }
+          }
+        }
       }
 
       // Send notification to admin users about new product submission
@@ -328,11 +440,10 @@ export default function AddProductsPage() {
           article_id: "",
           product_name: "",
           product_link: "",
-          glb_link: "",
+          cad_file_link: "",
           category: "",
           subcategory: "",
-
-          priority: 2,
+          references: [],
         },
       ]);
 
@@ -855,113 +966,149 @@ export default function AddProductsPage() {
                 be left empty.
               </p>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {products.map((product, index) => (
-                <div key={index} className="border rounded-lg p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium">Product {index + 1}</h3>
-                    {products.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeProduct(index)}
-                        className="text-error hover:text-error/80 hover:bg-error-muted cursor-pointer"
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+            <CardContent className="space-y-4">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[60px]">#</TableHead>
+                      <TableHead className="min-w-[120px]">
                         Article ID *
-                      </Label>
-                      <Input
-                        value={product.article_id}
-                        onChange={(e) =>
-                          updateProduct(index, "article_id", e.target.value)
-                        }
-                        placeholder="ART001"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      </TableHead>
+                      <TableHead className="min-w-[150px]">
                         Product Name *
-                      </Label>
-                      <Input
-                        value={product.product_name}
-                        onChange={(e) =>
-                          updateProduct(index, "product_name", e.target.value)
-                        }
-                        placeholder="Product Name"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      </TableHead>
+                      <TableHead className="min-w-[200px]">
                         Product Link *
-                      </Label>
-                      <Input
-                        value={product.product_link}
-                        onChange={(e) =>
-                          updateProduct(index, "product_link", e.target.value)
-                        }
-                        placeholder="https://example.com/product"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
-                        Category
-                      </Label>
-                      <Input
-                        value={product.category}
-                        onChange={(e) =>
-                          updateProduct(index, "category", e.target.value)
-                        }
-                        placeholder="Furniture"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      </TableHead>
+                      <TableHead className="min-w-[200px]">
+                        CAD/File Link
+                      </TableHead>
+                      <TableHead className="min-w-[120px]">Category</TableHead>
+                      <TableHead className="min-w-[120px]">
                         Subcategory
-                      </Label>
-                      <Input
-                        value={product.subcategory}
-                        onChange={(e) =>
-                          updateProduct(index, "subcategory", e.target.value)
-                        }
-                        placeholder="Chairs"
-                        className="cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-muted-foreground mb-2 block">
-                      Priority
-                    </Label>
-                    <Select
-                      value={product.priority.toString()}
-                      onValueChange={(value) =>
-                        updateProduct(index, "priority", parseInt(value))
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Highest Priority</SelectItem>
-                        <SelectItem value="2">Medium Priority</SelectItem>
-                        <SelectItem value="3">Lowest Priority</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              ))}
+                      </TableHead>
+                      <TableHead className="min-w-[100px]">
+                        References
+                      </TableHead>
+                      <TableHead className="w-[60px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((product, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">
+                          {index + 1}
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.article_id}
+                            onChange={(e) =>
+                              updateProduct(index, "article_id", e.target.value)
+                            }
+                            placeholder="ART001"
+                            className="h-9 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.product_name}
+                            onChange={(e) =>
+                              updateProduct(
+                                index,
+                                "product_name",
+                                e.target.value
+                              )
+                            }
+                            placeholder="Product Name"
+                            className="h-9 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.product_link}
+                            onChange={(e) =>
+                              updateProduct(
+                                index,
+                                "product_link",
+                                e.target.value
+                              )
+                            }
+                            placeholder="https://..."
+                            className="h-9 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.cad_file_link}
+                            onChange={(e) =>
+                              updateProduct(
+                                index,
+                                "cad_file_link",
+                                e.target.value
+                              )
+                            }
+                            placeholder="https://..."
+                            className="h-9 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.category}
+                            onChange={(e) =>
+                              updateProduct(index, "category", e.target.value)
+                            }
+                            placeholder="Furniture"
+                            className="h-9 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.subcategory}
+                            onChange={(e) =>
+                              updateProduct(
+                                index,
+                                "subcategory",
+                                e.target.value
+                              )
+                            }
+                            placeholder="Chairs"
+                            className="h-9 text-sm"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditingReferencesIndex(index);
+                              setShowReferencesDialog(true);
+                            }}
+                            className="h-9 text-xs cursor-pointer"
+                          >
+                            <FileText className="h-3 w-3 mr-1" />
+                            {product.references.length > 0
+                              ? product.references.length
+                              : "Add"}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          {products.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeProduct(index)}
+                              className="h-9 w-9 text-error hover:text-error/80 hover:bg-error/10 cursor-pointer"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
               <Button
                 onClick={addProduct}
@@ -1576,9 +1723,9 @@ export default function AddProductsPage() {
                     <TableHead>Article ID</TableHead>
                     <TableHead>Product Name</TableHead>
                     <TableHead>Product Link</TableHead>
-                    <TableHead>CAD File/Files</TableHead>
+                    <TableHead>CAD/File Link</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead>Priority</TableHead>
+                    <TableHead>Subcategory</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1616,49 +1763,31 @@ export default function AddProductsPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {product.glb_link ? (
+                        {product.cad_file_link ? (
                           <a
-                            href={product.glb_link}
+                            href={product.cad_file_link}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-info hover:text-info/80 underline truncate block max-w-48"
-                            title={product.glb_link}
+                            title={product.cad_file_link}
                           >
-                            {product.glb_link.length > 50
-                              ? `${product.glb_link.substring(0, 50)}...`
-                              : product.glb_link}
+                            {product.cad_file_link.length > 50
+                              ? `${product.cad_file_link.substring(0, 50)}...`
+                              : product.cad_file_link}
                           </a>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <span className="font-medium">
-                            {product.category || "-"}
-                          </span>
-                          {product.subcategory && (
-                            <span className="text-xs text-muted-foreground block">
-                              {product.subcategory}
-                            </span>
-                          )}
-                        </div>
+                        <span className="font-medium">
+                          {product.category || "-"}
+                        </span>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={
-                            product.priority === 1
-                              ? "destructive"
-                              : product.priority === 2
-                                ? "secondary"
-                                : product.priority === 3
-                                  ? "default"
-                                  : "outline"
-                          }
-                          className="text-xs"
-                        >
-                          {product.priority}
-                        </Badge>
+                        <span className="font-medium">
+                          {product.subcategory || "-"}
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1878,6 +2007,219 @@ export default function AddProductsPage() {
               )}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* References Dialog */}
+      <Dialog
+        open={showReferencesDialog}
+        onOpenChange={setShowReferencesDialog}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Add References
+              {editingReferencesIndex !== null &&
+                ` - ${products[editingReferencesIndex]?.product_name || `Product ${editingReferencesIndex + 1}`}`}
+            </DialogTitle>
+          </DialogHeader>
+
+          {editingReferencesIndex !== null && (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Add reference URLs or files that will be uploaded when you
+                submit this product.
+              </div>
+
+              {/* Recent References */}
+              {recentReferences.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Recent References (Click to add)
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto border rounded-lg p-2">
+                    {recentReferences.map((ref, idx) => (
+                      <Button
+                        key={idx}
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          const updated = [...products];
+                          // Check if not already added
+                          const exists = updated[
+                            editingReferencesIndex
+                          ].references.some((r) => r.value === ref.value);
+                          if (!exists) {
+                            updated[editingReferencesIndex].references.push(
+                              ref
+                            );
+                            setProducts(updated);
+                            toast.success("Reference added");
+                          } else {
+                            toast.info("Reference already added");
+                          }
+                        }}
+                        title={ref.value}
+                      >
+                        {ref.value}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Current References */}
+              {products[editingReferencesIndex]?.references.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Current References (
+                    {products[editingReferencesIndex].references.length})
+                  </Label>
+                  <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
+                    {products[editingReferencesIndex].references.map(
+                      (ref, refIndex) => (
+                        <div
+                          key={refIndex}
+                          className="flex items-center justify-between gap-3 p-2 bg-muted rounded"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {isImageReference(ref) ? (
+                              <Image
+                                width={48}
+                                height={48}
+                                src={getImagePreviewUrl(ref) || ""}
+                                alt="Preview"
+                                className="w-12 h-12 object-cover rounded border flex-shrink-0"
+                              />
+                            ) : ref.type === "url" ? (
+                              <LinkIcon className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            )}
+                            <span
+                              className="text-sm truncate"
+                              title={ref.value}
+                            >
+                              {ref.value}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 flex-shrink-0"
+                            onClick={() => {
+                              const updated = [...products];
+                              updated[editingReferencesIndex].references =
+                                updated[
+                                  editingReferencesIndex
+                                ].references.filter((_, i) => i !== refIndex);
+                              setProducts(updated);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-error" />
+                          </Button>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Add URL */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Add Reference URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="ref-url-input"
+                    placeholder="https://example.com/reference-image.jpg"
+                    className="flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const input = e.currentTarget;
+                        const url = input.value.trim();
+                        if (url) {
+                          const newRef = {
+                            type: "url" as const,
+                            value: url,
+                          };
+                          const updated = [...products];
+                          updated[editingReferencesIndex].references.push(
+                            newRef
+                          );
+                          setProducts(updated);
+                          addToRecent(newRef);
+                          input.value = "";
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const input = document.getElementById(
+                        "ref-url-input"
+                      ) as HTMLInputElement;
+                      const url = input?.value.trim();
+                      if (url) {
+                        const newRef = {
+                          type: "url" as const,
+                          value: url,
+                        };
+                        const updated = [...products];
+                        updated[editingReferencesIndex].references.push(newRef);
+                        setProducts(updated);
+                        addToRecent(newRef);
+                        input.value = "";
+                      }
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add URL
+                  </Button>
+                </div>
+              </div>
+
+              {/* Add File */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Upload Reference File
+                </Label>
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const newRef = {
+                        type: "file" as const,
+                        value: file.name,
+                        file: file,
+                      };
+                      const updated = [...products];
+                      updated[editingReferencesIndex].references.push(newRef);
+                      setProducts(updated);
+                      addToRecent(newRef);
+                      e.target.value = "";
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Supported: Images (JPG, PNG, etc.) and PDF files
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowReferencesDialog(false)}
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

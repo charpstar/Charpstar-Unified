@@ -863,13 +863,21 @@ export default function BatchDetailPage() {
     if (Array.isArray(referenceImages)) {
       urls = referenceImages;
     } else if (typeof referenceImages === "string") {
-      // Try to parse as JSON if it's a string
-      try {
-        const parsed = JSON.parse(referenceImages);
-        urls = Array.isArray(parsed) ? parsed : [referenceImages];
-      } catch {
-        // If not JSON, treat as single URL
-        urls = [referenceImages];
+      // Check if it's a string with ||| separator
+      if (referenceImages.includes("|||")) {
+        urls = referenceImages
+          .split("|||")
+          .map((ref) => ref.trim())
+          .filter(Boolean);
+      } else {
+        // Try to parse as JSON if it's a string
+        try {
+          const parsed = JSON.parse(referenceImages);
+          urls = Array.isArray(parsed) ? parsed : [referenceImages];
+        } catch {
+          // If not JSON, treat as single URL
+          urls = [referenceImages];
+        }
       }
     }
 

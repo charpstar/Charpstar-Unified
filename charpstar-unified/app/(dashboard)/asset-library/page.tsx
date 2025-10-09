@@ -147,6 +147,7 @@ export default function AssetLibraryPage() {
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
+  const [showInactiveOnly, setShowInactiveOnly] = useState(false);
 
   // Debounced search function
   const debouncedSearch = useCallback((value: string) => {
@@ -219,6 +220,11 @@ export default function AssetLibraryPage() {
   const filteredAssets = useMemo(() => {
     return hookFilteredAssets
       .filter((asset) => {
+        // Apply active/inactive filter
+        if (showInactiveOnly && asset.active !== false) {
+          return false;
+        }
+
         // Apply search filter with optimized search
         if (activeSearchValue) {
           if (!optimizedSearch(activeSearchValue, asset)) return false;
@@ -304,6 +310,7 @@ export default function AssetLibraryPage() {
     selectedMaterials,
     selectedColors,
     selectedCompanies,
+    showInactiveOnly,
     filters.sort,
     optimizedSearch,
   ]);
@@ -556,17 +563,22 @@ export default function AssetLibraryPage() {
   ];
 
   // Lazy loading asset card component
-  const LazyAssetCardWrapper = useCallback(({ asset, ...props }: any) => {
-    return (
-      <div data-asset-id={asset.id}>
-        <Suspense
-          fallback={<div className="h-48 bg-muted animate-pulse rounded-lg" />}
-        >
-          <LazyAssetCard asset={asset} {...props} />
-        </Suspense>
-      </div>
-    );
-  }, []);
+  const LazyAssetCardWrapper = useCallback(
+    ({ asset, ...props }: any) => {
+      return (
+        <div data-asset-id={asset.id}>
+          <Suspense
+            fallback={
+              <div className="h-48 bg-muted animate-pulse rounded-lg" />
+            }
+          >
+            <LazyAssetCard asset={asset} {...props} onStatusChange={refetch} />
+          </Suspense>
+        </div>
+      );
+    },
+    [refetch]
+  );
 
   // Show skeletons while loading
   if (loading) {
@@ -599,6 +611,8 @@ export default function AssetLibraryPage() {
             companies={dynamicFilterOptions.companies}
             selectedCompanies={selectedCompanies}
             setSelectedCompanies={setSelectedCompanies}
+            showInactiveOnly={showInactiveOnly}
+            setShowInactiveOnly={setShowInactiveOnly}
             isMobileSidebarOpen={isMobileSidebarOpen}
             onToggleMobileSidebar={() =>
               setIsMobileSidebarOpen(!isMobileSidebarOpen)
@@ -669,6 +683,8 @@ export default function AssetLibraryPage() {
           companies={dynamicFilterOptions.companies}
           selectedCompanies={selectedCompanies}
           setSelectedCompanies={setSelectedCompanies}
+          showInactiveOnly={showInactiveOnly}
+          setShowInactiveOnly={setShowInactiveOnly}
           isMobileSidebarOpen={isMobileSidebarOpen}
           onToggleMobileSidebar={() =>
             setIsMobileSidebarOpen(!isMobileSidebarOpen)

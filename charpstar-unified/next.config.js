@@ -11,6 +11,7 @@ const nextConfig = {
   images: {
     domains: [
       "drive.charpstar.net",
+      "cdn.charpstar.net",
       "tpamckewerybqzhhhqqp.supabase.co",
       "localhost",
     ],

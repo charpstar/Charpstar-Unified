@@ -47,9 +47,10 @@ interface Asset {
   materials: string[];
   colors: string[];
   tags: string[];
-  preview_image: string;
+  preview_image: string | string[];
   created_at: string;
   updated_at?: string;
+  active?: boolean;
 }
 
 interface AssetsResponse {

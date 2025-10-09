@@ -548,7 +548,13 @@ export default function AssetLibraryPanel({
                     <div className="relative aspect-square bg-muted">
                       {asset.preview_image && !imageErrors.has(asset.id) ? (
                         <Image
-                          src={asset.preview_image}
+                          width={100}
+                          height={100}
+                          src={
+                            Array.isArray(asset.preview_image)
+                              ? asset.preview_image[0]
+                              : asset.preview_image
+                          }
                           alt={asset.product_name}
                           fill
                           unoptimized

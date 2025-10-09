@@ -39,6 +39,8 @@ import {
   ChevronDown,
   Image,
   Edit3,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/interactive";
 
@@ -77,6 +79,9 @@ interface AssetLibraryControlPanelProps {
   companies: FilterOption[];
   selectedCompanies: string[];
   setSelectedCompanies: React.Dispatch<React.SetStateAction<string[]>>;
+  // Active filter props
+  showInactiveOnly: boolean;
+  setShowInactiveOnly: React.Dispatch<React.SetStateAction<boolean>>;
   // Mobile sidebar props
   isMobileSidebarOpen?: boolean;
   onToggleMobileSidebar?: () => void;
@@ -106,6 +111,8 @@ export const AssetLibraryControlPanel: React.FC<
   companies,
   selectedCompanies,
   setSelectedCompanies,
+  showInactiveOnly,
+  setShowInactiveOnly,
   isMobileSidebarOpen,
   onToggleMobileSidebar,
   className = "",
@@ -294,6 +301,36 @@ export const AssetLibraryControlPanel: React.FC<
                 <TooltipContent>List View</TooltipContent>
               </Tooltip>
             </div>
+
+            {/* Inactive Filter Toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={showInactiveOnly ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowInactiveOnly(!showInactiveOnly)}
+                  className={`cursor-pointer transition-colors ${
+                    showInactiveOnly
+                      ? "bg-red-500 hover:bg-red-600 text-white"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  {showInactiveOnly ? (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {showInactiveOnly ? "Inactive Only" : "All Active"}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {showInactiveOnly
+                  ? "Showing inactive assets only - Click to show all"
+                  : "Showing active assets - Click to show inactive only"}
+              </TooltipContent>
+            </Tooltip>
 
             {/* Admin Actions */}
             {userRole === "admin" && (

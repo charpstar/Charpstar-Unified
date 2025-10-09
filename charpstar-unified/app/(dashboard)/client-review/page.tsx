@@ -36,6 +36,7 @@ import {
   Download,
   X,
   Activity,
+  Plus,
 } from "lucide-react";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -639,6 +640,18 @@ export default function ReviewDashboardPage() {
   ): string[] => {
     if (!referenceImages) return [];
     if (Array.isArray(referenceImages)) return referenceImages;
+
+    // Check if it's a string with ||| separator
+    if (
+      typeof referenceImages === "string" &&
+      referenceImages.includes("|||")
+    ) {
+      return referenceImages
+        .split("|||")
+        .map((ref) => ref.trim())
+        .filter(Boolean);
+    }
+
     try {
       return JSON.parse(referenceImages);
     } catch {
@@ -1200,18 +1213,25 @@ export default function ReviewDashboardPage() {
                             </TableCell>
 
                             <TableCell className="text-center w-12 pr-4">
-                              <div className="flex flex-col items-center gap-1">
+                              <div className="flex items-center justify-center gap-1">
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-xs px-3 py-1 h-7  dark:border-border dark:hover:bg-muted/50"
+                                  className="text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50"
                                   onClick={() => {
                                     setSelectedAssetForView(asset);
                                     setShowViewRefDialog(true);
                                   }}
+                                  title={`View ${(() => {
+                                    const allRefs = parseReferences(
+                                      asset.reference
+                                    );
+                                    const total =
+                                      allRefs.length + (asset.glb_link ? 1 : 0);
+                                    return `${total} reference${total !== 1 ? "s" : ""}`;
+                                  })()}`}
                                 >
                                   <FileText className="mr-1 h-3 w-3" />
-                                  Ref (
                                   {(() => {
                                     const allRefs = parseReferences(
                                       asset.reference
@@ -1220,7 +1240,18 @@ export default function ReviewDashboardPage() {
                                       allRefs.length + (asset.glb_link ? 1 : 0)
                                     );
                                   })()}
-                                  )
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7 dark:border-border dark:hover:bg-muted/50 hover:bg-primary/10 hover:border-primary"
+                                  onClick={() => {
+                                    setSelectedAssetForRef(asset.id);
+                                    setShowAddRefDialog(true);
+                                  }}
+                                  title="Add reference"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -1474,14 +1505,14 @@ export default function ReviewDashboardPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1 text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50 "
+                              className="flex-1 text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50"
                               onClick={() => {
                                 setSelectedAssetForView(asset);
                                 setShowViewRefDialog(true);
                               }}
                             >
                               <FileText className="mr-1 h-3 w-3" />
-                              Ref (
+                              View (
                               {(() => {
                                 const allRefs = parseReferences(
                                   asset.reference
@@ -1491,6 +1522,18 @@ export default function ReviewDashboardPage() {
                                 );
                               })()}
                               )
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 dark:border-border dark:hover:bg-muted/50 hover:bg-primary/10 hover:border-primary flex-shrink-0"
+                              onClick={() => {
+                                setSelectedAssetForRef(asset.id);
+                                setShowAddRefDialog(true);
+                              }}
+                              title="Add reference"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
                             </Button>
                             {asset.glb_link && (
                               <Button

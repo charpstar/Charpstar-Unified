@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
-import { Download, Check } from "lucide-react";
+import { Download, Check, CheckCircle2, XCircle } from "lucide-react";
 
 import {
   Tooltip,
@@ -20,13 +20,14 @@ import { useEffect, useState } from "react";
 interface Asset {
   id: string;
   product_name: string;
-  preview_image: string;
+  preview_image: string | string[];
   category: string;
   subcategory: string;
   materials?: string[];
   colors?: string[];
   client?: string;
   glb_link?: string;
+  active?: boolean;
 }
 
 interface AssetCardProps {
@@ -35,6 +36,7 @@ interface AssetCardProps {
   isSelected?: boolean;
   onSelect?: (assetId: string) => void;
   viewMode?: "grid" | "compactGrid";
+  onStatusChange?: () => void;
 }
 
 export default function AssetCard({
@@ -43,20 +45,67 @@ export default function AssetCard({
   isSelected = false,
   onSelect,
   viewMode = "grid",
+  onStatusChange,
 }: AssetCardProps) {
   const router = useRouter();
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [isActive, setIsActive] = useState(asset.active ?? true);
+  const [isTogglingActive, setIsTogglingActive] = useState(false);
 
   const isCompactMode = viewMode === "compactGrid";
 
+  // Helper function to get the first preview image (handles both string and array)
+  const getPreviewImage = (
+    preview: string | string[] | null | undefined
+  ): string => {
+    if (!preview) return "";
+    if (Array.isArray(preview)) {
+      return preview.length > 0 ? preview[0] : "";
+    }
+    return preview;
+  };
+
+  const previewImageUrl: string = getPreviewImage(asset.preview_image);
+
+  const handleToggleActive = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setIsTogglingActive(true);
+    try {
+      const response = await fetch(`/api/assets/${asset.id}/toggle-active`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ active: !isActive }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to toggle active status");
+      }
+
+      setIsActive(!isActive);
+
+      // Trigger refetch to update the list
+      if (onStatusChange) {
+        onStatusChange();
+      }
+    } catch (error) {
+      console.error("Error toggling active status:", error);
+    } finally {
+      setIsTogglingActive(false);
+    }
+  };
+
   // Reset imgLoaded when asset changes or when there's no preview image
   useEffect(() => {
-    if (!asset.preview_image || asset.preview_image === "") {
+    if (!previewImageUrl || previewImageUrl === "") {
       setImgLoaded(true); // No image to load, so consider it "loaded"
     } else {
       setImgLoaded(false); // Reset for new image
     }
-  }, [asset.preview_image]);
+  }, [previewImageUrl]);
 
   const handleViewAsset = () => {
     router.push(`/asset-library/${asset.id}`);
@@ -111,7 +160,7 @@ export default function AssetCard({
           // Horizontal layout for compact mode
           <>
             {/* Image section - only show if there's a preview image */}
-            {asset.preview_image && asset.preview_image !== "" && (
+            {previewImageUrl && previewImageUrl !== "" && (
               <div className="flex-shrink-0 w-50 h-60 p-3">
                 <div
                   onClick={handleViewAsset}
@@ -119,7 +168,7 @@ export default function AssetCard({
                 >
                   <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
                     <motion.img
-                      src={asset.preview_image}
+                      src={previewImageUrl}
                       alt={asset.product_name}
                       className={`w-full h-full object-contain transition-transform duration-500 ${
                         imgLoaded ? "scale-100" : "scale-105 blur-sm"
@@ -251,29 +300,57 @@ export default function AssetCard({
                     <TooltipContent>View product details</TooltipContent>
                   </Tooltip>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="default"
-                        className="w-24 hover:bg-muted/70 "
-                        disabled={!asset.glb_link}
-                      >
-                        <a
-                          href={asset.glb_link}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Download 3D Model"
-                          className="flex items-center justify-center gap-2"
+                  <div className="flex gap-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 hover:bg-muted/70"
+                          disabled={!asset.glb_link}
                         >
-                          <Download className="h-4 w-4" />
-                          Download
-                        </a>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Download 3D model</TooltipContent>
-                  </Tooltip>
+                          <a
+                            href={asset.glb_link}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Download 3D Model"
+                            className="flex items-center justify-center"
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Download 3D model</TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className={`h-9 w-9 transition-colors ${
+                            isActive
+                              ? "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400"
+                              : "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400"
+                          }`}
+                          onClick={handleToggleActive}
+                          disabled={isTogglingActive}
+                        >
+                          {isActive ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            <XCircle className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isActive
+                          ? "Active - Click to deactivate"
+                          : "Inactive - Click to activate"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
               </div>
             </div>
@@ -282,7 +359,7 @@ export default function AssetCard({
           // Original vertical layout for grid mode
           <>
             {/* Image section - only show if there's a preview image */}
-            {asset.preview_image && asset.preview_image !== "" && (
+            {previewImageUrl && previewImageUrl !== "" && (
               <CardHeader
                 className={`flex-shrink-0 ${isCompactMode ? "p-1" : "p-2"}`}
               >
@@ -292,7 +369,7 @@ export default function AssetCard({
                 >
                   <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
                     <motion.img
-                      src={asset.preview_image}
+                      src={previewImageUrl}
                       alt={asset.product_name}
                       className={`w-full object-contain transition-transform duration-500 ${
                         imgLoaded ? "scale-100" : "scale-105 blur-sm"
@@ -377,6 +454,33 @@ export default function AssetCard({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Download 3D model</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className={`h-9 w-9 transition-colors ${
+                        isActive
+                          ? "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400"
+                          : "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400"
+                      }`}
+                      onClick={handleToggleActive}
+                      disabled={isTogglingActive}
+                    >
+                      {isActive ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <XCircle className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isActive
+                      ? "Active - Click to deactivate"
+                      : "Inactive - Click to activate"}
+                  </TooltipContent>
                 </Tooltip>
               </div>
             </CardContent>

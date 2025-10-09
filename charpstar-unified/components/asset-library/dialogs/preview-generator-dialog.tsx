@@ -34,7 +34,7 @@ interface Asset {
   materials: string[];
   colors: string[];
   tags: string[];
-  preview_image: string;
+  preview_image: string | string[];
   created_at: string;
 }
 
@@ -120,8 +120,12 @@ export function PreviewGeneratorDialog({
 
     for (const asset of assetsWithPreviews) {
       setCurrentCheckingAsset(asset.product_name);
+      const previewUrl = Array.isArray(asset.preview_image)
+        ? asset.preview_image[0]
+        : asset.preview_image;
+
       try {
-        const response = await fetch(asset.preview_image, { method: "HEAD" });
+        const response = await fetch(previewUrl, { method: "HEAD" });
         if (response.status !== 200) {
           missing++;
           setFailedUrls((prev) => [
@@ -129,7 +133,7 @@ export function PreviewGeneratorDialog({
             {
               id: asset.id,
               name: asset.product_name,
-              url: asset.preview_image,
+              url: previewUrl,
             },
           ]);
         }
@@ -140,7 +144,7 @@ export function PreviewGeneratorDialog({
           {
             id: asset.id,
             name: asset.product_name,
-            url: asset.preview_image,
+            url: previewUrl,
           },
         ]);
       }

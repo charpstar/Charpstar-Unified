@@ -67,49 +67,18 @@ export async function GET() {
 
           // Filter by user's companies
           if (Array.isArray(profile.client) && profile.client.length > 0) {
-            console.log(
-              `User ${profile.email} - Using .in() with companies:`,
-              profile.client
-            );
             onboardingQuery = onboardingQuery.in("client", profile.client);
             assetsQuery = assetsQuery.in("client", profile.client);
           } else if (profile.client && typeof profile.client === "string") {
             // Handle old format (string) for backward compatibility
-            console.log(
-              `User ${profile.email} - Using .eq() with client:`,
-              profile.client
-            );
             onboardingQuery = onboardingQuery.eq("client", profile.client);
             assetsQuery = assetsQuery.eq("client", profile.client);
-          } else {
-            console.log(
-              `User ${profile.email} - No client filter (client is null/undefined):`,
-              profile.client
-            );
           }
 
           const [onboardingAssetsResult, assetsResult] = await Promise.all([
             onboardingQuery,
             assetsQuery,
           ]);
-
-          // Log for debugging
-          if (profile.email === "linda.larsson@markslojd.com") {
-            console.log("=== LINDA DEBUG ===");
-            console.log("Linda profile.client:", profile.client);
-            console.log("Is array?", Array.isArray(profile.client));
-            console.log("Onboarding result:", {
-              count: onboardingAssetsResult.count,
-              error: onboardingAssetsResult.error,
-              data: onboardingAssetsResult.data,
-            });
-            console.log("Assets result:", {
-              count: assetsResult.count,
-              error: assetsResult.error,
-              data: assetsResult.data,
-            });
-            console.log("===================");
-          }
 
           const onboardingAssetsCount = onboardingAssetsResult.count || 0;
           const assetsCount = assetsResult.count || 0;

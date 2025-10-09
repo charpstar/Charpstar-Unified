@@ -91,6 +91,15 @@ const isOverdue = (deadline: string) => {
 const parseReferences = (reference: string[] | string | null): string[] => {
   if (!reference) return [];
   if (Array.isArray(reference)) return reference;
+
+  // Check if it's a string with ||| separator
+  if (typeof reference === "string" && reference.includes("|||")) {
+    return reference
+      .split("|||")
+      .map((ref) => ref.trim())
+      .filter(Boolean);
+  }
+
   try {
     return JSON.parse(reference);
   } catch {

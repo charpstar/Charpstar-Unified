@@ -201,23 +201,33 @@ export function AddReferenceDialog({
     setUploadProgress({ current: 0, total: allFiles.length, fileName: "" });
 
     try {
-      // Upload files sequentially
+      // First, fetch the asset to get the client name
+      const { supabase } = await import("@/lib/supabaseClient");
+
+      const { data: asset, error: assetError } = await supabase
+        .from("onboarding_assets")
+        .select("client")
+        .eq("id", assetId)
+        .single();
+
+      if (assetError || !asset?.client) {
+        throw new Error("Failed to get asset client name");
+      }
+
+      // Upload files sequentially and collect URLs
+      const uploadedUrls: string[] = [];
+
       for (let i = 0; i < allFiles.length; i++) {
         const file = allFiles[i];
         setUploadProgress({
           current: i + 1,
-          total: droppedFiles.length,
+          total: allFiles.length,
           fileName: file.name,
         });
 
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("asset_id", assetId);
-
-        // Determine file type based on extension
-        const fileExtension = file.name.toLowerCase().split(".").pop();
-        const fileType = fileExtension === "glb" ? "glb" : "reference";
-        formData.append("file_type", fileType);
+        formData.append("client_name", asset.client);
 
         const response = await fetch("/api/assets/upload-file", {
           method: "POST",
@@ -241,6 +251,50 @@ export function AddReferenceDialog({
             `Upload failed for ${file.name}${details ? `: ${details}` : ""}`
           );
         }
+
+        // Get the uploaded file URL
+        const uploadData = await response.json();
+        if (uploadData.url) {
+          uploadedUrls.push(uploadData.url);
+        }
+      }
+
+      // Add uploaded URLs to the asset's references
+      if (uploadedUrls.length > 0) {
+        // Get current references
+        const { data: currentAsset } = await supabase
+          .from("onboarding_assets")
+          .select("reference")
+          .eq("id", assetId)
+          .single();
+
+        let existingReferences: string[] = [];
+        if (currentAsset?.reference) {
+          if (
+            typeof currentAsset.reference === "string" &&
+            currentAsset.reference.includes("|||")
+          ) {
+            existingReferences = currentAsset.reference
+              .split("|||")
+              .map((ref: string) => ref.trim())
+              .filter(Boolean);
+          } else if (Array.isArray(currentAsset.reference)) {
+            existingReferences = currentAsset.reference;
+          } else {
+            try {
+              existingReferences = JSON.parse(currentAsset.reference);
+            } catch {
+              existingReferences = [currentAsset.reference];
+            }
+          }
+        }
+
+        // Add new URLs and update
+        const allReferences = [...existingReferences, ...uploadedUrls];
+        await supabase
+          .from("onboarding_assets")
+          .update({ reference: allReferences.join("|||") })
+          .eq("id", assetId);
       }
 
       toast.success(

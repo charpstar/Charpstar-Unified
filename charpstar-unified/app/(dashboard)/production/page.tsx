@@ -468,7 +468,7 @@ export default function ProductionDashboard() {
             `
             )
             .order("upload_order", { ascending: true })
-            .range(0, 9999) // Use range to fetch up to 10,000 assets
+            .range(0, 99999) // Use range to fetch up to 100,000 assets
         );
       } else {
         // Use pagination for other views
@@ -2740,7 +2740,11 @@ export default function ProductionDashboard() {
           )}
           {viewMode === "batches" && (
             <>
-              Showing {filteredBatches.length} of {batches.length} batches
+              Showing {filteredBatches.length} of{" "}
+              {selectedClient
+                ? batches.filter((b) => b.client === selectedClient).length
+                : batches.length}{" "}
+              batches
               {selectedClient && ` for ${selectedClient}`}
             </>
           )}
