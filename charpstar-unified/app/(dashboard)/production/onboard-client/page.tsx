@@ -542,6 +542,18 @@ export default function OnboardClientPage() {
         );
       }
 
+      // Parse header to determine column indices
+      const headerLine = lines[0];
+      const headers = headerLine
+        .split(",")
+        .map((h) => h.trim().replace(/"/g, "").toLowerCase());
+
+      // Map column names to indices
+      const columnMap: Record<string, number> = {};
+      headers.forEach((header, index) => {
+        columnMap[header] = index;
+      });
+
       // Parse data rows (skip header)
       const csvData: ConvertedData[] = [];
 
@@ -549,20 +561,23 @@ export default function OnboardClientPage() {
         const line = lines[i];
         const values = line.split(",").map((v) => v.trim().replace(/"/g, ""));
 
-        if (values.length < 3) {
-          continue; // Skip rows with less than 3 columns
+        if (values.length < 2) {
+          continue; // Skip rows with less than 2 columns
         }
 
-        // Map values to expected format
+        // Map values to expected format using column map
         const row: ConvertedData = {
-          article_id: values[0] || "",
-          product_name: values[1] || "",
-          product_link: values[2] || "",
-          cad_file_link: values[3] || "",
-          category: values[4] || "",
-          subcategory: values[5] || "",
-          glb_link: values[6] || undefined, // Can be provided in spreadsheet or set by URL generator
-          active: values[7] ? values[7].toLowerCase() === "true" : true, // Default to true if not specified
+          article_id: values[columnMap["article id"]] || "",
+          product_name: values[columnMap["product name"]] || "",
+          product_link: values[columnMap["product link"]] || "",
+          cad_file_link: values[columnMap["cad/file link"]] || "",
+          category: values[columnMap["category"]] || "",
+          subcategory: values[columnMap["subcategory"]] || "",
+          glb_link: values[columnMap["glb link"]] || undefined,
+          active:
+            columnMap["active"] !== undefined && values[columnMap["active"]]
+              ? values[columnMap["active"]].toLowerCase() === "true"
+              : true,
         };
 
         // Only require article_id and product_name (make category optional)
