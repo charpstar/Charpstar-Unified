@@ -50,7 +50,7 @@ export async function getUserMetadata(
 
   return data as {
     id: string;
-    client: string | null;
+    client: string[] | null;
     role: string;
     analytics_profile_id: string;
     avatar_url: string | null;

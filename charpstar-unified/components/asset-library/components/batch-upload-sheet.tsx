@@ -398,7 +398,10 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
 
   React.useEffect(() => {
     if (user?.metadata?.client) {
-      const clientValue = user.metadata.client;
+      // Use first company if user has multiple
+      const clientValue = Array.isArray(user.metadata.client)
+        ? user.metadata.client[0]
+        : user.metadata.client;
       setRows((prev) =>
         prev.map((row) => ({
           ...row,
@@ -419,10 +422,14 @@ export function BatchUploadSheet({ onSuccess }: { onSuccess?: () => void }) {
 
       setCheckingDuplicates(true);
       try {
-        const results = await checkDuplicates(
-          rowsToCheck,
-          user?.metadata?.client
-        );
+        // Use first company if user has multiple
+        const clientValue = user?.metadata?.client
+          ? Array.isArray(user.metadata.client)
+            ? user.metadata.client[0]
+            : user.metadata.client
+          : null;
+
+        const results = await checkDuplicates(rowsToCheck, clientValue);
         const duplicateMap: {
           [key: string]: "article_id" | "product_name" | "both";
         } = {};

@@ -47,14 +47,19 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
-    const client = searchParams.get("client") || profile?.client || null;
+    const clientParam = searchParams.get("client");
 
     // Build the query
     let query = supabase.from("assets").select("*");
 
     // Add client filter if provided
-    if (client) {
-      query = query.eq("client", client);
+    // For users with multiple companies, fetch products from all their companies
+    if (clientParam) {
+      // Filter by specific client from param
+      query = query.eq("client", clientParam);
+    } else if (profile?.client && profile.client.length > 0) {
+      // Filter assets where client is IN the user's array of companies
+      query = query.in("client", profile.client);
     }
 
     // Add search filter if provided

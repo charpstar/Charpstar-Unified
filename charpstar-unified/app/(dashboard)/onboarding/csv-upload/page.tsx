@@ -174,7 +174,10 @@ export default function CsvUploadPage() {
     });
 
     if (!csvPreview || !user?.metadata?.client) return;
-    const client = user.metadata.client;
+    // Use first company if user has multiple
+    const client = Array.isArray(user.metadata.client)
+      ? user.metadata.client[0]
+      : user.metadata.client;
     const rows = csvPreview.slice(1); // skip header
 
     // Prepare all valid products for batch insert
@@ -285,8 +288,13 @@ export default function CsvUploadPage() {
 
       // Send notification to admin users about new product submission
       try {
+        // Use first company if user has multiple
+        const clientName = Array.isArray(user?.metadata?.client)
+          ? user.metadata.client[0]
+          : user?.metadata?.client;
+
         await notificationService.sendProductSubmissionNotification({
-          client: user?.metadata?.client || "Unknown Client",
+          client: clientName || "Unknown Client",
           batch: 1, // CSV uploads typically go to batch 1
           productCount: successCount,
           productNames: [], // CSV uploads don't have individual product names easily accessible

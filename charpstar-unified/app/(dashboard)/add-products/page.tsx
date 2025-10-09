@@ -128,7 +128,15 @@ export default function AddProductsPage() {
     setCollectingImages(true);
 
     try {
-      const clientName = user.metadata.client;
+      // Use first company if user has multiple
+      const clientName = Array.isArray(user.metadata.client)
+        ? user.metadata.client[0]
+        : user.metadata.client;
+
+      if (!clientName) {
+        throw new Error("No client name configured for this user");
+      }
+
       const response = await fetch(
         `https://scraper.charpstar.co/process-client/${encodeURIComponent(clientName)}`,
         {
@@ -160,12 +168,21 @@ export default function AddProductsPage() {
 
       startLoading();
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("onboarding_assets")
           .select("batch")
-          .eq("client", user.metadata.client)
           .order("batch", { ascending: false })
           .limit(1);
+
+        // Filter by user's companies
+        if (
+          Array.isArray(user.metadata.client) &&
+          user.metadata.client.length > 0
+        ) {
+          query = query.in("client", user.metadata.client);
+        }
+
+        const { data, error } = await query;
 
         if (!error && data && data.length > 0) {
           setCurrentBatch(data[0].batch + 1);
@@ -242,8 +259,13 @@ export default function AddProductsPage() {
     });
 
     try {
+      // Use first company if user has multiple
+      const clientName = Array.isArray(user.metadata.client)
+        ? user.metadata.client[0]
+        : user.metadata.client;
+
       const productsToInsert = validProducts.map((product) => ({
-        client: user.metadata.client,
+        client: clientName,
         batch: currentBatch,
         article_id: product.article_id.trim(),
         product_name: product.product_name.trim(),
@@ -272,7 +294,7 @@ export default function AddProductsPage() {
       // Send notification to admin users about new product submission
       try {
         await notificationService.sendProductSubmissionNotification({
-          client: user.metadata.client,
+          client: clientName, // Use the same clientName from above
           batch: currentBatch,
           productCount: validProducts.length,
           productNames: validProducts.map((p) => p.product_name),
@@ -535,7 +557,10 @@ export default function AddProductsPage() {
     if (!csvPreview || !user?.metadata?.client) return;
 
     setLoading(true);
-    const client = user.metadata.client;
+    // Use first company if user has multiple
+    const client = Array.isArray(user.metadata.client)
+      ? user.metadata.client[0]
+      : user.metadata.client;
     // Use edited data if available, otherwise use original preview
     const dataToUpload = editedCsvData || csvPreview;
     const rows = dataToUpload.slice(1); // skip header
@@ -642,8 +667,13 @@ export default function AddProductsPage() {
           .map((row) => row[1].trim())
           .slice(0, successCount); // only include successful uploads
 
+        // Use first company if user has multiple
+        const clientName = Array.isArray(user.metadata.client)
+          ? user.metadata.client[0]
+          : user.metadata.client;
+
         await notificationService.sendProductSubmissionNotification({
-          client: user.metadata.client,
+          client: clientName,
           batch: currentBatch,
           productCount: successCount,
           productNames: productNames,

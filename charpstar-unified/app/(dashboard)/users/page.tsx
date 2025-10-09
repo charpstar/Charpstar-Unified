@@ -25,6 +25,7 @@ import {
   Upload,
   FileText,
   Download,
+  Plus,
 } from "lucide-react";
 import {
   Table,
@@ -75,6 +76,7 @@ import {
 } from "@/lib/timezoneUtils";
 import { getCountryNameByCode } from "@/lib/helpers";
 import UserProfileDialog from "@/components/users/UserProfileDialog";
+import { EditCompaniesDialog } from "@/components/users/EditCompaniesDialog";
 import {
   Card,
   CardContent,
@@ -105,7 +107,7 @@ interface UserFormData {
   confirmPassword: string;
 
   // Client fields
-  clientName: string;
+  clientNames: string[]; // Changed to array for multiple companies
   title: string;
   phoneNumber: string;
 
@@ -199,7 +201,7 @@ export default function UsersPage() {
     role: "client",
     password: "",
     confirmPassword: "",
-    clientName: "",
+    clientNames: [""], // Changed to array for multiple companies - start with one empty field
     title: "",
     phoneNumber: "",
     discordName: "",
@@ -220,6 +222,13 @@ export default function UsersPage() {
   // Profile dialog state
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+
+  // Edit companies dialog state
+  const [isEditCompaniesDialogOpen, setIsEditCompaniesDialogOpen] =
+    useState(false);
+  const [editCompaniesUserId, setEditCompaniesUserId] = useState<string>("");
+  const [editCompaniesUserEmail, setEditCompaniesUserEmail] =
+    useState<string>("");
 
   // Bulk CSV upload state
   const [isBulkUploadDialogOpen, setIsBulkUploadDialogOpen] = useState(false);
@@ -526,8 +535,8 @@ export default function UsersPage() {
     // Role-specific validation
     switch (formData.role) {
       case "client":
-        if (!formData.clientName)
-          newErrors.clientName = "Client name is required";
+        if (!formData.clientNames || formData.clientNames.length === 0)
+          newErrors.clientNames = "At least one client name is required";
         if (!formData.title) newErrors.title = "Job title is required";
         if (!formData.phoneNumber)
           newErrors.phoneNumber = "Phone number is required";
@@ -597,7 +606,7 @@ export default function UsersPage() {
         role: "client",
         password: "",
         confirmPassword: "",
-        clientName: "",
+        clientNames: [""],
         title: "",
         phoneNumber: "",
         discordName: "",
@@ -664,7 +673,7 @@ export default function UsersPage() {
         role: "client" as const,
         password: "password123",
         confirmPassword: "password123",
-        clientName: "Acme Corporation",
+        clientNames: ["Acme Corporation", "ACME Retail"], // Example with multiple companies
         title: "Creative Director",
         phoneNumber: "+46701234567",
         discordName: "",
@@ -682,7 +691,7 @@ export default function UsersPage() {
         role: "modeler" as const,
         password: "password123",
         confirmPassword: "password123",
-        clientName: "",
+        clientNames: [],
         title: "",
         phoneNumber: "+46701234567",
         discordName: "sarah3d#5678",
@@ -704,7 +713,7 @@ export default function UsersPage() {
         role: "qa" as const,
         password: "password123",
         confirmPassword: "password123",
-        clientName: "",
+        clientNames: [],
         title: "",
         phoneNumber: "+46701234567",
         discordName: "mikechen#1234",
@@ -733,7 +742,7 @@ export default function UsersPage() {
       role: "client",
       password: "",
       confirmPassword: "",
-      clientName: "",
+      clientNames: [""],
       title: "",
       phoneNumber: "",
       discordName: "",
@@ -811,6 +820,7 @@ export default function UsersPage() {
           }
 
           // Create user data object
+          const clientNameValue = values[headers.indexOf("clientname")] || "";
           const userData: UserFormData = {
             email: values[headers.indexOf("email")] || "",
             firstName: "Client", // Default first name
@@ -818,7 +828,7 @@ export default function UsersPage() {
             role: "client",
             password: "TempPassword123!", // Default password for bulk uploads
             confirmPassword: "TempPassword123!",
-            clientName: values[headers.indexOf("clientname")] || "",
+            clientNames: clientNameValue ? [clientNameValue] : [""], // Convert to array
             title: "Manager", // Default title
             phoneNumber: "", // Empty phone number
             discordName: "",
@@ -831,7 +841,7 @@ export default function UsersPage() {
           };
 
           // Validate required fields
-          if (!userData.email || !userData.clientName) {
+          if (!userData.email || !userData.clientNames[0]) {
             results.errors.push(
               `Row ${i + 1}: Missing required fields (email or clientname)`
             );
@@ -1186,16 +1196,31 @@ export default function UsersPage() {
                                 )}
 
                               {userPermissions.edit_user && (
-                                <DropdownMenuItem
-                                  className="cursor-pointer flex items-center"
-                                  onClick={() => {
-                                    setEditingUser(user);
-                                    setIsEditUserDialogOpen(true);
-                                  }}
-                                >
-                                  <Pencil className="w-4 h-4 mr-2" />
-                                  Edit user
-                                </DropdownMenuItem>
+                                <>
+                                  <DropdownMenuItem
+                                    className="cursor-pointer flex items-center"
+                                    onClick={() => {
+                                      setEditingUser(user);
+                                      setIsEditUserDialogOpen(true);
+                                    }}
+                                  >
+                                    <Pencil className="w-4 h-4 mr-2" />
+                                    Edit user
+                                  </DropdownMenuItem>
+                                  {user.role === "client" && (
+                                    <DropdownMenuItem
+                                      className="cursor-pointer flex items-center"
+                                      onClick={() => {
+                                        setEditCompaniesUserId(user.id);
+                                        setEditCompaniesUserEmail(user.email);
+                                        setIsEditCompaniesDialogOpen(true);
+                                      }}
+                                    >
+                                      <Building className="w-4 h-4 mr-2" />
+                                      Edit Companies
+                                    </DropdownMenuItem>
+                                  )}
+                                </>
                               )}
 
                               {userPermissions.edit_user &&
@@ -1258,6 +1283,15 @@ export default function UsersPage() {
         userId={selectedUserId}
         currentUserRole={userRole}
         currentUserId={currentUserId || ""}
+      />
+
+      {/* Edit Companies Dialog */}
+      <EditCompaniesDialog
+        isOpen={isEditCompaniesDialogOpen}
+        onClose={() => setIsEditCompaniesDialogOpen(false)}
+        userId={editCompaniesUserId}
+        userEmail={editCompaniesUserEmail}
+        onSuccess={() => fetchUsers()}
       />
 
       {/* Comprehensive User Creation Dialog */}
@@ -1487,21 +1521,63 @@ export default function UsersPage() {
 
                 <div>
                   <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
-                    Client/Brand Name *
+                    Client/Brand Names *
                   </Label>
-                  <Input
-                    value={formData.clientName}
-                    onChange={(e) =>
-                      updateFormData("clientName", e.target.value)
-                    }
-                    placeholder="Company Name"
-                    className={`text-sm sm:text-base ${errors.clientName ? "border-red-500" : ""}`}
-                  />
-                  {errors.clientName && (
+                  <div className="space-y-2">
+                    {formData.clientNames.map((clientName, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={clientName}
+                          onChange={(e) => {
+                            const newClientNames = [...formData.clientNames];
+                            newClientNames[index] = e.target.value;
+                            updateFormData("clientNames", newClientNames);
+                          }}
+                          placeholder={`Company Name ${index + 1}`}
+                          className={`text-sm sm:text-base ${errors.clientNames ? "border-red-500" : ""}`}
+                        />
+                        {formData.clientNames.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newClientNames =
+                                formData.clientNames.filter(
+                                  (_, i) => i !== index
+                                );
+                              updateFormData("clientNames", newClientNames);
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        updateFormData("clientNames", [
+                          ...formData.clientNames,
+                          "",
+                        ]);
+                      }}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Another Company
+                    </Button>
+                  </div>
+                  {errors.clientNames && (
                     <p className="text-red-500 text-xs mt-1">
-                      {errors.clientName}
+                      {errors.clientNames}
                     </p>
                   )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add all companies this client should have access to
+                  </p>
                 </div>
 
                 <div>
@@ -1873,12 +1949,16 @@ export default function UsersPage() {
                         formData.role.slice(1)}
                 </Badge>
               </div>
-              {formData.role === "client" && formData.clientName && (
-                <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
-                  <span className="font-medium">Client:</span>
-                  <span className="break-words">{formData.clientName}</span>
-                </div>
-              )}
+              {formData.role === "client" &&
+                formData.clientNames &&
+                formData.clientNames.length > 0 && (
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0">
+                    <span className="font-medium">Clients:</span>
+                    <span className="break-words">
+                      {formData.clientNames.filter((n) => n.trim()).join(", ")}
+                    </span>
+                  </div>
+                )}
             </div>
 
             <Alert>

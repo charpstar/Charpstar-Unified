@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       lastName,
       role,
       password,
-      clientName,
+      clientNames, // Changed to array for multiple companies
       title,
       phoneNumber,
       discordName,
@@ -73,6 +73,12 @@ export async function POST(request: NextRequest) {
     const adminClient = createAdminClient();
 
     // Create user in Supabase Auth
+    // Filter out empty company names and prepare the array
+    const validClientNames =
+      clientNames
+        ?.filter((name: string) => name && name.trim())
+        .map((name: string) => name.trim()) || [];
+
     const { data: authData, error: authError } =
       await adminClient.auth.admin.createUser({
         email,
@@ -81,9 +87,9 @@ export async function POST(request: NextRequest) {
         user_metadata: {
           first_name: firstName,
           last_name: lastName,
-          client: clientName || null,
+          client: validClientNames.length > 0 ? validClientNames : null,
           role: role,
-          client_config: clientName || null,
+          client_config: validClientNames[0] || null, // Use first client for config
         },
       });
 
@@ -97,7 +103,7 @@ export async function POST(request: NextRequest) {
       id: authData.user.id,
       email: email, // Add email field to satisfy NOT NULL constraint
       role: role,
-      client: clientName || null,
+      client: validClientNames.length > 0 ? validClientNames : null,
       title: title || null,
       phone_number: phoneNumber || null,
       discord_name: discordName || null,

@@ -71,8 +71,13 @@ const fetchAssets = async (
     .select("*", { count: "exact", head: true });
 
   // Only apply client filter if user is not admin
-  if (userProfile.role !== "admin") {
-    countQuery = countQuery.eq("client", userProfile.client);
+  if (
+    userProfile.role !== "admin" &&
+    userProfile.client &&
+    userProfile.client.length > 0
+  ) {
+    // Fetch assets where client is IN the user's array of companies
+    countQuery = countQuery.in("client", userProfile.client);
   }
 
   const { count } = await countQuery;
@@ -89,8 +94,13 @@ const fetchAssets = async (
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
     // Only apply client filter if user is not admin
-    if (userProfile.role !== "admin") {
-      dataQuery = dataQuery.eq("client", userProfile.client);
+    if (
+      userProfile.role !== "admin" &&
+      userProfile.client &&
+      userProfile.client.length > 0
+    ) {
+      // Fetch assets where client is IN the user's array of companies
+      dataQuery = dataQuery.in("client", userProfile.client);
     }
 
     const { data, error } = await dataQuery;
@@ -128,7 +138,7 @@ export function useAssets() {
   });
   const user = useUser();
   const [userProfile, setUserProfile] = useState<{
-    client: string;
+    client: string[] | null;
     role: string;
   } | null>(null);
 
@@ -154,7 +164,11 @@ export function useAssets() {
 
       // Only update if the data is actually different
       setUserProfile((prev) => {
-        if (!prev || prev.client !== data.client || prev.role !== data.role) {
+        if (
+          !prev ||
+          JSON.stringify(prev.client) !== JSON.stringify(data.client) ||
+          prev.role !== data.role
+        ) {
           return data;
         }
         return prev;
@@ -167,7 +181,12 @@ export function useAssets() {
   // Create a stable query key
   const queryKey = useMemo(() => {
     if (!user?.id || !userProfile) return null;
-    return ["assets", user.id, userProfile.client, userProfile.role];
+    return [
+      "assets",
+      user.id,
+      JSON.stringify(userProfile.client),
+      userProfile.role,
+    ];
   }, [user?.id, userProfile?.client, userProfile?.role]);
 
   // Use React Query to fetch and cache assets

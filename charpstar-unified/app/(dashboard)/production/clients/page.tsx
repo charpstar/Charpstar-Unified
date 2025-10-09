@@ -28,7 +28,7 @@ interface Client {
   name: string;
   email: string;
   role: string;
-  client: string;
+  client: string[] | null; // Changed to array to support multiple companies
   created_at: string;
   onboardingAssetsCount: number;
   assetsCount: number;
@@ -44,46 +44,20 @@ export default function ClientsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Calculate total asset counts grouped by company (client field)
-  const uniqueCompanies = new Set(clients.map((client) => client.client));
-
-  // Group assets by company to avoid double counting
-  const companyAssets = clients.reduce(
-    (acc, client) => {
-      const company = client.client;
-      if (!acc[company]) {
-        acc[company] = {
-          onboardingAssets: 0,
-          productionAssets: 0,
-          totalAssets: 0,
-        };
-      }
-      // Only count assets once per company (use the first user's count for each company)
-      if (acc[company].onboardingAssets === 0) {
-        acc[company].onboardingAssets = client.onboardingAssetsCount;
-      }
-      if (acc[company].productionAssets === 0) {
-        acc[company].productionAssets = client.assetsCount;
-      }
-      acc[company].totalAssets =
-        acc[company].onboardingAssets + acc[company].productionAssets;
-      return acc;
-    },
-    {} as Record<
-      string,
-      {
-        onboardingAssets: number;
-        productionAssets: number;
-        totalAssets: number;
-      }
-    >
+  // Flatten all companies from all users into a unique set
+  const uniqueCompanies = new Set(
+    clients.flatMap((client) => client.client || [])
   );
 
-  const totalOnboardingAssets = Object.values(companyAssets).reduce(
-    (sum, company) => sum + company.onboardingAssets,
+  // Since users can have multiple companies, we just sum up unique asset counts per user
+  // (the API already returns deduplicated counts per user based on their companies)
+
+  const totalOnboardingAssets = clients.reduce(
+    (sum, client) => sum + client.onboardingAssetsCount,
     0
   );
-  const totalProductionAssets = Object.values(companyAssets).reduce(
-    (sum, company) => sum + company.productionAssets,
+  const totalProductionAssets = clients.reduce(
+    (sum, client) => sum + client.assetsCount,
     0
   );
   const totalAssets = totalOnboardingAssets + totalProductionAssets;
@@ -116,12 +90,21 @@ export default function ClientsPage() {
 
   useEffect(() => {
     // Filter clients based on search term
-    const filtered = clients.filter(
-      (client) =>
-        client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.client.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = clients.filter((client) => {
+      const searchLower = searchTerm.toLowerCase();
+      const nameMatch = client.name.toLowerCase().includes(searchLower);
+      const emailMatch = client.email.toLowerCase().includes(searchLower);
+
+      // Handle array of companies
+      let clientMatch = false;
+      if (client.client && Array.isArray(client.client)) {
+        clientMatch = client.client.some((c) =>
+          c.toLowerCase().includes(searchLower)
+        );
+      }
+
+      return nameMatch || emailMatch || clientMatch;
+    });
     setFilteredClients(filtered);
   }, [clients, searchTerm]);
 
@@ -357,7 +340,11 @@ export default function ClientsPage() {
                           </div>
                         </td>
                         <td className="p-3">
-                          <div className="text-sm">{client.client}</div>
+                          <div className="text-sm">
+                            {Array.isArray(client.client)
+                              ? client.client.join(", ")
+                              : client.client || "N/A"}
+                          </div>
                         </td>
                         <td className="p-3">{getRoleBadge(client.role)}</td>
                         <td className="p-3">

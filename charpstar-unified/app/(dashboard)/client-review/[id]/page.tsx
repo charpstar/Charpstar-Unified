@@ -484,7 +484,12 @@ export default function ReviewPage() {
 
       // Only filter by client if user is not admin or QA
       if (user?.metadata?.role !== "admin" && user?.metadata?.role !== "qa") {
-        query = query.eq("client", user.metadata.client);
+        if (
+          Array.isArray(user.metadata.client) &&
+          user.metadata.client.length > 0
+        ) {
+          query = query.in("client", user.metadata.client);
+        }
       }
 
       // Hide transferred assets for client users
@@ -1977,12 +1982,14 @@ export default function ReviewPage() {
           }
 
           // Send email notification to client when QA/Admin approves
-          const { data: clientProfile, error: clientError } = await supabase
+          // Find client user who has access to this asset's client name
+          const { data: clientProfiles, error: clientError } = await supabase
             .from("profiles")
             .select("id, email")
             .eq("role", "client")
-            .eq("client", (asset as any)?.client)
-            .single();
+            .contains("client", [(asset as any)?.client]);
+
+          const clientProfile = clientProfiles?.[0] || null;
 
           if (!clientError && clientProfile && asset) {
             try {

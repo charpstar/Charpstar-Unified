@@ -112,12 +112,21 @@ export default function ReferenceImagesPage() {
       if (!user?.metadata?.client) return;
       setFetching(true);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("onboarding_assets")
         .select("*")
-        .eq("client", user.metadata.client)
         .eq("transferred", false)
         .eq("new_upload", true); // Only show assets uploaded via CSV in step 1
+
+      // Filter by user's companies
+      if (
+        Array.isArray(user.metadata.client) &&
+        user.metadata.client.length > 0
+      ) {
+        query = query.in("client", user.metadata.client);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("❌ Error fetching assets:", error);
@@ -145,13 +154,22 @@ export default function ReferenceImagesPage() {
     try {
       setFetching(true);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("onboarding_assets")
         .select("*")
-        .eq("client", user?.metadata?.client)
         .eq("transferred", false)
         .eq("new_upload", true)
         .order("created_at", { ascending: false });
+
+      // Filter by user's companies
+      if (
+        Array.isArray(user?.metadata?.client) &&
+        user.metadata.client.length > 0
+      ) {
+        query = query.in("client", user.metadata.client);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("❌ Error fetching assets:", error);
@@ -238,7 +256,11 @@ export default function ReferenceImagesPage() {
 
     try {
       // Upload file to Supabase Storage
-      const fileName = `reference-files/${user.metadata.client}/${Date.now()}_${file.name}`;
+      // Use first company if user has multiple for storage path
+      const clientFolder = Array.isArray(user.metadata.client)
+        ? user.metadata.client[0]
+        : user.metadata.client;
+      const fileName = `reference-files/${clientFolder}/${Date.now()}_${file.name}`;
 
       const { error: uploadError } = await supabase.storage
         .from("assets")
@@ -608,12 +630,21 @@ export default function ReferenceImagesPage() {
       });
 
       // Refresh assets
-      const { data } = await supabase
+      let refreshQuery = supabase
         .from("onboarding_assets")
         .select("*")
-        .eq("client", user?.metadata.client)
         .eq("transferred", false)
         .eq("new_upload", true);
+
+      // Filter by user's companies
+      if (
+        Array.isArray(user?.metadata?.client) &&
+        user.metadata.client.length > 0
+      ) {
+        refreshQuery = refreshQuery.in("client", user.metadata.client);
+      }
+
+      const { data } = await refreshQuery;
 
       // Sort assets by article_id
       const sortedData = (data || []).sort((a, b) => {
@@ -685,8 +716,13 @@ export default function ReferenceImagesPage() {
 
       // Send admin notification now that products are uploaded and references done
       try {
+        // Use first company if user has multiple
+        const clientName = Array.isArray(user?.metadata?.client)
+          ? user.metadata.client[0]
+          : user?.metadata?.client;
+
         await notificationService.sendProductSubmissionNotification({
-          client: user?.metadata?.client || "Unknown Client",
+          client: clientName || "Unknown Client",
           batch: 1,
           productCount: assets.length,
           productNames: assets.map((a) => a.product_name).filter(Boolean),

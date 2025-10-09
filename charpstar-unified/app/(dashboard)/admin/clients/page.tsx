@@ -7,6 +7,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/containers";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/interactive";
 import { Button } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
 import { Label } from "@/components/ui/display";
@@ -34,12 +40,21 @@ import {
   SelectValue,
 } from "@/components/ui/inputs";
 import { Switch } from "@/components/ui/inputs";
-import { Plus, Edit, Eye, Search, Building2, FileText } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Eye,
+  Search,
+  Building2,
+  FileText,
+  Users,
+} from "lucide-react";
 import { DatePicker } from "@/components/ui/utilities";
 
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/utilities";
 import { useUser } from "@/contexts/useUser";
+import { EditCompaniesDialog } from "@/components/users/EditCompaniesDialog";
 
 interface Client {
   id: string;
@@ -141,10 +156,19 @@ export default function AdminClientsPage() {
       existingClients.forEach((c) => c.name && referencedNames.add(c.name));
 
       if (!profilesRes.error && profilesRes.data) {
-        profilesRes.data
-          .map((r: any) => r.client)
-          .filter((x: any) => typeof x === "string" && x.trim().length > 0)
-          .forEach((n: string) => referencedNames.add(n));
+        profilesRes.data.forEach((r: any) => {
+          // Handle both old (string) and new (array) format
+          if (Array.isArray(r.client)) {
+            r.client
+              .filter((x: string) => x && x.trim().length > 0)
+              .forEach((n: string) => referencedNames.add(n));
+          } else if (
+            typeof r.client === "string" &&
+            r.client.trim().length > 0
+          ) {
+            referencedNames.add(r.client);
+          }
+        });
       }
       if (!assetsRes.error && assetsRes.data) {
         assetsRes.data
@@ -704,6 +728,7 @@ export default function AdminClientsPage() {
             setFormData={setFormData}
             onSubmit={() => handleSubmit(false)}
             onCancel={() => setIsAddDialogOpen(false)}
+            clientName={undefined}
           />
         </DialogContent>
       </Dialog>
@@ -726,6 +751,7 @@ export default function AdminClientsPage() {
             setFormData={setFormData}
             onSubmit={() => handleSubmit(true)}
             onCancel={() => setIsEditDialogOpen(false)}
+            clientName={selectedClient?.name}
           />
         </DialogContent>
       </Dialog>
@@ -755,411 +781,592 @@ function ClientForm({
   setFormData,
   onSubmit,
   onCancel,
+  clientName,
 }: {
   formData: ClientFormData;
   setFormData: (data: ClientFormData) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  clientName?: string;
 }) {
   const user = useUser();
   const role = (user?.metadata?.role || "").toLowerCase();
+  const [usersWithAccess, setUsersWithAccess] = useState<
+    Array<{ id: string; email: string; client: string[] }>
+  >([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [editingUserCompanies, setEditingUserCompanies] = useState<{
+    userId: string;
+    email: string;
+  } | null>(null);
+  const [isEditCompaniesDialogOpen, setIsEditCompaniesDialogOpen] =
+    useState(false);
+
+  // Fetch users who have access to this client
+  useEffect(() => {
+    const fetchUsersWithAccess = async () => {
+      if (!clientName) return;
+
+      setLoadingUsers(true);
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, email, client")
+          .eq("role", "client");
+
+        if (error) throw error;
+
+        // Filter users who have this client in their array
+        const filtered =
+          data?.filter((u: any) => {
+            if (Array.isArray(u.client)) {
+              return u.client.includes(clientName);
+            }
+            // Handle old format (string)
+            return u.client === clientName;
+          }) || [];
+
+        setUsersWithAccess(filtered);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    fetchUsersWithAccess();
+  }, [clientName]);
+
+  const handleEditUserCompanies = (userId: string, email: string) => {
+    setEditingUserCompanies({ userId, email });
+    setIsEditCompaniesDialogOpen(true);
+  };
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Basic Information */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label htmlFor="name" className="text-sm">
-            Client Name *
-          </Label>
-          <Input
-            id="name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Enter client name"
-            required
-            className="text-sm sm:text-base"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="email" className="text-sm">
-            Email *
-          </Label>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
-            placeholder="Enter email address"
-            required
-            className="text-sm sm:text-base"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="company" className="text-sm">
-            Company
-          </Label>
-          <Input
-            id="company"
-            value={formData.company}
-            onChange={(e) =>
-              setFormData({ ...formData, company: e.target.value })
-            }
-            placeholder="Enter company name"
-            className="text-sm sm:text-base"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="status" className="text-sm">
-            Status
-          </Label>
-          <Select
-            value={formData.status}
-            onValueChange={(value: "active" | "inactive") =>
-              setFormData({ ...formData, status: value })
-            }
-          >
-            <SelectTrigger className="text-sm sm:text-base">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Contract Information */}
-      <div className="border-t pt-3 sm:pt-4">
-        <h3 className="text-sm sm:text-base font-medium mb-3 flex items-center gap-2">
-          <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
-          Contract Details
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-          {/* Contract Size and Value */}
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="contract_type" className="text-sm">
-                Contract Size
-              </Label>
-              <Select
-                value={formData.contract_type}
-                onValueChange={(
-                  value: "standard" | "premium" | "enterprise" | "custom"
-                ) => setFormData({ ...formData, contract_type: value })}
-              >
-                <SelectTrigger className="text-sm sm:text-base">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standard">Small</SelectItem>
-                  <SelectItem value="premium">Medium</SelectItem>
-                  <SelectItem value="enterprise">Big</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="contract_value" className="text-sm">
-                Contract Value (€)
-              </Label>
-              <Input
-                id="contract_value"
-                type="number"
-                min="0"
-                max="99999999.99"
-                step="0.01"
-                value={
-                  formData.contract_value === 0 ? "" : formData.contract_value
-                }
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    contract_value:
-                      e.target.value === ""
-                        ? 0
-                        : parseFloat(e.target.value) || 0,
-                  })
-                }
-                placeholder="0.00"
-                className="text-sm sm:text-base"
-              />
-            </div>
-          </div>
-
-          {/* Start Date */}
+    <>
+      <div className="space-y-3 sm:space-y-4">
+        {/* Basic Information */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
-            <Label className="text-sm">Start Date</Label>
-            <DatePicker
-              value={
-                formData.start_date ? new Date(formData.start_date) : undefined
-              }
-              onChange={(date) => {
-                if (!date) return;
-                const yyyy = date.getFullYear();
-                const mm = String(date.getMonth() + 1).padStart(2, "0");
-                const dd = String(date.getDate()).padStart(2, "0");
-                const iso = `${yyyy}-${mm}-${dd}`;
-                setFormData({ ...formData, start_date: iso });
-              }}
-              placeholder="Select start date"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Specifications and Requirements */}
-      <div className="border-t pt-3 sm:pt-4">
-        <h3 className="text-sm sm:text-base font-medium mb-3 flex items-center gap-2">
-          <Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
-          Project Specifications
-        </h3>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="specifications" className="text-sm">
-              Client Specifications
+            <Label htmlFor="name" className="text-sm">
+              Client Name *
             </Label>
-            <Textarea
-              id="specifications"
-              value={formData.specifications}
+            <Input
+              id="name"
+              value={formData.name}
               onChange={(e) =>
-                setFormData({ ...formData, specifications: e.target.value })
+                setFormData({ ...formData, name: e.target.value })
               }
-              placeholder="Enter detailed client specifications, requirements, and any special instructions..."
-              rows={3}
+              placeholder="Enter client name"
+              required
               className="text-sm sm:text-base"
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="requirements" className="text-sm">
-                Project Requirements
-              </Label>
-              <Textarea
-                id="requirements"
-                value={formData.requirements}
-                onChange={(e) =>
-                  setFormData({ ...formData, requirements: e.target.value })
-                }
-                placeholder="Enter technical requirements, quality standards, and project scope..."
-                rows={3}
-                className="text-sm sm:text-base"
-              />
-            </div>
-            {role === "admin" && (
-              <div className="space-y-1">
-                <Label htmlFor="notes" className="text-sm">
-                  Additional Notes (Admin only)
-                </Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  placeholder="Any additional notes or comments..."
-                  rows={3}
-                  className="text-sm sm:text-base"
-                />
-              </div>
-            )}
+          <div className="space-y-1">
+            <Label htmlFor="email" className="text-sm">
+              Email *
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              placeholder="Enter email address"
+              required
+              className="text-sm sm:text-base"
+            />
           </div>
-          {(role === "admin" || role === "qa") && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="company" className="text-sm">
+              Company
+            </Label>
+            <Input
+              id="company"
+              value={formData.company}
+              onChange={(e) =>
+                setFormData({ ...formData, company: e.target.value })
+              }
+              placeholder="Enter company name"
+              className="text-sm sm:text-base"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="status" className="text-sm">
+              Status
+            </Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value: "active" | "inactive") =>
+                setFormData({ ...formData, status: value })
+              }
+            >
+              <SelectTrigger className="text-sm sm:text-base">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Contract Information */}
+        <div className="border-t pt-3 sm:pt-4">
+          <h3 className="text-sm sm:text-base font-medium mb-3 flex items-center gap-2">
+            <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+            Contract Details
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
+            {/* Contract Size and Value */}
+            <div className="space-y-3">
               <div className="space-y-1">
-                <Label className="text-sm">Guideline Link (For Modelers)</Label>
-                <Input
-                  value={
-                    (formData.client_guide_links &&
-                      formData.client_guide_links[0]) ||
-                    ""
-                  }
-                  onChange={(e) => {
-                    const first = e.target.value;
-                    const next = [...(formData.client_guide_links || [])];
-                    if (next.length === 0) next.push(first);
-                    else next[0] = first;
-                    setFormData({ ...formData, client_guide_links: next });
-                  }}
-                  className="text-sm sm:text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="viewer_type" className="text-sm">
-                  Choose Viewer
+                <Label htmlFor="contract_type" className="text-sm">
+                  Contract Size
                 </Label>
                 <Select
-                  value={formData.viewer_type || ""}
+                  value={formData.contract_type}
                   onValueChange={(
-                    value: "v6_aces" | "v5_tester" | "synsam" | "v2" | ""
-                  ) => setFormData({ ...formData, viewer_type: value || null })}
+                    value: "standard" | "premium" | "enterprise" | "custom"
+                  ) => setFormData({ ...formData, contract_type: value })}
                 >
                   <SelectTrigger className="text-sm sm:text-base">
-                    <SelectValue placeholder="Select a viewer type" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="v6_aces">V6 ACES Tester</SelectItem>
-                    <SelectItem value="v5_tester">V5 Tester</SelectItem>
-                    <SelectItem value="synsam">Synsam</SelectItem>
-                    <SelectItem value="v2" disabled>
-                      V2 (Under Construction)
-                    </SelectItem>
+                    <SelectItem value="standard">Small</SelectItem>
+                    <SelectItem value="premium">Medium</SelectItem>
+                    <SelectItem value="enterprise">Big</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <Label htmlFor="contract_value" className="text-sm">
+                  Contract Value (€)
+                </Label>
+                <Input
+                  id="contract_value"
+                  type="number"
+                  min="0"
+                  max="99999999.99"
+                  step="0.01"
+                  value={
+                    formData.contract_value === 0 ? "" : formData.contract_value
+                  }
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      contract_value:
+                        e.target.value === ""
+                          ? 0
+                          : parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="0.00"
+                  className="text-sm sm:text-base"
+                />
+              </div>
             </div>
-          )}
-          {role === "admin" && (
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="bunny_custom_structure"
-                    checked={formData.bunny_custom_structure || false}
-                    onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        bunny_custom_structure: checked,
-                      })
-                    }
-                  />
-                  <Label htmlFor="bunny_custom_structure" className="text-sm">
-                    Use Custom Storage Zone (Client has their own BunnyCDN
-                    storage zone)
-                  </Label>
-                </div>
 
-                {formData.bunny_custom_structure && (
-                  <div className="space-y-3">
+            {/* Start Date */}
+            <div className="space-y-1">
+              <Label className="text-sm">Start Date</Label>
+              <DatePicker
+                value={
+                  formData.start_date
+                    ? new Date(formData.start_date)
+                    : undefined
+                }
+                onChange={(date) => {
+                  if (!date) return;
+                  const yyyy = date.getFullYear();
+                  const mm = String(date.getMonth() + 1).padStart(2, "0");
+                  const dd = String(date.getDate()).padStart(2, "0");
+                  const iso = `${yyyy}-${mm}-${dd}`;
+                  setFormData({ ...formData, start_date: iso });
+                }}
+                placeholder="Select start date"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Specifications and Requirements - Collapsible */}
+        <div className="border-t pt-3 sm:pt-4">
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="specifications" className="border-none">
+              <AccordionTrigger className="py-2 hover:no-underline">
+                <h3 className="text-sm sm:text-base font-medium flex items-center gap-2">
+                  <Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                  Project Specifications
+                </h3>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-3 pt-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="specifications" className="text-sm">
+                      Client Specifications
+                    </Label>
+                    <Textarea
+                      id="specifications"
+                      value={formData.specifications}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          specifications: e.target.value,
+                        })
+                      }
+                      placeholder="Enter detailed client specifications, requirements, and any special instructions..."
+                      rows={3}
+                      className="text-sm sm:text-base"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor="bunny_custom_url" className="text-sm">
-                        Custom Storage Zone Name
+                      <Label htmlFor="requirements" className="text-sm">
+                        Project Requirements
                       </Label>
-                      <Input
-                        id="bunny_custom_url"
-                        value={formData.bunny_custom_url || ""}
+                      <Textarea
+                        id="requirements"
+                        value={formData.requirements}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            bunny_custom_url: e.target.value,
+                            requirements: e.target.value,
                           })
                         }
-                        placeholder="e.g., Polhus"
-                        className="text-sm sm:text-base font-mono"
+                        placeholder="Enter technical requirements, quality standards, and project scope..."
+                        rows={3}
+                        className="text-sm sm:text-base"
                       />
-                      <div className="text-xs space-y-1">
-                        <p className="text-muted-foreground">
-                          ⚠️ Case-sensitive! Must match BunnyCDN exactly.
-                        </p>
-                        {formData.bunny_custom_url && (
-                          <p className="text-blue-600 font-mono">
-                            CDN URL: https://cdn.charpstar.net/QC/filename.glb
-                          </p>
-                        )}
+                    </div>
+                    {role === "admin" && (
+                      <div className="space-y-1">
+                        <Label htmlFor="notes" className="text-sm">
+                          Additional Notes (Admin only)
+                        </Label>
+                        <Textarea
+                          id="notes"
+                          value={formData.notes}
+                          onChange={(e) =>
+                            setFormData({ ...formData, notes: e.target.value })
+                          }
+                          placeholder="Any additional notes or comments..."
+                          rows={3}
+                          className="text-sm sm:text-base"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {(role === "admin" || role === "qa") && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-sm">
+                          Guideline Link (For Modelers)
+                        </Label>
+                        <Input
+                          value={
+                            (formData.client_guide_links &&
+                              formData.client_guide_links[0]) ||
+                            ""
+                          }
+                          onChange={(e) => {
+                            const first = e.target.value;
+                            const next = [
+                              ...(formData.client_guide_links || []),
+                            ];
+                            if (next.length === 0) next.push(first);
+                            else next[0] = first;
+                            setFormData({
+                              ...formData,
+                              client_guide_links: next,
+                            });
+                          }}
+                          className="text-sm sm:text-base"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="viewer_type" className="text-sm">
+                          Choose Viewer
+                        </Label>
+                        <Select
+                          value={formData.viewer_type || ""}
+                          onValueChange={(
+                            value:
+                              | "v6_aces"
+                              | "v5_tester"
+                              | "synsam"
+                              | "v2"
+                              | ""
+                          ) =>
+                            setFormData({
+                              ...formData,
+                              viewer_type: value || null,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="text-sm sm:text-base">
+                            <SelectValue placeholder="Select a viewer type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="v6_aces">
+                              V6 ACES Tester
+                            </SelectItem>
+                            <SelectItem value="v5_tester">V5 Tester</SelectItem>
+                            <SelectItem value="synsam">Synsam</SelectItem>
+                            <SelectItem value="v2" disabled>
+                              V2 (Under Construction)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label
-                        htmlFor="bunny_custom_access_key"
-                        className="text-sm"
-                      >
-                        Custom Storage Zone Access Key
-                      </Label>
-                      <Input
-                        id="bunny_custom_access_key"
-                        type="password"
-                        value={formData.bunny_custom_access_key || ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            bunny_custom_access_key: e.target.value,
-                          })
-                        }
-                        placeholder="Enter BunnyCDN AccessKey for this storage zone"
-                        className="text-sm sm:text-base font-mono"
-                      />
+                  )}
+                  {role === "admin" && (
+                    <div className="space-y-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="bunny_custom_structure"
+                            checked={formData.bunny_custom_structure || false}
+                            onCheckedChange={(checked) =>
+                              setFormData({
+                                ...formData,
+                                bunny_custom_structure: checked,
+                              })
+                            }
+                          />
+                          <Label
+                            htmlFor="bunny_custom_structure"
+                            className="text-sm"
+                          >
+                            Use Custom Storage Zone (Client has their own
+                            BunnyCDN storage zone)
+                          </Label>
+                        </div>
+
+                        {formData.bunny_custom_structure && (
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <Label
+                                htmlFor="bunny_custom_url"
+                                className="text-sm"
+                              >
+                                Custom Storage Zone Name
+                              </Label>
+                              <Input
+                                id="bunny_custom_url"
+                                value={formData.bunny_custom_url || ""}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    bunny_custom_url: e.target.value,
+                                  })
+                                }
+                                placeholder="e.g., Polhus"
+                                className="text-sm sm:text-base font-mono"
+                              />
+                              <div className="text-xs space-y-1">
+                                <p className="text-muted-foreground">
+                                  ⚠️ Case-sensitive! Must match BunnyCDN
+                                  exactly.
+                                </p>
+                                {formData.bunny_custom_url && (
+                                  <p className="text-blue-600 font-mono">
+                                    CDN URL:
+                                    https://cdn.charpstar.net/QC/filename.glb
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <Label
+                                htmlFor="bunny_custom_access_key"
+                                className="text-sm"
+                              >
+                                Custom Storage Zone Access Key
+                              </Label>
+                              <Input
+                                id="bunny_custom_access_key"
+                                type="password"
+                                value={formData.bunny_custom_access_key || ""}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    bunny_custom_access_key: e.target.value,
+                                  })
+                                }
+                                placeholder="Enter BunnyCDN AccessKey for this storage zone"
+                                className="text-sm sm:text-base font-mono"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Required: Each storage zone has its own
+                                AccessKey
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p>
+                          • <strong>Folders auto-created</strong> on first asset
+                          upload with QC/, Android/, iOS/ subfolders
+                        </p>
+                        <p>
+                          • <strong>Default:</strong> Storage zone
+                          &quot;maincdn&quot; with folder {"{ClientName}"}
+                        </p>
+                        <p>
+                          • <strong>Custom:</strong> Custom storage zone
+                          (replaces &quot;maincdn&quot;)
+                        </p>
+                        <p>
+                          • <strong>Storage Path:</strong>{" "}
+                          {(() => {
+                            const clientName = (
+                              formData.name || "ClientName"
+                            ).replace(/[^a-zA-Z0-9._-]/g, "_");
+                            if (
+                              formData.bunny_custom_structure &&
+                              formData.bunny_custom_url
+                            ) {
+                              const customZone =
+                                formData.bunny_custom_url.replace(
+                                  /^\/+|\/+$/g,
+                                  ""
+                                );
+                              return `${customZone}/QC/, Android/, iOS/`;
+                            }
+                            return `maincdn/${clientName}/QC/, Android/, iOS/`;
+                          })()}
+                        </p>
+                        <p>
+                          • <strong>CDN URL:</strong>{" "}
+                          {(() => {
+                            const clientName = (
+                              formData.name || "ClientName"
+                            ).replace(/[^a-zA-Z0-9._-]/g, "_");
+                            if (
+                              formData.bunny_custom_structure &&
+                              formData.bunny_custom_url
+                            ) {
+                              return `cdn.charpstar.net/QC/filename.glb`;
+                            }
+                            return `cdn.charpstar.net/${clientName}/QC/filename.glb`;
+                          })()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+
+        {/* Users with Access Section */}
+        {clientName && (
+          <div className="border-t pt-3 sm:pt-4">
+            <h3 className="text-sm sm:text-base font-medium mb-3 flex items-center gap-2">
+              <Users className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
+              Users with Access to {clientName}
+            </h3>
+            {loadingUsers ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+              </div>
+            ) : usersWithAccess.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">
+                No users have access to this client yet
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {usersWithAccess.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{user.email}</p>
                       <p className="text-xs text-muted-foreground">
-                        Required: Each storage zone has its own AccessKey
+                        Companies:{" "}
+                        {Array.isArray(user.client)
+                          ? user.client.join(", ")
+                          : user.client}
                       </p>
                     </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handleEditUserCompanies(user.id, user.email)
+                      }
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      Edit Companies
+                    </Button>
                   </div>
-                )}
+                ))}
               </div>
+            )}
+          </div>
+        )}
 
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>
-                  • <strong>Folders auto-created</strong> on first asset upload
-                  with QC/, Android/, iOS/ subfolders
-                </p>
-                <p>
-                  • <strong>Default:</strong> Storage zone &quot;maincdn&quot;
-                  with folder {"{ClientName}"}
-                </p>
-                <p>
-                  • <strong>Custom:</strong> Custom storage zone (replaces
-                  &quot;maincdn&quot;)
-                </p>
-                <p>
-                  • <strong>Storage Path:</strong>{" "}
-                  {(() => {
-                    const clientName = (formData.name || "ClientName").replace(
-                      /[^a-zA-Z0-9._-]/g,
-                      "_"
-                    );
-                    if (
-                      formData.bunny_custom_structure &&
-                      formData.bunny_custom_url
-                    ) {
-                      const customZone = formData.bunny_custom_url.replace(
-                        /^\/+|\/+$/g,
-                        ""
-                      );
-                      return `${customZone}/QC/, Android/, iOS/`;
-                    }
-                    return `maincdn/${clientName}/QC/, Android/, iOS/`;
-                  })()}
-                </p>
-                <p>
-                  • <strong>CDN URL:</strong>{" "}
-                  {(() => {
-                    const clientName = (formData.name || "ClientName").replace(
-                      /[^a-zA-Z0-9._-]/g,
-                      "_"
-                    );
-                    if (
-                      formData.bunny_custom_structure &&
-                      formData.bunny_custom_url
-                    ) {
-                      return `cdn.charpstar.net/QC/filename.glb`;
-                    }
-                    return `cdn.charpstar.net/${clientName}/QC/filename.glb`;
-                  })()}
-                </p>
-              </div>
-            </div>
-          )}
+        {/* Form Actions */}
+        <div className="flex flex-col sm:flex-row justify-end gap-3 pt-3 sm:pt-4 border-t">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            className="w-full sm:w-auto text-sm sm:text-base"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={onSubmit}
+            className="w-full sm:w-auto text-sm sm:text-base"
+          >
+            Save Client
+          </Button>
         </div>
       </div>
 
-      {/* Form Actions */}
-      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-3 sm:pt-4 border-t">
-        <Button
-          variant="outline"
-          onClick={onCancel}
-          className="w-full sm:w-auto text-sm sm:text-base"
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={onSubmit}
-          className="w-full sm:w-auto text-sm sm:text-base"
-        >
-          Save Client
-        </Button>
-      </div>
-    </div>
+      {/* Edit Companies Dialog */}
+      {editingUserCompanies && (
+        <EditCompaniesDialog
+          isOpen={isEditCompaniesDialogOpen}
+          onClose={() => {
+            setIsEditCompaniesDialogOpen(false);
+            setEditingUserCompanies(null);
+          }}
+          userId={editingUserCompanies.userId}
+          userEmail={editingUserCompanies.email}
+          onSuccess={() => {
+            // Refresh the users list
+            setLoadingUsers(true);
+            supabase
+              .from("profiles")
+              .select("id, email, client")
+              .eq("role", "client")
+              .then(({ data, error }) => {
+                if (!error && data && clientName) {
+                  const filtered = data.filter((u: any) => {
+                    if (Array.isArray(u.client)) {
+                      return u.client.includes(clientName);
+                    }
+                    return u.client === clientName;
+                  });
+                  setUsersWithAccess(filtered);
+                }
+                setLoadingUsers(false);
+              });
+          }}
+        />
+      )}
+    </>
   );
 }
 

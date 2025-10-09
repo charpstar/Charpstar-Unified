@@ -280,7 +280,11 @@ export default function ReviewDashboardPage() {
 
   // Fetch assets for this client
   const fetchAssets = async () => {
-    if (!user?.metadata?.client) {
+    if (
+      !user?.metadata?.client ||
+      !Array.isArray(user.metadata.client) ||
+      user.metadata.client.length === 0
+    ) {
       return;
     }
 
@@ -288,24 +292,13 @@ export default function ReviewDashboardPage() {
     setLoading(true);
 
     try {
-      // First, let's check what's in the database directly
-
-      const { error: directError } = await supabase
-        .from("onboarding_assets")
-        .select("id, client")
-        .eq("client", user.metadata.client);
-
-      if (directError) {
-        console.error("Direct database check failed:", directError);
-      } else {
-      }
-
+      // Build query to fetch assets from all user's companies
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select(
           "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, transferred"
         )
-        .eq("client", user.metadata.client)
+        .in("client", user.metadata.client)
         .eq("transferred", false) // Hide transferred assets
         .order("upload_order", { ascending: true });
 

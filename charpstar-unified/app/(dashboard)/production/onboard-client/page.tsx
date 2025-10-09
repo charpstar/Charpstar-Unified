@@ -314,7 +314,9 @@ export default function OnboardClientPage() {
 
       // Prepare data for onboarding_assets table
       const assetsToUpload = convertedData.map((item, index) => ({
-        client: client?.client || "",
+        client: Array.isArray(client?.client)
+          ? client.client[0]
+          : client?.client || "",
         article_id: item.article_id,
         product_name: item.product_name,
         product_link: item.product_link,

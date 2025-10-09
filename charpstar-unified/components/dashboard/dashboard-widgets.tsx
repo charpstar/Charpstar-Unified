@@ -1327,10 +1327,20 @@ export function ModelStatusWidget() {
   useEffect(() => {
     async function fetchStatusCounts() {
       if (!user?.metadata?.client) return;
-      const { data, error } = await supabase
+
+      let query = supabase
         .from("onboarding_assets")
-        .select("id, status, article_id, product_name")
-        .eq("client", user.metadata.client);
+        .select("id, status, article_id, product_name");
+
+      // Filter by user's companies
+      if (
+        Array.isArray(user.metadata.client) &&
+        user.metadata.client.length > 0
+      ) {
+        query = query.in("client", user.metadata.client);
+      }
+
+      const { data, error } = await query;
       if (!error && data) {
         const newCounts: Record<StatusKey, number> = {
           not_started: 0,
@@ -1397,10 +1407,18 @@ export function StatusPieChartWidget() {
     async function fetchStatusCounts() {
       if (!user?.metadata?.client) return;
       setLoading(true);
-      const { data, error } = await supabase
-        .from("onboarding_assets")
-        .select("id, status")
-        .eq("client", user.metadata.client);
+
+      let query = supabase.from("onboarding_assets").select("id, status");
+
+      // Filter by user's companies
+      if (
+        Array.isArray(user.metadata.client) &&
+        user.metadata.client.length > 0
+      ) {
+        query = query.in("client", user.metadata.client);
+      }
+
+      const { data, error } = await query;
       if (!error && data) {
         const newCounts: Record<StatusKey, number> = {
           not_started: 0,
@@ -1608,11 +1626,21 @@ export function ClientActionCenterWidget() {
     const fetchClientQueues = async () => {
       if (!user?.metadata?.client) return;
       setLoading(true);
-      const { data, error } = await supabase
+
+      let query = supabase
         .from("onboarding_assets")
         .select("id, product_name, article_id, status, created_at")
-        .eq("client", user.metadata.client)
         .order("created_at", { ascending: false });
+
+      // Filter by user's companies
+      if (
+        Array.isArray(user.metadata.client) &&
+        user.metadata.client.length > 0
+      ) {
+        query = query.in("client", user.metadata.client);
+      }
+
+      const { data, error } = await query;
 
       if (!error && data) {
         const waiting = data.filter((a) => a.status === "approved");
