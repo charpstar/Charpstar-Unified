@@ -89,18 +89,26 @@ export default function AppSidebar({
             ? []
             : role === "qa"
               ? []
-              : [
-                  {
-                    title: "Asset Library",
-                    url: "/asset-library",
-                    icon: Folder,
-                  },
-                  {
-                    title: "Texture Library",
-                    url: "/texture-library",
-                    icon: Layers,
-                  },
-                ]),
+              : role === "client"
+                ? [
+                    {
+                      title: "Asset Library",
+                      url: "/asset-library",
+                      icon: Folder,
+                    },
+                  ]
+                : [
+                    {
+                      title: "Asset Library",
+                      url: "/asset-library",
+                      icon: Folder,
+                    },
+                    {
+                      title: "Texture Library",
+                      url: "/texture-library",
+                      icon: Layers,
+                    },
+                  ]),
         // FAQ - available to all users except clients
         ...(role !== "client"
           ? [
@@ -116,6 +124,11 @@ export default function AppSidebar({
         // Add Products and Review pages for clients only
         ...(role === "client" && user?.metadata?.onboarding === false
           ? [
+              {
+                title: "Add Products",
+                url: "/add-products",
+                icon: Package,
+              },
               {
                 title: "Review Assets",
                 url: "/client-review",

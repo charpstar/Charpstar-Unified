@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/display";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Asset {
   id: string;
@@ -37,6 +37,7 @@ interface AssetCardProps {
   onSelect?: (assetId: string) => void;
   viewMode?: "grid" | "compactGrid";
   onStatusChange?: () => void;
+  canDownloadGLB?: boolean;
 }
 
 export default function AssetCard({
@@ -46,6 +47,7 @@ export default function AssetCard({
   onSelect,
   viewMode = "grid",
   onStatusChange,
+  canDownloadGLB = false,
 }: AssetCardProps) {
   const router = useRouter();
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -301,28 +303,30 @@ export default function AssetCard({
                   </Tooltip>
 
                   <div className="flex gap-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-9 w-9 hover:bg-muted/70"
-                          disabled={!asset.glb_link}
-                        >
-                          <a
-                            href={asset.glb_link}
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Download 3D Model"
-                            className="flex items-center justify-center"
+                    {canDownloadGLB && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 hover:bg-muted/70"
+                            disabled={!asset.glb_link}
                           >
-                            <Download className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Download 3D model</TooltipContent>
-                    </Tooltip>
+                            <a
+                              href={asset.glb_link}
+                              download
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Download 3D Model"
+                              className="flex items-center justify-center"
+                            >
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Download 3D model</TooltipContent>
+                      </Tooltip>
+                    )}
 
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -433,28 +437,30 @@ export default function AssetCard({
                   <TooltipContent>View product details</TooltipContent>
                 </Tooltip>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 hover:bg-muted/70  group/download "
-                      disabled={!asset.glb_link}
-                    >
-                      <a
-                        href={asset.glb_link}
-                        download
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Download 3D Model"
-                        className="flex items-center justify-center"
+                {canDownloadGLB && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 hover:bg-muted/70  group/download "
+                        disabled={!asset.glb_link}
                       >
-                        <Download className="h-4 w-4" />
-                      </a>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Download 3D model</TooltipContent>
-                </Tooltip>
+                        <a
+                          href={asset.glb_link}
+                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Download 3D Model"
+                          className="flex items-center justify-center"
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Download 3D model</TooltipContent>
+                  </Tooltip>
+                )}
 
                 <Tooltip>
                   <TooltipTrigger asChild>

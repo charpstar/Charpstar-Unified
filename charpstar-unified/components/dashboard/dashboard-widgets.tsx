@@ -696,22 +696,7 @@ export function QuickActionsWidget() {
             : "text-blue-600 dark:text-blue-400",
     },
     // View Analytics - hide for QA users
-    ...(user?.metadata?.role !== "qa"
-      ? [
-          {
-            name: "View Analytics",
-            icon: TrendingUp,
-            description: "See performance and usage analytics",
-            action: () => {
-              router.push("/analytics");
-            },
-            color: "from-emerald-500 to-emerald-600",
-            hoverColor: "from-emerald-600 to-emerald-700",
-            iconBg: "bg-emerald-100 dark:bg-emerald-900/50",
-            iconColor: "text-emerald-600 dark:text-emerald-400",
-          },
-        ]
-      : []),
+    ...(user?.metadata?.role !== "qa" ? [] : []),
     // Settings - hide for QA users
     ...(user?.metadata?.role !== "qa" ? [] : []),
   ];

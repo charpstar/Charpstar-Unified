@@ -136,6 +136,7 @@ export default function AssetLibraryPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [isBatchEditMode, setIsBatchEditMode] = useState(false);
+  const [canDownloadGLB, setCanDownloadGLB] = useState(false);
 
   // Mobile sidebar toggle state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -197,14 +198,44 @@ export default function AssetLibraryPage() {
 
   useEffect(() => {
     const fetchUserRole = async () => {
-      if (!user) return;
+      if (!user) {
+        setCanDownloadGLB(false);
+        return;
+      }
+
       const supabase = createClient();
       const { data } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, client")
         .eq("id", user.id)
         .single();
+
       if (data?.role) setUserRole(data.role);
+
+      // Admins can always download
+      if (data?.role === "admin") {
+        setCanDownloadGLB(true);
+        return;
+      }
+
+      // Check enterprise contract
+      if (data?.client) {
+        const clientNames = Array.isArray(data.client)
+          ? data.client
+          : [data.client];
+
+        const { data: clients } = await supabase
+          .from("clients")
+          .select("contract_type")
+          .in("name", clientNames);
+
+        const hasEnterprise = clients?.some(
+          (c) => c.contract_type === "enterprise"
+        );
+        setCanDownloadGLB(hasEnterprise || false);
+      } else {
+        setCanDownloadGLB(false);
+      }
     };
     fetchUserRole();
   }, [user]);
@@ -572,12 +603,17 @@ export default function AssetLibraryPage() {
               <div className="h-48 bg-muted animate-pulse rounded-lg" />
             }
           >
-            <LazyAssetCard asset={asset} {...props} onStatusChange={refetch} />
+            <LazyAssetCard
+              asset={asset}
+              {...props}
+              onStatusChange={refetch}
+              canDownloadGLB={canDownloadGLB}
+            />
           </Suspense>
         </div>
       );
     },
-    [refetch]
+    [refetch, canDownloadGLB]
   );
 
   // Show skeletons while loading

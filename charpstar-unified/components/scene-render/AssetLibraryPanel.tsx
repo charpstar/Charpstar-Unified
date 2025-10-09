@@ -29,6 +29,7 @@ import Image from "next/image";
 import { useAssets } from "@/hooks/use-assets";
 import { useUser } from "@/contexts/useUser";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/utils/supabase/client";
 
 interface AssetLibraryPanelProps {
   onAssetSelect?: (asset: any) => void;
@@ -47,6 +48,7 @@ export default function AssetLibraryPanel({
 
   const user = useUser();
   const isAdmin = user?.metadata?.role === "admin";
+  const [canDownloadGLB, setCanDownloadGLB] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "date">("name");
@@ -151,6 +153,50 @@ export default function AssetLibraryPanel({
       name: cat,
     }));
   }, [filteredAssets, selectedClient, isAdmin]);
+
+  // Check if user can download GLB files
+  useEffect(() => {
+    const checkDownloadPermission = async () => {
+      if (!user?.id) {
+        setCanDownloadGLB(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("client, role")
+        .eq("id", user.id)
+        .single();
+
+      // Admins can always download
+      if (profile?.role === "admin") {
+        setCanDownloadGLB(true);
+        return;
+      }
+
+      // Check if client has enterprise contract
+      if (profile?.client) {
+        const clientNames = Array.isArray(profile.client)
+          ? profile.client
+          : [profile.client];
+
+        const { data: clients } = await supabase
+          .from("clients")
+          .select("contract_type")
+          .in("name", clientNames);
+
+        const hasEnterprise = clients?.some(
+          (c) => c.contract_type === "enterprise"
+        );
+        setCanDownloadGLB(hasEnterprise || false);
+      } else {
+        setCanDownloadGLB(false);
+      }
+    };
+
+    checkDownloadPermission();
+  }, [user]);
 
   // Reset category when client changes (to avoid invalid category selection)
   useEffect(() => {
@@ -610,7 +656,7 @@ export default function AssetLibraryPanel({
                     </div>
 
                     {/* Quick Action */}
-                    {asset.glb_link && (
+                    {asset.glb_link && canDownloadGLB && (
                       <div className="p-2 pt-0">
                         <Button
                           variant="outline"
