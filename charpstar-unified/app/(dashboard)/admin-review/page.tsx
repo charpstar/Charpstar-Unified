@@ -821,7 +821,7 @@ export default function AdminReviewPage() {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to update assets");
       }
-
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const result = await response.json();
 
       // Update local state
