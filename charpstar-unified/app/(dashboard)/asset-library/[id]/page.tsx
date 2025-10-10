@@ -60,6 +60,43 @@ interface Asset {
   dimensions?: string;
 }
 
+// Helper function to get viewer parameters based on client viewer type
+const getViewerParameters = (viewerType?: string | null) => {
+  switch (viewerType) {
+    case "v6_aces":
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
+        exposure: "1.2",
+        toneMapping: "aces",
+      };
+    case "v5_tester":
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/warm.hdr",
+        exposure: "1.3",
+        toneMapping: "commerce",
+      };
+    case "synsam":
+      return {
+        environmentImage: "https://charpstar.se/3DTester/SynsamNewHDRI.jpg",
+        exposure: "1",
+        toneMapping: "aces",
+      };
+    case "v2":
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
+        exposure: "1.2",
+        toneMapping: "aces",
+      };
+    default:
+      // Default to V6 ACES Tester
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
+        exposure: "1.2",
+        toneMapping: "aces",
+      };
+  }
+};
+
 export default function AssetDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -78,6 +115,7 @@ export default function AssetDetailPage() {
   const [canDownloadGLB, setCanDownloadGLB] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [relatedAssets, setRelatedAssets] = useState<Asset[]>([]);
+  const [clientViewerType, setClientViewerType] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -142,6 +180,28 @@ export default function AssetDetailPage() {
 
         setAsset(data);
         setEditedAsset(data);
+
+        // Fetch client's viewer type
+        if (data.client) {
+          try {
+            const supabase = createClient();
+            const { data: clientData, error: clientError } = await supabase
+              .from("clients")
+              .select("viewer_type")
+              .eq("name", data.client)
+              .single();
+
+            if (!clientError && clientData) {
+              setClientViewerType(clientData.viewer_type);
+            } else {
+              // If no client found, default to null (will use default viewer)
+              setClientViewerType(null);
+            }
+            //eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (error) {
+            setClientViewerType(null);
+          }
+        }
       } catch {
         console.error("Error fetching asset");
         setError("Failed to load asset details");
@@ -429,6 +489,13 @@ export default function AssetDetailPage() {
                   <ModelViewer
                     modelUrl={asset.glb_link}
                     alt={`3D model of ${asset.product_name}`}
+                    environmentImage={
+                      getViewerParameters(clientViewerType).environmentImage
+                    }
+                    exposure={getViewerParameters(clientViewerType).exposure}
+                    toneMapping={
+                      getViewerParameters(clientViewerType).toneMapping
+                    }
                   />
                 ) : asset.preview_image ? (
                   // eslint-disable-next-line @next/next/no-img-element

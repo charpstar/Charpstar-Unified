@@ -163,6 +163,9 @@ interface ModelPreviewerProps {
     inspirationImage: string | null
   ) => void;
   onCancel: () => void;
+  environmentImage?: string;
+  exposure?: string;
+  toneMapping?: string;
 }
 
 const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
@@ -170,6 +173,9 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   modelUrl,
   onGenerate,
   onCancel,
+  environmentImage = "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
+  exposure = "1.2",
+  toneMapping = "aces",
 }) => {
   const modelViewerRef = useRef<HTMLElement>(null);
   const [objectSize, setObjectSize] = useState("");
@@ -544,9 +550,9 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           alt="3D Model Preview"
           camera-controls
           shadow-intensity="0.5"
-          environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
-          exposure="1.2"
-          tone-mapping="aces"
+          environment-image={environmentImage}
+          exposure={exposure}
+          tone-mapping={toneMapping}
           shadow-softness="1"
           min-field-of-view="5deg"
           max-field-of-view="35deg"

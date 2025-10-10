@@ -10,6 +10,9 @@ interface ModelViewerProps {
   addHotspotMode?: boolean;
   onAddHotspot?: (position: string, normal: string) => void;
   children?: React.ReactNode;
+  environmentImage?: string;
+  exposure?: string;
+  toneMapping?: string;
 }
 
 // Add type declaration for model-viewer element
@@ -44,6 +47,9 @@ export function ModelViewer({
   addHotspotMode = false,
   onAddHotspot,
   children,
+  environmentImage,
+  exposure,
+  toneMapping,
   ...props
 }: ModelViewerProps & React.HTMLAttributes<HTMLElement>) {
   const modelViewerRef = useRef<HTMLElement | null>(null);
@@ -202,6 +208,9 @@ export function ModelViewer({
         alt={alt}
         className="w-full h-[300px] sm:h-[200px] md:h-[500px] lg:h-[1000px]"
         {...(cameraControls ? { "camera-controls": true } : {})}
+        {...(environmentImage ? { "environment-image": environmentImage } : {})}
+        {...(exposure ? { exposure: exposure } : {})}
+        {...(toneMapping ? { "tone-mapping": toneMapping } : {})}
         onLoad={() => {
           if (modelViewerRef.current) {
             (modelViewerRef.current as any).autoRotate = false;

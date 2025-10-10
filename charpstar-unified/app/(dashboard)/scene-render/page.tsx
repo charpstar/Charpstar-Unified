@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./scene-render.css";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
@@ -18,8 +18,46 @@ import ModelPreviewer from "@/components/scene-render/ModelPreviewer";
 import Loader from "@/components/scene-render/Loader";
 import ResultDisplay from "@/components/scene-render/ResultDisplay";
 import AssetLibraryPanel from "@/components/scene-render/AssetLibraryPanel";
+import { createClient } from "@/utils/supabase/client";
 
 type AppState = "upload" | "preview" | "generating" | "results" | "error";
+
+// Helper function to get viewer parameters based on client viewer type
+const getViewerParameters = (viewerType?: string | null) => {
+  switch (viewerType) {
+    case "v6_aces":
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
+        exposure: "1.2",
+        toneMapping: "aces",
+      };
+    case "v5_tester":
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/warm.hdr",
+        exposure: "1.3",
+        toneMapping: "commerce",
+      };
+    case "synsam":
+      return {
+        environmentImage: "https://charpstar.se/3DTester/SynsamNewHDRI.jpg",
+        exposure: "1",
+        toneMapping: "aces",
+      };
+    case "v2":
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
+        exposure: "1.2",
+        toneMapping: "aces",
+      };
+    default:
+      // Default to V6 ACES Tester
+      return {
+        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
+        exposure: "1.2",
+        toneMapping: "aces",
+      };
+  }
+};
 
 export default function SceneRenderPage() {
   const user = useUser();
@@ -31,6 +69,51 @@ export default function SceneRenderPage() {
   const [error, setError] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [clientViewerType, setClientViewerType] = useState<string | null>(null);
+
+  // Fetch client viewer type based on user's client
+  useEffect(() => {
+    const fetchClientViewerType = async () => {
+      if (!user?.id) return;
+
+      try {
+        const supabase = createClient();
+
+        // Get user's profile to find their client
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("client")
+          .eq("id", user.id)
+          .single();
+
+        if (profileData?.client) {
+          // Get the first client name if it's an array
+          const clientName = Array.isArray(profileData.client)
+            ? profileData.client[0]
+            : profileData.client;
+
+          if (clientName) {
+            // Fetch the client's viewer_type
+            const { data: clientData } = await supabase
+              .from("clients")
+              .select("viewer_type")
+              .eq("name", clientName)
+              .single();
+
+            if (clientData) {
+              setClientViewerType(clientData.viewer_type);
+            }
+          }
+        }
+        //eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (error) {
+        // Silently fail and use default viewer
+        setClientViewerType(null);
+      }
+    };
+
+    fetchClientViewerType();
+  }, [user?.id]);
 
   const handleFileSelect = (file: File) => {
     if (file.type !== "model/gltf-binary" && !file.name.endsWith(".glb")) {
@@ -163,6 +246,11 @@ export default function SceneRenderPage() {
               modelUrl={selectedModelUrl}
               onGenerate={handleGenerate}
               onCancel={handleCancel}
+              environmentImage={
+                getViewerParameters(clientViewerType).environmentImage
+              }
+              exposure={getViewerParameters(clientViewerType).exposure}
+              toneMapping={getViewerParameters(clientViewerType).toneMapping}
             />
           )
         );
