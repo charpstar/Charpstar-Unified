@@ -904,6 +904,11 @@ export default function ProductionDashboard() {
           return;
         }
 
+        // Skip transferred assets as they are no longer part of production
+        if (asset.transferred === true) {
+          return;
+        }
+
         const batchKey = `${client}-${batch}`;
 
         if (!batchMap.has(batchKey)) {
@@ -1240,7 +1245,9 @@ export default function ProductionDashboard() {
       // Get all assets with batch information
       const { data: assetData, error: assetError } = await supabase
         .from("onboarding_assets")
-        .select("id, client, batch, created_at, status, delivery_date")
+        .select(
+          "id, client, batch, created_at, status, delivery_date, transferred"
+        )
         .order("client");
 
       if (assetError) throw assetError;
@@ -1251,6 +1258,12 @@ export default function ProductionDashboard() {
       assetData?.forEach((asset) => {
         const client = asset.client;
         const batch = asset.batch || 1;
+
+        // Skip transferred assets as they are no longer part of production
+        if (asset.transferred === true) {
+          return;
+        }
+
         const batchKey = `${client}-${batch}`;
 
         if (!batchMap.has(batchKey)) {

@@ -55,11 +55,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get previous statuses for activity logging
-    const { data: prevAssets } = await supabase
-      .from("onboarding_assets")
-      .select("id, status")
-      .in("id", assetIds);
+    // Helper function to chunk array
+    const chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
+      const chunks: T[][] = [];
+      for (let i = 0; i < array.length; i += chunkSize) {
+        chunks.push(array.slice(i, i + chunkSize));
+      }
+      return chunks;
+    };
+
+    // Chunk asset IDs to avoid Supabase query limits (100 per chunk)
+    const CHUNK_SIZE = 100;
+    const assetIdChunks = chunkArray(assetIds, CHUNK_SIZE);
+
+    // Get previous statuses for activity logging (in chunks)
+    let prevAssets: any[] = [];
+    for (const chunk of assetIdChunks) {
+      const { data } = await supabase
+        .from("onboarding_assets")
+        .select("id, status")
+        .in("id", chunk);
+      if (data) {
+        prevAssets = [...prevAssets, ...data];
+      }
+    }
 
     // Prepare update data
     const updateData: any = {
@@ -72,37 +91,51 @@ export async function POST(request: NextRequest) {
       updateData.revision_count = revisionCount;
     }
 
-    // Update all assets in one query
-    const { error: assetError } = await supabase
-      .from("onboarding_assets")
-      .update(updateData)
-      .in("id", assetIds);
+    // Update assets in chunks
+    for (const chunk of assetIdChunks) {
+      const { error: assetError } = await supabase
+        .from("onboarding_assets")
+        .update(updateData)
+        .in("id", chunk);
 
-    if (assetError) {
-      console.error("Error updating asset statuses:", assetError);
-      console.error("Asset IDs:", assetIds);
-      console.error("Update data:", updateData);
-      return NextResponse.json(
-        {
-          error: "Failed to update asset statuses",
-          details: assetError.message,
-        },
-        { status: 500 }
-      );
+      if (assetError) {
+        console.error("Error updating asset statuses:", assetError);
+        console.error("Asset IDs chunk:", chunk);
+        console.error("Update data:", updateData);
+        return NextResponse.json(
+          {
+            error: "Failed to update asset statuses",
+            details: assetError.message,
+          },
+          { status: 500 }
+        );
+      }
     }
 
     // Auto-transfer approved assets to assets table
     if (status === "approved_by_client") {
       try {
-        // Get all onboarding assets for transfer
-        const { data: onboardingAssets, error: fetchError } = await supabase
-          .from("onboarding_assets")
-          .select("*")
-          .in("id", assetIds)
-          .eq("status", "approved_by_client")
-          .eq("transferred", false);
+        // Get all onboarding assets for transfer (in chunks)
+        let onboardingAssets: any[] = [];
+        for (const chunk of assetIdChunks) {
+          const { data, error: fetchError } = await supabase
+            .from("onboarding_assets")
+            .select("*")
+            .in("id", chunk)
+            .eq("status", "approved_by_client")
+            .eq("transferred", false);
 
-        if (!fetchError && onboardingAssets && onboardingAssets.length > 0) {
+          if (fetchError) {
+            console.error("Error fetching assets for transfer:", fetchError);
+            continue;
+          }
+
+          if (data) {
+            onboardingAssets = [...onboardingAssets, ...data];
+          }
+        }
+
+        if (onboardingAssets.length > 0) {
           // Prepare data for assets table
           const assetsToInsert = onboardingAssets.map((asset) => ({
             article_id: asset.article_id,
@@ -125,32 +158,42 @@ export async function POST(request: NextRequest) {
             glb_status: "completed",
           }));
 
-          // Insert all assets at once
-          const { error: insertError } = await supabase
-            .from("assets")
-            .insert(assetsToInsert)
-            .select();
+          // Insert assets in chunks to avoid payload size limits
+          const insertChunks = chunkArray(assetsToInsert, CHUNK_SIZE);
+          for (const insertChunk of insertChunks) {
+            const { error: insertError } = await supabase
+              .from("assets")
+              .insert(insertChunk)
+              .select();
 
-          if (insertError) {
-            console.error("Error inserting assets:", insertError);
-            return NextResponse.json(
-              { error: "Failed to transfer assets to assets table" },
-              { status: 500 }
-            );
+            if (insertError) {
+              console.error("Error inserting assets chunk:", insertError);
+              return NextResponse.json(
+                { error: "Failed to transfer assets to assets table" },
+                { status: 500 }
+              );
+            }
           }
 
-          // Update onboarding_assets to mark as transferred
+          // Update onboarding_assets to mark as transferred (in chunks)
           const transferredIds = onboardingAssets.map((asset) => asset.id);
-          const { error: updateError } = await supabase
-            .from("onboarding_assets")
-            .update({
-              transferred: true,
-            })
-            .in("id", transferredIds);
+          const transferredIdChunks = chunkArray(transferredIds, CHUNK_SIZE);
 
-          if (updateError) {
-            console.error("Error marking assets as transferred:", updateError);
-            // Don't fail the request, just log the error
+          for (const chunk of transferredIdChunks) {
+            const { error: updateError } = await supabase
+              .from("onboarding_assets")
+              .update({
+                transferred: true,
+              })
+              .in("id", chunk);
+
+            if (updateError) {
+              console.error(
+                "Error marking assets as transferred:",
+                updateError
+              );
+              // Don't fail the request, just log the error
+            }
           }
         }
       } catch (transferError) {

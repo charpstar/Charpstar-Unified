@@ -304,83 +304,134 @@ const isOverdue = (deadline: string) => {
 };
 
 const AdminReviewTableSkeleton = () => (
-  <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[79vh]">
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-12 text-left">
-            <div className="h-4 w-4 bg-muted rounded animate-pulse" />
-          </TableHead>
-          <TableHead className="text-left">
-            <div className="h-4 w-24 bg-muted rounded animate-pulse" />
-          </TableHead>
-          <TableHead className="text-left">
-            <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-          </TableHead>
-          <TableHead className="text-left">
-            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-          </TableHead>
-          <TableHead className="text-left">
-            <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-          </TableHead>
-          <TableHead className="text-left">
-            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-          </TableHead>
-          <TableHead className="text-left">
-            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-          </TableHead>
-          <TableHead className="text-left">
-            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-          </TableHead>
-          <TableHead className="text-left">
-            <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <TableRow key={i}>
-            <TableCell className="text-left">
+  <>
+    {/* Summary Stats Skeleton */}
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-4 mb-2 sm:mb-6">
+      {Array.from({ length: 7 }).map((_, i) => (
+        <Card key={i} className="p-2 sm:p-4">
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            <div className="p-1 sm:p-2 bg-muted rounded-lg">
+              <div className="h-3 w-3 sm:h-5 sm:w-5 bg-muted-foreground/20 rounded animate-pulse" />
+            </div>
+            <div className="flex-1 space-y-1.5">
+              <div className="h-3 w-16 sm:w-20 bg-muted rounded animate-pulse" />
+              <div className="h-5 sm:h-7 w-10 sm:w-14 bg-muted rounded animate-pulse" />
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+
+    {/* Filters Skeleton */}
+    <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 mb-2 sm:mb-4">
+      <div className="h-8 sm:h-9 w-full sm:w-40 bg-muted rounded animate-pulse" />
+      <div className="h-8 sm:h-9 w-full sm:w-32 bg-muted rounded animate-pulse" />
+      <div className="h-8 sm:h-9 w-full sm:w-40 bg-muted rounded animate-pulse" />
+    </div>
+
+    {/* Table Skeleton */}
+    <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[67vh]">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12 text-left">
               <div className="h-4 w-4 bg-muted rounded animate-pulse" />
-            </TableCell>
-            <TableCell className="text-left">
-              <div className="space-y-2">
-                <div className="h-4 w-32 bg-muted rounded animate-pulse" />
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-16 bg-muted rounded animate-pulse" />
-                  <div className="h-3 w-12 bg-muted rounded animate-pulse" />
-                </div>
-              </div>
-            </TableCell>
-            <TableCell className="text-left">
-              <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-            </TableCell>
-            <TableCell className="text-left">
-              <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-            </TableCell>
-            <TableCell className="text-left">
-              <div className="flex items-center gap-2">
-                <div className="h-6 w-16 bg-muted rounded animate-pulse" />
-                <div className="h-3 w-8 bg-muted rounded animate-pulse" />
-              </div>
-            </TableCell>
-            <TableCell className="text-left">
+            </TableHead>
+            <TableHead className="text-left">
               <div className="h-4 w-24 bg-muted rounded animate-pulse" />
-            </TableCell>
-            <TableCell className="text-left">
-              <div className="h-6 w-20 bg-muted rounded animate-pulse" />
-            </TableCell>
-            <TableCell className="text-left">
-              <div className="h-8 w-8 bg-muted rounded animate-pulse" />
-            </TableCell>
-            <TableCell className="text-left">
-              <div className="h-8 w-8 bg-muted rounded animate-pulse" />
-            </TableCell>
+            </TableHead>
+            <TableHead className="text-left">
+              <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+            </TableHead>
+            <TableHead className="text-center">
+              <div className="h-4 w-16 bg-muted rounded animate-pulse mx-auto" />
+            </TableHead>
+            <TableHead className="text-center">
+              <div className="h-4 w-16 bg-muted rounded animate-pulse mx-auto" />
+            </TableHead>
+            <TableHead className="text-center">
+              <div className="h-4 w-20 bg-muted rounded animate-pulse mx-auto" />
+            </TableHead>
+            <TableHead className="text-center">
+              <div className="h-4 w-24 bg-muted rounded animate-pulse mx-auto" />
+            </TableHead>
+            <TableHead className="text-center">
+              <div className="h-4 w-16 bg-muted rounded animate-pulse mx-auto" />
+            </TableHead>
+            <TableHead className="text-center">
+              <div className="h-4 w-16 bg-muted rounded animate-pulse mx-auto" />
+            </TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  </div>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: 12 }).map((_, i) => (
+            <TableRow key={i}>
+              {/* Checkbox + Drag Handle */}
+              <TableCell className="text-left">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+                </div>
+              </TableCell>
+
+              {/* Model Name */}
+              <TableCell className="text-left">
+                <div className="space-y-2">
+                  <div className="h-4 w-48 bg-muted rounded animate-pulse" />
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-20 bg-muted/60 rounded animate-pulse" />
+                    <div className="h-3 w-16 bg-muted/60 rounded animate-pulse" />
+                    <div className="h-5 w-10 bg-muted/60 rounded-full animate-pulse" />
+                  </div>
+                </div>
+              </TableCell>
+
+              {/* Article ID */}
+              <TableCell className="text-left">
+                <div className="h-4 w-24 bg-muted rounded animate-pulse font-mono" />
+              </TableCell>
+
+              {/* Priority */}
+              <TableCell className="text-center">
+                <div className="h-6 w-16 bg-muted rounded-full animate-pulse mx-auto" />
+              </TableCell>
+
+              {/* Status */}
+              <TableCell className="text-center">
+                <div className="h-6 w-24 bg-muted rounded-full animate-pulse mx-auto" />
+              </TableCell>
+
+              {/* References */}
+              <TableCell className="text-center">
+                <div className="h-7 w-16 bg-muted rounded animate-pulse mx-auto" />
+              </TableCell>
+
+              {/* Product Link */}
+              <TableCell className="text-center">
+                <div className="h-4 w-20 bg-muted rounded animate-pulse mx-auto" />
+              </TableCell>
+
+              {/* Price */}
+              <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="h-8 w-32 bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-12 bg-muted rounded animate-pulse" />
+                </div>
+              </TableCell>
+
+              {/* Review Actions */}
+              <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                  <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  </>
 );
 
 export default function AdminReviewPage() {
@@ -752,32 +803,26 @@ export default function AdminReviewPage() {
     try {
       setBulkStatusUpdating(true);
 
-      // Update each asset individually using the complete API to trigger auto-transfer
       const selectedArray = Array.from(selected);
-      const updatePromises = selectedArray.map(async (assetId) => {
-        const response = await fetch("/api/assets/complete", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            assetId: assetId,
-            status: "approved_by_client",
-          }),
-        });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.error || `Failed to update asset ${assetId}`
-          );
-        }
-
-        return response.json();
+      // Use the bulk-complete API endpoint to handle status update and transfer
+      const response = await fetch("/api/assets/bulk-complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetIds: selectedArray,
+          status: "approved_by_client",
+        }),
       });
 
-      // Wait for all updates to complete
-      await Promise.all(updatePromises);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update assets");
+      }
+
+      const result = await response.json();
 
       // Update local state
       setAssets((prevAssets) =>

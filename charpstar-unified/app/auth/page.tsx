@@ -109,14 +109,12 @@ export default function AuthPage() {
     setError(null);
     try {
       // Use centralized URL utility
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const redirectUrl = getResetPasswordUrl();
 
       const { error } = await supabase.auth.resetPasswordForEmail(
         resetData.email,
         {
-          redirectTo: "https://platform.charpstar.co/reset-password",
+          redirectTo: redirectUrl,
         }
       );
 
