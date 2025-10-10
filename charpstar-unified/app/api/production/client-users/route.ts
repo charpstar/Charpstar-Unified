@@ -33,7 +33,7 @@ export async function GET() {
     // Get all client users from profiles table
     const { data: profiles, error: profilesError } = await supabaseAuth
       .from("profiles")
-      .select("id, email, role, client, created_at")
+      .select("id, email, role, client, created_at, title")
       .eq("role", "client")
       .order("created_at", { ascending: false });
 
@@ -46,13 +46,22 @@ export async function GET() {
     const clientsWithNames = await Promise.all(
       (profiles || []).map(async (profile: any) => {
         try {
-          const { data: authData } = await adminClient.auth.admin.getUserById(
-            profile.id
-          );
-          const name =
-            authData?.user?.user_metadata?.name ||
-            `${authData?.user?.user_metadata?.first_name || ""} ${authData?.user?.user_metadata?.last_name || ""}`.trim() ||
-            "Unknown User";
+          // Prioritize title from profiles table, then auth metadata
+          let name = profile.title || null;
+
+          // If no title, try to get name from auth metadata
+          if (!name) {
+            const { data: authData } = await adminClient.auth.admin.getUserById(
+              profile.id
+            );
+            name =
+              authData?.user?.user_metadata?.name ||
+              `${authData?.user?.user_metadata?.first_name || ""} ${authData?.user?.user_metadata?.last_name || ""}`.trim() ||
+              null;
+          }
+
+          // Final fallback
+          const displayName = name || "Unknown User";
 
           // Get asset counts from both tables
           // Build queries with .in() for array of companies
@@ -86,7 +95,7 @@ export async function GET() {
 
           return {
             ...profile,
-            name: name || "Unknown User",
+            name: displayName,
             onboardingAssetsCount,
             assetsCount,
             totalAssetsCount,
@@ -98,7 +107,7 @@ export async function GET() {
           );
           return {
             ...profile,
-            name: "Unknown User",
+            name: profile.title || "Unknown User",
             onboardingAssetsCount: 0,
             assetsCount: 0,
             totalAssetsCount: 0,
@@ -107,7 +116,44 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({ clients: clientsWithNames });
+    // Calculate total unique assets across all valid client companies (no duplicates)
+    const allClientNames = new Set(
+      (profiles || [])
+        .flatMap((p: any) => p.client || [])
+        .filter((c: string) => c && c !== "N/A" && c.trim())
+    );
+
+    let totalOnboardingAssets = 0;
+    let totalProductionAssets = 0;
+
+    if (allClientNames.size > 0) {
+      const clientNamesArray = Array.from(allClientNames);
+
+      // Get unique onboarding assets across all clients
+      const { count: onboardingCount } = await supabaseAuth
+        .from("onboarding_assets")
+        .select("id", { count: "exact", head: true })
+        .in("client", clientNamesArray)
+        .eq("transferred", false);
+
+      // Get unique production assets across all clients
+      const { count: productionCount } = await supabaseAuth
+        .from("assets")
+        .select("id", { count: "exact", head: true })
+        .in("client", clientNamesArray);
+
+      totalOnboardingAssets = onboardingCount || 0;
+      totalProductionAssets = productionCount || 0;
+    }
+
+    return NextResponse.json({
+      clients: clientsWithNames,
+      totals: {
+        onboarding: totalOnboardingAssets,
+        production: totalProductionAssets,
+        total: totalOnboardingAssets + totalProductionAssets,
+      },
+    });
   } catch (error: any) {
     console.error("Error in client-users API:", error);
     return NextResponse.json(

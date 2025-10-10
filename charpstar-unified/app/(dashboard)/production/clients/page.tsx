@@ -25,7 +25,6 @@ import { Badge } from "@/components/ui/feedback";
 
 interface Client {
   id: string;
-  name: string;
   email: string;
   role: string;
   client: string[] | null; // Changed to array to support multiple companies
@@ -42,25 +41,17 @@ export default function ClientsPage() {
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [totalOnboardingAssets, setTotalOnboardingAssets] = useState(0);
+  const [totalProductionAssets, setTotalProductionAssets] = useState(0);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [totalAssets, setTotalAssets] = useState(0);
 
-  // Calculate total asset counts grouped by company (client field)
-  // Flatten all companies from all users into a unique set
+  // Calculate unique companies (excluding N/A)
   const uniqueCompanies = new Set(
-    clients.flatMap((client) => client.client || [])
+    clients
+      .flatMap((client) => client.client || [])
+      .filter((c) => c && c !== "N/A" && c.trim())
   );
-
-  // Since users can have multiple companies, we just sum up unique asset counts per user
-  // (the API already returns deduplicated counts per user based on their companies)
-
-  const totalOnboardingAssets = clients.reduce(
-    (sum, client) => sum + client.onboardingAssetsCount,
-    0
-  );
-  const totalProductionAssets = clients.reduce(
-    (sum, client) => sum + client.assetsCount,
-    0
-  );
-  const totalAssets = totalOnboardingAssets + totalProductionAssets;
 
   const fetchClients = async () => {
     try {
@@ -72,6 +63,13 @@ export default function ClientsPage() {
       }
 
       setClients(result.clients || []);
+
+      // Set totals from API response
+      if (result.totals) {
+        setTotalOnboardingAssets(result.totals.onboarding);
+        setTotalProductionAssets(result.totals.production);
+        setTotalAssets(result.totals.total);
+      }
     } catch (error: any) {
       console.error("Error fetching clients:", error);
       toast({
@@ -92,7 +90,6 @@ export default function ClientsPage() {
     // Filter clients based on search term
     const filtered = clients.filter((client) => {
       const searchLower = searchTerm.toLowerCase();
-      const nameMatch = client.name.toLowerCase().includes(searchLower);
       const emailMatch = client.email.toLowerCase().includes(searchLower);
 
       // Handle array of companies
@@ -103,7 +100,7 @@ export default function ClientsPage() {
         );
       }
 
-      return nameMatch || emailMatch || clientMatch;
+      return emailMatch || clientMatch;
     });
     setFilteredClients(filtered);
   }, [clients, searchTerm]);
@@ -130,9 +127,7 @@ export default function ClientsPage() {
   }
 
   const handleClientSelect = (client: Client) => {
-    router.push(
-      `/production/onboard-client?clientId=${client.id}&clientName=${encodeURIComponent(client.name)}`
-    );
+    router.push(`/production/onboard-client?clientId=${client.id}`);
   };
 
   const getRoleBadge = (role: string) => {
@@ -240,36 +235,6 @@ export default function ClientsPage() {
         </Card>
       </div>
 
-      {/* Total Assets Summary */}
-      <Card className="border-2 border-primary/20 bg-primary/5 dark:bg-primary/10">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/20 rounded-lg">
-                <Building2 className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">
-                  Total Unique Assets
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Across all clients (no duplicates counted)
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-primary">
-                {totalAssets.toLocaleString()}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {totalOnboardingAssets.toLocaleString()} onboarding +{" "}
-                {totalProductionAssets.toLocaleString()} production
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <Card className="min-w-fit mx-auto  pr-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -283,7 +248,7 @@ export default function ClientsPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search users by name, email, or client..."
+                placeholder="Search users by email or client..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -308,7 +273,6 @@ export default function ClientsPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-3 font-medium">Name</th>
                       <th className="text-left p-3 font-medium">Email</th>
                       <th className="text-left p-3 font-medium">Client</th>
                       <th className="text-left p-3 font-medium">Role</th>
@@ -331,9 +295,6 @@ export default function ClientsPage() {
                         key={client.id}
                         className="border-b hover:bg-muted/50 transition-colors"
                       >
-                        <td className="p-3">
-                          <div className="font-medium">{client.name}</div>
-                        </td>
                         <td className="p-3">
                           <div className="text-sm text-muted-foreground">
                             {client.email}

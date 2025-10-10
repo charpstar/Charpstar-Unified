@@ -69,9 +69,14 @@ function DialogContent({
         )}
         onCloseAutoFocus={(e) => {
           e.preventDefault();
+          document.body.style.pointerEvents = "";
         }}
         onEscapeKeyDown={() => {
-          // Handle escape key
+          document.body.style.pointerEvents = "";
+        }}
+        onInteractOutside={(e) => {
+          e.preventDefault();
+          document.body.style.pointerEvents = "";
         }}
         {...props}
       >
@@ -101,9 +106,14 @@ function EditProductDialogContent({
         )}
         onCloseAutoFocus={(e) => {
           e.preventDefault();
+          document.body.style.pointerEvents = "";
         }}
         onEscapeKeyDown={() => {
-          // Handle escape key
+          document.body.style.pointerEvents = "";
+        }}
+        onInteractOutside={(e) => {
+          e.preventDefault();
+          document.body.style.pointerEvents = "";
         }}
         {...props}
       >
@@ -205,6 +215,17 @@ function EditUserDialogContent({
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100vw-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-4 sm:p-6 shadow-lg duration-200 max-h-[90vh] overflow-y-auto sm:min-w-[400px] sm:max-w-[1000px]",
           className
         )}
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          document.body.style.pointerEvents = "";
+        }}
+        onEscapeKeyDown={() => {
+          document.body.style.pointerEvents = "";
+        }}
+        onInteractOutside={(e) => {
+          e.preventDefault();
+          document.body.style.pointerEvents = "";
+        }}
         {...props}
       >
         {children}

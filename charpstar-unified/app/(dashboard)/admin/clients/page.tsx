@@ -718,7 +718,7 @@ export default function AdminClientsPage() {
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="hidden sm:inline">Add New Client</span>
+              <span className="hidden sm:inline">Add Client Information</span>
               <span className="sm:hidden">Add Client</span>
             </DialogTitle>
           </DialogHeader>
