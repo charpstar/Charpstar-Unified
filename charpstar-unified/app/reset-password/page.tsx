@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/feedback";
 import { CheckCircle } from "lucide-react";
@@ -19,9 +19,19 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      const supabase = createClient();
+
       try {
         // Get the hash fragment from the URL (old format)
         const hashFragment = window.location.hash;
+
+        console.log("🔐 Password Reset Debug:", {
+          hash: hashFragment,
+          search: window.location.search,
+          code: searchParams.get("code"),
+          type: searchParams.get("type"),
+          fullUrl: window.location.href,
+        });
 
         if (hashFragment) {
           // Remove the # and parse the parameters
@@ -29,6 +39,11 @@ export default function ResetPasswordPage() {
           const type = params.get("type");
           const accessToken = params.get("access_token");
           const refreshToken = params.get("refresh_token");
+
+          console.log("📧 Hash-based recovery:", {
+            type,
+            hasAccessToken: !!accessToken,
+          });
 
           if (type === "recovery" && accessToken) {
             // Set the session using the access token
@@ -38,29 +53,101 @@ export default function ResetPasswordPage() {
             });
 
             if (error) {
-              console.error("Error setting session:", error);
-              setError("Invalid or expired recovery link.");
+              console.error("❌ Error setting session:", error);
+              setError(
+                `Invalid or expired recovery link. Error: ${error.message}`
+              );
               return;
             }
+
+            console.log("✅ Session set successfully via hash");
           }
         } else {
-          // Check for query parameters (new format)
+          // Check for query parameters (new format - PKCE flow)
           const code = searchParams.get("code");
           const type = searchParams.get("type");
 
+          console.log("📧 Query-based recovery:", {
+            code: code?.substring(0, 10) + "...",
+            type,
+          });
+
           if (code) {
             // New Supabase password reset format - exchange code for session
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            console.log("🔄 Attempting to exchange code for session...");
+            console.log("📋 Code details:", {
+              codeLength: code.length,
+              codePreview: code.substring(0, 30) + "...",
+              fullUrl: window.location.href,
+            });
 
-            if (error) {
-              console.error("Error exchanging code for session:", error);
-              setError("Invalid or expired recovery link.");
+            try {
+              const { data, error } =
+                await supabase.auth.exchangeCodeForSession(code);
+
+              if (error) {
+                console.error("❌ Error exchanging code for session:", {
+                  error,
+                  message: error.message,
+                  status: error.status,
+                  name: error.name,
+                  code: code.substring(0, 20) + "...",
+                });
+
+                // Provide specific error messages based on error type
+                let userMessage = error.message;
+                if (error.message.includes("code verifier")) {
+                  userMessage =
+                    "Invalid reset link. The email template may be misconfigured. Please contact support or request a new password reset link.";
+                } else if (
+                  error.message.toLowerCase().includes("expired") ||
+                  error.message.includes("pkce")
+                ) {
+                  userMessage =
+                    "This reset link has expired. Password reset links are only valid for a short time. Please request a new password reset.";
+                } else if (
+                  error.message.toLowerCase().includes("invalid") ||
+                  error.message.includes("otp") ||
+                  error.message.includes("already been used")
+                ) {
+                  userMessage =
+                    "This reset link is invalid or has already been used. Each link can only be used once. Please request a new password reset.";
+                } else if (error.message.toLowerCase().includes("not found")) {
+                  userMessage =
+                    "Reset link not found. It may have been used already or is invalid. Please request a new password reset.";
+                }
+
+                setError(userMessage);
+                return;
+              }
+
+              console.log("✅ Code exchanged successfully:", {
+                hasSession: !!data.session,
+                userId: data.session?.user?.id,
+                userEmail: data.session?.user?.email,
+              });
+            } catch (exchangeError) {
+              console.error(
+                "❌ Exception during code exchange:",
+                exchangeError
+              );
+              setError(
+                `Failed to process reset link: ${exchangeError instanceof Error ? exchangeError.message : "Unknown error"}. Please request a new password reset.`
+              );
               return;
             }
           } else if (type === "recovery") {
-            // Legacy format support
+            // Has type but no code - possibly legacy format issue
+            console.warn("⚠️ Has type=recovery but no code parameter");
+            setError(
+              "Invalid recovery link format. Missing code parameter. Please request a new password reset link."
+            );
+            return;
           } else {
-            setError("Invalid recovery link format.");
+            console.error("❌ No code or hash found in URL");
+            setError(
+              "Invalid recovery link format. Please click the link from your email directly without modifying it."
+            );
             return;
           }
         }
@@ -70,14 +157,20 @@ export default function ResetPasswordPage() {
           data: { session },
         } = await supabase.auth.getSession();
 
+        console.log("🔍 Session check:", { hasSession: !!session });
+
         if (!session) {
           setError(
             "No active session. Please request a new password reset link."
           );
+        } else {
+          console.log("✅ Valid session established");
         }
       } catch (err) {
-        console.error("Auth initialization error:", err);
-        setError("Failed to process recovery link.");
+        console.error("❌ Auth initialization error:", err);
+        setError(
+          `Failed to process recovery link: ${err instanceof Error ? err.message : "Unknown error"}`
+        );
       } finally {
         setIsInitialized(true);
       }
@@ -101,6 +194,8 @@ export default function ResetPasswordPage() {
     }
 
     setLoading(true);
+    const supabase = createClient();
+
     try {
       const {
         data: { session },
@@ -114,13 +209,16 @@ export default function ResetPasswordPage() {
         return;
       }
 
+      console.log("🔄 Updating password for user:", session.user.id);
+
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
-        console.error("Password update error:", error);
+        console.error("❌ Password update error:", error);
         throw error;
       }
 
+      console.log("✅ Password updated successfully");
       setMessage("Password updated successfully! Redirecting to login...");
 
       // Sign out the user after password reset
@@ -130,7 +228,7 @@ export default function ResetPasswordPage() {
         router.push("/auth");
       }, 2000);
     } catch (err: any) {
-      console.error("Password reset error:", err);
+      console.error("❌ Password reset error:", err);
       setError(err.message || "Failed to reset password.");
     } finally {
       setLoading(false);
@@ -149,34 +247,74 @@ export default function ResetPasswordPage() {
 
   // Show error if no valid session is present
   if (error) {
+    const hasCode = !!searchParams.get("code");
+    const hasType = !!searchParams.get("type");
+
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center px-4">
-        <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
-          <h1 className="text-2xl font-semibold text-error mb-4">
+      <div className="flex h-screen w-full flex-col items-center justify-center px-4 bg-muted">
+        <div className="w-full max-w-md p-6 bg-white dark:bg-background rounded-lg shadow-md border">
+          <h1 className="text-2xl font-semibold text-destructive mb-4">
             Invalid Recovery Link
           </h1>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-muted-foreground mb-4">{error}</p>
 
-          {/* Debug information */}
-          <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
-            <p>
-              <strong>Debug Info:</strong>
+          {/* Troubleshooting steps */}
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-2">
+              Troubleshooting Steps:
             </p>
-            <p>URL: {window.location.href}</p>
-            <p>Hash: {window.location.hash}</p>
-            <p>Search: {window.location.search}</p>
-            <p>Type param: {searchParams.get("type")}</p>
-            <p>Code param: {searchParams.get("code")}</p>
+            <ul className="text-xs text-blue-800 dark:text-blue-300 space-y-1 list-disc list-inside">
+              <li>
+                Make sure you&apos;re using the latest link from your email
+              </li>
+              <li>Reset links expire after a certain time period</li>
+              <li>Only one reset link can be active at a time</li>
+              <li>Check if the link was copied completely from your email</li>
+              {!hasType && hasCode && (
+                <li className="text-amber-700 dark:text-amber-400 font-medium">
+                  Missing &apos;type=recovery&apos; parameter - the email
+                  template may need updating
+                </li>
+              )}
+            </ul>
           </div>
 
-          <button
-            onClick={() => router.push("/auth")}
-            className={cn(
-              "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full mt-4"
-            )}
-          >
-            Return to Login
-          </button>
+          {/* Debug information */}
+          <details className="mt-4">
+            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+              Show debug information
+            </summary>
+            <div className="mt-2 p-3 bg-muted rounded text-xs font-mono space-y-1">
+              <p>
+                <strong>URL:</strong> {window.location.href}
+              </p>
+              <p>
+                <strong>Hash:</strong> {window.location.hash || "(none)"}
+              </p>
+              <p>
+                <strong>Search:</strong> {window.location.search || "(none)"}
+              </p>
+              <p>
+                <strong>Type param:</strong>{" "}
+                {searchParams.get("type") || "(none)"}
+              </p>
+              <p>
+                <strong>Code param:</strong>{" "}
+                {searchParams.get("code")?.substring(0, 20) + "..." || "(none)"}
+              </p>
+            </div>
+          </details>
+
+          <div className="flex gap-2 mt-6">
+            <button
+              onClick={() => router.push("/auth")}
+              className={cn(
+                "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 flex-1"
+              )}
+            >
+              Return to Login
+            </button>
+          </div>
         </div>
       </div>
     );
