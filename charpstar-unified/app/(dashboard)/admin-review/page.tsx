@@ -5234,6 +5234,105 @@ export default function AdminReviewPage() {
           </div>
         )}
         {/* Pagination - Always at bottom */}
+        {!loading &&
+          (showAllocationLists ? filteredLists.length : filtered.length) >
+            PAGE_SIZE && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {(page - 1) * PAGE_SIZE + 1} to{" "}
+                {Math.min(
+                  page * PAGE_SIZE,
+                  showAllocationLists ? filteredLists.length : filtered.length
+                )}{" "}
+                of{" "}
+                {showAllocationLists ? filteredLists.length : filtered.length}{" "}
+                {showAllocationLists ? "lists" : "assets"}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="h-8"
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from(
+                    {
+                      length: Math.ceil(
+                        (showAllocationLists
+                          ? filteredLists.length
+                          : filtered.length) / PAGE_SIZE
+                      ),
+                    },
+                    (_, i) => i + 1
+                  )
+                    .filter((p) => {
+                      // Show first page, last page, current page, and pages around current
+                      const totalPages = Math.ceil(
+                        (showAllocationLists
+                          ? filteredLists.length
+                          : filtered.length) / PAGE_SIZE
+                      );
+                      return (
+                        p === 1 || p === totalPages || Math.abs(p - page) <= 1
+                      );
+                    })
+                    .map((p, idx, arr) => {
+                      // Add ellipsis if there's a gap
+                      const showEllipsisBefore =
+                        idx > 0 && p - arr[idx - 1] > 1;
+                      return (
+                        <div key={p} className="flex items-center gap-1">
+                          {showEllipsisBefore && (
+                            <span className="px-2 text-muted-foreground">
+                              ...
+                            </span>
+                          )}
+                          <Button
+                            variant={page === p ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setPage(p)}
+                            className="h-8 w-8 p-0"
+                          >
+                            {p}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPage((p) =>
+                      Math.min(
+                        Math.ceil(
+                          (showAllocationLists
+                            ? filteredLists.length
+                            : filtered.length) / PAGE_SIZE
+                        ),
+                        p + 1
+                      )
+                    )
+                  }
+                  disabled={
+                    page >=
+                    Math.ceil(
+                      (showAllocationLists
+                        ? filteredLists.length
+                        : filtered.length) / PAGE_SIZE
+                    )
+                  }
+                  className="h-8"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
       </Card>
 
       {/* Cleanup Results Dialog */}

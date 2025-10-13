@@ -1654,7 +1654,7 @@ export function ClientActionCenterWidget() {
     : 0;
 
   return (
-    <Card className="p-0 rounded-2xl bg-transparent  ">
+    <Card className="p-0 rounded-2xl bg-transparent border-0 shadow-none ">
       <div className="w-full px-4 pt-4">
         <QAHeader
           icon={Settings}

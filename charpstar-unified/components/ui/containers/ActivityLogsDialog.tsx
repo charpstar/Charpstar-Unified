@@ -32,6 +32,12 @@ interface ActivityLogsDialogProps {
   assetIds: string[];
 }
 
+interface AssetInfo {
+  id: string;
+  article_id: string;
+  product_name: string;
+}
+
 const getActivityTypeColor = (type: string): string => {
   switch (type) {
     case "update":
@@ -58,6 +64,32 @@ const formatDate = (dateString: string): string => {
   });
 };
 
+// Format action text to be more user-friendly
+const formatActionText = (action: string): string => {
+  // Handle status updates
+  if (action.includes("Updated asset status to")) {
+    const status = action.replace("Updated asset status to ", "").trim();
+    switch (status) {
+      case "approved_by_client":
+        return "Approved by client";
+      case "client_revision":
+        return "Client requested revision";
+      case "approved":
+        return "Approved by QA";
+      case "revisions":
+        return "Sent for revision";
+      case "in_production":
+      case "in_progress":
+        return "In production";
+      case "delivered_by_artist":
+        return "Delivered by artist";
+      default:
+        return status.replace(/_/g, " ");
+    }
+  }
+  return action;
+};
+
 const getActionIcon = (type: string) => {
   switch (type) {
     case "update":
@@ -79,12 +111,37 @@ export function ActivityLogsDialog({
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [assetInfo, setAssetInfo] = useState<Record<string, AssetInfo>>({});
 
   useEffect(() => {
     if (open && assetIds.length > 0) {
       fetchActivityLogs();
+      fetchAssetInfo();
     }
   }, [open, assetIds]);
+
+  const fetchAssetInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("onboarding_assets")
+        .select("id, article_id, product_name")
+        .in("id", assetIds);
+
+      if (error) {
+        console.error("Error fetching asset info:", error);
+        return;
+      }
+
+      // Create a map of asset ID to asset info
+      const infoMap: Record<string, AssetInfo> = {};
+      (data || []).forEach((asset) => {
+        infoMap[asset.id] = asset;
+      });
+      setAssetInfo(infoMap);
+    } catch (err) {
+      console.error("Error in fetchAssetInfo:", err);
+    }
+  };
 
   const fetchActivityLogs = async () => {
     setLoading(true);
@@ -134,9 +191,20 @@ export function ActivityLogsDialog({
     return "Unknown User";
   };
 
-  const getAssetName = (resourceId: string): string => {
-    // This would ideally come from the asset data, but for now we'll use the ID
-    return `Asset ${resourceId.substring(0, 8)}...`;
+  const getAssetDisplay = (
+    resourceId: string
+  ): { articleId: string; productName: string } => {
+    const asset = assetInfo[resourceId];
+    if (asset) {
+      return {
+        articleId: asset.article_id,
+        productName: asset.product_name,
+      };
+    }
+    return {
+      articleId: `Asset ${resourceId.substring(0, 8)}...`,
+      productName: "",
+    };
   };
 
   return (
@@ -197,7 +265,7 @@ export function ActivityLogsDialog({
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <h4 className="text-sm font-medium text-foreground">
-                            {log.action}
+                            {formatActionText(log.action)}
                           </h4>
                           {log.description && (
                             <p className="text-xs text-muted-foreground mt-1">
@@ -213,7 +281,7 @@ export function ActivityLogsDialog({
                         </Badge>
                       </div>
 
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <User className="h-3 w-3" />
                           <span>{getUserDisplayName(log)}</span>
@@ -223,25 +291,18 @@ export function ActivityLogsDialog({
                           <span>{formatDate(log.created_at)}</span>
                         </div>
                         {log.resource_id && (
-                          <div className="flex items-center gap-1">
-                            <span>Asset:</span>
-                            <code className="text-xs bg-muted dark:bg-muted/50 px-1 py-0.5 rounded">
-                              {getAssetName(log.resource_id)}
-                            </code>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium text-foreground">
+                              {getAssetDisplay(log.resource_id).articleId}
+                            </span>
+                            {getAssetDisplay(log.resource_id).productName && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[300px]">
+                                {getAssetDisplay(log.resource_id).productName}
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
-
-                      {log.metadata && Object.keys(log.metadata).length > 0 && (
-                        <details className="text-xs">
-                          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                            View Details
-                          </summary>
-                          <pre className="mt-2 p-2 bg-muted dark:bg-muted/50 rounded text-xs overflow-x-auto">
-                            {JSON.stringify(log.metadata, null, 2)}
-                          </pre>
-                        </details>
-                      )}
                     </div>
                   </div>
                 ))}
