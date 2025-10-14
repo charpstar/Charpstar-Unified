@@ -13,6 +13,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from "@/components/navigation/sidebar";
+import { Badge } from "@/components/ui/feedback/badge";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
@@ -24,7 +25,13 @@ export default function NavMain({
     title: string;
     url: string;
     icon?: LucideIcon;
-    children?: { title: string; url: string; icon?: LucideIcon }[];
+    badge?: string | null;
+    children?: {
+      title: string;
+      url: string;
+      icon?: LucideIcon;
+      badge?: string | null;
+    }[];
   }[];
 }) {
   const pathname = usePathname();
@@ -64,7 +71,12 @@ export default function NavMain({
                 <SidebarMenuButton asChild isActive={isActive} className="">
                   <Link href={item.url} className="group">
                     {item.icon && <item.icon className="" />}
-                    <span className=" w-full">{item.title}</span>
+                    <span className="flex-1">{item.title}</span>
+                    {item.badge && (
+                      <Badge variant="extraSmall" className="ml-auto text-xs">
+                        {item.badge}
+                      </Badge>
+                    )}
                   </Link>
                 </SidebarMenuButton>
 
@@ -101,6 +113,11 @@ export default function NavMain({
                             <span className="whitespace-nowrap flex-1">
                               {child.title}
                             </span>
+                            {child.badge && (
+                              <Badge variant="outline" className=" text-xs">
+                                {child.badge}
+                              </Badge>
+                            )}
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>

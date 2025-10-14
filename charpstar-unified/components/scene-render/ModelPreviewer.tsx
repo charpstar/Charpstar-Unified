@@ -16,6 +16,7 @@ import {
   CommandList,
 } from "@/components/ui/utilities/command";
 import { Check, ChevronsUpDown } from "lucide-react";
+import sceneLibraryData from "@/lib/sceneLibrary.json";
 
 // Add type declaration for model-viewer element
 declare global {
@@ -47,99 +48,14 @@ declare global {
   }
 }
 
-const scenePresets = [
-  // Product Showcase
-  {
-    category: "Product Showcase",
-    label: "Minimalist Podium",
-    prompt:
-      "A minimalist white podium in a brightly lit studio with soft, diffused lighting.",
-  },
-  {
-    category: "Product Showcase",
-    label: "Dark Slate Pedestal",
-    prompt:
-      "On a rugged, dark slate pedestal in a minimalist concrete gallery.",
-  },
-  {
-    category: "Product Showcase",
-    label: "Floating Shelf",
-    prompt: "On a floating wooden shelf against a clean, textured white wall.",
-  },
-  {
-    category: "Product Showcase",
-    label: "Museum Display",
-    prompt: "Inside a brightly lit glass display case in a modern museum.",
-  },
-
-  // Lifestyle / Interior
-  {
-    category: "Lifestyle / Interior",
-    label: "Scandinavian Living Room",
-    prompt: "In a bright, airy, modern Scandinavian interior living room.",
-  },
-  {
-    category: "Lifestyle / Interior",
-    label: "Cozy Cabin",
-    prompt:
-      "On a rich, dark oak table inside a cozy, rustic cabin with a warm fireplace.",
-  },
-  {
-    category: "Lifestyle / Interior",
-    label: "Modern Office Desk",
-    prompt:
-      "On a sleek, modern office desk with a laptop and a cup of coffee in soft focus.",
-  },
-  {
-    category: "Lifestyle / Interior",
-    label: "Marble Kitchen Counter",
-    prompt:
-      "On a luxurious marble kitchen counter with soft morning light filtering through a window.",
-  },
-
-  // Outdoor / Nature
-  {
-    category: "Outdoor / Nature",
-    label: "Misty Beach",
-    prompt:
-      "Resting on a smooth, weathered rock on a serene, misty beach at sunrise.",
-  },
-  {
-    category: "Outdoor / Nature",
-    label: "Forest Floor",
-    prompt:
-      "On a mossy patch on a forest floor with dappled sunlight filtering through the trees.",
-  },
-  {
-    category: "Outdoor / Nature",
-    label: "City Rooftop",
-    prompt: "On a city rooftop patio with a view of the skyline at dusk.",
-  },
-  {
-    category: "Outdoor / Nature",
-    label: "Zen Garden",
-    prompt: "On a flat rock in a tranquil Japanese zen garden with raked sand.",
-  },
-
-  // Abstract / Creative
-  {
-    category: "Abstract / Creative",
-    label: "Cyberpunk Street",
-    prompt: "In a futuristic, neon-lit cyberpunk city street setting at night.",
-  },
-  {
-    category: "Abstract / Creative",
-    label: "Surreal Dreamscape",
-    prompt:
-      "Floating in a surreal, dreamlike landscape with pastel-colored clouds.",
-  },
-  {
-    category: "Abstract / Creative",
-    label: "Geometric Background",
-    prompt:
-      "Against a clean, abstract background with soft geometric shapes and shadows.",
-  },
-];
+// Transform scene library data into the expected format
+const scenePresets = sceneLibraryData.map((scene: any) => ({
+  category: scene.category,
+  label: scene.name,
+  prompt: scene.description,
+  thumbnailUrl: scene.imageUrl,
+  id: scene.id,
+}));
 
 const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -198,12 +114,14 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [captureProgress, setCaptureProgress] = useState({
     current: 0,
     total: 3,
   });
   const [currentAngle, setCurrentAngle] = useState<string | null>(null);
   const [isTestingAngles, setIsTestingAngles] = useState(false);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [testAngleIndex, setTestAngleIndex] = useState(0);
 
   // Simplified file URL handling - create once, cleanup on change
@@ -283,52 +201,42 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     };
   }, [fileUrl]);
 
-  const testCameraAngles = async () => {
+  const testOptimalAngle = async () => {
     const modelViewer = modelViewerRef.current as any;
     if (!modelViewer) return;
 
-    const cameraAngles = [
-      { orbit: "0deg 75deg 0deg", name: "Front" },
-      { orbit: "45deg 75deg 0deg", name: "Front Right" },
-      { orbit: "-45deg 75deg 0deg", name: "Front Left" },
-    ];
+    // Test the optimal hero shot angle
+    const optimalAngle = { orbit: "0deg 75deg 1.5m", name: "Hero Shot" };
 
     setIsTestingAngles(true);
-    setTestAngleIndex(0);
+    setCurrentAngle(optimalAngle.name);
 
     try {
-      for (let i = 0; i < cameraAngles.length; i++) {
-        const angle = cameraAngles[i];
-        setTestAngleIndex(i);
-        setCurrentAngle(angle.name);
+      // Set camera position
+      modelViewer.cameraOrbit = optimalAngle.orbit;
 
-        // Set camera position
-        modelViewer.cameraOrbit = angle.orbit;
+      // Force a re-render
+      modelViewer.dispatchEvent(new CustomEvent("camera-change"));
 
-        // Force a re-render
-        modelViewer.dispatchEvent(new CustomEvent("camera-change"));
+      // Wait for camera to settle
+      await new Promise((resolve) => {
+        const checkCamera = () => {
+          const currentOrbit = modelViewer.cameraOrbit;
+          if (currentOrbit === optimalAngle.orbit) {
+            resolve(undefined);
+          } else {
+            setTimeout(checkCamera, 100);
+          }
+        };
+        setTimeout(checkCamera, 200);
+        setTimeout(resolve, 2000);
+      });
 
-        // Wait for camera to settle
-        await new Promise((resolve) => {
-          const checkCamera = () => {
-            const currentOrbit = modelViewer.cameraOrbit;
-            if (currentOrbit === angle.orbit) {
-              resolve(undefined);
-            } else {
-              setTimeout(checkCamera, 100);
-            }
-          };
-          setTimeout(checkCamera, 200);
-          setTimeout(resolve, 2000);
-        });
-
-        // Wait between angles for better visibility
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
+      // Hold the view for a moment
+      await new Promise((resolve) => setTimeout(resolve, 1500));
     } finally {
       setIsTestingAngles(false);
       setCurrentAngle(null);
-      setTestAngleIndex(0);
     }
   };
 
@@ -338,7 +246,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     const modelViewer = modelViewerRef.current as any;
     if (modelViewer) {
       setIsCapturing(true);
-      setCaptureProgress({ current: 0, total: 5 });
+      setCaptureProgress({ current: 1, total: 1 });
 
       // Short delay to allow any UI updates to render before taking snapshot
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -346,63 +254,50 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
       const finalObjectSize =
         objectSize || "The object's scale is unknown. Use common sense.";
 
-      // Define 3 different camera angles
-      const cameraAngles = [
-        { orbit: "0deg 75deg 0deg", name: "Front" },
-        { orbit: "45deg 75deg 0deg", name: "Front Right" },
-        { orbit: "-45deg 75deg 0deg", name: "Front Left" },
-      ];
-
-      const snapshots: string[] = [];
+      // Use single optimal front angle for best quality
+      const optimalAngle = {
+        orbit: "0deg 75deg 1.5m",
+        name: "Front Hero Shot",
+      };
 
       try {
-        // Capture each angle
-        for (let i = 0; i < cameraAngles.length; i++) {
-          const angle = cameraAngles[i];
+        setCurrentAngle(optimalAngle.name);
 
-          // Update progress and current angle
-          setCaptureProgress({ current: i + 1, total: cameraAngles.length });
-          setCurrentAngle(angle.name);
+        // Set camera to optimal position
+        modelViewer.cameraOrbit = optimalAngle.orbit;
 
-          // Set camera position
-          modelViewer.cameraOrbit = angle.orbit;
+        // Force a re-render by updating the model-viewer element
+        modelViewer.dispatchEvent(new CustomEvent("camera-change"));
 
-          // Force a re-render by updating the model-viewer element
-          modelViewer.dispatchEvent(new CustomEvent("camera-change"));
+        // Wait for the camera to settle at the optimal position
+        await new Promise((resolve) => {
+          const checkCamera = () => {
+            const currentOrbit = modelViewer.cameraOrbit;
+            if (currentOrbit === optimalAngle.orbit) {
+              resolve(undefined);
+            } else {
+              setTimeout(checkCamera, 100);
+            }
+          };
+          setTimeout(checkCamera, 200);
+          setTimeout(resolve, 2000);
+        });
 
-          // Wait for the camera to actually move to the new position
-          await new Promise((resolve) => {
-            // Check if camera has moved by comparing current orbit
-            const checkCamera = () => {
-              const currentOrbit = modelViewer.cameraOrbit;
-              if (currentOrbit === angle.orbit) {
-                resolve(undefined);
-              } else {
-                setTimeout(checkCamera, 100);
-              }
-            };
-            // Start checking after a short delay
-            setTimeout(checkCamera, 200);
-            // Fallback timeout
-            setTimeout(resolve, 2000);
-          });
+        // Additional wait to ensure rendering is complete
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
-          // Additional wait to ensure rendering is complete
-          await new Promise((resolve) => setTimeout(resolve, 500));
-
-          // Capture screenshot
-          const snapshotDataUrl = await modelViewer.toDataURL();
-          const snapshotBase64 = snapshotDataUrl.split(",")[1];
-          snapshots.push(snapshotBase64);
-        }
+        // Capture single high-quality screenshot
+        const snapshotDataUrl = await modelViewer.toDataURL();
+        const snapshotBase64 = snapshotDataUrl.split(",")[1];
 
         let inspirationBase64: string | null = null;
         if (inspirationImage) {
           inspirationBase64 = await fileToBase64(inspirationImage);
         }
 
+        // Pass single snapshot in array for API compatibility
         onGenerate(
-          snapshots,
+          [snapshotBase64],
           finalObjectSize,
           objectType,
           sceneDescription,
@@ -410,7 +305,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
         );
       } finally {
         setIsCapturing(false);
-        setCaptureProgress({ current: 0, total: 5 });
+        setCaptureProgress({ current: 0, total: 1 });
         setCurrentAngle(null);
       }
     }
@@ -437,10 +332,17 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   const presetCategories = [...new Set(scenePresets.map((p) => p.category))];
   const productPresets = [
     "Furniture",
+    "Home Decor",
     "Electronics",
-    "Apparel",
-    "Decor",
     "Kitchenware",
+    "Lighting",
+    "Beauty & Cosmetics",
+    "Eyewear",
+    "Watches & Jewelry",
+    "Toys & Games",
+    "Sports Equipment",
+    "Pet Products",
+    "Office Supplies",
   ];
 
   // Don't render if fileUrl is empty
@@ -487,24 +389,17 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
         {/* Capture Progress Overlay */}
         {(isCapturing || isTestingAngles) && (
           <div className="absolute top-4 left-4 right-4 z-10 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm font-medium">
-                  {isTestingAngles
-                    ? "Testing angles..."
-                    : "Capturing angles..."}
-                </span>
-              </div>
-              <div className="text-sm text-gray-300">
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm font-medium">
                 {isTestingAngles
-                  ? `${testAngleIndex + 1} of 3`
-                  : `${captureProgress.current} of ${captureProgress.total}`}
-              </div>
+                  ? "Previewing optimal angle..."
+                  : "Capturing hero shot..."}
+              </span>
             </div>
             {currentAngle && (
-              <div className="text-center text-lg font-semibold text-blue-400">
-                Current: {currentAngle}
+              <div className="text-center text-sm font-medium text-blue-400 mt-2">
+                {currentAngle}
               </div>
             )}
           </div>
@@ -598,7 +493,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             </div>
             <h3 className="text-sm font-semibold">Product Type</h3>
           </div>
-          <div className="grid grid-cols-3 gap-1 mb-2">
+          <div className="grid grid-cols-2 gap-1 mb-2 max-h-32 overflow-y-auto">
             {productPresets.map((preset) => (
               <button
                 key={preset}
@@ -676,24 +571,35 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
                     <CommandGroup key={category} heading={category}>
                       {scenePresets
                         .filter((p) => p.category === category)
-                        .map((preset) => (
+                        .map((preset: any) => (
                           <CommandItem
-                            key={preset.label}
+                            key={preset.id}
                             onSelect={() => {
                               setIsCustomScene(false);
                               setSceneDescription(preset.prompt);
                               setSceneOpen(false);
                             }}
+                            className="flex items-center gap-2 py-2"
                           >
                             <Check
-                              className={`mr-2 h-4 w-4 ${
+                              className={`h-4 w-4 ${
                                 !isCustomScene &&
                                 sceneDescription === preset.prompt
                                   ? "opacity-100"
                                   : "opacity-0"
                               }`}
                             />
-                            {preset.label}
+                            {preset.thumbnailUrl && (
+                              <Image
+                                src={preset.thumbnailUrl}
+                                alt={preset.label}
+                                width={40}
+                                height={40}
+                                className="w-10 h-10 object-cover rounded border"
+                                unoptimized
+                              />
+                            )}
+                            <span className="flex-1">{preset.label}</span>
                           </CommandItem>
                         ))}
                     </CommandGroup>
@@ -800,14 +706,14 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           Cancel
         </Button>
         <Button
-          onClick={testCameraAngles}
+          onClick={testOptimalAngle}
           variant="outline"
           size="sm"
           className="flex-1"
           disabled={isCapturing || isTestingAngles}
-          title="Test camera angles"
+          title="Preview optimal camera angle"
         >
-          {isTestingAngles ? `Testing ${testAngleIndex + 1}/3` : "Test Angles"}
+          {isTestingAngles ? "Previewing..." : "Preview Angle"}
         </Button>
         <Button
           onClick={handleCapture}
@@ -818,12 +724,10 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           title={
             !objectType.trim()
               ? "Please describe the object first"
-              : "Generate scenes"
+              : "Generate high-quality scene"
           }
         >
-          {isCapturing
-            ? `Capturing ${captureProgress.current}/${captureProgress.total}`
-            : "Generate Scenes"}
+          {isCapturing ? "Capturing..." : "Generate Scene"}
         </Button>
       </div>
     </div>

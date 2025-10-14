@@ -117,14 +117,14 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Row 1 */}
         <div
-          className="p-6 rounded-2xl bg-white dark:bg-background border border-gray-200 dark:border-gray-800"
+          className="p-6 rounded-2xl bg-white dark:bg-background border border-border   dark:bg-muted/50"
           data-tour="profile"
         >
           {profileContent}
         </div>
 
         <div
-          className="p-6 rounded-2xl bg-white dark:bg-background border border-gray-200 dark:border-gray-800"
+          className="p-6 rounded-2xl bg-white dark:bg-background border border-border   dark:bg-muted/50"
           data-tour="quick-actions"
         >
           <Suspense
@@ -137,13 +137,13 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
         </div>
 
         {/* Row 2 */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-background border border-gray-200 dark:border-gray-800">
+        <div className="p-6 rounded-2xl bg-white dark:bg-background border border-border   dark:bg-muted/50">
           <ErrorBoundary>
             <ClientActionCenterWidget />
           </ErrorBoundary>
         </div>
 
-        <div className="p-6 rounded-2xl bg-white dark:bg-background border border-gray-200 dark:border-gray-800">
+        <div className="p-6 rounded-2xl bg-white dark:bg-background border border-border   dark:bg-muted/50">
           <ErrorBoundary>
             <StatusPieChartWidget />
           </ErrorBoundary>

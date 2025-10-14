@@ -108,6 +108,7 @@ export default function AddProductsPage() {
   const [recentReferences, setRecentReferences] = useState<
     { type: "url" | "file"; value: string; file?: File }[]
   >([]);
+  const [addMultipleProducts, setAddMultipleProducts] = useState("");
 
   // Helper to check if a reference is an image
   const isImageReference = (ref: {
@@ -122,6 +123,37 @@ export default function AddProductsPage() {
       return url.match(/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i);
     }
     return false;
+  };
+
+  const addMultipleLinesFunction = () => {
+    const numLines = parseInt(addMultipleProducts.trim());
+
+    if (isNaN(numLines) || numLines <= 0) {
+      toast.error("Please enter a valid number greater than 0");
+      return;
+    }
+
+    if (numLines > 100) {
+      toast.error("Maximum 100 lines can be added at once");
+      return;
+    }
+
+    const newProducts = Array.from({ length: numLines }, () => ({
+      article_id: "",
+      product_link: "",
+      cad_file_link: "",
+      category: "",
+      subcategory: "",
+      references: [],
+      product_name: "",
+    }));
+
+    setProducts((prev) => [...prev, ...newProducts]);
+    setAddMultipleProducts("");
+
+    toast.success(
+      `Added ${numLines} empty product row${numLines === 1 ? "" : "s"}`
+    );
   };
 
   // Helper to get preview URL for an image
@@ -1109,15 +1141,42 @@ export default function AddProductsPage() {
                   </TableBody>
                 </Table>
               </div>
+              <div className="flex flex-col sm:flex-row gap-3 items-center pt-4 border-t">
+                <Button
+                  onClick={addProduct}
+                  variant="outline"
+                  className="w-full sm:w-auto cursor-pointer"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Another Product
+                </Button>
 
-              <Button
-                onClick={addProduct}
-                variant="outline"
-                className="w-full cursor-pointer"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Another Product
-              </Button>
+                <div className="flex flex-col sm:flex-row gap-2 items-center">
+                  <Input
+                    value={addMultipleProducts}
+                    onChange={(e) => setAddMultipleProducts(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        addMultipleLinesFunction();
+                      }
+                    }}
+                    className="h-7 text-xs w-15"
+                    type="number"
+                    min="1"
+                    max="100"
+                  />
+                  <Button
+                    onClick={addMultipleLinesFunction}
+                    variant="outline"
+                    size="xxs"
+                    className="cursor-pointer"
+                    disabled={!addMultipleProducts.trim()}
+                  >
+                    Add {addMultipleProducts.trim() || "0"} Row
+                    {addMultipleProducts.trim() !== "1" ? "s" : ""}
+                  </Button>
+                </div>
+              </div>
 
               <div className="flex gap-4 pt-4">
                 <Button
@@ -1198,7 +1257,7 @@ export default function AddProductsPage() {
                     </p>
                     {csvWarnings.length > 0 && (
                       <p className="text-xs text-amber-600 font-medium mt-1">
-                        ⚠️{" "}
+                        {" "}
                         {
                           csvWarnings.filter(
                             (w) => w.type === "duplicate_article_id"

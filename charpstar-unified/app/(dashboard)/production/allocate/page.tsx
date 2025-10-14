@@ -1723,7 +1723,7 @@ export default function AllocateAssetsPage() {
                             <div className="text-xs font-medium text-foreground mb-1">
                               {qaAssignments.length > 0
                                 ? "Add Additional QA:"
-                                : "⚠️ No QA Assigned - Add QA:"}
+                                : " No QA Assigned - Add QA:"}
                             </div>
                             {qaAssignments.length === 0 && (
                               <div className="text-sm text-muted-foreground mb-2">

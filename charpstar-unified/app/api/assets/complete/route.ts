@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 
 import { cleanupSingleAllocationList } from "@/lib/allocationListCleanup";
 import { logActivityServer } from "@/lib/serverActivityLogger";
+import { AssetStatusLogger } from "@/lib/assetStatusLogger";
 // import { notificationService } from "@/lib/notificationService"; // TEMPORARILY DISABLED
 
 export async function POST(request: NextRequest) {
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log the activity
+    // Log the activity to both systems
     await logActivityServer({
       action: "asset_completed",
       type: "update",
@@ -166,6 +167,26 @@ export async function POST(request: NextRequest) {
         client: onboardingAsset.client,
       },
     });
+
+    // Log to the new asset status history table
+    if (status === "approved_by_client") {
+      await AssetStatusLogger.clientApproved(
+        assetId,
+        onboardingAsset.status,
+        revisionCount
+      );
+    } else if (status === "delivered_by_artist") {
+      await AssetStatusLogger.deliveredByArtist(
+        assetId,
+        onboardingAsset.status
+      );
+    } else {
+      await AssetStatusLogger.statusChanged(
+        assetId,
+        onboardingAsset.status,
+        status
+      );
+    }
 
     // Clean up allocation lists
     await cleanupSingleAllocationList(supabaseAdmin, assetId);

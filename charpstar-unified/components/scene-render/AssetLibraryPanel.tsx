@@ -575,11 +575,11 @@ export default function AssetLibraryPanel({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 pb-4 overflow-y-auto max-h-[830px]">
+              <div className="grid grid-cols-2 gap-3 pb-4 overflow-y-auto max-h-[830px] p-1">
                 {paginatedAssets.map((asset) => (
                   <Card
                     key={asset.id}
-                    className="overflow-hidden p-4 rounded-lg cursor-grab active:cursor-grabbing hover:shadow-lg hover:ring-2 hover:ring-primary/50 transition-all group"
+                    className="overflow-hidden p-4 rounded-lg cursor-grab active:cursor-grabbing hover:shadow-lg hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 transition-all group"
                     onClick={() => onAssetSelect?.(asset)}
                     draggable
                     onDragStart={(e) => {
@@ -594,8 +594,6 @@ export default function AssetLibraryPanel({
                     <div className="relative aspect-square bg-muted">
                       {asset.preview_image && !imageErrors.has(asset.id) ? (
                         <Image
-                          width={100}
-                          height={100}
                           src={
                             Array.isArray(asset.preview_image)
                               ? asset.preview_image[0]

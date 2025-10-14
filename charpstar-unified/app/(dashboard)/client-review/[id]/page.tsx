@@ -5,6 +5,9 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { notificationService } from "@/lib/notificationService";
+import { ActivityLogger } from "@/lib/activityLogger";
+import { AssetStatusLogger } from "@/lib/assetStatusLogger";
+import { ApprovalHistory } from "@/components/review/ApprovalHistory";
 import { Card } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Textarea, Input } from "@/components/ui/inputs";
@@ -222,6 +225,7 @@ const getViewerParameters = (viewerType?: string | null) => {
         toneMapping: "aces",
       };
   }
+  console.log("viewerType", viewerType);
 };
 
 export default function ReviewPage() {
@@ -276,6 +280,8 @@ export default function ReviewPage() {
   >([]);
   const [newNote, setNewNote] = useState("");
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
+  const [isApprovalHistoryDialogOpen, setIsApprovalHistoryDialogOpen] =
+    useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteContent, setEditNoteContent] = useState("");
   const [showComments, setShowComments] = useState(false);
@@ -1490,6 +1496,88 @@ export default function ReviewPage() {
       // Update local state
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
       setRevisionCount(revisionNumber);
+
+      // Log the activity with proper tracking using both systems
+      try {
+        const assetName = asset?.product_name;
+
+        // Log to the new asset_status_history table
+        if (newStatus === "approved_by_client") {
+          await AssetStatusLogger.clientApproved(
+            assetId,
+            asset?.status,
+            revisionNumber
+          );
+        } else if (newStatus === "approved") {
+          await AssetStatusLogger.qaApproved(
+            assetId,
+            asset?.status,
+            revisionNumber
+          );
+        } else if (newStatus === "revisions") {
+          await AssetStatusLogger.qaSentForRevision(
+            assetId,
+            asset?.status,
+            revisionNumber
+          );
+        } else if (newStatus === "client_revision") {
+          await AssetStatusLogger.clientRequestedRevision(
+            assetId,
+            asset?.status,
+            revisionNumber
+          );
+        } else if (newStatus === "delivered_by_artist") {
+          await AssetStatusLogger.deliveredByArtist(assetId, asset?.status);
+        } else if (newStatus === "in_production") {
+          await AssetStatusLogger.movedToProduction(assetId, asset?.status);
+        } else if (newStatus === "in_progress") {
+          await AssetStatusLogger.workStarted(assetId, asset?.status);
+        } else if (asset?.status) {
+          await AssetStatusLogger.statusChanged(
+            assetId,
+            asset.status,
+            newStatus
+          );
+        }
+
+        // Also keep the old activity logging for backward compatibility
+        if (newStatus === "approved_by_client") {
+          await ActivityLogger.assetApprovedByClient(
+            assetId,
+            assetName,
+            revisionNumber
+          );
+        } else if (newStatus === "approved") {
+          await ActivityLogger.assetApproved(
+            assetId,
+            assetName,
+            user?.email,
+            revisionNumber
+          );
+        } else if (newStatus === "revisions") {
+          await ActivityLogger.assetSentForRevision(
+            assetId,
+            assetName,
+            revisionNumber
+          );
+        } else if (newStatus === "client_revision") {
+          await ActivityLogger.assetClientRevision(
+            assetId,
+            assetName,
+            revisionNumber
+          );
+        } else if (asset?.status) {
+          await ActivityLogger.assetStatusChanged(
+            assetId,
+            asset.status,
+            newStatus,
+            assetName
+          );
+        }
+      } catch (error) {
+        console.error("Error logging approval activity:", error);
+        // Don't throw - activity logging shouldn't block status updates
+      }
 
       // Refresh annotations when status changes to revisions (annotations marked as old)
       if (newStatus === "revisions") {
@@ -3355,24 +3443,29 @@ export default function ReviewPage() {
                       {asset?.product_name || "Review Asset"}
                     </h3>
                     {user?.metadata?.role !== "client" && (
-                      <Badge
+                      <Button
                         variant="outline"
-                        className="text-xs font-medium text-muted-foreground border-border bg-yellow-500/20 w-fit"
+                        size="xxs"
+                        onClick={() => setIsNotesDialogOpen(true)}
+                        className="cursor-pointer bg-yellow-500/20 text-yellow-700 hover:bg-yellow-500/30 hover:text-yellow-700 text-x"
                       >
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setIsNotesDialogOpen(true)}
-                          className="h-6 sm:h-8 px-2 sm:px-3 text-xs"
-                        >
-                          <StickyNote className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                          <span className="hidden sm:inline">
-                            Notes ({notes.length})
-                          </span>
-                          <span className="sm:hidden">{notes.length}</span>
-                        </Button>
-                      </Badge>
+                        <StickyNote className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                        <span className="hidden sm:inline">
+                          Notes ({notes.length})
+                        </span>
+                        <span className="sm:hidden">{notes.length}</span>
+                      </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      size="xxs"
+                      onClick={() => setIsApprovalHistoryDialogOpen(true)}
+                      className="cursor-pointer bg-blue-500/20 text-blue-700 hover:bg-blue-500/30 hover:text-blue-700 text-x"
+                    >
+                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                      <span className="hidden sm:inline">Approval History</span>
+                      <span className="sm:hidden">History</span>
+                    </Button>
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-4">
@@ -4288,10 +4381,10 @@ export default function ReviewPage() {
                       <div className="flex items-center gap-2">
                         <Button
                           variant={annotationMode ? "default" : "outline"}
-                          size="sm"
+                          size="xxs"
                           onClick={() => setAnnotationMode(!annotationMode)}
                           disabled={isFunctionalityDisabled()}
-                          className={`h-7 sm:h-8 px-2 sm:px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                          className={`p-1 transition-all duration-200 cursor-pointer ${
                             annotationMode
                               ? "bg-primary hover:bg-primary/90 shadow-sm"
                               : "border-border hover:bg-accent hover:border-border"
@@ -4314,10 +4407,10 @@ export default function ReviewPage() {
                         </Button>
                         <Button
                           variant={showComments ? "default" : "outline"}
-                          size="sm"
+                          size="xxs"
                           onClick={() => setShowComments(!showComments)}
                           disabled={isFunctionalityDisabled()}
-                          className={`h-7 sm:h-8 px-2 sm:px-3 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                          className={`p-1 transition-all duration-200 cursor-pointer ${
                             showComments
                               ? "bg-primary hover:bg-primary/90 shadow-sm"
                               : "border-border hover:bg-accent hover:border-border"
@@ -5673,7 +5766,7 @@ export default function ReviewPage() {
               <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] h-fit">
                 <DialogHeader className="pb-3 sm:pb-4">
                   <DialogTitle className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400">
-                    ⚠️ Additional Revision Warning
+                    Additional Revision Warning
                   </DialogTitle>
                   <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                     This is revision #{revisionCount + 1} for this asset.
@@ -6049,6 +6142,35 @@ export default function ReviewPage() {
             >
               Close
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval History Dialog */}
+      <Dialog
+        open={isApprovalHistoryDialogOpen}
+        onOpenChange={setIsApprovalHistoryDialogOpen}
+        modal={true}
+      >
+        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader className="pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+              Status History for {asset?.product_name}
+            </DialogTitle>
+            <DialogDescription>
+              Complete timeline of approvals, revisions, and status changes for
+              this asset.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto">
+            {assetId && (
+              <ApprovalHistory
+                assetId={assetId}
+                className="border-0 shadow-none"
+              />
+            )}
           </div>
         </DialogContent>
       </Dialog>

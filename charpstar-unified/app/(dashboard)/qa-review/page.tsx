@@ -1644,7 +1644,7 @@ export default function QAReviewPage() {
                                   asset.delivery_date,
                                   asset.model_updated_at
                                 ) && (
-                                  <span className="ml-1 text-red-500">⚠️</span>
+                                  <span className="ml-1 text-red-500"></span>
                                 )}
                               </>
                             ) : (
@@ -1961,7 +1961,7 @@ export default function QAReviewPage() {
                             {isModelOverdue(
                               asset.delivery_date,
                               asset.model_updated_at
-                            ) && <span className="ml-1 text-red-500">⚠️</span>}
+                            ) && <span className="ml-1 text-red-500"></span>}
                           </>
                         ) : (
                           <span className="text-muted-foreground">-</span>

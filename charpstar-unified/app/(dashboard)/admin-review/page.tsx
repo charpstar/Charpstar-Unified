@@ -3809,8 +3809,9 @@ export default function AdminReviewPage() {
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead className="w-8 text-xs sm:text-sm text-left">
+                                <TableHead className="w-8 text-xs sm:text-sm mx-auto">
                                   <Checkbox
+                                    className="mx-auto pl-6"
                                     checked={
                                       selectedAssetsForReallocation.size > 0 &&
                                       list.asset_assignments.every(
@@ -4657,7 +4658,7 @@ export default function AdminReviewPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-8 sm:w-12 text-left">
+                    <TableHead className="w-8 sm:w-12 mx-auto">
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={
@@ -4668,7 +4669,7 @@ export default function AdminReviewPage() {
                                 : false
                           }
                           onCheckedChange={handleSelectAll}
-                          className="h-4 w-4"
+                          className="h-4 w-4 mx-auto"
                         />
                       </div>
                     </TableHead>
@@ -5635,8 +5636,7 @@ export default function AdminReviewPage() {
                         asset.price <= 0)
                   ).length > 0 && (
                     <p className="text-amber-600 text-xs">
-                      ⚠️ Some assets don&apos;t have pricing and will be
-                      excluded
+                      Some assets don&apos;t have pricing and will be excluded
                     </p>
                   )}
                 </div>
@@ -5712,7 +5712,7 @@ export default function AdminReviewPage() {
                     !selectedAssetForReallocation.price ||
                     selectedAssetForReallocation.price <= 0) && (
                     <p className="text-amber-600 text-xs">
-                      ⚠️ No pricing set - cannot reallocate
+                      No pricing set - cannot reallocate
                     </p>
                   )}
                 </div>
@@ -5887,8 +5887,8 @@ export default function AdminReviewPage() {
                   return (
                     assetsWithoutPricing.length > 0 && (
                       <p className="text-amber-600 text-xs">
-                        ⚠️ {assetsWithoutPricing.length} asset(s) don&apos;t
-                        have pricing and will be excluded
+                        {assetsWithoutPricing.length} asset(s) don&apos;t have
+                        pricing and will be excluded
                       </p>
                     )
                   );
@@ -6142,8 +6142,8 @@ export default function AdminReviewPage() {
                   </span>
                 ) : (
                   <span className="text-orange-600">
-                    ⚠️ Found {stuckAssetsCount} stuck assets in your selection
-                    that need to be fixed
+                    Found {stuckAssetsCount} stuck assets in your selection that
+                    need to be fixed
                   </span>
                 )}
               </div>

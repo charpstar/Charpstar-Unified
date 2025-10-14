@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Script from "next/script";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 interface ModelViewerProps {
   modelUrl: string;
@@ -55,6 +56,42 @@ export function ModelViewer({
   const modelViewerRef = useRef<HTMLElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showDimensions, setShowDimensions] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
+
+  // Handle model loading and errors
+  useEffect(() => {
+    const modelViewer = modelViewerRef.current;
+    if (!modelViewer) return;
+
+    // Reset states when modelUrl changes
+    setIsLoading(true);
+    setHasError(false);
+    setErrorMessage("");
+
+    const handleLoad = () => {
+      setIsLoading(false);
+      setHasError(false);
+    };
+
+    const handleError = (event: any) => {
+      console.error("Model loading error:", event);
+      setIsLoading(false);
+      setHasError(true);
+      setErrorMessage(
+        "Failed to load 3D model. The file may not exist or is inaccessible."
+      );
+    };
+
+    (modelViewer as any).addEventListener("load", handleLoad);
+    (modelViewer as any).addEventListener("error", handleError);
+
+    return () => {
+      (modelViewer as any).removeEventListener("load", handleLoad);
+      (modelViewer as any).removeEventListener("error", handleError);
+    };
+  }, [modelUrl]);
 
   useEffect(() => {
     if (!modelViewerRef.current) return;
@@ -192,36 +229,68 @@ export function ModelViewer({
   return (
     <>
       <Script src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js" />
-      {/* @ts-expect-error -- model-viewer is a custom element */}
-      <model-viewer
-        ref={modelViewerRef}
-        id="dimension-demo"
-        ar
-        ar-modes="webxr"
-        ar-scale="fixed"
-        camera-orbit="-30deg auto auto"
-        max-camera-orbit="auto 100deg auto"
-        shadow-intensity="1"
-        touch-action="pan-y"
-        auto-rotate="false"
-        src={modelUrl}
-        alt={alt}
-        className="w-full h-[300px] sm:h-[200px] md:h-[500px] lg:h-[1000px]"
-        {...(cameraControls ? { "camera-controls": true } : {})}
-        {...(environmentImage ? { "environment-image": environmentImage } : {})}
-        {...(exposure ? { exposure: exposure } : {})}
-        {...(toneMapping ? { "tone-mapping": toneMapping } : {})}
-        onLoad={() => {
-          if (modelViewerRef.current) {
-            (modelViewerRef.current as any).autoRotate = false;
-          }
-        }}
-        {...props}
-      >
-        {children}
-
+      <div className="relative w-full h-full">
         {/* @ts-expect-error -- model-viewer is a custom element */}
-      </model-viewer>
+        <model-viewer
+          ref={modelViewerRef}
+          id="dimension-demo"
+          ar
+          ar-modes="webxr"
+          ar-scale="fixed"
+          camera-orbit="-30deg auto auto"
+          max-camera-orbit="auto 100deg auto"
+          shadow-intensity="1"
+          touch-action="pan-y"
+          auto-rotate="false"
+          src={modelUrl}
+          alt={alt}
+          className="w-full h-[300px] sm:h-[200px] md:h-[500px] lg:h-[1000px]"
+          {...(cameraControls ? { "camera-controls": true } : {})}
+          {...(environmentImage
+            ? { "environment-image": environmentImage }
+            : {})}
+          {...(exposure ? { exposure: exposure } : {})}
+          {...(toneMapping ? { "tone-mapping": toneMapping } : {})}
+          onLoad={() => {
+            if (modelViewerRef.current) {
+              (modelViewerRef.current as any).autoRotate = false;
+            }
+          }}
+          {...props}
+        >
+          {children}
+
+          {/* @ts-expect-error -- model-viewer is a custom element */}
+        </model-viewer>
+
+        {/* Loading Overlay */}
+        {isLoading && !hasError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted/50 backdrop-blur-sm rounded-lg z-10">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                Loading 3D model...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Error Overlay */}
+        {hasError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-destructive/10 backdrop-blur-sm rounded-lg border-2 border-destructive/20 z-10">
+            <div className="text-center p-6 max-w-md">
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-destructive mb-2">
+                Failed to Load Model
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {errorMessage}
+              </p>
+              <p className="text-xs text-muted-foreground">URL: {modelUrl}</p>
+            </div>
+          </div>
+        )}
+      </div>
 
       <style jsx>{`
         .dimension-controls {

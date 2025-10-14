@@ -141,6 +141,117 @@ export const ActivityLogger = {
       metadata: { model_name: modelName },
     }),
 
+  // Asset approval and revision activities
+  assetApproved: (
+    assetId: string,
+    assetName?: string,
+    approvedBy?: string,
+    revisionNumber?: number
+  ) =>
+    logActivity({
+      action: `Approved asset${assetName ? `: ${assetName}` : ""}`,
+      description: revisionNumber
+        ? `Approved revision #${revisionNumber}`
+        : "Asset approved",
+      type: "update",
+      resource_type: "asset",
+      resource_id: assetId,
+      metadata: {
+        new_status: "approved",
+        asset_name: assetName,
+        approved_by: approvedBy,
+        revision_number: revisionNumber,
+        approval_type: "qa_approval",
+      },
+    }),
+
+  assetApprovedByClient: (
+    assetId: string,
+    assetName?: string,
+    revisionNumber?: number
+  ) =>
+    logActivity({
+      action: `Approved by client${assetName ? `: ${assetName}` : ""}`,
+      description: revisionNumber
+        ? `Client approved revision #${revisionNumber}`
+        : "Client approved asset",
+      type: "update",
+      resource_type: "asset",
+      resource_id: assetId,
+      metadata: {
+        new_status: "approved_by_client",
+        asset_name: assetName,
+        revision_number: revisionNumber,
+        approval_type: "client_approval",
+      },
+    }),
+
+  assetSentForRevision: (
+    assetId: string,
+    assetName?: string,
+    revisionNumber?: number,
+    reason?: string
+  ) =>
+    logActivity({
+      action: `Sent for revision${assetName ? `: ${assetName}` : ""}`,
+      description: revisionNumber
+        ? `Revision #${revisionNumber} requested`
+        : "Asset sent for revision",
+      type: "update",
+      resource_type: "asset",
+      resource_id: assetId,
+      metadata: {
+        new_status: "revisions",
+        asset_name: assetName,
+        revision_number: revisionNumber,
+        revision_reason: reason,
+        revision_type: "qa_revision",
+      },
+    }),
+
+  assetClientRevision: (
+    assetId: string,
+    assetName?: string,
+    revisionNumber?: number,
+    reason?: string
+  ) =>
+    logActivity({
+      action: `Client revision requested${assetName ? `: ${assetName}` : ""}`,
+      description: revisionNumber
+        ? `Client revision #${revisionNumber} requested`
+        : "Client requested revision",
+      type: "update",
+      resource_type: "asset",
+      resource_id: assetId,
+      metadata: {
+        new_status: "client_revision",
+        asset_name: assetName,
+        revision_number: revisionNumber,
+        revision_reason: reason,
+        revision_type: "client_revision",
+      },
+    }),
+
+  assetStatusChanged: (
+    assetId: string,
+    oldStatus: string,
+    newStatus: string,
+    assetName?: string
+  ) =>
+    logActivity({
+      action: `Updated asset status${assetName ? `: ${assetName}` : ""}`,
+      description: `Status changed from ${oldStatus} to ${newStatus}`,
+      type: "update",
+      resource_type: "asset",
+      resource_id: assetId,
+      metadata: {
+        prev_status: oldStatus,
+        new_status: newStatus,
+        asset_name: assetName,
+        status_change_type: "general",
+      },
+    }),
+
   // User management activities (admin only)
   userCreated: (userEmail?: string) =>
     logActivity({

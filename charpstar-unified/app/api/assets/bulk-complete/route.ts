@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     // Get previous statuses for activity logging (in chunks)
     let prevAssets: any[] = [];
     for (const chunk of assetIdChunks) {
-      const { data } = await supabase
+      const { data } = await supabaseAuth
         .from("onboarding_assets")
         .select("id, status")
         .in("id", chunk);
@@ -91,9 +91,9 @@ export async function POST(request: NextRequest) {
       updateData.revision_count = revisionCount;
     }
 
-    // Update assets in chunks
+    // Update assets in chunks using authenticated client
     for (const chunk of assetIdChunks) {
-      const { error: assetError } = await supabase
+      const { error: assetError } = await supabaseAuth
         .from("onboarding_assets")
         .update(updateData)
         .in("id", chunk);
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         // Get all onboarding assets for transfer (in chunks)
         let onboardingAssets: any[] = [];
         for (const chunk of assetIdChunks) {
-          const { data, error: fetchError } = await supabase
+          const { data, error: fetchError } = await supabaseAuth
             .from("onboarding_assets")
             .select("*")
             .in("id", chunk)
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
           // Insert assets in chunks to avoid payload size limits
           const insertChunks = chunkArray(assetsToInsert, CHUNK_SIZE);
           for (const insertChunk of insertChunks) {
-            const { error: insertError } = await supabase
+            const { error: insertError } = await supabaseAuth
               .from("assets")
               .insert(insertChunk)
               .select();
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
           const transferredIdChunks = chunkArray(transferredIds, CHUNK_SIZE);
 
           for (const chunk of transferredIdChunks) {
-            const { error: updateError } = await supabase
+            const { error: updateError } = await supabaseAuth
               .from("onboarding_assets")
               .update({
                 transferred: true,
@@ -201,6 +201,9 @@ export async function POST(request: NextRequest) {
         // Don't fail the request, just log the error
       }
     }
+
+    // Note: Asset status history is automatically logged by database trigger
+    // when using the authenticated Supabase client
 
     // Log activities for all assets
     if (prevAssets && prevAssets.length > 0) {

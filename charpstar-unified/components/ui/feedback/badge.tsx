@@ -28,6 +28,9 @@ const badgeVariants = cva(
 
         green:
           "border-transparent bg-green-400 text-white [a&]:hover:bg-green-500/90 focus-visible:ring-green-500/20 dark:focus-visible:ring-green-500/40 dark:bg-green-500/60",
+
+        extraSmall:
+          "text-xs px-1 py-0.5 px-1 border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
       },
     },
     defaultVariants: {

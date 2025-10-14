@@ -62,6 +62,7 @@ interface Asset {
 
 // Helper function to get viewer parameters based on client viewer type
 const getViewerParameters = (viewerType?: string | null) => {
+  console.log("viewerType", viewerType);
   switch (viewerType) {
     case "v6_aces":
       return {

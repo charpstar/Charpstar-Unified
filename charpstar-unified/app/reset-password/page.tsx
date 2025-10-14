@@ -138,7 +138,7 @@ export default function ResetPasswordPage() {
             }
           } else if (type === "recovery") {
             // Has type but no code - possibly legacy format issue
-            console.warn("⚠️ Has type=recovery but no code parameter");
+            console.warn(" Has type=recovery but no code parameter");
             setError(
               "Invalid recovery link format. Missing code parameter. Please request a new password reset link."
             );

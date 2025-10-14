@@ -3088,8 +3088,8 @@ export default function ProductionDashboard() {
                                             </div>
                                             {client.unassignedAssets > 0 && (
                                               <div className="text-sm text-orange-600 dark:text-orange-400 mt-1">
-                                                ⚠️ {client.unassignedAssets}{" "}
-                                                assets still unassigned
+                                                {client.unassignedAssets} assets
+                                                still unassigned
                                               </div>
                                             )}
                                           </div>
@@ -3703,7 +3703,7 @@ export default function ProductionDashboard() {
                                               </div>
                                               {batch.unassignedAssets > 0 && (
                                                 <div className="text-sm text-orange-600 dark:text-orange-400 mt-1">
-                                                  ⚠️ {batch.unassignedAssets}{" "}
+                                                  {batch.unassignedAssets}{" "}
                                                   assets in this batch still
                                                   unassigned
                                                 </div>

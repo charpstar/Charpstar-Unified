@@ -41,12 +41,24 @@ import Link from "next/link";
 import { useUser } from "@/contexts/useUser";
 import { Box } from "lucide-react";
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const { theme, systemTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [assetCount, setAssetCount] = useState<number | null>(null);
+
+  // Format large numbers (e.g., 13600 -> "13.6k")
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+    }
+    return num.toString();
+  };
 
   // Avoid hydration mismatch by only determining theme after component mounts
   useEffect(() => {
@@ -59,6 +71,71 @@ export default function AppSidebar({
   const user = useUser();
   const clientName = user?.metadata?.client_config;
   const role = (user?.metadata?.role || "").toLowerCase();
+  const [userProfile, setUserProfile] = useState<{
+    client: string[] | null;
+    role: string;
+  } | null>(null);
+
+  // Fetch user profile when user changes
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) {
+        setUserProfile(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("client, role")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        setUserProfile(null);
+        return;
+      }
+
+      setUserProfile(data);
+    };
+
+    fetchUserProfile();
+  }, [user?.id]);
+
+  // Fetch asset count for client and admin users
+  useEffect(() => {
+    const fetchAssetCount = async () => {
+      if (
+        userProfile &&
+        (userProfile.role === "client" || userProfile.role === "admin")
+      ) {
+        try {
+          let countQuery = supabase
+            .from("assets")
+            .select("*", { count: "exact", head: true });
+
+          // For clients, filter by their assigned companies
+          if (
+            userProfile.role === "client" &&
+            userProfile.client &&
+            userProfile.client.length > 0
+          ) {
+            countQuery = countQuery.in("client", userProfile.client);
+          }
+          // For admins, get count of all assets (no filter)
+
+          const { count, error } = await countQuery;
+
+          if (!error && count !== null) {
+            setAssetCount(count);
+          }
+        } catch (error) {
+          console.error("Error fetching asset count:", error);
+        }
+      }
+    };
+
+    fetchAssetCount();
+  }, [userProfile]);
 
   // Debug logging for onboarding navigation
 
@@ -70,18 +147,6 @@ export default function AppSidebar({
           url: "/dashboard",
           icon: LayoutDashboard,
         },
-        // Hide Notifications for clients in onboarding (either onboarding flag or incomplete CSV upload)
-        ...(role === "client" &&
-        (user?.metadata?.onboarding === true ||
-          user?.metadata?.csv_uploaded === false)
-          ? []
-          : [
-              {
-                title: "Notifications",
-                url: "/notifications",
-                icon: Bell,
-              },
-            ]),
         // Hide Analytics and Asset Library for clients in onboarding, modelers, and QA
         ...(role === "client" && user?.metadata?.onboarding === true
           ? []
@@ -92,23 +157,40 @@ export default function AppSidebar({
               : role === "client"
                 ? [
                     {
-                      title: "Asset Library",
+                      title: "My 3D Models",
                       url: "/asset-library",
                       icon: Folder,
+                      badge:
+                        assetCount !== null ? formatNumber(assetCount) : null,
                     },
                   ]
-                : [
-                    {
-                      title: "Asset Library",
-                      url: "/asset-library",
-                      icon: Folder,
-                    },
-                    {
-                      title: "Texture Library",
-                      url: "/texture-library",
-                      icon: Layers,
-                    },
-                  ]),
+                : role === "admin"
+                  ? [
+                      {
+                        title: "My 3D Models",
+                        url: "/asset-library",
+                        icon: Folder,
+                        badge:
+                          assetCount !== null ? formatNumber(assetCount) : null,
+                      },
+                      {
+                        title: "Texture Library",
+                        url: "/texture-library",
+                        icon: Layers,
+                      },
+                    ]
+                  : [
+                      {
+                        title: "Asset Library",
+                        url: "/asset-library",
+                        icon: Folder,
+                      },
+                      {
+                        title: "Texture Library",
+                        url: "/texture-library",
+                        icon: Layers,
+                      },
+                    ]),
         // FAQ - available to all users except clients
         ...(role !== "client"
           ? [
@@ -156,11 +238,21 @@ export default function AppSidebar({
             icon: Factory,
             children: [
               {
-                title: "Client Information",
+                title: "Company info",
                 url: "/admin/clients",
                 icon: Building2,
               },
+              {
+                title: "Users",
+                url: "/users",
+                icon: Users,
+              },
 
+              {
+                title: "Clients",
+                url: "/production/clients",
+                icon: Building2,
+              },
               {
                 title: "Onboarding",
                 url: "/onboarding",
@@ -177,19 +269,9 @@ export default function AppSidebar({
                 icon: ShieldCheck,
               },
               {
-                title: "Users",
-                url: "/users",
-                icon: Users,
-              },
-              {
                 title: "Pending Replies",
                 url: "/admin/pending-replies",
                 icon: MessageSquare,
-              },
-              {
-                title: "Clients",
-                url: "/production/clients",
-                icon: Building2,
               },
             ],
           },
@@ -271,9 +353,11 @@ export default function AppSidebar({
     // General
     "3D Editor": 60,
     Analytics: 70,
-    "Asset Library": 80,
-    Notifications: 90,
-    FAQ: 95,
+    "Asset Library": 20, // Moved above Scene Render
+    "My 3D Models": 20, // Same order as Asset Library for admin users
+    FAQ: 999,
+    // Notifications moved to bottom
+    Notifications: 1000,
     // Client
     "Add Products": 15,
     "Client Review": 20,
@@ -301,6 +385,28 @@ export default function AppSidebar({
           },
         ]
       : []),
+    // Scene Render - for client users only
+    ...(role === "client" && user?.metadata?.onboarding === false
+      ? [
+          {
+            title: "Scene Render",
+            url: "/scene-render",
+            icon: Palette,
+          },
+        ]
+      : []),
+    // Notifications - moved to bottom for all roles
+    ...(role === "client" &&
+    (user?.metadata?.onboarding === true ||
+      user?.metadata?.csv_uploaded === false)
+      ? []
+      : [
+          {
+            title: "Notifications",
+            url: "/notifications",
+            icon: Bell,
+          },
+        ]),
   ];
 
   const navMain = unsortedNavItems.sort((a, b) => {
@@ -374,6 +480,7 @@ export default function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
+              variant="default"
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >

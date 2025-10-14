@@ -1571,8 +1571,8 @@ export function StatusPieChartWidget() {
             </div>
             <div className="relative flex flex-col pl-4 gap-3 min-w-[160px] select-none">
               {chartData.map((entry, index) => (
-                <>
-                  <div key={entry.key} className="flex items-center gap-3">
+                <React.Fragment key={entry.key}>
+                  <div className="flex items-center gap-3">
                     <span
                       className="inline-block w-4 h-4 rounded-full"
                       style={{ background: entry.color as string }}
@@ -1587,7 +1587,7 @@ export function StatusPieChartWidget() {
                   {index !== chartData.length - 1 && (
                     <Separator className="w-full" />
                   )}
-                </>
+                </React.Fragment>
               ))}
             </div>
           </div>

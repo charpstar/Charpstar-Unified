@@ -39,7 +39,7 @@ const tourSteps: TourStep[] = [
     id: "sidebar",
     title: "Navigation Sidebar",
     description:
-      "This is your main navigation menu. Here you can access all the important features like Dashboard, Analytics, Asset Library, and more.",
+      "This is your main navigation menu. Here you can access all the important features like Dashboard, Asset Library, and more.",
     position: "right",
   },
   {
@@ -54,7 +54,7 @@ const tourSteps: TourStep[] = [
     id: "quick-actions",
     title: "Quick Actions",
     description:
-      "Access the most important features quickly without navigating through menus. Add products, review models, and more.",
+      "Access the most important features quickly without navigating through menus. Add products, review models, and more to come soon!.",
     position: "left",
   },
   {
@@ -353,7 +353,10 @@ export function ClientDashboardTour() {
 
       {/* Full overlay for welcome and complete steps */}
       {(step.id === "welcome" || step.id === "complete") && (
-        <div className="fixed inset-0 bg-black/50 z-40" onClick={skipTour} />
+        <div
+          className="fixed inset-0 bg-black/50 z-40 p-0 m-0"
+          onClick={skipTour}
+        />
       )}
 
       {/* Click handler for cutout overlay */}

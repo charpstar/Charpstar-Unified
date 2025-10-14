@@ -316,7 +316,7 @@ export function SubcategoryEditor({
           <span className="text-xs">
             {currentSubcategory || (
               <span className="text-yellow-200 dark:text-yellow-400 font-medium  py-1 ">
-                ⚠️ No subcategory
+                No subcategory
               </span>
             )}
           </span>

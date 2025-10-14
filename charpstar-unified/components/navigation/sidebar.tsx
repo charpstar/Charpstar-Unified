@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeletons";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "14rem";
+const SIDEBAR_WIDTH = "20rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
@@ -468,7 +468,7 @@ function SidebarMenuItem({
       data-slot="sidebar-menu-item"
       data-sidebar="menu-item"
       className={cn(
-        "group/menu-item relative rounded-md",
+        "group/menu-item relative rounded-md w-full",
         isActive && "bg-sidebar-accent", // highlight background if active
         className
       )}

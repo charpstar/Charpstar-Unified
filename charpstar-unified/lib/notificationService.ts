@@ -455,7 +455,7 @@ class NotificationService {
           recipient_id: adminId,
           recipient_email: "",
           type: "revision_required",
-          title: `⚠️ Third Revision Warning - ${client}`,
+          title: ` Third Revision Warning - ${client}`,
           message: `Asset "${assetName}" has reached revision R${revisionNumber}. Review scope and potential costs.`,
           metadata: {
             assetId,
@@ -1165,9 +1165,9 @@ class NotificationService {
       case "critical":
         return `🚨 CRITICAL: Budget Threshold €${threshold}`;
       case "warning":
-        return `⚠️ WARNING: Budget Threshold €${threshold}`;
+        return ` WARNING: Budget Threshold €${threshold}`;
       case "alert":
-        return `🔶 ALERT: Budget Threshold €${threshold}`;
+        return ` ALERT: Budget Threshold €${threshold}`;
       default:
         return `Budget Alert - €${threshold}`;
     }

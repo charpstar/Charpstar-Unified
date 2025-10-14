@@ -48,6 +48,7 @@ import {
   Building2,
   FileText,
   Users,
+  ChevronDown,
 } from "lucide-react";
 import { DatePicker } from "@/components/ui/utilities";
 
@@ -56,7 +57,7 @@ import { useToast } from "@/components/ui/utilities";
 import { useUser } from "@/contexts/useUser";
 import { EditCompaniesDialog } from "@/components/users/EditCompaniesDialog";
 
-interface Client {
+interface Company {
   id: string;
   name: string;
   email: string;
@@ -81,7 +82,7 @@ interface Client {
   isPlaceholder?: boolean;
 }
 
-interface ClientFormData {
+interface CompanyFormData {
   name: string;
   email: string;
   company: string;
@@ -102,14 +103,14 @@ interface ClientFormData {
 }
 
 export default function AdminClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [formData, setFormData] = useState<ClientFormData>({
+  const [formData, setFormData] = useState<CompanyFormData>({
     name: "",
     email: "",
     company: "",
@@ -130,12 +131,12 @@ export default function AdminClientsPage() {
   });
   const { toast } = useToast();
 
-  // Fetch clients on component mount
+  // Fetch companies on component mount
   useEffect(() => {
-    fetchClients();
+    fetchCompanies();
   }, []);
 
-  const fetchClients = async () => {
+  const fetchCompanies = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -144,16 +145,16 @@ export default function AdminClientsPage() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      const existingClients = data || [];
+      const existingCompanies = data || [];
 
-      // Collect client names referenced elsewhere (only from actual clients and onboarding assets)
+      // Collect company names referenced elsewhere (from client user profiles and assets)
       const [profilesRes, assetsRes] = await Promise.all([
         supabase.from("profiles").select("client").eq("role", "client"),
         supabase.from("onboarding_assets").select("client"),
       ]);
 
       const referencedNames = new Set<string>();
-      existingClients.forEach((c) => c.name && referencedNames.add(c.name));
+      existingCompanies.forEach((c) => c.name && referencedNames.add(c.name));
 
       if (!profilesRes.error && profilesRes.data) {
         profilesRes.data.forEach((r: any) => {
@@ -177,9 +178,9 @@ export default function AdminClientsPage() {
           .forEach((n: string) => referencedNames.add(n));
       }
 
-      // Create placeholder entries for clients without a row in clients table
-      const existingNames = new Set(existingClients.map((c) => c.name));
-      const placeholders: Client[] = Array.from(referencedNames)
+      // Create placeholder entries for companies without a row in clients table
+      const existingNames = new Set(existingCompanies.map((c) => c.name));
+      const placeholders: Company[] = Array.from(referencedNames)
         .filter((n) => !existingNames.has(n))
         .map((name) => ({
           id: `placeholder-${name}`,
@@ -207,16 +208,16 @@ export default function AdminClientsPage() {
         }));
 
       // Merge and sort by name
-      const merged = [...existingClients, ...placeholders].sort((a, b) =>
+      const merged = [...existingCompanies, ...placeholders].sort((a, b) =>
         a.name.localeCompare(b.name)
       );
 
-      setClients(merged);
+      setCompanies(merged);
     } catch (error) {
-      console.error("Error fetching clients:", error);
+      console.error("Error fetching companies:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch clients",
+        description: "Failed to fetch companies",
         variant: "destructive",
       });
     } finally {
@@ -224,43 +225,43 @@ export default function AdminClientsPage() {
     }
   };
 
-  const filteredClients = clients.filter(
-    (client) =>
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCompanies = companies.filter(
+    (company) =>
+      company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      company.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      company.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleEditClient = (client: Client) => {
-    setSelectedClient(client);
+  const handleEditCompany = (company: Company) => {
+    setSelectedCompany(company);
     setFormData({
-      name: client.name,
-      email: client.email,
-      company: client.company,
-      contract_type: client.contract_type,
-      contract_value: client.contract_value,
-      payment_terms: client.payment_terms,
-      start_date: client.start_date,
-      status: client.status === "inactive" ? "inactive" : "active",
-      specifications: client.specifications,
-      requirements: client.requirements,
-      notes: client.notes,
-      client_guide: client.client_guide || "",
-      client_guide_links: client.client_guide_links || [],
-      viewer_type: client.viewer_type || null,
-      bunny_custom_structure: client.bunny_custom_structure || false,
-      bunny_custom_url: client.bunny_custom_url || "",
-      bunny_custom_access_key: client.bunny_custom_access_key || "",
+      name: company.name,
+      email: company.email,
+      company: company.company,
+      contract_type: company.contract_type,
+      contract_value: company.contract_value,
+      payment_terms: company.payment_terms,
+      start_date: company.start_date,
+      status: company.status === "inactive" ? "inactive" : "active",
+      specifications: company.specifications,
+      requirements: company.requirements,
+      notes: company.notes,
+      client_guide: company.client_guide || "",
+      client_guide_links: company.client_guide_links || [],
+      viewer_type: company.viewer_type || null,
+      bunny_custom_structure: company.bunny_custom_structure || false,
+      bunny_custom_url: company.bunny_custom_url || "",
+      bunny_custom_access_key: company.bunny_custom_access_key || "",
     });
     setIsEditDialogOpen(true);
   };
 
-  const handleViewClient = (client: Client) => {
-    setSelectedClient(client);
+  const handleViewCompany = (company: Company) => {
+    setSelectedCompany(company);
     setIsViewDialogOpen(true);
   };
 
-  const handleAddClient = () => {
+  const handleAddCompany = () => {
     setFormData({
       name: "",
       email: "",
@@ -282,7 +283,7 @@ export default function AdminClientsPage() {
     setIsAddDialogOpen(true);
   };
 
-  const handleAddClientPrefill = (name: string) => {
+  const handleAddCompanyPrefill = (name: string) => {
     setFormData({
       name,
       email: "",
@@ -306,16 +307,6 @@ export default function AdminClientsPage() {
 
   const handleSubmit = async (isEdit: boolean) => {
     try {
-      // Validate required fields
-      if (!formData.start_date) {
-        toast({
-          title: "Missing start date",
-          description: "Please pick a start date before saving.",
-          variant: "destructive",
-        });
-        return;
-      }
-
       // Validate contract_value against NUMERIC(10,2) limit
       const MAX_NUMERIC_10_2 = 99999999.99; // absolute must be < 1e8
       if (
@@ -331,20 +322,20 @@ export default function AdminClientsPage() {
         return;
       }
 
-      if (isEdit && selectedClient) {
+      if (isEdit && selectedCompany) {
         const { error } = await supabase
           .from("clients")
           .update({
             ...formData,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", selectedClient.id);
+          .eq("id", selectedCompany.id);
 
         if (error) throw error;
 
         toast({
           title: "Success",
-          description: "Client updated successfully",
+          description: "Company information updated successfully",
         });
       } else {
         const { error } = await supabase.from("clients").insert({
@@ -357,7 +348,7 @@ export default function AdminClientsPage() {
 
         toast({
           title: "Success",
-          description: "Client added successfully",
+          description: "Company added successfully",
         });
       }
 
@@ -382,23 +373,23 @@ export default function AdminClientsPage() {
       });
       setIsEditDialogOpen(false);
       setIsAddDialogOpen(false);
-      setSelectedClient(null);
-      fetchClients(); // Refresh the list
+      setSelectedCompany(null);
+      fetchCompanies(); // Refresh the list
     } catch (error: any) {
-      console.error("Error saving client:", error);
+      console.error("Error saving company:", error);
 
       // Provide specific error messages for common issues
-      let errorMessage = "Failed to save client";
+      let errorMessage = "Failed to save company";
 
       if (error?.code === "23505") {
         // Unique constraint violation
         if (error?.details?.includes("email")) {
-          errorMessage = `This email (${formData.email}) is already associated with another client. Please use a different email address.`;
+          errorMessage = `This email (${formData.email}) is already associated with another company. Please use a different email address.`;
         } else if (error?.details?.includes("name")) {
-          errorMessage = `A client with the name "${formData.name}" already exists. Please use a different name.`;
+          errorMessage = `A company with the name "${formData.name}" already exists. Please use a different name.`;
         } else {
           errorMessage =
-            "A client with this information already exists. Please check for duplicates.";
+            "A company with this information already exists. Please check for duplicates.";
         }
       } else if (error?.message) {
         errorMessage = error.message;
@@ -441,7 +432,7 @@ export default function AdminClientsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading clients...</div>
+        <div className="text-lg">Loading companies...</div>
       </div>
     );
   }
@@ -452,19 +443,19 @@ export default function AdminClientsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <span className="hidden sm:inline">Client Management</span>
-            <span className="sm:hidden">Clients</span>
+            <span className="hidden sm:inline">Company Management</span>
+            <span className="sm:hidden">Companies</span>
           </h1>
           <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
-            Manage client information, contracts, and specifications
+            Manage company information, contracts, and connected client users
           </p>
         </div>
         <Button
-          onClick={handleAddClient}
+          onClick={handleAddCompany}
           className="flex items-center gap-2 w-full sm:w-auto"
         >
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Add Client</span>
+          <span className="hidden sm:inline">Add Company</span>
           <span className="sm:hidden">Add</span>
         </Button>
       </div>
@@ -477,7 +468,7 @@ export default function AdminClientsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search clients by name, company, or email..."
+                  placeholder="Search companies by name, description, or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 text-sm sm:text-base"
@@ -488,11 +479,11 @@ export default function AdminClientsPage() {
         </CardContent>
       </Card>
 
-      {/* Clients Table */}
+      {/* Companies Table */}
       <Card>
         <CardHeader className="pb-3 sm:pb-6">
           <CardTitle className="text-lg sm:text-xl">
-            Clients ({filteredClients.length})
+            Companies ({filteredCompanies.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 sm:p-6">
@@ -501,8 +492,8 @@ export default function AdminClientsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-left">Client</TableHead>
-                  <TableHead className="text-left">Company</TableHead>
+                  <TableHead className="text-left">Company Name</TableHead>
+                  <TableHead className="text-left">Description</TableHead>
                   <TableHead className="text-left">Contract</TableHead>
                   <TableHead className="text-left">Value</TableHead>
                   <TableHead className="text-left">Status</TableHead>
@@ -511,68 +502,70 @@ export default function AdminClientsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((client) => (
-                  <TableRow key={client.id}>
+                {filteredCompanies.map((company) => (
+                  <TableRow key={company.id}>
                     <TableCell className="text-left">
                       <div>
-                        <div className="font-medium">{client.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {client.email}
-                        </div>
-                        {client.isPlaceholder && (
+                        <div className="font-medium">{company.name}</div>
+
+                        {company.isPlaceholder && (
                           <div className="text-xs text-amber-700 mt-1">
-                            Please fill in info for this client
+                            Please fill in info for this company
                           </div>
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="text-left">
-                      {client.company}
+                      {company.company}
                     </TableCell>
                     <TableCell className="text-left">
-                      {client.isPlaceholder ? (
+                      {company.isPlaceholder ? (
                         "-"
                       ) : (
                         <Badge
-                          className={getContractTypeColor(client.contract_type)}
+                          className={getContractTypeColor(
+                            company.contract_type
+                          )}
                         >
-                          {client.contract_type === "standard"
+                          {company.contract_type === "standard"
                             ? "Small"
-                            : client.contract_type === "premium"
+                            : company.contract_type === "premium"
                               ? "Medium"
-                              : client.contract_type === "enterprise"
+                              : company.contract_type === "enterprise"
                                 ? "Big"
                                 : "Custom"}
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-left">
-                      {client.isPlaceholder
+                      {company.isPlaceholder
                         ? "-"
-                        : `€${client.contract_value.toLocaleString()}`}
+                        : `€${company.contract_value.toLocaleString()}`}
                     </TableCell>
                     <TableCell className="text-left">
-                      {client.isPlaceholder ? (
+                      {company.isPlaceholder ? (
                         "-"
                       ) : (
-                        <Badge className={getStatusColor(client.status)}>
-                          {client.status.charAt(0).toUpperCase() +
-                            client.status.slice(1)}
+                        <Badge className={getStatusColor(company.status)}>
+                          {company.status.charAt(0).toUpperCase() +
+                            company.status.slice(1)}
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-left">
-                      {client.start_date
-                        ? new Date(client.start_date).toLocaleDateString()
+                      {company.start_date
+                        ? new Date(company.start_date).toLocaleDateString()
                         : "-"}
                     </TableCell>
                     <TableCell className="text-left">
                       <div className="flex gap-2">
-                        {client.isPlaceholder ? (
+                        {company.isPlaceholder ? (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleAddClientPrefill(client.name)}
+                            onClick={() =>
+                              handleAddCompanyPrefill(company.name)
+                            }
                           >
                             Add Info
                           </Button>
@@ -581,14 +574,14 @@ export default function AdminClientsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleViewClient(client)}
+                              onClick={() => handleViewCompany(company)}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleEditClient(client)}
+                              onClick={() => handleEditCompany(company)}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -604,28 +597,28 @@ export default function AdminClientsPage() {
 
           {/* Mobile Card View */}
           <div className="md:hidden space-y-3 p-4">
-            {filteredClients.map((client) => (
-              <div key={client.id} className="border rounded-lg p-4 space-y-3">
-                {/* Client Info */}
+            {filteredCompanies.map((company) => (
+              <div key={company.id} className="border rounded-lg p-4 space-y-3">
+                {/* Company Info */}
                 <div className="space-y-2">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-medium text-base">{client.name}</h3>
+                      <h3 className="font-medium text-base">{company.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {client.email}
+                        {company.email}
                       </p>
-                      {client.company && (
+                      {company.company && (
                         <p className="text-sm text-muted-foreground">
-                          {client.company}
+                          {company.company}
                         </p>
                       )}
                     </div>
                     <div className="flex gap-1">
-                      {client.isPlaceholder ? (
+                      {company.isPlaceholder ? (
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleAddClientPrefill(client.name)}
+                          onClick={() => handleAddCompanyPrefill(company.name)}
                           className="text-xs px-2 py-1"
                         >
                           Add Info
@@ -635,7 +628,7 @@ export default function AdminClientsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleViewClient(client)}
+                            onClick={() => handleViewCompany(company)}
                             className="h-8 w-8 p-0"
                           >
                             <Eye className="h-4 w-4" />
@@ -643,7 +636,7 @@ export default function AdminClientsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleEditClient(client)}
+                            onClick={() => handleEditCompany(company)}
                             className="h-8 w-8 p-0"
                           >
                             <Edit className="h-4 w-4" />
@@ -653,27 +646,27 @@ export default function AdminClientsPage() {
                     </div>
                   </div>
 
-                  {client.isPlaceholder && (
+                  {company.isPlaceholder && (
                     <div className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
-                      Please fill in info for this client
+                      Please fill in info for this company
                     </div>
                   )}
                 </div>
 
                 {/* Contract Details */}
-                {!client.isPlaceholder && (
+                {!company.isPlaceholder && (
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-muted-foreground">Contract:</span>
                       <div className="mt-1">
                         <Badge
-                          className={`${getContractTypeColor(client.contract_type)} text-xs`}
+                          className={`${getContractTypeColor(company.contract_type)} text-xs`}
                         >
-                          {client.contract_type === "standard"
+                          {company.contract_type === "standard"
                             ? "Small"
-                            : client.contract_type === "premium"
+                            : company.contract_type === "premium"
                               ? "Medium"
-                              : client.contract_type === "enterprise"
+                              : company.contract_type === "enterprise"
                                 ? "Big"
                                 : "Custom"}
                         </Badge>
@@ -682,25 +675,25 @@ export default function AdminClientsPage() {
                     <div>
                       <span className="text-muted-foreground">Value:</span>
                       <p className="font-medium">
-                        €{client.contract_value.toLocaleString()}
+                        €{company.contract_value.toLocaleString()}
                       </p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Status:</span>
                       <div className="mt-1">
                         <Badge
-                          className={`${getStatusColor(client.status)} text-xs`}
+                          className={`${getStatusColor(company.status)} text-xs`}
                         >
-                          {client.status.charAt(0).toUpperCase() +
-                            client.status.slice(1)}
+                          {company.status.charAt(0).toUpperCase() +
+                            company.status.slice(1)}
                         </Badge>
                       </div>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Start Date:</span>
                       <p className="font-medium">
-                        {client.start_date
-                          ? new Date(client.start_date).toLocaleDateString()
+                        {company.start_date
+                          ? new Date(company.start_date).toLocaleDateString()
                           : "-"}
                       </p>
                     </div>
@@ -712,82 +705,82 @@ export default function AdminClientsPage() {
         </CardContent>
       </Card>
 
-      {/* Add Client Dialog */}
+      {/* Add Company Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="w-[95vw] sm:w-full min-w-4xl max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="hidden sm:inline">Add Client Information</span>
-              <span className="sm:hidden">Add Client</span>
+              <span className="hidden sm:inline">Add Company Information</span>
+              <span className="sm:hidden">Add Company</span>
             </DialogTitle>
           </DialogHeader>
 
-          <ClientForm
+          <CompanyForm
             formData={formData}
             setFormData={setFormData}
             onSubmit={() => handleSubmit(false)}
             onCancel={() => setIsAddDialogOpen(false)}
-            clientName={undefined}
+            companyName={undefined}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Edit Client Dialog */}
+      {/* Edit Company Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="w-[95vw] sm:w-full min-w-4xl max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Edit className="h-4 w-4 sm:h-5 sm:w-5" />
               <span className="hidden sm:inline">
-                Edit Client: {selectedClient?.name}
+                Edit Company: {selectedCompany?.name}
               </span>
-              <span className="sm:hidden">Edit: {selectedClient?.name}</span>
+              <span className="sm:hidden">Edit: {selectedCompany?.name}</span>
             </DialogTitle>
           </DialogHeader>
 
-          <ClientForm
+          <CompanyForm
             formData={formData}
             setFormData={setFormData}
             onSubmit={() => handleSubmit(true)}
             onCancel={() => setIsEditDialogOpen(false)}
-            clientName={selectedClient?.name}
+            companyName={selectedCompany?.name}
           />
         </DialogContent>
       </Dialog>
 
-      {/* View Client Dialog */}
+      {/* View Company Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full min-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
               <span className="hidden sm:inline">
-                Client Details: {selectedClient?.name}
+                Company Details: {selectedCompany?.name}
               </span>
-              <span className="sm:hidden">{selectedClient?.name}</span>
+              <span className="sm:hidden">{selectedCompany?.name}</span>
             </DialogTitle>
           </DialogHeader>
-          {selectedClient && <ClientView client={selectedClient} />}
+          {selectedCompany && <CompanyView company={selectedCompany} />}
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-// Client Form Component
-function ClientForm({
+// Company Form Component
+function CompanyForm({
   formData,
   setFormData,
   onSubmit,
   onCancel,
-  clientName,
+  companyName,
 }: {
-  formData: ClientFormData;
-  setFormData: (data: ClientFormData) => void;
+  formData: CompanyFormData;
+  setFormData: (data: CompanyFormData) => void;
   onSubmit: () => void;
   onCancel: () => void;
-  clientName?: string;
+  companyName?: string;
 }) {
   const user = useUser();
   const role = (user?.metadata?.role || "").toLowerCase();
@@ -795,6 +788,7 @@ function ClientForm({
     Array<{ id: string; email: string; client: string[] }>
   >([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showUsers, setShowUsers] = useState(false);
   const [editingUserCompanies, setEditingUserCompanies] = useState<{
     userId: string;
     email: string;
@@ -802,10 +796,10 @@ function ClientForm({
   const [isEditCompaniesDialogOpen, setIsEditCompaniesDialogOpen] =
     useState(false);
 
-  // Fetch users who have access to this client
+  // Fetch client users who have access to this company
   useEffect(() => {
     const fetchUsersWithAccess = async () => {
-      if (!clientName) return;
+      if (!companyName) return;
 
       setLoadingUsers(true);
       try {
@@ -816,14 +810,14 @@ function ClientForm({
 
         if (error) throw error;
 
-        // Filter users who have this client in their array
+        // Filter client users who have this company in their array
         const filtered =
           data?.filter((u: any) => {
             if (Array.isArray(u.client)) {
-              return u.client.includes(clientName);
+              return u.client.includes(companyName);
             }
             // Handle old format (string)
-            return u.client === clientName;
+            return u.client === companyName;
           }) || [];
 
         setUsersWithAccess(filtered);
@@ -835,7 +829,7 @@ function ClientForm({
     };
 
     fetchUsersWithAccess();
-  }, [clientName]);
+  }, [companyName]);
 
   const handleEditUserCompanies = (userId: string, email: string) => {
     setEditingUserCompanies({ userId, email });
@@ -849,7 +843,7 @@ function ClientForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label htmlFor="name" className="text-sm">
-              Client Name *
+              Company Name
             </Label>
             <Input
               id="name"
@@ -857,14 +851,13 @@ function ClientForm({
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              placeholder="Enter client name"
-              required
+              placeholder="Enter company name"
               className="text-sm sm:text-base"
             />
           </div>
           <div className="space-y-1">
             <Label htmlFor="email" className="text-sm">
-              Email *
+              Email
             </Label>
             <Input
               id="email"
@@ -874,13 +867,12 @@ function ClientForm({
                 setFormData({ ...formData, email: e.target.value })
               }
               placeholder="Enter email address"
-              required
               className="text-sm sm:text-base"
             />
           </div>
           <div className="space-y-1">
             <Label htmlFor="company" className="text-sm">
-              Company
+              Description
             </Label>
             <Input
               id="company"
@@ -888,7 +880,7 @@ function ClientForm({
               onChange={(e) =>
                 setFormData({ ...formData, company: e.target.value })
               }
-              placeholder="Enter company name"
+              placeholder="Enter company description"
               className="text-sm sm:text-base"
             />
           </div>
@@ -1170,8 +1162,7 @@ function ClientForm({
                               />
                               <div className="text-xs space-y-1">
                                 <p className="text-muted-foreground">
-                                  ⚠️ Case-sensitive! Must match BunnyCDN
-                                  exactly.
+                                  Case-sensitive! Must match BunnyCDN exactly.
                                 </p>
                                 {formData.bunny_custom_url && (
                                   <p className="text-blue-600 font-mono">
@@ -1267,52 +1258,76 @@ function ClientForm({
           </Accordion>
         </div>
 
-        {/* Users with Access Section */}
-        {clientName && (
+        {/* Connected Client Users Section */}
+        {companyName && (
           <div className="border-t pt-3 sm:pt-4">
-            <h3 className="text-sm sm:text-base font-medium mb-3 flex items-center gap-2">
-              <Users className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
-              Users with Access to {clientName}
-            </h3>
-            {loadingUsers ? (
-              <div className="flex items-center justify-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-              </div>
-            ) : usersWithAccess.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">
-                No users have access to this client yet
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {usersWithAccess.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{user.email}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Companies:{" "}
-                        {Array.isArray(user.client)
-                          ? user.client.join(", ")
-                          : user.client}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        handleEditUserCompanies(user.id, user.email)
-                      }
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      Edit Companies
-                    </Button>
+            <button
+              type="button"
+              onClick={() => setShowUsers(!showUsers)}
+              className="flex items-center justify-between w-full text-left hover:bg-muted/50 rounded-lg p-2 -m-2 transition-colors"
+            >
+              <h3 className="text-sm sm:text-base font-medium flex items-center gap-2">
+                <Users className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
+                Client Users Connected to {companyName}
+                {usersWithAccess.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {usersWithAccess.length}
+                  </Badge>
+                )}
+              </h3>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${
+                  showUsers ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                showUsers ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+              }`}
+            >
+              <div className="mt-3">
+                {loadingUsers ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                   </div>
-                ))}
+                ) : usersWithAccess.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">
+                    No client users connected to this company yet
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {usersWithAccess.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors duration-200"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{user.email}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Companies:{" "}
+                            {Array.isArray(user.client)
+                              ? user.client.join(", ")
+                              : user.client}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleEditUserCompanies(user.id, user.email)
+                          }
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Edit Companies
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -1329,7 +1344,7 @@ function ClientForm({
             onClick={onSubmit}
             className="w-full sm:w-auto text-sm sm:text-base"
           >
-            Save Client
+            Save Company
           </Button>
         </div>
       </div>
@@ -1352,12 +1367,12 @@ function ClientForm({
               .select("id, email, client")
               .eq("role", "client")
               .then(({ data, error }) => {
-                if (!error && data && clientName) {
+                if (!error && data && companyName) {
                   const filtered = data.filter((u: any) => {
                     if (Array.isArray(u.client)) {
-                      return u.client.includes(clientName);
+                      return u.client.includes(companyName);
                     }
-                    return u.client === clientName;
+                    return u.client === companyName;
                   });
                   setUsersWithAccess(filtered);
                 }
@@ -1370,8 +1385,8 @@ function ClientForm({
   );
 }
 
-// Client View Component
-function ClientView({ client }: { client: Client }) {
+// Company View Component
+function CompanyView({ company }: { company: Company }) {
   const user = useUser();
   const role = (user?.metadata?.role || "").toLowerCase();
   return (
@@ -1381,19 +1396,19 @@ function ClientView({ client }: { client: Client }) {
         <div className="space-y-3 sm:space-y-4">
           <div>
             <h4 className="font-medium text-muted-foreground text-sm">
-              Client Name
+              Company Name
             </h4>
-            <p className="text-base sm:text-lg">{client.name}</p>
+            <p className="text-base sm:text-lg">{company.name}</p>
           </div>
           <div>
             <h4 className="font-medium text-muted-foreground text-sm">Email</h4>
-            <p className="text-sm sm:text-base break-all">{client.email}</p>
+            <p className="text-sm sm:text-base break-all">{company.email}</p>
           </div>
           <div>
             <h4 className="font-medium text-muted-foreground text-sm">
-              Company
+              Description
             </h4>
-            <p className="text-sm sm:text-base">{client.company || "N/A"}</p>
+            <p className="text-sm sm:text-base">{company.company || "N/A"}</p>
           </div>
           <div>
             <h4 className="font-medium text-muted-foreground text-sm">
@@ -1401,14 +1416,14 @@ function ClientView({ client }: { client: Client }) {
             </h4>
             <Badge
               className={`${
-                client.status === "active"
+                company.status === "active"
                   ? "bg-green-100 text-green-800"
-                  : client.status === "inactive"
+                  : company.status === "inactive"
                     ? "bg-red-100 text-red-800"
                     : "bg-yellow-100 text-yellow-800"
               } text-xs`}
             >
-              {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
+              {company.status.charAt(0).toUpperCase() + company.status.slice(1)}
             </Badge>
           </div>
         </div>
@@ -1419,20 +1434,20 @@ function ClientView({ client }: { client: Client }) {
             </h4>
             <Badge
               className={`${
-                client.contract_type === "premium"
+                company.contract_type === "premium"
                   ? "bg-purple-100 text-purple-800"
-                  : client.contract_type === "enterprise"
+                  : company.contract_type === "enterprise"
                     ? "bg-blue-100 text-blue-800"
-                    : client.contract_type === "custom"
+                    : company.contract_type === "custom"
                       ? "bg-orange-100 text-orange-800"
                       : "bg-gray-100 text-gray-800"
               } text-xs`}
             >
-              {client.contract_type === "standard"
+              {company.contract_type === "standard"
                 ? "Small"
-                : client.contract_type === "premium"
+                : company.contract_type === "premium"
                   ? "Medium"
-                  : client.contract_type === "enterprise"
+                  : company.contract_type === "enterprise"
                     ? "Big"
                     : "Custom"}
             </Badge>
@@ -1442,7 +1457,7 @@ function ClientView({ client }: { client: Client }) {
               Contract Value
             </h4>
             <p className="text-lg sm:text-2xl font-bold text-green-600">
-              €{client.contract_value.toLocaleString()}
+              €{company.contract_value.toLocaleString()}
             </p>
           </div>
 
@@ -1451,36 +1466,36 @@ function ClientView({ client }: { client: Client }) {
               Start Date
             </h4>
             <p className="text-sm sm:text-base">
-              {new Date(client.start_date).toLocaleDateString()}
+              {new Date(company.start_date).toLocaleDateString()}
             </p>
           </div>
-          {client.viewer_type && (
+          {company.viewer_type && (
             <div>
               <h4 className="font-medium text-muted-foreground text-sm">
                 Viewer Type
               </h4>
               <Badge
                 className={`${
-                  client.viewer_type === "v6_aces"
+                  company.viewer_type === "v6_aces"
                     ? "bg-blue-100 text-blue-800"
-                    : client.viewer_type === "v5_tester"
+                    : company.viewer_type === "v5_tester"
                       ? "bg-green-100 text-green-800"
-                      : client.viewer_type === "synsam"
+                      : company.viewer_type === "synsam"
                         ? "bg-purple-100 text-purple-800"
                         : "bg-gray-100 text-gray-800"
                 } text-xs`}
               >
-                {client.viewer_type === "v6_aces"
+                {company.viewer_type === "v6_aces"
                   ? "V6 ACES Tester"
-                  : client.viewer_type === "v5_tester"
+                  : company.viewer_type === "v5_tester"
                     ? "V5 Tester"
-                    : client.viewer_type === "synsam"
+                    : company.viewer_type === "synsam"
                       ? "Synsam"
                       : "V2 (Under Construction)"}
               </Badge>
             </div>
           )}
-          {(client.bunny_custom_structure || client.bunny_custom_url) && (
+          {(company.bunny_custom_structure || company.bunny_custom_url) && (
             <div>
               <h4 className="font-medium text-muted-foreground text-sm">
                 BunnyCDN Configuration
@@ -1489,25 +1504,27 @@ function ClientView({ client }: { client: Client }) {
                 <div className="space-y-2">
                   <div>
                     <span className="text-xs font-medium">
-                      {client.bunny_custom_structure && client.bunny_custom_url
+                      {company.bunny_custom_structure &&
+                      company.bunny_custom_url
                         ? "Custom Storage Zone:"
                         : "Storage Zone:"}
                     </span>
                     <code className="text-xs bg-muted px-2 py-1 rounded font-mono ml-1">
-                      {client.bunny_custom_structure && client.bunny_custom_url
-                        ? client.bunny_custom_url
+                      {company.bunny_custom_structure &&
+                      company.bunny_custom_url
+                        ? company.bunny_custom_url
                         : "maincdn"}
                     </code>
                   </div>
                   {!(
-                    client.bunny_custom_structure && client.bunny_custom_url
+                    company.bunny_custom_structure && company.bunny_custom_url
                   ) && (
                     <div>
                       <span className="text-xs font-medium">
-                        Client Folder:
+                        Company Folder:
                       </span>
                       <code className="text-xs bg-muted px-2 py-1 rounded font-mono ml-1">
-                        {client.name.replace(/[^a-zA-Z0-9._-]/g, "_")}
+                        {company.name.replace(/[^a-zA-Z0-9._-]/g, "_")}
                       </code>
                     </div>
                   )}
@@ -1516,37 +1533,37 @@ function ClientView({ client }: { client: Client }) {
                     <p>
                       <strong>Storage Path:</strong>{" "}
                       {(() => {
-                        const clientName = client.name.replace(
+                        const companyName = company.name.replace(
                           /[^a-zA-Z0-9._-]/g,
                           "_"
                         );
                         if (
-                          client.bunny_custom_structure &&
-                          client.bunny_custom_url
+                          company.bunny_custom_structure &&
+                          company.bunny_custom_url
                         ) {
-                          const customZone = client.bunny_custom_url.replace(
+                          const customZone = company.bunny_custom_url.replace(
                             /^\/+|\/+$/g,
                             ""
                           );
                           return `${customZone}/QC/, Android/, iOS/`;
                         }
-                        return `maincdn/${clientName}/QC/, Android/, iOS/`;
+                        return `maincdn/${companyName}/QC/, Android/, iOS/`;
                       })()}
                     </p>
                     <p>
                       <strong>CDN URL:</strong>{" "}
                       {(() => {
-                        const clientName = client.name.replace(
+                        const companyName = company.name.replace(
                           /[^a-zA-Z0-9._-]/g,
                           "_"
                         );
                         if (
-                          client.bunny_custom_structure &&
-                          client.bunny_custom_url
+                          company.bunny_custom_structure &&
+                          company.bunny_custom_url
                         ) {
                           return `cdn.charpstar.net/QC/filename.glb`;
                         }
-                        return `cdn.charpstar.net/${clientName}/QC/filename.glb`;
+                        return `cdn.charpstar.net/${companyName}/QC/filename.glb`;
                       })()}
                     </p>
                     <p>• QC/ = Files pending approval</p>
@@ -1561,45 +1578,45 @@ function ClientView({ client }: { client: Client }) {
       </div>
 
       {/* Specifications, Guide and Requirements */}
-      {(client.specifications ||
-        client.requirements ||
-        client.client_guide ||
-        (role === "admin" && client.notes)) && (
+      {(company.specifications ||
+        company.requirements ||
+        company.client_guide ||
+        (role === "admin" && company.notes)) && (
         <div className="border-t pt-4 sm:pt-6">
           <h4 className="text-base sm:text-lg font-medium mb-3 sm:mb-4">
             Project Details
           </h4>
           <div className="space-y-3 sm:space-y-4">
-            {client.specifications && (
+            {company.specifications && (
               <div>
                 <h5 className="font-medium text-muted-foreground mb-2 text-sm">
-                  Client Specifications
+                  Company Specifications
                 </h5>
                 <div className="p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="whitespace-pre-wrap text-sm sm:text-base">
-                    {client.specifications}
+                    {company.specifications}
                   </p>
                 </div>
               </div>
             )}
-            {(client.client_guide ||
-              (client.client_guide_links &&
-                client.client_guide_links.length > 0)) && (
+            {(company.client_guide ||
+              (company.client_guide_links &&
+                company.client_guide_links.length > 0)) && (
               <div>
                 <h5 className="font-medium text-muted-foreground mb-2 text-sm">
-                  Client Guide
+                  Company Guide (For Modelers)
                 </h5>
-                {client.client_guide && (
+                {company.client_guide && (
                   <div className="p-3 sm:p-4 bg-amber-50 rounded-lg border border-amber-200">
                     <p className="whitespace-pre-wrap text-sm sm:text-base">
-                      {client.client_guide}
+                      {company.client_guide}
                     </p>
                   </div>
                 )}
-                {client.client_guide_links &&
-                  client.client_guide_links.length > 0 && (
+                {company.client_guide_links &&
+                  company.client_guide_links.length > 0 && (
                     <ul className="list-disc pl-4 sm:pl-6 mt-2 sm:mt-3 space-y-1">
-                      {client.client_guide_links.map((url, i) => (
+                      {company.client_guide_links.map((url, i) => (
                         <li key={i} className="text-sm sm:text-base">
                           <a
                             href={url}
@@ -1615,26 +1632,26 @@ function ClientView({ client }: { client: Client }) {
                   )}
               </div>
             )}
-            {client.requirements && (
+            {company.requirements && (
               <div>
                 <h5 className="font-medium text-muted-foreground mb-2 text-sm">
                   Project Requirements
                 </h5>
                 <div className="p-3 sm:p-4 bg-green-50 rounded-lg border border-green-200">
                   <p className="whitespace-pre-wrap text-sm sm:text-base">
-                    {client.requirements}
+                    {company.requirements}
                   </p>
                 </div>
               </div>
             )}
-            {role === "admin" && client.notes && (
+            {role === "admin" && company.notes && (
               <div>
                 <h5 className="font-medium text-muted-foreground mb-2 text-sm">
                   Additional Notes
                 </h5>
                 <div className="p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <p className="whitespace-pre-wrap text-sm sm:text-base">
-                    {client.notes}
+                    {company.notes}
                   </p>
                 </div>
               </div>
@@ -1648,11 +1665,11 @@ function ClientView({ client }: { client: Client }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
           <div>
             <span className="font-medium">Created:</span>{" "}
-            {new Date(client.created_at).toLocaleString()}
+            {new Date(company.created_at).toLocaleString()}
           </div>
           <div>
             <span className="font-medium">Last Updated:</span>{" "}
-            {new Date(client.updated_at).toLocaleString()}
+            {new Date(company.updated_at).toLocaleString()}
           </div>
         </div>
       </div>

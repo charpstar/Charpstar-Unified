@@ -1,0 +1,202 @@
+[
+  {
+    "id": "modern-living-room",
+    "name": "Modern Living Room",
+    "category": "Living Spaces",
+    "description": "Contemporary living room with clean lines and neutral colors",
+    "imageUrl": "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=600&fit=crop",
+    "tags": ["modern", "living", "contemporary", "neutral"],
+    "lighting": "natural",
+    "mood": "bright"
+  },
+  {
+    "id": "cozy-bedroom",
+    "name": "Cozy Bedroom",
+    "category": "Bedrooms",
+    "description": "Warm and inviting bedroom with soft textures",
+    "imageUrl": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&h=600&fit=crop",
+    "tags": ["cozy", "bedroom", "warm", "comfortable"],
+    "lighting": "warm",
+    "mood": "relaxing"
+  },
+  {
+    "id": "minimalist-kitchen",
+    "name": "Minimalist Kitchen",
+    "category": "Kitchens",
+    "description": "Clean and functional kitchen with modern appliances",
+    "imageUrl": "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop",
+    "tags": ["minimalist", "kitchen", "clean", "modern"],
+    "lighting": "bright",
+    "mood": "clean"
+  },
+  {
+    "id": "luxury-bathroom",
+    "name": "Luxury Bathroom",
+    "category": "Bathrooms",
+    "description": "High-end bathroom with premium finishes",
+    "imageUrl": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&h=600&fit=crop",
+    "tags": ["luxury", "bathroom", "premium", "spa-like"],
+    "lighting": "soft",
+    "mood": "luxurious"
+  },
+  {
+    "id": "industrial-office",
+    "name": "Industrial Office",
+    "category": "Workspaces",
+    "description": "Modern office space with exposed brick and metal accents",
+    "imageUrl": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop",
+    "tags": ["industrial", "office", "modern", "exposed"],
+    "lighting": "mixed",
+    "mood": "professional"
+  },
+  {
+    "id": "scandinavian-living",
+    "name": "Scandinavian Living",
+    "category": "Living Spaces",
+    "description": "Light and airy Scandinavian-inspired living room",
+    "imageUrl": "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=600&fit=crop",
+    "tags": ["scandinavian", "light", "airy", "wood"],
+    "lighting": "natural",
+    "mood": "serene"
+  },
+  {
+    "id": "bohemian-bedroom",
+    "name": "Bohemian Bedroom",
+    "category": "Bedrooms",
+    "description": "Eclectic bedroom with vibrant colors and textures",
+    "imageUrl": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&h=600&fit=crop",
+    "tags": ["bohemian", "eclectic", "colorful", "artistic"],
+    "lighting": "warm",
+    "mood": "creative"
+  },
+  {
+    "id": "farmhouse-kitchen",
+    "name": "Farmhouse Kitchen",
+    "category": "Kitchens",
+    "description": "Rustic kitchen with traditional farmhouse charm",
+    "imageUrl": "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop",
+    "tags": ["farmhouse", "rustic", "traditional", "warm"],
+    "lighting": "natural",
+    "mood": "welcoming"
+  },
+  {
+    "id": "spa-bathroom",
+    "name": "Spa Bathroom",
+    "category": "Bathrooms",
+    "description": "Relaxing bathroom designed for ultimate comfort",
+    "imageUrl": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&h=600&fit=crop",
+    "tags": ["spa", "relaxing", "comfort", "wellness"],
+    "lighting": "soft",
+    "mood": "tranquil"
+  },
+  {
+    "id": "modern-office",
+    "name": "Modern Office",
+    "category": "Workspaces",
+    "description": "Contemporary office with sleek furniture and technology",
+    "imageUrl": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop",
+    "tags": ["modern", "office", "sleek", "technology"],
+    "lighting": "bright",
+    "mood": "productive"
+  },
+  {
+    "id": "mid-century-living",
+    "name": "Mid-Century Living",
+    "category": "Living Spaces",
+    "description": "Retro living room with iconic mid-century furniture",
+    "imageUrl": "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=600&fit=crop",
+    "tags": ["mid-century", "retro", "vintage", "iconic"],
+    "lighting": "warm",
+    "mood": "nostalgic"
+  },
+  {
+    "id": "master-bedroom",
+    "name": "Master Bedroom",
+    "category": "Bedrooms",
+    "description": "Elegant master bedroom with sophisticated design",
+    "imageUrl": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&h=600&fit=crop",
+    "tags": ["master", "elegant", "sophisticated", "spacious"],
+    "lighting": "layered",
+    "mood": "refined"
+  },
+  {
+    "id": "gourmet-kitchen",
+    "name": "Gourmet Kitchen",
+    "category": "Kitchens",
+    "description": "Professional-grade kitchen for serious cooking",
+    "imageUrl": "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop",
+    "tags": ["gourmet", "professional", "cooking", "premium"],
+    "lighting": "task",
+    "mood": "functional"
+  },
+  {
+    "id": "powder-room",
+    "name": "Powder Room",
+    "category": "Bathrooms",
+    "description": "Small but stylish guest bathroom",
+    "imageUrl": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&h=600&fit=crop",
+    "tags": ["powder-room", "guest", "compact", "stylish"],
+    "lighting": "bright",
+    "mood": "inviting"
+  },
+  {
+    "id": "home-office",
+    "name": "Home Office",
+    "category": "Workspaces",
+    "description": "Productive workspace designed for remote work",
+    "imageUrl": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop",
+    "tags": ["home-office", "remote", "productive", "comfortable"],
+    "lighting": "task",
+    "mood": "focused"
+  },
+  {
+    "id": "coastal-living",
+    "name": "Coastal Living",
+    "category": "Living Spaces",
+    "description": "Beach-inspired living room with ocean vibes",
+    "imageUrl": "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=600&fit=crop",
+    "tags": ["coastal", "beach", "ocean", "relaxed"],
+    "lighting": "natural",
+    "mood": "calm"
+  },
+  {
+    "id": "kids-bedroom",
+    "name": "Kids Bedroom",
+    "category": "Bedrooms",
+    "description": "Fun and playful bedroom for children",
+    "imageUrl": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&h=600&fit=crop",
+    "tags": ["kids", "playful", "colorful", "fun"],
+    "lighting": "bright",
+    "mood": "energetic"
+  },
+  {
+    "id": "country-kitchen",
+    "name": "Country Kitchen",
+    "category": "Kitchens",
+    "description": "Traditional country-style kitchen with charm",
+    "imageUrl": "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop",
+    "tags": ["country", "traditional", "charming", "homely"],
+    "lighting": "warm",
+    "mood": "welcoming"
+  },
+  {
+    "id": "master-bathroom",
+    "name": "Master Bathroom",
+    "category": "Bathrooms",
+    "description": "Large master bathroom with dual vanities",
+    "imageUrl": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&h=600&fit=crop",
+    "tags": ["master", "large", "dual-vanity", "spacious"],
+    "lighting": "layered",
+    "mood": "luxurious"
+  },
+  {
+    "id": "creative-studio",
+    "name": "Creative Studio",
+    "category": "Workspaces",
+    "description": "Inspiring workspace for artists and creatives",
+    "imageUrl": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop",
+    "tags": ["creative", "studio", "artistic", "inspiring"],
+    "lighting": "natural",
+    "mood": "creative"
+  }
+]

@@ -161,9 +161,9 @@ export default function AssetCard({
         {isCompactMode ? (
           // Horizontal layout for compact mode
           <>
-            {/* Image section - only show if there's a preview image */}
-            {previewImageUrl && previewImageUrl !== "" && (
-              <div className="flex-shrink-0 w-50 h-60 p-3">
+            {/* Image section - always reserve space */}
+            <div className="flex-shrink-0 w-50 h-60 p-3">
+              {previewImageUrl && previewImageUrl !== "" ? (
                 <div
                   onClick={handleViewAsset}
                   className="block w-full h-full cursor-pointer"
@@ -180,8 +180,18 @@ export default function AssetCard({
                     />
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="w-full h-full bg-muted rounded-xl flex items-center justify-center">
+                  <div className="text-center p-4">
+                    <div className="text-2xl mb-2">📦</div>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      {asset.product_name.substring(0, 15)}
+                      {asset.product_name.length > 15 ? "..." : ""}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Content section */}
             <div className="flex-1 flex flex-col justify-between p-4 min-w-0">
@@ -362,11 +372,11 @@ export default function AssetCard({
         ) : (
           // Original vertical layout for grid mode
           <>
-            {/* Image section - only show if there's a preview image */}
-            {previewImageUrl && previewImageUrl !== "" && (
-              <CardHeader
-                className={`flex-shrink-0 ${isCompactMode ? "p-1" : "p-2"}`}
-              >
+            {/* Image section - always reserve space */}
+            <CardHeader
+              className={`flex-shrink-0 ${isCompactMode ? "p-1" : "p-2"}`}
+            >
+              {previewImageUrl && previewImageUrl !== "" ? (
                 <div
                   onClick={handleViewAsset}
                   className="block w-full h-full cursor-pointer"
@@ -390,8 +400,19 @@ export default function AssetCard({
                     />
                   </div>
                 </div>
-              </CardHeader>
-            )}
+              ) : (
+                <div
+                  className={`w-full bg-muted rounded-xl flex items-center justify-center ${isCompactMode ? "h-24" : "h-36"}`}
+                >
+                  <div className="text-center p-4">
+                    <p className="text-xs text-muted-foreground font-medium">
+                      {asset.product_name.substring(0, 20)}
+                      {asset.product_name.length > 20 ? "..." : ""}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </CardHeader>
 
             <CardContent
               className={`flex-1 flex flex-col justify-between items-center gap-3 ${isCompactMode ? "p-2" : "p-3"}`}
